@@ -46,7 +46,7 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | เก็บโมเดลใน `models/` ของ project ผ่าน `HF_HOME` | [setup-status](features/setup-status/decisions.md) | D6 | — | [0003](adr/0003-everything-inside-project.md) | changed by D13 |
 | ใช้ OmniVoice แบบไม่หารายได้เท่านั้น, แสดง license | [setup-status](features/setup-status/decisions.md) | D11 | — | [0007](adr/0007-non-commercial-use.md) | active |
-| revision ที่ pin และ `allow_patterns` ของ OmniVoice และ Whisper | [setup-status](features/setup-status/decisions.md) | D16 | — | [0004](adr/0004-pinned-model-registry.md) | active |
+| revision ที่ pin และ `allow_patterns` ของ OmniVoice และ Whisper | [setup-status](features/setup-status/decisions.md) | D16 | spoil | [0004](adr/0004-pinned-model-registry.md) | active |
 
 ## UI design
 
@@ -70,7 +70,7 @@ question; the full entry is in the feature's decisions.md.
 | คลิปแนวตั้งแบบ reels เท่านั้น, ด้านสั้น ≤ 720 px, mp4 | [spoil](features/spoil/decisions.md) | D4 | — | — | superseded by spoil D5 |
 | รับคลิป YouTube ทุกแนว, temp ด้านสั้น ≤ 1080 px mp4; output แนวตั้งเลือก p ได้ถึง 1080 (รอบหน้า) | [spoil](features/spoil/decisions.md) | D5 | — | — | active |
 | โหลดทีละคลิปเป็นงานเบื้องหลัง, poll % ทุก 1 วินาที, ยกเลิกได้, ไม่มีคิว | [spoil](features/spoil/decisions.md) | D6 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | active |
-| หน้าต่างรายการ temp clip: thumbnail, ชื่อ, ช่อง, ความยาว, ขนาดภาพ/แนว, ขนาดไฟล์, เวลาโหลด, ลบ, เล่นในหน้าเว็บ | [spoil](features/spoil/decisions.md) | D7 | — | — | active |
+| หน้าต่างรายการ temp clip: thumbnail, ชื่อ, ช่อง, ความยาว, ขนาดภาพ/แนว, ขนาดไฟล์, เวลาโหลด, ลบ, เล่นในหน้าเว็บ | [spoil](features/spoil/decisions.md) | D7 | — | — | extended by D25 |
 | ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของ YouTube; หารายได้ขัด ADR-0007 ต้องเปลี่ยน TTS ก่อน feature เสียง | [spoil](features/spoil/decisions.md) | D13 | — | — | active |
 | red team: ยกเลิกต่อ state (merging ยกเลิกไม่ได้), lock กัน POST ซ้อน, ลบ mp4 ก่อน json, `in_use`, แยก error `login_required`, `TrustedHostMiddleware` | [spoil](features/spoil/decisions.md) | D15 | — | [0011](adr/0011-trusted-host-only.md) | active |
 | แยก error ของ yt-dlp ตามข้อความจริง: live ที่ยังไม่เริ่ม = "This live event will begin", ไม่ใช้คำ "age" เดี่ยวๆ | [spoil](features/spoil/decisions.md) | D16 | — | — | active |
@@ -81,3 +81,18 @@ question; the full entry is in the feature's decisions.md.
 | ลิงก์ซ้ำ (video id เดิม) ไม่โหลดใหม่ ชี้แถวเดิม | [spoil](features/spoil/decisions.md) | D12 | — | — | active |
 | ไม่จำกัดความยาว, ปฏิเสธ live, เช็คดิสก์ว่าง ≥ ขนาดประมาณ + 1 GB ก่อนโหลด | [spoil](features/spoil/decisions.md) | D11 | — | — | active |
 | `yt-dlp[default]` และ `deno` (PyPI wheel) pin ใน `uv.lock`; โหลดพังแสดงเวอร์ชันและคำสั่งอัปเดต | [spoil](features/spoil/decisions.md) | D8 | — | — | active |
+
+## ถอดบทพูด
+
+| Decision | Feature | D | Used by | ADR | Status |
+|---|---|---|---|---|---|
+| ถอดคำพูดของ Temp clip ด้วย Whisper large-v3-turbo ที่ติดตั้งแล้ว ตรวจภาษาเอง; ได้ Transcript อย่างเดียว ไม่แยกไฟล์เสียงให้ผู้ใช้ | [spoil](features/spoil/decisions.md) | D21 | — | — | active |
+| แสดง Transcript ทีละบรรทัดพร้อมเวลา กดแล้ว player กระโดด, Copy ทั้งหมด, โหลด `.txt` และ `.srt` | [spoil](features/spoil/decisions.md) | D22 | — | — | active |
+| ถอดเมื่อผู้ใช้กดเท่านั้น, Transcript เก็บคู่ Temp clip ข้าม restart, แถวแสดง "ถอดแล้ว", ลบคลิปลบ Transcript | [spoil](features/spoil/decisions.md) | D23 | — | — | active |
+| Transcribe job ทีละงาน ไม่มีคิว, รันพร้อม Download job ได้, poll % และยกเลิกได้ | [spoil](features/spoil/decisions.md) | D24 | — | — | active |
+| tab สปอยสองคอลัมน์: รายการคลิป → ลูกศร → กล่องถอดบทพูด (player ย้ายเข้ากล่อง), 375px เรียงบนลงล่าง | [spoil](features/spoil/decisions.md) | D25 | — | — | active |
+| ไม่จำกัดเวลาถอด ต้องเห็น % และยกเลิกได้ | [spoil](features/spoil/decisions.md) | D26 | — | — | active |
+| กติกางานถอด: ดึงเสียงด้วย ffmpeg ของ imageio เข้า memory, โหลด Whisper จาก snapshot แล้วปล่อยหลังงาน, ช่วงละ 5 นาที, gate 5 แถว, ลบคลิประหว่างถอด `409`, `{id}.transcript.json` | [spoil](features/spoil/decisions.md) | D27 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | changed by D28, D29 |
+| งานถอดรันใน process ลูก `spawn`, thread ใน backend ถือสถานะ, ยกเลิก = terminate, ตายไม่ส่งผล = `crashed` | [spoil](features/spoil/decisions.md) | D28 | — | [0012](adr/0012-gpu-jobs-in-child-process.md) | active |
+| red team งานถอด: `internal` + `finally`, ffmpeg ทีละช่วง, long-form ไม่ใช้ `chunk_length_s`, ช่วงท้าย < 30 วินาทีรวม, `language` null ได้, lock ร่วมกับลบ, ข้าม `*.transcript.json`, POST ต้อง JSON (`415`) | [spoil](features/spoil/decisions.md) | D29 | — | [0013](adr/0013-post-requires-json.md) | active |
+

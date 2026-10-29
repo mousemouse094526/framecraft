@@ -1,6 +1,6 @@
 # Spec: spoil
 
-ผู้ใช้วางลิงก์ YouTube ใน tab สปอย แล้วแอปโหลดคลิปมาเก็บเป็น Temp clip พร้อมหน้าต่างบอกว่าโหลดอะไรมา.
+ผู้ใช้วางลิงก์ YouTube ใน tab สปอย แล้วแอปโหลดคลิปมาเก็บเป็น Temp clip พร้อมหน้าต่างบอกว่าโหลดอะไรมา. จากนั้นเลือกคลิปเข้ากล่องถอดบทพูด แล้วกดให้ Whisper ถอดคำพูดเป็น Transcript ที่อ่าน คัดลอก และโหลดเป็นไฟล์ได้.
 
 **Status:** ready-to-build
 
@@ -15,6 +15,9 @@
 - เห็น % ระหว่างโหลด และกดยกเลิกได้ (D6)
 - เห็นรายการ Temp clip ที่โหลดมา เล่นดูในหน้าเว็บ และกดลบได้ (D3, D7)
 - Setup script ติดตั้ง yt-dlp กับ Deno และ Status check บอกว่าติดตั้งครบไหม (D1, D8, D9)
+- เลือก Temp clip เข้ากล่องถอดบทพูดทางขวาของรายการ มีลูกศรคั่นกลาง (D25)
+- กดถอด → Whisper large-v3-turbo ถอดคำพูดทุกภาษาเป็น Transcript พร้อมเวลา เห็น % และยกเลิกได้ (D21, D24, D26)
+- Transcript เก็บคู่คลิป แถวแสดง "ถอดแล้ว", Copy ทั้งหมด, โหลด `.txt` และ `.srt` (D22, D23)
 
 ## User Stories
 
@@ -26,6 +29,10 @@
 5. As a ผู้ทำคลิปสปอย, I want ลบคลิปที่ไม่ใช้, so that ดิสก์ไม่เต็ม (D3)
 6. As a ผู้ทำคลิปสปอย, I want รู้ทันทีเมื่อวางลิงก์ที่โหลดไปแล้ว, so that ไม่โหลดซ้ำ (D12)
 7. As a ผู้ทำคลิปสปอย, I want รู้ว่าทำไมโหลดไม่ได้และต้องแก้ยังไง, so that แก้เองได้ (D8, D11)
+8. As a ผู้ทำคลิปสปอย, I want เลือกคลิปแล้วกดถอดบทพูด, so that ได้คำพูดทั้งเรื่องไปวิเคราะห์เขียนบทสปอย (D21, D23, D25)
+9. As a ผู้ทำคลิปสปอย, I want เห็น % ระหว่างถอดและยกเลิกได้ ระหว่างที่โหลดคลิปอื่นอยู่ก็ได้, so that รู้ว่าหนังยาวยังเดิน และไม่ต้องรอกัน (D24, D26)
+10. As a ผู้ทำคลิปสปอย, I want อ่าน Transcript พร้อมเวลา กดบรรทัดแล้วกระโดดไปฉากนั้น, Copy และโหลด `.txt`/`.srt`, so that เอาไปใช้ที่อื่นได้ทันที (D22)
+11. As a ผู้ทำคลิปสปอย, I want เห็นว่าคลิปไหนถอดแล้ว และเปิดแอปใหม่ก็ยังอยู่, so that ไม่ต้องถอดซ้ำ (D23)
 
 ## Design
 
@@ -34,6 +41,8 @@
 | แถบ tab | 1 | tab "สปอย" และ "Setup status" ตามลำดับนี้, tab ที่เปิดอยู่เด่นกว่า (D10) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frame "Tab bar / Setup status active" และ header ของทุก frame สปอย; component `Tab` |
 | tab สปอย | 2, 3, 6, 7 | ช่องลิงก์กับปุ่ม "โหลด"; ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ไป Setup status แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 1 loading, 2–3 idle, 4 downloading, 5 progress states, 6 done, 7 failed with fix, 8 messages, 9 duplicate, 11 not ready, 12 offline, 13 mobile 375px; component `Download progress` |
 | หน้าต่างรายการ Temp clip | 4, 5 | ใน tab สปอยใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); state ว่าง: "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน" | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 2 empty, 3 list, 6 and 9 highlight, 10 playing and delete error; component `Clip row` (D18) |
+| layout สองคอลัมน์ | 8 | จอกว้าง: รายการคลิปซ้าย, ลูกศร → กลาง, กล่องถอดบทพูดขวา; 375px เรียงบนลงล่างพร้อมลูกศร ↓ (D25); แถวที่เลือกเด่นกว่า; แถวที่ถอดแล้วมีสถานะ "ถอดแล้ว" (D23) | pending |
+| กล่องถอดบทพูด | 8–11 | ยังไม่เลือก: "เลือกคลิปจากรายการ"; เลือกแล้ว: player, ชื่อคลิป, ความยาว, ปุ่ม "ถอดบทพูด" (ถอดแล้ว → "ถอดใหม่" พร้อม alert "คลิปนี้ถอดแล้ว"); ระหว่างถอด: "กำลังเตรียมเสียง…" หรือ "กำลังถอด {n}%" กับแถบ % และปุ่ม "ยกเลิก"; Transcript: บรรทัด `[hh:mm:ss] ข้อความ` กดได้, ภาษาที่ตรวจได้, ปุ่ม Copy, `.txt`, `.srt`; ว่าง: "ไม่พบคำพูดในคลิปนี้"; error ของงานถอด; ติดตั้งไม่ครบ: ข้อความกับลิงก์ไป Setup status แทนปุ่มถอด (D22–D27) | pending |
 
 ออกแบบใน Figma หลัง plan (setup-status D9) ในไฟล์เดียวกับหน้า Setup status. Section "framecraft — สปอย" มี component `Tab`, `Clip row`, `Download progress` และ frame ทุก state; ใช้ token และ component ของหน้า `:: Token` (Button, Field, Alert, Badge, icon).
 
@@ -45,13 +54,18 @@
 - **วางลิงก์หนังแนวนอนยาว 2 ชั่วโมง:** โหลดได้ ได้แถว "นอน" ที่ด้านสั้นไม่เกิน 1080
 - **วางลิงก์ซ้ำ:** ไม่โหลด แถวเดิมถูก highlight
 - **กดยกเลิกกลางทาง:** งานหยุด ไม่มีแถวใหม่ ไม่มีไฟล์ค้างใน `media/temp/.partial/`
+- **เลือกหนังภาษาอังกฤษ 1:35 ชม. แล้วกดถอด:** % เดินจนครบ เห็น Transcript ทีละบรรทัดพร้อมเวลา ภาษา "en"; กดบรรทัดแล้ว player กระโดดไปเวลานั้น; แถวในรายการขึ้น "ถอดแล้ว" (D22, D23)
+- **ถอดระหว่างโหลดคลิปอื่น:** ทั้งสองงานเดินไปพร้อมกันจนจบ (D24)
+- **ลบคลิปที่ถอดแล้ว:** `{id}.transcript.json` หายพร้อมคลิป (D23)
 
 **How success is judged:**
 - บน Mac หลังรัน `./setup.sh`: หน้า Setup status มี 11 แถว รวม `yt_dlp` และ `deno` เป็น `ok`
 - โหลด YouTube Shorts หนึ่งคลิปและคลิปแนวนอนยาวกว่า 1 ชั่วโมงหนึ่งคลิปได้จริง แต่ละไฟล์เล่นได้ใน player ของหน้าเว็บ
 - ไฟล์ที่ได้เป็น mp4 และด้านสั้นไม่เกิน 1080 px
 - restart `npm run dev` แล้วรายการเดิมยังอยู่ครบ
-- ทำซ้ำสามข้อบนบน Windows NVIDIA หลังรัน `setup.cmd` (ADR-0006)
+- ถอด Shorts ภาษาไทยหนึ่งคลิปและหนังแนวนอนยาวกว่า 1 ชั่วโมงหนึ่งคลิปได้จริง; Copy แล้ววางได้ข้อความครบ; `.srt` เปิดใน VLC แล้ว subtitle ตรงเวลา; restart `npm run dev` แล้วยังเห็น Transcript
+- ยกเลิกงานถอดแล้ว process ลูกหยุดภายใน 5 วินาที และ Transcript เดิม (ถ้ามี) ยังอยู่
+- ทำซ้ำข้อบนทั้งหมดบน Windows NVIDIA หลังรัน `setup.cmd` (ADR-0006)
 
 ## Implementation
 
@@ -66,10 +80,14 @@
   - `backend.checks`: เพิ่มแถว `yt_dlp` และ `deno` (D9)
   - `backend.spoil` (package ใหม่): ตรวจลิงก์, Download job, คลังของ Temp clip และ adapter ที่คุยกับ yt-dlp ตัวเดียว (D6, D14)
   - `backend.routes.spoil`: route ใน ตาราง API (D6, D7)
-  - `backend.app`: include router ของ spoil, lifespan ที่ล้างไฟล์ค้างตอน start และตั้ง flag ยกเลิกตอน shutdown, `TrustedHostMiddleware` (D14, D15)
+  - `backend.app`: include router ของ spoil, lifespan ที่ล้างไฟล์ค้างตอน start และตั้ง flag ยกเลิกตอน shutdown, `TrustedHostMiddleware` (D14, D15); ตั้ง flag ยกเลิกของ Transcribe job ตอน shutdown ด้วย
+  - `backend.spoil.transcribe` (ใหม่): Transcribe job, ไฟล์ Transcript, `.txt` และ `.srt` (D23, D24, D27)
+  - `backend.spoil.whisper` (ใหม่): adapter ตัวเดียวที่ import `transformers` และ `torch` สำหรับถอด, เรียก ffmpeg ดึงเสียง และ `worker` ที่รันใน process ลูก (D27, D28)
+  - `backend.routes.spoil`: `POST` ต้อง `Content-Type: application/json` (D29)
+  - `backend.spoil.clips`: ลบ `{id}.transcript.json` พร้อมคลิป, field `transcribed` ในรายการ, `409` `transcribing` (D23, D27)
 - **frontend**
   - `App`: แถบ tab; hook `useHashTab` ใน `lib/` อ่านและเขียน hash. ไม่มี folder `routes/` เพราะไม่ใช้ router (D10). บันทึกเรื่องนี้ใน skill `vite-react-web`
-  - `features/spoil/` (folder ใหม่): ช่องลิงก์, แถบความคืบหน้า, รายการ Temp clip และ player (D6, D7)
+  - `features/spoil/` (folder ใหม่): ช่องลิงก์, แถบความคืบหน้า, รายการ Temp clip และ player (D6, D7); layout สองคอลัมน์และกล่องถอดบทพูด `TranscriptPanel` กับ hook `useTranscribe` (D22, D25). player ย้ายจากเหนือรายการเข้ากล่อง
   - `lib/api`: เพิ่ม `sendJson<T>(method, path, body?)` คืน `{ status, body }` ที่ body เป็น JSON หรือ `null` เมื่อไม่มี body; throw เฉพาะ network ล้มหรือเกิน 30 วินาที. timeout เดียวกับ `getJson`
   - `components/ui/`: ย้าย `OfflinePanel` จาก `features/setup-status` มาที่นี่ เพราะ tab สปอยใช้ด้วย
   - `lib/statusTypes`: ย้าย type ของ `/api/setup/status` ออกจาก `features/setup-status` เพราะ tab สปอยอ่านด้วย
@@ -95,8 +113,13 @@
 | deno (PyPI) | latest ตอน lock (2.9.8 ตอนเขียน) | wheel macOS arm64 และ Windows amd64 มี binary, `deno.find_deno_bin()` คืน path | [deno on PyPI](https://pypi.org/project/deno/) |
 | starlette | 1.10.0 (มากับ fastapi 0.162.0) | `FileResponse` ตอบ HTTP Range ให้ `<video>` seek ได้ | [Starlette responses](https://www.starlette.io/responses/#fileresponse) |
 | imageio-ffmpeg | 0.7.0 | `get_ffmpeg_exe()` คืน path ffmpeg ที่ใช้ merge (ADR-0005) | [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) |
+| transformers | 5.21.0 | `pipeline("automatic-speech-recognition", model=<folder snapshot>, device=..., dtype=...)` โหลด Whisper จาก folder ในเครื่อง; รับ `numpy` float32 16 kHz ไม่ต้องใช้ ffmpeg บน PATH; ไม่ส่ง `chunk_length_s` (experimental สำหรับ Whisper ตาม `pipelines/automatic_speech_recognition.py:306`) ให้ Whisper ถอด long-form เอง; `return_timestamps=True` คืน `chunks` ที่มี `timestamp` (เริ่ม, จบ) และ `text`; `return_language=True` ใส่ `language` ใน `chunks[i]` ไม่มีค่าบนสุด และอ่านจาก batch item แรกเท่านั้น จึงใช้ `batch_size` 1 | [ASR pipeline](https://huggingface.co/docs/transformers/v5.21.0/en/main_classes/pipelines#transformers.AutomaticSpeechRecognitionPipeline), [Whisper](https://huggingface.co/docs/transformers/v5.21.0/en/model_doc/whisper) |
+| ffmpeg (imageio) | เดียวกับบน | `ffmpeg -ss {start} -t {length} -i {id}.mp4 -vn -ac 1 -ar 16000 -f f32le -` ส่ง PCM float32 ของช่วงเดียวออก stdout; คลิปไม่มีเสียงได้ exit ไม่เป็น 0 | [ffmpeg docs](https://ffmpeg.org/ffmpeg.html) |
+| Python `multiprocessing` | 3.12 | `get_context("spawn").Process` และ `Queue`; `terminate()` ส่ง SIGTERM บน Mac และ `TerminateProcess` บน Windows; `exitcode` ติดลบเมื่อตายด้วย signal | [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html) |
 
 ข้อที่ ticket 01 ต้องลองกับ YouTube จริงก่อนเขียนต่อ: ยกเลิกด้วย `DownloadCancelled` จาก hook ได้, merge ด้วย ffmpeg ของ imageio ที่ไม่มี ffprobe (ADR-0005) ได้, ลิงก์ upcoming ได้ error ที่แยกเป็น `live` ได้, และข้อความ error ของ bot check หรือ login ที่ใช้แยก `login_required`. ยกเลิกไม่ได้ → ย้ายการโหลดไป `multiprocessing.Process` แล้ว terminate. merge ไม่ได้ → หยุดแล้วถามผู้ใช้ก่อน เพราะ format ไฟล์เดียวบน YouTube ส่วนใหญ่ไม่ถึง 1080 (ขัด D5); ทางเลือกคือหา ffprobe มาเพิ่ม (ขัด ADR-0005) หรือยอมความคมต่ำลง; ผลเป็น `D{n}` ใหม่.
+
+ข้อที่ ticket ของงานถอดต้องลองก่อนเขียนต่อ: Whisper บน `mps` ด้วย `float16` ได้ผลถูก (ไม่ได้ → `float32` บน `mps`); pipeline รับ array 300 วินาทีโดยไม่มี `chunk_length_s` แล้วถอดแบบ long-form ได้ครบทั้งช่วง (ไม่ได้ → หยุดแล้วถาม เพราะทางเลือกคือ `chunk_length_s` ที่ library บอกว่า experimental); timestamp ของ `chunks` เป็นเวลาภายในช่วง; บรรทัดสุดท้ายที่ `timestamp` จบเป็น `None` → ใช้ความยาวของช่วงแทน; process ลูก `spawn` import `backend` ได้ทั้ง Mac และ Windows.
 
 ### Status check
 
@@ -172,6 +195,50 @@ params ของ yt-dlp (adapter เดียวใน `backend.spoil` สร้
 - query อื่น (`list`, `t`, `si`) ไม่สนใจ
 - นอกตาราง → `invalid_url`
 
+### Transcribe
+
+ขั้นตอนของ Transcribe job หนึ่งงาน (D21, D23, D24, D26, D27, D28, D29):
+
+1. `POST /api/spoil/transcriptions` ตรวจตามลำดับ: แถว `torch`, `transformers`, `ffmpeg`, `model_whisper` เป็น `ok` และ `device` ไม่ใช่ `cpu`; แล้วภายใต้ lock ของงานถอด (lock เดียวกับ `DELETE /clips/{id}`, D29): มี Temp clip ของ `clip_id` (มี json และ mp4), ไม่มี Transcribe job ที่ thread ยังไม่ออก, สร้างงาน. Download job ไม่มีผล (D24)
+2. เริ่ม daemon thread ใน backend, state `preparing`: start process ลูก (`multiprocessing` context `spawn`) ที่รัน `backend.spoil.whisper.worker(mp4, duration_s, snapshot_dir, device, queue)` (D28)
+3. process ลูก: โหลดโมเดล; ล้ม → ส่ง `("error", "model_failed", ข้อความ)`. แล้วแบ่งเวลา 0 ถึง `duration_s` เป็นช่วงละ 300 วินาที (ช่วงสุดท้ายสั้นกว่า 30 วินาทีรวมเข้าช่วงก่อน, D29); ทุกช่วง: `read_audio(mp4, start, length)` (ffmpeg ล้มที่ช่วงแรก → `("error", "no_audio", ...)`), `transcribe(model, audio)`, บวกเวลาเริ่มของช่วงให้ทุกบรรทัด แล้วส่ง `("segment", index, total, lines, language)`. จบครบ → ส่ง `("done",)` แล้ว exit
+4. thread ใน backend อ่าน queue: ข้อความ `segment` แรกเปลี่ยน state เป็น `transcribing`; `percent` = ช่วงที่ได้ × 100 ÷ จำนวนช่วง ปัดลง; สะสมบรรทัดใน memory
+5. flag ยกเลิกถูกตั้ง → `terminate()` process ลูก แล้ว `join`, state `cancelled`. process ลูกออกโดยไม่ได้ `done` หรือ `error` (Metal/CUDA crash, ถูก OS ฆ่า) → `failed` `crashed` (D28)
+6. ได้ `done`: ตัดบรรทัดที่ข้อความว่างหลัง strip; `language` = ภาษาที่ช่วงส่วนใหญ่ตรวจได้ไม่นับ `null` (เสมอกัน → ช่วงแรก, ไม่มีเลย → `null`); เขียน `{id}.transcript.json` แบบไฟล์ `.tmp` แล้ว rename; state `done`
+7. error ใดก็ตามที่ไม่อยู่ในข้อบน (รวมเขียนไฟล์ไม่ได้) → `failed` `internal`; thread ตั้ง state จบใน `finally` และ process ลูกที่ยังรันถูก `terminate()` (D29). `cancelled` และ `failed` ไม่แตะ `{id}.transcript.json` เดิม. งานนับว่าจบเมื่อ thread ออก
+8. backend shutdown → ตั้ง flag ยกเลิกและ `terminate()` process ลูกที่ยังรัน (D28)
+
+Adapter `backend.spoil.whisper` (ตัวเดียวที่ import `transformers` และ `torch` สำหรับถอด; import ภายในฟังก์ชันที่รันใน process ลูก ไม่ใช่ตอน import module):
+
+| ฟังก์ชัน | ทำอะไร |
+|---|---|
+| `worker(mp4, duration_s, snapshot_dir, device, queue)` | จุดเริ่มของ process ลูก ทำขั้น 3 |
+| `read_audio(mp4, start_s, length_s) -> ndarray` | ffmpeg ของ imageio ตาม Library assumptions ช่วงเดียว อ่าน stdout เป็น float32 |
+| `load(snapshot_dir, device) -> Model` | `pipeline("automatic-speech-recognition", ...)` กับ `float16`, `batch_size` 1 |
+| `transcribe(model, audio) -> (lines, language)` | ส่ง array ทั้งช่วงโดยไม่ใช้ `chunk_length_s` ให้ Whisper ทำ long-form เอง, `return_timestamps=True`, `return_language=True`; คืนบรรทัด `(start_s, end_s, text)` เวลาภายในช่วง และภาษาจาก `chunks[0]["language"]` (ไม่มี chunk → `null`) (D29) |
+
+จุด inject สำหรับ test: `backend.spoil` มี module attribute `start_worker` (สร้าง process ลูก) ที่ test แทนด้วยตัวปลอมที่รันใน thread และป้อนข้อความเข้า queue ตามลำดับที่ test กำหนด; probe และ status ของแถวที่ gate มาจาก `backend.checks` เหมือนงานโหลด. test ของ `worker` จริงอยู่ใน seam 3 (เช็คมือ).
+
+`{id}.transcript.json`:
+
+```json
+{
+  "clip_id": "dQw4w9WgXcQ",
+  "language": "en",
+  "duration_s": 5712,
+  "model": "openai/whisper-large-v3-turbo",
+  "revision": "41f01f3",
+  "transcribed_at": "2026-10-30T10:12:00+07:00",
+  "lines": [
+    {"start_s": 12.4, "end_s": 15.0, "text": "Where are you going?"}
+  ]
+}
+```
+
+- `lines` เรียงตาม `start_s`; ว่างได้ (ไม่พบคำพูด)
+- `language` เป็น `null` เมื่อไม่มีช่วงไหนตรวจภาษาได้ (D29)
+- `.txt` = บรรทัดละ `[hh:mm:ss] ข้อความ`; `.srt` = มาตรฐาน SRT เลขลำดับจาก 1 เวลา `hh:mm:ss,mmm`; ทั้งสอง UTF-8 ไม่มี BOM, ขึ้นบรรทัด `\n`
+
 ### Temp clip
 
 `{id}.json` (D7, D14):
@@ -197,8 +264,10 @@ params ของ yt-dlp (adapter เดียวใน `backend.spoil` สร้
 - `thumbnail` เป็น `null` เมื่อโหลด thumbnail ไม่ได้
 - `file_bytes` อ่านจากไฟล์ mp4 จริงหลัง merge
 - รายการ = ทุก `*.json` ใน `media/temp/` ที่มี `{id}.mp4` คู่กัน เรียง `downloaded_at` ใหม่สุดก่อน. json ที่อ่านไม่ได้หรือไม่มี mp4 คู่ → ข้าม
-- ลบ = ลบ `{id}.mp4` และ thumbnail ก่อน แล้ว `{id}.json` สุดท้าย; ลบ mp4 ไม่ได้ (Windows ที่ไฟล์ยังเปิดอยู่) → `409` `in_use` และไม่แตะ json (D15)
-- backend start → ลบ `.partial/` ทั้งหมด และไฟล์ `{id}.*` ใน `media/temp/` ที่ไม่มี `{id}.json` (D15)
+- ลบ = ลบ `{id}.mp4`, thumbnail และ `{id}.transcript.json` ก่อน แล้ว `{id}.json` สุดท้าย; ลบ mp4 ไม่ได้ (Windows ที่ไฟล์ยังเปิดอยู่) → `409` `in_use` และไม่แตะ json (D15, D23); คลิปที่ Transcribe job ยังไม่จบ → `409` `transcribing` ไม่ลบอะไร (D27)
+- รายการมี field `transcribed`: `true` เมื่อมีไฟล์ `{id}.transcript.json` (ไม่ parse); รายการคลิปข้ามไฟล์ `*.transcript.json` (D23, D29)
+- เช็คกับลบภายใต้ lock ของงานถอด (D29)
+- backend start → ลบ `.partial/` ทั้งหมด, ไฟล์ `{id}.*` ใน `media/temp/` ที่ไม่มี `{id}.json` และไฟล์ `*.tmp` ทั้งหมด (D15, D29)
 
 ### API
 
@@ -206,15 +275,22 @@ params ของ yt-dlp (adapter เดียวใน `backend.spoil` สร้
 
 | Method | Path | Response |
 |---|---|---|
-| `GET` | `/clips` | `200` `{"clips": [Temp clip, ...]}` |
+| `GET` | `/clips` | `200` `{"clips": [Temp clip + `transcribed`, ...]}` |
 | `GET` | `/clips/{id}/video` | `200` หรือ `206` ไฟล์ `video/mp4` รองรับ Range; ไม่มี → `404` `not_found` |
 | `GET` | `/clips/{id}/thumbnail` | `200` ไฟล์ thumbnail; ไม่มี → `404` `not_found` |
-| `DELETE` | `/clips/{id}` | `204`; ไม่มี → `404` `not_found`; ไฟล์ถูกเปิดอยู่ → `409` `in_use` "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง" |
+| `DELETE` | `/clips/{id}` | `204`; ไม่มี → `404` `not_found`; ไฟล์ถูกเปิดอยู่ → `409` `in_use` "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"; กำลังถอดคลิปนี้ → `409` `transcribing` "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ" |
+| `GET` | `/clips/{id}/transcript` | `200` เนื้อ `{id}.transcript.json`; ไม่มี → `404` `not_found` |
+| `GET` | `/clips/{id}/transcript.txt`, `/clips/{id}/transcript.srt` | `200` `text/plain; charset=utf-8` หรือ `application/x-subrip`, `Content-Disposition: attachment; filename="{id}.txt"` หรือ `.srt`; ไม่มี → `404` `not_found` |
+| `POST` | `/transcriptions` | body `{"clip_id": "..."}`. `202` กับ Transcribe job. error: `503` `not_ready`, `404` `not_found`, `409` `busy` "กำลังถอดคลิปอื่นอยู่" |
+| `GET` | `/transcriptions/current` | `200` Transcribe job ล่าสุด หรือ `null` |
+| `DELETE` | `/transcriptions/current` | `202` ตั้ง flag ยกเลิก; ไม่มีงานที่ยังไม่จบ → `404` `not_found` |
 | `POST` | `/downloads` | body `{"url": "..."}`. `202` กับ Download job. error: `503` `not_ready`, `400` `invalid_url`, `409` `duplicate` (body มี `clip_id` เพิ่ม), `409` `busy` |
 | `GET` | `/downloads/current` | `200` Download job ล่าสุด หรือ `null` ถ้ายังไม่เคยมีตั้งแต่ backend start |
 | `DELETE` | `/downloads/current` | `202` ตั้ง flag ยกเลิก; state เป็น `cancelled` เมื่อ thread หยุด (รอบ progress ถัดไป หรือหลัง `fetch_info` คืน); state `merging` → `409` `merging`; ไม่มีงานที่ยังไม่จบ → `404` `not_found` |
 
 `{id}` ใน path ต้องตรงรูปแบบ id 11 ตัว ไม่งั้น `404` — กัน path traversal.
+
+ทุก `POST` ใต้ `/api/spoil` ที่ `Content-Type` ไม่ใช่ `application/json` ได้ `415` `unsupported_media_type` — บังคับ CORS preflight จึงไม่มีเว็บอื่นสั่งงานได้ (D29). `sendJson` ส่ง header นี้อยู่แล้ว.
 
 ทุก request ที่ `Host` ไม่ใช่ `127.0.0.1`, `localhost` หรือ `[::1]` (port ใดก็ได้) ได้ `400` จาก `TrustedHostMiddleware` (D15). Vite proxy ส่ง `Host: localhost:5173` ต่อมาจึงผ่าน.
 
@@ -241,7 +317,30 @@ Download job:
 - `cancel_requested` เป็น `true` หลัง `DELETE /downloads/current` จนงานจบ
 - `error` มีค่าเมื่อ `failed`: `{"code": "...", "message": "...", "yt_dlp_version": "...", "fix": "..."}`; `fix` มีค่าเฉพาะ `youtube_error`
 
-error ของงาน (`failed`):
+Transcribe job:
+
+```json
+{
+  "clip_id": "dQw4w9WgXcQ",
+  "state": "transcribing",
+  "percent": 35,
+  "cancel_requested": false,
+  "error": null
+}
+```
+
+- `state` เป็นหนึ่งใน `preparing`, `transcribing`, `done`, `failed`, `cancelled`; งานยังไม่จบ = `preparing`, `transcribing`
+- `percent` เป็น `null` นอก `transcribing`
+- `error` มีค่าเมื่อ `failed`: `{"code", "message"}`
+
+| `code` | เมื่อ | `message` |
+|---|---|---|
+| `no_audio` | ffmpeg อ่านเสียงช่วงแรกไม่ได้ | "คลิปนี้ไม่มีเสียง หรืออ่านเสียงไม่ได้" |
+| `model_failed` | โหลดโมเดลหรือถอดช่วงไหนล้มเป็น exception | "ถอดไม่สำเร็จ: {ข้อความสั้นของ error}. ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง"; ข้อความเต็มอยู่ใน log ของ `[api]` |
+| `crashed` | process ลูกตายโดยไม่ส่งผล (D28) | "ตัวถอดหยุดทำงานกลางทาง (exit {code}). ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง" |
+| `internal` | error อื่นทั้งหมด รวมเขียนไฟล์ไม่ได้ (D29) | "ถอดไม่สำเร็จ: {ข้อความสั้นของ error}"; ข้อความเต็มอยู่ใน log ของ `[api]` |
+
+error ของ Download job (`failed`):
 
 | `code` | เมื่อ | `message` |
 |---|---|---|
@@ -292,15 +391,40 @@ tab สปอย:
 - ความยาวแสดงเป็น `h:mm:ss` หรือ `m:ss`; ขนาดไฟล์เป็น MB หรือ GB ทศนิยมหนึ่งตำแหน่ง; เวลาโหลดเป็นเวลาท้องถิ่น
 - ข้อความในหน้าเป็นภาษาไทย
 
+กล่องถอดบทพูด (D22–D25):
+
+| State | เมื่อไร | แสดง |
+|---|---|---|
+| ยังไม่เลือก | ไม่มีคลิปที่เลือก | "เลือกคลิปจากรายการ" |
+| not ready | แถว gate ของงานถอด (D27) ไม่ผ่าน | player และ "ยังติดตั้งไม่ครบ: {label ที่ขาด}" กับลิงก์ไป Setup status แทนปุ่มถอด |
+| เลือกแล้ว | คลิปไม่มี Transcript | player, ชื่อ, ความยาว, ปุ่ม "ถอดบทพูด" |
+| ถอดแล้ว | `transcribed` เป็น `true` | alert "คลิปนี้ถอดแล้ว", ปุ่ม "ถอดใหม่", Transcript |
+| กำลังถอด | งานของคลิปนี้ยังไม่จบ | "กำลังเตรียมเสียง…" หรือ "กำลังถอด {percent}%" กับแถบ %, ปุ่ม "ยกเลิก"; cancel_requested → "กำลังยกเลิก…" |
+| คลิปอื่นกำลังถอด | งานของคลิปอื่นยังไม่จบ | ปุ่มถอด disabled กับ "กำลังถอด {ชื่อคลิปนั้น}" |
+
+กฎอื่นของกล่อง:
+- กดแถว = เลือกคลิปนั้นและเล่นใน player ของกล่อง (แทน player เหนือรายการ, D25); แถวที่เลือกมี badge "กำลังเล่น" (D18)
+- เปิด tab → `GET /api/spoil/transcriptions/current` ครั้งหนึ่ง; งานยังไม่จบ → เลือกคลิปนั้นและเข้า state กำลังถอด
+- poll `GET /api/spoil/transcriptions/current` ทุก 1 วินาทีเฉพาะตอนงานยังไม่จบ แยกจาก poll ของงานโหลด; จบ → `GET /api/spoil/clips` ครั้งเดียว และถ้า `done` โหลด Transcript ของคลิปที่เลือก
+- ข้อความหลังงานถอดจบ: `done` → "ถอดเสร็จ"; `cancelled` → "ยกเลิกแล้ว"; `failed` → `error.message`; poll ได้ `null` → "งานถอดหายเพราะ backend เริ่มใหม่ ลองถอดอีกครั้ง"
+- บรรทัดของ Transcript: `[hh:mm:ss] ข้อความ`; กด → `video.currentTime = start_s` แล้วเล่น; ใต้หัวแสดง "ภาษา: {language}" หรือ "ภาษา: ไม่ทราบ" เมื่อ `null` (D29)
+- ผลของ `POST /transcriptions`: `409` `busy` ที่งานเป็นของคลิปนี้ → เข้า state กำลังถอด; `busy` ของคลิปอื่น → "กำลังถอด {ชื่อคลิปนั้น}"; `404` `not_found` → "ไม่พบคลิปนี้" แล้วโหลดรายการใหม่; `503` `not_ready` → state not ready ของกล่อง; อื่น → offline (D29)
+- Copy → คัดลอกเนื้อเดียวกับ `.txt` ด้วย `useCopy`; `.txt` และ `.srt` เป็นลิงก์ไป API (browser โหลดไฟล์เอง)
+- ลบคลิปที่เลือกอยู่ → กล่องกลับเป็น "ยังไม่เลือก"; `409` `transcribing` → `message` ใต้แถว
+- แถวที่ `transcribed` มี badge "ถอดแล้ว" (D23)
+- จอกว้าง ≥ 1024px สองคอลัมน์มีลูกศร →; แคบกว่าเรียงบนลงล่างมีลูกศร ↓ (D25)
+
 ### Ops
 
 - ที่ดิสก์: wheel `deno` ประมาณ 80 MB ใน `.venv`; คลิป 1080p ประมาณ 0.5–1.5 GB ต่อชั่วโมง ใน `media/temp/`
 - ลบคลิปทั้งหมดด้วยมือได้โดยลบ folder `media/temp/` ตอน backend ไม่ได้รัน (README)
 - YouTube เปลี่ยนแล้วโหลดไม่ได้ทุกคลิป → `uv lock --upgrade-package yt-dlp` แล้วรัน Setup script (D8, README)
+- งานถอดใช้ memory ของ process ลูกประมาณ 2–4 GB (โมเดล 1.6 GB กับเสียงช่วงละ 300 วินาทีประมาณ 19 MB) ไม่โตตามความยาวคลิป และคืนทั้งหมดเมื่อ process ลูกออก (D28, D29)
+- งานถอดมีปัญหา: กดยกเลิก หรือปิด `npm run dev` — process ลูกถูก terminate; ปิด feature ทั้งหมดไม่ได้นอกจากไม่กดถอด
 
 ## Seams
 
-สาม seam: API ของสปอยกับ adapter ปลอม, adapter จริงกับ YouTube, และหน้าเว็บ — เพราะ yt-dlp กับ YouTube จริงช้าและเปลี่ยนตลอด จึงแยก adapter ไว้ตัวเดียวให้ส่วนอื่นทดสอบได้เร็ว (D14).
+สี่ seam: API ของสปอยกับ adapter ปลอม, adapter จริงกับ YouTube, adapter จริงของ Whisper, และหน้าเว็บ — เพราะ yt-dlp กับ YouTube จริงช้าและเปลี่ยนตลอด จึงแยก adapter ไว้ตัวเดียวให้ส่วนอื่นทดสอบได้เร็ว (D14).
 
 1. **Spoil API** `/api/spoil/*` และ `GET /api/setup/status` ด้วย `TestClient`, root ปลอมใน `tmp_path` และ adapter ปลอม
    - ลิงก์ทุกแบบในตารางลิงก์ → `202`; `https://vimeo.com/1`, `https://www.youtube.com/playlist?list=x` → `400` `invalid_url`
@@ -324,6 +448,19 @@ tab สปอย:
    - `DELETE /clips/{id}` ขณะลบ mp4 ไม่ได้ (monkeypatch ให้ raise `PermissionError`) → `409` `in_use` และ json ยังอยู่
    - start app ขณะมี `{id}.mp4` ที่ไม่มี json → ไฟล์หาย
    - request ที่ `Host: evil.example` → `400`
+   - worker ปลอมส่งสองช่วง → poll จน `done`, `GET /clips/{id}/transcript` มีบรรทัดที่เวลาของช่วงสองบวก 300; `GET /clips` มี `transcribed: true`
+   - `.txt` และ `.srt` ของ Transcript สองบรรทัด → เนื้อตรงตัวอย่างใน test; `Content-Disposition` มีชื่อไฟล์
+   - POST ถอดระหว่าง Download job ยังไม่จบ → `202` (D24); POST ถอดระหว่าง Transcribe job ยังไม่จบ → `409` `busy`
+   - `DELETE /transcriptions/current` ระหว่างช่วงแรก (worker ปลอมรอสัญญาณ) → `cancelled`, worker ปลอมถูก terminate และ Transcript เดิมยังอยู่
+   - worker ปลอมส่ง `error` `no_audio` → `failed` `no_audio`; ส่ง `error` `model_failed` → `failed` `model_failed`
+   - worker ปลอมออกโดยไม่ส่ง `done` → `failed` `crashed`; POST ถัดไป → `202`
+   - เขียน Transcript ไม่ได้ (monkeypatch rename ให้ raise) → `failed` `internal` และ POST ถัดไป → `202`
+   - `POST /transcriptions` และ `POST /downloads` ที่ `Content-Type: text/plain` → `415`
+   - start app ขณะมี `{id}.transcript.json.tmp` → ไฟล์หาย; `GET /clips` ไม่มีแถวของ `*.transcript.json`
+   - worker ปลอมส่งช่วงที่ภาษา `null` ทุกช่วง → `language` เป็น `null`
+   - marker ของ Whisper หาย → `POST /transcriptions` → `503` `not_ready`; device `cpu` → `503`
+   - `DELETE /clips/{id}` ระหว่างถอดคลิปนั้น → `409` `transcribing`; หลังงานจบ → `204` และ `{id}.transcript.json` หาย
+   - worker ปลอมส่งช่วงที่ไม่มีบรรทัด → `done` และ `lines` ว่าง
 2. **yt-dlp adapter** `backend.spoil` กับ YouTube จริง (เช็คมือ ไม่อยู่ใน test ที่รันทุกครั้ง)
    - Shorts หนึ่งคลิป → mp4 ด้านสั้น ≤ 1080 และมีเสียง
    - คลิปแนวนอนยาวกว่า 1 ชั่วโมง → mp4 1920×1080 หรือเล็กกว่า
@@ -331,7 +468,14 @@ tab สปอย:
    - ลิงก์ live ที่ยังไม่เริ่ม → `live`
    - Ctrl+C ระหว่างโหลด แล้ว `npm run dev` ใหม่ → ไม่มี process ค้าง และ `.partial/` ว่าง
    - Windows: เล่นคลิปใน player แล้วกดลบ → ลบได้ หรือได้ `in_use` และแถวยังอยู่
-3. **tab สปอย** `frontend` ด้วย Vitest และ fetch ปลอม
+3. **Whisper adapter** `backend.spoil.whisper` กับโมเดลจริง (เช็คมือ ไม่อยู่ใน test ที่รันทุกครั้ง)
+   - Shorts ภาษาไทยและหนังภาษาอังกฤษยาวกว่า 1 ชั่วโมง → Transcript อ่านรู้เรื่อง ภาษาตรง เวลาของบรรทัดตรงกับเสียงในคลิปภายใน 2 วินาที (สุ่มดู 5 บรรทัด)
+   - ยกเลิกกลางหนัง → process ลูกหายภายใน 5 วินาที (`ps`) และ memory ของ backend ไม่โตขึ้น
+   - ฆ่า process ลูกด้วยมือระหว่างถอดขณะมีงานโหลด → งานถอด `crashed`, งานโหลดเดินต่อจน `done`
+   - ช่วงละ 300 วินาทีให้ timestamp ของ `chunks` เป็นเวลาภายในช่วง และบรรทัดสุดท้ายที่ `timestamp` จบเป็น `None` → ใช้ความยาวช่วงแทน
+   - ถอดพร้อมโหลดคลิปอื่น → ทั้งสองงาน `done`
+   - Windows NVIDIA: ถอดได้บน `cuda`
+4. **tab สปอย** `frontend` ด้วย Vitest และ fetch ปลอม
    - hash ว่าง → เห็นหน้า Setup status; กด tab สปอย → hash เป็น `#/spoil`
    - status ที่ `deno` เป็น `missing` → "ยังติดตั้งไม่ครบ: Deno" และไม่มีช่องลิงก์
    - วางลิงก์ กดโหลด, current คืน `downloading` 40 แล้ว `done` → เห็น 40%, แล้ว "โหลดเสร็จ" และแถวใหม่
@@ -343,11 +487,19 @@ tab สปอย:
    - กดยกเลิก → ส่ง `DELETE /api/spoil/downloads/current`; current คืน `cancel_requested: true` → เห็น "กำลังยกเลิก…"
    - รายการว่าง → "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน"
    - กดแถว → มี `<video>` ที่ `src` ถูก; กดลบและยืนยัน → แถวหาย
+   - ยังไม่เลือก → "เลือกคลิปจากรายการ"; กดแถว → กล่องมีชื่อคลิปและปุ่ม "ถอดบทพูด"
+   - กดถอด, current คืน `transcribing` 35 แล้ว `done` → เห็น "กำลังถอด 35%" แล้วบรรทัดของ Transcript และแถวมี "ถอดแล้ว"
+   - กดบรรทัดเวลา 12.4 → `currentTime` ของ video เป็น 12.4
+   - กด Copy → clipboard ได้บรรทัด `[00:00:12] ...`; ลิงก์ `.srt` ชี้ `/api/spoil/clips/{id}/transcript.srt`
+   - เปิด tab ขณะ current ของงานถอดเป็น `transcribing` → คลิปนั้นถูกเลือกและเห็น %
+   - status ที่ `model_whisper` เป็น `missing` → ไม่มีปุ่มถอด เห็นลิงก์ไป Setup status; ช่องลิงก์โหลดยังใช้ได้
 
 ## Testing decisions
 
 - **Copy:** `backend/tests/test_app.py` — `TestClient` กับ root ปลอมใน `tmp_path`
-- **Copy:** `backend/tests/fakes.py` — เพิ่ม adapter ปลอมของ yt-dlp และ deno probe ปลอมที่นี่
+- **Copy:** `backend/tests/fakes.py` — เพิ่ม adapter ปลอมของ yt-dlp และ deno probe ปลอมที่นี่; เพิ่ม `start_worker` ปลอมที่รันใน thread ป้อนข้อความเข้า queue และรอสัญญาณได้แบบเดียวกับ adapter ปลอมของ yt-dlp
+- **Copy:** `backend/tests/test_spoil_api.py` — โครงของ test งานโหลด (poll จนจบ, ยกเลิกด้วยสัญญาณ) ใช้กับงานถอด
+- **Copy:** `frontend/src/features/spoil/components/SpoilPage.test.tsx` — fake backend ที่ตอบตาม route; เพิ่ม route ของ `/transcriptions` และ `/transcript`
 - **Copy:** `backend/tests/test_checks.py` — test แถวใหม่ของ Status check และนับ 11 แถว
 - **Copy:** `frontend/src/features/setup-status/components/SetupStatusPage.test.tsx` — fetch ปลอมและการ assert ข้อความ
 - test ที่มีอยู่ซึ่งนับ 9 แถวต้องแก้เป็น 11
@@ -360,6 +512,10 @@ tab สปอย:
 
 - ตัดต่อ, ทำแนวตั้ง, เลือก p ของ output และ render (D2, D5)
 - ใส่เสียงเล่าด้วย TTS และการเลือก TTS ที่ใช้เชิงพาณิชย์ได้ (D2, D13)
+- แยกเสียงพูดออกจากดนตรี และให้ไฟล์เสียงหรือวิดีโอเงียบกับผู้ใช้ (D21)
+- แปลภาษา, แก้ไข Transcript ในแอป, แยกผู้พูด, เลือกภาษาเอง (D21, D22)
+- วิเคราะห์บทหรือเขียนบทสปอยด้วย AI ในแอป — ผู้ใช้ทำที่อื่น (D21)
+- ถอดอัตโนมัติหลังโหลด และคิวถอดหลายคลิป (D23, D24)
 - คิวหลายลิงก์ (D6)
 - playlist และช่องทั้งช่อง (D5)
 - ลบ Temp clip อัตโนมัติ (D3)
@@ -373,6 +529,8 @@ tab สปอย:
 1. TTS ตัวไหนพูดไทยและใช้เชิงพาณิชย์ได้ เพื่อ supersede ADR-0007 — non-blocking: รอบนี้ไม่ใช้ TTS (D13)
 2. เรื่องลิขสิทธิ์และ ToS ของ YouTube ก่อนเผยแพร่คลิปสปอยหารายได้ — non-blocking: ผู้ใช้รับความเสี่ยงไว้แล้วและจะกลับมาดูก่อนเผยแพร่ (D13)
 3. legal ข้อ 2 (yt-dlp แก้ challenge ของ YouTube ตาม ม.53/4) เป็น UNVERIFIED — non-blocking: ผู้ใช้รับความเสี่ยงนี้ใน D13
+
+4. ช่วงละ 300 วินาทีตัดคำที่คร่อมรอยต่อได้ทุก 5 นาที — non-blocking: เช็คตอน build seam 3; ตัดจนอ่านไม่รู้เรื่อง → เพิ่ม overlap ระหว่างช่วงเป็น `D{n}` ใหม่
 
 ## Sources
 

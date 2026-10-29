@@ -21,7 +21,7 @@ _Avoid_: requirement, dependency row
 _Avoid_: lock file, done flag
 
 **สปอย**:
-tab ในแอปที่รับลิงก์ YouTube มาทำคลิปเล่าหรือสปอยหนัง. ตอนนี้ทำได้แค่โหลดคลิปเก็บเป็น Temp clip.
+tab ในแอปที่รับลิงก์ YouTube มาทำคลิปเล่าหรือสปอยหนัง. ตอนนี้โหลดคลิปเก็บเป็น Temp clip และถอดบทพูดเป็น Transcript ได้.
 _Avoid_: recap, spoiler page
 
 **Temp clip**:
@@ -31,4 +31,12 @@ _Avoid_: cache, download, temp file
 **Download job**:
 การโหลด Temp clip หนึ่งคลิปที่ backend ทำเบื้องหลัง. มีได้ทีละงานและหายเมื่อ backend restart.
 _Avoid_: task, queue item
+
+**Transcript**:
+บทพูดของ Temp clip หนึ่งคลิปที่ Whisper ถอดออกมา เป็นบรรทัดพร้อมเวลาเริ่มและจบ. เก็บใน `media/temp/{id}.transcript.json` และหายเมื่อลบคลิป. คลิปมี Transcript = "ถอดแล้ว".
+_Avoid_: subtitle, caption, บทสปอย
+
+**Transcribe job**:
+การถอด Temp clip หนึ่งคลิปเป็น Transcript ที่ backend ทำเบื้องหลังเมื่อผู้ใช้กดถอด. มีได้ทีละงาน รันพร้อม Download job ได้ และหายเมื่อ backend restart.
+_Avoid_: process, transcription task
 

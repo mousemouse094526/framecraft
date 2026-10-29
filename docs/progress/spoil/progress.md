@@ -1,6 +1,6 @@
 # Progress: spoil
 
-**Now:** 01–03 done; tab สปอยโหลด เล่น และลบคลิปได้บน Mac — เหลือเช็คบน Windows (04) ซึ่งรอ setup-status 03
+**Now:** 01–03 done; change request ถอดบทพูด (D21–D29) approve แล้ว ตัดเป็น 04–06 — เริ่ม 04
 
 **Next:**
 
@@ -8,7 +8,7 @@
 /warroom-build spoil 04
 ```
 
-04 ถูก block โดย setup-status 03 (เช็คบน Windows NVIDIA) — ทำอันนั้นก่อน
+05 รอ design ใน Figma (Blocked #4, #5); 06 รอ setup-status 03 (เช็คบน Windows NVIDIA)
 
 ## Tickets
 
@@ -17,7 +17,9 @@
 | 01 | ติดตั้ง yt-dlp กับ Deno และ Download API | done |
 | 02 | แถบ tab และโหลดคลิปใน tab สปอย | done |
 | 03 | รายการ Temp clip | done |
-| 04 | เช็คบน Windows NVIDIA | ready |
+| 04 | Backend งานถอดบทพูดและ API | ready |
+| 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | ready |
+| 06 | เช็คบน Windows NVIDIA | ready |
 
 ## Log
 
@@ -86,3 +88,5 @@
 | 1 | 02 | design: แถบ tab | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
 | 2 | 02 | design: tab สปอย | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
 | 3 | 03 | design: หน้าต่างรายการ Temp clip | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
+| 4 | 05 | design: layout สองคอลัมน์ | `/warroom spoil` พร้อมลิงก์ Figma frame | open |
+| 5 | 05 | design: กล่องถอดบทพูด | `/warroom spoil` พร้อมลิงก์ Figma frame | open |

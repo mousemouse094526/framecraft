@@ -1,6 +1,6 @@
 # Legal check: spoil
 
-**Jurisdiction:** Thailand — checked 2026-10-29
+**Jurisdiction:** Thailand — checked 2026-10-29; ข้อ 4–5 checked 2026-10-29 (change request ถอดบทพูด)
 
 - ผู้ใช้โหลดหนังเต็มเรื่องที่คนอื่นปล่อยบน YouTube โดยไม่ได้รับอนุญาตจากเจ้าของลิขสิทธิ์ (D13)
 - ปลายทางคือคลิปสปอยที่เผยแพร่และหารายได้ (D2, D13)
@@ -25,19 +25,34 @@
 
 license CC BY-NC 4.0 ห้ามใช้เพื่อประโยชน์ทางการค้า [4]. รอบนี้ไม่ใช้ OmniVoice; ต้องเปลี่ยน TTS ก่อน feature ใส่เสียงเล่า (ADR-0007).
 
+## 4. ถอดบทพูดของหนังที่โหลดมาเป็นข้อความเก็บในเครื่อง เพื่อเขียนบทสปอยหารายได้ (D21, D23)
+
+**Verdict: NOT ALLOWED**
+
+บทพูดในหนังเป็นส่วนของงานอันมีลิขสิทธิ์ การถอดออกมาเป็นข้อความคือการทำซ้ำ ซึ่งเป็นสิทธิของเจ้าของแต่ผู้เดียว และข้อยกเว้นใช้เพื่อประโยชน์ของตนเองไม่ครอบคลุมเมื่อเอาไปทำงานหารายได้ [1] — เหตุผลเดียวกับข้อ 1. การเขียนบทสปอยใหม่ด้วยคำของผู้ใช้เองไม่ใช่การทำซ้ำ แต่การยกบทพูดยาวๆ ไปใส่คลิปเป็นการทำซ้ำ [1]. ผู้ใช้รับความเสี่ยงชุดนี้ไว้แล้วใน D13.
+
+## 5. ใช้ Whisper large-v3-turbo ถอดเสียงในงานที่หารายได้ (D21)
+
+**Verdict: ALLOWED**
+
+โมเดลใช้ license MIT ที่อนุญาตใช้เชิงพาณิชย์ได้ โดยต้องคง copyright notice ไว้ [5] ซึ่ง `NOTICE.md` และหน้า Setup status มีอยู่แล้ว (setup-status D11).
+
 ## Summary
 | # | Item | Verdict | Required to be allowed |
 |---|------|---------|------------------------|
 | 1 | โหลดคลิป YouTube ของคนอื่นเพื่อทำคลิปหารายได้ | NOT ALLOWED | — |
 | 2 | ใช้ yt-dlp แก้ JavaScript challenge ของ YouTube | NOT ALLOWED (UNVERIFIED ว่า challenge เป็นมาตรการทางเทคโนโลยี) | — |
 | 3 | ใช้เสียง OmniVoice ในคลิปที่หารายได้ | NOT ALLOWED | — |
+| 4 | ถอดบทพูดของหนังที่โหลดมาเพื่อเขียนบทสปอยหารายได้ | NOT ALLOWED | — |
+| 5 | ใช้ Whisper large-v3-turbo ถอดเสียงในงานที่หารายได้ | ALLOWED | — |
 
-ผู้ใช้รับความเสี่ยงของข้อ 1 และ 2 ไว้ใน D13 และให้ทำ feature ก่อน. ข้อ 3 ไม่เกิดในรอบนี้.
+ผู้ใช้รับความเสี่ยงของข้อ 1, 2 และ 4 (เหตุเดียวกับข้อ 1) ไว้ใน D13 และให้ทำ feature ก่อน. ข้อ 3 ไม่เกิดในรอบนี้.
 
 ## References
 1. พระราชบัญญัติลิขสิทธิ์ พ.ศ. 2537 มาตรา 15, 32 — https://th.wikisource.org/wiki/พระราชบัญญัติลิขสิทธิ์_พ.ศ._2537 (accessed 2026-10-29)
 2. พระราชบัญญัติลิขสิทธิ์ (ฉบับที่ 2) พ.ศ. 2558 มาตรา 3, 53/4, 53/5, 70/1 — https://th.wikisource.org/wiki/พระราชบัญญัติลิขสิทธิ์_(ฉบับที่_2)_พ.ศ._2558 (accessed 2026-10-29)
 3. ข้อกำหนดในการให้บริการของ YouTube › การอนุญาตและข้อจำกัด — https://www.youtube.com/static?template=terms&gl=TH (accessed 2026-10-29)
 4. Creative Commons Attribution-NonCommercial 4.0 — https://creativecommons.org/licenses/by-nc/4.0/ (accessed 2026-10-29)
+5. openai/whisper-large-v3-turbo model card › License: MIT — https://huggingface.co/openai/whisper-large-v3-turbo (accessed 2026-10-28, ยืนยันซ้ำใน test `backend/tests/test_app.py`)
 
 *บันทึกด้าน compliance สำหรับวิศวกรรม ไม่ใช่คำแนะนำทางกฎหมาย*

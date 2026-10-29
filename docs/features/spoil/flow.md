@@ -1,8 +1,10 @@
 # Flow: spoil
 
-2 diagrams, read in this order:
+4 diagrams, read in this order:
 1. ผู้ใช้วางลิงก์จนได้ Temp clip: หน้าเว็บ, API, Download job และ yt-dlp คุยกันยังไง
 2. state ของ Download job และสิ่งที่เกิดกับไฟล์ในแต่ละทาง
+3. ผู้ใช้เลือกคลิปแล้วกดถอดจนเห็น Transcript
+4. state ของ Transcribe job และสิ่งที่เกิดกับ Transcript ในแต่ละทาง
 
 All diagrams use the same names as [spec.md](spec.md).
 
@@ -71,3 +73,70 @@ stateDiagram-v2
 - งานที่จบแล้วยังตอบใน `GET /downloads/current` จนมีงานใหม่ (D6)
 - `merging` ยกเลิกไม่ได้: `DELETE /downloads/current` ได้ `409` `merging` (D15)
 - งานนับว่าจบเมื่อ thread ออก ไม่ใช่ตอนได้ `DELETE` (D15)
+
+## 3. เลือกคลิปแล้วถอดจนเห็น Transcript
+
+```mermaid
+sequenceDiagram
+    actor U as ผู้ใช้
+    participant W as กล่องถอดบทพูด
+    participant A as Spoil API
+    participant T as Transcribe job (thread)
+    participant H as Whisper worker (process ลูก)
+
+    U->>W: กดแถวคลิป แล้วกด "ถอดบทพูด"
+    W->>A: POST /api/spoil/transcriptions
+    A->>A: เช็ค not_ready, not_found, busy
+    alt ไม่ผ่านข้อใดข้อหนึ่ง
+        A-->>W: 503 / 404 / 409 พร้อม code
+        W-->>U: ข้อความตาม code
+    else ผ่าน
+        A->>T: เริ่มงาน state preparing
+        A-->>W: 202 Transcribe job
+        T->>H: start process ลูก (spawn)
+        H->>H: load โมเดล
+        loop ทุกช่วง 300 วินาทีของเสียง
+            H->>H: read_audio ช่วงนี้ แล้ว transcribe
+            H-->>T: segment พร้อมบรรทัดผ่าน queue
+        end
+        H-->>T: done แล้ว exit
+        loop ทุก 1 วินาทีจนงานจบ
+            W->>A: GET /api/spoil/transcriptions/current
+            A-->>W: state และ percent
+        end
+        T->>T: เขียน {id}.transcript.json แล้ว state done
+        W->>A: GET /clips และ GET /clips/{id}/transcript
+        A-->>W: transcribed true และบรรทัด
+        W-->>U: Transcript, Copy, .txt, .srt
+    end
+```
+
+**ใครทำอะไร ตั้งแต่กดถอดจนเห็น Transcript**
+- gate ใช้แถว `torch`, `transformers`, `ffmpeg`, `model_whisper` และ `device` ไม่ใช่ `cpu` (D27)
+- Download job ไม่ทำให้ได้ `busy`; งานถอดสองงานทำให้ได้ (D24)
+- ถอดใน process ลูก: crash ไม่ล้ม backend และงานโหลด, memory คืนเมื่อ process ออก (D28)
+- เสียงดึงทีละช่วงเข้า memory ไม่ลงดิสก์; backend เขียน Transcript คนเดียว (D28, D29)
+- ยกเลิก = `DELETE /api/spoil/transcriptions/current` แล้ว backend terminate process ลูกทันที (D28)
+
+## 4. state ของ Transcribe job
+
+```mermaid
+stateDiagram-v2
+    [*] --> preparing: POST /transcriptions ผ่าน
+    preparing --> failed: no_audio หรือ model_failed หรือ crashed
+    preparing --> cancelled: flag ยกเลิก terminate process ลูก
+    preparing --> transcribing: ได้ segment แรก
+    transcribing --> cancelled: flag ยกเลิก terminate process ลูก
+    transcribing --> failed: model_failed หรือ crashed หรือ internal
+    transcribing --> done: เขียน Transcript แล้ว
+    done --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
+
+**งานจบได้สามทาง และ Transcript เป็นอย่างไร**
+- `done`: `{id}.transcript.json` ใหม่ทับของเดิม แถวแสดง "ถอดแล้ว" (D23)
+- `failed` และ `cancelled`: Transcript เดิม (ถ้ามี) ไม่ถูกแตะ; ทุกทาง process ลูกไม่เหลือ (D28, D29)
+- ระหว่างงานยังไม่จบ ลบคลิปนั้นได้ `409` `transcribing` (D27)
+- restart backend ระหว่างงาน → งานหาย Transcript เดิมยังอยู่ (ADR-0010)
+
