@@ -495,3 +495,24 @@
 - แก้ design ให้ตรง spec เดิม — ผู้ใช้อยากเก็บไว้
 
 **From:** design · **Status:** active
+
+## D34: ทางเลือกเล็กตอน build กล่องถอดบทพูด
+
+**Chosen:** รายละเอียดที่ build ticket 05 ตัดสินเองจาก conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **คลิปที่เลือก:** อยู่ใน `useTranscribe` (`selectedId`) ไม่ใช่ `useTempClips` เพราะเป็นของกล่อง (D25); แถวที่เลือก = แถว "กำลังเล่น" (D18)
+- **status ตัวเดียว:** `useSpoilDownload` เก็บ `/api/setup/status` ไว้ใน state ให้กล่องคิดแถว gate ของงานถอด (`torch`, `transformers`, `ffmpeg`, `model_whisper`, `device`) เอง — ไม่ GET status ซ้ำ; `503` ของ `POST /transcriptions` GET status อย่างเดียวใหม่ ไม่มีหน้า loading และข้อความของงานโหลดยังอยู่
+- **loading:** รอ `GET /transcriptions/current` ด้วย เพราะต้องรู้ว่าเลือกคลิปไหนตอนเปิด tab; ไม่ได้ → offline เหมือน route อื่น
+- **เลือกเพราะงานยังไม่จบตอนเปิด tab:** ไม่ `autoPlay` (เล่นเองเฉพาะเมื่อผู้ใช้กดแถว) และโหลด Transcript เดิมไว้ — ถอดใหม่แล้วยกเลิกหรือล้มยังเห็นของเดิม; งานจบทุกแบบโหลด Transcript ของคลิปนั้นใหม่ (`404` ตอนนั้นแปลว่ายังไม่เคยถอด ไม่โหลดรายการซ้ำ)
+- **`404` ของ `POST`:** รายการใหม่ไม่มีคลิปนั้นแล้ว กล่องจึงกลับเป็น "เลือกคลิปจากรายการ" พร้อม Alert "ไม่พบคลิปนี้" เหนือข้อความนั้น
+- **`409` `busy`:** body ไม่บอกคลิป จึง GET `/transcriptions/current` แล้วตามงานนั้น: คลิปนี้ → แถบ %, คลิปอื่น → "กำลังถอด {ชื่อ}"
+- **ข้อความหลังงานถอด:** ตั้งเฉพาะเมื่อคลิปของงานถูกเลือกอยู่ตอนงานจบ; หายเมื่อเลือกคลิปใหม่หรือกดถอด (frame 18). `done` จึงเห็น "ถอดเสร็จ" กับ "คลิปนี้ถอดแล้ว" พร้อมกันจนเลือกคลิปใหม่
+- **ลบคลิปที่กำลังถอด:** ไม่ปลด player และไม่ล้างกล่อง เพราะ API ตอบ `409` `transcribing` แน่ — ความคืบหน้ายังเห็นอยู่ (คลิปที่เลือกอื่นๆ ยังปลด player ก่อนลบตาม D15)
+- **Transcript `404` ทั้งที่ `transcribed`:** (ไฟล์ถูกลบด้วยมือ) โหลดรายการใหม่ให้แถวหาย "ถอดแล้ว"
+- **ระหว่างถอดใหม่:** ซ่อน Transcript เดิมจนงานจบ แล้วโหลดใหม่ (frame 16 ไม่มี Transcript)
+- **คลิปอื่นกำลังถอดแต่คลิปนี้ถอดแล้ว:** ปุ่ม disabled เขียน "ถอดใหม่" และยังเห็น Transcript เดิม
+- **หน้าตา:** กล่องบรรทัดสูงไม่เกิน 320px (Figma สูง 320 คงที่) ให้ Transcript สั้นไม่มีที่ว่าง; hover ของบรรทัดใช้ `surface-strong` เพราะสี hover ใน Figma (`muted`) เท่ากับพื้นกล่อง; สองคอลัมน์ที่ ≥ 1024px ด้วย `PageLayout wide` (กว้าง 1120); ปุ่ม primary ใช้ `PRIMARY_BUTTON` ร่วมกับปุ่มโหลด (disabled `opacity-60` แทน 50 ใน Figma ให้สองปุ่มเท่ากัน)
+- **ส่วนร่วม:** `ProgressCard` (component `Download progress`) และ `usePollWhile` (poll ทุก 1 วินาที) ใช้ทั้งงานโหลดและงานถอด; `NotReady`, `Notice` (`hooks/notice.ts`), `formatDuration`/`formatClock` (`components/format.ts`), `PRIMARY_BUTTON` (`components/ui/buttonStyles.ts`) ย้ายออกมาเมื่อมีผู้ใช้คนที่สอง
+
+**From:** build ticket 05 · **Status:** active

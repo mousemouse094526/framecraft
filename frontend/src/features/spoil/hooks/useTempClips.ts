@@ -17,6 +17,8 @@ export type TempClip = {
   thumbnail: string | null;
   downloaded_at: string;
   yt_dlp_version: string;
+  /** Has a Transcript (D23). */
+  transcribed: boolean;
 };
 
 export type ClipsState =
@@ -25,8 +27,6 @@ export type ClipsState =
   | {
       kind: "loaded";
       clips: TempClip[];
-      /** The clip in the player, or null when none is (D7). */
-      playingId: string | null;
       /** A delete's refusal from the API, by clip id, shown under that row (D15). */
       deleteErrors: Record<string, string>;
     };
@@ -34,28 +34,18 @@ export type ClipsState =
 export const CLIPS_PATH = "/api/spoil/clips";
 
 /**
- * The Temp clip list of the สปอย tab: loads it, plays one clip, deletes.
+ * The Temp clip list of the สปอย tab: loads it and deletes. Which clip is
+ * selected lives with the transcript panel (useTranscribe, D25).
  * Any failure (no backend, a status the API never sends, 30 s) is offline.
  */
 export function useTempClips() {
   const [state, setState, setIfMounted] = useMountedState<ClipsState>({ kind: "loading" });
 
-  /**
-   * Fetches the list without the loading screen; the clip playing keeps
-   * playing if it is still there. Delete errors go: they were about the old list.
-   */
+  /** Fetches the list without the loading screen. Delete errors go: they were about the old list. */
   const refetch = useCallback(async () => {
     try {
       const { clips } = await getJson<{ clips: TempClip[] }>(CLIPS_PATH);
-      setIfMounted((previous) => {
-        const playing = previous.kind === "loaded" ? previous.playingId : null;
-        return {
-          kind: "loaded",
-          clips,
-          playingId: clips.some((clip) => clip.id === playing) ? playing : null,
-          deleteErrors: {},
-        };
-      });
+      setIfMounted({ kind: "loaded", clips, deleteErrors: {} });
     } catch {
       setIfMounted({ kind: "offline" });
     }
@@ -64,14 +54,6 @@ export function useTempClips() {
   useEffect(() => {
     void refetch();
   }, [refetch]);
-
-  /** `null` closes the player. */
-  const play = useCallback(
-    (playingId: string | null) => {
-      setState((previous) => (previous.kind === "loaded" ? { ...previous, playingId } : previous));
-    },
-    [setState],
-  );
 
   /** Sends DELETE; the caller lets go of the player first (D15). */
   const remove = useCallback(
@@ -88,11 +70,10 @@ export function useTempClips() {
             return {
               ...previous,
               clips: previous.clips.filter((clip) => clip.id !== id),
-              playingId: previous.playingId === id ? null : previous.playingId,
               deleteErrors,
             };
           });
-        } else if (reply.status === 409 && refusal?.code === "in_use") {
+        } else if (reply.status === 409 && (refusal?.code === "in_use" || refusal?.code === "transcribing")) {
           const message = refusal.message;
           setIfMounted((previous) =>
             previous.kind === "loaded" ? { ...previous, deleteErrors: { ...previous.deleteErrors, [id]: message } } : previous,
@@ -113,5 +94,5 @@ export function useTempClips() {
     void refetch();
   }, [refetch, setState]);
 
-  return { state, refetch, reload, play, remove };
+  return { state, refetch, reload, remove };
 }

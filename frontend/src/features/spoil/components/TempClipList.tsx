@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
+import { formatDuration } from "./format";
 import deleteErrorIcon from "../assets/delete-error.svg";
 import playActiveIcon from "../assets/thumb-play-active.svg";
 import playIcon from "../assets/thumb-play.svg";
@@ -7,91 +8,79 @@ import trashIcon from "../assets/trash.svg";
 
 type Props = {
   clips: TempClip[];
-  playingId: string | null;
+  /** The clip in the transcript panel's player (D25). */
+  selectedId: string | null;
+  /** The clip the Transcribe job is on, while it is unfinished. */
+  transcribingId: string | null;
   deleteErrors: Record<string, string>;
   /** The row the message above is about: a new clip or a duplicate link (D12). */
   highlightId: string | null;
-  /** A clip id to play, or null to close the player. */
-  onPlay: (id: string | null) => void;
-  /** Called once the player has let go of the clip (D15). */
+  onSelect: (clip: TempClip) => void;
+  /** Lets go of the selected clip's file and empties the panel (D15). */
+  onClosePlayer: () => void;
   onDelete: (id: string) => void;
 };
 
-/** The player of the clicked clip, then the list, newest first (D7, D18). */
-export function TempClipList({ clips, playingId, deleteErrors, highlightId, onPlay, onDelete }: Props) {
-  const video = useRef<HTMLVideoElement>(null);
-
+/** The Temp clip list, newest first; a row puts its clip in the transcript panel (D7, D18, D25). */
+export function TempClipList(props: Props) {
+  const { clips, selectedId, transcribingId, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete } = props;
   const remove = (clip: TempClip) => {
     if (!window.confirm(`ลบ ${clip.title}?`)) return;
-    if (clip.id === playingId && video.current) {
-      // Windows can't delete a file the player still holds open (D15). The
-      // player stays closed even when the delete is refused.
-      video.current.removeAttribute("src");
-      video.current.load();
-      onPlay(null);
-    }
+    // Windows can't delete a file the player still holds open (D15). The panel
+    // stays empty even when the delete is refused, except for the clip being
+    // transcribed: the API refuses that one, so its progress stays (D34).
+    if (clip.id === selectedId && clip.id !== transcribingId) onClosePlayer();
     onDelete(clip.id);
   };
 
   return (
-    <>
-      {playingId && (
-        <video
-          ref={video}
-          key={playingId}
-          src={`${CLIPS_PATH}/${playingId}/video`}
-          controls
-          autoPlay
-          className="aspect-video w-full rounded-2xl bg-surface-inverse"
-        />
+    <section className="overflow-hidden rounded-2xl border border-border bg-card">
+      <h2 className="flex items-center gap-2 px-4 py-3 whitespace-nowrap">
+        <span className="text-sm leading-[1.5] font-medium text-foreground">คลิปที่โหลดมา</span>{" "}
+        <span className="font-mono text-[13px] leading-[1.5] font-normal text-muted-foreground">{clips.length}</span>
+      </h2>
+      {clips.length === 0 ? (
+        <p className="border-t border-border pt-10 pb-11 text-center text-sm leading-[1.5] text-muted-foreground">
+          ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน
+        </p>
+      ) : (
+        <ul>
+          {clips.map((clip) => (
+            <ClipRow
+              key={clip.id}
+              clip={clip}
+              selected={clip.id === selectedId}
+              highlighted={clip.id === highlightId}
+              deleteError={deleteErrors[clip.id] ?? null}
+              onSelect={() => onSelect(clip)}
+              onDelete={() => remove(clip)}
+            />
+          ))}
+        </ul>
       )}
-      <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        <h2 className="flex items-center gap-2 px-4 py-3 whitespace-nowrap">
-          <span className="text-sm leading-[1.5] font-medium text-foreground">คลิปที่โหลดมา</span>{" "}
-          <span className="font-mono text-[13px] leading-[1.5] font-normal text-muted-foreground">{clips.length}</span>
-        </h2>
-        {clips.length === 0 ? (
-          <p className="border-t border-border pt-10 pb-11 text-center text-sm leading-[1.5] text-muted-foreground">
-            ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน
-          </p>
-        ) : (
-          <ul>
-            {clips.map((clip) => (
-              <ClipRow
-                key={clip.id}
-                clip={clip}
-                playing={clip.id === playingId}
-                highlighted={clip.id === highlightId}
-                deleteError={deleteErrors[clip.id] ?? null}
-                onPlay={() => onPlay(clip.id)}
-                onDelete={() => remove(clip)}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-    </>
+    </section>
   );
 }
 
 type RowProps = {
   clip: TempClip;
-  playing: boolean;
+  /** In the panel's player; the row says กำลังเล่น (D18). */
+  selected: boolean;
   highlighted: boolean;
   deleteError: string | null;
-  onPlay: () => void;
+  onSelect: () => void;
   onDelete: () => void;
 };
 
-/** Figma component `Clip row`: default, highlight, playing, and a delete error under it. */
-function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: RowProps) {
+/** Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), and a delete error under it. */
+function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete }: RowProps) {
   const row = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
     if (highlighted) row.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [highlighted]);
 
-  const look = highlighted ? "border-l-3 border-l-brand-accent bg-accent-subtle" : playing ? "bg-muted" : "";
+  const look = highlighted ? "border-l-3 border-l-brand-accent bg-accent-subtle" : selected ? "bg-muted" : "";
 
   return (
     <li
@@ -101,7 +90,7 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
       className={`flex flex-col gap-2 border-t border-border py-3 pr-3 pl-4 ${look}`}
     >
       <div className="flex items-center gap-3">
-        <button type="button" onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <span className="relative h-[54px] w-24 shrink-0 overflow-hidden rounded bg-surface-strong">
             {clip.thumbnail && (
               <img
@@ -111,7 +100,7 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
               />
             )}
             <img
-              src={playing ? playActiveIcon : playIcon}
+              src={selected ? playActiveIcon : playIcon}
               alt=""
               width={20}
               height={20}
@@ -119,11 +108,18 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
             />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-sm leading-[1.5] font-medium text-foreground">{clip.title}</span>
-              {playing && (
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="min-w-[160px] flex-1 truncate text-sm leading-[1.5] font-medium text-foreground">
+                {clip.title}
+              </span>
+              {selected && (
                 <span className="shrink-0 rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
                   กำลังเล่น
+                </span>
+              )}
+              {clip.transcribed && (
+                <span className="shrink-0 rounded-full bg-success-surface px-2 py-0.5 font-button text-xs leading-4 font-medium text-success">
+                  ถอดแล้ว
                 </span>
               )}
             </span>
@@ -162,14 +158,6 @@ function fileLine(clip: TempClip): string {
   const orientation = clip.orientation === "portrait" ? "ตั้ง" : "นอน";
   const frame = clip.width && clip.height ? `${clip.width}×${clip.height} ${orientation}` : orientation;
   return [frame, formatSize(clip.file_bytes), formatTime(clip.downloaded_at)].join(" · ");
-}
-
-/** `h:mm:ss`, or `m:ss` under an hour. */
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = String(seconds % 60).padStart(2, "0");
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
 /** MB or GB with one decimal, in powers of 1000 like the backend's disk message. */

@@ -5,14 +5,16 @@ type Props = {
   tab: TabId;
   /** A button at the right end of the header, such as Refresh. */
   action?: ReactNode;
+  /** From 1024px the column is 1120px wide, for a page with two columns (spoil D25, D33). */
+  wide?: boolean;
   children: ReactNode;
 };
 
 /** The column every tab sits in: wordmark, tab bar, the tab's action, then its content. */
-export function PageLayout({ tab, action, children }: Props) {
+export function PageLayout({ tab, action, wide = false, children }: Props) {
   return (
-    <main className="min-h-screen bg-muted px-4 pt-6 pb-8 sm:px-0 sm:pt-16 sm:pb-20">
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-4">
+    <main className={`min-h-screen bg-muted px-4 pt-6 pb-8 sm:px-0 sm:pt-16 sm:pb-20 ${wide ? "lg:px-8" : ""}`}>
+      <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-4 ${wide ? "lg:max-w-[1120px]" : ""}`}>
         {/* The open tab names the page; the tab bar shows it, so the heading is for screen readers. */}
         <h1 className="sr-only">{TABS.find((t) => t.id === tab)?.label}</h1>
         {/* 375px frame 13: wordmark and action on one row, tabs below; desktop: one row. */}

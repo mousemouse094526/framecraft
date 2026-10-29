@@ -1,14 +1,14 @@
 # Progress: spoil
 
-**Now:** 01–04 done; design ของกล่องถอดบทพูดอยู่ใน Figma แล้ว (frame 14–19, D33) — 05 พร้อม build
+**Now:** 01–05 done; tab สปอยเป็นสองคอลัมน์พร้อมกล่องถอดบทพูดแล้ว — เหลือ 06 เช็คบน Windows NVIDIA ซึ่งรอ setup-status 03
 
 **Next:**
 
 ```
-/warroom-build spoil 05
+/warroom-build spoil 06
 ```
 
-06 รอ setup-status 03 (เช็คบน Windows NVIDIA)
+06 รอ setup-status 03 (เช็คบน Windows NVIDIA) — ทำ `/warroom-build setup-status 03` บนเครื่อง Windows ก่อน
 
 ## Tickets
 
@@ -18,10 +18,31 @@
 | 02 | แถบ tab และโหลดคลิปใน tab สปอย | done |
 | 03 | รายการ Temp clip | done |
 | 04 | Backend งานถอดบทพูดและ API | done |
-| 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | ready |
+| 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
 | 06 | เช็คบน Windows NVIDIA | ready |
 
 ## Log
+
+### 05: หน้าสองคอลัมน์และกล่องถอดบทพูด — done 2026-10-29
+
+**Built:**
+- tab สปอยสองคอลัมน์ (≥ 1024px): ช่องลิงก์ แถบโหลด และรายการในคอลัมน์ซ้าย 520px, ลูกศร →, กล่องถอดบทพูด (`TranscriptPanel`) กินที่เหลือ; แคบกว่าเรียงบนลงล่างพร้อมลูกศร ↓. `PageLayout` มี `wide` (1120px)
+- `useTranscribe`: คลิปที่เลือก, Transcript, Transcribe job; เปิด tab ขณะงานยังไม่จบ → เลือกคลิปนั้น (ไม่ autoPlay) และเห็น %; poll แยกจากงานโหลดผ่าน `usePollWhile` ที่ใช้ร่วมกัน; ผลของ `POST` ทุก code (`busy` ของคลิปนี้/คลิปอื่น, `404`, `503`, อื่น → offline); ข้อความหลังงานจบเป็น Alert ในกล่อง
+- กล่อง: ทุก state ของตาราง spec (ยังไม่เลือก, not ready, เลือกแล้ว, กำลังเตรียมเสียง/กำลังถอด %/กำลังยกเลิก, คลิปอื่นกำลังถอด, ถอดแล้ว, ไม่พบคำพูด); บรรทัด `[hh:mm:ss]` กดแล้ว `currentTime` + เล่น; Copy เนื้อเดียวกับ `.txt`; ลิงก์ `.txt`/`.srt`. แถวมี badge "ถอดแล้ว"; ลบคลิปที่เลือก → กล่องว่าง; ลบคลิปที่กำลังถอด → `transcribing` ใต้แถวและความคืบหน้ายังอยู่
+- ของร่วมใหม่: `ProgressCard` (component `Download progress` ของทั้งสองงาน), `NotReady`, `hooks/notice.ts`, `hooks/gate.ts`, `components/format.ts`, `PRIMARY_BUTTON`; icon ใหม่ arrow-right/down, clock, file-text จาก Figma
+- เช็คมือบน Mac ผ่าน Vite proxy: หนังที่ถอดใน 04 → 883 บรรทัด, กด `[00:02:20]` แล้ว player ไป 141.9 วินาทีและเล่น; Copy แล้ว `pbpaste` ตรงกับ `/transcript.txt` ทุก byte (65145 bytes); `.txt` และ `.srt` ตอบ `200` พร้อม `Content-Disposition: attachment` (ไม่ได้กดโหลดไฟล์จริงใน browser); ถอด Shorts NASA 0:39 ใหม่ — กำลังเตรียมเสียง… → "ถอดเสร็จ" กับบรรทัดและ badge ถอดแล้ว ใน ~40 วินาที; ขนาดตรง Figma frame 15–17 (กล่อง 544px, player 284px, บรรทัดสูงสุด 320px) และ 375px ตรง frame 19 ไม่มี scroll แนวนอน
+
+**Decided:**
+- D34 — ทางเลือกเล็ก: คลิปที่เลือกอยู่กับ `useTranscribe`, status GET ครั้งเดียว และ `503` เช็คแค่ status, `busy` → GET current, ลบคลิปที่กำลังถอดไม่ปลด player, Transcript เดิมอยู่ถ้าถอดใหม่แล้วยกเลิก, ไม่ autoPlay เมื่อเลือกเพราะงาน, `404` ของ POST เป็น Alert ในกล่องว่าง, `PRIMARY_BUTTON` disabled 60
+
+**For the next ticket:**
+- 06: บน Windows เลือกคลิปที่กำลังเล่นแล้วกดลบ — player ในกล่องต้องปลดก่อน `DELETE` (D15) แล้วได้ลบสำเร็จหรือ `in_use`
+- 06: ถอดหนังยาวบน `cuda` ผ่านหน้าเว็บ — % ควรขยับทุกช่วง 300 วินาที (บน Mac ไม่ได้ลอง % ของหนังยาวผ่านหน้าเว็บในรอบนี้ ใช้ test ครอบ)
+- หลัง `done` กล่องมีสอง Alert ("ถอดเสร็จ" กับ "คลิปนี้ถอดแล้ว") จนเลือกคลิปใหม่ — ตาม spec แต่ถ้าผู้ใช้ว่ารก ให้ซ่อน "คลิปนี้ถอดแล้ว" ขณะมีข้อความ `done`
+- เปิด tab ขณะงานยังไม่จบ กล่องขอ Transcript ของคลิปนั้นล่วงหน้า; คลิปที่ยังไม่เคยถอดได้ `404` ใน console ของ browser (ไม่มีผลกับหน้า)
+- review ที่ไม่ได้แก้: `gate.ts`, `notice.ts` อยู่ใน `hooks/` ทั้งที่ไม่ใช่ hook (เหมือน `refusal.ts` เดิม); fake backend ใน test ตอบ route ทีละครั้งตามลำดับ อ่านยากเมื่อ route ซ้ำหลายตัว
+
+**Checks:** `uv run pytest` — 165 passed; `npm --prefix frontend test` — 66 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 04: Backend งานถอดบทพูดและ API — done 2026-10-29
 

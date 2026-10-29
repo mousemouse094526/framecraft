@@ -1,6 +1,6 @@
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
-import type { Notice } from "../hooks/useSpoilDownload";
+import type { Notice } from "../hooks/notice";
 import errorIcon from "../assets/alert-error.svg";
 import infoIcon from "../assets/alert-info.svg";
 import successIcon from "../assets/alert-success.svg";

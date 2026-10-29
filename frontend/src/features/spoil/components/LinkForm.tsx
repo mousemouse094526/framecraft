@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
+import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 
 type Props = {
   /** A job is unfinished: โหลด waits for it (D6). */
@@ -33,7 +34,7 @@ export function LinkForm({ busy, onSubmit }: Props) {
       <button
         type="submit"
         disabled={busy}
-        className="h-10 shrink-0 rounded-lg bg-brand px-6 font-button text-sm leading-5 font-medium text-card hover:opacity-90 disabled:opacity-60"
+        className={`h-10 px-6 ${PRIMARY_BUTTON}`}
       >
         โหลด
       </button>

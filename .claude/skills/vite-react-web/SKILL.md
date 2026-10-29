@@ -21,7 +21,8 @@ frontend/src/
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   └── hooks/        ← data fetching and state (calls lib/api)
 ├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
-│                        tab bar, action), OfflinePanel, RefreshButton
+│                        tab bar, action; `wide` = 1120px from lg for two
+│                        columns), OfflinePanel, RefreshButton
 └── lib/
     ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them

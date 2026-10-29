@@ -10,7 +10,7 @@
 - Screens: layout สองคอลัมน์, กล่องถอดบทพูด
 - Seams: 4 (ข้อของกล่องถอดบทพูด)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 
