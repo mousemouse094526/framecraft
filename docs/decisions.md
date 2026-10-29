@@ -98,4 +98,5 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กตอน build งานถอด: `float32` บน `mps`, ชื่อภาษา → code, ตัดเวลาจบที่จบช่วง, gate ใช้ check เดียวกับ Status check, `415` เป็น router dependency, terminate → kill หลัง 5 วินาที | [spoil](features/spoil/decisions.md) | D30 | — | [0012](adr/0012-gpu-jobs-in-child-process.md), [0013](adr/0013-post-requires-json.md) | active |
 | ไม่กรองบรรทัดที่ Whisper แต่งในช่วงไม่มีคำพูด ผู้ใช้ลบเอง | [spoil](features/spoil/decisions.md) | D31 | — | — | active |
 | ยอมรับเวลาบรรทัดตาม Whisper long-form แม้บางบรรทัดคลาด 2–3 วินาที | [spoil](features/spoil/decisions.md) | D32 | — | — | active |
+| ของบนจอที่ design ของกล่องถอดเพิ่ม: ช่องลิงก์อยู่คอลัมน์ซ้าย, ข้อความหลังงานถอดเป็น Alert ในกล่อง, แถบ % แบบ Download progress, Transcript ว่างไม่มีปุ่ม Copy/ไฟล์ | [spoil](features/spoil/decisions.md) | D33 | — | — | active |
 

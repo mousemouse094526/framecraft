@@ -41,8 +41,8 @@
 | แถบ tab | 1 | tab "สปอย" และ "Setup status" ตามลำดับนี้, tab ที่เปิดอยู่เด่นกว่า (D10) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frame "Tab bar / Setup status active" และ header ของทุก frame สปอย; component `Tab` |
 | tab สปอย | 2, 3, 6, 7 | ช่องลิงก์กับปุ่ม "โหลด"; ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ไป Setup status แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 1 loading, 2–3 idle, 4 downloading, 5 progress states, 6 done, 7 failed with fix, 8 messages, 9 duplicate, 11 not ready, 12 offline, 13 mobile 375px; component `Download progress` |
 | หน้าต่างรายการ Temp clip | 4, 5 | ใน tab สปอยใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); state ว่าง: "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน" | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 2 empty, 3 list, 6 and 9 highlight, 10 playing and delete error; component `Clip row` (D18) |
-| layout สองคอลัมน์ | 8 | จอกว้าง: รายการคลิปซ้าย, ลูกศร → กลาง, กล่องถอดบทพูดขวา; 375px เรียงบนลงล่างพร้อมลูกศร ↓ (D25); แถวที่เลือกเด่นกว่า; แถวที่ถอดแล้วมีสถานะ "ถอดแล้ว" (D23) | pending |
-| กล่องถอดบทพูด | 8–11 | ยังไม่เลือก: "เลือกคลิปจากรายการ"; เลือกแล้ว: player, ชื่อคลิป, ความยาว, ปุ่ม "ถอดบทพูด" (ถอดแล้ว → "ถอดใหม่" พร้อม alert "คลิปนี้ถอดแล้ว"); ระหว่างถอด: "กำลังเตรียมเสียง…" หรือ "กำลังถอด {n}%" กับแถบ % และปุ่ม "ยกเลิก"; Transcript: บรรทัด `[hh:mm:ss] ข้อความ` กดได้, ภาษาที่ตรวจได้, ปุ่ม Copy, `.txt`, `.srt`; ว่าง: "ไม่พบคำพูดในคลิปนี้"; error ของงานถอด; ติดตั้งไม่ครบ: ข้อความกับลิงก์ไป Setup status แทนปุ่มถอด (D22–D27) | pending |
+| layout สองคอลัมน์ | 8 | จอกว้าง: รายการคลิปซ้าย, ลูกศร → กลาง, กล่องถอดบทพูดขวา; 375px เรียงบนลงล่างพร้อมลูกศร ↓ (D25); แถวที่เลือกเด่นกว่า; แถวที่ถอดแล้วมีสถานะ "ถอดแล้ว" (D23); ช่องลิงก์กับแถบโหลดอยู่คอลัมน์ซ้ายเหนือรายการ (D33) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 14 nothing selected, 15 selected, 16 transcribing while downloading, 17 transcribed, 19 mobile 375 stacked; component `Clip row` (property `Show transcribed`), icon `icon/arrow-right`, `icon/arrow-down` |
+| กล่องถอดบทพูด | 8–11 | ยังไม่เลือก: "เลือกคลิปจากรายการ"; เลือกแล้ว: player, ชื่อคลิป, ความยาว, ปุ่ม "ถอดบทพูด" (ถอดแล้ว → "ถอดใหม่" พร้อม alert "คลิปนี้ถอดแล้ว"); ระหว่างถอด: "กำลังเตรียมเสียง…" หรือ "กำลังถอด {n}%" กับแถบ % และปุ่ม "ยกเลิก"; Transcript: บรรทัด `[hh:mm:ss] ข้อความ` กดได้, ภาษาที่ตรวจได้, ปุ่ม Copy, `.txt`, `.srt`; ว่าง: "ไม่พบคำพูดในคลิปนี้"; error ของงานถอด; ติดตั้งไม่ครบ: ข้อความกับลิงก์ไป Setup status แทนปุ่มถอด (D22–D27); ข้อความหลังงานจบเป็น Alert ในกล่อง (D33) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — component `Transcript panel` (ทุก state), `Transcript line`, `Player`; frames: 14–17, 18 messages, 19 mobile |
 
 ออกแบบใน Figma หลัง plan (setup-status D9) ในไฟล์เดียวกับหน้า Setup status. Section "framecraft — สปอย" มี component `Tab`, `Clip row`, `Download progress` และ frame ทุก state; ใช้ token และ component ของหน้า `:: Token` (Button, Field, Alert, Badge, icon).
 
@@ -398,21 +398,21 @@ tab สปอย:
 | ยังไม่เลือก | ไม่มีคลิปที่เลือก | "เลือกคลิปจากรายการ" |
 | not ready | แถว gate ของงานถอด (D27) ไม่ผ่าน | player และ "ยังติดตั้งไม่ครบ: {label ที่ขาด}" กับลิงก์ไป Setup status แทนปุ่มถอด |
 | เลือกแล้ว | คลิปไม่มี Transcript | player, ชื่อ, ความยาว, ปุ่ม "ถอดบทพูด" |
-| ถอดแล้ว | `transcribed` เป็น `true` | alert "คลิปนี้ถอดแล้ว", ปุ่ม "ถอดใหม่", Transcript |
-| กำลังถอด | งานของคลิปนี้ยังไม่จบ | "กำลังเตรียมเสียง…" หรือ "กำลังถอด {percent}%" กับแถบ %, ปุ่ม "ยกเลิก"; cancel_requested → "กำลังยกเลิก…" |
+| ถอดแล้ว | `transcribed` เป็น `true` | alert "คลิปนี้ถอดแล้ว", ปุ่ม "ถอดใหม่", Transcript; ไม่มีบรรทัด → "ไม่พบคำพูดในคลิปนี้" ไม่มีปุ่ม Copy, `.txt`, `.srt` (D33) |
+| กำลังถอด | งานของคลิปนี้ยังไม่จบ | "กำลังเตรียมเสียง…" กับแถบไม่มีตัวเลข หรือ "กำลังถอด" กับแถบ % และ "{percent}%" ขวา (component `Download progress`, D33), ปุ่ม "ยกเลิก"; cancel_requested → "กำลังยกเลิก…" |
 | คลิปอื่นกำลังถอด | งานของคลิปอื่นยังไม่จบ | ปุ่มถอด disabled กับ "กำลังถอด {ชื่อคลิปนั้น}" |
 
 กฎอื่นของกล่อง:
 - กดแถว = เลือกคลิปนั้นและเล่นใน player ของกล่อง (แทน player เหนือรายการ, D25); แถวที่เลือกมี badge "กำลังเล่น" (D18)
 - เปิด tab → `GET /api/spoil/transcriptions/current` ครั้งหนึ่ง; งานยังไม่จบ → เลือกคลิปนั้นและเข้า state กำลังถอด
 - poll `GET /api/spoil/transcriptions/current` ทุก 1 วินาทีเฉพาะตอนงานยังไม่จบ แยกจาก poll ของงานโหลด; จบ → `GET /api/spoil/clips` ครั้งเดียว และถ้า `done` โหลด Transcript ของคลิปที่เลือก
-- ข้อความหลังงานถอดจบ: `done` → "ถอดเสร็จ"; `cancelled` → "ยกเลิกแล้ว"; `failed` → `error.message`; poll ได้ `null` → "งานถอดหายเพราะ backend เริ่มใหม่ ลองถอดอีกครั้ง"
+- ข้อความหลังงานถอดจบ: `done` → "ถอดเสร็จ"; `cancelled` → "ยกเลิกแล้ว"; `failed` → `error.message`; poll ได้ `null` → "งานถอดหายเพราะ backend เริ่มใหม่ ลองถอดอีกครั้ง". เป็น `Alert` ในกล่อง ใต้ชื่อคลิปและความยาว: `done` success, `cancelled` info, `failed` error, `null` warning; `404` ของ `POST` → "ไม่พบคลิปนี้" error (D33)
 - บรรทัดของ Transcript: `[hh:mm:ss] ข้อความ`; กด → `video.currentTime = start_s` แล้วเล่น; ใต้หัวแสดง "ภาษา: {language}" หรือ "ภาษา: ไม่ทราบ" เมื่อ `null` (D29)
 - ผลของ `POST /transcriptions`: `409` `busy` ที่งานเป็นของคลิปนี้ → เข้า state กำลังถอด; `busy` ของคลิปอื่น → "กำลังถอด {ชื่อคลิปนั้น}"; `404` `not_found` → "ไม่พบคลิปนี้" แล้วโหลดรายการใหม่; `503` `not_ready` → state not ready ของกล่อง; อื่น → offline (D29)
 - Copy → คัดลอกเนื้อเดียวกับ `.txt` ด้วย `useCopy`; `.txt` และ `.srt` เป็นลิงก์ไป API (browser โหลดไฟล์เอง)
 - ลบคลิปที่เลือกอยู่ → กล่องกลับเป็น "ยังไม่เลือก"; `409` `transcribing` → `message` ใต้แถว
 - แถวที่ `transcribed` มี badge "ถอดแล้ว" (D23)
-- จอกว้าง ≥ 1024px สองคอลัมน์มีลูกศร →; แคบกว่าเรียงบนลงล่างมีลูกศร ↓ (D25)
+- จอกว้าง ≥ 1024px สองคอลัมน์มีลูกศร →; แคบกว่าเรียงบนลงล่างมีลูกศร ↓ (D25). คอลัมน์ซ้ายกว้าง 520px มีช่องลิงก์, แถบโหลด และรายการ; กล่องกินที่เหลือ (D33)
 
 ### Ops
 

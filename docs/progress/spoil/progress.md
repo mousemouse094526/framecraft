@@ -1,14 +1,14 @@
 # Progress: spoil
 
-**Now:** 01–04 done; backend ถอดบทพูดพร้อมแล้ว (API, ไฟล์ `.txt`/`.srt`) — หน้าเว็บของการถอด (05) รอ design ใน Figma
+**Now:** 01–04 done; design ของกล่องถอดบทพูดอยู่ใน Figma แล้ว (frame 14–19, D33) — 05 พร้อม build
 
 **Next:**
 
 ```
-/warroom spoil
+/warroom-build spoil 05
 ```
 
-05 รอ design ใน Figma (Blocked #4, #5) — ส่งลิงก์ frame ใน `/warroom spoil` แล้วต่อด้วย `/warroom-build spoil 05`; 06 รอ setup-status 03 (เช็คบน Windows NVIDIA)
+06 รอ setup-status 03 (เช็คบน Windows NVIDIA)
 
 ## Tickets
 
@@ -115,5 +115,5 @@
 | 1 | 02 | design: แถบ tab | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
 | 2 | 02 | design: tab สปอย | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
 | 3 | 03 | design: หน้าต่างรายการ Temp clip | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
-| 4 | 05 | design: layout สองคอลัมน์ | `/warroom spoil` พร้อมลิงก์ Figma frame | open |
-| 5 | 05 | design: กล่องถอดบทพูด | `/warroom spoil` พร้อมลิงก์ Figma frame | open |
+| 4 | 05 | design: layout สองคอลัมน์ | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
+| 5 | 05 | design: กล่องถอดบทพูด | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
