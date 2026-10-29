@@ -214,6 +214,34 @@
 
 **From:** design link · **Status:** active
 
+## D16: ไฟล์ที่โหลดและ revision ที่ pin ของโมเดล
+
+**Chosen:** OmniVoice pin `c5fdb5c` โหลดแค่ `*.json`, `*.safetensors`, `*.jinja`. Whisper pin `41f01f3` โหลดแค่ `*.json`, `*.safetensors`, `*.txt`. ไม่โหลด README, LICENSE หรือ `.gitattributes`.
+
+**Why:** ได้ไฟล์ที่ `transformers` และ `omnivoice` ต้องใช้ครบ (config, weights, tokenizer, chat template) โดยไม่มีไฟล์เกิน. commit hash คือล่าสุดของแต่ละ repo ณ 2026-10-29 ตาม spec.
+
+**From:** build ticket 01 · **Status:** active
+
+## D17: เช็คว่า PID ของ lock ยังทำงานแยกตาม OS
+
+**Chosen:** Mac ใช้ `os.kill(pid, 0)`. Windows ใช้ `OpenProcess` กับ `GetExitCodeProcess` ผ่าน `ctypes`.
+
+**Why:** บน Windows `os.kill(pid, 0)` เรียก `TerminateProcess` จึงฆ่า setup อีกหน้าต่างแทนการเช็ค.
+
+**Details:**
+- lock ที่อ่านเป็นเลขไม่ได้ถือว่าค้าง เขียนทับได้
+- ทางของ Windows ยังไม่ได้รันจริง ticket 03 ต้องทดสอบ
+
+**From:** build ticket 01 · **Status:** active
+
+## D18: จุด inject สำหรับ test ของ checks และ setup
+
+**Chosen:** `run_checks(root, device_probe, ffmpeg_probe)` ใช้ค่า default ตอนเรียก (ไม่ใช่ตอนประกาศ) จึง monkeypatch `backend.paths.ROOT` และ probe ใน test ของ API ได้. `run_setup` รับ `download`, `backend_running`, `free_bytes` และ probe ทั้งสอง. Cache ของ device อยู่ใน class `DeviceProbe` ที่ห่อตัว detect.
+
+**Why:** ให้ test ผ่าน seam 1 ได้ทุกข้อโดยไม่โหลดโมเดล, ไม่ import torch และไม่ขึ้นกับเครื่อง. แยก cache ออกจาก torch ทำให้พิสูจน์กฎ "cpu ไม่ cache" ได้.
+
+**From:** build ticket 01 · **Status:** active
+
 ## Sources
 
 - [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) — `get_ffmpeg_exe()` และ binary ที่มากับ wheel (accessed 2026-10-28)

@@ -25,4 +25,7 @@ def test_missing_marker(tmp_path):
 
 ## Good examples
 
-- None yet — the first ticket that touches this layer sets it.
+- [backend/tests/conftest.py](../../../../backend/tests/conftest.py) — the `fake_root` fixture only.
+- [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — plain helpers tests import: `write_snapshot`, `write_marker`, fake probes.
+- [backend/tests/test_setup.py](../../../../backend/tests/test_setup.py) — `FakeDownload` stands in for `snapshot_download`.
+- [backend/tests/test_app.py](../../../../backend/tests/test_app.py) — API tests monkeypatch `backend.paths.ROOT` and the default probes in `backend.checks`.

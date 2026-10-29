@@ -26,6 +26,8 @@ question; the full entry is in the feature's decisions.md.
 | กฎ red team: `setup.cmd` สำหรับ Windows, pin revision โมเดล, `cache_dir` ชัดเจน, lock และเช็คดิสก์, torchaudio cu128 | [setup-status](features/setup-status/decisions.md) | D13 | — | [0003](adr/0003-everything-inside-project.md), [0004](adr/0004-pinned-model-registry.md) | active |
 | ติดตั้งด้วย script บน terminal, เว็บแค่แสดงสถานะ | [setup-status](features/setup-status/decisions.md) | D3 | — | [0002](adr/0002-install-only-in-setup.md) | active |
 | `setup.sh` กับ `setup.ps1` บางๆ เรียก `backend.setup` ตัวเดียว | [setup-status](features/setup-status/decisions.md) | D8 | — | [0002](adr/0002-install-only-in-setup.md) | active |
+| เช็ค PID ของ setup lock: `os.kill(pid, 0)` บน Mac, `OpenProcess` บน Windows | [setup-status](features/setup-status/decisions.md) | D17 | — | — | active |
+| จุด inject สำหรับ test: probe, `download`, `backend_running`, `free_bytes`, `DeviceProbe` | [setup-status](features/setup-status/decisions.md) | D18 | — | — | active |
 | Status check เป็น checklist 9 รายการ ไม่โหลดโมเดล ไม่ใช้ network | [setup-status](features/setup-status/decisions.md) | D7 | — | [0004](adr/0004-pinned-model-registry.md) | active |
 
 ## ffmpeg
@@ -40,6 +42,7 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | เก็บโมเดลใน `models/` ของ project ผ่าน `HF_HOME` | [setup-status](features/setup-status/decisions.md) | D6 | — | [0003](adr/0003-everything-inside-project.md) | changed by D13 |
 | ใช้ OmniVoice แบบไม่หารายได้เท่านั้น, แสดง license | [setup-status](features/setup-status/decisions.md) | D11 | — | [0007](adr/0007-non-commercial-use.md) | active |
+| revision ที่ pin และ `allow_patterns` ของ OmniVoice และ Whisper | [setup-status](features/setup-status/decisions.md) | D16 | — | [0004](adr/0004-pinned-model-registry.md) | active |
 
 ## UI design
 

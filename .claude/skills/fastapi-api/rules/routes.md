@@ -24,4 +24,4 @@ def get_status() -> StatusResponse:
 
 ## Good examples
 
-- None yet — the first ticket that touches this layer sets it.
+- [backend/routes/setup_status.py](../../../../backend/routes/setup_status.py) — one router, one call to `run_checks`, always 200.
