@@ -14,13 +14,13 @@ const OMNIVOICE_LICENSE = {
 
 const WHISPER_LICENSE = {
   name: "MIT",
-  url: "https://huggingface.co/openai/whisper-large-v3-turbo/blob/main/README.md",
+  url: "https://opensource.org/license/mit",
   author: "OpenAI",
   model_url: "https://huggingface.co/openai/whisper-large-v3-turbo",
 };
 
 function okItem(id: string, label: string, detail: string): ChecklistItem {
-  return { id, label, status: "ok", detail, fix: null, license: null };
+  return { id, label, status: "ok", detail, fix: null, fix_kind: null, license: null };
 }
 
 const READY_ITEMS: ChecklistItem[] = [
@@ -109,6 +109,7 @@ describe("SetupStatusPage", () => {
       status: "warning",
       detail: "cpu — ไม่พบ mps/cuda (ช้า)",
       fix: "ต้องเป็น Mac Apple Silicon",
+      fix_kind: "hint",
     });
     fetchMock.mockResolvedValue(jsonResponse(statusOf(items)));
 
@@ -125,6 +126,7 @@ describe("SetupStatusPage", () => {
       status: "missing",
       detail: "ไม่พบ marker ใน models/.setup",
       fix: "./setup.sh",
+      fix_kind: "command",
     });
     fetchMock.mockResolvedValue(jsonResponse(statusOf(items)));
 
@@ -138,11 +140,12 @@ describe("SetupStatusPage", () => {
     expect(await navigator.clipboard.readText()).toBe("./setup.sh");
   });
 
-  it("shows a fix that is a sentence as plain text without a copy button", async () => {
+  it("shows a hint fix as plain text without a copy button", async () => {
     const items = replaceItem("device", {
       status: "warning",
       detail: "cpu",
       fix: "ต้องเป็น Mac Apple Silicon",
+      fix_kind: "hint",
     });
     fetchMock.mockResolvedValue(jsonResponse(statusOf(items)));
 
@@ -151,6 +154,21 @@ describe("SetupStatusPage", () => {
     const row = await screen.findByRole("listitem", { name: "Device" });
     expect(within(row).getByText("ต้องเป็น Mac Apple Silicon")).toBeInTheDocument();
     expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("shows a command fix as a copy chip even when it has spaces", async () => {
+    const items = replaceItem("torch", {
+      status: "missing",
+      detail: "ยังไม่ได้ติดตั้ง",
+      fix: "uv sync",
+      fix_kind: "command",
+    });
+    fetchMock.mockResolvedValue(jsonResponse(statusOf(items)));
+
+    render(<SetupStatusPage />);
+
+    const row = await screen.findByRole("listitem", { name: "torch" });
+    expect(within(row).getByRole("button", { name: "คัดลอก uv sync" })).toBeInTheDocument();
   });
 
   it("shows license, author, license link and model link on model rows", async () => {

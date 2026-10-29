@@ -262,7 +262,7 @@
 **Details:**
 - ถ้าวันหนึ่ง `fix` เป็นคำสั่งที่มีช่องว่าง ให้เพิ่ม field บอกชนิดใน API แทน
 
-**From:** build ticket 02 · **Status:** active
+**From:** build ticket 02 · **Status:** changed by D26
 
 ## D21: รายละเอียดหน้า Setup status ที่ spec ไม่ได้บอก
 
@@ -349,6 +349,25 @@
 - README ยังบอกวิธีรันบน Windows; ยังไม่เคยลองบนเครื่องจริงจนกว่า `windows-check` 01 จะ `done`
 
 **From:** change request · **Status:** active
+
+## D26: แก้จาก feature review — `fix_kind`, `Probes`, แถว Python
+
+**Chosen:**
+- API ส่ง `fix_kind` (`command` หรือ `hint`) คู่กับ `fix`; หน้าเว็บแสดง chip พร้อมปุ่ม copy เมื่อเป็น `command` ไม่ดูช่องว่างอีก
+- `run_checks(root, probes, sys_platform)` และ `run_setup(..., probes=)` รับ probe ทั้งสี่ (device, ffmpeg, deno, yt-dlp) เป็น dataclass `Probes` ตัวเดียว; test ใช้ `fake_probes(**overrides)`
+- probe ของ ffmpeg กับ Deno รันคำสั่งเวอร์ชันผ่าน helper เดียว timeout 5 วินาที
+- แถว `python`: รันนอก `.venv` → "ไม่ใช่ .venv ของ project"; อยู่ใน `.venv` แต่ไม่ใช่ 3.12 → "ใน .venv ต้องเป็น 3.12"
+
+**Why:** review พบว่า frontend เดาชนิดของ `fix` จากช่องว่าง (สัญญาที่ไม่ได้เขียนไว้), probe สี่ตัวเดินทางด้วยกันทุก call, และแถว Python บอกสาเหตุผิดเมื่อ `.venv` เป็นเวอร์ชันอื่น. ผู้ใช้เลือกแก้ทั้งหมดใน feature review.
+
+**Rejected:**
+- คงกฎช่องว่างของ D20 — คำสั่งที่มีช่องว่าง (เช่น `uv sync`) จะกลายเป็นข้อความ
+
+**Details:**
+- changes D20; D18 จุด inject เหมือนเดิม แค่ probe รวมเป็น `Probes`
+- `fix` ของแถว `python` ยังเป็น "รัน backend ด้วย `npm run dev`" (`hint`) ทั้งสองกรณี
+
+**From:** feature review · **Status:** active
 
 ## Sources
 

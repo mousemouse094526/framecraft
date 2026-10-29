@@ -1,4 +1,4 @@
-import type { ChecklistItem, ItemStatus, License } from "../../../lib/statusTypes";
+import type { ChecklistItem, FixKind, ItemStatus, License } from "../../../lib/statusTypes";
 import { useCopy } from "../../../lib/useCopy";
 import copyIcon from "../assets/copy.svg";
 import externalLinkIcon from "../assets/external-link.svg";
@@ -35,7 +35,7 @@ function Row({ item }: { item: ChecklistItem }) {
         </p>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <p className={`leading-[22px] break-words ${look.detailClass}`}>{item.detail}</p>
-          {item.status !== "ok" && item.fix && <Fix fix={item.fix} />}
+          {item.status !== "ok" && item.fix && <Fix fix={item.fix} kind={item.fix_kind} />}
           {item.license && <LicenseLine license={item.license} />}
         </div>
       </div>
@@ -44,15 +44,14 @@ function Row({ item }: { item: ChecklistItem }) {
 }
 
 /**
- * The API sends one `fix` for the OS the backend runs on (D15). A command
- * (`./setup.sh`, `setup.cmd`) has no spaces and gets a copy chip; a sentence
- * is shown as plain text.
+ * The API sends one `fix` for the OS the backend runs on (D15) and says
+ * whether it is a command (copy chip) or a hint (plain text).
  */
-function Fix({ fix }: { fix: string }) {
-  if (/\s/.test(fix)) {
-    return <p className="text-[13px] leading-5 text-foreground">{fix}</p>;
+function Fix({ fix, kind }: { fix: string; kind: FixKind | null }) {
+  if (kind === "command") {
+    return <CommandChip command={fix} />;
   }
-  return <CommandChip command={fix} />;
+  return <p className="text-[13px] leading-5 text-foreground">{fix}</p>;
 }
 
 function CommandChip({ command }: { command: string }) {

@@ -9,7 +9,7 @@ from backend.models import MODELS, OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
-from .fakes import cuda_device, item, ok_deno, ok_ffmpeg, ok_yt_dlp, write_snapshot
+from .fakes import MODEL_FILES, fake_probes, item, write_snapshot
 
 GB = 1_000_000_000
 
@@ -51,16 +51,13 @@ class FakeDownload:
         return str(write_snapshot(self.root, model, revision))
 
 
-def run_with_fakes(root, download, **overrides):
+def run_with_fakes(root, download, probes=None, **overrides):
     options = {
         "download": download,
         "npm_install": FakeNpmInstall(),
         "backend_running": lambda: False,
         "free_bytes": lambda path: 100 * GB,
-        "device_probe": cuda_device,
-        "ffmpeg_probe": ok_ffmpeg,
-        "deno_probe": ok_deno,
-        "yt_dlp_probe": ok_yt_dlp,
+        "probes": probes or fake_probes(),
     }
     return run_setup(root, **(options | overrides))
 
@@ -73,8 +70,8 @@ def test_successful_download_writes_markers_and_exits_0(empty_root, capsys):
     assert exit_code == 0
     marker = json.loads(ProjectPaths(empty_root).marker(OMNIVOICE).read_text(encoding="utf-8"))
     assert marker["revision"] == OMNIVOICE.revision
-    assert marker["size_bytes"] == 4216
-    result = run_checks(empty_root, device_probe=cuda_device, ffmpeg_probe=ok_ffmpeg)
+    assert marker["size_bytes"] == sum(MODEL_FILES.values())
+    result = run_checks(empty_root, fake_probes())
     assert item(result, "model_omnivoice").status == "ok"
     assert item(result, "model_whisper").status == "ok"
     assert "ขั้นต่อไป: รัน npm run dev แล้วเปิด http://localhost:5173" in capsys.readouterr().out
@@ -151,7 +148,7 @@ def test_missing_items_after_download_exit_1(empty_root, capsys):
     def broken_ffmpeg():
         raise RuntimeError("no ffmpeg")
 
-    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), ffmpeg_probe=broken_ffmpeg)
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fake_probes(ffmpeg=broken_ffmpeg))
 
     assert exit_code == 1
     assert "ffmpeg" in capsys.readouterr().out

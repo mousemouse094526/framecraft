@@ -1,3 +1,5 @@
+import sys
+
 from backend.checks import DeviceProbe, run_checks
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
@@ -5,24 +7,15 @@ from backend.paths import ProjectPaths
 from .fakes import (
     broken_deno,
     broken_ffmpeg,
-    cuda_device,
+    fake_probes,
     item,
-    ok_deno,
-    ok_ffmpeg,
-    ok_yt_dlp,
     write_marker,
 )
 
 
-def checks_with_fakes(root, **overrides):
+def checks_with_fakes(root, sys_platform=None, **probe_overrides):
     """run_checks with every probe faked as passing on a CUDA machine, unless overridden."""
-    probes = {
-        "device_probe": cuda_device,
-        "ffmpeg_probe": ok_ffmpeg,
-        "deno_probe": ok_deno,
-        "yt_dlp_probe": ok_yt_dlp,
-    }
-    return run_checks(root, **(probes | overrides))
+    return run_checks(root, fake_probes(**probe_overrides), sys_platform)
 
 
 def test_complete_root_with_cuda_is_ready_with_eleven_ok(fake_root):
@@ -34,7 +27,7 @@ def test_complete_root_with_cuda_is_ready_with_eleven_ok(fake_root):
 
 
 def test_cpu_only_device_is_a_warning_but_still_ready(fake_root):
-    result = checks_with_fakes(fake_root, device_probe=lambda: "cpu")
+    result = checks_with_fakes(fake_root, device=lambda: "cpu")
 
     assert result.ok_count == 10
     assert result.warning_count == 1
@@ -79,7 +72,7 @@ def test_marker_with_another_revision_makes_model_missing(fake_root):
 
 
 def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
-    result = checks_with_fakes(fake_root, ffmpeg_probe=broken_ffmpeg)
+    result = checks_with_fakes(fake_root, ffmpeg=broken_ffmpeg)
 
     assert item(result, "ffmpeg").status == "missing"
     assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
@@ -101,14 +94,14 @@ def test_missing_yt_dlp_makes_only_yt_dlp_missing(fake_root):
     def not_installed():
         raise RuntimeError("ยังไม่ได้ติดตั้ง")
 
-    result = checks_with_fakes(fake_root, yt_dlp_probe=not_installed)
+    result = checks_with_fakes(fake_root, yt_dlp=not_installed)
 
     assert (item(result, "yt_dlp").status, item(result, "yt_dlp").detail) == ("missing", "ยังไม่ได้ติดตั้ง")
     assert result.missing_count == 1
 
 
 def test_deno_probe_that_raises_makes_only_deno_missing(fake_root):
-    result = checks_with_fakes(fake_root, deno_probe=broken_deno)
+    result = checks_with_fakes(fake_root, deno=broken_deno)
 
     assert item(result, "deno").status == "missing"
     assert item(result, "deno").fix == "./setup.sh"
@@ -120,9 +113,9 @@ def test_cpu_device_is_not_cached_but_cuda_is(fake_root):
     answers = iter(["cpu", "cuda", "cpu"])
     probe = DeviceProbe(detect=lambda: next(answers))
 
-    first = checks_with_fakes(fake_root, device_probe=probe)
-    second = checks_with_fakes(fake_root, device_probe=probe)
-    third = checks_with_fakes(fake_root, device_probe=probe)
+    first = checks_with_fakes(fake_root, device=probe)
+    second = checks_with_fakes(fake_root, device=probe)
+    third = checks_with_fakes(fake_root, device=probe)
 
     assert item(first, "device").detail == "cpu"
     assert item(second, "device").detail == "cuda"
@@ -139,7 +132,7 @@ def test_only_model_rows_carry_a_license(fake_root):
     assert omnivoice.model_url == "https://huggingface.co/k2-fsa/OmniVoice"
     assert item(result, "model_whisper").license.name == "MIT"
     others = [i for i in result.items if not i.id.startswith("model_")]
-    assert [i.license for i in others] == [None] * 9
+    assert all(i.license is None for i in others)
 
 
 def test_items_come_in_the_spec_order(fake_root):
@@ -175,16 +168,18 @@ def test_rows_on_windows_tell_the_user_to_run_setup_cmd(fake_root):
 
     result = checks_with_fakes(
         fake_root,
-        device_probe=lambda: "cpu",
-        ffmpeg_probe=broken_ffmpeg,
-        deno_probe=broken_deno,
+        device=lambda: "cpu",
+        ffmpeg=broken_ffmpeg,
+        deno=broken_deno,
         sys_platform="win32",
     )
 
     assert item(result, "model_omnivoice").fix == "setup.cmd"
+    assert item(result, "model_omnivoice").fix_kind == "command"
     assert item(result, "ffmpeg").fix == "setup.cmd"
     assert item(result, "deno").fix == "setup.cmd"
     assert item(result, "device").fix == "ติดตั้ง NVIDIA driver แล้วปิดและเปิด npm run dev ใหม่"
+    assert item(result, "device").fix_kind == "hint"
 
 
 def test_rows_on_mac_tell_the_user_to_run_setup_sh(fake_root):
@@ -192,9 +187,9 @@ def test_rows_on_mac_tell_the_user_to_run_setup_sh(fake_root):
 
     result = checks_with_fakes(
         fake_root,
-        device_probe=lambda: "cpu",
-        ffmpeg_probe=broken_ffmpeg,
-        deno_probe=broken_deno,
+        device=lambda: "cpu",
+        ffmpeg=broken_ffmpeg,
+        deno=broken_deno,
         sys_platform="darwin",
     )
 
@@ -202,3 +197,31 @@ def test_rows_on_mac_tell_the_user_to_run_setup_sh(fake_root):
     assert item(result, "ffmpeg").fix == "./setup.sh"
     assert item(result, "deno").fix == "./setup.sh"
     assert item(result, "device").fix == "ต้องเป็น Mac Apple Silicon"
+
+
+def test_ok_rows_have_no_fix_kind(fake_root):
+    result = checks_with_fakes(fake_root)
+
+    assert {(i.fix, i.fix_kind) for i in result.items} == {(None, None)}
+
+
+def test_python_outside_the_venv_is_a_warning_that_says_so(fake_root, monkeypatch):
+    monkeypatch.setattr(sys, "prefix", "/usr/local")
+
+    result = checks_with_fakes(fake_root)
+
+    python = item(result, "python")
+    assert python.status == "warning"
+    assert "ไม่ใช่ .venv ของ project" in python.detail
+    assert (python.fix, python.fix_kind) == ("รัน backend ด้วย npm run dev", "hint")
+
+
+def test_wrong_python_inside_the_venv_says_the_version_not_the_venv(fake_root, monkeypatch):
+    monkeypatch.setattr(sys, "version_info", (3, 13, 1, "final", 0))
+
+    result = checks_with_fakes(fake_root)
+
+    python = item(result, "python")
+    assert python.status == "warning"
+    assert python.detail == "Python 3.13.1 ใน .venv ต้องเป็น 3.12"
+    assert python.fix_kind == "hint"

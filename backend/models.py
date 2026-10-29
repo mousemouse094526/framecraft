@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ModelSpec:
-    check_id: str
+    check_id: str  # the model's Checklist item id, e.g. "model_omnivoice"
     label: str
     repo_id: str
     revision: str

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel
 
@@ -22,9 +22,16 @@ from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 
 ItemStatus = Literal["ok", "missing", "warning"]
+# "command" is copied and run as-is (the UI shows a copy chip); "hint" is a sentence.
+FixKind = Literal["command", "hint"]
 
-FFMPEG_TIMEOUT_SECONDS = 5
-DENO_TIMEOUT_SECONDS = 5
+VERSION_TIMEOUT_SECONDS = 5
+
+
+@dataclass(frozen=True)
+class Fix:
+    text: str
+    kind: FixKind
 
 
 @dataclass(frozen=True)
@@ -34,17 +41,23 @@ class FixTexts:
     `setup` is the setup command; `device` is the advice when only `cpu` works.
     """
 
-    setup: str
-    device: str
+    setup: Fix
+    device: Fix
+
+
+RUN_BACKEND_FIX = Fix("รัน backend ด้วย npm run dev", "hint")
 
 
 def _fix_texts(sys_platform: str) -> FixTexts:
     if sys_platform == "win32":
         return FixTexts(
-            setup="setup.cmd",
-            device="ติดตั้ง NVIDIA driver แล้วปิดและเปิด npm run dev ใหม่",
+            setup=Fix("setup.cmd", "command"),
+            device=Fix("ติดตั้ง NVIDIA driver แล้วปิดและเปิด npm run dev ใหม่", "hint"),
         )
-    return FixTexts(setup="./setup.sh", device="ต้องเป็น Mac Apple Silicon")
+    return FixTexts(
+        setup=Fix("./setup.sh", "command"),
+        device=Fix("ต้องเป็น Mac Apple Silicon", "hint"),
+    )
 
 
 class License(BaseModel):
@@ -60,6 +73,7 @@ class ChecklistItem(BaseModel):
     status: ItemStatus
     detail: str
     fix: str | None
+    fix_kind: FixKind | None
     license: License | None = None
 
 
@@ -113,21 +127,26 @@ def detect_torch_device() -> str:
 probe_device = DeviceProbe(detect_torch_device)
 
 
+def _version_output(name: str, exe: str, flag: str) -> str:
+    """Runs `{exe} {flag}` and returns its stdout; raises naming `name` if it fails."""
+    result = subprocess.run(
+        [exe, flag],
+        capture_output=True,
+        text=True,
+        timeout=VERSION_TIMEOUT_SECONDS,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"{name} {flag} exited with {result.returncode}")
+    return result.stdout
+
+
 def probe_ffmpeg() -> FfmpegInfo:
     """Runs `ffmpeg -version` from imageio-ffmpeg (ADR 0005); raises if it fails."""
     import imageio_ffmpeg
 
     exe = imageio_ffmpeg.get_ffmpeg_exe()
-    result = subprocess.run(
-        [exe, "-version"],
-        capture_output=True,
-        text=True,
-        timeout=FFMPEG_TIMEOUT_SECONDS,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg -version exited with {result.returncode}")
     # First line: "ffmpeg version 7.1 Copyright (c) ..."
-    version = result.stdout.split()[2]
+    version = _version_output("ffmpeg", exe, "-version").split()[2]
     return FfmpegInfo(version=version, source=_ffmpeg_source(exe))
 
 
@@ -147,16 +166,8 @@ def probe_deno() -> str:
     import deno
 
     exe = deno.find_deno_bin()  # raises FileNotFoundError when the wheel is missing
-    result = subprocess.run(
-        [exe, "--version"],
-        capture_output=True,
-        text=True,
-        timeout=DENO_TIMEOUT_SECONDS,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"deno --version exited with {result.returncode}")
     # First line: "deno 2.9.8 (stable, release, aarch64-apple-darwin)"
-    return result.stdout.split()[1]
+    return _version_output("deno", exe, "--version").split()[1]
 
 
 def _ffmpeg_source(exe: str) -> str:
@@ -179,41 +190,48 @@ def now_iso() -> str:
 Check = Callable[[], tuple[ItemStatus, str]]
 
 
+@dataclass(frozen=True)
+class Probes:
+    """The parts of the Status check that ask the machine; tests pass fakes."""
+
+    device: Callable[[], str]
+    ffmpeg: Callable[[], FfmpegInfo]
+    deno: Callable[[], str]
+    yt_dlp: Callable[[], str]
+
+
+def real_probes() -> Probes:
+    # Looked up at call time, so tests can swap the module's probes.
+    return Probes(device=probe_device, ffmpeg=probe_ffmpeg, deno=probe_deno, yt_dlp=probe_yt_dlp)
+
+
 def run_checks(
     root: Path | None = None,
-    device_probe: Callable[[], str] | None = None,
-    ffmpeg_probe: Callable[[], FfmpegInfo] | None = None,
+    probes: Probes | None = None,
     sys_platform: str | None = None,
-    deno_probe: Callable[[], str] | None = None,
-    yt_dlp_probe: Callable[[], str] | None = None,
 ) -> StatusResponse:
-    """Builds every Checklist item in spec order. Defaults are the real probes
-    and the OS this process runs on.
-
-    Defaults are looked up at call time, so tests can swap `paths.ROOT` and the
-    module's probes.
+    """Builds every Checklist item in spec order. Defaults are `paths.ROOT`
+    (looked up at call time, so tests can swap it), the real probes, and the OS
+    this process runs on.
     """
     project = ProjectPaths(root or paths.ROOT)
-    device_probe = device_probe or probe_device
-    ffmpeg_probe = ffmpeg_probe or probe_ffmpeg
-    deno_probe = deno_probe or probe_deno
-    yt_dlp_probe = yt_dlp_probe or probe_yt_dlp
+    probes = probes or real_probes()
     fixes = _fix_texts(sys_platform or sys.platform)
 
     items = [
-        _item("python", "Python venv", lambda: _check_python(project), "รัน backend ด้วย npm run dev"),
+        _item("python", "Python venv", lambda: _check_python(project), RUN_BACKEND_FIX),
         _item("torch", "torch", lambda: check_package("torch"), fixes.setup),
         _item("transformers", "transformers", lambda: check_package("transformers"), fixes.setup),
         _item("omnivoice", "omnivoice", lambda: check_package("omnivoice"), fixes.setup),
         _item("fastapi", "fastapi", lambda: check_package("fastapi"), fixes.setup),
-        _item("ffmpeg", "ffmpeg", lambda: check_ffmpeg(ffmpeg_probe), fixes.setup),
+        _item("ffmpeg", "ffmpeg", lambda: check_ffmpeg(probes.ffmpeg), fixes.setup),
         # The spoil download gate calls these two probes too (spoil D9).
-        _item("yt_dlp", "yt-dlp", lambda: ("ok", yt_dlp_probe()), fixes.setup),
-        _item("deno", "Deno", lambda: ("ok", deno_probe()), fixes.setup),
+        _item("yt_dlp", "yt-dlp", lambda: ("ok", probes.yt_dlp()), fixes.setup),
+        _item("deno", "Deno", lambda: ("ok", probes.deno()), fixes.setup),
         *(_model_item(project, model, fixes.setup) for model in MODELS),
-        _item("device", "Device", lambda: check_device(device_probe), fixes.device),
+        _item("device", "Device", lambda: check_device(probes.device), fixes.device),
     ]
-    counts = {s: sum(1 for i in items if i.status == s) for s in ("ok", "warning", "missing")}
+    counts = {s: sum(1 for i in items if i.status == s) for s in get_args(ItemStatus)}
     return StatusResponse(
         checked_at=now_iso(),
         ready=counts["missing"] == 0,
@@ -254,7 +272,7 @@ def _item(
     item_id: str,
     label: str,
     check: Check,
-    fix: str,
+    fix: Fix,
     license: License | None = None,
 ) -> ChecklistItem:
     try:
@@ -266,12 +284,13 @@ def _item(
         label=label,
         status=status,
         detail=detail,
-        fix=None if status == "ok" else fix,
+        fix=None if status == "ok" else fix.text,
+        fix_kind=None if status == "ok" else fix.kind,
         license=license,
     )
 
 
-def _model_item(project: ProjectPaths, model: ModelSpec, fix: str) -> ChecklistItem:
+def _model_item(project: ProjectPaths, model: ModelSpec, fix: Fix) -> ChecklistItem:
     license = License(
         name=model.license,
         url=model.license_url,
@@ -291,10 +310,11 @@ def _check_python(project: ProjectPaths) -> tuple[ItemStatus, str]:
     # Only a warning: the packages may still work, but the backend should run
     # from the project's .venv (`npm run dev` does that).
     version = ".".join(str(n) for n in sys.version_info[:3])
-    in_venv = Path(sys.prefix).resolve() == project.venv_dir.resolve()
-    if sys.version_info[:2] == (3, 12) and in_venv:
-        return "ok", f"Python {version} ใน .venv"
-    return "warning", f"Python {version} ที่ {sys.prefix} ไม่ใช่ .venv ของ project"
+    if Path(sys.prefix).resolve() != project.venv_dir.resolve():
+        return "warning", f"Python {version} ที่ {sys.prefix} ไม่ใช่ .venv ของ project"
+    if sys.version_info[:2] != (3, 12):
+        return "warning", f"Python {version} ใน .venv ต้องเป็น 3.12"
+    return "ok", f"Python {version} ใน .venv"
 
 
 def check_package(name: str) -> tuple[ItemStatus, str]:
