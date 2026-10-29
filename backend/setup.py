@@ -14,6 +14,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from backend import disk
 from backend.checks import (
     FfmpegInfo,
     StatusResponse,
@@ -42,12 +43,14 @@ def run_setup(
     free_bytes: Callable[[Path], int] | None = None,
     device_probe: Callable[[], str] | None = None,
     ffmpeg_probe: Callable[[], FfmpegInfo] | None = None,
+    deno_probe: Callable[[], str] | None = None,
+    yt_dlp_probe: Callable[[], str] | None = None,
 ) -> int:
     """Downloads what is missing and prints the checklist. Returns the exit code."""
     download = download or _snapshot_download
     npm_install = npm_install or _npm_install
     backend_running = backend_running or _backend_running
-    free_bytes = free_bytes or _free_bytes
+    free_bytes = free_bytes or disk.free_bytes
     project = ProjectPaths(root)
 
     # A running backend holds torch's files open, so Windows can't update them.
@@ -90,7 +93,13 @@ def run_setup(
     finally:
         project.setup_lock.unlink(missing_ok=True)
 
-    result = run_checks(root, device_probe=device_probe, ffmpeg_probe=ffmpeg_probe)
+    result = run_checks(
+        root,
+        device_probe=device_probe,
+        ffmpeg_probe=ffmpeg_probe,
+        deno_probe=deno_probe,
+        yt_dlp_probe=yt_dlp_probe,
+    )
     _print_checklist(result)
     if not result.ready:
         missing = [i.label for i in result.items if i.status == "missing"]
@@ -122,10 +131,6 @@ def _backend_running() -> bool:
             return True
     except OSError:
         return False
-
-
-def _free_bytes(path: Path) -> int:
-    return shutil.disk_usage(path).free
 
 
 def _take_lock(lock: Path) -> bool:

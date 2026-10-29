@@ -13,6 +13,7 @@ dependencies = [
     "imageio-ffmpeg==0.7.0",
     "fastapi",
     "uvicorn",
+    "yt-dlp[default,deno]>=2026.10.26",
 ]
 
 [dependency-groups]

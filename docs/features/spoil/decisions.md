@@ -223,3 +223,33 @@
 - **หน้าเว็บหลังงานจบ:** เปิด tab แล้วได้งานที่จบแล้ว → แสดงผลของงานนั้น; poll ได้ `null` ระหว่างติดตามงาน → "งานโหลดหายเพราะ backend เริ่มใหม่ ลองโหลดอีกครั้ง"; `percent` ไม่เกิน 100
 
 **From:** red team · **Status:** active
+
+## D16: ตารางแยก error ของ yt-dlp ตามข้อความจริงจาก YouTube
+
+**Chosen:** แยก code จากข้อความ error ตามลำดับนี้: มี "This live event will begin" หรือ "Premieres in" → `live`; มี "Sign in to confirm" หรือ "not a bot" → `login_required`; `GeoRestrictedError` หรือมี "Private video", "unavailable", "removed" → `unavailable`; ที่เหลือ → `youtube_error`. ไม่ใช้คำว่า "age" เดี่ยวๆ.
+
+**Why:** ลองกับ YouTube จริงตอน build ticket 01 (yt-dlp 2026.10.26, 2026-10-29): live ที่ยังไม่เริ่มทำให้ `extract_info` raise "This live event will begin in 4 days." โดยไม่มี info จึงไม่มี `live_status` ให้เช็ค; คลิปจำกัดอายุได้ "Sign in to confirm your age…" ซึ่ง "Sign in to confirm" ครอบอยู่แล้ว; คำว่า "age" เดี่ยวๆ ชนข้อความอื่น เช่น "Unable to download webpage" แล้วจะบอกผู้ใช้ผิดว่าต้อง login.
+
+**Rejected:**
+- ตารางเดิมใน spec ที่มี "age" — แยก error ผิดเมื่อข้อความมีคำว่า page
+
+**From:** build ticket 01 · **Status:** active
+
+## D17: ทางเลือกเล็กตอน build งานโหลด
+
+**Chosen:** รายละเอียดที่ build ticket 01 ตัดสินเองตามโค้ดเดิมและ conventions.
+
+**Details:**
+- **probe ของ gate:** แถว `yt_dlp`, `deno`, `ffmpeg` ของ Status check กับ `POST /downloads` ใช้ probe ตัวเดียวกันใน `backend.checks` (`probe_yt_dlp`, `probe_deno`, `probe_ffmpeg`) ที่ gate เรียกตอนเรียก — test monkeypatch ที่เดียวได้ทั้งสองที่ และ `run_checks` รับ `yt_dlp_probe`, `deno_probe` แบบเดียวกับ `ffmpeg_probe` (setup-status D18)
+- **ลิงก์:** ตัดช่องว่างหัวท้ายก่อนเก็บใน Download job และก่อนส่งให้ yt-dlp — yt-dlp ไม่รับลิงก์ที่มีช่องว่าง
+- **ลบไฟล์ค้างไม่ได้:** ลบทีละไฟล์แบบ best effort; ไฟล์ที่ Windows ยังเปิดอยู่ถูก log ไว้และรอการล้างตอน start ถัดไป — งานยังจบเป็น `failed` หรือ `cancelled` ไม่ค้างเป็น busy
+- **percent:** ไม่ลดลงเมื่อ yt-dlp เริ่มโหลด format ใหม่จาก 0
+- **ที่ว่างบนดิสก์:** `backend.disk.free_bytes` ใช้ร่วมกับ setup
+- **adapter:** `download(info, project, on_progress)` รับ `ProjectPaths` แทนที่จะอ่าน `paths.ROOT` เอง — adapter ปลอมเขียนไฟล์ลง root ปลอมได้โดยไม่ต้องอ่าน global
+- **`not_ready`:** message เป็น "ยังติดตั้งไม่ครบ: {label ที่ขาด}" เหมือนข้อความของ tab สปอย
+- **งานจบ:** state สุดท้ายถูกตั้งหลังลบไฟล์ค้างเสร็จ และ busy เช็คจาก state — ได้ผลเดียวกับ "จบเมื่อ thread ออก" โดยไม่ต้องรอ thread
+- **ขนาดประมาณ:** ไม่มี `requested_formats` (YouTube ให้ format เดียวที่มีทั้งภาพและเสียง เช่นคลิปเก่า) → ใช้ `filesize` ของ info เอง แล้วค่อย `tbr` × `duration`
+- **thumbnail:** หาไฟล์ `{id}.*` ใน `media/temp/` ที่ไม่ใช่ mp4 หรือ json — `filepath` ของ thumbnail ที่ yt-dlp คืนชี้ไป `.partial/` ทั้งที่ไฟล์ย้ายไปแล้ว
+- **error ที่ไม่ใช่ `youtube_error`:** มี `yt_dlp_version` ด้วยและ `fix` เป็น `null`
+
+**From:** build ticket 01 · **Status:** active

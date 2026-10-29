@@ -9,7 +9,7 @@ from backend.models import MODELS, OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
-from .fakes import cuda_device, item, ok_ffmpeg, write_snapshot
+from .fakes import cuda_device, item, ok_deno, ok_ffmpeg, ok_yt_dlp, write_snapshot
 
 GB = 1_000_000_000
 
@@ -59,6 +59,8 @@ def run_with_fakes(root, download, **overrides):
         "free_bytes": lambda path: 100 * GB,
         "device_probe": cuda_device,
         "ffmpeg_probe": ok_ffmpeg,
+        "deno_probe": ok_deno,
+        "yt_dlp_probe": ok_yt_dlp,
     }
     return run_setup(root, **(options | overrides))
 

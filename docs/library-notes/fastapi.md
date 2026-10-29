@@ -46,6 +46,12 @@ Follows [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-appli
 - A return annotation that is not a valid Pydantic type (`Response | dict`) errors unless `response_model=None` — [Response Model](https://fastapi.tiangolo.com/tutorial/response-model/)
 - `TestClient` does not accept Pydantic models in `json=`; convert them with `jsonable_encoder` first — [Testing](https://fastapi.tiangolo.com/tutorial/testing/)
 
+## Starlette 1.10.0 (comes with fastapi)
+
+- `TrustedHostMiddleware(allowed_hosts=[...])` compares the `Host` header without its port; IPv6 hosts keep their brackets, so allow `"[::1]"`. A bad host gets `400` "Invalid host header" — [Starlette middleware](https://www.starlette.io/middleware/#trustedhostmiddleware)
+- `TestClient`'s default host is `testserver`, which a trusted-host list without it rejects; pass `base_url="http://127.0.0.1"` — [Starlette middleware](https://www.starlette.io/middleware/#trustedhostmiddleware)
+- A `lifespan` only runs when `TestClient` is used as a context manager (`with TestClient(app) as client:`) — [Testing › Lifespan](https://fastapi.tiangolo.com/advanced/testing-events/)
+
 ## Sources
 
 - [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-applications/) — `APIRouter`, `include_router`, prefix (accessed 2026-10-29)
@@ -54,3 +60,5 @@ Follows [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-appli
 - [Release notes](https://fastapi.tiangolo.com/release-notes/) — breaking changes 0.128.0 to 0.162.0 (accessed 2026-10-29)
 - [Pydantic migration guide](https://pydantic.dev/docs/validation/latest/get-started/migration/) — required and nullable fields, v2 renames (accessed 2026-10-29)
 - [Pydantic models](https://pydantic.dev/docs/validation/latest/concepts/models/) — `BaseModel`, extra data (accessed 2026-10-29)
+- [Starlette middleware](https://www.starlette.io/middleware/#trustedhostmiddleware) — `TrustedHostMiddleware` (accessed 2026-10-29)
+- [Testing events: lifespan](https://fastapi.tiangolo.com/advanced/testing-events/) — `with TestClient(app)` (accessed 2026-10-29)

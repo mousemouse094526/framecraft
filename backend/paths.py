@@ -1,4 +1,4 @@
-"""Where the project and its models live on disk (ADR 0003)."""
+"""Where the project, its models, and its media live on disk (ADR 0003)."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +32,16 @@ class ProjectPaths:
     @property
     def setup_lock(self) -> Path:
         return self.markers_dir / "setup.lock"
+
+    @property
+    def media_temp_dir(self) -> Path:
+        """Where Temp clips live until the user deletes them (spoil D3)."""
+        return self.root / "media" / "temp"
+
+    @property
+    def partial_dir(self) -> Path:
+        """Where yt-dlp writes while downloading; emptied on every start (spoil D14)."""
+        return self.media_temp_dir / ".partial"
 
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"

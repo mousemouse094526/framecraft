@@ -24,6 +24,7 @@ from backend.paths import ProjectPaths
 ItemStatus = Literal["ok", "missing", "warning"]
 
 FFMPEG_TIMEOUT_SECONDS = 5
+DENO_TIMEOUT_SECONDS = 5
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,34 @@ def probe_ffmpeg() -> FfmpegInfo:
     return FfmpegInfo(version=version, source=_ffmpeg_source(exe))
 
 
+def probe_yt_dlp() -> str:
+    """The installed yt-dlp version; raises when it isn't installed."""
+    try:
+        return metadata.version("yt-dlp")
+    except metadata.PackageNotFoundError:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง") from None
+
+
+def probe_deno() -> str:
+    """Runs `deno --version` from the `deno` wheel in the venv; raises if it fails.
+
+    Not cached: Refresh after setup must see a newly installed Deno.
+    """
+    import deno
+
+    exe = deno.find_deno_bin()  # raises FileNotFoundError when the wheel is missing
+    result = subprocess.run(
+        [exe, "--version"],
+        capture_output=True,
+        text=True,
+        timeout=DENO_TIMEOUT_SECONDS,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"deno --version exited with {result.returncode}")
+    # First line: "deno 2.9.8 (stable, release, aarch64-apple-darwin)"
+    return result.stdout.split()[1]
+
+
 def _ffmpeg_source(exe: str) -> str:
     # imageio-ffmpeg has no API for this; a system ffmpeg comes back as "ffmpeg".
     import imageio_ffmpeg
@@ -155,6 +184,8 @@ def run_checks(
     device_probe: Callable[[], str] | None = None,
     ffmpeg_probe: Callable[[], FfmpegInfo] | None = None,
     sys_platform: str | None = None,
+    deno_probe: Callable[[], str] | None = None,
+    yt_dlp_probe: Callable[[], str] | None = None,
 ) -> StatusResponse:
     """Builds every Checklist item in spec order. Defaults are the real probes
     and the OS this process runs on.
@@ -165,6 +196,8 @@ def run_checks(
     project = ProjectPaths(root or paths.ROOT)
     device_probe = device_probe or probe_device
     ffmpeg_probe = ffmpeg_probe or probe_ffmpeg
+    deno_probe = deno_probe or probe_deno
+    yt_dlp_probe = yt_dlp_probe or probe_yt_dlp
     fixes = _fix_texts(sys_platform or sys.platform)
 
     items = [
@@ -174,6 +207,9 @@ def run_checks(
         _item("omnivoice", "omnivoice", lambda: _check_package("omnivoice"), fixes.setup),
         _item("fastapi", "fastapi", lambda: _check_package("fastapi"), fixes.setup),
         _item("ffmpeg", "ffmpeg", lambda: _check_ffmpeg(ffmpeg_probe), fixes.setup),
+        # The spoil download gate calls these two probes too (spoil D9).
+        _item("yt_dlp", "yt-dlp", lambda: ("ok", yt_dlp_probe()), fixes.setup),
+        _item("deno", "Deno", lambda: ("ok", deno_probe()), fixes.setup),
         *(_model_item(project, model, fixes.setup) for model in MODELS),
         _item("device", "Device", lambda: _check_device(device_probe), fixes.device),
     ]

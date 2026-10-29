@@ -21,7 +21,14 @@ def get_status() -> StatusResponse:
 - Response models are Pydantic models; field names in snake_case.
 - Errors a user should see go inside the response body, not as 5xx, when the
   spec says so (setup-status: always 200).
+- A refusal with its own status (spoil: `400`, `404`, `409`, `503`) is raised
+  by the module as the feature's error (`SpoilError`); one handler registered
+  in `app.py` turns it into `{"code", "message", ...}`. Routes never build error
+  responses themselves.
+- Status codes other than 200 on success go in the decorator
+  (`status_code=202`).
 
 ## Good examples
 
 - [backend/routes/setup_status.py](../../../../backend/routes/setup_status.py) — one router, one call to `run_checks`, always 200.
+- [backend/routes/spoil.py](../../../../backend/routes/spoil.py) — each route one call on `jobs.downloads`; `spoil_error_response` is the handler `app.py` registers.

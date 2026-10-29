@@ -20,7 +20,7 @@ Supported: Mac with Apple Silicon, and Windows with an NVIDIA card (Windows setu
    ./setup.sh
    ```
 
-   ครั้งแรกใช้เวลานาน (โหลดประมาณ 5 GB) ต้องต่อ internet และมีที่ว่างอย่างน้อย 15 GB. เสร็จแล้วจะเห็นรายการ 9 ข้อ และ "ขั้นต่อไป: รัน npm run dev". รันซ้ำได้เสมอ ถ้าเน็ตหลุดกลางทางให้รันใหม่ มันจะทำต่อจากเดิม
+   ครั้งแรกใช้เวลานาน (โหลดประมาณ 5 GB) ต้องต่อ internet และมีที่ว่างอย่างน้อย 15 GB. เสร็จแล้วจะเห็นรายการ 11 ข้อ และ "ขั้นต่อไป: รัน npm run dev". รันซ้ำได้เสมอ ถ้าเน็ตหลุดกลางทางให้รันใหม่ มันจะทำต่อจากเดิม
 4. **เปิดโปรแกรม** — ใน Terminal เดิม (ที่อยู่ใน folder framecraft) พิมพ์:
 
    ```sh
@@ -28,7 +28,7 @@ Supported: Mac with Apple Silicon, and Windows with an NVIDIA card (Windows setu
    ```
 
    รอจนเห็นบรรทัด `[api] ... Uvicorn running` และ `[web] ... Local: http://localhost:5173/`
-5. **เปิดหน้าเว็บ** — เปิด browser ไปที่ http://localhost:5173 จะเห็นหน้า Setup status. ถ้าครบจะขึ้น "พร้อมใช้งาน" 9/9
+5. **เปิดหน้าเว็บ** — เปิด browser ไปที่ http://localhost:5173 จะเห็นหน้า Setup status. ถ้าครบจะขึ้น "พร้อมใช้งาน" 11/11
 6. **ปิดโปรแกรม** — กลับไปที่ Terminal แล้วกด `Control` + `C`. ปิด Terminal ได้เลย
 
 ครั้งต่อไปทำแค่ข้อ 2, 4, 5 และ 6.
@@ -36,7 +36,7 @@ Supported: Mac with Apple Silicon, and Windows with an NVIDIA card (Windows setu
 ### Windows (การ์ด NVIDIA)
 
 1. **ติดตั้ง Node.js** — เหมือน Mac ข้อ 1
-2. **ติดตั้ง** — เปิด folder `framecraft` แล้วดับเบิลคลิก `setup.cmd`. รอจนเห็นรายการ 9 ข้อ แล้วกดปุ่มใดก็ได้เพื่อปิดหน้าต่าง. ใช้ได้แม้ PowerShell ตั้ง execution policy เป็น `Restricted`
+2. **ติดตั้ง** — เปิด folder `framecraft` แล้วดับเบิลคลิก `setup.cmd`. รอจนเห็นรายการ 11 ข้อ แล้วกดปุ่มใดก็ได้เพื่อปิดหน้าต่าง. ใช้ได้แม้ PowerShell ตั้ง execution policy เป็น `Restricted`
 3. **เปิด Command Prompt ที่ folder ของ framecraft** — ใน File Explorer ที่เปิด folder `framecraft` อยู่ คลิกที่ช่อง address ด้านบน พิมพ์ `cmd` แล้วกด Enter
 4. **เปิดโปรแกรม** — พิมพ์ `npm run dev` แล้วกด Enter
 5. **เปิดหน้าเว็บ** — เหมือน Mac ข้อ 5
@@ -56,7 +56,21 @@ Windows ยังไม่ได้ทดสอบบนเครื่องจ
 
 ### สิ่งที่ setup ติดตั้ง
 
-[uv](https://docs.astral.sh/uv/) (ถ้ายังไม่มี), Python 3.12, package ทั้งหมด, ffmpeg, โมเดลสองตัว และ npm package ของหน้าเว็บ — ทั้งหมดอยู่ใน folder นี้ (ประมาณ 10 GB). `npm run dev` ไม่ติดตั้งอะไร: มัน start backend ที่ `127.0.0.1:8000` (บรรทัด `[api]`) และหน้าเว็บ (บรรทัด `[web]`). `GET /api/setup/status` คืนรายการเดียวกันเป็น JSON.
+[uv](https://docs.astral.sh/uv/) (ถ้ายังไม่มี), Python 3.12, package ทั้งหมด, ffmpeg, yt-dlp กับ Deno (ใช้โหลดคลิป YouTube), โมเดลสองตัว และ npm package ของหน้าเว็บ — ทั้งหมดอยู่ใน folder นี้ (ประมาณ 10 GB). `npm run dev` ไม่ติดตั้งอะไร: มัน start backend ที่ `127.0.0.1:8000` (บรรทัด `[api]`) และหน้าเว็บ (บรรทัด `[web]`). `GET /api/setup/status` คืนรายการเดียวกันเป็น JSON.
+
+### คลิปที่โหลดจาก YouTube
+
+- คลิปที่โหลดเก็บใน `media/temp/` ของ folder นี้ (`{id}.mp4`, thumbnail และ `{id}.json`) และอยู่จนกดลบเอง. ไม่เข้า git
+- ลบทั้งหมดด้วยมือได้: ปิด `npm run dev` ก่อน แล้วลบ folder `media/temp/`
+- ถ้าโหลดไม่ได้ทุกคลิป (YouTube เปลี่ยน) ให้อัปเดต yt-dlp แล้วรัน setup ใหม่:
+
+  ```sh
+  uv lock --upgrade-package yt-dlp
+  ./setup.sh
+  ```
+
+  (Windows: `uv lock --upgrade-package yt-dlp` แล้ว `setup.cmd`)
+- API อยู่ใต้ `/api/spoil` เช่น `POST /api/spoil/downloads` กับ `{"url": "..."}` แล้ว poll `GET /api/spoil/downloads/current`
 
 ## Tests
 

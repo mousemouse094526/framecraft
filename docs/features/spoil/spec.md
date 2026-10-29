@@ -134,16 +134,16 @@ Adapter (ตัวเดียวที่ import yt-dlp, test แทนด้�
 
 จุด inject สำหรับ test (แบบเดียวกับ setup-status D18): `backend.spoil` มี module attribute `adapter` และ `free_bytes` ที่ test monkeypatch ได้ และ probe สามตัวที่ใช้ gate.
 
-แยก error ของ yt-dlp (D15):
+แยก error ของ yt-dlp (D15, D16):
 
 | เมื่อ | `code` |
 |---|---|
-| ข้อความ error มี "Sign in to confirm", "not a bot" หรือ "age" | `login_required` |
+| upcoming (ข้อ 3): ข้อความ error มี "This live event will begin" หรือ "Premieres in" | `live` |
+| ข้อความ error มี "Sign in to confirm" หรือ "not a bot" | `login_required` |
 | `GeoRestrictedError` หรือข้อความมี "Private video", "unavailable", "removed" | `unavailable` |
-| upcoming (ข้อ 3) | `live` |
 | อื่นๆ ทั้งหมด รวม error ของ ffmpeg | `youtube_error` |
 
-ticket 01 ยืนยันข้อความจริงกับ YouTube แล้วแก้ตารางนี้ถ้าต่าง.
+เช็คตามลำดับแถว. ข้อความยืนยันกับ YouTube จริงตอน build ticket 01 (D16).
 
 params ของ yt-dlp (adapter เดียวใน `backend.spoil` สร้าง):
 

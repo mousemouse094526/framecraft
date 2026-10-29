@@ -11,7 +11,7 @@
 - User stories: 2, 3, 6, 7
 - Legal: 1, 2 (ผู้ใช้รับความเสี่ยงใน D13)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

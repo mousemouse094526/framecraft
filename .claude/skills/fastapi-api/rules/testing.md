@@ -24,6 +24,11 @@ def test_missing_marker(tmp_path):
   globals where the code takes them as arguments.
 - Each case asserts one exact count or status, never "8 or 9".
 - No browser e2e tool yet; UI is tested in the frontend with Vitest.
+- Background jobs are tested without sleeps on a timer: the fake pauses at a
+  named point (`pause_at`, `wait_until`, `release`) and the test polls the API
+  until the job's state is final. Swap the job holder for a fresh one per test
+  (`monkeypatch.setattr(jobs, "downloads", jobs.Downloads())`).
+- A lifespan only runs inside `with TestClient(app, ...)`.
 
 ## Good examples
 
@@ -31,3 +36,4 @@ def test_missing_marker(tmp_path):
 - [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — plain helpers tests import: `write_snapshot`, `write_marker`, fake probes.
 - [backend/tests/test_setup.py](../../../../backend/tests/test_setup.py) — `FakeDownload` stands in for `snapshot_download`.
 - [backend/tests/test_app.py](../../../../backend/tests/test_app.py) — API tests monkeypatch `backend.paths.ROOT` and the default probes in `backend.checks`.
+- [backend/tests/test_spoil_api.py](../../../../backend/tests/test_spoil_api.py) — `FakeAdapter` from `fakes.py` stands in for yt-dlp; `wait_for_end` polls the job.

@@ -30,6 +30,8 @@ const READY_ITEMS: ChecklistItem[] = [
   okItem("omnivoice", "omnivoice", "0.2.1"),
   okItem("fastapi", "fastapi", "0.162.0"),
   okItem("ffmpeg", "ffmpeg", "7.1 (imageio-ffmpeg)"),
+  okItem("yt_dlp", "yt-dlp", "2026.10.26"),
+  okItem("deno", "Deno", "2.9.8"),
   { ...okItem("model_omnivoice", "OmniVoice model", "k2-fsa/OmniVoice"), license: OMNIVOICE_LICENSE },
   { ...okItem("model_whisper", "Whisper model", "openai/whisper-large-v3-turbo"), license: WHISPER_LICENSE },
   okItem("device", "Device", "mps"),
@@ -96,8 +98,8 @@ describe("SetupStatusPage", () => {
     render(<SetupStatusPage />);
 
     expect(await screen.findByText("พร้อมใช้งาน")).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem")).toHaveLength(9);
-    expect(screen.getByText("9/9")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(11);
+    expect(screen.getByText("11/11")).toBeInTheDocument();
     expect(screen.getByText("17:42:10")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/setup/status", expect.anything());
   });
@@ -114,7 +116,7 @@ describe("SetupStatusPage", () => {
 
     const verdict = await screen.findByText("พร้อมใช้งาน (มีคำเตือน 1 รายการ)");
     expect(within(verdict.parentElement!).getByText("Device")).toBeInTheDocument();
-    expect(screen.getByText("8/9")).toBeInTheDocument();
+    expect(screen.getByText("10/11")).toBeInTheDocument();
   });
 
   it("says not ready and shows the fix as a copyable command when one row is missing", async () => {
@@ -184,7 +186,7 @@ describe("SetupStatusPage", () => {
     await user.click(refresh);
 
     expect(refresh).toBeDisabled();
-    expect(screen.getAllByRole("listitem")).toHaveLength(9);
+    expect(screen.getAllByRole("listitem")).toHaveLength(11);
     await act(async () => second.resolve(jsonResponse(statusOf(READY_ITEMS, "2026-10-29T17:45:03+07:00"))));
     expect(await screen.findByText("17:45:03")).toBeInTheDocument();
     expect(refresh).toBeEnabled();

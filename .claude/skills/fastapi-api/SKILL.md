@@ -16,11 +16,13 @@ setup entry point that installs everything (ADR 0002).
 ```
 backend/
 ├── app.py        ← FastAPI app; mounts every router under /api
-├── paths.py      ← project root and models/ paths (ADR 0003)
+├── paths.py      ← project root, models/ and media/ paths (ADR 0003)
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
+├── disk.py       ← free disk space, shared by setup and spoil
 ├── setup.py      ← entry point: python -m backend.setup
-├── spoil/        ← a feature with several modules gets a package (spoil D14)
+├── spoil/        ← a feature with several modules gets a package (spoil D14):
+│                    links, adapter (the only yt-dlp import), clips, jobs
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```
