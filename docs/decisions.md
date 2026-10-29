@@ -15,6 +15,7 @@ question; the full entry is in the feature's decisions.md.
 
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
+| ต้องใช้ Node.js 22+ (`concurrently` 10, Vite 8) | [setup-status](features/setup-status/decisions.md) | D22 | — | — | active |
 | ใช้ uv และ pin Python 3.12 ใน `.venv` ของ project | [setup-status](features/setup-status/decisions.md) | D2 | — | — | active |
 | รองรับ Mac Apple Silicon (MPS) และ Windows NVIDIA (CUDA 12.8), torch 2.8.0 | [setup-status](features/setup-status/decisions.md) | D5 | — | [0006](adr/0006-supported-platforms.md) | active |
 
@@ -50,3 +51,6 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | — | — | active |
 | แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |
+| font มากับ `@fontsource` ใน project ไม่โหลดจาก CDN | [setup-status](features/setup-status/decisions.md) | D19 | — | [0003](adr/0003-everything-inside-project.md) | active |
+| `fix` ไม่มีช่องว่าง = คำสั่ง (chip กับปุ่ม copy), มีช่องว่าง = ข้อความ | [setup-status](features/setup-status/decisions.md) | D20 | — | — | active |
+| รายละเอียดหน้า Setup status: Refresh จาก offline, เวลาเช็คล่าสุด, pill คำเตือน, icon จาก Figma, timeout | [setup-status](features/setup-status/decisions.md) | D21 | — | — | active |

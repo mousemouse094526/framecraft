@@ -17,7 +17,7 @@ flowchart TD
     installUv -. ล้ม .-> errW([พิมพ์ error แล้ว exit 1])
     hasUv -- มี --> hasNode{มี node และ npm?}
     installUv --> hasNode
-    hasNode -- ไม่มี --> needNode([Node.js 20+ required แล้ว exit 1])
+    hasNode -- ไม่มี --> needNode([Node.js 22+ required แล้ว exit 1])
     hasNode -- มี --> sync[uv sync: Python 3.12, torch ตาม OS, package ทั้งหมด]
     sync -. ล้ม .-> errW
     sync --> runSetup([uv run --no-sync python -m backend.setup])

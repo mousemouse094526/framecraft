@@ -242,6 +242,60 @@
 
 **From:** build ticket 01 · **Status:** active
 
+## D19: font ของหน้าเว็บมากับ package ใน project
+
+**Chosen:** ใช้ `@fontsource/ibm-plex-sans-thai`, `@fontsource/ibm-plex-mono`, `@fontsource/geist` และ `@fontsource/manrope` import ใน `frontend/src/index.css`. ไม่โหลดจาก Google Fonts.
+
+**Why:** หน้าเว็บต้องหน้าตาเหมือน Figma แม้ปิด internet และทุกอย่างอยู่ใน project ตาม ADR 0003.
+
+**Rejected:**
+- Google Fonts CDN — ปิด internet แล้ว font หาย
+
+**From:** build ticket 02 · **Status:** active
+
+## D20: แยก `fix` ที่เป็นคำสั่งกับที่เป็นข้อความด้วยช่องว่าง
+
+**Chosen:** `fix` ที่ไม่มีช่องว่าง (`./setup.sh`, `setup.cmd`) เป็นคำสั่ง แสดงเป็น chip พร้อมปุ่ม copy. `fix` ที่มีช่องว่างเป็นประโยค แสดงเป็นข้อความธรรมดา.
+
+**Why:** ทำตาม D15 ได้โดยไม่ต้องเพิ่ม field ใน API. คำสั่งทั้งหมดที่ `backend.checks` ส่งเป็นคำเดียว ส่วนประโยคภาษาไทยมีช่องว่างเสมอ.
+
+**Details:**
+- ถ้าวันหนึ่ง `fix` เป็นคำสั่งที่มีช่องว่าง ให้เพิ่ม field บอกชนิดใน API แทน
+
+**From:** build ticket 02 · **Status:** active
+
+## D21: รายละเอียดหน้า Setup status ที่ spec ไม่ได้บอก
+
+**Chosen:** ค่าที่ build ticket 02 เลือกเองตาม Figma และ conventions.
+
+**Details:**
+- **Refresh จาก offline:** ไม่มี checklist เดิมให้ค้าง จึงกลับไป state loading ("กำลังเช็ค…")
+- **เวลาเช็คล่าสุด:** ตัด `HH:MM:SS` จาก `checked_at` ตรงๆ — backend อยู่เครื่องเดียวกัน และ test ไม่ขึ้นกับ timezone
+- **คำตัดสินที่มีคำเตือน:** แสดง pill label ของแถว `warning` ข้างคำตัดสิน ตาม frame 3
+- **Icon:** ใช้ SVG ที่ export จาก Figma ใน `features/setup-status/assets/` ไม่เพิ่ม `lucide-react`
+- **Timeout:** `lib/api.ts` race ตัวจับเวลา 30 วินาทีกับ fetch แล้ว abort — fetch ที่ไม่สน signal ก็ยังจบ
+- **ป้ายปุ่ม copy:** `คัดลอก {คำสั่ง}` สำหรับ screen reader
+- **ข้อความ offline บรรทัดสาม:** ถ้อยคำตาม spec › Frontend ส่วนคำที่เป็น font mono (`error`, `terminal`, `npm run dev`, `setup`) ตาม frame 6
+- **ปุ่ม Refresh ที่ disabled:** opacity 60% ทั้งตอน loading และ refreshing (Figma 55% กับ 60% ต่างกันจนมองไม่ออก)
+
+**From:** build ticket 02 · **Status:** active
+
+## D22: ต้องใช้ Node.js 22 ขึ้นไป
+
+**Chosen:** setup, README และ spec บอก "Node.js 22+". ใช้ `concurrently` 10 และ Vite 8 รุ่นล่าสุดตามที่ spec ให้ติดตั้ง.
+
+**Why:** `concurrently` 10 ต้องใช้ Node 22 ขึ้นไป และ Node 20 หมดอายุ (end-of-life) ตั้งแต่เดือนเมษายน 2026. ผู้ใช้เลือกตอน build ticket 02.
+
+**Rejected:**
+- คง "Node.js 20+" แล้ว pin `concurrently` 9 — Vite 8 ก็ยังต้องใช้ 20.19 ขึ้นไป และ Node 20 ไม่ได้รับ security fix แล้ว
+
+**Details:**
+- wrapper ยังเช็คแค่ว่ามี `node` กับ `npm` ไม่เช็คเวอร์ชัน
+
+**Sources:** [docs/library-notes/concurrently.md](../../library-notes/concurrently.md) · [docs/library-notes/vite.md](../../library-notes/vite.md)
+
+**From:** build ticket 02 · **Status:** active
+
 ## Sources
 
 - [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) — `get_ffmpeg_exe()` และ binary ที่มากับ wheel (accessed 2026-10-28)

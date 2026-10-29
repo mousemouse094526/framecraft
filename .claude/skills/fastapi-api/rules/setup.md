@@ -23,4 +23,4 @@ setup.sh / setup.cmd -> setup.ps1   (install uv, check node, uv sync)
 ## Good examples
 
 - [setup.sh](../../../../setup.sh) — the thin Mac wrapper.
-- [backend/setup.py](../../../../backend/setup.py) — `run_setup` takes its side effects (`download`, `backend_running`, `free_bytes`, probes) as arguments; the lock is always removed in `finally`.
+- [backend/setup.py](../../../../backend/setup.py) — `run_setup` takes its side effects (`download`, `npm_install`, `backend_running`, `free_bytes`, probes) as arguments; the lock is always removed in `finally`.

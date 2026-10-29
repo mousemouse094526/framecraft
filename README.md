@@ -8,31 +8,36 @@ Supported: Mac with Apple Silicon. Windows with an NVIDIA card comes next.
 
 ## Setup
 
-Install [Node.js 20+](https://nodejs.org) first, then run once:
+Install [Node.js 22+](https://nodejs.org) first, then run once:
 
 ```sh
 ./setup.sh
 ```
 
 It installs [uv](https://docs.astral.sh/uv/) if missing, Python 3.12, every
-package, ffmpeg, and both models (about 5 GB; the whole folder ends up near
+package, ffmpeg, both models, and the web UI's npm packages (about 5 GB; the whole folder ends up near
 10 GB) into this folder, then prints a checklist. Running it again is safe:
 what is installed is skipped and a broken download resumes. Keep at least
 15 GB free while models download.
 
-## Run the backend
+## Run
 
 ```sh
-uv run --no-sync uvicorn backend.app:app --host 127.0.0.1 --port 8000
+npm run dev
 ```
 
-`GET http://127.0.0.1:8000/api/setup/status` returns the same checklist as
-JSON.
+Then open http://localhost:5173 for the Setup status page. This starts the
+backend on `127.0.0.1:8000` (lines prefixed `[api]`) and the web UI (lines
+prefixed `[web]`); it installs nothing. `GET /api/setup/status` returns the
+same checklist as JSON.
 
 ## Tests
 
 ```sh
 uv run pytest
+npm --prefix frontend test
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
 ```
 
 ## Moving to another machine

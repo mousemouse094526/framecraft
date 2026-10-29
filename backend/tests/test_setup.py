@@ -21,6 +21,19 @@ def empty_root(fake_root):
     return fake_root
 
 
+class FakeNpmInstall:
+    """Stands in for the two `npm install` runs."""
+
+    def __init__(self, fail=False):
+        self.fail = fail
+        self.roots = []
+
+    def __call__(self, root):
+        self.roots.append(root)
+        if self.fail:
+            raise RuntimeError("npm ERR! network")
+
+
 class FakeDownload:
     """Stands in for huggingface_hub.snapshot_download."""
 
@@ -41,6 +54,7 @@ class FakeDownload:
 def run_with_fakes(root, download, **overrides):
     options = {
         "download": download,
+        "npm_install": FakeNpmInstall(),
         "backend_running": lambda: False,
         "free_bytes": lambda path: 100 * GB,
         "device_probe": cuda_device,
@@ -149,3 +163,35 @@ def test_corrupt_marker_is_downloaded_again(fake_root):
 
     assert exit_code == 0
     assert download.calls == ["k2-fsa/OmniVoice"]
+
+
+def test_npm_install_runs_again_on_every_setup_run(fake_root):
+    npm_install = FakeNpmInstall()
+
+    first = run_with_fakes(fake_root, FakeDownload(fake_root), npm_install=npm_install)
+    second = run_with_fakes(fake_root, FakeDownload(fake_root), npm_install=npm_install)
+
+    assert (first, second) == (0, 0)
+    assert npm_install.roots == [fake_root, fake_root]
+
+
+def test_npm_install_runs_after_the_models_are_downloaded(empty_root):
+    markers_at_install = []
+
+    def npm_install(root):
+        markers_at_install.extend(p.name for p in ProjectPaths(root).markers_dir.glob("*.json"))
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), npm_install=npm_install)
+
+    assert exit_code == 0
+    assert len(markers_at_install) == len(MODELS)
+
+
+def test_failed_npm_install_removes_lock_and_exits_1(fake_root, capsys):
+    exit_code = run_with_fakes(
+        fake_root, FakeDownload(fake_root), npm_install=FakeNpmInstall(fail=True)
+    )
+
+    assert exit_code == 1
+    assert not ProjectPaths(fake_root).setup_lock.exists()
+    assert "ล้มที่ขั้น npm install: npm ERR! network" in capsys.readouterr().out

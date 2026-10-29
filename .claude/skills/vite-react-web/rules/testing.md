@@ -17,7 +17,10 @@ expect(await screen.findByText("พร้อมใช้งาน")).toBeInTheDo
 - Runner: `npm --prefix frontend test`. Tests sit beside the component as `*.test.tsx`.
 - Query by visible text or role, the way the user sees it.
 - No browser e2e tool yet; the Vite proxy is checked by hand per the spec.
+- Typecheck: `npm --prefix frontend run typecheck`; build: `npm --prefix frontend run build`.
+- A pending request is a `new Promise(() => {})` or a deferred you resolve
+  inside `act`; timeouts use `vi.useFakeTimers()` and `vi.advanceTimersByTime`.
 
 ## Good examples
 
-- None yet — the first ticket that touches this layer sets it.
+- [SetupStatusPage.test.tsx](../../../../frontend/src/features/setup-status/components/SetupStatusPage.test.tsx) — `vi.stubGlobal("fetch", ...)`, a `statusOf(items)` builder, rows found by `getByRole("listitem", { name })`.

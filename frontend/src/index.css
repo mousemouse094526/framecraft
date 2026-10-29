@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* Fonts ship with the app (ADR 0003), so the page looks the same offline. */
+@import "@fontsource/ibm-plex-sans-thai/400.css";
+@import "@fontsource/ibm-plex-sans-thai/500.css";
+@import "@fontsource/ibm-plex-sans-thai/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/geist/600.css";
+@import "@fontsource/manrope/500.css";
+
+/* Tokens from the Figma file (spec › Design: Setup status). */
+@theme {
+  --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-brand: "Geist", var(--font-sans);
+  --font-button: "Manrope", var(--font-sans);
+
+  --color-foreground: #121110;
+  --color-mid: #44403c;
+  --color-muted: #f5f5f4;
+  --color-muted-foreground: #57534e;
+  --color-card: #ffffff;
+  --color-border: #e7e5e4;
+  --color-brand: #26241f;
+  --color-brand-accent: #5a3ee0;
+  --color-link: #4a30bd;
+
+  --color-destructive: #dc2626;
+  --color-error-surface: #fef2f2;
+  --color-error-border: #b91c1c;
+  --color-success: #15803d;
+  --color-success-surface: #f0fdf4;
+  --color-success-border: #15803d;
+  --color-warning: #b45309;
+  --color-warning-surface: #fffbeb;
+  --color-warning-border: #b45309;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  background: var(--color-muted);
+}

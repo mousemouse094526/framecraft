@@ -127,7 +127,7 @@ Entry ตาม OS (D8, D13):
 
 ขั้นของ wrapper:
 1. ถ้าไม่มีคำสั่ง `uv` → ติดตั้งด้วย installer ทางการของ uv แล้วเพิ่ม path ใน session ปัจจุบัน. installer เพิ่ม uv ใน PATH ของผู้ใช้ถาวร
-2. ถ้าไม่มี `node` หรือ `npm` → พิมพ์ "Node.js 20+ required: https://nodejs.org" แล้ว exit 1
+2. ถ้าไม่มี `node` หรือ `npm` → พิมพ์ "Node.js 22+ required: https://nodejs.org" แล้ว exit 1 (D22)
 3. `uv sync`
 4. `uv run --no-sync python -m backend.setup` โดยตั้ง `PYTHONUTF8=1`
 

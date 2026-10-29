@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import socket
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -36,6 +37,7 @@ def run_setup(
     root: Path = ROOT,
     *,
     download: Download | None = None,
+    npm_install: Callable[[Path], None] | None = None,
     backend_running: Callable[[], bool] | None = None,
     free_bytes: Callable[[Path], int] | None = None,
     device_probe: Callable[[], str] | None = None,
@@ -43,6 +45,7 @@ def run_setup(
 ) -> int:
     """Downloads what is missing and prints the checklist. Returns the exit code."""
     download = download or _snapshot_download
+    npm_install = npm_install or _npm_install
     backend_running = backend_running or _backend_running
     free_bytes = free_bytes or _free_bytes
     project = ProjectPaths(root)
@@ -77,8 +80,11 @@ def run_setup(
                 allow_patterns=list(model.allow_patterns),
             )
             _write_marker(project, model, Path(snapshot))
+        step = "npm install"
+        print("กำลังรัน npm install…", flush=True)  # before npm writes its own output
+        npm_install(root)
     except Exception as error:
-        print(f"ล้มที่ขั้น{step}: {error}")
+        print(f"ล้มที่ขั้น {step}: {error}")
         print("รัน setup ใหม่เพื่อทำต่อจากที่ค้าง")
         return 1
     finally:
@@ -98,6 +104,16 @@ def _snapshot_download(repo_id: str, **kwargs) -> str:
     from huggingface_hub import snapshot_download
 
     return snapshot_download(repo_id, **kwargs)
+
+
+def _npm_install(root: Path) -> None:
+    """Installs the root packages (concurrently) and the web UI's packages."""
+    # which() finds npm.cmd on Windows, where a bare "npm" can't be executed.
+    npm = shutil.which("npm")
+    if npm is None:
+        raise RuntimeError("ไม่พบคำสั่ง npm: ติดตั้ง Node.js 22+ จาก https://nodejs.org")
+    subprocess.run([npm, "install"], cwd=root, check=True)
+    subprocess.run([npm, "install", "--prefix", "frontend"], cwd=root, check=True)
 
 
 def _backend_running() -> bool:

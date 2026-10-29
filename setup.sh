@@ -13,7 +13,7 @@ fi
 
 # npm installs the web UI and npm run dev starts it.
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-  echo "Node.js 20+ required: https://nodejs.org"
+  echo "Node.js 22+ required: https://nodejs.org"
   exit 1
 fi
 

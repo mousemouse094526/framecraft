@@ -1,0 +1,10 @@
+{
+  "name": "framecraft",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,web \"uv run --no-sync uvicorn backend.app:app --host 127.0.0.1 --port 8000\" \"npm --prefix frontend run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
