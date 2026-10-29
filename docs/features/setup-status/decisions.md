@@ -296,6 +296,23 @@
 
 **From:** build ticket 02 · **Status:** active
 
+## D23: รายละเอียดของ setup.cmd และ setup.ps1 ที่ spec ไม่ได้บอก
+
+**Chosen:** ค่าที่ build ticket 03 เลือกเองตาม spec › Setup script และ conventions.
+
+**Details:**
+- **pause:** `setup.cmd` หยุดรอกดปุ่มก่อนจบเฉพาะเมื่อถูกรันแบบ `cmd.exe /c` (ดับเบิลคลิก, หรือ `.\setup.cmd` จาก PowerShell) — ดับเบิลคลิกแล้วหน้าต่างไม่ปิดก่อนอ่าน checklist. รันใน Command Prompt ไม่หยุด. exit ด้วย code ของ `setup.ps1` เสมอ
+- **code page:** `setup.cmd` จำ code page เดิมจาก `chcp` แล้วคืนให้ก่อนจบ — `setlocal` ไม่คืน code page ให้
+- **ไม่ใช้ `$ErrorActionPreference = 'Stop'`:** PowerShell 5.1 ที่ stderr ถูก redirect เปลี่ยน progress ของ uv เป็น error. เช็ค `$LASTEXITCODE` หลังทุกคำสั่งแทน
+- **ติดตั้ง uv:** รัน installer ทางการ `0.13.6` ใน `powershell -ExecutionPolicy Bypass` ลูก (เปิด TLS 1.2 ก่อน) เพราะ installer ปฏิเสธ policy อื่นและจบด้วย `exit`. แล้วเพิ่ม `XDG_BIN_HOME`, `XDG_DATA_HOME\..\bin` หรือ `%USERPROFILE%\.local\bin` (ตัวแรกที่มี เหมือน installer) ใน PATH ของ session
+- **CRLF:** `.gitattributes` บังคับ `*.cmd` และ `*.ps1` เป็น CRLF — `cmd.exe` อ่าน batch file ที่เป็น LF ผิด
+- **ทดสอบ fix ตาม OS:** `run_checks` รับ `sys_platform` (default `sys.platform`) — test ข้อ "แถว fix บน Windows แสดง `setup.cmd`" ได้บน Mac. `IS_WINDOWS` ย้ายไป `backend.setup` ที่เดียวที่ใช้
+- **Test ของ wrapper:** `backend/tests/test_wrappers.py` เช็คแค่ ASCII ของ `setup.ps1` และบรรทัด `chcp` กับ `powershell` ของ `setup.cmd` ตาม spec. การทำงานจริงเช็คมือบน Windows
+
+**Sources:** [docs/library-notes/powershell.md](../../library-notes/powershell.md)
+
+**From:** build ticket 03 · **Status:** active
+
 ## Sources
 
 - [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) — `get_ffmpeg_exe()` และ binary ที่มากับ wheel (accessed 2026-10-28)

@@ -4,7 +4,7 @@ Local video generator: a React UI calling a FastAPI backend that runs
 OmniVoice, Whisper, and ffmpeg on your machine. Personal, non-commercial use
 only — see [NOTICE.md](NOTICE.md).
 
-Supported: Mac with Apple Silicon. Windows with an NVIDIA card comes next.
+Supported: Mac with Apple Silicon, and Windows with an NVIDIA card (Windows setup not yet tested on a real machine).
 
 ## Setup
 
@@ -13,6 +13,10 @@ Install [Node.js 22+](https://nodejs.org) first, then run once:
 ```sh
 ./setup.sh
 ```
+
+On Windows, double-click `setup.cmd` or run it from Command Prompt (in
+PowerShell: `.\setup.cmd`). It works even when PowerShell's execution policy
+is `Restricted`.
 
 It installs [uv](https://docs.astral.sh/uv/) if missing, Python 3.12, every
 package, ffmpeg, both models, and the web UI's npm packages (about 5 GB; the whole folder ends up near
@@ -43,7 +47,7 @@ npm --prefix frontend run build
 ## Moving to another machine
 
 Copy the whole folder to another machine with the same OS and run
-`./setup.sh` again. The models in `models/` are reused; `.venv` is rebuilt,
+`./setup.sh` (Windows: `setup.cmd`) again. The models in `models/` are reused; `.venv` is rebuilt,
 which needs internet.
 
 ## Uninstall

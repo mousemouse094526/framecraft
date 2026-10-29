@@ -1,6 +1,6 @@
 # Progress: setup-status
 
-**Now:** 02 done; 03 next — waits on a Windows NVIDIA machine (Blocked #2)
+**Now:** 03 in-progress — โค้ด Windows เสร็จและ test ผ่านบน Mac; รอเช็คมือบนเครื่อง Windows NVIDIA (Blocked #2)
 
 **Next:**
 
@@ -14,9 +14,32 @@
 |---|---|---|
 | 01 | Setup บน Mac และ Status API | done |
 | 02 | หน้า Setup status และ npm run dev | done |
-| 03 | Windows NVIDIA | ready |
+| 03 | Windows NVIDIA | in-progress |
 
 ## Log
+
+### 03: Windows NVIDIA — stopped 2026-10-29 (รอเช็คมือบน Windows)
+
+**Built:**
+- `setup.cmd`: `chcp 65001` แล้วเรียก `powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup.ps1"`, exit ด้วย code ของ `setup.ps1`, หยุดรอกดปุ่มเมื่อดับเบิลคลิก, คืน code page เดิมก่อนจบ
+- `setup.ps1` (ASCII ล้วน): ติดตั้ง uv `0.13.6` ถ้าไม่มี แล้วเพิ่ม path ใน session, เช็ค `node`/`npm` ("Node.js 22+ required: https://nodejs.org"), `uv sync`, `uv run --no-sync python -m backend.setup` กับ `PYTHONUTF8=1`; เช็ค `$LASTEXITCODE` หลังทุกคำสั่ง
+- `.gitattributes`: `*.cmd` และ `*.ps1` เป็น CRLF
+- `run_checks` รับ `sys_platform`: test พิสูจน์แล้วว่าบน Windows แถว `fix` เป็น `setup.cmd` และคำแนะนำ NVIDIA driver; `IS_WINDOWS` ย้ายไป `backend.setup`
+- `README.md` วิธีรันบน Windows; library note `docs/library-notes/powershell.md` (Windows PowerShell 5.1 กับ cmd)
+- ทำแล้วจาก acceptance: `setup.ps1` ASCII (test), แถว `fix` บน Windows (test), backend เปิดอยู่ → "ปิด npm run dev ก่อนรัน setup" exit 1 (test ของ `backend.setup` จาก ticket 01)
+- ยังไม่ได้เช็ค (ต้องเครื่องจริง, Blocked #2): policy `Restricted`, ไม่มี uv → exit 0 กับ 9/9 `cuda`; path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9; `setup.cmd` ตอน backend เปิด → exit 1 ผ่าน wrapper จริง. ยังไม่เคย parse `setup.ps1` ด้วย PowerShell จริง (เครื่องนี้ไม่มี `pwsh`)
+
+**Decided:**
+- D23 — `setup.cmd` หยุดรอเมื่อดับเบิลคลิกและคืน code page, `setup.ps1` ไม่ใช้ `$ErrorActionPreference = 'Stop'`, ติดตั้ง uv ใน PowerShell ลูกที่ Bypass กับ TLS 1.2, CRLF, `run_checks` รับ `sys_platform`, test ของ wrapper เช็คแค่ข้อความที่ spec กำหนด
+
+**For the next ticket:**
+- ตอนเช็คมือบน Windows: Ctrl+C ใน `npm run dev` ต้องปิดทั้ง `[api]` และ `[web]` (จาก 02); torch โหลด DLL จาก `.venv` ใน path ภาษาไทยได้ไหม
+- Ctrl+C ระหว่าง `setup.ps1` ให้ exit 0 (`-File` ทำแบบนั้น) — ไม่แก้จนกว่าจะเป็นปัญหา
+- chip `fix` แสดง `setup.cmd` ตาม spec แต่ใน PowerShell ต้องพิมพ์ `.\setup.cmd` (README บอกแล้ว) — ถ้าผู้ใช้สับสน ให้ `/warroom setup-status`
+- `uv sync` รันก่อน `backend.setup` เช็ค port 8000 จึงอาจเห็น error ล็อกไฟล์ของ uv แทนข้อความไทยเมื่อ lock เปลี่ยน — spec รับไว้แล้ว
+- wrapper ยังไม่เช็คเวอร์ชัน Node (D22 เหมือน `setup.sh`)
+
+**Checks:** `uv run pytest` — 29 passed; `npm --prefix frontend test` — 12 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 02: หน้า Setup status และ npm run dev — done 2026-10-29
 
@@ -68,4 +91,4 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 02 | design: Setup status | `/warroom setup-status` พร้อมลิงก์ Figma frame | done |
-| 2 | 03 | เครื่อง Windows ที่มีการ์ด NVIDIA สำหรับทดสอบ (spec Open Question 1) | ผู้ใช้ยืนยันว่ามีเครื่อง แล้ว `/warroom-build setup-status 03` | open |
+| 2 | 03 | เช็คมือบนเครื่อง Windows ที่มีการ์ด NVIDIA (spec Open Question 1): policy `Restricted` ไม่มี uv → `setup.cmd` exit 0 กับ 9/9 `cuda`; ซ้ำใน path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9 และ Ctrl+C ปิดทั้งสอง; backend เปิดอยู่ → `setup.cmd` พิมพ์ "ปิด npm run dev ก่อนรัน setup" exit 1 | ผู้ใช้รันบน Windows แล้ว `/warroom-build setup-status 03` พร้อมผล | open |

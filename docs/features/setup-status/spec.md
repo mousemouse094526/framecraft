@@ -165,7 +165,7 @@ Marker (JSON):
 
 ### Status check
 
-`backend.checks.run_checks(root, device_probe, ffmpeg_probe)` สร้าง 9 รายการตามลำดับนี้ (D7, D13). ค่า default ของ probe คือของจริง; test ส่งตัวปลอม.
+`backend.checks.run_checks(root, device_probe, ffmpeg_probe, sys_platform)` สร้าง 9 รายการตามลำดับนี้ (D7, D13). ค่า default ของ probe คือของจริง และ `sys_platform` คือ OS ที่รันอยู่ (D23); test ส่งตัวปลอม.
 
 | `id` | `label` | `ok` เมื่อ | ไม่ `ok` | `fix` |
 |---|---|---|---|---|

@@ -2,7 +2,7 @@ from backend.checks import DeviceProbe, run_checks
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 
-from .fakes import cuda_device, item, ok_ffmpeg, write_marker
+from .fakes import broken_ffmpeg, cuda_device, item, ok_ffmpeg, write_marker
 
 
 def test_complete_root_with_cuda_is_ready_with_nine_ok(fake_root):
@@ -59,13 +59,10 @@ def test_marker_with_another_revision_makes_model_missing(fake_root):
 
 
 def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
-    def broken_ffmpeg():
-        raise RuntimeError("ffmpeg exited with 1")
-
     result = run_checks(fake_root, device_probe=cuda_device, ffmpeg_probe=broken_ffmpeg)
 
     assert item(result, "ffmpeg").status == "missing"
-    assert item(result, "ffmpeg").detail == "ffmpeg exited with 1"
+    assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
     assert len(result.items) == 9
 
 
@@ -118,3 +115,34 @@ def test_corrupt_marker_makes_model_missing(fake_root):
 
     assert item(result, "model_omnivoice").status == "missing"
     assert item(result, "model_omnivoice").detail.startswith("marker เสีย")
+
+
+def test_rows_on_windows_tell_the_user_to_run_setup_cmd(fake_root):
+    # `fix` is only set on rows that aren't ok, so break a model, ffmpeg and the GPU.
+    ProjectPaths(fake_root).marker(OMNIVOICE).unlink()
+
+    result = run_checks(
+        fake_root,
+        device_probe=lambda: "cpu",
+        ffmpeg_probe=broken_ffmpeg,
+        sys_platform="win32",
+    )
+
+    assert item(result, "model_omnivoice").fix == "setup.cmd"
+    assert item(result, "ffmpeg").fix == "setup.cmd"
+    assert item(result, "device").fix == "ติดตั้ง NVIDIA driver แล้วปิดและเปิด npm run dev ใหม่"
+
+
+def test_rows_on_mac_tell_the_user_to_run_setup_sh(fake_root):
+    ProjectPaths(fake_root).marker(OMNIVOICE).unlink()
+
+    result = run_checks(
+        fake_root,
+        device_probe=lambda: "cpu",
+        ffmpeg_probe=broken_ffmpeg,
+        sys_platform="darwin",
+    )
+
+    assert item(result, "model_omnivoice").fix == "./setup.sh"
+    assert item(result, "ffmpeg").fix == "./setup.sh"
+    assert item(result, "device").fix == "ต้องเป็น Mac Apple Silicon"

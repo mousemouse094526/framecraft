@@ -9,7 +9,7 @@
 - ADR: 0006
 - User stories: 6
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Acceptance criteria
 

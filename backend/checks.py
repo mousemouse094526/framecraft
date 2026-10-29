@@ -23,14 +23,27 @@ from backend.paths import ProjectPaths
 
 ItemStatus = Literal["ok", "missing", "warning"]
 
-IS_WINDOWS = sys.platform == "win32"
-SETUP_COMMAND = "setup.cmd" if IS_WINDOWS else "./setup.sh"
-DEVICE_FIX = (
-    "ติดตั้ง NVIDIA driver แล้วปิดและเปิด npm run dev ใหม่"
-    if IS_WINDOWS
-    else "ต้องเป็น Mac Apple Silicon"
-)
 FFMPEG_TIMEOUT_SECONDS = 5
+
+
+@dataclass(frozen=True)
+class FixTexts:
+    """What a Checklist item's `fix` tells the user to do, per OS.
+
+    `setup` is the setup command; `device` is the advice when only `cpu` works.
+    """
+
+    setup: str
+    device: str
+
+
+def _fix_texts(sys_platform: str) -> FixTexts:
+    if sys_platform == "win32":
+        return FixTexts(
+            setup="setup.cmd",
+            device="ติดตั้ง NVIDIA driver แล้วปิดและเปิด npm run dev ใหม่",
+        )
+    return FixTexts(setup="./setup.sh", device="ต้องเป็น Mac Apple Silicon")
 
 
 class License(BaseModel):
@@ -141,8 +154,10 @@ def run_checks(
     root: Path | None = None,
     device_probe: Callable[[], str] | None = None,
     ffmpeg_probe: Callable[[], FfmpegInfo] | None = None,
+    sys_platform: str | None = None,
 ) -> StatusResponse:
-    """Builds every Checklist item in spec order. Defaults are the real probes.
+    """Builds every Checklist item in spec order. Defaults are the real probes
+    and the OS this process runs on.
 
     Defaults are looked up at call time, so tests can swap `paths.ROOT` and the
     module's probes.
@@ -150,16 +165,17 @@ def run_checks(
     project = ProjectPaths(root or paths.ROOT)
     device_probe = device_probe or probe_device
     ffmpeg_probe = ffmpeg_probe or probe_ffmpeg
+    fixes = _fix_texts(sys_platform or sys.platform)
 
     items = [
         _item("python", "Python venv", lambda: _check_python(project), "รัน backend ด้วย npm run dev"),
-        _item("torch", "torch", lambda: _check_package("torch"), SETUP_COMMAND),
-        _item("transformers", "transformers", lambda: _check_package("transformers"), SETUP_COMMAND),
-        _item("omnivoice", "omnivoice", lambda: _check_package("omnivoice"), SETUP_COMMAND),
-        _item("fastapi", "fastapi", lambda: _check_package("fastapi"), SETUP_COMMAND),
-        _item("ffmpeg", "ffmpeg", lambda: _check_ffmpeg(ffmpeg_probe), SETUP_COMMAND),
-        *(_model_item(project, model) for model in MODELS),
-        _item("device", "Device", lambda: _check_device(device_probe), DEVICE_FIX),
+        _item("torch", "torch", lambda: _check_package("torch"), fixes.setup),
+        _item("transformers", "transformers", lambda: _check_package("transformers"), fixes.setup),
+        _item("omnivoice", "omnivoice", lambda: _check_package("omnivoice"), fixes.setup),
+        _item("fastapi", "fastapi", lambda: _check_package("fastapi"), fixes.setup),
+        _item("ffmpeg", "ffmpeg", lambda: _check_ffmpeg(ffmpeg_probe), fixes.setup),
+        *(_model_item(project, model, fixes.setup) for model in MODELS),
+        _item("device", "Device", lambda: _check_device(device_probe), fixes.device),
     ]
     counts = {s: sum(1 for i in items if i.status == s) for s in ("ok", "warning", "missing")}
     return StatusResponse(
@@ -219,7 +235,7 @@ def _item(
     )
 
 
-def _model_item(project: ProjectPaths, model: ModelSpec) -> ChecklistItem:
+def _model_item(project: ProjectPaths, model: ModelSpec, fix: str) -> ChecklistItem:
     license = License(
         name=model.license,
         url=model.license_url,
@@ -230,7 +246,7 @@ def _model_item(project: ProjectPaths, model: ModelSpec) -> ChecklistItem:
         model.check_id,
         model.label,
         lambda: check_model(project, model),
-        SETUP_COMMAND,
+        fix,
         license,
     )
 

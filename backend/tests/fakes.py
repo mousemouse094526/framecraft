@@ -42,6 +42,10 @@ def ok_ffmpeg() -> FfmpegInfo:
     return FfmpegInfo(version="7.1", source="imageio-ffmpeg")
 
 
+def broken_ffmpeg() -> FfmpegInfo:
+    raise RuntimeError("ffmpeg -version exited with 1")
+
+
 def cuda_device() -> str:
     return "cuda"
 

@@ -1,6 +1,6 @@
 """The setup entry point: `python -m backend.setup` (ADR 0002).
 
-The OS wrappers (setup.sh, later setup.cmd) install uv and run `uv sync`;
+The OS wrappers (setup.sh, setup.cmd -> setup.ps1) install uv and run `uv sync`;
 everything else happens here. Every step can be re-run: models that are
 already `ok` are skipped and snapshot_download skips finished files.
 """
@@ -15,7 +15,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 from backend.checks import (
-    IS_WINDOWS,
     FfmpegInfo,
     StatusResponse,
     check_model,
@@ -25,6 +24,7 @@ from backend.checks import (
 from backend.models import MODELS, ModelSpec
 from backend.paths import ROOT, ProjectPaths
 
+IS_WINDOWS = sys.platform == "win32"
 BACKEND_ADDRESS = ("127.0.0.1", 8000)
 # Both models are about 5 GB; the rest is headroom for partial downloads.
 REQUIRED_FREE_BYTES = 15_000_000_000

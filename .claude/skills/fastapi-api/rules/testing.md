@@ -16,7 +16,8 @@ def test_missing_marker(tmp_path):
 
 ## Rules
 
-- Runner: `uv run pytest`. Tests live in `backend/tests/test_{module}.py`.
+- Runner: `uv run pytest`. Tests live in `backend/tests/test_{module}.py`;
+  `test_wrappers.py` checks the text of `setup.cmd` and `setup.ps1`, which can't run on a Mac.
 - API tests use FastAPI `TestClient`.
 - Fake the project root in `tmp_path`; inject probes instead of monkeypatching
   globals where the code takes them as arguments.
