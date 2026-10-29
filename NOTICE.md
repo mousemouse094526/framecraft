@@ -1,7 +1,8 @@
 # Notice
 
 framecraft downloads and runs the models below on your own machine. They are
-not part of this repository; `./setup.sh` fetches them into `models/`.
+not part of this repository; `./setup.sh` (Mac) or `setup.cmd` (Windows)
+fetches them into `models/`.
 
 Use framecraft for personal or experimental work only. The OmniVoice model is
 licensed for non-commercial use (CC BY-NC 4.0), so videos and audio made with

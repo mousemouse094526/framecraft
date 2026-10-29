@@ -1,10 +1,11 @@
 """Fake project roots and probes shared by the backend tests."""
 
+import dataclasses
 import json
 import threading
 from pathlib import Path
 
-from backend.checks import FfmpegInfo
+from backend.checks import FfmpegInfo, Probes
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 from backend.spoil import clips
@@ -63,6 +64,12 @@ def broken_deno() -> str:
 
 def cuda_device() -> str:
     return "cuda"
+
+
+def fake_probes(**overrides) -> Probes:
+    """Every probe passing on a CUDA machine, unless overridden by field name."""
+    probes = Probes(device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp)
+    return dataclasses.replace(probes, **overrides)
 
 
 def item(result, item_id: str):

@@ -10,7 +10,7 @@ machine's GPU.
 ```python
 def test_missing_marker(tmp_path):
     root = make_fake_root(tmp_path, models={"whisper": "ok"})
-    result = run_checks(root, device_probe=lambda: "cuda", ffmpeg_probe=ok_ffmpeg)
+    result = run_checks(root, fake_probes(device=lambda: "cpu"))
     assert item(result, "model_omnivoice").status == "missing"
 ```
 

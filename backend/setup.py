@@ -16,7 +16,7 @@ from pathlib import Path
 
 from backend import disk
 from backend.checks import (
-    FfmpegInfo,
+    Probes,
     StatusResponse,
     check_model,
     now_iso,
@@ -27,7 +27,7 @@ from backend.paths import ROOT, ProjectPaths
 
 IS_WINDOWS = sys.platform == "win32"
 BACKEND_ADDRESS = ("127.0.0.1", 8000)
-# Both models are about 5 GB; the rest is headroom for partial downloads.
+# The two models together are about 5 GB; the rest is headroom for partial downloads.
 REQUIRED_FREE_BYTES = 15_000_000_000
 STATUS_ICONS = {"ok": "✓", "warning": "!", "missing": "✗"}
 
@@ -41,10 +41,7 @@ def run_setup(
     npm_install: Callable[[Path], None] | None = None,
     backend_running: Callable[[], bool] | None = None,
     free_bytes: Callable[[Path], int] | None = None,
-    device_probe: Callable[[], str] | None = None,
-    ffmpeg_probe: Callable[[], FfmpegInfo] | None = None,
-    deno_probe: Callable[[], str] | None = None,
-    yt_dlp_probe: Callable[[], str] | None = None,
+    probes: Probes | None = None,
 ) -> int:
     """Downloads what is missing and prints the checklist. Returns the exit code."""
     download = download or _snapshot_download
@@ -93,13 +90,7 @@ def run_setup(
     finally:
         project.setup_lock.unlink(missing_ok=True)
 
-    result = run_checks(
-        root,
-        device_probe=device_probe,
-        ffmpeg_probe=ffmpeg_probe,
-        deno_probe=deno_probe,
-        yt_dlp_probe=yt_dlp_probe,
-    )
+    result = run_checks(root, probes)
     _print_checklist(result)
     if not result.ready:
         missing = [i.label for i in result.items if i.status == "missing"]
@@ -136,6 +127,7 @@ def _backend_running() -> bool:
 def _take_lock(lock: Path) -> bool:
     """Creates the lock with our PID unless a live process already holds it."""
     lock.parent.mkdir(parents=True, exist_ok=True)
+    # Two tries: the second follows removing a lock whose setup died.
     for _ in range(2):
         try:
             # O_EXCL: of two setups started together, only one creates the file.

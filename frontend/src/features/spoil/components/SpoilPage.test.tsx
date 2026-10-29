@@ -11,7 +11,7 @@ import { SpoilPage } from "./SpoilPage";
 const SHORTS_URL = "https://www.youtube.com/shorts/f7jkZXvaB4g";
 
 function okItem(id: string, label: string): ChecklistItem {
-  return { id, label, status: "ok", detail: "", fix: null, license: null };
+  return { id, label, status: "ok", detail: "", fix: null, fix_kind: null, license: null };
 }
 
 const ITEMS: ChecklistItem[] = [
@@ -20,7 +20,7 @@ const ITEMS: ChecklistItem[] = [
   okItem("yt_dlp", "yt-dlp"),
   okItem("deno", "Deno"),
   // A missing model does not stop a download (D9).
-  { ...okItem("model_whisper", "Whisper model"), status: "missing", fix: "./setup.sh" },
+  { ...okItem("model_whisper", "Whisper model"), status: "missing", fix: "./setup.sh", fix_kind: "command" },
 ];
 
 // Every item the Transcribe job needs is ok (D27).

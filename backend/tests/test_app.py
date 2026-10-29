@@ -38,6 +38,7 @@ def test_status_api_rows_have_fix_null_when_ok_and_license_only_on_models(client
         "status": "ok",
         "detail": "mps",
         "fix": None,
+        "fix_kind": None,
         "license": None,
     }
     whisper = next(i for i in body["items"] if i["id"] == "model_whisper")
