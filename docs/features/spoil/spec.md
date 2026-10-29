@@ -31,11 +31,11 @@
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
-| แถบ tab | 1 | tab "สปอย" และ "Setup status" ตามลำดับนี้, tab ที่เปิดอยู่เด่นกว่า (D10) | pending |
-| tab สปอย | 2, 3, 6, 7 | ช่องลิงก์กับปุ่ม "โหลด"; ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ไป Setup status แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | pending |
-| หน้าต่างรายการ Temp clip | 4, 5 | ใน tab สปอยใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); state ว่าง: "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน" | pending |
+| แถบ tab | 1 | tab "สปอย" และ "Setup status" ตามลำดับนี้, tab ที่เปิดอยู่เด่นกว่า (D10) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frame "Tab bar / Setup status active" และ header ของทุก frame สปอย; component `Tab` |
+| tab สปอย | 2, 3, 6, 7 | ช่องลิงก์กับปุ่ม "โหลด"; ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ไป Setup status แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 1 loading, 2–3 idle, 4 downloading, 5 progress states, 6 done, 7 failed with fix, 8 messages, 9 duplicate, 11 not ready, 12 offline, 13 mobile 375px; component `Download progress` |
+| หน้าต่างรายการ Temp clip | 4, 5 | ใน tab สปอยใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); state ว่าง: "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน" | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 2 empty, 3 list, 6 and 9 highlight, 10 playing and delete error; component `Clip row` (D18) |
 
-ออกแบบใน Figma หลัง plan (setup-status D9) ในไฟล์เดียวกับหน้า Setup status.
+ออกแบบใน Figma หลัง plan (setup-status D9) ในไฟล์เดียวกับหน้า Setup status. Section "framecraft — สปอย" มี component `Tab`, `Clip row`, `Download progress` และ frame ทุก state; ใช้ token และ component ของหน้า `:: Token` (Button, Field, Alert, Badge, icon).
 
 ## Expected Outcome
 
@@ -264,7 +264,7 @@ tab สปอย:
 | loading | เปิด tab ยังไม่ได้ผลจาก `/api/setup/status` และ `/api/spoil/clips` | "กำลังโหลด…" |
 | not ready | แถว `yt_dlp`, `deno` หรือ `ffmpeg` ไม่ `ok` | "ยังติดตั้งไม่ครบ: {label ที่ขาด}" กับลิงก์ "ไปหน้า Setup status" แทนช่องลิงก์; รายการยังแสดง (D9) |
 | idle | พร้อม ไม่มีงานที่ยังไม่จบ | ช่องลิงก์, ปุ่ม "โหลด", รายการ |
-| downloading | งานเป็น `checking`, `downloading` หรือ `merging` | "กำลังเช็คลิงก์…", "กำลังโหลด {title}" กับแถบ % หรือ "กำลังรวมไฟล์…"; ปุ่ม "ยกเลิก" ยกเว้นตอน `merging`; ปุ่มโหลด disabled (D6, D15) |
+| downloading | งานเป็น `checking`, `downloading` หรือ `merging` | "กำลังเช็คลิงก์…", "กำลังโหลด {title}" กับแถบ % หรือ "กำลังรวมไฟล์…"; ปุ่ม "ยกเลิก" ยกเว้นตอน `merging` ที่แสดง "ยกเลิกไม่ได้ระหว่างรวมไฟล์" แทน (D18); ปุ่มโหลด disabled (D6, D15) |
 | cancelling | `cancel_requested` เป็น `true` และงานยังไม่จบ | "กำลังยกเลิก…", ปุ่มยกเลิก disabled |
 | offline | fetch ล้ม, status ที่ไม่อยู่ในตาราง API หรือเกิน 30 วินาที | `OfflinePanel` ตัวเดียวกับหน้า Setup status พร้อมปุ่ม Refresh ที่โหลด tab ใหม่ทั้งหมด |
 
@@ -288,6 +288,7 @@ tab สปอย:
 - poll `GET /api/spoil/downloads/current` ทุก 1 วินาทีเฉพาะตอนงานยังไม่จบ; จบแล้ว → `GET /api/spoil/clips` ครั้งเดียว (D6)
 - ลบ → `window.confirm("ลบ {title}?")` ก่อน; แถวนั้นเล่นอยู่ → ปลด player (`src` ว่างแล้ว `load()`) ก่อน `DELETE` (D15); สำเร็จ → เอาแถวออก
 - กดแถว → `<video controls>` ที่ `src` = `/api/spoil/clips/{id}/video` แสดงเหนือรายการ; แถวที่ถูกลบหายจาก player ด้วย
+- รายการมีหัว "คลิปที่โหลดมา" พร้อมจำนวนคลิป; แถวที่เล่นอยู่มี badge "กำลังเล่น" (D18)
 - ความยาวแสดงเป็น `h:mm:ss` หรือ `m:ss`; ขนาดไฟล์เป็น MB หรือ GB ทศนิยมหนึ่งตำแหน่ง; เวลาโหลดเป็นเวลาท้องถิ่น
 - ข้อความในหน้าเป็นภาษาไทย
 

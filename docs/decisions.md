@@ -75,6 +75,7 @@ question; the full entry is in the feature's decisions.md.
 | red team: ยกเลิกต่อ state (merging ยกเลิกไม่ได้), lock กัน POST ซ้อน, ลบ mp4 ก่อน json, `in_use`, แยก error `login_required`, `TrustedHostMiddleware` | [spoil](features/spoil/decisions.md) | D15 | — | [0011](adr/0011-trusted-host-only.md) | active |
 | แยก error ของ yt-dlp ตามข้อความจริง: live ที่ยังไม่เริ่ม = "This live event will begin", ไม่ใช้คำ "age" เดี่ยวๆ | [spoil](features/spoil/decisions.md) | D16 | — | — | active |
 | ทางเลือกเล็กของงานโหลด: gate เรียก probe ใน `backend.checks`, adapter รับ `ProjectPaths`, busy เช็คจาก state | [spoil](features/spoil/decisions.md) | D17 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | active |
+| ของบนจอที่ design เพิ่ม: หัวรายการพร้อมจำนวน, badge "กำลังเล่น", ข้อความแทนปุ่มยกเลิกตอน merging | [spoil](features/spoil/decisions.md) | D18 | — | — | active |
 | ลิงก์ซ้ำ (video id เดิม) ไม่โหลดใหม่ ชี้แถวเดิม | [spoil](features/spoil/decisions.md) | D12 | — | — | active |
 | ไม่จำกัดความยาว, ปฏิเสธ live, เช็คดิสก์ว่าง ≥ ขนาดประมาณ + 1 GB ก่อนโหลด | [spoil](features/spoil/decisions.md) | D11 | — | — | active |
 | `yt-dlp[default]` และ `deno` (PyPI wheel) pin ใน `uv.lock`; โหลดพังแสดงเวอร์ชันและคำสั่งอัปเดต | [spoil](features/spoil/decisions.md) | D8 | — | — | active |

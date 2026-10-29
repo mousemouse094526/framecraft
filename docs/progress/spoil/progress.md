@@ -1,11 +1,11 @@
 # Progress: spoil
 
-**Now:** 01 done (backend โหลดคลิปผ่าน API ได้, Status check 11 แถว); 02 รอ Figma ของแถบ tab และ tab สปอย (Blocked #1–2)
+**Now:** 01 done; design ของทั้งสามจออยู่ใน Figma แล้ว (Blocked #1–3 done, D18) — 02 เริ่มได้
 
 **Next:**
 
 ```
-/warroom spoil
+/warroom-build spoil 02
 ```
 
 ## Tickets
@@ -43,6 +43,6 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 02 | design: แถบ tab | `/warroom spoil` พร้อมลิงก์ Figma frame | open |
-| 2 | 02 | design: tab สปอย | `/warroom spoil` พร้อมลิงก์ Figma frame | open |
-| 3 | 03 | design: หน้าต่างรายการ Temp clip | `/warroom spoil` พร้อมลิงก์ Figma frame | open |
+| 1 | 02 | design: แถบ tab | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
+| 2 | 02 | design: tab สปอย | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
+| 3 | 03 | design: หน้าต่างรายการ Temp clip | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
