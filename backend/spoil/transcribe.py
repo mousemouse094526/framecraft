@@ -5,7 +5,6 @@ Steps and rules are in docs/features/spoil/spec.md › Transcribe (D23, D24, D27
 """
 
 import logging
-import os
 import threading
 from collections import Counter
 from pathlib import Path
@@ -18,7 +17,7 @@ from backend import checks, paths, spoil
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
 from backend.spoil import clips
-from backend.spoil.errors import SpoilError
+from backend.spoil.errors import JobFailed, SpoilError, require_rows
 from backend.spoil.job_slot import JobSlot
 from backend.spoil.whisper import Done, Segment, WorkerError
 
@@ -34,7 +33,7 @@ TERMINATE_SECONDS = 5  # a child that ignores SIGTERM this long is killed
 GPU_ADVICE = "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง"
 
 
-class JobError(BaseModel):
+class TranscribeJobError(BaseModel):
     code: ErrorCode
     message: str
 
@@ -44,7 +43,7 @@ class TranscribeJob(BaseModel):
     state: State
     percent: int | None = None
     cancel_requested: bool = False
-    error: JobError | None = None
+    error: TranscribeJobError | None = None
 
 
 class TranscriptLine(BaseModel):
@@ -63,12 +62,6 @@ class Transcript(BaseModel):
     lines: list[TranscriptLine]
 
 
-class _Failed(Exception):
-    def __init__(self, code: ErrorCode, message: str):
-        super().__init__(message)
-        self.code, self.message = code, message
-
-
 class _Cancelled(Exception):
     pass
 
@@ -85,10 +78,9 @@ class Transcriptions(JobSlot[TranscribeJob]):
     def start(self, clip_id: str) -> TranscribeJob:
         """Checks in spec order, then starts the job's thread. Raises `SpoilError`."""
         project = ProjectPaths(paths.ROOT)
-        missing = _missing_tools(project)
-        if missing:
-            raise SpoilError(503, "not_ready", f"ยังติดตั้งไม่ครบ: {', '.join(missing)}")
-        device = checks.probe_device()  # cached once it found a GPU, so the gate saw the same
+        require_rows(_needed_rows(project))
+        # The gate just found a GPU and DeviceProbe caches it, so this is that same device.
+        device = checks.probe_device()
         with self._lock:
             mp4 = clips.video_file(project, clip_id)  # 404 unless both json and mp4 are there
             if self._taken():
@@ -141,12 +133,13 @@ class Transcriptions(JobSlot[TranscribeJob]):
             ending = {"state": "done"}
         except _Cancelled:
             ending = {"state": "cancelled"}
-        except _Failed as failure:
-            ending = {"state": "failed", "error": JobError(code=failure.code, message=failure.message)}
+        except JobFailed as failure:
+            error = TranscribeJobError(code=failure.code, message=failure.message)
+            ending = {"state": "failed", "error": error}
         except Exception as error:
             log.exception("transcribing %s failed", clip.id)  # the full error, for [api]
             message = f"ถอดไม่สำเร็จ: {_short(error)}"
-            ending = {"state": "failed", "error": JobError(code="internal", message=message)}
+            ending = {"state": "failed", "error": TranscribeJobError(code="internal", message=message)}
         finally:
             # Whatever happened, the job must end, or every later POST is `busy` (D29).
             if process is not None:
@@ -160,7 +153,7 @@ class Transcriptions(JobSlot[TranscribeJob]):
             self._update(percent=None, **ending)
 
     def _read_segments(self, process, queue) -> list[Segment]:
-        """Reads the child's messages until `Done`. Raises `_Cancelled` or `_Failed`."""
+        """Reads the child's messages until `Done`. Raises `_Cancelled` or `JobFailed`."""
         segments: list[Segment] = []
         while True:
             if self._cancel.is_set():
@@ -175,7 +168,7 @@ class Transcriptions(JobSlot[TranscribeJob]):
                 try:
                     message = queue.get(timeout=POLL_SECONDS)
                 except Empty:
-                    raise _Failed(
+                    raise JobFailed(
                         "crashed", f"ตัวถอดหยุดทำงานกลางทาง (exit {process.exitcode}). {GPU_ADVICE}"
                     ) from None
             if isinstance(message, Done):
@@ -198,11 +191,11 @@ def _stop(process) -> None:
     process.join(TERMINATE_SECONDS)
 
 
-def _worker_error(error: WorkerError) -> _Failed:
+def _worker_error(error: WorkerError) -> JobFailed:
     log.error("the Whisper process failed (%s): %s", error.code, error.detail)
     if error.code == "no_audio":
-        return _Failed("no_audio", "คลิปนี้ไม่มีเสียง หรืออ่านเสียงไม่ได้")
-    return _Failed("model_failed", f"ถอดไม่สำเร็จ: {_short(error.detail)}. {GPU_ADVICE}")
+        return JobFailed("no_audio", "คลิปนี้ไม่มีเสียง หรืออ่านเสียงไม่ได้")
+    return JobFailed("model_failed", f"ถอดไม่สำเร็จ: {_short(error.detail)}. {GPU_ADVICE}")
 
 
 def _short(error: Exception | str) -> str:
@@ -211,28 +204,19 @@ def _short(error: Exception | str) -> str:
     return text.splitlines()[0][:200] if text else type(error).__name__
 
 
-def _missing_tools(project: ProjectPaths) -> list[str]:
-    """The `label`s of the Status check rows a transcription needs that aren't `ok` (D27).
+def _needed_rows(project: ProjectPaths) -> dict[str, checks.Check]:
+    """The Status check rows a transcription needs (D27), by label; the frontend's
+    `TRANSCRIBE_ITEMS` gates on the same rows.
 
-    The same checks as the Status check, so the page and the gate never disagree;
     `device` is a warning on `cpu`, which doesn't pass here (ADR 0006).
     """
-    rows = {
+    return {
         "torch": lambda: checks.check_package("torch"),
         "transformers": lambda: checks.check_package("transformers"),
         "ffmpeg": lambda: checks.check_ffmpeg(checks.probe_ffmpeg),
         WHISPER.label: lambda: checks.check_model(project, WHISPER),
         "Device": lambda: checks.check_device(checks.probe_device),
     }
-    missing = []
-    for label, check in rows.items():
-        try:
-            status, _ = check()
-        except Exception:
-            status = "missing"
-        if status != "ok":
-            missing.append(label)
-    return missing
 
 
 def _build_transcript(clip: clips.TempClip, segments: list[Segment]) -> Transcript:
@@ -266,13 +250,7 @@ def _language(languages: list[str | None]) -> str | None:
 def write_transcript(project: ProjectPaths, transcript: Transcript) -> None:
     """Through a temporary file, so a crash never leaves half a transcript (D27)."""
     target = clips.transcript_path(project, transcript.clip_id)
-    temporary = target.with_name(target.name + ".tmp")
-    temporary.write_text(transcript.model_dump_json(indent=2), encoding="utf-8")
-    try:
-        os.replace(temporary, target)
-    except OSError:
-        temporary.unlink(missing_ok=True)
-        raise
+    clips.write_atomic(target, transcript.model_dump_json(indent=2))
 
 
 def read_transcript(project: ProjectPaths, clip_id: str) -> Transcript:

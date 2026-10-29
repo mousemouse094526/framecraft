@@ -27,7 +27,7 @@ def test_missing_marker(tmp_path):
 - Background jobs are tested without sleeps on a timer: the fake pauses at a
   named point (`pause_at`, `wait_until`, `release`) and the test polls the API
   until the job's state is final. Swap the job holder for a fresh one per test
-  (`monkeypatch.setattr(jobs, "downloads", jobs.Downloads())`).
+  (`monkeypatch.setattr(downloads, "downloads", downloads.Downloads())`).
 - A lifespan only runs inside `with TestClient(app, ...)`.
 - The Whisper child process is never started in tests; the real `worker` is
   checked by hand with the model (spoil seam 3). Its pure helpers

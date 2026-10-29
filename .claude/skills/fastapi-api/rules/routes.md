@@ -38,4 +38,4 @@ def get_status() -> StatusResponse:
 ## Good examples
 
 - [backend/routes/setup_status.py](../../../../backend/routes/setup_status.py) — one router, one call to `run_checks`, always 200.
-- [backend/routes/spoil.py](../../../../backend/routes/spoil.py) — each route one call on `jobs.downloads`; `spoil_error_response` is the handler `app.py` registers.
+- [backend/routes/spoil.py](../../../../backend/routes/spoil.py) — each route one call on `downloads.downloads` or `transcribe.transcriptions`; `spoil_error_response` is the handler `app.py` registers.

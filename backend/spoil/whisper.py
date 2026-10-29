@@ -10,7 +10,7 @@ import multiprocessing
 import subprocess
 import traceback
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 SEGMENT_SECONDS = 300
 MIN_LAST_SECONDS = 30  # a shorter last piece joins the one before: Whisper invents words from a few seconds (D29)
@@ -23,7 +23,10 @@ Line = tuple[float, float, str]  # start and end in clip seconds, text as Whispe
 
 
 class Segment(NamedTuple):
-    """One finished 300 s piece of the clip; `index` counts from 0 up to `total`."""
+    """One finished 300 s piece of the clip; `index` counts from 0 up to `total`.
+
+    Not Whisper's own "segment", which is closer to one of `lines`.
+    """
 
     index: int
     total: int
@@ -32,7 +35,7 @@ class Segment(NamedTuple):
 
 
 class WorkerError(NamedTuple):
-    code: str  # "no_audio" or "model_failed"
+    code: Literal["no_audio", "model_failed"]
     detail: str  # "{exception type}: {message}", for the job's message and the log
 
 

@@ -1,6 +1,7 @@
 """The Download job API under /api/spoil, with a fake yt-dlp adapter (spoil seam 1)."""
 
 import json
+import os
 import threading
 import time
 from datetime import datetime
@@ -14,7 +15,7 @@ from backend import checks, paths, spoil
 from backend.app import app
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
-from backend.spoil import jobs
+from backend.spoil import downloads
 
 from .fakes import (
     FakeAdapter,
@@ -51,7 +52,7 @@ def client(fake_root, adapter, monkeypatch):
     monkeypatch.setattr(checks, "probe_deno", ok_deno)
     monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
     monkeypatch.setattr(spoil, "free_bytes", lambda path: 100 * GB)
-    monkeypatch.setattr(jobs, "downloads", jobs.Downloads())
+    monkeypatch.setattr(downloads, "downloads", downloads.Downloads())
     return TestClient(app, base_url="http://127.0.0.1")
 
 
@@ -261,6 +262,19 @@ def test_percent_does_not_go_back_when_a_format_restarts(client, adapter):
 
 
 # --- Refused before a job starts ---
+
+
+def test_a_json_that_cant_be_written_fails_the_job_and_leaves_no_files(client, project, monkeypatch):
+    def replace(source, target):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(os, "replace", replace)
+
+    start(client)
+    job = wait_for_end(client)
+
+    assert job["state"] == "failed"
+    assert files_named(project.media_temp_dir) == []
 
 
 def test_link_of_a_clip_that_has_json_is_duplicate(client, project):

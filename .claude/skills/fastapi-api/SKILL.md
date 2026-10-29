@@ -22,11 +22,13 @@ backend/
 ├── disk.py       ← free disk space, shared by setup and spoil
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
-│                    links, adapter (the only yt-dlp import), clips, jobs,
+│                    links, adapter (the only yt-dlp import), clips,
+│                    downloads (Download job),
 │                    transcribe (Transcribe job, Transcript files),
 │                    whisper (the only torch/transformers import for
 │                    transcribing; its `worker` runs in a child process),
-│                    errors (SpoilError, raised by clips, jobs, transcribe)
+│                    errors (SpoilError, JobFailed, and `require_rows`,
+│                    the gate both jobs use)
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```

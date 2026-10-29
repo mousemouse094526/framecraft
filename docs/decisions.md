@@ -102,4 +102,5 @@ question; the full entry is in the feature's decisions.md.
 | ยอมรับเวลาบรรทัดตาม Whisper long-form แม้บางบรรทัดคลาด 2–3 วินาที | [spoil](features/spoil/decisions.md) | D32 | — | — | active |
 | ของบนจอที่ design ของกล่องถอดเพิ่ม: ช่องลิงก์อยู่คอลัมน์ซ้าย, ข้อความหลังงานถอดเป็น Alert ในกล่อง, แถบ % แบบ Download progress, Transcript ว่างไม่มีปุ่ม Copy/ไฟล์ | [spoil](features/spoil/decisions.md) | D33 | — | — | active |
 | ทางเลือกเล็กตอน build กล่องถอด: คลิปที่เลือกอยู่กับ `useTranscribe`, status GET ครั้งเดียว, `busy` → GET current, ลบคลิปที่กำลังถอดไม่ปลด player, ซ่อน Transcript ระหว่างถอดใหม่, ไม่ autoPlay เมื่อเลือกเพราะงาน, `PageLayout wide` | [spoil](features/spoil/decisions.md) | D34 | — | — | active |
+| แก้จาก feature review: gate สองงานผ่าน `require_rows`, `JobFailed`, `write_atomic`, `jobs.py` → `downloads.py`, `features/spoil/lib/`, งานโหลดไม่หลุดเมื่องานถอดได้ 503 | [spoil](features/spoil/decisions.md) | D35 | — | — | active |
 

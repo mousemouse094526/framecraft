@@ -1,11 +1,11 @@
 # Progress: spoil
 
-**Now:** 01–05 done บน Mac; ticket 06 (เช็คบน Windows) ย้ายไป `windows-check` 02 (setup-status D25) — เหลือ feature review
+**Now:** feature review เสร็จ, ready to merge (branch `feat/spoil`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
 **Next:**
 
 ```
-/warroom-build spoil --review-feature
+/pr-open
 ```
 
 ## Tickets
@@ -19,6 +19,25 @@
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
 
 ## Log
+
+### Feature review — done 2026-10-30
+
+**Built:**
+- review สามแกนบนโค้ดทั้ง feature (aee14b7..31fb79c ซึ่งอยู่บน `develop` แล้ว) แก้ทุกข้อที่ผู้ใช้เลือกใน `24c6c9b` บน `feat/spoil`
+- bug: งานถอดได้ `503` และ status ใหม่ขาดแถวที่งานโหลดใช้ → งานโหลดที่ยังวิ่งถูกทิ้งและหยุด poll ทั้งที่ backend ยังโหลด; ตอนนี้ยังติดตามต่อ (test ใหม่ แดงก่อนแก้)
+- backend: gate สองงานผ่าน `require_rows`, `JobFailed` ตัวเดียว, `write_atomic` ตัวเดียว, `jobs.py` → `downloads.py`, `DownloadJobError`/`TranscribeJobError`, `WorkerError.code` เป็น `Literal`
+- frontend: `gate.ts`/`notice.ts`/`refusal.ts` ไป `features/spoil/lib/`, ของร่วมของสอง hook ใน `lib/job.ts`, `getReply`
+- comment และ test ชัดขึ้น (`Segment`, device probe, ลำดับ gate, test สองช่วง); กฎ test ให้นับ `<video>` ทั้งหน้าได้เพื่อพิสูจน์ว่าไม่มีตัวอื่น
+- เช็คจริงบน Mac: gate สองงานกับ probe จริงผ่าน; tab สปอยผ่าน Vite โหลด module ใหม่และแสดงรายการ 5 คลิป
+
+**Decided:**
+- D35 — สิ่งที่แก้จาก feature review
+
+**For the next ticket:**
+- ทิ้งตามที่ผู้ใช้เลือก: `.txt` สร้างสองที่ (backend `to_txt` กับ Copy ของหน้าเว็บ), state ของหน้าเป็น union เดียว, `deno` ใช้สองโมดูล, `ProjectPaths(paths.ROOT)` สร้างหลายที่, ลบคลิปผ่าน `transcriptions.delete_clip`, สอง Alert หลัง `done`, `404` ใน console, fake backend ใน test ตอบตามลำดับ, cue `.srt` สั้น, ชื่อ `statusTypes.ts`, test ชน POST พิสูจน์ lock ไม่ได้
+- `npm run dev` ที่เปิดค้างอยู่ใช้ backend เก่าจนกว่าจะเปิดใหม่ (`jobs.py` เปลี่ยนชื่อ)
+
+**Checks:** `uv run pytest` — 169 passed; `npm --prefix frontend test` — 68 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 - 2026-10-30: ticket 06 ย้ายทั้ง ticket ไปเป็น `windows-check` 02 พร้อมข้อ Windows ใน For the next ticket ด้านล่าง (setup-status D25, ADR-0014)
 

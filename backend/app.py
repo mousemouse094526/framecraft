@@ -8,7 +8,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from backend import paths
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil
-from backend.spoil import clips, jobs, transcribe
+from backend.spoil import clips, downloads, transcribe
 from backend.spoil.errors import SpoilError
 
 # Binding 127.0.0.1 doesn't stop DNS rebinding from another site (ADR 0011).
@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     # Jobs don't survive a restart, so their leftovers go (spoil D15, D29).
     clips.clean_on_start(ProjectPaths(paths.ROOT))
     yield
-    jobs.downloads.stop_on_shutdown()
+    downloads.downloads.stop_on_shutdown()
     transcribe.transcriptions.stop_on_shutdown()
 
 

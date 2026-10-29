@@ -159,11 +159,20 @@ def _instant(downloaded_at: str) -> datetime:
 
 
 def write_clip(project: ProjectPaths, clip: TempClip) -> None:
-    """Writes `{id}.json` through a temporary file, so it appears complete or not at all."""
-    target = json_path(project, clip.id)
+    """Writes `{id}.json` so it appears complete or not at all."""
+    write_atomic(json_path(project, clip.id), clip.model_dump_json(indent=2))
+
+
+def write_atomic(target: Path, text: str) -> None:
+    """Writes through `{target}.tmp` then renames it, removing the `.tmp` if the
+    rename fails; a crash in between leaves a `.tmp` that `clean_on_start` removes."""
     temporary = target.with_name(target.name + ".tmp")
-    temporary.write_text(clip.model_dump_json(indent=2), encoding="utf-8")
-    os.replace(temporary, target)
+    temporary.write_text(text, encoding="utf-8")
+    try:
+        os.replace(temporary, target)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def remove_unfinished(project: ProjectPaths, video_id: str) -> None:

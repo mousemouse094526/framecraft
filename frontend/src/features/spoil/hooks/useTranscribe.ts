@@ -1,8 +1,9 @@
 import { useCallback, useEffect } from "react";
-import { getJson, sendJson } from "../../../lib/api";
+import { getJson, getReply, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
-import { notice, type Notice } from "./notice";
-import { refusalOf, type Refusal } from "./refusal";
+import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../lib/job";
+import { notice, type Notice } from "../lib/notice";
+import { refusalOf, type Refusal } from "../lib/refusal";
 import { usePollWhile } from "./usePollWhile";
 import { CLIPS_PATH, type TempClip } from "./useTempClips";
 
@@ -52,11 +53,7 @@ type Loaded = Extract<TranscribeState, { kind: "loaded" }>;
 const TRANSCRIPTIONS_PATH = "/api/spoil/transcriptions";
 const CURRENT_PATH = "/api/spoil/transcriptions/current";
 
-const UNFINISHED: TranscribeJobState[] = ["preparing", "transcribing"];
-
-function isUnfinished(job: TranscribeJob): boolean {
-  return UNFINISHED.includes(job.state);
-}
+const isUnfinished = isUnfinishedIn<TranscribeJobState>(["preparing", "transcribing"]);
 
 export function transcriptPath(clipId: string): string {
   return `${CLIPS_PATH}/${clipId}/transcript`;
@@ -70,9 +67,8 @@ function resultNotice(job: TranscribeJob): Notice {
 }
 
 /** Applies `change` only once the panel is loaded. */
-function whenLoaded(change: (state: Loaded) => TranscribeState) {
-  return (previous: TranscribeState): TranscribeState => (previous.kind === "loaded" ? change(previous) : previous);
-}
+const whenLoaded = (change: (state: Loaded) => TranscribeState) =>
+  onlyWhen<TranscribeState, "loaded">("loaded", change);
 
 /**
  * The transcript panel: which clip is selected, its Transcript, and the one
@@ -95,7 +91,7 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
   const loadTranscript = useCallback(
     async (clipId: string, expected: boolean) => {
       try {
-        const reply = await sendJson<Transcript>("GET", transcriptPath(clipId));
+        const reply = await getReply<Transcript>(transcriptPath(clipId));
         if (reply.status === 200) {
           const transcript = reply.body as Transcript;
           setIfMounted(whenLoaded((s) => (s.selectedId === clipId ? { ...s, transcript } : s)));
@@ -206,16 +202,11 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
   );
 
   const cancel = useCallback(async () => {
-    try {
-      const reply = await sendJson<TranscribeJob | Refusal>("DELETE", CURRENT_PATH);
-      if (reply.status === 202) {
-        const job = reply.body as TranscribeJob;
-        setIfMounted(whenLoaded((s) => (s.job ? { ...s, job } : s)));
-      } else if (reply.status !== 404) {
-        // 404: the job ended before the cancel arrived; the next poll shows how.
-        setIfMounted({ kind: "offline" });
-      }
-    } catch {
+    const reply = await cancelCurrent<TranscribeJob>(CURRENT_PATH);
+    if (reply.kind === "cancelling") {
+      setIfMounted(whenLoaded((s) => (s.job ? { ...s, job: reply.job } : s)));
+    } else if (reply.kind !== "ended") {
+      // The API never refuses this cancel with 409, so that too is an answer it never sends.
       setIfMounted({ kind: "offline" });
     }
   }, [setIfMounted]);
