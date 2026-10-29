@@ -25,6 +25,13 @@ def get_status() -> StatusResponse:
   by the module as the feature's error (`SpoilError`); one handler registered
   in `app.py` turns it into `{"code", "message", ...}`. Routes never build error
   responses themselves.
+- A rule for every route (`POST` must be JSON, `415`) is an app-wide
+  dependency in `app.py` (`FastAPI(dependencies=[Depends(...)])`) that raises
+  the API's refusal (`SpoilError`).
+- A route that serves a file built in memory calls one module function that
+  returns its text (`transcribe.transcript_srt`), then wraps it in a `Response`.
+- A file download built in memory is a `Response` with `media_type` and
+  `Content-Disposition: attachment; filename="..."`.
 - Status codes other than 200 on success go in the decorator
   (`status_code=202`).
 

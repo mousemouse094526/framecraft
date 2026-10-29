@@ -1,14 +1,14 @@
 # Progress: spoil
 
-**Now:** 01–03 done; change request ถอดบทพูด (D21–D29) approve แล้ว ตัดเป็น 04–06 — เริ่ม 04
+**Now:** 01–04 done; backend ถอดบทพูดพร้อมแล้ว (API, ไฟล์ `.txt`/`.srt`) — หน้าเว็บของการถอด (05) รอ design ใน Figma
 
 **Next:**
 
 ```
-/warroom-build spoil 04
+/warroom spoil
 ```
 
-05 รอ design ใน Figma (Blocked #4, #5); 06 รอ setup-status 03 (เช็คบน Windows NVIDIA)
+05 รอ design ใน Figma (Blocked #4, #5) — ส่งลิงก์ frame ใน `/warroom spoil` แล้วต่อด้วย `/warroom-build spoil 05`; 06 รอ setup-status 03 (เช็คบน Windows NVIDIA)
 
 ## Tickets
 
@@ -17,11 +17,38 @@
 | 01 | ติดตั้ง yt-dlp กับ Deno และ Download API | done |
 | 02 | แถบ tab และโหลดคลิปใน tab สปอย | done |
 | 03 | รายการ Temp clip | done |
-| 04 | Backend งานถอดบทพูดและ API | ready |
+| 04 | Backend งานถอดบทพูดและ API | done |
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | ready |
 | 06 | เช็คบน Windows NVIDIA | ready |
 
 ## Log
+
+### 04: Backend งานถอดบทพูดและ API — done 2026-10-29
+
+**Built:**
+- API: `POST /api/spoil/transcriptions` (`202`, gate `torch`/`transformers`/`ffmpeg`/`model_whisper`/device ไม่ใช่ `cpu` → `503`, `404`, `409` `busy`), `GET`/`DELETE /transcriptions/current`, `GET /clips/{id}/transcript`, `.txt`, `.srt` (attachment); `GET /clips` มี `transcribed` และข้าม `*.transcript.json`; `DELETE /clips/{id}` ระหว่างถอดคลิปนั้น → `409` `transcribing` และลบ `{id}.transcript.json` พร้อมคลิป; start ล้าง `*.tmp`; ทุก `POST` ใต้ `/api` ที่ไม่ใช่ JSON → `415` (dependency ระดับ app)
+- `backend.spoil.whisper`: `start_worker` (process ลูก `spawn`), `worker` แบ่งช่วงละ 300 วินาที อ่านเสียงด้วย ffmpeg ทีละช่วง ส่ง `Segment`/`WorkerError`/`Done`; `backend.spoil.transcribe`: thread ถือสถานะ, ยกเลิก = terminate (5 วินาทีแล้ว kill), ตายไม่ส่งผล = `crashed`, เขียน Transcript ผ่าน `.tmp`. ของร่วมใหม่ `backend.spoil.job_slot.JobSlot` ใช้ทั้ง `Downloads` และ `Transcriptions`; `checks.check_package`/`check_ffmpeg`/`check_device` เป็น public ให้ gate ใช้กฎเดียวกับ Status check
+- ลองโมเดลจริงก่อนเขียน (spec › Library assumptions): `float16` บน `mps` ได้ขยะ → `float32` (D30); long-form 300 วินาทีไม่มี `chunk_length_s` ได้ครบช่วง; timestamp อยู่ในช่วง ยกเว้นเวลาจบเลยช่วงได้ (298.5 → 328.5) → ตัดที่จบช่วง; `language` เป็นชื่อ (`english`) → แปลงเป็น code; process ลูก `spawn` import `backend` ได้ใต้ uvicorn
+- เช็คมือบน Mac ผ่าน `curl` กับ backend จริง: หนัง Night of the Living Dead 1:35 ชม. (`f7jkZXvaB4g`) ถอดจน `done` ใน 1284 วินาที (20 ช่วง), `language` `en`, 883 บรรทัด, ระหว่างนั้นโหลด Shorts อีกคลิปจน `done` และ RSS ของ backend อยู่ที่ 38–74 MB; Shorts ภาษาไทยของ TNN (`39qlIkfspBE`) ได้ `th`; ยกเลิกกลางหนัง → process ลูกหายใน 0.18 วินาที, RSS ไม่โต; `kill -9` process ลูกขณะโหลดอีกคลิป → งานถอด `crashed` (exit -9), งานโหลด `done`, POST ถัดไป `202`; `415` จาก `curl` และหน้าเว็บยังส่งโหลดได้ (ลิงก์ซ้ำได้ `409` `duplicate` ไม่ใช่ `415`); เวลาของบรรทัด: สุ่ม 5 บรรทัดแล้วถอดหน้าต่าง 30 วินาทีรอบบรรทัดนั้นใหม่ด้วย timestamp ระดับคำ (บน CPU) — คลาด 0.02, 0.64, 1.46, 2.50 วินาที และอีกบรรทัดตรวจไม่ได้ (รอบตรวจได้ยินคำต่างไป); ผู้ใช้ยอมรับ (D32)
+- `.srt`: เครื่องนี้ไม่มี VLC — ผู้ใช้ตกลงให้ใช้ ffmpeg กับ libass (ตัววาด subtitle ตัวเดียวกับ VLC) วาด `.srt` ลงเฟรมแทน: Shorts ไทยวินาทีที่ 13 ขึ้น cue 4 (`00:00:12,700 --> 00:00:15,700`) ตรง
+- Open Question 4 (รอยต่อช่วง): บนหนังทั้งเรื่อง 19 รอยต่อ ประโยคที่คร่อมรอยต่อถูกแบ่งเป็นสองบรรทัดติดกันที่ยังอ่านต่อกันรู้เรื่อง (เช่น 3299.08 "Here I have it. Drag your cup..." / 3300.00 "of those chairs together there's a socket…", 3598.98 "all we need to know we have" / 3600.00 "to try to get out of here…") ไม่มีคำหายหรือซ้ำที่เห็น → ไม่เพิ่ม overlap. ช่วงที่มีแต่ดนตรีได้บรรทัดแต่งเต็มหน้าต่าง 30 วินาที (600.00–629.98 "Oh, my God.", 5400.00–5429.98 "Let's go.") — เก็บไว้ตาม D31
+- README บอกเรื่องถอดบทพูด, `{id}.transcript.json` และบรรทัดที่ Whisper แต่ง. library notes ใหม่: `transformers`, `torch`, `numpy`; `python` เพิ่ม `multiprocessing`. skill `fastapi-api` บันทึก process ลูก, `require_json`, `FakeWorker`
+
+**Decided:**
+- D30 — ทางเลือกเล็ก: `float32` บน `mps`, ชื่อภาษา → code, ตัดเวลาจบที่จบช่วง, gate ใช้ check ของ Status check, `415` ระดับ app, terminate → kill, message เป็น `NamedTuple`, `JobSlot`, Transcript อ่านไม่ได้ → `404`
+- D31 — ไม่กรองบรรทัดที่ Whisper แต่งในช่วงไม่มีคำพูด ผู้ใช้ลบเอง (คำตอบของผู้ใช้)
+- D32 — ยอมรับเวลาบรรทัดตาม Whisper long-form แม้บางบรรทัดคลาด 2–3 วินาที (คำตอบของผู้ใช้)
+
+**For the next ticket:**
+- 05: `GET /clips` มี `transcribed`; Transcript ที่ `/clips/{id}/transcript` เวลาเป็นวินาทีของคลิป (`start_s`) — ใช้ตั้ง `currentTime` ได้ตรง; ลิงก์ไฟล์ `/clips/{id}/transcript.txt` และ `.srt`; `language` เป็น code หรือ `null` ("ภาษา: ไม่ทราบ" ตาม D29)
+- 05: job ของงานถอดไม่มี `percent` ระหว่าง `preparing` (โหลดโมเดล ~3–5 วินาที) → "กำลังเตรียมเสียง…"; หนังยาว 1 ช่วงใช้ ~60 วินาทีบน Mac จึง % ขยับทุก 5% ของหนัง 1:35 ชม.
+- 06: `cuda` ใช้ `float16` ยังไม่เคยลอง — ถ้าได้ขยะแบบ `mps` ให้เปลี่ยนเป็น `float32` ใน `whisper.load`
+- 06: Windows ส่ง `TerminateProcess` เมื่อยกเลิก — เช็คว่า process ลูกหายและ ffmpeg ที่มันเปิดอยู่ไม่ค้าง (terminate ไม่ฆ่าหลาน)
+- review ที่ไม่ได้แก้: `(mp4, duration_s, snapshot_dir, device)` เดินทางด้วยกัน (Data Clump) — คงไว้เพราะ spec กำหนด signature ของ `worker`; `_missing_tools` ของงานโหลดและงานถอดยังเป็นรายการแยกกัน เพราะ spec ห้ามเรียก `run_checks` ทั้งชุด
+- 24 จาก 883 บรรทัดของหนังมีเวลาจบห่างจากเริ่มไม่ถึง 0.3 วินาทีทั้งที่ประโยคยาว (เช่น 3773.88–3774.04) — `.srt` จะโชว์บรรทัดนั้นแวบเดียว; ถ้าผู้ใช้บ่นใน 05 ให้ขยายเวลาจบถึงบรรทัดถัดไป
+- `return_timestamps="word"` บน `mps` ช้ามากจนไม่จบใน 10 นาทีสำหรับ 30 วินาที (เจอตอนเช็คเวลา) — ถ้าต้องการเวลาระดับคำในอนาคตต้องลองใหม่
+
+**Checks:** `uv run pytest` — 165 passed; `npm --prefix frontend test` — 48 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 03: รายการ Temp clip — done 2026-10-29
 

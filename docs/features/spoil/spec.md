@@ -214,8 +214,8 @@ Adapter `backend.spoil.whisper` (ตัวเดียวที่ import `trans
 |---|---|
 | `worker(mp4, duration_s, snapshot_dir, device, queue)` | จุดเริ่มของ process ลูก ทำขั้น 3 |
 | `read_audio(mp4, start_s, length_s) -> ndarray` | ffmpeg ของ imageio ตาม Library assumptions ช่วงเดียว อ่าน stdout เป็น float32 |
-| `load(snapshot_dir, device) -> Model` | `pipeline("automatic-speech-recognition", ...)` กับ `float16`, `batch_size` 1 |
-| `transcribe(model, audio) -> (lines, language)` | ส่ง array ทั้งช่วงโดยไม่ใช้ `chunk_length_s` ให้ Whisper ทำ long-form เอง, `return_timestamps=True`, `return_language=True`; คืนบรรทัด `(start_s, end_s, text)` เวลาภายในช่วง และภาษาจาก `chunks[0]["language"]` (ไม่มี chunk → `null`) (D29) |
+| `load(snapshot_dir, device) -> Model` | `pipeline("automatic-speech-recognition", ...)` กับ `float16` บน `cuda` และ `float32` บน `mps` (D30) |
+| `transcribe(model, audio, start_s, length_s) -> (lines, language)` | ส่ง array ทั้งช่วงโดยไม่ใช้ `chunk_length_s` ให้ Whisper ทำ long-form เอง, `return_timestamps=True`, `return_language=True`, `batch_size` 1; คืนบรรทัด `(start_s, end_s, text)` ที่ `to_lines` บวกเวลาเริ่มของช่วงแล้ว (จบเป็น `None` หรือเลยช่วง → จบช่วง) และภาษาจาก `chunks[0]["language"]` แปลงเป็น code (ไม่มี chunk → `null`) (D29, D30) |
 
 จุด inject สำหรับ test: `backend.spoil` มี module attribute `start_worker` (สร้าง process ลูก) ที่ test แทนด้วยตัวปลอมที่รันใน thread และป้อนข้อความเข้า queue ตามลำดับที่ test กำหนด; probe และ status ของแถวที่ gate มาจาก `backend.checks` เหมือนงานโหลด. test ของ `worker` จริงอยู่ใน seam 3 (เช็คมือ).
 
@@ -507,6 +507,7 @@ tab สปอย:
 - `TestClient` ทุกตัวใช้ `base_url="http://127.0.0.1"` เพราะ host default `testserver` ไม่ผ่าน `TrustedHostMiddleware`; แก้ `backend/tests/test_app.py` ด้วย
 - adapter ปลอมเรียก progress hook เองตามลำดับที่ test กำหนด และรอสัญญาณจาก test ได้ เพื่อทดสอบ busy และยกเลิกแบบไม่ขึ้นกับเวลา
 - seam 2 ไม่อยู่ใน test อัตโนมัติ: พิสูจน์ด้วย How success is judged บน Mac และ Windows
+- seam 3 ไม่อยู่ใน test อัตโนมัติ ยกเว้นฟังก์ชันที่ไม่แตะโมเดล: `backend/tests/test_whisper.py` ทดสอบ `plan_segments`, `to_lines` และว่า import adapter ไม่ import torch กับ transformers. การบวกเวลาของช่วงจึงพิสูจน์ที่นี่ ไม่ใช่ใน seam 1 ซึ่ง worker ปลอมส่งเวลาของคลิปมาแล้ว (D30)
 
 ## Out of Scope
 

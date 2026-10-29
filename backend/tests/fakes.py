@@ -7,6 +7,8 @@ from pathlib import Path
 from backend.checks import FfmpegInfo
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
+from backend.spoil import clips
+from backend.spoil.whisper import Done, Segment
 
 MODEL_FILES = {"config.json": 120, "model.safetensors": 4096}
 
@@ -169,6 +171,7 @@ def write_temp_clip(
     video_id: str = "dQw4w9WgXcQ",
     downloaded_at: str = "2026-10-29T14:05:11+07:00",
     thumbnail: bool = True,
+    duration_s: int = 213,
 ) -> dict:
     """The three files a finished download leaves in media/temp/; returns the json."""
     project.media_temp_dir.mkdir(parents=True, exist_ok=True)
@@ -180,7 +183,7 @@ def write_temp_clip(
         "title": "ชื่อคลิป",
         "channel": "ชื่อช่อง",
         "source_url": f"https://www.youtube.com/watch?v={video_id}",
-        "duration_s": 213,
+        "duration_s": duration_s,
         "width": 1920,
         "height": 1080,
         "orientation": "landscape",
@@ -191,3 +194,106 @@ def write_temp_clip(
     }
     (project.media_temp_dir / f"{video_id}.json").write_text(json.dumps(clip), encoding="utf-8")
     return clip
+
+
+def segment(index: int, total: int, lines=((1.0, 2.5, " Hello."),), language: str | None = "en") -> Segment:
+    """One `Segment` as the Whisper worker sends it: its lines already moved to
+    clip time (`whisper.to_lines` does that in the child)."""
+    return Segment(index, total, list(lines), language)
+
+
+class FakeWorker:
+    """Stands in for `backend.spoil.start_worker`.
+
+    Each start runs a thread that puts `messages` into a queue the way the
+    child process does, then "exits" with `exitcode`. It can pause before the
+    message at an index until the test calls `release`; `terminate` stops it
+    there, like a killed process.
+    """
+
+    def __init__(self, messages=None, exitcode: int = 0):
+        self.messages = [segment(0, 1), Done()] if messages is None else messages
+        self.exitcode = exitcode
+        self.calls: list[tuple] = []
+        self.processes: list["FakeProcess"] = []
+        self._paused: dict[int, threading.Event] = {}
+        self._reached: dict[int, threading.Event] = {}
+
+    def pause_at(self, index: int) -> None:
+        self._paused[index] = threading.Event()
+        self._reached[index] = threading.Event()
+
+    def wait_until(self, index: int) -> None:
+        assert self._reached[index].wait(5), f"worker never reached message {index}"
+
+    def release(self, index: int) -> None:
+        self._paused[index].set()
+
+    def checkpoint(self, index: int, killed: threading.Event) -> None:
+        """Waits at a paused message until the test releases it or the process is killed."""
+        if index not in self._paused:
+            return
+        self._reached[index].set()
+        while not (self._paused[index].is_set() or killed.is_set()):
+            killed.wait(0.01)
+
+    def __call__(self, mp4: Path, duration_s, snapshot_dir: Path, device: str):
+        import queue
+
+        self.calls.append((mp4, duration_s, snapshot_dir, device))
+        messages: queue.Queue = queue.Queue()
+        process = FakeProcess(self, messages)
+        self.processes.append(process)
+        process.start()
+        return process, messages
+
+
+class FakeProcess:
+    """The `multiprocessing.Process` surface the Transcribe job uses."""
+
+    def __init__(self, worker: FakeWorker, messages):
+        self._worker = worker
+        self._messages = messages
+        self._killed = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self.terminated = False
+        self.exitcode: int | None = None
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def is_alive(self) -> bool:
+        return self._thread.is_alive()
+
+    def terminate(self) -> None:
+        self.terminated = True
+        self._killed.set()
+
+    def join(self, timeout: float | None = None) -> None:
+        self._thread.join(timeout)
+
+    def kill(self) -> None:
+        self.terminate()
+
+    def _run(self) -> None:
+        for index, message in enumerate(self._worker.messages):
+            self._worker.checkpoint(index, self._killed)
+            if self._killed.is_set():
+                break
+            self._messages.put(message)
+        self.exitcode = -15 if self._killed.is_set() else self._worker.exitcode
+
+
+def write_transcript(project: ProjectPaths, video_id: str = "dQw4w9WgXcQ", lines=None) -> dict:
+    """A `{id}.transcript.json` as a finished Transcribe job leaves it; returns its content."""
+    transcript = {
+        "clip_id": video_id,
+        "language": "en",
+        "duration_s": 213,
+        "model": "openai/whisper-large-v3-turbo",
+        "revision": "41f01f3",
+        "transcribed_at": "2026-10-30T10:12:00+07:00",
+        "lines": lines if lines is not None else [{"start_s": 12.4, "end_s": 15.0, "text": "Old line."}],
+    }
+    clips.transcript_path(project, video_id).write_text(json.dumps(transcript, ensure_ascii=False), encoding="utf-8")
+    return transcript

@@ -17,11 +17,12 @@ from backend.paths import ProjectPaths
 from backend.spoil import clips, links
 from backend.spoil.adapter import DownloadCancelled, ErrorCode, error_code
 from backend.spoil.errors import SpoilError
+from backend.spoil.job_slot import JobSlot
 
 log = logging.getLogger(__name__)
 
 State = Literal["checking", "downloading", "merging", "done", "failed", "cancelled"]
-UNFINISHED: set[State] = {"checking", "downloading", "merging"}
+UNFINISHED: frozenset[State] = frozenset({"checking", "downloading", "merging"})
 
 DISK_MARGIN_BYTES = 2**30
 UPDATE_COMMAND = "uv lock --upgrade-package yt-dlp"  # then the Setup script installs it
@@ -76,17 +77,10 @@ class _ProgressCount:
     finished: int = 0
 
 
-class Downloads:
+class Downloads(JobSlot[DownloadJob]):
     """Holds the latest Download job. One lock guards every change to it."""
 
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._job: DownloadJob | None = None
-        self._cancel = threading.Event()
-
-    def current(self) -> DownloadJob | None:
-        with self._lock:
-            return self._job.model_copy(deep=True) if self._job else None
+    unfinished = UNFINISHED
 
     def start(self, url: str) -> DownloadJob:
         """Checks in spec order, then starts the job's thread. Raises `SpoilError`."""
@@ -101,7 +95,7 @@ class Downloads:
         with self._lock:
             if clips.has_clip(project, video_id):
                 raise SpoilError(409, "duplicate", "คลิปนี้โหลดไว้แล้ว", clip_id=video_id)
-            if self._job and self._job.state in UNFINISHED:
+            if self._taken():
                 raise SpoilError(409, "busy", "กำลังโหลดคลิปอื่นอยู่")
             self._job = DownloadJob(url=url, id=video_id, state="checking")
             self._cancel.clear()
@@ -112,7 +106,7 @@ class Downloads:
     def cancel(self) -> DownloadJob:
         """Asks the thread to stop; it does after `fetch_info` or at its next progress call (D15)."""
         with self._lock:
-            if not self._job or self._job.state not in UNFINISHED:
+            if not self._taken():
                 raise SpoilError(404, "not_found", "ไม่มีงานโหลดที่ยังไม่จบ")
             if self._job.state == "merging":
                 raise SpoilError(409, "merging", "กำลังรวมไฟล์ ยกเลิกไม่ได้แล้ว")
@@ -189,11 +183,6 @@ class Downloads:
                 percent = min(100, math.floor(done / count.estimate * 100))
                 # A format that restarts counts its bytes from 0 again.
                 self._job.percent = max(percent, self._job.percent or 0)
-
-    def _update(self, **fields) -> None:
-        with self._lock:
-            for name, value in fields.items():
-                setattr(self._job, name, value)
 
 
 def _formats(info: dict) -> list[dict]:

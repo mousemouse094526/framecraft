@@ -10,7 +10,7 @@
 - ADR: 0004, 0005, 0010, 0012, 0013
 - Seams: 1 (ข้อของงานถอด), 3 (บน Mac)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

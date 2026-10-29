@@ -95,4 +95,7 @@ question; the full entry is in the feature's decisions.md.
 | กติกางานถอด: ดึงเสียงด้วย ffmpeg ของ imageio เข้า memory, โหลด Whisper จาก snapshot แล้วปล่อยหลังงาน, ช่วงละ 5 นาที, gate 5 แถว, ลบคลิประหว่างถอด `409`, `{id}.transcript.json` | [spoil](features/spoil/decisions.md) | D27 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | changed by D28, D29 |
 | งานถอดรันใน process ลูก `spawn`, thread ใน backend ถือสถานะ, ยกเลิก = terminate, ตายไม่ส่งผล = `crashed` | [spoil](features/spoil/decisions.md) | D28 | — | [0012](adr/0012-gpu-jobs-in-child-process.md) | active |
 | red team งานถอด: `internal` + `finally`, ffmpeg ทีละช่วง, long-form ไม่ใช้ `chunk_length_s`, ช่วงท้าย < 30 วินาทีรวม, `language` null ได้, lock ร่วมกับลบ, ข้าม `*.transcript.json`, POST ต้อง JSON (`415`) | [spoil](features/spoil/decisions.md) | D29 | — | [0013](adr/0013-post-requires-json.md) | active |
+| ทางเลือกเล็กตอน build งานถอด: `float32` บน `mps`, ชื่อภาษา → code, ตัดเวลาจบที่จบช่วง, gate ใช้ check เดียวกับ Status check, `415` เป็น router dependency, terminate → kill หลัง 5 วินาที | [spoil](features/spoil/decisions.md) | D30 | — | [0012](adr/0012-gpu-jobs-in-child-process.md), [0013](adr/0013-post-requires-json.md) | active |
+| ไม่กรองบรรทัดที่ Whisper แต่งในช่วงไม่มีคำพูด ผู้ใช้ลบเอง | [spoil](features/spoil/decisions.md) | D31 | — | — | active |
+| ยอมรับเวลาบรรทัดตาม Whisper long-form แม้บางบรรทัดคลาด 2–3 วินาที | [spoil](features/spoil/decisions.md) | D32 | — | — | active |
 

@@ -18,6 +18,9 @@
 - `shutil.disk_usage(path)` returns `total`, `used`, `free` in bytes; `path` may be a file or a directory — [shutil](https://docs.python.org/3.12/library/shutil.html)
 - `datetime.now().astimezone()` gives an aware local time, so `isoformat()` ends with the UTC offset (`+07:00`) — [datetime](https://docs.python.org/3.12/library/datetime.html)
 - Pass `timeout=` to `socket.create_connection()` and use it as a context manager so the socket closes — [socket](https://docs.python.org/3.12/library/socket.html)
+- `multiprocessing.get_context("spawn")` gives a context whose `Process` and `Queue` start a fresh interpreter; spawn is the default on macOS and Windows, and the child must be able to import `__main__` and the target function — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
+- `Process.exitcode` is 0 on a normal return, 1 on an uncaught exception, `-N` when killed by signal N — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
+- `multiprocessing.Queue.get(timeout=…)` raises `queue.Empty` (import it from `queue`) — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
 - **Avoid:** `datetime.utcnow()`; deprecated in 3.12, use `datetime.now(UTC)` — [datetime](https://docs.python.org/3.12/library/datetime.html)
 
 ## Pattern
@@ -43,6 +46,10 @@ Follows [subprocess](https://docs.python.org/3.12/library/subprocess.html).
 - `socket.create_connection()` with no `timeout` uses the global default, which may block forever — [socket](https://docs.python.org/3.12/library/socket.html)
 - On timeout, sockets raise `TimeoutError` (`socket.timeout` is an alias), an `OSError` subclass — [socket](https://docs.python.org/3.12/library/socket.html)
 
+- `Process.terminate()` (SIGTERM on POSIX, `TerminateProcess` on Windows) runs no `finally` or exit handlers, leaves grandchildren orphaned, and may corrupt a queue the process was using — use a fresh queue per child — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
+- A child that put items on a queue doesn't exit until they are flushed; joining it before consuming them can deadlock — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
+- A daemonic process can't start `multiprocessing` children (a `subprocess` is fine) and is terminated when its parent exits — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
+
 ## Sources
 
 - [importlib.metadata](https://docs.python.org/3.12/library/importlib.metadata.html) — `version()`, `PackageNotFoundError` (accessed 2026-10-29)
@@ -53,3 +60,4 @@ Follows [subprocess](https://docs.python.org/3.12/library/subprocess.html).
 - [json](https://docs.python.org/3.12/library/json.html) — `ensure_ascii`, keys, `JSONDecodeError` (accessed 2026-10-29)
 - [datetime](https://docs.python.org/3.12/library/datetime.html) — `astimezone`, `isoformat`, `utcnow` (accessed 2026-10-29)
 - [socket](https://docs.python.org/3.12/library/socket.html) — `create_connection`, timeouts (accessed 2026-10-29)
+- [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html) — spawn, `terminate`, `exitcode`, queues, daemons (accessed 2026-10-29)

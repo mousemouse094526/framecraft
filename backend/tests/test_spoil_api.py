@@ -557,6 +557,7 @@ def test_a_done_job_is_in_the_list_with_every_field(client):
         "file_bytes": 1234,
         "thumbnail": f"{VIDEO_ID}.webp",
         "yt_dlp_version": "2026.10.26",
+        "transcribed": False,
     }
     assert datetime.fromisoformat(downloaded_at).tzinfo is not None  # sortable as an instant
 

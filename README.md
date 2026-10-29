@@ -63,6 +63,8 @@ Windows ยังไม่ได้ทดสอบบนเครื่องจ
 - เปิด tab **สปอย** ด้านบน วางลิงก์คลิป YouTube แล้วกด **โหลด**. คลิปที่โหลดแล้วอยู่ในรายการ "คลิปที่โหลดมา" ใต้ช่องลิงก์: กดแถวเพื่อเล่น, กดถังขยะเพื่อลบ
 - คลิปที่โหลดเก็บใน `media/temp/` ของ folder นี้ (`{id}.mp4`, thumbnail และ `{id}.json`) และอยู่จนกดลบเอง. ไม่เข้า git
 - ลบทั้งหมดด้วยมือได้: ปิด `npm run dev` ก่อน แล้วลบ folder `media/temp/`
+- ถอดบทพูด: backend ถอดคำพูดทั้งคลิปด้วย Whisper large-v3-turbo บน GPU ของเครื่อง (`POST /api/spoil/transcriptions` กับ `{"clip_id": "..."}`; ดู % ที่ `GET /api/spoil/transcriptions/current`). หนังยาว 1 ชั่วโมงครึ่งใช้ราว 20 นาทีบน Mac. ผลเก็บคู่คลิปเป็น `media/temp/{id}.transcript.json` อยู่ข้าม restart, โหลดเป็นไฟล์ได้ที่ `/api/spoil/clips/{id}/transcript.txt` และ `.srt`, และหายไปพร้อมคลิปเมื่อกดลบ
+- ช่วงที่มีแต่ดนตรีหรือเสียงเงียบ Whisper อาจแต่งบรรทัดที่ไม่มีใครพูด (เช่น "THE END", "Thank you.") — ลบเองตอนเอาไปใช้
 - ถ้าโหลดไม่ได้ทุกคลิป (YouTube เปลี่ยน) ให้อัปเดต yt-dlp แล้วรัน setup ใหม่:
 
   ```sh

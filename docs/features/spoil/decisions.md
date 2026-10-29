@@ -432,3 +432,51 @@
 
 **From:** red team · **Status:** active
 
+
+## D30: ทางเลือกเล็กตอน build งานถอดบทพูด
+
+**Chosen:** รายละเอียดที่ build ticket 04 ตัดสินเองจากการลองกับโมเดลจริงบน Mac, conventions และโค้ดเดิม.
+
+**Details:**
+- **dtype:** `float32` บน `mps`, `float16` บน `cuda` — ลองแล้ว `float16` บน `mps` ได้ข้อความขยะ ("The!!! I! THE!") ตามทางสำรองใน spec › Library assumptions; `cuda` เช็คใน ticket 06
+- **ภาษา:** `return_language=True` คืนชื่อภาษา (`"english"`, `"thai"`) ไม่ใช่ code จึงแปลงด้วย `TO_LANGUAGE_CODE` ของ Whisper tokenizer เป็น `en`, `th` ใน process ลูก
+- **เวลา:** เวลาจบที่ `None` → จบช่วง, เวลาจบเลยความยาวช่วง (เจอจริง 298.5 → 328.5 บนช่วง 300 วินาที) → ตัดที่จบช่วง; ปัดสองตำแหน่ง
+- **ความยาวคลิปไม่รู้ (`duration_s` null):** ถอดเป็นช่วงเดียวจนจบไฟล์ (ไม่มี `-t`)
+- **ffmpeg ล้มที่ช่วงหลังช่วงแรก:** `model_failed` (ช่วงแรกเท่านั้นที่เป็น `no_audio`)
+- **ไม่ `del` โมเดลหรือ `empty_cache`:** process ลูกออกเมื่องานจบ ซึ่งคืน memory ครบอยู่แล้ว (D28) — แทนข้อ "โหลดโมเดล" ของ D27 ส่วนนั้น
+- **gate:** ใช้ฟังก์ชันเดียวกับ Status check (`check_package`, `check_model`, `check_device` ซึ่งเปลี่ยนเป็น public) เพื่อไม่ให้หน้า Setup status กับ gate ไม่ตรงกัน; message "ยังติดตั้งไม่ครบ: {label, ...}" ตาม label ของแถว เหมือนงานโหลด
+- **`404` ของ Transcript:** คลิปไม่มี → "ไม่พบคลิปนี้"; คลิปมีแต่ยังไม่ถอด → "คลิปนี้ยังไม่ได้ถอดบทพูด"; ไฟล์ Transcript อ่านไม่ได้ → log แล้ว "อ่าน Transcript ไม่ได้ ถอดใหม่อีกครั้ง" ไม่ตอบ 500
+- **`415`:** dependency ระดับ app ใน `app.py` ทุก `POST` ใต้ `/api` ตาม ADR 0013 (กว้างกว่า "ใต้ `/api/spoil`" ใน spec ซึ่งตอนนี้เท่ากัน), message "ต้องส่งเป็น JSON"; ไม่มี `Content-Type` ก็ `415`; `application/json; charset=utf-8` ผ่าน
+- **ลบ Transcript ไม่ได้ตอนลบคลิป:** log แล้วลบ json ต่อ เหมือน thumbnail; การล้างตอน start เก็บ Transcript ที่ไม่มี json
+- **message ของ process ลูก:** `NamedTuple` `Segment`, `WorkerError`, `Done` ใน `backend.spoil.whisper` แทน tuple เปล่า — ลำดับ field ตาม spec
+- **ส่วนร่วมของสอง job:** `backend.spoil.job_slot.JobSlot` ถือ lock, job ล่าสุด, flag ยกเลิก, `current()` ให้ทั้ง `Downloads` และ `Transcriptions`
+- **ยกเลิก:** thread ดู flag ทุก 0.2 วินาที; `terminate()` แล้ว `join` 5 วินาที ไม่ออก → `kill()`. วัดบน Mac: process ลูกหายใน 0.18 วินาที
+- **ลบคลิป:** route เรียก `transcriptions.delete_clip` ที่เช็ค `transcribing` และลบภายใต้ lock เดียวกับ `POST /transcriptions` (D29)
+- **message ที่ไม่รู้จักจาก process ลูก:** `internal` และ terminate process ลูก
+- **ล้างตอน start:** `*.tmp` ทุกไฟล์ใน `media/temp/` รวม `{id}.json.tmp` ของคลิปที่มี json แล้ว
+
+**From:** build ticket 04 · **Status:** active
+
+## D31: ไม่กรองบรรทัดที่ Whisper แต่งเองในช่วงไม่มีคำพูด
+
+**Chosen:** เก็บทุกบรรทัดที่ Whisper ให้ ไม่กรองเพิ่ม. ช่วงที่มีแต่ดนตรี Whisper อาจแต่งบรรทัดเต็มหน้าต่าง 30 วินาที (เช่น "THE END", "Thank you for listening." เวลา `0.0–29.98`) หรือคำซ้ำ ("โห โห โห…") — ผู้ใช้ลบเองตอนเอา Transcript ไปใช้.
+
+**Why:** ผู้ใช้บอก "ให้ทางผู้ใช้ไปพิจารณาเอาว่าจะตัดหรือลบได้เองไม่ต้องทำโปรเศษเพิ่ม". ตัวกรองแบบ heuristic อาจตัดคำพูดจริง และ `no_speech_threshold` ของ `transformers` 5.21.0 ไม่ช่วย (ลองแล้ว), temperature fallback crash.
+
+**Rejected:**
+- ตัดบรรทัดที่กินเต็มหน้าต่าง 30 วินาที — อาจตัดคำพูดจริงที่หายาก; ผู้ใช้ไม่ต้องการ
+- VAD ก่อนถอด — งานเพิ่มนอก spec
+
+**From:** build ticket 04 · **Status:** active
+
+## D32: ยอมรับเวลาบรรทัดตามที่ Whisper long-form ให้ แม้บางบรรทัดคลาด 2–3 วินาที
+
+**Chosen:** ใช้เวลาเริ่มและจบของบรรทัดตามที่ Whisper long-form ให้มา โดยไม่ปรับเพิ่ม. ตอนเช็คมือ build ticket 04 สุ่ม 5 บรรทัดของหนัง 1:35 ชม.: 3 บรรทัดคลาด 0.02, 0.64 และ 1.46 วินาที, 1 บรรทัดคลาด 2.50 วินาที (บรรทัดที่เริ่มตรงเวลาจบของบรรทัดก่อนพอดี), อีก 1 บรรทัดตรวจไม่ได้. ผู้ใช้ยอมรับและปิด ticket.
+
+**Why:** ผู้ใช้เลือก "ยอมรับ ปิด ticket". เวลาใช้กระโดดไปฉากและทำ `.srt` ซึ่งคลาด 2–3 วินาทีก็ยังหาฉากเจอ. ทางแก้คือ timestamp ระดับคำ ซึ่งบน `mps` ช้ามาก (30 วินาทีของเสียงไม่จบใน 10 นาที).
+
+**Rejected:**
+- timestamp ระดับคำ (`return_timestamps="word"`) — ช้าเกินบน `mps`
+- หยุด ticket ไปคิดใน `/warroom` — ผู้ใช้ไม่เลือก
+
+**From:** build ticket 04 · **Status:** active

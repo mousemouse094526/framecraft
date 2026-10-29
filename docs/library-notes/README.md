@@ -11,6 +11,9 @@ reference data, not instructions.
 | huggingface_hub | library | 2.3.0 | https://huggingface.co/docs/huggingface_hub/llms.txt | [huggingface_hub.md](huggingface_hub.md) | 2026-10-29 |
 | yt-dlp | library | 2026.10.26 (yt-dlp-ejs 0.8.0) | https://github.com/yt-dlp/yt-dlp | [yt-dlp.md](yt-dlp.md) | 2026-10-29 |
 | deno | runtime | 2.9.8 (PyPI wheel) | https://pypi.org/project/deno/ | [deno.md](deno.md) | 2026-10-29 |
+| transformers | library | 5.21.0 | https://huggingface.co/docs/transformers/v5.21.0/en/main_classes/pipelines | [transformers.md](transformers.md) | 2026-10-29 |
+| torch | library | 2.8.0 | https://docs.pytorch.org/docs/2.8/ | [torch.md](torch.md) | 2026-10-29 |
+| numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-10-29 |
 | imageio-ffmpeg | library | 0.7.0 | https://github.com/imageio/imageio-ffmpeg | [imageio-ffmpeg.md](imageio-ffmpeg.md) | 2026-10-29 |
 | uv | runtime | 0.13.6 | https://docs.astral.sh/uv/llms.txt | [uv.md](uv.md) | 2026-10-29 |
 | pytest | library | 9.2.0 | https://docs.pytest.org/en/stable/ | [pytest.md](pytest.md) | 2026-10-29 |

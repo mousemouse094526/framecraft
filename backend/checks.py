@@ -202,16 +202,16 @@ def run_checks(
 
     items = [
         _item("python", "Python venv", lambda: _check_python(project), "รัน backend ด้วย npm run dev"),
-        _item("torch", "torch", lambda: _check_package("torch"), fixes.setup),
-        _item("transformers", "transformers", lambda: _check_package("transformers"), fixes.setup),
-        _item("omnivoice", "omnivoice", lambda: _check_package("omnivoice"), fixes.setup),
-        _item("fastapi", "fastapi", lambda: _check_package("fastapi"), fixes.setup),
-        _item("ffmpeg", "ffmpeg", lambda: _check_ffmpeg(ffmpeg_probe), fixes.setup),
+        _item("torch", "torch", lambda: check_package("torch"), fixes.setup),
+        _item("transformers", "transformers", lambda: check_package("transformers"), fixes.setup),
+        _item("omnivoice", "omnivoice", lambda: check_package("omnivoice"), fixes.setup),
+        _item("fastapi", "fastapi", lambda: check_package("fastapi"), fixes.setup),
+        _item("ffmpeg", "ffmpeg", lambda: check_ffmpeg(ffmpeg_probe), fixes.setup),
         # The spoil download gate calls these two probes too (spoil D9).
         _item("yt_dlp", "yt-dlp", lambda: ("ok", yt_dlp_probe()), fixes.setup),
         _item("deno", "Deno", lambda: ("ok", deno_probe()), fixes.setup),
         *(_model_item(project, model, fixes.setup) for model in MODELS),
-        _item("device", "Device", lambda: _check_device(device_probe), fixes.device),
+        _item("device", "Device", lambda: check_device(device_probe), fixes.device),
     ]
     counts = {s: sum(1 for i in items if i.status == s) for s in ("ok", "warning", "missing")}
     return StatusResponse(
@@ -297,19 +297,19 @@ def _check_python(project: ProjectPaths) -> tuple[ItemStatus, str]:
     return "warning", f"Python {version} ที่ {sys.prefix} ไม่ใช่ .venv ของ project"
 
 
-def _check_package(name: str) -> tuple[ItemStatus, str]:
+def check_package(name: str) -> tuple[ItemStatus, str]:
     try:
         return "ok", metadata.version(name)
     except metadata.PackageNotFoundError:
         return "missing", "ยังไม่ได้ติดตั้ง"
 
 
-def _check_ffmpeg(ffmpeg_probe: Callable[[], FfmpegInfo]) -> tuple[ItemStatus, str]:
+def check_ffmpeg(ffmpeg_probe: Callable[[], FfmpegInfo]) -> tuple[ItemStatus, str]:
     # A failing probe raises; _item turns that into `missing`.
     info = ffmpeg_probe()
     return "ok", f"{info.version} ({info.source})"
 
 
-def _check_device(device_probe: Callable[[], str]) -> tuple[ItemStatus, str]:
+def check_device(device_probe: Callable[[], str]) -> tuple[ItemStatus, str]:
     device = device_probe()
     return ("warning" if device == "cpu" else "ok"), device

@@ -29,6 +29,11 @@ def test_missing_marker(tmp_path):
   until the job's state is final. Swap the job holder for a fresh one per test
   (`monkeypatch.setattr(jobs, "downloads", jobs.Downloads())`).
 - A lifespan only runs inside `with TestClient(app, ...)`.
+- The Whisper child process is never started in tests; the real `worker` is
+  checked by hand with the model (spoil seam 3). Its pure helpers
+  (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
+  `python -c` to prove importing the adapter loads neither torch nor
+  transformers.
 
 ## Good examples
 
@@ -37,3 +42,4 @@ def test_missing_marker(tmp_path):
 - [backend/tests/test_setup.py](../../../../backend/tests/test_setup.py) — `FakeDownload` stands in for `snapshot_download`.
 - [backend/tests/test_app.py](../../../../backend/tests/test_app.py) — API tests monkeypatch `backend.paths.ROOT` and the default probes in `backend.checks`.
 - [backend/tests/test_spoil_api.py](../../../../backend/tests/test_spoil_api.py) — `FakeAdapter` from `fakes.py` stands in for yt-dlp; `wait_for_end` polls the job.
+- [backend/tests/test_spoil_transcribe_api.py](../../../../backend/tests/test_spoil_transcribe_api.py) — `FakeWorker` stands in for the Whisper child process: a thread feeds the queue and pauses at a message index.

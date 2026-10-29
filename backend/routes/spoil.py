@@ -4,10 +4,12 @@ from pydantic import BaseModel
 
 from backend import paths
 from backend.paths import ProjectPaths
-from backend.spoil import clips, jobs
-from backend.spoil.clips import TempClip
+from backend.spoil import clips, jobs, transcribe
+from backend.spoil.clips import ListedClip
 from backend.spoil.errors import SpoilError
 from backend.spoil.jobs import DownloadJob
+from backend.spoil.transcribe import TranscribeJob, Transcript
+
 
 router = APIRouter(prefix="/spoil")
 
@@ -16,8 +18,12 @@ class DownloadRequest(BaseModel):
     url: str
 
 
+class TranscribeRequest(BaseModel):
+    clip_id: str
+
+
 class ClipList(BaseModel):
-    clips: list[TempClip]
+    clips: list[ListedClip]
 
 
 def _project() -> ProjectPaths:
@@ -43,8 +49,47 @@ def get_thumbnail(clip_id: str) -> FileResponse:
 
 @router.delete("/clips/{clip_id}", status_code=204)
 def delete_clip(clip_id: str) -> Response:
-    clips.delete_clip(_project(), clip_id)
+    transcribe.transcriptions.delete_clip(clip_id)
     return Response(status_code=204)
+
+
+@router.get("/clips/{clip_id}/transcript")
+def get_transcript(clip_id: str) -> Transcript:
+    return transcribe.read_transcript(_project(), clip_id)
+
+
+@router.get("/clips/{clip_id}/transcript.txt")
+def get_transcript_txt(clip_id: str) -> Response:
+    text = transcribe.transcript_txt(_project(), clip_id)
+    return _download(text, "text/plain; charset=utf-8", f"{clip_id}.txt")
+
+
+@router.get("/clips/{clip_id}/transcript.srt")
+def get_transcript_srt(clip_id: str) -> Response:
+    text = transcribe.transcript_srt(_project(), clip_id)
+    return _download(text, "application/x-subrip", f"{clip_id}.srt")
+
+
+def _download(text: str, media_type: str, filename: str) -> Response:
+    # `filename` is a checked 11-character id plus a suffix, so it needs no quoting.
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return Response(text.encode("utf-8"), media_type=media_type, headers=headers)
+
+
+@router.post("/transcriptions", status_code=202)
+def start_transcription(body: TranscribeRequest) -> TranscribeJob:
+    return transcribe.transcriptions.start(body.clip_id)
+
+
+@router.get("/transcriptions/current")
+def get_current_transcription() -> TranscribeJob | None:
+    """The latest job, or null when none ran since the backend started."""
+    return transcribe.transcriptions.current()
+
+
+@router.delete("/transcriptions/current", status_code=202)
+def cancel_transcription() -> TranscribeJob:
+    return transcribe.transcriptions.cancel()
 
 
 @router.post("/downloads", status_code=202)

@@ -23,7 +23,10 @@ backend/
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips, jobs,
-│                    errors (SpoilError, raised by clips and jobs)
+│                    transcribe (Transcribe job, Transcript files),
+│                    whisper (the only torch/transformers import for
+│                    transcribing; its `worker` runs in a child process),
+│                    errors (SpoilError, raised by clips, jobs, transcribe)
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -35,22 +38,30 @@ No auth and no public/private split: the app binds 127.0.0.1 only.
 route (routes/{feature}.py) → module function (checks.py, spoil/) → libraries
 
 Long jobs run as a daemon thread in the backend process; their state lives in
-memory and the web page polls it (ADR 0010).
+memory and the web page polls it (ADR 0010). A job that uses the GPU keeps that
+thread, but the model runs in a `multiprocessing` `spawn` child that reports
+through a queue; the thread writes the result file (ADR 0012).
 
 ## Where shared code goes
 
 - Code one feature uses lives in that feature's module.
 - A second user appears → move it to a top-level module named for its kind, in
   the same change. Never create a shared file ahead of need.
-- The second AI feature (TTS, transcribe) decides whether features move into
-  `backend/features/{feature}/`; record it here when it does.
+- Transcribing stayed inside `backend/spoil/` (spoil spec › Modules touched):
+  it works on Temp clips only. The next AI feature (TTS) decides whether
+  features move into `backend/features/{feature}/`; record it here when it does.
 
 ## Never break
 
 - Nothing installs packages or downloads models at runtime; only `backend.setup`
   does. Media from a link the user typed may be fetched at runtime (ADR 0008).
 - Only one module per library that talks to the outside world (the yt-dlp
-  adapter in `backend.spoil`); tests replace it with a fake.
+  adapter, the Whisper adapter in `backend.spoil`); tests replace it with a
+  fake (`spoil.adapter`, `spoil.start_worker`).
+- torch and transformers are imported inside the function that needs them,
+  never at module import: the backend must start in under a second.
+- Every `POST` must be `application/json`, else `415` (ADR 0013); `app.py`
+  enforces it with an app-wide dependency, `require_json`.
 - `TrustedHostMiddleware` allows only `127.0.0.1`, `localhost`, `[::1]`
   (ADR 0011).
 - Every Hugging Face call passes `cache_dir` from `backend.paths`; never rely on
