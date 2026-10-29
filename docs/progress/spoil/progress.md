@@ -1,12 +1,8 @@
 # Progress: spoil
 
-**Now:** feature review เสร็จ, ready to merge (branch `feat/spoil`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:**
-
-```
-/pr-open
-```
+**Next:** —
 
 ## Tickets
 
