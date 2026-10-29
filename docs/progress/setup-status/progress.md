@@ -18,11 +18,11 @@
 
 ## Log
 
-ยังไม่มี
+- 2026-10-29: ได้ Figma design หน้า Setup status ใส่ใน spec › Design แล้ว (D15). Blocked #1 done
 
 ## Blocked
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 02 | design: Setup status | `/warroom setup-status` พร้อมลิงก์ Figma frame | open |
+| 1 | 02 | design: Setup status | `/warroom setup-status` พร้อมลิงก์ Figma frame | done |
 | 2 | 03 | เครื่อง Windows ที่มีการ์ด NVIDIA สำหรับทดสอบ (spec Open Question 1) | ผู้ใช้ยืนยันว่ามีเครื่อง แล้ว `/warroom-build setup-status 03` | open |

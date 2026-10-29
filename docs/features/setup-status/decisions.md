@@ -199,6 +199,21 @@
 
 **From:** tickets · **Status:** active
 
+## D15: คำสั่งแก้แสดงตาม OS ที่ backend รันอยู่ ไม่ใช่ทั้งสอง OS
+
+**Chosen:** แถวที่ไม่ `ok` แสดงค่า `fix` จาก API ค่าเดียว เป็น chip พร้อมปุ่ม copy. ไม่แสดง chip Mac และ Windows คู่กันแบบใน Figma frame.
+
+**Why:** ผู้ใช้เลือกตาม spec: API ส่ง `fix` ตาม OS ที่ backend รันอยู่แล้ว ไม่ต้องเปลี่ยน API และผู้ใช้ไม่สับสนว่าต้องรันอันไหน.
+
+**Rejected:**
+- แสดงทั้ง Mac และ Windows ตาม design — ต้องเปลี่ยน `fix` ใน API เป็นสองค่า และผู้ใช้เห็นคำสั่งที่ใช้กับเครื่องตัวเองไม่ได้
+
+**Details:**
+- ปุ่ม copy ข้าง chip มาจาก design. ไม่มี label `Mac` หรือ `Windows` นำหน้า
+- `fix` ที่เป็นข้อความ ไม่ใช่คำสั่ง (เช่นแถว Device) แสดงเป็นข้อความธรรมดา ไม่มีปุ่ม copy
+
+**From:** design link · **Status:** active
+
 ## Sources
 
 - [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) — `get_ffmpeg_exe()` และ binary ที่มากับ wheel (accessed 2026-10-28)

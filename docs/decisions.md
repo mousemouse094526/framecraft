@@ -46,3 +46,4 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | — | — | active |
+| แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |

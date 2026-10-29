@@ -5,7 +5,7 @@
 **Blocked by:** 01: Setup บน Mac และ Status API
 
 **Covers:**
-- Decisions: D3, D7, D9, D10, D11, D13, D14
+- Decisions: D3, D7, D9, D10, D11, D13, D14, D15
 - ADR: 0001, 0007
 - Screens: Setup status
 - Seams: 2
@@ -32,5 +32,6 @@
 - กด Refresh → ปุ่ม disabled จนได้ผล แล้ว `checked_at` ใหม่แสดง
 - fetch ล้มหรือเกิน 30 วินาที → เห็นข้อความ offline ทั้งสามบรรทัดตาม spec › Frontend
 - ได้ผลแล้ว Refresh ล้ม → checklist หาย เห็นข้อความ offline
-- หน้าตาตาม Figma frame ของ Setup status เมื่อ spec › Design มีลิงก์แล้ว
+- หน้าตาตาม Figma frame ใน spec › Design ทั้ง 7 frame
+- แถวที่ไม่ `ok` → เห็น `fix` ค่าเดียวจาก API เป็น chip พร้อมปุ่ม copy (D15)
 - `npm run dev` กับ backend ที่หยุด → หน้าแสดง offline. start backend แล้วกด Refresh → ได้ checklist (เช็คมือผ่าน Vite proxy)

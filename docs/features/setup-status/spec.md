@@ -33,7 +33,7 @@
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
-| Setup status | 2, 3, 4, 5 | ชื่อ app; ปุ่ม Refresh (disabled ระหว่างเช็ค); เวลาเช็คล่าสุด; คำตัดสินจาก `ready` (D13); 9 แถวตามลำดับใน Status check แต่ละแถวมี icon ตาม `status`, label, `detail`, และ `fix` เมื่อไม่ `ok` (D7); แถวโมเดลแสดง license, ผู้สร้าง, ลิงก์ license และลิงก์โมเดล (D11); state loading, result, refreshing, offline ตาม Frontend; brief: [checklist-sketch.md](checklist-sketch.md) | pending |
+| Setup status | 2, 3, 4, 5 | ชื่อ app; ปุ่ม Refresh (disabled ระหว่างเช็ค); เวลาเช็คล่าสุด; คำตัดสินจาก `ready` (D13); 9 แถวตามลำดับใน Status check แต่ละแถวมี icon ตาม `status`, label, `detail`, และ `fix` เมื่อไม่ `ok` (D7); แถวโมเดลแสดง license, ผู้สร้าง, ลิงก์ license และลิงก์โมเดล (D11); state loading, result, refreshing, offline ตาม Frontend; brief: [checklist-sketch.md](checklist-sketch.md); คำสั่งแก้แสดงแค่ `fix` จาก API ค่าเดียว ไม่ใช่ chip Mac และ Windows คู่กันใน frame (D15) | [Figma: framecraft — Setup status](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8004-7488) — frames: 1 loading, 2 result not ready, 3 ready with warning, 4 all ready, 5 refreshing, 6 offline, 7 mobile 375px |
 
 ## Expected Outcome
 
