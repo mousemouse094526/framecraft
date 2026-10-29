@@ -265,3 +265,25 @@
 
 **From:** design · **Status:** active
 
+
+## D19: ทางเลือกเล็กตอน build แถบ tab และ tab สปอย
+
+**Chosen:** รายละเอียดที่ build ticket 02 ตัดสินเองตาม Figma, conventions และโค้ดเดิม.
+
+**Details:**
+- **loading:** รอ `/api/setup/status` กับ `GET /downloads/current` — `GET /clips` มาใน ticket 03 แล้วค่อยรอด้วย
+- **tab:** เป็นลิงก์ `<a href="#/…">` ที่มี `aria-current="page"` บน tab ที่เปิด — กดกับปุ่ม back แค่เปลี่ยน hash; `useHashTab` ตามอย่างเดียว ไม่มี setter
+- **layout ร่วม:** `components/ui/PageLayout` (wordmark, แถบ tab, ปุ่มขวาสุด) ใช้ทั้งสอง tab; หัวข้อหน้าเป็น `h1` แบบ `sr-only` ตามชื่อ tab เพราะ header ใหม่ใน Figma ไม่มีชื่อหน้า. wordmark 26px ทุกจอตาม frame 13 (เดิมมือถือ 20.8px)
+- **ย้ายของร่วม:** `RefreshButton`, `OfflinePanel` ไป `components/ui/`; สไตล์ปุ่ม outline เป็น `OUTLINE_BUTTON`; การ copy เป็น `lib/useCopy` ที่ใช้ทั้งปุ่ม copy ของ Checklist และของคำสั่ง `fix` — clipboard ถูกปฏิเสธก็ไม่ throw
+- **tab สปอย offline:** ปุ่ม Refresh อยู่ขวาของ header เฉพาะตอน offline ตาม frame 12
+- **ข้อความหลังงานจบ:** อยู่ใต้แถบความคืบหน้า (409 `merging` ขึ้นระหว่างงานยังไม่จบ); tone ตาม frame 6–9: done = success, cancelled และ duplicate = info, busy, merging และงานหาย = warning, ที่เหลือ = error
+- **ข้อความของ refusal:** ใช้ข้อความตาราง Frontend ไม่ใช้ `message` ของ API. `duplicate` แสดง "คลิปนี้โหลดไว้แล้ว" ใน ticket นี้; highlight แถวเดิมมาใน ticket 03
+- **code ที่ไม่รู้จัก:** `400` หรือ `409` ที่ code ไม่อยู่ในตาราง และ `DELETE` ที่ได้ `409` ที่ไม่ใช่ `merging` → offline ตาม "status ที่ไม่อยู่ในตาราง API"
+- **ยกเลิกได้ `404`:** งานจบก่อนคำสั่งยกเลิกไปถึง — ไม่ทำอะไร poll รอบถัดไปแสดงผลจบ
+- **`503` `not_ready`:** โหลด status ใหม่แล้วเข้า state not ready พร้อมชื่อแถวที่ขาด
+- **ชื่อคลิปตอน done:** `title` เป็น `null` → ใช้ `id` แทน
+- **ปุ่ม copy:** ข้อความบนปุ่มเป็น "Copy" ภาษาอังกฤษตาม Button ใน frame 7 (เหมือน "Refresh"); `aria-label` เป็น `คัดลอก {คำสั่ง}` (setup-status D21)
+- **token ใหม่ใน `index.css`:** `accent-subtle`, `border-strong`, `info-surface`, `info-border` จาก Figma
+- **`<title>` ของหน้า:** "framecraft" — เดิม "framecraft — Setup status" ซึ่งผิดเมื่อมีสอง tab
+
+**From:** build ticket 02 · **Status:** active

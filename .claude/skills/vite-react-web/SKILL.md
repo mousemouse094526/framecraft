@@ -20,14 +20,18 @@ frontend/src/
 ├── features/[feature]/
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   └── hooks/        ← data fetching and state (calls lib/api)
-├── components/ui/    ← design-system primitives, once a second user exists
+├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
+│                        tab bar, action), OfflinePanel, RefreshButton
 └── lib/
-    ├── api.ts        ← fetch wrapper with timeout
+    ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
+    ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
     └── useHashTab.ts ← which top tab is open, from the URL hash
 ```
 
-No router library and no `routes/`: `App` shows the top tab bar and picks the
-page from the hash (`#/spoil`, `#/setup`, spoil D10).
+No router library and no `routes/`: `App` picks the page from the hash
+(`#/spoil`, `#/setup`, spoil D10). Each page wraps itself in `PageLayout`,
+whose tabs are plain `#/…` links, so clicks and the back button both just
+change the hash.
 
 ## Flow
 

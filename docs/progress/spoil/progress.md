@@ -1,11 +1,11 @@
 # Progress: spoil
 
-**Now:** 01 done; design ของทั้งสามจออยู่ใน Figma แล้ว (Blocked #1–3 done, D18) — 02 เริ่มได้
+**Now:** 01–02 done; tab สปอยโหลดคลิปได้จริงผ่านหน้าเว็บ — ต่อไปคือรายการ Temp clip (03)
 
 **Next:**
 
 ```
-/warroom-build spoil 02
+/warroom-build spoil 03
 ```
 
 ## Tickets
@@ -13,11 +13,31 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | ติดตั้ง yt-dlp กับ Deno และ Download API | done |
-| 02 | แถบ tab และโหลดคลิปใน tab สปอย | ready |
+| 02 | แถบ tab และโหลดคลิปใน tab สปอย | done |
 | 03 | รายการ Temp clip | ready |
 | 04 | เช็คบน Windows NVIDIA | ready |
 
 ## Log
+
+### 02: แถบ tab และโหลดคลิปใน tab สปอย — done 2026-10-29
+
+**Built:**
+- แถบ tab "สปอย" กับ "Setup status" ด้านบนของทั้งสองหน้า (`components/ui/PageLayout`): hash ว่างหรือไม่รู้จักเปิด Setup status, กด tab เปลี่ยน hash, refresh กับปุ่ม back อยู่ tab ตาม hash (`lib/useHashTab`)
+- tab สปอย (`features/spoil/`): ช่องลิงก์กับปุ่มโหลด, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ยกเลิก (ซ่อนตอนรวมไฟล์), ข้อความหลังงานจบหรือถูกปฏิเสธพร้อมคำสั่ง `fix` และปุ่ม copy, not ready พร้อมลิงก์ไป Setup status, offline พร้อม Refresh, poll ทุก 1 วินาทีเฉพาะตอนงานยังไม่จบ
+- `lib/api.sendJson` คืน `{status, body}` ให้ refusal เป็นคำตอบ ไม่ throw; type ของ `/api/setup/status` ย้ายไป `lib/statusTypes`, `OfflinePanel` และ `RefreshButton` ไป `components/ui/`
+- เช็คมือผ่าน Vite proxy บน Mac: Shorts `-62C9R_41Sc` เห็น กำลังเช็คลิงก์… → 25% → 68% → "โหลดเสร็จ"; หนังยาว (ไม่รู้ขนาดตอนแรก) แถบไม่มีตัวเลข แล้วกดยกเลิก → "ยกเลิกแล้ว" และ `.partial/` ว่าง; ลิงก์ซ้ำ → "คลิปนี้โหลดไว้แล้ว"; หน้าตาตรง frame 2, 4, 6, 9, 13 และ Tab bar ทั้ง 375px และ desktop
+
+**Decided:**
+- D19 — ทางเลือกเล็ก: tab เป็นลิงก์ hash, `PageLayout` ร่วมพร้อม `h1` แบบ sr-only, `useCopy` และ `OUTLINE_BUTTON` ใช้ร่วม, tone ของข้อความ, code ที่ไม่รู้จัก = offline, ยกเลิกได้ 404 ไม่ทำอะไร, ปุ่ม "Copy" ภาษาอังกฤษตาม Figma, `<title>` เป็น "framecraft"
+
+**For the next ticket:**
+- 03: loading ของ tab สปอยต้องรอ `GET /clips` ด้วย (spec › Frontend) — ตอนนี้ `useSpoilDownload.load` รอแค่ status กับ current; งานจบ `done` ต้องโหลดรายการครั้งเดียวใน `afterPoll`
+- 03: `409` `duplicate` แสดงข้อความแล้ว (`REFUSAL_NOTICES`) แต่ยังไม่ highlight แถว `clip_id` และไม่เลื่อนไปหา
+- 03: ข้อความหลังงานจบตอนนี้อยู่ใต้แถบความคืบหน้า; รายการต้องอยู่ใต้ข้อความ (frame 6, 9)
+- 03: test fake backend `backend()` ใน `SpoilPage.test.tsx` ตอบ route ซ้ำตามลำดับ — เพิ่ม route `/api/spoil/clips` ให้ทุก test เมื่อ loading รอรายการ
+- ชื่อไฟล์ `lib/statusTypes.ts` ตาม spec แต่ไม่บอกว่าเป็น status ของอะไร — ถ้ามี status ชนิดอื่นเพิ่ม ให้เปลี่ยนเป็น `setupStatusTypes.ts`
+
+**Checks:** `uv run pytest` — 82 passed; `npm --prefix frontend test` — 38 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 01: ติดตั้ง yt-dlp กับ Deno และ Download API — done 2026-10-29
 

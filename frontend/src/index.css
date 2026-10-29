@@ -9,7 +9,7 @@
 @import "@fontsource/geist/600.css";
 @import "@fontsource/manrope/500.css";
 
-/* Tokens from the Figma file (spec › Design: Setup status). */
+/* Tokens from the Figma file (spec › Design of setup-status and spoil). */
 @theme {
   --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -25,6 +25,8 @@
   --color-brand: #26241f;
   --color-brand-accent: #5a3ee0;
   --color-link: #4a30bd;
+  --color-accent-subtle: #f3f1ff;
+  --color-border-strong: #78716c;
 
   --color-destructive: #dc2626;
   --color-error-surface: #fef2f2;
@@ -35,6 +37,8 @@
   --color-warning: #b45309;
   --color-warning-surface: #fffbeb;
   --color-warning-border: #b45309;
+  --color-info-surface: #eff6ff;
+  --color-info-border: #1d4ed8;
 }
 
 body {

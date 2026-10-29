@@ -10,7 +10,7 @@
 - Seams: 3 (tab, not ready, โหลด, %, ยกเลิก, error, งานหาย)
 - User stories: 1, 2, 3, 7
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

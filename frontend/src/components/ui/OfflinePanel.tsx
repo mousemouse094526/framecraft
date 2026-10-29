@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import serverOfflineIcon from "../assets/server-offline.svg";
+import serverOfflineIcon from "./assets/server-offline.svg";
 
-/** Shown in place of the checklist when the backend gave no usable answer (D13). */
+/** Shown in place of a tab's content when the backend gave no usable answer (setup-status D13, D21). */
 export function OfflinePanel() {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">

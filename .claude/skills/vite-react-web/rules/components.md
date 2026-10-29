@@ -28,4 +28,5 @@ export function SetupStatusPage() {
 ## Good examples
 
 - [SetupStatusPage.tsx](../../../../frontend/src/features/setup-status/components/SetupStatusPage.tsx) — switches on `state.kind`, one branch per screen state.
-- [useSetupStatus.ts](../../../../frontend/src/features/setup-status/hooks/useSetupStatus.ts) — the state union and the API types live with the hook that fetches them.
+- [useSetupStatus.ts](../../../../frontend/src/features/setup-status/hooks/useSetupStatus.ts) — the state union lives with the hook that fetches; API types too, unless a second feature reads them (then `lib/`).
+- [useSpoilDownload.ts](../../../../frontend/src/features/spoil/hooks/useSpoilDownload.ts) — polls only while a job is unfinished; refusals (`409`) come back from `sendJson` as answers, not throws.

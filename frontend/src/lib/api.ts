@@ -1,7 +1,8 @@
 // Every backend call goes through here, so none can hang the UI forever.
 const TIMEOUT_MS = 30_000;
 
-export async function getJson<T>(path: string): Promise<T> {
+/** Throws when the network fails or no response comes in 30 s. */
+async function fetchWithTimeout(path: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Racing the timer (not only aborting) also ends a fetch that ignores the signal.
@@ -12,12 +13,32 @@ export async function getJson<T>(path: string): Promise<T> {
     }, TIMEOUT_MS);
   });
   try {
-    const response = await Promise.race([fetch(path, { signal: controller.signal }), timeout]);
-    if (response.status !== 200) {
-      throw new Error(`${path}: HTTP ${response.status}`);
-    }
-    return (await response.json()) as T;
+    return await Promise.race([fetch(path, { ...init, signal: controller.signal }), timeout]);
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function getJson<T>(path: string): Promise<T> {
+  const response = await fetchWithTimeout(path);
+  if (response.status !== 200) {
+    throw new Error(`${path}: HTTP ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+export type JsonReply<T> = { status: number; body: T | null };
+
+/**
+ * For calls whose refusals are answers (`409 busy`), not failures: returns
+ * every status with its JSON body, or `null` when there is none. Throws only
+ * when the network fails or no response comes in 30 s.
+ */
+export async function sendJson<T>(method: string, path: string, body?: unknown): Promise<JsonReply<T>> {
+  const response = await fetchWithTimeout(path, {
+    method,
+    ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  });
+  const text = await response.text();
+  return { status: response.status, body: text ? (JSON.parse(text) as T) : null };
 }

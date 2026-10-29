@@ -1,4 +1,4 @@
-import type { StatusResponse } from "../hooks/useSetupStatus";
+import type { StatusResponse } from "../../../lib/statusTypes";
 import verdictAlertIcon from "../assets/verdict-alert.svg";
 import verdictOkIcon from "../assets/verdict-ok.svg";
 import warningHintIcon from "../assets/warning-hint.svg";

@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChecklistItem, StatusResponse } from "../hooks/useSetupStatus";
+import type { ChecklistItem, StatusResponse } from "../../../lib/statusTypes";
 import { SetupStatusPage } from "./SetupStatusPage";
 
 const OMNIVOICE_LICENSE = {

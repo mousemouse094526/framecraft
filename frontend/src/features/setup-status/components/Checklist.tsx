@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { ChecklistItem, ItemStatus, License } from "../hooks/useSetupStatus";
+import type { ChecklistItem, ItemStatus, License } from "../../../lib/statusTypes";
+import { useCopy } from "../../../lib/useCopy";
 import copyIcon from "../assets/copy.svg";
 import externalLinkIcon from "../assets/external-link.svg";
 import rowMissingIcon from "../assets/row-missing.svg";
@@ -56,11 +56,7 @@ function Fix({ fix }: { fix: string }) {
 }
 
 function CommandChip({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
-  };
+  const { copied, copy } = useCopy(command);
   return (
     <div className="flex w-fit items-center gap-2 rounded-md border border-border bg-muted py-1 pr-2 pl-2.5">
       <code className="font-mono text-[13px] font-medium whitespace-nowrap text-foreground">{command}</code>
