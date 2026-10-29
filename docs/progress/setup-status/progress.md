@@ -1,12 +1,8 @@
 # Progress: setup-status
 
-**Now:** feature review เสร็จ, ready to merge (branch `feat/setup-status`); เช็คมือบน Windows อยู่ที่ `windows-check` 01 (D25)
+**Now:** merged (PR #1, `a027e8f`); เช็คมือบน Windows อยู่ที่ `windows-check` 01 (D25)
 
-**Next:**
-
-```
-/pr-open
-```
+**Next:** —
 
 ## Tickets
 
