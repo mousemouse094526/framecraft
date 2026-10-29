@@ -60,6 +60,7 @@ Windows ยังไม่ได้ทดสอบบนเครื่องจ
 
 ### คลิปที่โหลดจาก YouTube
 
+- เปิด tab **สปอย** ด้านบน วางลิงก์คลิป YouTube แล้วกด **โหลด**. คลิปที่โหลดแล้วอยู่ในรายการ "คลิปที่โหลดมา" ใต้ช่องลิงก์: กดแถวเพื่อเล่น, กดถังขยะเพื่อลบ
 - คลิปที่โหลดเก็บใน `media/temp/` ของ folder นี้ (`{id}.mp4`, thumbnail และ `{id}.json`) และอยู่จนกดลบเอง. ไม่เข้า git
 - ลบทั้งหมดด้วยมือได้: ปิด `npm run dev` ก่อน แล้วลบ folder `media/temp/`
 - ถ้าโหลดไม่ได้ทุกคลิป (YouTube เปลี่ยน) ให้อัปเดต yt-dlp แล้วรัน setup ใหม่:
@@ -70,7 +71,8 @@ Windows ยังไม่ได้ทดสอบบนเครื่องจ
   ```
 
   (Windows: `uv lock --upgrade-package yt-dlp` แล้ว `setup.cmd`)
-- API อยู่ใต้ `/api/spoil` เช่น `POST /api/spoil/downloads` กับ `{"url": "..."}` แล้ว poll `GET /api/spoil/downloads/current`
+- Windows ลบคลิปที่ player ยังเปิดอยู่ไม่ได้: หน้าเว็บบอก "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่" ใต้แถวนั้น ปิด player แล้วลองอีกครั้ง
+- API อยู่ใต้ `/api/spoil` เช่น `POST /api/spoil/downloads` กับ `{"url": "..."}` แล้ว poll `GET /api/spoil/downloads/current`; รายการคือ `GET /api/spoil/clips`
 
 ## Tests
 

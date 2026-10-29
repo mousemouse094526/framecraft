@@ -1,12 +1,14 @@
 # Progress: spoil
 
-**Now:** 01–02 done; tab สปอยโหลดคลิปได้จริงผ่านหน้าเว็บ — ต่อไปคือรายการ Temp clip (03)
+**Now:** 01–03 done; tab สปอยโหลด เล่น และลบคลิปได้บน Mac — เหลือเช็คบน Windows (04) ซึ่งรอ setup-status 03
 
 **Next:**
 
 ```
-/warroom-build spoil 03
+/warroom-build spoil 04
 ```
+
+04 ถูก block โดย setup-status 03 (เช็คบน Windows NVIDIA) — ทำอันนั้นก่อน
 
 ## Tickets
 
@@ -14,10 +16,28 @@
 |---|---|---|
 | 01 | ติดตั้ง yt-dlp กับ Deno และ Download API | done |
 | 02 | แถบ tab และโหลดคลิปใน tab สปอย | done |
-| 03 | รายการ Temp clip | ready |
+| 03 | รายการ Temp clip | done |
 | 04 | เช็คบน Windows NVIDIA | ready |
 
 ## Log
+
+### 03: รายการ Temp clip — done 2026-10-29
+
+**Built:**
+- API: `GET /api/spoil/clips` (json ที่มี mp4 คู่ เรียงตามเวลาโหลดจริงใหม่สุดก่อน; json เสีย, ไม่มี mp4 หรือเวลาไม่มี offset → ข้าม), `/clips/{id}/video` ด้วย `FileResponse` (`Range` → `206`), `/clips/{id}/thumbnail`, `DELETE /clips/{id}` ลบ mp4 กับ thumbnail ก่อน json สุดท้าย, `PermissionError` → `409` `in_use`; id ผิดรูปแบบหรือไม่มี json → `404` `not_found`. `SpoilError` ย้ายไป `backend.spoil.errors`
+- หน้าเว็บ (`TempClipList`, `useTempClips`): หัว "คลิปที่โหลดมา" กับจำนวน, แถวตาม Figma `Clip row` (thumbnail, ชื่อ, ช่อง · ความยาว, ขนาดภาพ ตั้ง/นอน · MB/GB · เวลาท้องถิ่น), state ว่าง, กดแถว → `<video controls>` เหนือรายการพร้อม badge "กำลังเล่น", ลบหลัง `confirm` (แถวที่เล่นอยู่ → ปลด player ก่อน `DELETE`), `in_use` → ข้อความใต้แถว. loading รอ `/clips` ด้วย, งานจบหรือหาย → โหลดรายการครั้งเดียว, `done` กับ `duplicate` → highlight แถวและเลื่อนไปหา, not ready ยังเห็นรายการ
+- ของร่วมใหม่: `lib/useMountedState` (ใช้ทั้งสาม hook รวม `useSetupStatus`), `features/spoil/hooks/refusal.ts`
+- เช็คมือบน Mac ผ่าน Vite proxy: Shorts `-62C9R_41Sc` 1080×1920 เล่นและ seek ไป 0:25 ได้; หนัง 1:35 ชม. 1920×1080 seek ไป 1:30:01 แล้วเล่นต่อ; วางลิงก์ `jNQXAC9IVRw` ซ้ำ → "คลิปนี้โหลดไว้แล้ว" กับแถว highlight; restart `npm run dev` → รายการ 3 คลิปเดิมอยู่ครบ; ขนาดตรง Figma (หัว 45px, แถว 87px, thumbnail 96×54, player 720×405) ทั้ง desktop และ 375px. README บอกเรื่อง tab สปอยและการลบ `media/temp/` ด้วยมือ
+
+**Decided:**
+- D20 — ทางเลือกเล็ก: คลิปมีอยู่ = มี json, ลบ json ที่ mp4 หาย, เรียงตามเวลาจริง, ลบได้ `404` = แถวหาย, highlight มาจากข้อความหลังงานจบ, `autoPlay`, ขนาดไฟล์ฐาน 1000, `useMountedState`, token `surface-strong` กับ `surface-inverse`
+
+**For the next ticket:**
+- 04: บน Windows ลองเล่นคลิปแล้วกดลบ — ต้องได้ลบสำเร็จ (player ถูกปลดก่อน) หรือ `in_use` ใต้แถวและแถวยังอยู่ (seam 2); ยังไม่เคยเห็น `PermissionError` จริงจาก Windows
+- 04: thumbnail ที่ Windows ล็อกไว้ (เปิดใน `<img>`) ถูก log แล้วข้าม — เช็คว่าการล้างตอน start เก็บมันได้
+- ไม่มีลบคลิปจริงบน Mac ในรอบนี้ (คลิปใน `media/temp/` เป็นของผู้ใช้) — test ครอบ `204` และ `in_use` แล้ว
+
+**Checks:** `uv run pytest` — 106 passed; `npm --prefix frontend test` — 48 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 02: แถบ tab และโหลดคลิปใน tab สปอย — done 2026-10-29
 

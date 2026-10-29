@@ -25,7 +25,8 @@ frontend/src/
 └── lib/
     ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
-    └── useHashTab.ts ← which top tab is open, from the URL hash
+    ├── useHashTab.ts ← which top tab is open, from the URL hash
+    └── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
 ```
 
 No router library and no `routes/`: `App` picks the page from the hash

@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChecklistItem, StatusResponse } from "../../../lib/statusTypes";
 import type { DownloadJob } from "../hooks/useSpoilDownload";
+import type { TempClip } from "../hooks/useTempClips";
 import { SpoilPage } from "./SpoilPage";
 
 const SHORTS_URL = "https://www.youtube.com/shorts/f7jkZXvaB4g";
@@ -50,6 +51,52 @@ function jobOf(change: Partial<DownloadJob>): DownloadJob {
 
 const DOWNLOADING_40 = jobOf({ state: "downloading", title: "From the Moon", percent: 40 });
 
+/** `downloaded_at` at a local wall-clock time, so the shown time is the same in every time zone. */
+function localIso(month: number, day: number, hour: number, minute: number): string {
+  return new Date(2026, month - 1, day, hour, minute).toISOString();
+}
+
+function clipOf(change: Partial<TempClip>): TempClip {
+  return {
+    id: "dQw4w9WgXcQ",
+    title: "Rick Astley - Never Gonna Give You Up (Official Video)",
+    channel: "Rick Astley",
+    source_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    duration_s: 213,
+    width: 1920,
+    height: 1080,
+    orientation: "landscape",
+    file_bytes: 84_400_000,
+    thumbnail: "dQw4w9WgXcQ.webp",
+    downloaded_at: localIso(10, 28, 21, 10),
+    yt_dlp_version: "2026.10.26",
+    ...change,
+  };
+}
+
+const RICK = clipOf({});
+const MOON = clipOf({
+  id: "f7jkZXvaB4g",
+  title: "From the Moon to the 50-Yard Line",
+  channel: "NASA",
+  duration_s: 39,
+  width: 1080,
+  height: 1920,
+  orientation: "portrait",
+  file_bytes: 16_700_000,
+  thumbnail: "f7jkZXvaB4g.webp",
+  downloaded_at: localIso(10, 29, 18, 34),
+});
+const NIGHT = clipOf({
+  id: "H91BxkBXttE",
+  title: "Night of the Living Dead (1968)",
+  channel: "Public Domain Movies",
+  duration_s: 5742,
+  file_bytes: 1_600_000_000,
+  thumbnail: null,
+  downloaded_at: localIso(10, 29, 18, 52),
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
@@ -59,9 +106,11 @@ type Route = { method?: string; path: string; reply: () => Response | Promise<Re
 /**
  * Fake backend: each request takes the first route that matches it. A route
  * answers once, so a list of routes for the same path plays out in order;
- * the last one for a path keeps answering.
+ * the last one for a path keeps answering. With no `/api/spoil/clips` route
+ * the list is empty.
  */
 function backend(routes: Route[]) {
+  if (!routes.some((r) => r.path === CLIPS_PATH && (r.method ?? "GET") === "GET")) routes.push(clips([]));
   fetchMock.mockImplementation(async (input, init) => {
     const method = init?.method ?? "GET";
     const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
@@ -77,6 +126,9 @@ const current = (job: DownloadJob | null): Route => ({
   path: "/api/spoil/downloads/current",
   reply: () => jsonResponse(job),
 });
+const CLIPS_PATH = "/api/spoil/clips";
+const clips = (list: TempClip[]): Route => ({ path: CLIPS_PATH, reply: () => jsonResponse({ clips: list }) });
+const deleteClip = (id: string, reply: () => Response): Route => ({ method: "DELETE", path: `${CLIPS_PATH}/${id}`, reply });
 const post = (body: unknown, code = 202): Route => ({
   method: "POST",
   path: "/api/spoil/downloads",
@@ -99,13 +151,21 @@ async function startDownload() {
 
 const fetchMock = vi.fn<typeof fetch>();
 
+function clipListCalls(): number {
+  return fetchMock.mock.calls.filter(([input, init]) => String(input) === CLIPS_PATH && !init?.method).length;
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.stubGlobal("fetch", fetchMock);
+  // jsdom has no layout or media playback (docs/library-notes/vitest.md).
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
 });
 
 afterEach(() => {
   fetchMock.mockReset();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -116,6 +176,18 @@ describe("tab สปอย", () => {
     render(<SpoilPage />);
 
     expect(screen.getByText("กำลังโหลด…")).toBeInTheDocument();
+  });
+
+  it("keeps กำลังโหลด… until the clip list answers too", async () => {
+    backend([status(), current(null), { path: CLIPS_PATH, reply: () => new Promise(() => {}) }]);
+    render(<SpoilPage />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(screen.getByText("กำลังโหลด…")).toBeInTheDocument();
+    expect(screen.queryByLabelText("ลิงก์ YouTube")).not.toBeInTheDocument();
   });
 
   it("names what is missing and links to Setup status instead of the link field", async () => {
@@ -137,13 +209,15 @@ describe("tab สปอย", () => {
 });
 
 describe("downloading", () => {
-  it("posts the link, shows 40%, then โหลดเสร็จ with the title", async () => {
+  it("posts the link, shows 40%, then โหลดเสร็จ with the title and the new row highlighted", async () => {
     backend([
       status(),
       current(null),
       current(DOWNLOADING_40),
       current(jobOf({ state: "done", title: "From the Moon", clip_id: "f7jkZXvaB4g" })),
       post(jobOf({})),
+      clips([RICK]),
+      clips([MOON, RICK]),
     ]);
     render(<SpoilPage />);
     await startDownload();
@@ -163,6 +237,12 @@ describe("downloading", () => {
     expect(screen.getByText("โหลดเสร็จ: From the Moon")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "โหลด" })).toBeEnabled();
+    expect(await screen.findByRole("listitem", { name: MOON.title })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("listitem", { name: RICK.title })).not.toHaveAttribute("aria-current");
+    expect(clipListCalls()).toBe(2);
+
+    await nextPoll();
+    expect(clipListCalls()).toBe(2);
   });
 
   it("shows a bar with no number when the size is unknown", async () => {
@@ -239,6 +319,7 @@ describe("downloading", () => {
 
     expect(screen.getByText("งานโหลดหายเพราะ backend เริ่มใหม่ ลองโหลดอีกครั้ง")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "โหลด" })).toBeEnabled();
+    expect(clipListCalls()).toBe(2);
   });
 });
 
@@ -281,7 +362,6 @@ describe("messages", () => {
   it.each([
     [400, "invalid_url", "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube"],
     [409, "busy", "กำลังโหลดคลิปอื่นอยู่"],
-    [409, "duplicate", "คลิปนี้โหลดไว้แล้ว"],
   ])("shows the Frontend table's text on %i %s", async (code, errorCode, text) => {
     backend([status(), current(null), post({ code: errorCode, message: "from the API" }, code)]);
     render(<SpoilPage />);
@@ -289,6 +369,23 @@ describe("messages", () => {
 
     expect(await screen.findByText(text)).toBeInTheDocument();
     expect(screen.queryByText("from the API")).not.toBeInTheDocument();
+  });
+
+  it("on 409 duplicate says so, highlights the old row and scrolls to it", async () => {
+    backend([
+      status(),
+      current(null),
+      clips([NIGHT, MOON, RICK]),
+      post({ code: "duplicate", message: "from the API", clip_id: RICK.id }, 409),
+    ]);
+    render(<SpoilPage />);
+    await startDownload();
+
+    expect(await screen.findByText("คลิปนี้โหลดไว้แล้ว")).toBeInTheDocument();
+    const row = screen.getByRole("listitem", { name: RICK.title });
+    expect(row).toHaveAttribute("aria-current", "true");
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts[0]).toBe(row);
   });
 
   it("clears the last message on the next โหลด", async () => {
@@ -353,5 +450,140 @@ describe("offline", () => {
     await nextPoll();
 
     expect(screen.getByText("Backend offline")).toBeInTheDocument();
+  });
+});
+
+describe("Temp clip list", () => {
+  it("says there is no clip yet when the list is empty", async () => {
+    backend([status(), current(null)]);
+    render(<SpoilPage />);
+
+    expect(await screen.findByText("ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "คลิปที่โหลดมา 0" })).toBeInTheDocument();
+  });
+
+  it("shows each clip newest first with what it is", async () => {
+    backend([status(), current(null), clips([NIGHT, MOON, RICK])]);
+    render(<SpoilPage />);
+
+    const rows = await screen.findAllByRole("listitem");
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([NIGHT.title, MOON.title, RICK.title]);
+    expect(screen.getByRole("heading", { name: "คลิปที่โหลดมา 3" })).toBeInTheDocument();
+
+    const night = within(rows[0]);
+    expect(night.getByText("Public Domain Movies · 1:35:42")).toBeInTheDocument();
+    expect(night.getByText("1920×1080 นอน · 1.6 GB · 29 ต.ค. 18:52")).toBeInTheDocument();
+    expect(rows[0].querySelector("img[src*='thumbnail']")).toBeNull();
+
+    const moon = within(rows[1]);
+    expect(moon.getByText("NASA · 0:39")).toBeInTheDocument();
+    expect(moon.getByText("1080×1920 ตั้ง · 16.7 MB · 29 ต.ค. 18:34")).toBeInTheDocument();
+    expect(rows[1].querySelector("img[src*='thumbnail']")).toHaveAttribute(
+      "src",
+      "/api/spoil/clips/f7jkZXvaB4g/thumbnail",
+    );
+
+    expect(within(rows[2]).getByText("Rick Astley · 3:33")).toBeInTheDocument();
+  });
+
+  it("still shows the list when the tab is not ready", async () => {
+    backend([status(ITEMS.map((i) => (i.id === "deno" ? { ...i, status: "missing" } : i))), current(null), clips([RICK])]);
+    render(<SpoilPage />);
+
+    expect(await screen.findByText("ยังติดตั้งไม่ครบ: Deno")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: RICK.title })).toBeInTheDocument();
+  });
+
+  it("goes offline when the list can't be loaded", async () => {
+    backend([status(), current(null), { path: CLIPS_PATH, reply: () => Promise.reject(new TypeError("Failed to fetch")) }]);
+    render(<SpoilPage />);
+
+    expect(await screen.findByText("Backend offline")).toBeInTheDocument();
+  });
+
+  it("plays a clicked row above the list and marks it กำลังเล่น", async () => {
+    backend([status(), current(null), clips([MOON, RICK])]);
+    const { container } = render(<SpoilPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await screen.findByRole("button", { name: /^From the Moon/ }));
+
+    const video = container.querySelector("video");
+    expect(video).toHaveAttribute("src", "/api/spoil/clips/f7jkZXvaB4g/video");
+    expect(video).toHaveAttribute("controls");
+    expect(within(screen.getByRole("listitem", { name: MOON.title })).getByText("กำลังเล่น")).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: RICK.title })).queryByText("กำลังเล่น")).not.toBeInTheDocument();
+  });
+
+  it("deletes a row after confirm", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    backend([status(), current(null), clips([MOON, RICK]), deleteClip(RICK.id, () => new Response(null, { status: 204 }))]);
+    render(<SpoilPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
+
+    expect(confirm).toHaveBeenCalledWith(`ลบ ${RICK.title}?`);
+    expect(fetchMock).toHaveBeenCalledWith(`/api/spoil/clips/${RICK.id}`, expect.objectContaining({ method: "DELETE" }));
+    await vi.waitFor(() => expect(screen.queryByRole("listitem", { name: RICK.title })).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "คลิปที่โหลดมา 1" })).toBeInTheDocument();
+  });
+
+  it("sends nothing when the confirm is cancelled", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => false));
+    backend([status(), current(null), clips([RICK])]);
+    render(<SpoilPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
+
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining(RICK.id), expect.anything());
+    expect(screen.getByRole("listitem", { name: RICK.title })).toBeInTheDocument();
+  });
+
+  it("lets go of the playing clip before sending DELETE", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    const order: string[] = [];
+    vi.mocked(HTMLMediaElement.prototype.load).mockImplementation(function (this: HTMLMediaElement) {
+      order.push(`load src=${this.getAttribute("src") ?? ""}`);
+    });
+    backend([
+      status(),
+      current(null),
+      clips([MOON]),
+      deleteClip(MOON.id, () => {
+        order.push("DELETE");
+        return new Response(null, { status: 204 });
+      }),
+    ]);
+    const { container } = render(<SpoilPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(await screen.findByRole("button", { name: /^From the Moon/ }));
+
+    await user.click(screen.getByRole("button", { name: `ลบ ${MOON.title}` }));
+
+    expect(order).toEqual(["load src=", "DELETE"]);
+    expect(container.querySelector("video")).toBeNull();
+    expect(await screen.findByText("ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน")).toBeInTheDocument();
+  });
+
+  it("shows the API message under the row when the file is in use, and keeps the row", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    const inUse = "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง";
+    backend([
+      status(),
+      current(null),
+      clips([MOON, RICK]),
+      deleteClip(RICK.id, () => jsonResponse({ code: "in_use", message: inUse }, 409)),
+    ]);
+    render(<SpoilPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
+
+    const row = screen.getByRole("listitem", { name: RICK.title });
+    expect(await within(row).findByText(inUse)).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: MOON.title })).queryByText(inUse)).not.toBeInTheDocument();
   });
 });

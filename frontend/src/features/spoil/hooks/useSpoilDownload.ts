@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import type { StatusResponse } from "../../../lib/statusTypes";
+import { useMountedState } from "../../../lib/useMountedState";
+import { refusalOf, type Refusal } from "./refusal";
 
 // The shape of a Download job (backend.spoil.jobs.DownloadJob, spec › API).
 export type JobState = "checking" | "downloading" | "merging" | "done" | "failed" | "cancelled";
@@ -23,8 +25,6 @@ export type DownloadJob = {
   clip_id: string | null;
 };
 
-/** A refusal from the Spoil API: `{"code", "message"}`. */
-type Refusal = { code: string; message: string };
 
 /** The message after a job or a refusal, kept until the next โหลด (spec › Frontend). */
 export type Notice = {
@@ -32,6 +32,8 @@ export type Notice = {
   text: string;
   /** A command to copy, from `error.fix` (D8). */
   fix: string | null;
+  /** The list row this message is about, highlighted while it shows (D12). */
+  clipId: string | null;
 };
 
 export type SpoilState =
@@ -55,8 +57,8 @@ function isUnfinished(job: DownloadJob): boolean {
   return UNFINISHED.includes(job.state);
 }
 
-function notice(tone: Notice["tone"], text: string): Notice {
-  return { tone, text, fix: null };
+function notice(tone: Notice["tone"], text: string, clipId: string | null = null): Notice {
+  return { tone, text, fix: null, clipId };
 }
 
 function ready(job: DownloadJob | null, shown: Notice | null = null): SpoilState {
@@ -67,22 +69,24 @@ const LOST_JOB = notice("warning", "งานโหลดหายเพรา�
 
 /** What a finished job says (spec › Frontend, messages after a job). */
 function resultNotice(job: DownloadJob): Notice {
-  if (job.state === "done") return notice("success", `โหลดเสร็จ: ${job.title ?? job.id}`);
+  if (job.state === "done") return notice("success", `โหลดเสร็จ: ${job.title ?? job.id}`, job.clip_id);
   if (job.state === "cancelled") return notice("info", "ยกเลิกแล้ว");
-  return { tone: "error", text: job.error?.message ?? "โหลดไม่สำเร็จ", fix: job.error?.fix ?? null };
+  return { tone: "error", text: job.error?.message ?? "โหลดไม่สำเร็จ", fix: job.error?.fix ?? null, clipId: null };
 }
 
-// Refusals of POST /downloads by code; the text is the Frontend table's, not the API's.
-// `duplicate` only says so here; ticket 03 adds the highlight of the old row (D12).
-const REFUSAL_NOTICES: Partial<Record<string, Notice>> = {
-  invalid_url: notice("error", "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube"),
-  busy: notice("warning", "กำลังโหลดคลิปอื่นอยู่"),
-  duplicate: notice("info", "คลิปนี้โหลดไว้แล้ว"),
-};
-
-/** Any other body (none, not a refusal) has no code, so it reads as offline. */
-function refusalCode(body: unknown): string {
-  return typeof body === "object" && body !== null && "code" in body ? String((body as Refusal).code) : "";
+/** A refusal of POST /downloads; the text is the Frontend table's, not the API's. Unknown → undefined. */
+function refusalNotice(body: unknown): Notice | undefined {
+  const refusal = refusalOf(body);
+  switch (refusal?.code) {
+    case "invalid_url":
+      return notice("error", "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube");
+    case "busy":
+      return notice("warning", "กำลังโหลดคลิปอื่นอยู่");
+    case "duplicate":
+      // Points at the clip already in the list (D12).
+      return notice("info", "คลิปนี้โหลดไว้แล้ว", refusal.clip_id ?? null);
+  }
+  return undefined;
 }
 
 function readyState(status: StatusResponse, job: DownloadJob | null): SpoilState {
@@ -107,15 +111,11 @@ function afterPoll(state: SpoilState, job: DownloadJob | null): SpoilState {
  * The สปอย tab: checks the install and the current job on mount, polls every
  * second only while a job is unfinished (D6), and starts or cancels a job.
  * Any failure (no backend, a status the API never sends, 30 s) is offline.
+ * `onJobEnd` (a stable callback) runs once when a followed job ends or is
+ * lost, so the list loads again (D6).
  */
-export function useSpoilDownload() {
-  const [state, setState] = useState<SpoilState>({ kind: "loading" });
-
-  // Answers that arrive after the tab is gone are dropped (see useSetupStatus).
-  const mounted = useRef(false);
-  const setIfMounted = useCallback((next: SpoilState | ((previous: SpoilState) => SpoilState)) => {
-    if (mounted.current) setState(next);
-  }, []);
+export function useSpoilDownload(onJobEnd: () => void) {
+  const [state, setState, setIfMounted] = useMountedState<SpoilState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
@@ -130,11 +130,7 @@ export function useSpoilDownload() {
   }, [setIfMounted]);
 
   useEffect(() => {
-    mounted.current = true;
     void load();
-    return () => {
-      mounted.current = false;
-    };
   }, [load]);
 
   const tracking = state.kind === "ready" && state.job !== null;
@@ -148,6 +144,8 @@ export function useSpoilDownload() {
         const job = await getJson<DownloadJob | null>(CURRENT_PATH);
         if (stopped) return;
         setIfMounted((previous) => afterPoll(previous, job));
+        // Polls run only while a job is followed, so any other answer is its end.
+        if (job === null || !isUnfinished(job)) onJobEnd();
         // Once the job ends `tracking` flips and the cleanup clears this timer.
         timer = setTimeout(poll, POLL_MS);
       } catch {
@@ -159,7 +157,7 @@ export function useSpoilDownload() {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [tracking, setIfMounted]);
+  }, [tracking, setIfMounted, onJobEnd]);
 
   const start = useCallback(
     async (url: string) => {
@@ -175,7 +173,7 @@ export function useSpoilDownload() {
           await load();
           return;
         }
-        const refused = reply.status === 400 || reply.status === 409 ? REFUSAL_NOTICES[refusalCode(reply.body)] : undefined;
+        const refused = reply.status === 400 || reply.status === 409 ? refusalNotice(reply.body) : undefined;
         setIfMounted(refused ? ready(null, refused) : { kind: "offline" });
       } catch {
         setIfMounted({ kind: "offline" });
@@ -190,7 +188,7 @@ export function useSpoilDownload() {
       if (reply.status === 202) {
         const job = reply.body as DownloadJob;
         setIfMounted((previous) => (previous.kind === "ready" && previous.job ? { ...previous, job } : previous));
-      } else if (reply.status === 409 && refusalCode(reply.body) === "merging") {
+      } else if (reply.status === 409 && refusalOf(reply.body)?.code === "merging") {
         setIfMounted((previous) =>
           previous.kind === "ready" ? { ...previous, notice: notice("warning", "กำลังรวมไฟล์ ยกเลิกไม่ได้แล้ว") } : previous,
         );

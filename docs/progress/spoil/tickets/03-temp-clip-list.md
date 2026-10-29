@@ -10,7 +10,7 @@
 - Seams: 1 (`/clips`, video, thumbnail, ลบ), 3 (รายการ, player, ลบ, ซ้ำ)
 - User stories: 4, 5, 6
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

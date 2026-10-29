@@ -16,6 +16,8 @@ expect(await screen.findByText("พร้อมใช้งาน")).toBeInTheDo
 
 - Runner: `npm --prefix frontend test`. Tests sit beside the component as `*.test.tsx`.
 - Query by visible text or role, the way the user sees it.
+- Media with no role (`<video>`, a decorative `<img alt="">` thumbnail) is the one exception: find its row by role, then `querySelector` inside it.
+- jsdom has no playback, layout or `confirm`: stub `HTMLMediaElement.prototype.load`, `Element.prototype.scrollIntoView` and `confirm` per test (docs/library-notes/vitest.md).
 - No browser e2e tool yet; the Vite proxy is checked by hand per the spec.
 - Typecheck: `npm --prefix frontend run typecheck`; build: `npm --prefix frontend run build`.
 - A pending request is a `new Promise(() => {})` or a deferred you resolve

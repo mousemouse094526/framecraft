@@ -51,6 +51,9 @@ Follows [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-appli
 - `TrustedHostMiddleware(allowed_hosts=[...])` compares the `Host` header without its port; IPv6 hosts keep their brackets, so allow `"[::1]"`. A bad host gets `400` "Invalid host header" — [Starlette middleware](https://www.starlette.io/middleware/#trustedhostmiddleware)
 - `TestClient`'s default host is `testserver`, which a trusted-host list without it rejects; pass `base_url="http://127.0.0.1"` — [Starlette middleware](https://www.starlette.io/middleware/#trustedhostmiddleware)
 - A `lifespan` only runs when `TestClient` is used as a context manager (`with TestClient(app) as client:`) — [Testing › Lifespan](https://fastapi.tiangolo.com/advanced/testing-events/)
+- `FileResponse(path, media_type=...)` sends `accept-ranges: bytes` and answers a `Range` header with `206` and `Content-Range` (several ranges → multipart; past the end → `416`), so `<video>` can seek. A route may return it as is — [Starlette responses](https://www.starlette.io/responses/#fileresponse)
+- **Avoid** passing `filename=` to a `FileResponse` meant for `<video src>`: it adds `content-disposition: attachment` — [Starlette responses](https://www.starlette.io/responses/#fileresponse)
+- A path parameter with `Path(pattern=...)` that fails gives `422`, not `404`; check the shape in code when the spec wants `404` — [Path params](https://fastapi.tiangolo.com/tutorial/path-params-numeric-validations/)
 
 ## Sources
 
@@ -62,3 +65,5 @@ Follows [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-appli
 - [Pydantic models](https://pydantic.dev/docs/validation/latest/concepts/models/) — `BaseModel`, extra data (accessed 2026-10-29)
 - [Starlette middleware](https://www.starlette.io/middleware/#trustedhostmiddleware) — `TrustedHostMiddleware` (accessed 2026-10-29)
 - [Testing events: lifespan](https://fastapi.tiangolo.com/advanced/testing-events/) — `with TestClient(app)` (accessed 2026-10-29)
+- [Starlette responses](https://www.starlette.io/responses/#fileresponse) — `FileResponse`, Range, checked against starlette 1.10.0 source in `.venv` (accessed 2026-10-29)
+- [Path params](https://fastapi.tiangolo.com/tutorial/path-params-numeric-validations/) — validation errors are `422` (accessed 2026-10-29)

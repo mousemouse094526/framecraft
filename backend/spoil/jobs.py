@@ -16,6 +16,7 @@ from backend import checks, paths, spoil
 from backend.paths import ProjectPaths
 from backend.spoil import clips, links
 from backend.spoil.adapter import DownloadCancelled, ErrorCode, error_code
+from backend.spoil.errors import SpoilError
 
 log = logging.getLogger(__name__)
 
@@ -55,14 +56,6 @@ class DownloadJob(BaseModel):
     cancel_requested: bool = False
     error: JobError | None = None
     clip_id: str | None = None
-
-
-class SpoilError(Exception):
-    """A refusal the route turns into `{"code", "message"}` with `status`."""
-
-    def __init__(self, status: int, code: str, message: str, **extra: str):
-        super().__init__(message)
-        self.status, self.code, self.message, self.extra = status, code, message, extra
 
 
 class _Failed(Exception):

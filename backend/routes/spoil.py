@@ -1,15 +1,50 @@
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from backend.spoil import jobs
-from backend.spoil.jobs import DownloadJob, SpoilError
+from backend import paths
+from backend.paths import ProjectPaths
+from backend.spoil import clips, jobs
+from backend.spoil.clips import TempClip
+from backend.spoil.errors import SpoilError
+from backend.spoil.jobs import DownloadJob
 
 router = APIRouter(prefix="/spoil")
 
 
 class DownloadRequest(BaseModel):
     url: str
+
+
+class ClipList(BaseModel):
+    clips: list[TempClip]
+
+
+def _project() -> ProjectPaths:
+    # Read per request: tests point `paths.ROOT` at a fake root.
+    return ProjectPaths(paths.ROOT)
+
+
+@router.get("/clips")
+def list_clips() -> ClipList:
+    return ClipList(clips=clips.list_clips(_project()))
+
+
+@router.get("/clips/{clip_id}/video")
+def get_video(clip_id: str) -> FileResponse:
+    """FileResponse answers `Range` with 206, so the player can seek."""
+    return FileResponse(clips.video_file(_project(), clip_id), media_type="video/mp4")
+
+
+@router.get("/clips/{clip_id}/thumbnail")
+def get_thumbnail(clip_id: str) -> FileResponse:
+    return FileResponse(clips.thumbnail_file(_project(), clip_id))
+
+
+@router.delete("/clips/{clip_id}", status_code=204)
+def delete_clip(clip_id: str) -> Response:
+    clips.delete_clip(_project(), clip_id)
+    return Response(status_code=204)
 
 
 @router.post("/downloads", status_code=202)

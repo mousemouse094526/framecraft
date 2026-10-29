@@ -162,3 +162,32 @@ class FakeAdapter:
         if point in self._paused:
             self._reached[point].set()
             assert self._paused[point].wait(5), f"test never released {point}"
+
+
+def write_temp_clip(
+    project: ProjectPaths,
+    video_id: str = "dQw4w9WgXcQ",
+    downloaded_at: str = "2026-10-29T14:05:11+07:00",
+    thumbnail: bool = True,
+) -> dict:
+    """The three files a finished download leaves in media/temp/; returns the json."""
+    project.media_temp_dir.mkdir(parents=True, exist_ok=True)
+    (project.media_temp_dir / f"{video_id}.mp4").write_bytes(bytes(range(256)) * 4)
+    if thumbnail:
+        (project.media_temp_dir / f"{video_id}.webp").write_bytes(b"thumb")
+    clip = {
+        "id": video_id,
+        "title": "ชื่อคลิป",
+        "channel": "ชื่อช่อง",
+        "source_url": f"https://www.youtube.com/watch?v={video_id}",
+        "duration_s": 213,
+        "width": 1920,
+        "height": 1080,
+        "orientation": "landscape",
+        "file_bytes": 1024,
+        "thumbnail": f"{video_id}.webp" if thumbnail else None,
+        "downloaded_at": downloaded_at,
+        "yt_dlp_version": "2026.10.26",
+    }
+    (project.media_temp_dir / f"{video_id}.json").write_text(json.dumps(clip), encoding="utf-8")
+    return clip

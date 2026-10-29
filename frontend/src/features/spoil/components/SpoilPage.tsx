@@ -2,33 +2,59 @@ import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
+import { useTempClips } from "../hooks/useTempClips";
 import notReadyIcon from "../assets/not-ready.svg";
 import { DownloadProgress } from "./DownloadProgress";
 import { LinkForm } from "./LinkForm";
 import { NoticeAlert } from "./NoticeAlert";
+import { TempClipList } from "./TempClipList";
 
 export function SpoilPage() {
-  const { state, start, cancel, reload } = useSpoilDownload();
+  const list = useTempClips();
+  // A job that ends (or is lost) changes the list: load it once (D6).
+  const { state, start, cancel, reload } = useSpoilDownload(list.refetch);
 
-  if (state.kind === "offline") {
+  const refresh = () => {
+    reload();
+    list.reload();
+  };
+
+  if (state.kind === "offline" || list.state.kind === "offline") {
     return (
-      <PageLayout tab="spoil" action={<RefreshButton onClick={reload} />}>
+      <PageLayout tab="spoil" action={<RefreshButton onClick={refresh} />}>
         <OfflinePanel />
       </PageLayout>
     );
   }
 
+  if (state.kind === "loading" || list.state.kind === "loading") {
+    return (
+      <PageLayout tab="spoil">
+        <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
+      </PageLayout>
+    );
+  }
+
+  const notice = state.kind === "ready" ? state.notice : null;
   return (
     <PageLayout tab="spoil">
-      {state.kind === "loading" && <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>}
       {state.kind === "notReady" && <NotReady missing={state.missing} />}
       {state.kind === "ready" && (
         <>
           <LinkForm busy={state.job !== null} onSubmit={start} />
           {state.job && <DownloadProgress job={state.job} onCancel={cancel} />}
-          {state.notice && <NoticeAlert notice={state.notice} />}
+          {notice && <NoticeAlert notice={notice} />}
         </>
       )}
+      {/* Shown when not ready too: the clips are still on disk (D9). */}
+      <TempClipList
+        clips={list.state.clips}
+        playingId={list.state.playingId}
+        deleteErrors={list.state.deleteErrors}
+        highlightId={notice?.clipId ?? null}
+        onPlay={list.play}
+        onDelete={list.remove}
+      />
     </PageLayout>
   );
 }

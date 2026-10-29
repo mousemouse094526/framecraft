@@ -22,7 +22,8 @@ backend/
 ├── disk.py       ← free disk space, shared by setup and spoil
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
-│                    links, adapter (the only yt-dlp import), clips, jobs
+│                    links, adapter (the only yt-dlp import), clips, jobs,
+│                    errors (SpoilError, raised by clips and jobs)
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```

@@ -46,6 +46,7 @@ Follows [Config](https://vitest.dev/config/) and [vi API](https://vitest.dev/api
 - v5: needs Vite ≥ 6.4 and Node ≥ 22.12; Vite is a peer dependency; config files are no longer searched in parent folders — [Migration to 5.0](https://vitest.dev/guide/migration)
 - `globals` are off unless set; with TS 7 `types: []`, add `vitest/globals` only if `globals: true` — [Config](https://vitest.dev/config/), [TypeScript 7.0](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)
 - jsdom 30 needs Node `^22.22.2 || ^24.15.0 || >=26` — [jsdom releases](https://github.com/jsdom/jsdom/releases)
+- jsdom 30 has no media playback or layout: `HTMLMediaElement.load/play/pause` and `window.confirm` log "Not implemented", and `Element.scrollIntoView` is missing. Stub them per test (`vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {})`, `vi.stubGlobal("confirm", ...)`, assign `Element.prototype.scrollIntoView = vi.fn()`) — [jsdom README › Unimplemented parts](https://github.com/jsdom/jsdom#unimplemented-parts-of-the-web-platform)
 
 ## Sources
 
@@ -56,3 +57,4 @@ Follows [Config](https://vitest.dev/config/) and [vi API](https://vitest.dev/api
 - [fakeTimers](https://vitest.dev/config/faketimers) and [unstubGlobals](https://vitest.dev/config/unstubglobals) — defaults (accessed 2026-10-29)
 - [Migrating to Vitest 5.0](https://vitest.dev/guide/migration) — v5 breaking changes (accessed 2026-10-29)
 - [jsdom releases](https://github.com/jsdom/jsdom/releases) — Node minimum for 30.x (accessed 2026-10-29)
+- [jsdom README](https://github.com/jsdom/jsdom#unimplemented-parts-of-the-web-platform) — no media playback, layout, or `confirm`; checked against jsdom 30.1.3 source (accessed 2026-10-29)

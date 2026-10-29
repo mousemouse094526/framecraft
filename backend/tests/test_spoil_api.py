@@ -3,6 +3,7 @@
 import json
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,15 @@ from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil import jobs
 
-from .fakes import FakeAdapter, ok_deno, ok_ffmpeg, ok_yt_dlp, youtube_info, yt_dlp_error
+from .fakes import (
+    FakeAdapter,
+    ok_deno,
+    ok_ffmpeg,
+    ok_yt_dlp,
+    write_temp_clip,
+    youtube_info,
+    yt_dlp_error,
+)
 
 GB = 1_000_000_000
 URL = "https://youtu.be/dQw4w9WgXcQ"
@@ -518,6 +527,207 @@ def test_a_job_whose_cleanup_fails_still_ends_and_frees_the_slot(client, adapter
     assert failed_error(client)["code"] == "youtube_error"
     adapter.download_error = None
     assert start(client, "https://youtu.be/aaaaaaaaaaa").status_code == 202
+    wait_for_end(client)
+
+
+# --- Temp clips ---
+
+
+def clip_list(client) -> list[dict]:
+    response = client.get("/api/spoil/clips")
+    assert response.status_code == 200
+    return response.json()["clips"]
+
+
+def test_a_done_job_is_in_the_list_with_every_field(client):
+    start(client)
+    wait_for_end(client)
+
+    [clip] = clip_list(client)
+    downloaded_at = clip.pop("downloaded_at")
+    assert clip == {
+        "id": VIDEO_ID,
+        "title": "ชื่อคลิป",
+        "channel": "ชื่อช่อง",
+        "source_url": f"https://www.youtube.com/watch?v={VIDEO_ID}",
+        "duration_s": 213,
+        "width": 1920,
+        "height": 1080,
+        "orientation": "landscape",
+        "file_bytes": 1234,
+        "thumbnail": f"{VIDEO_ID}.webp",
+        "yt_dlp_version": "2026.10.26",
+    }
+    assert datetime.fromisoformat(downloaded_at).tzinfo is not None  # sortable as an instant
+
+
+def test_an_empty_or_missing_media_folder_lists_nothing(client):
+    assert clip_list(client) == []
+
+
+def test_the_list_is_newest_first(client, project):
+    write_temp_clip(project, "aaaaaaaaaaa", downloaded_at="2026-10-28T21:10:00+07:00")
+    write_temp_clip(project, "bbbbbbbbbbb", downloaded_at="2026-10-29T18:52:00+07:00")
+    # 12:00 UTC is 19:00 in Bangkok: newer than bbb though its text sorts first.
+    write_temp_clip(project, "ccccccccccc", downloaded_at="2026-10-29T12:00:00+00:00")
+
+    assert [c["id"] for c in clip_list(client)] == ["ccccccccccc", "bbbbbbbbbbb", "aaaaaaaaaaa"]
+
+
+def test_json_without_its_mp4_or_broken_json_is_not_listed(client, project):
+    write_temp_clip(project, "aaaaaaaaaaa")
+    write_temp_clip(project, "bbbbbbbbbbb")
+    (project.media_temp_dir / "bbbbbbbbbbb.mp4").unlink()
+    write_temp_clip(project, "ccccccccccc")
+    (project.media_temp_dir / "ccccccccccc.json").write_text("{not json", encoding="utf-8")
+    write_temp_clip(project, "ddddddddddd")
+    (project.media_temp_dir / "ddddddddddd.json").write_text('{"id": "ddddddddddd"}', encoding="utf-8")
+
+    assert [c["id"] for c in clip_list(client)] == ["aaaaaaaaaaa"]
+
+
+@pytest.mark.parametrize("downloaded_at", ["yesterday", "2026-10-29T14:05:11"])
+def test_a_json_whose_time_cant_be_compared_is_skipped_not_a_500(client, project, downloaded_at):
+    write_temp_clip(project, "aaaaaaaaaaa")
+    write_temp_clip(project, "bbbbbbbbbbb", downloaded_at=downloaded_at)
+
+    assert [c["id"] for c in clip_list(client)] == ["aaaaaaaaaaa"]
+
+
+def test_video_answers_a_range_with_206(client, project):
+    write_temp_clip(project)
+
+    response = client.get(f"/api/spoil/clips/{VIDEO_ID}/video", headers={"Range": "bytes=0-99"})
+
+    assert response.status_code == 206
+    assert response.headers["content-type"] == "video/mp4"
+    assert response.headers["content-range"] == "bytes 0-99/1024"
+    assert response.content == bytes(range(100))
+
+
+def test_video_without_a_range_is_the_whole_file(client, project):
+    write_temp_clip(project)
+
+    response = client.get(f"/api/spoil/clips/{VIDEO_ID}/video")
+
+    assert response.status_code == 200
+    assert response.headers["accept-ranges"] == "bytes"
+    assert len(response.content) == 1024
+
+
+def test_thumbnail_is_the_file(client, project):
+    write_temp_clip(project)
+
+    response = client.get(f"/api/spoil/clips/{VIDEO_ID}/thumbnail")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+    assert response.content == b"thumb"
+
+
+NOT_FOUND = {"code": "not_found", "message": "ไม่พบคลิปนี้"}
+
+
+def test_a_clip_without_a_thumbnail_file_is_404(client, project):
+    write_temp_clip(project, thumbnail=False)
+
+    response = client.get(f"/api/spoil/clips/{VIDEO_ID}/thumbnail")
+
+    assert response.status_code == 404
+    assert response.json() == NOT_FOUND
+
+
+@pytest.mark.parametrize("part", ["video", "thumbnail"])
+def test_files_of_an_unknown_clip_are_404(client, part):
+    response = client.get(f"/api/spoil/clips/{VIDEO_ID}/{part}")
+
+    assert response.status_code == 404
+    assert response.json() == NOT_FOUND
+
+
+def test_an_mp4_whose_json_is_not_written_yet_is_404(client, project):
+    project.media_temp_dir.mkdir(parents=True)
+    (project.media_temp_dir / f"{VIDEO_ID}.mp4").write_bytes(b"m")
+
+    assert client.get(f"/api/spoil/clips/{VIDEO_ID}/video").status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # httpx folds `..` before sending, so this one only proves the URL stays harmless;
+        # the encoded `%2F` below is the one that reaches the clip route.
+        "/api/spoil/clips/../x/video",
+        "/api/spoil/clips/..%2Fx/video",
+        "/api/spoil/clips/short/video",
+        "/api/spoil/clips/dQw4w9WgXcQx/video",
+        "/api/spoil/clips/dQw4w9WgX.c/thumbnail",
+    ],
+)
+def test_a_path_that_is_not_an_id_is_404(client, project, path):
+    write_temp_clip(project)
+
+    assert client.get(path).status_code == 404
+
+
+def test_delete_removes_the_three_files(client, project):
+    write_temp_clip(project)
+
+    response = client.delete(f"/api/spoil/clips/{VIDEO_ID}")
+
+    assert response.status_code == 204
+    assert files_named(project.media_temp_dir) == []
+    assert clip_list(client) == []
+
+
+def test_delete_of_an_unknown_clip_is_404(client):
+    response = client.delete(f"/api/spoil/clips/{VIDEO_ID}")
+
+    assert response.status_code == 404
+    assert response.json() == NOT_FOUND
+
+
+def test_delete_of_a_bad_id_is_404(client):
+    assert client.delete("/api/spoil/clips/not-an-id").status_code == 404
+
+
+def test_delete_of_a_json_whose_mp4_is_gone_removes_the_json(client, project):
+    # Otherwise the link stays `duplicate` for a clip the list never shows.
+    write_temp_clip(project)
+    (project.media_temp_dir / f"{VIDEO_ID}.mp4").unlink()
+
+    assert client.delete(f"/api/spoil/clips/{VIDEO_ID}").status_code == 204
+    assert files_named(project.media_temp_dir) == []
+
+
+def test_delete_while_the_mp4_is_open_is_in_use_and_keeps_the_json(client, project, monkeypatch):
+    write_temp_clip(project)
+    real_unlink = Path.unlink
+
+    def unlink(path: Path, missing_ok: bool = False):
+        if path.suffix == ".mp4":
+            raise PermissionError(32, "The process cannot access the file")
+        real_unlink(path, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+
+    response = client.delete(f"/api/spoil/clips/{VIDEO_ID}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "in_use",
+        "message": "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง",
+    }
+    assert files_named(project.media_temp_dir) == [f"{VIDEO_ID}.json", f"{VIDEO_ID}.mp4", f"{VIDEO_ID}.webp"]
+
+
+def test_a_deleted_clip_can_be_downloaded_again(client, project):
+    write_temp_clip(project)
+    assert start(client).status_code == 409
+
+    client.delete(f"/api/spoil/clips/{VIDEO_ID}")
+
+    assert start(client).status_code == 202
     wait_for_end(client)
 
 

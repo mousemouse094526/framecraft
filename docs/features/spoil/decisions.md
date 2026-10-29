@@ -287,3 +287,25 @@
 - **`<title>` ของหน้า:** "framecraft" — เดิม "framecraft — Setup status" ซึ่งผิดเมื่อมีสอง tab
 
 **From:** build ticket 02 · **Status:** active
+
+
+## D20: ทางเลือกเล็กตอน build รายการ Temp clip
+
+**Chosen:** รายละเอียดที่ build ticket 03 ตัดสินเองตาม Figma, conventions และโค้ดเดิม.
+
+**Details:**
+- **`404` `not_found`:** message "ไม่พบคลิปนี้"; คลิปที่ "มีอยู่" = มี `{id}.json` (เหมือนเช็คซ้ำของ `POST /downloads`). video ต้องมี mp4 ด้วย — mp4 ที่ json ยังไม่ถูกเขียนได้ `404`
+- **ลบ json ที่ mp4 หาย:** `204` และลบ json — ไม่งั้นลิงก์นั้นเป็น `duplicate` ตลอดทั้งที่รายการไม่แสดง
+- **thumbnail ลบไม่ได้:** log แล้วลบ json ต่อ; การล้างตอน start เก็บไฟล์ที่เหลือ (D15)
+- **เรียงรายการ:** เทียบ `downloaded_at` เป็นเวลาจริงไม่ใช่ข้อความ; เวลาที่อ่านไม่ได้หรือไม่มี offset → ข้าม json นั้น เหมือน json เสีย — `GET /clips` ไม่ตอบ 500 เพราะไฟล์เดียว
+- **`SpoilError`:** ย้ายไป `backend.spoil.errors` เพราะ `clips` กับ `jobs` raise ทั้งคู่ (`jobs` import `clips`). route สร้าง `ProjectPaths(paths.ROOT)` ต่อ request แล้วส่งให้ `clips` เหมือนฟังก์ชันอื่นใน `clips.py`
+- **หน้าเว็บ:** hook `useTempClips` แยกจาก `useSpoilDownload`; งานจบหรือหาย → `useSpoilDownload` เรียก `refetch` ของรายการ (ไม่ขึ้น loading). แถวที่ highlight มาจาก `clipId` ของข้อความหลังงานจบ จึงหายพร้อมข้อความตอนกดโหลดครั้งถัดไป. เลื่อนไปหาแถวที่ highlight ทั้ง `done` และ `duplicate`
+- **ลบได้ `404`:** แถวหายเหมือน `204` (ไฟล์ถูกลบด้วยมือ) — ข้อยกเว้นของ "status ที่ไม่อยู่ในตาราง = offline" (D19); status อื่นนอก `204`, `404`, `409` `in_use` → offline
+- **error ใต้แถว:** หายเมื่อรายการโหลดใหม่ (เป็นเรื่องของรายการเก่า)
+- **player:** `autoPlay` เพราะผู้ใช้กดแถวเพื่อดู; กดลบแถวที่เล่นอยู่ → player ปิดและไม่เปิดกลับแม้ได้ `in_use`
+- **แถว:** ทั้ง thumbnail กับข้อความเป็นปุ่มเล่นปุ่มเดียว, ปุ่มลบแยก (`aria-label` "ลบ {title}"); ไม่มี thumbnail → กล่องเทาตาม Figma; ไม่มีขนาดภาพ → แสดงแค่ "ตั้ง"/"นอน"; ไม่มีช่องหรือความยาว → ตัดส่วนนั้น
+- **ขนาดไฟล์:** ฐาน 1000 (1e6 MB, 1e9 GB) เหมือนข้อความ `disk_full`. เวลา: `Intl` `th-TH` วันกับเดือนย่อและ `HH:mm` = "29 ต.ค. 18:52" ตาม Figma
+- **ของร่วม:** `lib/useMountedState` แทน ref `mounted` ที่ซ้ำในสาม hook; `features/spoil/hooks/refusal.ts` อ่าน refusal ของ API ให้ทั้งสอง hook
+- **token ใหม่ใน `index.css`:** `surface-strong`, `surface-inverse` จาก Figma
+
+**From:** build ticket 03 · **Status:** active

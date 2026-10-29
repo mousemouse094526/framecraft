@@ -9,7 +9,7 @@ from backend import paths
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil
 from backend.spoil import clips, jobs
-from backend.spoil.jobs import SpoilError
+from backend.spoil.errors import SpoilError
 
 # Binding 127.0.0.1 doesn't stop DNS rebinding from another site (ADR 0011).
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
