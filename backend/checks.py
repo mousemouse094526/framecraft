@@ -226,8 +226,8 @@ def run_checks(
         _item("fastapi", "fastapi", lambda: check_package("fastapi"), fixes.setup),
         _item("ffmpeg", "ffmpeg", lambda: check_ffmpeg(probes.ffmpeg), fixes.setup),
         # The spoil download gate calls these two probes too (spoil D9).
-        _item("yt_dlp", "yt-dlp", lambda: ("ok", probes.yt_dlp()), fixes.setup),
-        _item("deno", "Deno", lambda: ("ok", probes.deno()), fixes.setup),
+        _item("yt_dlp", "yt-dlp", lambda: check_version(probes.yt_dlp), fixes.setup),
+        _item("deno", "Deno", lambda: check_version(probes.deno), fixes.setup),
         *(_model_item(project, model, fixes.setup) for model in MODELS),
         _item("device", "Device", lambda: check_device(probes.device), fixes.device),
     ]
@@ -328,6 +328,11 @@ def check_ffmpeg(ffmpeg_probe: Callable[[], FfmpegInfo]) -> tuple[ItemStatus, st
     # A failing probe raises; _item turns that into `missing`.
     info = ffmpeg_probe()
     return "ok", f"{info.version} ({info.source})"
+
+
+def check_version(probe: Callable[[], str]) -> tuple[ItemStatus, str]:
+    # A probe that returns a version is ok; one that raises makes the item missing.
+    return "ok", probe()
 
 
 def check_device(device_probe: Callable[[], str]) -> tuple[ItemStatus, str]:

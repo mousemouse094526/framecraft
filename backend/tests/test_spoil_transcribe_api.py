@@ -13,7 +13,7 @@ from backend import checks, paths, spoil
 from backend.app import app
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
-from backend.spoil import clips, jobs, transcribe
+from backend.spoil import clips, downloads, transcribe
 from backend.spoil.whisper import Done, WorkerError
 
 from .fakes import (
@@ -84,7 +84,8 @@ def transcript_path(project: ProjectPaths):
     return clips.transcript_path(project, VIDEO_ID)
 
 
-# A 600 s clip: the second segment's line comes back in clip time, past 300 s.
+# A 600 s clip. The worker already moved each line to clip time (proven in
+# test_whisper.py); here both segments' lines must reach the Transcript, in order.
 TWO_SEGMENTS = [
     segment(0, 2, [(1.0, 2.5, " Where are you going?")]),
     segment(1, 2, [(301.0, 302.5, " Home.")]),
@@ -316,7 +317,7 @@ def test_post_while_a_download_is_unfinished_is_accepted(client, project, worker
     monkeypatch.setattr(spoil, "free_bytes", lambda path: 10**12)
     monkeypatch.setattr(checks, "probe_yt_dlp", ok_yt_dlp)
     monkeypatch.setattr(checks, "probe_deno", ok_deno)
-    monkeypatch.setattr(jobs, "downloads", jobs.Downloads())
+    monkeypatch.setattr(downloads, "downloads", downloads.Downloads())
     write_temp_clip(project, "aaaaaaaaaaa")
     adapter.pause_at("progress")
     client.post("/api/spoil/downloads", json={"url": f"https://youtu.be/{VIDEO_ID}"})
@@ -362,6 +363,8 @@ def test_a_broken_ffmpeg_is_not_ready(client, project, monkeypatch):
 
 
 def test_the_gate_comes_before_the_clip_check(client, monkeypatch):
+    # Spec order: a machine that can't transcribe says so (503) even for a clip
+    # that doesn't exist, rather than 404. A `cpu` device fails the gate.
     monkeypatch.setattr(checks, "probe_device", lambda: "cpu")
 
     assert start(client, "bbbbbbbbbbb").status_code == 503

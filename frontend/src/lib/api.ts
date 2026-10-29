@@ -29,6 +29,11 @@ export async function getJson<T>(path: string): Promise<T> {
 
 export type JsonReply<T> = { status: number; body: T | null };
 
+/** A GET whose refusals are answers (`404` for a file not there yet); see `sendJson`. */
+export function getReply<T>(path: string): Promise<JsonReply<T>> {
+  return sendJson<T>("GET", path);
+}
+
 /**
  * For calls whose refusals are answers (`409 busy`), not failures: returns
  * every status with its JSON body, or `null` when there is none. Throws only

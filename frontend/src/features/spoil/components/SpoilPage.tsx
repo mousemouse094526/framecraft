@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
-import { missingLabels, TRANSCRIBE_ITEMS } from "../hooks/gate";
+import { missingLabels, TRANSCRIBE_ITEMS } from "../lib/gate";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";
 import { useTranscribe } from "../hooks/useTranscribe";

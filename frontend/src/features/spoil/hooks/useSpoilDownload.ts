@@ -2,12 +2,13 @@ import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import type { StatusResponse } from "../../../lib/statusTypes";
 import { useMountedState } from "../../../lib/useMountedState";
-import { DOWNLOAD_ITEMS, missingLabels } from "./gate";
-import { notice, type Notice } from "./notice";
-import { refusalOf, type Refusal } from "./refusal";
+import { DOWNLOAD_ITEMS, missingLabels } from "../lib/gate";
+import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../lib/job";
+import { notice, type Notice } from "../lib/notice";
+import { refusalOf, type Refusal } from "../lib/refusal";
 import { usePollWhile } from "./usePollWhile";
 
-// The shape of a Download job (backend.spoil.jobs.DownloadJob, spec › API).
+// The shape of a Download job (backend.spoil.downloads.DownloadJob, spec › API).
 export type JobState = "checking" | "downloading" | "merging" | "done" | "failed" | "cancelled";
 
 export type JobError = {
@@ -41,11 +42,7 @@ const STATUS_PATH = "/api/setup/status";
 const DOWNLOADS_PATH = "/api/spoil/downloads";
 const CURRENT_PATH = "/api/spoil/downloads/current";
 
-const UNFINISHED: JobState[] = ["checking", "downloading", "merging"];
-
-function isUnfinished(job: DownloadJob): boolean {
-  return UNFINISHED.includes(job.state);
-}
+const isUnfinished = isUnfinishedIn<JobState>(["checking", "downloading", "merging"]);
 
 function ready(status: StatusResponse, job: DownloadJob | null, shown: Notice | null = null): SpoilState {
   return { kind: "ready", status, job, notice: shown };
@@ -54,9 +51,7 @@ function ready(status: StatusResponse, job: DownloadJob | null, shown: Notice | 
 type Ready = Extract<SpoilState, { kind: "ready" }>;
 
 /** Applies `change` only while the tab is ready. */
-function whenReady(change: (state: Ready) => SpoilState) {
-  return (previous: SpoilState): SpoilState => (previous.kind === "ready" ? change(previous) : previous);
-}
+const whenReady = (change: (state: Ready) => SpoilState) => onlyWhen<SpoilState, "ready">("ready", change);
 
 const LOST_JOB = notice("warning", "งานโหลดหายเพราะ backend เริ่มใหม่ ลองโหลดอีกครั้ง");
 
@@ -166,18 +161,12 @@ export function useSpoilDownload(onJobEnd: () => void) {
   );
 
   const cancel = useCallback(async () => {
-    try {
-      const reply = await sendJson<DownloadJob | Refusal>("DELETE", CURRENT_PATH);
-      if (reply.status === 202) {
-        const job = reply.body as DownloadJob;
-        setIfMounted(whenReady((s) => (s.job ? { ...s, job } : s)));
-      } else if (reply.status === 409 && refusalOf(reply.body)?.code === "merging") {
-        setIfMounted(whenReady((s) => ({ ...s, notice: notice("warning", "กำลังรวมไฟล์ ยกเลิกไม่ได้แล้ว") })));
-      } else if (reply.status !== 404) {
-        // 404: the job ended before the cancel arrived; the next poll shows how.
-        setIfMounted({ kind: "offline" });
-      }
-    } catch {
+    const reply = await cancelCurrent<DownloadJob>(CURRENT_PATH);
+    if (reply.kind === "cancelling") {
+      setIfMounted(whenReady((s) => (s.job ? { ...s, job: reply.job } : s)));
+    } else if (reply.kind === "refused" && reply.code === "merging") {
+      setIfMounted(whenReady((s) => ({ ...s, notice: notice("warning", "กำลังรวมไฟล์ ยกเลิกไม่ได้แล้ว") })));
+    } else if (reply.kind !== "ended") {
       setIfMounted({ kind: "offline" });
     }
   }, [setIfMounted]);
@@ -189,13 +178,16 @@ export function useSpoilDownload(onJobEnd: () => void) {
 
   /**
    * Asks for the status again, keeping the job and its message: the transcript
-   * panel got a `503` and gates on the same status (D27, D34).
+   * panel got a `503` and gates on the same status (D27, D34). A download still
+   * running stays followed even if an item it needs went missing, so its
+   * progress and its end are still shown.
    */
   const recheckStatus = useCallback(async () => {
     try {
       const status = await getJson<StatusResponse>(STATUS_PATH);
       setIfMounted((previous) => {
         if (previous.kind !== "ready" && previous.kind !== "notReady") return previous;
+        if (previous.kind === "ready" && previous.job !== null) return { ...previous, status };
         const next = readyState(status, previous.kind === "ready" ? previous.job : null);
         return next.kind === "ready" && previous.kind === "ready" ? { ...next, notice: previous.notice } : next;
       });

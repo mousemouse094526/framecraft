@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
-import { notice, type Notice } from "../hooks/notice";
+import { notice, type Notice } from "../lib/notice";
 import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
 import { transcriptPath, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
 import clockIcon from "../assets/clock.svg";

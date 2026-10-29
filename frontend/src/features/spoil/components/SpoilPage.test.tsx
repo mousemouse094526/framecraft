@@ -928,6 +928,27 @@ describe("transcript panel", () => {
     expect(await within(panel()).findByText("ยังติดตั้งไม่ครบ: Whisper model")).toBeInTheDocument();
   });
 
+  it("keeps following a running download when a 503 finds an item the download needs is gone", async () => {
+    const noFfmpeg = READY_ITEMS.map((i) => (i.id === "ffmpeg" ? { ...i, status: "missing" as const } : i));
+    backend([
+      status(READY_ITEMS),
+      status(noFfmpeg),
+      current(DOWNLOADING_40),
+      clips([NIGHT]),
+      postTranscription({ code: "not_ready", message: "x" }, 503),
+    ]);
+    render(<SpoilPage />);
+    const user = await selectRow(/^Night of the Living Dead/);
+
+    await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
+
+    expect(await within(panel()).findByText("ยังติดตั้งไม่ครบ: ffmpeg")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeInTheDocument();
+    const polls = fetchMock.mock.calls.filter(([path]) => path === "/api/spoil/downloads/current").length;
+    await nextPoll();
+    expect(fetchMock.mock.calls.filter(([path]) => path === "/api/spoil/downloads/current").length).toBe(polls + 1);
+  });
+
   it("goes offline on a POST answer the API never sends", async () => {
     backend([status(READY_ITEMS), current(null), clips([NIGHT]), postTranscription({ code: "x", message: "x" }, 500)]);
     render(<SpoilPage />);

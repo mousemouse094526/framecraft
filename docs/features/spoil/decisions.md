@@ -516,3 +516,21 @@
 - **ส่วนร่วม:** `ProgressCard` (component `Download progress`) และ `usePollWhile` (poll ทุก 1 วินาที) ใช้ทั้งงานโหลดและงานถอด; `NotReady`, `Notice` (`hooks/notice.ts`), `formatDuration`/`formatClock` (`components/format.ts`), `PRIMARY_BUTTON` (`components/ui/buttonStyles.ts`) ย้ายออกมาเมื่อมีผู้ใช้คนที่สอง
 
 **From:** build ticket 05 · **Status:** active
+## D35: แก้จาก feature review — โค้ดงานที่ซ้ำ และงานโหลดที่หลุดตอนถอดได้ 503
+
+**Chosen:**
+- backend: gate ของงานโหลดและงานถอดใช้ `errors.require_rows` ตัวเดียว (label → check ของ Status check) และข้อความ 503 เดียว; งานโหลดเรียก `checks.check_version`/`check_ffmpeg` แทนเรียก probe ตรง. `JobFailed` ตัวเดียวแทน `_Failed` สองตัว; error ของ job แยกชื่อเป็น `DownloadJobError` กับ `TranscribeJobError`. เขียนไฟล์ผ่าน `clips.write_atomic` ตัวเดียว (ลบ `.tmp` เมื่อ rename ไม่ได้). `backend/spoil/jobs.py` เปลี่ยนชื่อเป็น `downloads.py`. `WorkerError.code` เป็น `Literal`
+- frontend: ไฟล์ที่ไม่ใช่ hook (`gate.ts`, `notice.ts`, `refusal.ts`) ย้ายไป `features/spoil/lib/`; ของร่วมของสอง hook (`isUnfinishedIn`, `onlyWhen`, `cancelCurrent`) อยู่ใน `features/spoil/lib/job.ts`; อ่าน Transcript ด้วย `getReply` แทน `sendJson("GET")`
+- งานถอดได้ `503` แล้ว status ใหม่ขาดแถวที่งานโหลดใช้ (เช่น ffmpeg) → งานโหลดที่ยังวิ่งอยู่ยังถูกติดตามต่อ (แถบ % และ poll อยู่) แทนที่จะถูกทิ้งเพราะ tab กลายเป็น not ready
+
+**Why:** review สามแกนพบว่า gate, failure, การเขียนไฟล์และ helper ของ hook ซ้ำกันสองที่จนแก้ที่เดียวแล้วอีกที่ไม่ตาม และเจอ bug ที่งานโหลดหลุดการติดตามขณะ backend ยังโหลดอยู่. ผู้ใช้เลือกแก้ทั้งหมด
+
+**Rejected:**
+- `.txt` สร้างที่ backend ที่เดียว (Copy ดึง `.txt` จาก API) และ state ของหน้าเป็น union เดียว — ผู้ใช้เลือกไม่ทำ
+
+**Details:**
+- เมื่องานโหลดจบ หน้ากลับไปใช้ `readyState` ตามเดิมในการโหลดครั้งถัดไป
+- กฎ test ของ frontend: นับ `<video>` ทั้งหน้าได้เฉพาะเพื่อพิสูจน์ว่าไม่มีตัวอื่น
+
+**From:** feature review · **Status:** active
+

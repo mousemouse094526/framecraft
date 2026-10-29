@@ -130,9 +130,9 @@
 | `yt_dlp` | yt-dlp | `importlib.metadata.version("yt-dlp")` ได้. `detail` = เวอร์ชัน | `missing` | คำสั่ง setup |
 | `deno` | Deno | `deno.find_deno_bin()` คืน path และ `{deno} --version` exit 0 ภายใน 5 วินาที. `detail` = เวอร์ชัน | `missing` | คำสั่ง setup |
 
-- `run_checks` รับ `deno_probe` แบบเดียวกับ `ffmpeg_probe` ให้ test ส่งตัวปลอมได้
+- `run_checks` รับ probe ของ Deno และ yt-dlp ใน `Probes` เหมือน ffmpeg ให้ test ส่งตัวปลอมได้ (setup-status D26)
 - probe ของ Deno ไม่ cache ผล
-- tab สปอยและ `POST /downloads` ใช้แค่แถว `yt_dlp`, `deno` และ `ffmpeg` ไม่ใช้ `ready` (D9). `backend.spoil` เรียก probe สามตัวนี้เอง ไม่เรียก `run_checks` ทั้งชุด (ไม่ import torch)
+- tab สปอยและ `POST /downloads` ใช้แค่แถว `yt_dlp`, `deno` และ `ffmpeg` ไม่ใช้ `ready` (D9). `backend.spoil` เรียก check ของสามแถวนี้เองผ่าน `require_rows` (ตัวเดียวกับ gate ของงานถอด, D35) ไม่เรียก `run_checks` ทั้งชุด (ไม่ import torch)
 
 ### Download
 

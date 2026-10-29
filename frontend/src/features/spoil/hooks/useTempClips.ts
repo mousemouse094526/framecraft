@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
-import { refusalOf, type Refusal } from "./refusal";
+import { refusalOf, type Refusal } from "../lib/refusal";
 
 // The shape of a Temp clip (backend.spoil.clips.TempClip, spec › Temp clip).
 export type TempClip = {

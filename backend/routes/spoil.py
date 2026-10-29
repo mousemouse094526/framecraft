@@ -4,10 +4,10 @@ from pydantic import BaseModel
 
 from backend import paths
 from backend.paths import ProjectPaths
-from backend.spoil import clips, jobs, transcribe
+from backend.spoil import clips, downloads, transcribe
 from backend.spoil.clips import ListedClip
 from backend.spoil.errors import SpoilError
-from backend.spoil.jobs import DownloadJob
+from backend.spoil.downloads import DownloadJob
 from backend.spoil.transcribe import TranscribeJob, Transcript
 
 
@@ -94,18 +94,18 @@ def cancel_transcription() -> TranscribeJob:
 
 @router.post("/downloads", status_code=202)
 def start_download(body: DownloadRequest) -> DownloadJob:
-    return jobs.downloads.start(body.url)
+    return downloads.downloads.start(body.url)
 
 
 @router.get("/downloads/current")
 def get_current_download() -> DownloadJob | None:
     """The latest job, or null when none ran since the backend started."""
-    return jobs.downloads.current()
+    return downloads.downloads.current()
 
 
 @router.delete("/downloads/current", status_code=202)
 def cancel_download() -> DownloadJob:
-    return jobs.downloads.cancel()
+    return downloads.downloads.cancel()
 
 
 def spoil_error_response(request: Request, error: SpoilError) -> JSONResponse:

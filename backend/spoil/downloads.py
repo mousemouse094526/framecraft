@@ -16,7 +16,7 @@ from backend import checks, paths, spoil
 from backend.paths import ProjectPaths
 from backend.spoil import clips, links
 from backend.spoil.adapter import DownloadCancelled, ErrorCode, error_code
-from backend.spoil.errors import SpoilError
+from backend.spoil.errors import JobFailed, SpoilError, require_rows
 from backend.spoil.job_slot import JobSlot
 
 log = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ ERROR_MESSAGES: dict[ErrorCode, str] = {
 }
 
 
-class JobError(BaseModel):
+class DownloadJobError(BaseModel):
     code: ErrorCode
     message: str
     yt_dlp_version: str
@@ -55,16 +55,9 @@ class DownloadJob(BaseModel):
     title: str | None = None
     percent: int | None = None
     cancel_requested: bool = False
-    error: JobError | None = None
+    error: DownloadJobError | None = None
+    # The Temp clip's id, set once the job is `done`; `id` is known from the link.
     clip_id: str | None = None
-
-
-class _Failed(Exception):
-    """Ends a job as `failed` for a reason found before yt-dlp raised anything."""
-
-    def __init__(self, code: ErrorCode, message: str):
-        super().__init__(message)
-        self.code, self.message = code, message
 
 
 @dataclass
@@ -84,9 +77,7 @@ class Downloads(JobSlot[DownloadJob]):
 
     def start(self, url: str) -> DownloadJob:
         """Checks in spec order, then starts the job's thread. Raises `SpoilError`."""
-        missing = _missing_tools()
-        if missing:
-            raise SpoilError(503, "not_ready", f"ยังติดตั้งไม่ครบ: {', '.join(missing)}")
+        require_rows(_needed_rows())
         url = url.strip()  # yt-dlp doesn't match a link with spaces around it
         video_id = links.video_id(url)
         if video_id is None:
@@ -127,7 +118,7 @@ class Downloads(JobSlot[DownloadJob]):
             ending = {"state": "done", "clip_id": video_id}
         except DownloadCancelled:
             ending = {"state": "cancelled"}
-        except _Failed as failure:
+        except JobFailed as failure:  # a reason found before yt-dlp raised anything
             ending["error"] = _job_error(failure.code, failure.message)
         except Exception as error:
             code = error_code(error)
@@ -149,12 +140,12 @@ class Downloads(JobSlot[DownloadJob]):
         if self._cancel.is_set():
             raise DownloadCancelled()
         if info.get("live_status") in ("is_live", "is_upcoming"):
-            raise _Failed("live", ERROR_MESSAGES["live"])
+            raise JobFailed("live", ERROR_MESSAGES["live"])
         estimate = estimate_bytes(info)
         project.media_temp_dir.mkdir(parents=True, exist_ok=True)
         free = spoil.free_bytes(project.media_temp_dir)
         if free < estimate + DISK_MARGIN_BYTES:
-            raise _Failed(
+            raise JobFailed(
                 "disk_full",
                 f"ที่ว่างไม่พอ: ต้องการ {(estimate + DISK_MARGIN_BYTES) / 1e9:.1f} GB "
                 f"มี {free / 1e9:.1f} GB",
@@ -200,20 +191,14 @@ def estimate_bytes(info: dict) -> int:
     return 0
 
 
-def _missing_tools() -> list[str]:
-    """Labels of the Status check rows a download needs that don't pass (D9)."""
-    probes = {
-        "yt-dlp": checks.probe_yt_dlp,
-        "Deno": checks.probe_deno,
-        "ffmpeg": checks.probe_ffmpeg,
+def _needed_rows() -> dict[str, checks.Check]:
+    """The Status check rows a download needs (D9), by label; the frontend's
+    `DOWNLOAD_ITEMS` gates on the same rows."""
+    return {
+        "yt-dlp": lambda: checks.check_version(checks.probe_yt_dlp),
+        "Deno": lambda: checks.check_version(checks.probe_deno),
+        "ffmpeg": lambda: checks.check_ffmpeg(checks.probe_ffmpeg),
     }
-    missing = []
-    for label, probe in probes.items():
-        try:
-            probe()
-        except Exception:
-            missing.append(label)
-    return missing
 
 
 def _yt_dlp_version() -> str:
@@ -223,16 +208,16 @@ def _yt_dlp_version() -> str:
         return "unknown"
 
 
-def _job_error(code: ErrorCode, message: str | None = None) -> JobError:
+def _job_error(code: ErrorCode, message: str | None = None) -> DownloadJobError:
     version = _yt_dlp_version()
     if code == "youtube_error":
-        return JobError(
+        return DownloadJobError(
             code=code,
             message=ERROR_MESSAGES[code].format(version=version),
             yt_dlp_version=version,
             fix=UPDATE_COMMAND,
         )
-    return JobError(code=code, message=message or ERROR_MESSAGES[code], yt_dlp_version=version)
+    return DownloadJobError(code=code, message=message or ERROR_MESSAGES[code], yt_dlp_version=version)
 
 
 def _temp_clip(project: ProjectPaths, info: dict, mp4: Path) -> clips.TempClip:
