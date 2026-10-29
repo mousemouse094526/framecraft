@@ -19,7 +19,7 @@
 ```json
 {
   "scripts": {
-    "dev": "concurrently -k -n api,web \"uv run uvicorn backend.app:app --host 127.0.0.1 --port 8000\" \"npm --prefix frontend run dev\""
+    "dev": "concurrently -n api,web \"node scripts/dev-api.mjs\" \"npm --prefix frontend run dev\""
   }
 }
 ```
@@ -32,6 +32,7 @@ Follows [Prefixing](https://github.com/open-cli-tools/concurrently/blob/main/doc
 - v10 removed `--name-separator` (commas only) and the API `killOthers` option (use `killOthersOn`) — [v10.0.0 release](https://github.com/open-cli-tools/concurrently/releases/tag/v10.0.0)
 - v10 prefix colours default to automatic instead of `reset` — [v10.0.0 release](https://github.com/open-cli-tools/concurrently/releases/tag/v10.0.0)
 - The overall exit code is set by `-s` / `--success` (`first`, `last`, `all`, `command-{name}`, `!`-prefixed to exclude) — [CLI options](https://github.com/open-cli-tools/concurrently/blob/main/bin/index.ts)
+- On a signal it kills each command's whole process tree with `tree-kill`, once per signal it receives, and `Command.kill` doesn't skip a command it already killed. Under `npm run`, Ctrl+C reaches concurrently twice (terminal and npm), so uvicorn gets SIGINT twice and logs a `CancelledError` traceback while still shutting down; a wrapper process needn't forward signals to its child — `dist/lib/flow-control/kill-on-signal.js`, `dist/lib/command.js` (10.0.6)
 - stdin is not forwarded unless `-i` / `--handle-input` — [CLI options](https://github.com/open-cli-tools/concurrently/blob/main/bin/index.ts)
 
 ## Sources

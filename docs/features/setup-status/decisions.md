@@ -313,6 +313,21 @@
 
 **From:** build ticket 03 · **Status:** active
 
+## D24: `npm run dev` start backend ด้วย Python ใน `.venv` ไม่ใช่ `uv run`
+
+**Chosen:** `[api]` ของ `npm run dev` เป็น `node scripts/dev-api.mjs` ที่เรียก `.venv/bin/python` (Windows: `.venv\Scripts\python.exe`) `-m uvicorn backend.app:app --host 127.0.0.1 --port 8000`. ไม่มี `.venv` → พิมพ์ "ยังไม่ได้ติดตั้ง: รัน ./setup.sh ก่อน" (Windows: `setup.cmd`) และ exit 1.
+
+**Why:** installer ของ uv เพิ่ม uv ใน PATH ให้ terminal ใหม่เท่านั้น. ผู้ใช้รัน setup แล้ว `npm run dev` ใน terminal เดิมได้ `uv: command not found` และหน้าเว็บขึ้น Backend offline (เจอบน Mac ของผู้ใช้). `.venv` มีทุกอย่างหลัง `uv sync` แล้ว จึงไม่ต้องพึ่ง uv ตอนรัน. ใช้ Node เพราะ `npm run dev` ต้องเลือก path ตาม OS.
+
+**Details:**
+- script ไม่ส่ง signal ต่อให้ uvicorn: concurrently ฆ่าทั้ง process tree อยู่แล้ว
+- Ctrl+C ใต้ `npm run` ทำให้ uvicorn ได้ SIGINT สองครั้งและพิมพ์ traceback `CancelledError` ตอนปิด (มีตั้งแต่ใช้ `uv run`); ยังปิดครบและคืน port 8000 — ไม่แก้จนกว่าจะเป็นปัญหา
+- README ส่วนติดตั้งและใช้งานเป็นภาษาไทยทีละขั้น สำหรับคนที่ไม่เคยใช้ terminal (ผู้ใช้เลือก)
+
+**Sources:** [docs/library-notes/concurrently.md](../../library-notes/concurrently.md)
+
+**From:** build ticket 03 · **Status:** active
+
 ## Sources
 
 - [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) — `get_ffmpeg_exe()` และ binary ที่มากับ wheel (accessed 2026-10-28)

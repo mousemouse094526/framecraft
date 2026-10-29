@@ -45,7 +45,9 @@ route (routes/{feature}.py) → module function (checks.py, later features/) →
   `HF_HOME` or `HF_HUB_CACHE` (ADR 0003).
 - Every model comes from `backend.models` with its pinned `revision` (ADR 0004).
 - ffmpeg is found with `imageio_ffmpeg.get_ffmpeg_exe()`, never PATH (ADR 0005).
-- uvicorn binds 127.0.0.1 only.
+- uvicorn binds 127.0.0.1 only. `npm run dev` starts it with the venv's Python
+  (`scripts/dev-api.mjs`), never `uv run`: right after setup the terminal may
+  not see uv on PATH (D24).
 - The Status check never imports `omnivoice` or `transformers` and never uses
   the network.
 - `setup.ps1` stays ASCII-only; Thai text is printed from Python.

@@ -1,6 +1,6 @@
 # Progress: setup-status
 
-**Now:** 03 in-progress — โค้ด Windows เสร็จและ test ผ่านบน Mac; รอเช็คมือบนเครื่อง Windows NVIDIA (Blocked #2)
+**Now:** 03 in-progress — โค้ด Windows เสร็จ, `npm run dev` ไม่พึ่ง uv ใน PATH แล้ว (D24); รอเช็คมือบนเครื่อง Windows NVIDIA (Blocked #2)
 
 **Next:**
 
@@ -17,6 +17,23 @@
 | 03 | Windows NVIDIA | in-progress |
 
 ## Log
+
+### 03: Windows NVIDIA — fix ระหว่างรอเช็ค Windows 2026-10-29
+
+**Built:**
+- ผู้ใช้รัน `bun run dev` บน Mac แล้วได้ `uv: command not found` และหน้าเว็บ Backend offline: installer ของ uv เพิ่ม PATH ให้ terminal ใหม่เท่านั้น
+- `npm run dev` start backend ผ่าน `scripts/dev-api.mjs` ด้วย Python ใน `.venv` ตรงๆ (Mac `.venv/bin/python`, Windows `.venv\Scripts\python.exe`); ไม่มี `.venv` → "ยังไม่ได้ติดตั้ง: รัน ./setup.sh ก่อน" exit 1 (test 2 ข้อใน `backend/tests/test_dev_api.py`)
+- เช็คมือบน Mac: `npm run dev` กับ PATH ที่ไม่มี uv → `GET /api/setup/status` 200 ผ่าน Vite proxy; Ctrl+C แล้ว port 8000 ว่าง
+- README ส่วนติดตั้งและใช้งานเขียนใหม่เป็นภาษาไทยทีละขั้น (Mac, Windows, ถ้ามีปัญหา); spec › Run, conventions และ library note ของ concurrently ตาม
+
+**Decided:**
+- D24 — `npm run dev` ใช้ Python ใน `.venv` ไม่ใช่ `uv run`; ไม่ส่ง signal ต่อ; README ไทย (ผู้ใช้เลือก)
+
+**For the next ticket:**
+- Ctrl+C ใต้ `npm run` ทำให้ uvicorn ได้ SIGINT สองครั้ง (concurrently ฆ่า tree ทุกครั้งที่ได้ signal) จึงพิมพ์ traceback `CancelledError` ตอนปิด ยังปิดครบ — ถ้าผู้ใช้ตกใจ ให้เขียน runner เองแทน concurrently
+- ตอนเช็คมือบน Windows: ลอง `scripts/dev-api.mjs` หา `.venv\Scripts\python.exe` เจอ และ Ctrl+C ปิด `[api]`; ข้อความไทยของ script ใน Command Prompt อ่านออก
+
+**Checks:** `uv run pytest` — 31 passed; `npm --prefix frontend test` — 12 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 03: Windows NVIDIA — stopped 2026-10-29 (รอเช็คมือบน Windows)
 
@@ -91,4 +108,4 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 02 | design: Setup status | `/warroom setup-status` พร้อมลิงก์ Figma frame | done |
-| 2 | 03 | เช็คมือบนเครื่อง Windows ที่มีการ์ด NVIDIA (spec Open Question 1): policy `Restricted` ไม่มี uv → `setup.cmd` exit 0 กับ 9/9 `cuda`; ซ้ำใน path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9 และ Ctrl+C ปิดทั้งสอง; backend เปิดอยู่ → `setup.cmd` พิมพ์ "ปิด npm run dev ก่อนรัน setup" exit 1 | ผู้ใช้รันบน Windows แล้ว `/warroom-build setup-status 03` พร้อมผล | open |
+| 2 | 03 | เช็คมือบนเครื่อง Windows ที่มีการ์ด NVIDIA (spec Open Question 1): policy `Restricted` ไม่มี uv → `setup.cmd` exit 0 กับ 9/9 `cuda`; ซ้ำใน path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9 และ Ctrl+C ปิดทั้งสอง; ข้อความไทยของ `scripts/dev-api.mjs` อ่านออก; backend เปิดอยู่ → `setup.cmd` พิมพ์ "ปิด npm run dev ก่อนรัน setup" exit 1 | ผู้ใช้รันบน Windows แล้ว `/warroom-build setup-status 03` พร้อมผล | open |

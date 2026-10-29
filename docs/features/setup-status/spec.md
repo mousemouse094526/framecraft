@@ -109,10 +109,11 @@ explicit = true
 Script `dev` ใน `package.json` ที่ root (D10):
 
 ```text
-concurrently -n api,web "uv run --no-sync uvicorn backend.app:app --host 127.0.0.1 --port 8000" "npm --prefix frontend run dev"
+concurrently -n api,web "node scripts/dev-api.mjs" "npm --prefix frontend run dev"
 ```
 
-- `--no-sync`: `npm run dev` ไม่ติดตั้งอะไรเอง การติดตั้งเป็นงานของ setup เท่านั้น (D3)
+- `scripts/dev-api.mjs` รัน `-m uvicorn backend.app:app --host 127.0.0.1 --port 8000` ด้วย Python ใน `.venv` ไม่ผ่าน uv: terminal เดิมหลัง setup อาจยังไม่เห็น uv ใน PATH. ไม่มี `.venv` → "ยังไม่ได้ติดตั้ง: รัน ./setup.sh ก่อน" exit 1 (D24)
+- `npm run dev` ไม่ติดตั้งอะไรเอง การติดตั้งเป็นงานของ setup เท่านั้น (D3)
 - ไม่ใช้ `--reload`
 
 ### Setup script

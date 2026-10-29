@@ -6,34 +6,57 @@ only — see [NOTICE.md](NOTICE.md).
 
 Supported: Mac with Apple Silicon, and Windows with an NVIDIA card (Windows setup not yet tested on a real machine).
 
-## Setup
+## ติดตั้งและใช้งาน (ทีละขั้น)
 
-Install [Node.js 22+](https://nodejs.org) first, then run once:
+ไม่เคยใช้ terminal ก็ทำได้ ทำตามทีละข้อ. ติดตั้งครั้งเดียว (ข้อ 1–3), ใช้งานทุกครั้ง (ข้อ 4–6).
 
-```sh
-./setup.sh
-```
+### Mac (Apple Silicon)
 
-On Windows, double-click `setup.cmd` or run it from Command Prompt (in
-PowerShell: `.\setup.cmd`). It works even when PowerShell's execution policy
-is `Restricted`.
+1. **ติดตั้ง Node.js** — เปิด https://nodejs.org กดดาวน์โหลดตัว LTS (เวอร์ชัน 22 ขึ้นไป) แล้วติดตั้งแบบกด Next ไปจนจบ
+2. **เปิด Terminal ที่ folder ของ framecraft** — เปิดแอป Terminal (กด ⌘ Space พิมพ์ `Terminal` แล้วกด Enter) พิมพ์ `cd ` (มีเว้นวรรคท้าย) แล้วลาก folder `framecraft` จาก Finder มาวางในหน้าต่าง Terminal แล้วกด Enter
+3. **ติดตั้ง** — พิมพ์คำสั่งนี้แล้วกด Enter:
 
-It installs [uv](https://docs.astral.sh/uv/) if missing, Python 3.12, every
-package, ffmpeg, both models, and the web UI's npm packages (about 5 GB; the whole folder ends up near
-10 GB) into this folder, then prints a checklist. Running it again is safe:
-what is installed is skipped and a broken download resumes. Keep at least
-15 GB free while models download.
+   ```sh
+   ./setup.sh
+   ```
 
-## Run
+   ครั้งแรกใช้เวลานาน (โหลดประมาณ 5 GB) ต้องต่อ internet และมีที่ว่างอย่างน้อย 15 GB. เสร็จแล้วจะเห็นรายการ 9 ข้อ และ "ขั้นต่อไป: รัน npm run dev". รันซ้ำได้เสมอ ถ้าเน็ตหลุดกลางทางให้รันใหม่ มันจะทำต่อจากเดิม
+4. **เปิดโปรแกรม** — ใน Terminal เดิม (ที่อยู่ใน folder framecraft) พิมพ์:
 
-```sh
-npm run dev
-```
+   ```sh
+   npm run dev
+   ```
 
-Then open http://localhost:5173 for the Setup status page. This starts the
-backend on `127.0.0.1:8000` (lines prefixed `[api]`) and the web UI (lines
-prefixed `[web]`); it installs nothing. `GET /api/setup/status` returns the
-same checklist as JSON.
+   รอจนเห็นบรรทัด `[api] ... Uvicorn running` และ `[web] ... Local: http://localhost:5173/`
+5. **เปิดหน้าเว็บ** — เปิด browser ไปที่ http://localhost:5173 จะเห็นหน้า Setup status. ถ้าครบจะขึ้น "พร้อมใช้งาน" 9/9
+6. **ปิดโปรแกรม** — กลับไปที่ Terminal แล้วกด `Control` + `C`. ปิด Terminal ได้เลย
+
+ครั้งต่อไปทำแค่ข้อ 2, 4, 5 และ 6.
+
+### Windows (การ์ด NVIDIA)
+
+1. **ติดตั้ง Node.js** — เหมือน Mac ข้อ 1
+2. **ติดตั้ง** — เปิด folder `framecraft` แล้วดับเบิลคลิก `setup.cmd`. รอจนเห็นรายการ 9 ข้อ แล้วกดปุ่มใดก็ได้เพื่อปิดหน้าต่าง. ใช้ได้แม้ PowerShell ตั้ง execution policy เป็น `Restricted`
+3. **เปิด Command Prompt ที่ folder ของ framecraft** — ใน File Explorer ที่เปิด folder `framecraft` อยู่ คลิกที่ช่อง address ด้านบน พิมพ์ `cmd` แล้วกด Enter
+4. **เปิดโปรแกรม** — พิมพ์ `npm run dev` แล้วกด Enter
+5. **เปิดหน้าเว็บ** — เหมือน Mac ข้อ 5
+6. **ปิดโปรแกรม** — กด `Ctrl` + `C` ในหน้าต่าง Command Prompt (ถ้าถาม `Terminate batch job (Y/N)?` พิมพ์ `Y` แล้ว Enter)
+
+ครั้งต่อไปทำแค่ข้อ 3–6. ถ้ารันใน PowerShell ให้พิมพ์ `.\setup.cmd` แทน `setup.cmd`.
+
+Windows ยังไม่ได้ทดสอบบนเครื่องจริง.
+
+### ถ้ามีปัญหา
+
+- **`ยังไม่ได้ติดตั้ง: รัน ./setup.sh ก่อน`** — ยังไม่ได้ทำขั้นติดตั้ง ให้รัน `./setup.sh` (Windows: `setup.cmd`) ก่อน
+- **`Node.js 22+ required`** หรือ **`npm: command not found`** — ยังไม่ได้ติดตั้ง Node.js หรือติดตั้งแล้วแต่ยังไม่ได้เปิด Terminal ใหม่: ปิดแล้วเปิด Terminal ใหม่
+- **หน้าเว็บขึ้น Backend offline** — ดูใน Terminal ว่าบรรทัด `[api]` มี error ไหม. ถ้าเห็น `address already in use` แปลว่า port 8000 ถูกใช้อยู่ คือมี `npm run dev` อีกอันเปิดค้างอยู่ ให้ปิดอันนั้นก่อน
+- **`ปิด npm run dev ก่อนรัน setup`** — กด `Control` + `C` ที่ Terminal ที่รัน `npm run dev` อยู่ แล้วรัน setup ใหม่
+- **รายการไหนไม่ผ่าน** — หน้า Setup status บอกวิธีแก้ในแต่ละแถว ส่วนใหญ่คือรัน setup ซ้ำ แล้วกด Refresh
+
+### สิ่งที่ setup ติดตั้ง
+
+[uv](https://docs.astral.sh/uv/) (ถ้ายังไม่มี), Python 3.12, package ทั้งหมด, ffmpeg, โมเดลสองตัว และ npm package ของหน้าเว็บ — ทั้งหมดอยู่ใน folder นี้ (ประมาณ 10 GB). `npm run dev` ไม่ติดตั้งอะไร: มัน start backend ที่ `127.0.0.1:8000` (บรรทัด `[api]`) และหน้าเว็บ (บรรทัด `[web]`). `GET /api/setup/status` คืนรายการเดียวกันเป็น JSON.
 
 ## Tests
 
