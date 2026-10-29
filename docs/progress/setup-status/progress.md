@@ -1,11 +1,11 @@
 # Progress: setup-status
 
-**Now:** 03 in-progress — โค้ด Windows เสร็จ, `npm run dev` ไม่พึ่ง uv ใน PATH แล้ว (D24); รอเช็คมือบนเครื่อง Windows NVIDIA (Blocked #2)
+**Now:** ทุก ticket done บน Mac; เช็คมือบน Windows ย้ายไป `windows-check` 01 (D25) — เหลือ feature review
 
 **Next:**
 
 ```
-/warroom-build setup-status 03
+/warroom-build setup-status --review-feature
 ```
 
 ## Tickets
@@ -14,9 +14,23 @@
 |---|---|---|
 | 01 | Setup บน Mac และ Status API | done |
 | 02 | หน้า Setup status และ npm run dev | done |
-| 03 | Windows NVIDIA | in-progress |
+| 03 | Windows NVIDIA | done |
 
 ## Log
+
+### 03: Windows NVIDIA — done 2026-10-30 (change request D25)
+
+**Built:**
+- ไม่มีโค้ดใหม่. ticket จบด้วยข้อที่ test พิสูจน์แล้ว: wrapper เรียก `setup.ps1` ด้วย Bypass, `setup.ps1` ASCII, แถว `fix` เป็น `setup.cmd`, backend เปิดอยู่ → exit 1
+- เช็คมือบนเครื่อง Windows จริงทั้งหมด (Blocked #2 และ For the next ticket ของ 02 และ 03) ย้ายไป `windows-check` 01
+
+**Decided:**
+- D25 — feature จบได้เมื่อผ่านบน Mac; เช็คมือบน Windows เป็น ticket ใน `windows-check` (ADR-0014 แทน ADR-0006)
+
+**For the next ticket:**
+- feature review: ข้อที่ยังไม่เคยลองบน Windows อยู่ใน `windows-check` 01 ไม่ต้องตามใน review นี้
+
+**Checks:** docs only — ไม่ได้รัน
 
 ### 03: Windows NVIDIA — fix ระหว่างรอเช็ค Windows 2026-10-29
 
@@ -108,4 +122,4 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 02 | design: Setup status | `/warroom setup-status` พร้อมลิงก์ Figma frame | done |
-| 2 | 03 | เช็คมือบนเครื่อง Windows ที่มีการ์ด NVIDIA (spec Open Question 1): policy `Restricted` ไม่มี uv → `setup.cmd` exit 0 กับ 9/9 `cuda`; ซ้ำใน path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9 และ Ctrl+C ปิดทั้งสอง; ข้อความไทยของ `scripts/dev-api.mjs` อ่านออก; backend เปิดอยู่ → `setup.cmd` พิมพ์ "ปิด npm run dev ก่อนรัน setup" exit 1 | ผู้ใช้รันบน Windows แล้ว `/warroom-build setup-status 03` พร้อมผล | open |
+| 2 | 03 | เช็คมือบนเครื่อง Windows ที่มีการ์ด NVIDIA (spec Open Question 1): policy `Restricted` ไม่มี uv → `setup.cmd` exit 0 กับ 9/9 `cuda`; ซ้ำใน path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9 และ Ctrl+C ปิดทั้งสอง; ข้อความไทยของ `scripts/dev-api.mjs` อ่านออก; backend เปิดอยู่ → `setup.cmd` พิมพ์ "ปิด npm run dev ก่อนรัน setup" exit 1 | ผู้ใช้รันบน Windows แล้ว `/warroom-build setup-status 03` พร้อมผล | → D25 |

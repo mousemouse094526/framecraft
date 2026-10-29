@@ -1,14 +1,12 @@
 # Progress: spoil
 
-**Now:** 01–05 done; tab สปอยเป็นสองคอลัมน์พร้อมกล่องถอดบทพูดแล้ว — เหลือ 06 เช็คบน Windows NVIDIA ซึ่งรอ setup-status 03
+**Now:** 01–05 done บน Mac; ticket 06 (เช็คบน Windows) ย้ายไป `windows-check` 02 (setup-status D25) — เหลือ feature review
 
 **Next:**
 
 ```
-/warroom-build spoil 06
+/warroom-build spoil --review-feature
 ```
-
-06 รอ setup-status 03 (เช็คบน Windows NVIDIA) — ทำ `/warroom-build setup-status 03` บนเครื่อง Windows ก่อน
 
 ## Tickets
 
@@ -19,9 +17,10 @@
 | 03 | รายการ Temp clip | done |
 | 04 | Backend งานถอดบทพูดและ API | done |
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
-| 06 | เช็คบน Windows NVIDIA | ready |
 
 ## Log
+
+- 2026-10-30: ticket 06 ย้ายทั้ง ticket ไปเป็น `windows-check` 02 พร้อมข้อ Windows ใน For the next ticket ด้านล่าง (setup-status D25, ADR-0014)
 
 ### 05: หน้าสองคอลัมน์และกล่องถอดบทพูด — done 2026-10-29
 

@@ -17,7 +17,8 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | ต้องใช้ Node.js 22+ (`concurrently` 10, Vite 8) | [setup-status](features/setup-status/decisions.md) | D22 | — | — | active |
 | ใช้ uv และ pin Python 3.12 ใน `.venv` ของ project | [setup-status](features/setup-status/decisions.md) | D2 | — | — | active |
-| รองรับ Mac Apple Silicon (MPS) และ Windows NVIDIA (CUDA 12.8), torch 2.8.0 | [setup-status](features/setup-status/decisions.md) | D5 | — | [0006](adr/0006-supported-platforms.md) | active |
+| รองรับ Mac Apple Silicon (MPS) และ Windows NVIDIA (CUDA 12.8), torch 2.8.0 | [setup-status](features/setup-status/decisions.md) | D5 | — | [0006](adr/0006-supported-platforms.md) | changed by setup-status D25 |
+| feature จบได้เมื่อผ่านบน Mac; เช็คมือบน Windows เป็น ticket ใน `windows-check` | [setup-status](features/setup-status/decisions.md) | D25 | spoil, windows-check | [0014](adr/0014-mac-first-windows-check.md) | active |
 
 ## การติดตั้ง
 

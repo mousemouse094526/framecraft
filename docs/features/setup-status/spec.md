@@ -44,8 +44,8 @@
 
 **How success is judged:**
 - Mac Apple Silicon ที่ไม่มี uv และ ffmpeg: `./setup.sh` จบด้วย exit 0 โดยไม่มีขั้นตอนมือนอกจากติดตั้ง Node.js. หน้าเว็บแสดง 9/9 และ Device `mps`
-- Windows ที่มีการ์ด NVIDIA และ execution policy เป็น `Restricted`: ดับเบิลคลิกหรือรัน `setup.cmd` จบด้วย exit 0. หน้าเว็บแสดง 9/9 และ Device `cuda`
-- Windows: project อยู่ใน path ที่มีช่องว่างและภาษาไทย (เช่น `C:\Users\me\งาน ทดสอบ\framecraft`) ยังผ่านข้อบน
+- Windows ที่มีการ์ด NVIDIA และ execution policy เป็น `Restricted`: ดับเบิลคลิกหรือรัน `setup.cmd` จบด้วย exit 0. หน้าเว็บแสดง 9/9 และ Device `cuda` (เช็คใน `windows-check` 01 ไม่ขวางการจบ feature, D25)
+- Windows: project อยู่ใน path ที่มีช่องว่างและภาษาไทย (เช่น `C:\Users\me\งาน ทดสอบ\framecraft`) ยังผ่านข้อบน (`windows-check` 01, D25)
 - Refresh ได้ผลภายใน 3 วินาทีหลังครั้งแรก. ครั้งแรกหลัง backend start ไม่เกิน 20 วินาที (import torch)
 - ปิด internet แล้ว Refresh ได้ผลเหมือนเดิม
 - ลบไฟล์ `*.safetensors` หนึ่งไฟล์ใน snapshot ของ OmniVoice แล้ว Refresh: แถว OmniVoice model เป็น `missing`
@@ -314,7 +314,7 @@ Uninstall (เขียนใน `README.md`):
 
 ## Open Questions
 
-1. มีเครื่อง Windows ที่มีการ์ด NVIDIA ให้ทดสอบหรือไม่ — non-blocking: งาน Windows อยู่ ticket แยก ปิดได้เมื่อทดสอบบนเครื่องจริงผ่านเท่านั้น
+1. มีเครื่อง Windows ที่มีการ์ด NVIDIA ให้ทดสอบหรือไม่ — non-blocking: การเช็คบนเครื่องจริงอยู่ที่ `windows-check` 01 และไม่ขวางการจบ feature (D25)
 2. feature ถัดไปที่ส่งไฟล์เสียงให้ Whisper ผ่าน `transformers` pipeline อาจต้องมี `ffmpeg` บน PATH — non-blocking: ขั้นนี้ไม่ transcribe
 
 ## Sources

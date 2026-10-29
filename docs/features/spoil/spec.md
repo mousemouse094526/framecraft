@@ -65,7 +65,7 @@
 - restart `npm run dev` แล้วรายการเดิมยังอยู่ครบ
 - ถอด Shorts ภาษาไทยหนึ่งคลิปและหนังแนวนอนยาวกว่า 1 ชั่วโมงหนึ่งคลิปได้จริง; Copy แล้ววางได้ข้อความครบ; `.srt` เปิดใน VLC แล้ว subtitle ตรงเวลา; restart `npm run dev` แล้วยังเห็น Transcript
 - ยกเลิกงานถอดแล้ว process ลูกหยุดภายใน 5 วินาที และ Transcript เดิม (ถ้ามี) ยังอยู่
-- ทำซ้ำข้อบนทั้งหมดบน Windows NVIDIA หลังรัน `setup.cmd` (ADR-0006)
+- ทำซ้ำข้อบนทั้งหมดบน Windows NVIDIA หลังรัน `setup.cmd` — เช็คใน `windows-check` 02 ไม่ขวางการจบ feature (ADR-0014)
 
 ## Implementation
 
@@ -506,7 +506,7 @@ tab สปอย:
 - test ที่เช็คการล้างไฟล์ตอน start ใช้ `with TestClient(app)` เพื่อให้ lifespan รัน; การล้างอ่าน `paths.ROOT` ตอนรัน จึง monkeypatch ได้
 - `TestClient` ทุกตัวใช้ `base_url="http://127.0.0.1"` เพราะ host default `testserver` ไม่ผ่าน `TrustedHostMiddleware`; แก้ `backend/tests/test_app.py` ด้วย
 - adapter ปลอมเรียก progress hook เองตามลำดับที่ test กำหนด และรอสัญญาณจาก test ได้ เพื่อทดสอบ busy และยกเลิกแบบไม่ขึ้นกับเวลา
-- seam 2 ไม่อยู่ใน test อัตโนมัติ: พิสูจน์ด้วย How success is judged บน Mac และ Windows
+- seam 2 ไม่อยู่ใน test อัตโนมัติ: พิสูจน์ด้วย How success is judged บน Mac; ข้อ Windows เช็คใน `windows-check` 02 (ADR-0014)
 - seam 3 ไม่อยู่ใน test อัตโนมัติ ยกเว้นฟังก์ชันที่ไม่แตะโมเดล: `backend/tests/test_whisper.py` ทดสอบ `plan_segments`, `to_lines` และว่า import adapter ไม่ import torch กับ transformers. การบวกเวลาของช่วงจึงพิสูจน์ที่นี่ ไม่ใช่ใน seam 1 ซึ่ง worker ปลอมส่งเวลาของคลิปมาแล้ว (D30)
 
 ## Out of Scope
