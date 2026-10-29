@@ -1,11 +1,11 @@
 # Progress: setup-status
 
-**Now:** ทุก ticket done บน Mac; เช็คมือบน Windows ย้ายไป `windows-check` 01 (D25) — เหลือ feature review
+**Now:** feature review เสร็จ, ready to merge (branch `feat/setup-status`); เช็คมือบน Windows อยู่ที่ `windows-check` 01 (D25)
 
 **Next:**
 
 ```
-/warroom-build setup-status --review-feature
+/pr-open
 ```
 
 ## Tickets
@@ -17,6 +17,24 @@
 | 03 | Windows NVIDIA | done |
 
 ## Log
+
+### Feature review — done 2026-10-30
+
+**Built:**
+- review สามแกนบนโค้ดทั้ง feature (ba1700a..aee14b7 ซึ่งอยู่บน `develop` แล้ว) แก้ทุกข้อที่ผู้ใช้เลือกใน `2ed158b` บน `feat/setup-status`
+- API ส่ง `fix_kind` (`command`/`hint`); หน้าเว็บแสดง chip จาก `fix_kind` ไม่ดูช่องว่าง (D26 เปลี่ยน D20)
+- probe สี่ตัวรวมเป็น `Probes`; ffmpeg กับ Deno ใช้ helper อ่านเวอร์ชันเดียวกัน
+- แถว Python: `.venv` ผิดเวอร์ชัน → "ใน .venv ต้องเป็น 3.12" (เดิมบอกผิดว่าไม่ใช่ .venv)
+- NOTICE บอก `setup.cmd`, spec บอกว่า spoil ทำให้เป็น 11 แถว, test fixture ใช้ URL license ของ Whisper ตรง backend, comment และตัวเลขใน test ชัดขึ้น
+- รัน Status check จริงบนเครื่องนี้: 11/11
+
+**Decided:**
+- D26 — `fix_kind`, `Probes`, ข้อความแถว Python
+
+**For the next ticket:**
+- ทิ้งตามที่ผู้ใช้เลือก: ข้อความ link "license"/"model" กับ "Installing uv..." เป็นอังกฤษ, font size แบบ `text-[13px]`, `snapshot_dir(revision)` ที่มีแค่ test ใช้, traceback `CancelledError` ตอน Ctrl+C, แยก schema ของ API ออกจาก `checks.py`
+
+**Checks:** `uv run pytest` — 168 passed; `npm --prefix frontend test` — 67 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 03: Windows NVIDIA — done 2026-10-30 (change request D25)
 
