@@ -25,13 +25,14 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | Portable = ก๊อป folder แล้วรัน setup ซ้ำ, ทุกอย่างอยู่ใน project | [setup-status](features/setup-status/decisions.md) | D12 | — | [0003](adr/0003-everything-inside-project.md) | active |
 | กฎ red team: `setup.cmd` สำหรับ Windows, pin revision โมเดล, `cache_dir` ชัดเจน, lock และเช็คดิสก์, torchaudio cu128 | [setup-status](features/setup-status/decisions.md) | D13 | — | [0003](adr/0003-everything-inside-project.md), [0004](adr/0004-pinned-model-registry.md) | active |
-| ติดตั้งด้วย script บน terminal, เว็บแค่แสดงสถานะ | [setup-status](features/setup-status/decisions.md) | D3 | — | [0002](adr/0002-install-only-in-setup.md) | active |
-| `setup.sh` กับ `setup.ps1` บางๆ เรียก `backend.setup` ตัวเดียว | [setup-status](features/setup-status/decisions.md) | D8 | — | [0002](adr/0002-install-only-in-setup.md) | active |
+| ติดตั้งด้วย script บน terminal, เว็บแค่แสดงสถานะ | [setup-status](features/setup-status/decisions.md) | D3 | — | [0002](adr/0002-install-only-in-setup.md) superseded by [0008](adr/0008-runtime-media-download.md) | active |
+| `setup.sh` กับ `setup.ps1` บางๆ เรียก `backend.setup` ตัวเดียว | [setup-status](features/setup-status/decisions.md) | D8 | — | [0002](adr/0002-install-only-in-setup.md) superseded by [0008](adr/0008-runtime-media-download.md) | active |
 | เช็ค PID ของ setup lock: `os.kill(pid, 0)` บน Mac, `OpenProcess` บน Windows | [setup-status](features/setup-status/decisions.md) | D17 | — | — | active |
 | จุด inject สำหรับ test: probe, `download`, `backend_running`, `free_bytes`, `DeviceProbe` | [setup-status](features/setup-status/decisions.md) | D18 | — | — | active |
 | `setup.cmd` หยุดรอเมื่อดับเบิลคลิกและคืน code page, `setup.ps1` เช็ค `$LASTEXITCODE` ไม่ใช้ `Stop`, ติดตั้ง uv ใน PowerShell ลูกที่ Bypass, CRLF, `run_checks` รับ `sys_platform` | [setup-status](features/setup-status/decisions.md) | D23 | — | — | active |
 | `npm run dev` start backend ด้วย Python ใน `.venv` ผ่าน `scripts/dev-api.mjs` ไม่พึ่ง uv ใน PATH; README ติดตั้งและใช้งานเป็นไทย | [setup-status](features/setup-status/decisions.md) | D24 | — | — | active |
-| Status check เป็น checklist 9 รายการ ไม่โหลดโมเดล ไม่ใช้ network | [setup-status](features/setup-status/decisions.md) | D7 | — | [0004](adr/0004-pinned-model-registry.md) | active |
+| Status check เป็น checklist 9 รายการ ไม่โหลดโมเดล ไม่ใช้ network | [setup-status](features/setup-status/decisions.md) | D7 | spoil | [0004](adr/0004-pinned-model-registry.md) | extended by spoil D9 |
+| Status check เพิ่มแถว `yt_dlp` และ `deno` เป็น 11 แถว; tab สปอย gate ด้วยแถว `yt_dlp`, `deno`, `ffmpeg` ไม่ใช้ `ready` | [spoil](features/spoil/decisions.md) | D9 | — | [0009](adr/0009-status-check-single-place.md) | active |
 
 ## ffmpeg
 
@@ -51,8 +52,27 @@ question; the full entry is in the feature's decisions.md.
 
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
-| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | — | — | active |
+| แถบ tab บน: สปอย (`#/spoil`), Setup status (`#/setup`), default Setup status, ไม่ใช้ router library | [spoil](features/spoil/decisions.md) | D10 | — | — | active |
+| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil | — | active |
 | แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |
 | font มากับ `@fontsource` ใน project ไม่โหลดจาก CDN | [setup-status](features/setup-status/decisions.md) | D19 | — | [0003](adr/0003-everything-inside-project.md) | active |
 | `fix` ไม่มีช่องว่าง = คำสั่ง (chip กับปุ่ม copy), มีช่องว่าง = ข้อความ | [setup-status](features/setup-status/decisions.md) | D20 | — | — | active |
 | รายละเอียดหน้า Setup status: Refresh จาก offline, เวลาเช็คล่าสุด, pill คำเตือน, icon จาก Figma, timeout | [setup-status](features/setup-status/decisions.md) | D21 | — | — | active |
+
+## ดาวน์โหลดสื่อ
+
+| Decision | Feature | D | Used by | ADR | Status |
+|---|---|---|---|---|---|
+| Backend โหลดสื่อตามลิงก์ที่ผู้ใช้ใส่ได้ตอนรัน, package และโมเดลยังผ่าน Setup script เท่านั้น (แคบ ADR-0002) | [spoil](features/spoil/decisions.md) | D1 | — | [0008](adr/0008-runtime-media-download.md) | active |
+| รอบแรกของสปอยทำแค่โหลดคลิป YouTube เป็น temp; ปลายทางคือคลิปสปอยหนังพร้อมเสียงเล่า OmniVoice | [spoil](features/spoil/decisions.md) | D2 | — | — | active |
+| Temp clip เก็บใน `media/temp/` ของ project จนผู้ใช้กดลบเอง | [spoil](features/spoil/decisions.md) | D3 | — | — | active |
+| Temp clip = `{id}.mp4` + `{id}.json` (เขียนสุดท้าย) + thumbnail; ไฟล์ค้างใน `.partial/` ล้างตอน start; Download job อยู่ใน memory | [spoil](features/spoil/decisions.md) | D14 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | active |
+| คลิปแนวตั้งแบบ reels เท่านั้น, ด้านสั้น ≤ 720 px, mp4 | [spoil](features/spoil/decisions.md) | D4 | — | — | superseded by spoil D5 |
+| รับคลิป YouTube ทุกแนว, temp ด้านสั้น ≤ 1080 px mp4; output แนวตั้งเลือก p ได้ถึง 1080 (รอบหน้า) | [spoil](features/spoil/decisions.md) | D5 | — | — | active |
+| โหลดทีละคลิปเป็นงานเบื้องหลัง, poll % ทุก 1 วินาที, ยกเลิกได้, ไม่มีคิว | [spoil](features/spoil/decisions.md) | D6 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | active |
+| หน้าต่างรายการ temp clip: thumbnail, ชื่อ, ช่อง, ความยาว, ขนาดภาพ/แนว, ขนาดไฟล์, เวลาโหลด, ลบ, เล่นในหน้าเว็บ | [spoil](features/spoil/decisions.md) | D7 | — | — | active |
+| ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของ YouTube; หารายได้ขัด ADR-0007 ต้องเปลี่ยน TTS ก่อน feature เสียง | [spoil](features/spoil/decisions.md) | D13 | — | — | active |
+| red team: ยกเลิกต่อ state (merging ยกเลิกไม่ได้), lock กัน POST ซ้อน, ลบ mp4 ก่อน json, `in_use`, แยก error `login_required`, `TrustedHostMiddleware` | [spoil](features/spoil/decisions.md) | D15 | — | [0011](adr/0011-trusted-host-only.md) | active |
+| ลิงก์ซ้ำ (video id เดิม) ไม่โหลดใหม่ ชี้แถวเดิม | [spoil](features/spoil/decisions.md) | D12 | — | — | active |
+| ไม่จำกัดความยาว, ปฏิเสธ live, เช็คดิสก์ว่าง ≥ ขนาดประมาณ + 1 GB ก่อนโหลด | [spoil](features/spoil/decisions.md) | D11 | — | — | active |
+| `yt-dlp[default]` และ `deno` (PyPI wheel) pin ใน `uv.lock`; โหลดพังแสดงเวอร์ชันและคำสั่งอัปเดต | [spoil](features/spoil/decisions.md) | D8 | — | — | active |

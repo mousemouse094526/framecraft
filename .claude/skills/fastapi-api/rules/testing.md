@@ -18,7 +18,8 @@ def test_missing_marker(tmp_path):
 
 - Runner: `uv run pytest`. Tests live in `backend/tests/test_{module}.py`;
   `test_wrappers.py` checks the text of `setup.cmd` and `setup.ps1`, which can't run on a Mac.
-- API tests use FastAPI `TestClient`.
+- API tests use FastAPI `TestClient(app, base_url="http://127.0.0.1")`;
+  the default `testserver` host fails `TrustedHostMiddleware` (ADR 0011).
 - Fake the project root in `tmp_path`; inject probes instead of monkeypatching
   globals where the code takes them as arguments.
 - Each case asserts one exact count or status, never "8 or 9".

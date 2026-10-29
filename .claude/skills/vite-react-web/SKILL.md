@@ -21,10 +21,13 @@ frontend/src/
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   └── hooks/        ← data fetching and state (calls lib/api)
 ├── components/ui/    ← design-system primitives, once a second user exists
-└── lib/api.ts        ← fetch wrapper with timeout
+└── lib/
+    ├── api.ts        ← fetch wrapper with timeout
+    └── useHashTab.ts ← which top tab is open, from the URL hash
 ```
 
-No router until a second page exists; that ticket adds `routes/` and records it here.
+No router library and no `routes/`: `App` shows the top tab bar and picks the
+page from the hash (`#/spoil`, `#/setup`, spoil D10).
 
 ## Flow
 

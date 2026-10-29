@@ -98,7 +98,7 @@
 - หน้าตาตาม sketch ใน [checklist-sketch.md](checklist-sketch.md)
 - รายการทั้ง 9 อยู่ใน spec.md › Implementation › Status check
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** extended by spoil D9
 
 ## D8: setup.sh และ setup.ps1 บางๆ เรียก Python ตัวเดียว
 

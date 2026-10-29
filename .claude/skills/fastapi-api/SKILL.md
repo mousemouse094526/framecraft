@@ -20,6 +20,7 @@ backend/
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
 ├── setup.py      ← entry point: python -m backend.setup
+├── spoil/        ← a feature with several modules gets a package (spoil D14)
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -28,7 +29,10 @@ No auth and no public/private split: the app binds 127.0.0.1 only.
 
 ## Flow
 
-route (routes/{feature}.py) → module function (checks.py, later features/) → libraries
+route (routes/{feature}.py) → module function (checks.py, spoil/) → libraries
+
+Long jobs run as a daemon thread in the backend process; their state lives in
+memory and the web page polls it (ADR 0010).
 
 ## Where shared code goes
 
@@ -40,7 +44,12 @@ route (routes/{feature}.py) → module function (checks.py, later features/) →
 
 ## Never break
 
-- Nothing installs or downloads at runtime; only `backend.setup` does (ADR 0002).
+- Nothing installs packages or downloads models at runtime; only `backend.setup`
+  does. Media from a link the user typed may be fetched at runtime (ADR 0008).
+- Only one module per library that talks to the outside world (the yt-dlp
+  adapter in `backend.spoil`); tests replace it with a fake.
+- `TrustedHostMiddleware` allows only `127.0.0.1`, `localhost`, `[::1]`
+  (ADR 0011).
 - Every Hugging Face call passes `cache_dir` from `backend.paths`; never rely on
   `HF_HOME` or `HF_HUB_CACHE` (ADR 0003).
 - Every model comes from `backend.models` with its pinned `revision` (ADR 0004).

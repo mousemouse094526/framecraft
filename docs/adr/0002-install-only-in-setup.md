@@ -2,4 +2,6 @@
 
 การติดตั้ง package และการดาวน์โหลดโมเดลทั้งหมดทำผ่าน Setup script บน terminal เท่านั้น. Backend และหน้าเว็บอ่านสถานะได้อย่างเดียว ห้ามติดตั้งหรือดาวน์โหลดอะไรตอนรัน: โค้ดที่โหลดโมเดลต้องโหลดจาก snapshot ในเครื่องเท่านั้น. ไม่ทำปุ่ม Install บนเว็บเพราะต้องมี background job และ progress stream ซึ่งยังไม่คุ้ม.
 
+**Status:** superseded by ADR-0008
+
 Source: setup-status D3, D8
