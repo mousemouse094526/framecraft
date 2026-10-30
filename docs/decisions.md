@@ -46,8 +46,9 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | เก็บโมเดลใน `models/` ของ project ผ่าน `HF_HOME` | [setup-status](features/setup-status/decisions.md) | D6 | — | [0003](adr/0003-everything-inside-project.md) | changed by D13 |
-| ใช้ OmniVoice แบบไม่หารายได้เท่านั้น, แสดง license | [setup-status](features/setup-status/decisions.md) | D11 | — | [0007](adr/0007-non-commercial-use.md) | active |
+| ใช้ OmniVoice แบบไม่หารายได้เท่านั้น, แสดง license | [setup-status](features/setup-status/decisions.md) | D11 | spoil-maker | [0007](adr/0007-non-commercial-use.md) | active |
 | revision ที่ pin และ `allow_patterns` ของ OmniVoice และ Whisper | [setup-status](features/setup-status/decisions.md) | D16 | spoil | [0004](adr/0004-pinned-model-registry.md) | active |
+| ยังไม่คิดเรื่อง license รอบแรก ใช้ OmniVoice ไปก่อน แล้วค่อยเปลี่ยนตัวแทนเมื่อจะหารายได้ | [spoil-maker](features/spoil-maker/decisions.md) | D3 | — | [0007](adr/0007-non-commercial-use.md) | active |
 
 ## UI design
 
@@ -88,7 +89,7 @@ question; the full entry is in the feature's decisions.md.
 
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
-| ถอดคำพูดของ Temp clip ด้วย Whisper large-v3-turbo ที่ติดตั้งแล้ว ตรวจภาษาเอง; ได้ Transcript อย่างเดียว ไม่แยกไฟล์เสียงให้ผู้ใช้ | [spoil](features/spoil/decisions.md) | D21 | — | — | active |
+| ถอดคำพูดของ Temp clip ด้วย Whisper large-v3-turbo ที่ติดตั้งแล้ว ตรวจภาษาเอง; ได้ Transcript อย่างเดียว ไม่แยกไฟล์เสียงให้ผู้ใช้ | [spoil](features/spoil/decisions.md) | D21 | spoil-maker | — | active |
 | แสดง Transcript ทีละบรรทัดพร้อมเวลา กดแล้ว player กระโดด, Copy ทั้งหมด, โหลด `.txt` และ `.srt` | [spoil](features/spoil/decisions.md) | D22 | — | — | active |
 | ถอดเมื่อผู้ใช้กดเท่านั้น, Transcript เก็บคู่ Temp clip ข้าม restart, แถวแสดง "ถอดแล้ว", ลบคลิปลบ Transcript | [spoil](features/spoil/decisions.md) | D23 | — | — | active |
 | Transcribe job ทีละงาน ไม่มีคิว, รันพร้อม Download job ได้, poll % และยกเลิกได้ | [spoil](features/spoil/decisions.md) | D24 | — | — | active |
@@ -104,3 +105,17 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กตอน build กล่องถอด: คลิปที่เลือกอยู่กับ `useTranscribe`, status GET ครั้งเดียว, `busy` → GET current, ลบคลิปที่กำลังถอดไม่ปลด player, ซ่อน Transcript ระหว่างถอดใหม่, ไม่ autoPlay เมื่อเลือกเพราะงาน, `PageLayout wide` | [spoil](features/spoil/decisions.md) | D34 | — | — | active |
 | แก้จาก feature review: gate สองงานผ่าน `require_rows`, `JobFailed`, `write_atomic`, `jobs.py` → `downloads.py`, `features/spoil/lib/`, งานโหลดไม่หลุดเมื่องานถอดได้ 503 | [spoil](features/spoil/decisions.md) | D35 | — | — | active |
 
+## สร้างคลิปสปอย
+
+| Decision | Feature | D | Used by | ADR | Status |
+|---|---|---|---|---|---|
+| สร้างคลิปสปอยเป็น feature ใหม่ `spoil-maker` ใน tab สปอย ใช้ Temp clip กับ Transcript ของ spoil | [spoil-maker](features/spoil-maker/decisions.md) | D1 | — | — | active |
+| ทุกอย่างต้องฟรี: โมเดลและโปรแกรมในเครื่อง ไม่มี API ที่ต้องจ่าย | [spoil-maker](features/spoil-maker/decisions.md) | D2 | — | — | active |
+| AI ในเครื่องร่างบทสปอยจาก Transcript แล้วผู้ใช้แก้ทุกประโยคได้ก่อนสร้างเสียง | [spoil-maker](features/spoil-maker/decisions.md) | D4 | — | — | active |
+| คลิปสปอยหนึ่งคลิปทำจาก Temp clip ที่ถอดแล้วได้หลาย EP เรียงลำดับเอง | [spoil-maker](features/spoil-maker/decisions.md) | D5 | — | — | active |
+| เสียงบรรยายจาก OmniVoice เลือกเสียงตัวอย่างหรือ clone จากไฟล์เสียงสั้นได้ ใช้ซ้ำทุกคลิป | [spoil-maker](features/spoil-maker/decisions.md) | D6 | — | [0007](adr/0007-non-commercial-use.md) | active |
+| เลือก preset สไตล์ 3 แบบตามคลิปตัวอย่าง แล้วใส่ความยาวเป้าหมายเป็นวินาที | [spoil-maker](features/spoil-maker/decisions.md) | D7 | — | — | active |
+| layout 3 แบบตามคลิปตัวอย่าง เลือกแยกจากสไตล์ ทุกแบบได้ 1080×1920 | [spoil-maker](features/spoil-maker/decisions.md) | D8 | — | — | active |
+| เสียงต้นฉบับลดเบาไว้ใต้เสียงบรรยาย ตั้งระดับได้ (0 = ปิด) ไม่มีเพลงพื้นหลัง | [spoil-maker](features/spoil-maker/decisions.md) | D9 | — | — | active |
+| ผลลัพธ์เป็น mp4 1080×1920 กับ `.srt` ของบทบรรยาย แก้ในแอปแล้ว render ใหม่ | [spoil-maker](features/spoil-maker/decisions.md) | D10 | — | — | active |
+| บทบรรยายและเสียงบรรยายเป็นภาษาไทยอย่างเดียว ต้นฉบับภาษาอะไรก็ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D11 | — | — | active |
