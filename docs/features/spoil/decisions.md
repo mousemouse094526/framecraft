@@ -357,7 +357,7 @@
 - ทั้งแอปทำทีละงาน — ต้องรอโดยไม่จำเป็น
 - คิวหลายคลิป — ไม่ได้ขอ และ D6 ก็ไม่มีคิว
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** changed by spoil-maker D45
 
 ## D25: tab สปอยเป็นสองคอลัมน์ รายการคลิป → ลูกศร → กล่องถอดบทพูด
 

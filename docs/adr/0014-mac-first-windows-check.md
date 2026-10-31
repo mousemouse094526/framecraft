@@ -4,4 +4,4 @@ Project รองรับแค่ Mac Apple Silicon (device `mps`) และ W
 
 Source: setup-status D5, D25
 
-Status: supersedes ADR-0006
+Status: supersedes ADR-0006 · superseded by ADR-0016

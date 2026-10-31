@@ -13,6 +13,8 @@ spec ที่ `ready-to-build` สำหรับ spoil-maker รอบแร�
 - โมเดลใหม่ต้องลงทะเบียนและ pin ใน `backend.models` และโหลดผ่าน Setup script เท่านั้น (ADR-0004, ADR-0008)
 - ของที่ต้องติดตั้งเพิ่มต้องมีแถวใน Status check (ADR-0009)
 - feature จบได้เมื่อผ่านบน Mac; เช็ค Windows เป็น ticket ใน `windows-check` (ADR-0014)
+- เวลาและ memory บน Mac M2: ร่างบทราว 5 นาที ราว 10 GB, Describe job ราว 45 นาทีต่อหนัง 96 นาที (D18), เสียงราว 9 วินาทีต่อประโยค 3.5 GB (D37, [tts-trial.md](../../features/spoil-maker/tts-trial.md)). เวลา render ยังไม่ได้วัด: ไม่ใช่การตัดสินใจ วัดตอน build
+- ลิขสิทธิ์ของการนำภาพต้นฉบับไปเผยแพร่: legal check (Phase 2.5) หลังเขียน spec
 
 ## Decided
 
@@ -27,23 +29,33 @@ spec ที่ `ready-to-build` สำหรับ spoil-maker รอบแร�
 - **เสียงต้นฉบับ** — ลดเบาไว้ใต้เสียงบรรยาย ตั้งระดับได้ ไม่มีเพลงพื้นหลัง → [D9](../../features/spoil-maker/decisions.md)
 - **ผลลัพธ์** — mp4 1080×1920 กับ `.srt` ของบทบรรยาย → [D10](../../features/spoil-maker/decisions.md)
 - **ภาษาของบทบรรยาย** — ไทยอย่างเดียว ต้นฉบับภาษาอะไรก็ได้ → [D11](../../features/spoil-maker/decisions.md)
+- **LLM รันผ่านอะไร** — library ใน `.venv` โมเดล pin ลง `models/` ตาม ADR ไม่ใช้ Ollama → [D12](../../features/spoil-maker/decisions.md)
+- **LLM ในเครื่องตัวไหนเขียนบทและจับคู่ภาพ** — Qwen3.5 9B 4-bit ดูภาพได้ ลองแล้วใน [llm-trial.md](../../features/spoil-maker/llm-trial.md) → [D13](../../features/spoil-maker/decisions.md)
+- **library ของ LLM** — mlx-vlm บน Mac หลัง interface; Windows ตัดสินใน `windows-check` → [D14](../../features/spoil-maker/decisions.md)
+- **AI เห็นอะไรของต้นฉบับ** — Transcript กับ Shot description ของทุก Shot → [D15](../../features/spoil-maker/decisions.md)
+- **บรรยายภาพเมื่อไร** — ปุ่มแยกต่อคลิป (Describe job) เห็น % ยกเลิกได้ → [D16](../../features/spoil-maker/decisions.md)
+- **ตัด Shot และเลือกเฟรม** — scene filter 0.3, แบ่ง Shot ยาวเกิน 10 วินาที, รวม Shot สั้นกว่า 1 วินาที, เฟรมกลาง; ราว 840 Shot ต่อหนัง 96 นาที → [D17](../../features/spoil-maker/decisions.md)
+- **LLM ร่างบทอย่างไรเมื่อมี Shot description ราว 840 รายการ** — สองขั้น: บทจาก Transcript แล้วเลือก Shot ต่อประโยคจากช่วง ±30 วินาที ลองแล้วใน [llm-trial.md](../../features/spoil-maker/llm-trial.md) › รอบ 2 → [D18](../../features/spoil-maker/decisions.md)
+- **รายละเอียดของ layout แต่ละแบบ** — ตาม [layout-sketch.md](../../features/spoil-maker/layout-sketch.md): hook และชื่อตอนให้ AI ร่างแล้วผู้ใช้แก้, ซับ A ทีละท่อนสั้น, font Kanit, สีและตำแหน่งตายตัว, watermark ข้อความเดียวที่จำไว้, ตัดตรง → [D19](../../features/spoil-maker/decisions.md)–[D24](../../features/spoil-maker/decisions.md)
+- **ตรวจแก้ก่อน render** — ตาม [review-sketch.md](../../features/spoil-maker/review-sketch.md): ร่างบทกับเลือก Shot ในงานเดียว, ตัวเลือก Shot ±30 วินาทีขยายทั้งคลิปได้, แก้ ลบ แทรกประโยค, Spoil draft เดียวเก็บเป็นไฟล์, ลบคลิปที่ใช้อยู่ลบ draft ด้วย, สร้างเสียงทั้งหมดหรือทีละประโยค, เสียงแบ่งครึ่งให้ 2 Shot → [D25](../../features/spoil-maker/decisions.md)–[D31](../../features/spoil-maker/decisions.md)
+- **OmniVoice clone และเสียงตัวอย่าง** (research) — อ่านไทยได้ดี (CER 3–7%), clone ไฟล์ 3–10 วินาทีได้แต่บางไฟล์เสีย, ไม่มีเสียงสำเร็จรูป, 9–20 วินาทีต่อประโยค, 3.5 GB → [tts-trial.md](../../features/spoil-maker/tts-trial.md)
+- **เสียงตัวอย่างมาจากไหน** — Saved voice ที่ผู้ใช้ออกแบบเอง (เพศ วัย ระดับเสียง → สุ่ม → ฟัง → บันทึก) เก็บเป็น clone prompt → [D32](../../features/spoil-maker/decisions.md)
+- **clone ไม่ได้ทำอย่างไร** — สร้างประโยคตัวอย่างให้ฟังก่อนบันทึก ไม่มีตรวจอัตโนมัติ → [D33](../../features/spoil-maker/decisions.md)
+- **ไฟล์สำหรับ clone** — 3–10 วินาทีแรก, Whisper ถอดข้อความ ผู้ใช้แก้ได้ → [D34](../../features/spoil-maker/decisions.md)
+- **ความเร็วพูด** — speed 0.8–1.2 ต่อ Saved voice, ความเร็วที่วัดได้ใช้ประมาณความยาวบท ([tts-trial.md](../../features/spoil-maker/tts-trial.md) › รอบ 2) → [D35](../../features/spoil-maker/decisions.md)
+- **ตัวเลขในบท** — แปลงเป็นคำไทยเฉพาะข้อความที่ส่งให้ OmniVoice ซับยังเป็นตัวเลข → [D36](../../features/spoil-maker/decisions.md)
 
 ## Open
 
-1. **LLM ในเครื่องตัวไหนเขียนบทและจับคู่ภาพ** — ฟรีและรันบน M2 16 GB ได้ (D2): ลองโมเดลขนาด 7–8B กับภาษาไทย แล้วสรุปตัวเลือก; ติดตั้งผ่าน Setup script หรือใช้ Ollama ที่มีอยู่ (ADR-0003, ADR-0008) · kind: research
-2. **AI เห็นอะไรของต้นฉบับ** — แค่ Transcript หรือดูภาพด้วย (คลิปที่ภาพเล่าเรื่องแต่ไม่มีบทพูดจะจับคู่ได้ไหม) · kind: interview · blocked by: LLM ในเครื่องตัวไหนเขียนบทและจับคู่ภาพ
-3. **รายละเอียดของ layout แต่ละแบบ** — ตำแหน่งภาพ, hook หรือชื่อตอนที่ผู้ใช้พิมพ์เอง, ซับทีละคำหรือทีละประโยค, font ไทย, สี · kind: sketch
-4. **ตรวจแก้ก่อน render** — เห็นรายการประโยคกับภาพที่ AI จับคู่ แล้วเปลี่ยนภาพ, แก้ประโยค หรือสร้างเสียงใหม่ทีละประโยค · kind: sketch
-5. **OmniVoice clone และเสียงตัวอย่าง** — ไฟล์เสียงยาวเท่าไรถึง clone ได้, มีเสียงตัวอย่างอะไรให้เลือก, อ่านไทยได้ดีไหม (ลองจริงบนเครื่อง) · kind: research
+ไม่มี: map จบแล้ว. spec ผ่าน gate เป็น `ready-to-build` เมื่อ 2026-10-31 ([spec.md](../../features/spoil-maker/spec.md), D38–D52); ขั้นต่อไปคือตัด ticket.
 
 ## Fog
 
-- วิธีจับคู่ประโยคกับภาพในทางเทคนิค (ตัดเป็น shot, ค้นด้วย Transcript, ค้นด้วยภาพ) — ชัดเมื่อตอบ "AI ตัวไหน" กับ "AI เห็นอะไร"
-- เวลาและ memory บน Mac เมื่อต้นฉบับเป็นหนังยาว 1.5 ชั่วโมง
-- ลิขสิทธิ์ของการนำภาพต้นฉบับไปเผยแพร่ — legal check หลังเขียน spec
+ไม่มี.
 
 ## Out of scope
 
 - อัปโหลดขึ้น YouTube หรือ TikTok ให้อัตโนมัติ — ผลของ map นี้จบที่ไฟล์ mp4
 - โหลดต้นฉบับจากเว็บอื่นนอกจาก YouTube — การโหลดเป็นงานของ spoil
-- เช็คบนเครื่อง Windows — ทำใน `windows-check` ตาม ADR-0014
+- ภาพเลื่อน ซ้อน เอียง และ transition — รอบแรกตัดตรง (D24)
+- เช็คบนเครื่อง Windows — ทำใน `windows-check` ตาม ADR-0014 รวม backend ของ LLM บน Windows (D14)

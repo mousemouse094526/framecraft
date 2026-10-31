@@ -40,3 +40,23 @@ _Avoid_: subtitle, caption, บทสปอย
 การถอด Temp clip หนึ่งคลิปเป็น Transcript ที่ backend ทำเบื้องหลังเมื่อผู้ใช้กดถอด. มีได้ทีละงาน รันพร้อม Download job ได้ และหายเมื่อ backend restart.
 _Avoid_: process, transcription task
 
+
+**Shot**:
+ช่วงต่อเนื่องหนึ่งช่วงของ Temp clip ระหว่างจุดตัดภาพสองจุด ยาว 1–10 วินาที: ช่วงที่ยาวกว่า 10 วินาทีถูกแบ่งเป็นหลาย Shot. หน่วยภาพที่ spoil-maker เลือกมาวางใต้ประโยคของบทบรรยาย.
+_Avoid_: scene, frame, cut
+
+**Shot description**:
+คำบรรยายภาพของ Shot หนึ่ง Shot ที่ LLM เขียนจากเฟรมของ Shot นั้น. เก็บใน `media/temp/shots/{id}/` คู่ภาพเล็กของแต่ละ Shot และหายเมื่อลบคลิป. คลิปที่มี Shot description ครบ = "ดูภาพแล้ว".
+_Avoid_: caption, Transcript
+
+**Describe job**:
+การตัด Temp clip หนึ่งคลิปเป็น Shot และเขียน Shot description ทุก Shot ที่ backend ทำเบื้องหลังเมื่อผู้ใช้กด. รันพร้อม Transcribe job ไม่ได้.
+_Avoid_: vision job, scene detection
+
+**Spoil draft**:
+คลิปสปอยที่กำลังทำก่อน render: Temp clip ที่เลือก, ค่าตั้ง, บท (ประโยคพร้อมบรรทัดที่อ้าง), Shot ของแต่ละประโยค และเสียงของแต่ละประโยค. เก็บเป็นไฟล์ใน `media/` อยู่ข้าม restart. มีได้ทีละหนึ่ง: ร่างบทใหม่ทับของเดิมหลังผู้ใช้ยืนยัน. ผลของการ render เรียกว่าคลิปสปอย.
+_Avoid_: project, บทสปอย, session
+
+**Saved voice**:
+เสียงบรรยายหนึ่งเสียงที่ผู้ใช้บันทึกไว้ใช้ซ้ำทุกคลิป: ออกแบบจากเพศ วัย ระดับเสียง (clone จากไฟล์ของผู้ใช้ยังไม่มีในรอบนี้). เก็บเป็น clone prompt ของ OmniVoice คู่กับ speed และความเร็วพูดที่วัดได้ จึงได้เสียงเดิมทุกประโยค.
+_Avoid_: preset, เสียงตัวอย่าง, speaker
