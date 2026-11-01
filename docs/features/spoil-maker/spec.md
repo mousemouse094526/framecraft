@@ -39,7 +39,7 @@
 
 ## Design
 
-แบบหน้าจอทำหลังจบ plan (D38); prompt สำหรับ design tool อยู่ใน [ui-prompt.md](ui-prompt.md). ทุกหน้าที่มีงานแสดง error ตามตาราง Frontend › ข้อความ error.
+แบบหน้าจอทำหลังจบ plan (D38); ทุกจอมีแบบใน Figma แล้ว (ลิงก์ในตาราง). ทุกหน้าที่มีงานแสดง error ตามตาราง Frontend › ข้อความ error.
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
