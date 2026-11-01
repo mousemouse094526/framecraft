@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { TABS, type TabId } from "../../lib/useHashTab";
+import { TABS, type TabId } from "../../lib/useHash";
 
 type Props = {
   tab: TabId;
@@ -43,7 +43,7 @@ function Wordmark() {
 
 function TabBar({ active }: { active: TabId }) {
   return (
-    <nav className="flex w-fit gap-0.5 rounded-xl border border-border bg-card p-[3px]">
+    <nav aria-label="แถบ tab" className="flex w-fit gap-0.5 rounded-xl border border-border bg-card p-[3px]">
       {TABS.map((tab) => {
         const isActive = tab.id === active;
         return (

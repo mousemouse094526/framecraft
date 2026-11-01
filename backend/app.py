@@ -25,9 +25,9 @@ async def lifespan(app: FastAPI):
 
 
 def require_json(request: Request) -> None:
-    """Every POST must be JSON: that forces a CORS preflight, which the backend
-    never answers, so no other site can start a job (ADR 0013)."""
-    if request.method != "POST":
+    """Every POST and PATCH must be JSON: that forces a CORS preflight, which the
+    backend never answers, so no other site can start a job or change a file (ADR 0013)."""
+    if request.method not in ("POST", "PATCH"):
         return
     media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if media_type != "application/json":

@@ -1,9 +1,9 @@
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
 import { notice, type Notice } from "../lib/notice";
 import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
-import { transcriptPath, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
+import { transcriptPath, type LineEditResult, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
 import clockIcon from "../assets/clock.svg";
 import copyIcon from "../assets/copy.svg";
 import fileIcon from "../assets/file-text.svg";
@@ -12,6 +12,7 @@ import { formatClock, formatDuration } from "./format";
 import { NoticeAlert } from "./NoticeAlert";
 import { NotReady } from "./NotReady";
 import { ProgressCard } from "./ProgressCard";
+import { TranscriptLineItem } from "./TranscriptLineItem";
 
 type Props = {
   /** The selected clip, or null (D25). */
@@ -30,6 +31,8 @@ type Props = {
   transcript: Transcript | null;
   onStart: () => void;
   onCancel: () => void;
+  /** Saves line `index`'s new text (spoil-maker D54). */
+  onEditLine: (clipId: string, index: number, text: string) => Promise<LineEditResult>;
 };
 
 /** What stands under the clip's title: one state of the panel's table (spec › Frontend). */
@@ -51,7 +54,7 @@ const TRANSCRIBED = notice("info", "คลิปนี้ถอดแล้ว")
 
 /** Figma component `Transcript panel`: the selected clip's player, its Transcribe job and Transcript (D22–D27, D33). */
 export function TranscriptPanel(props: Props) {
-  const { clip, videoRef, autoPlay, missing, job, jobTitle, notice, transcript, onStart, onCancel } = props;
+  const { clip, videoRef, autoPlay, missing, job, jobTitle, notice, transcript, onStart, onCancel, onEditLine } = props;
 
   if (clip === null) {
     return (
@@ -96,7 +99,8 @@ export function TranscriptPanel(props: Props) {
       <ActionArea action={action} transcribed={clip.transcribed} missing={missing} onStart={onStart} onCancel={onCancel} />
       {/* A new job replaces the Transcript when it ends; until then only its progress shows. */}
       {clip.transcribed && transcript && action.kind !== "progress" && (
-        <TranscriptView transcript={transcript} videoRef={videoRef} />
+        // Keyed apart from the player beside it, so another clip starts with no field open.
+        <TranscriptView key={`lines-${clip.id}`} transcript={transcript} videoRef={videoRef} onEditLine={(index, text) => onEditLine(clip.id, index, text)} />
       )}
     </section>
   );
@@ -162,9 +166,23 @@ function JobProgress({ job, onCancel }: { job: TranscribeJob; onCancel: () => vo
   );
 }
 
+type ViewProps = {
+  transcript: Transcript;
+  videoRef: RefObject<HTMLVideoElement | null>;
+  onEditLine: (index: number, text: string) => Promise<LineEditResult>;
+};
+
 /** The heading, Copy and the two files, then the lines; none of the buttons when there are no lines (D33). */
-function TranscriptView({ transcript, videoRef }: { transcript: Transcript; videoRef: RefObject<HTMLVideoElement | null> }) {
+function TranscriptView({ transcript, videoRef, onEditLine }: ViewProps) {
   const empty = transcript.lines.length === 0;
+  // One line at a time is a field; opening another drops the first one's unsaved text.
+  const [editing, setEditing] = useState<number | null>(null);
+
+  const save = async (index: number, text: string) => {
+    const result = await onEditLine(index, text);
+    if (result.kind === "saved") setEditing(null);
+    return result;
+  };
 
   const jumpTo = (seconds: number) => {
     const video = videoRef.current;
@@ -190,17 +208,15 @@ function TranscriptView({ transcript, videoRef }: { transcript: Transcript; vide
       ) : (
         <ol className="flex max-h-[320px] flex-col overflow-y-auto rounded-xl bg-muted p-2 leading-[1.5]">
           {transcript.lines.map((line, index) => (
-            <li key={index}>
-              {/* Figma component `Transcript line`: the whole line is the button. */}
-              <button
-                type="button"
-                onClick={() => jumpTo(line.start_s)}
-                className="flex w-full items-start gap-3 rounded-md px-2 py-1 text-left hover:bg-surface-strong"
-              >
-                <span className="shrink-0 font-mono text-[13px] whitespace-nowrap text-link">[{formatClock(line.start_s)}]</span>
-                <span className="min-w-0 flex-1 text-sm break-words text-foreground">{line.text}</span>
-              </button>
-            </li>
+            <TranscriptLineItem
+              key={index}
+              line={line}
+              editing={editing === index}
+              onJump={() => jumpTo(line.start_s)}
+              onStartEdit={() => setEditing(index)}
+              onClose={() => setEditing(null)}
+              onSave={(text) => save(index, text)}
+            />
           ))}
         </ol>
       )}

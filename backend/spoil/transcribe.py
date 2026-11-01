@@ -7,6 +7,7 @@ Steps and rules are in docs/features/spoil/spec.md › Transcribe (D23, D24, D27
 import logging
 import threading
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from queue import Empty
 from typing import Literal
@@ -50,6 +51,8 @@ class TranscriptLine(BaseModel):
     start_s: float
     end_s: float
     text: str
+    # The user changed the text (spoil-maker D54); a Transcript from before edits has none.
+    edited: bool = False
 
 
 class Transcript(BaseModel):
@@ -66,6 +69,12 @@ class _Cancelled(Exception):
     pass
 
 
+clip_users: list[Callable[[str], bool]] = []
+"""Checks that answer True while another feature's job is reading that clip's
+Transcript; a line of such a clip can't be edited (`clip_busy`, spoil-maker D54).
+spoil-maker's Draft job adds one (its ticket 03)."""
+
+
 class Transcriptions(JobSlot[TranscribeJob]):
     """Holds the latest Transcribe job. Its lock also guards every clip delete (D29)."""
 
@@ -75,8 +84,11 @@ class Transcriptions(JobSlot[TranscribeJob]):
         super().__init__()
         self._process = None  # the running child, for shutdown
 
-    def start(self, clip_id: str) -> TranscribeJob:
-        """Checks in spec order, then starts the job's thread. Raises `SpoilError`."""
+    def start(self, clip_id: str, confirm_edit_loss: bool = False) -> TranscribeJob:
+        """Checks in spec order, then starts the job's thread. Raises `SpoilError`.
+
+        A clip with edited lines needs `confirm_edit_loss`: the new Transcript replaces them (spoil-maker D54).
+        """
         project = ProjectPaths(paths.ROOT)
         require_rows(_needed_rows(project))
         # The gate just found a GPU and DeviceProbe caches it, so this is that same device.
@@ -85,6 +97,8 @@ class Transcriptions(JobSlot[TranscribeJob]):
             mp4 = clips.video_file(project, clip_id)  # 404 unless both json and mp4 are there
             if self._taken():
                 raise SpoilError(409, "busy", "กำลังถอดคลิปอื่นอยู่")
+            if not confirm_edit_loss and _has_edits(project, clip_id):
+                raise SpoilError(409, "has_edits", "ถอดใหม่จะลบบทพูดที่แก้ไว้")
             clip = clips.read_clip(project, clip_id)
             self._job = TranscribeJob(clip_id=clip_id, state="preparing")
             self._cancel.clear()
@@ -109,6 +123,30 @@ class Transcriptions(JobSlot[TranscribeJob]):
             if self._taken() and self._job.clip_id == clip_id:
                 raise SpoilError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ")
             clips.delete_clip(ProjectPaths(paths.ROOT), clip_id)
+
+    def edit_line(self, clip_id: str, n: str, text: str) -> TranscriptLine:
+        """Replaces line `n`'s text and marks it edited; times and line count stay,
+        so whatever points at a line by its index still holds (spoil-maker D54, ADR 0018).
+        Under the job's lock, so a Transcribe job can't start between the check and the write."""
+        # One line stays one line: a line break would add lines to `.txt` and split an `.srt` cue.
+        text = " ".join(text.split())
+        if not text:
+            raise SpoilError(400, "invalid_request", "บรรทัดต้องมีข้อความ")
+        project = ProjectPaths(paths.ROOT)
+        with self._lock:
+            transcript = read_transcript(project, clip_id)
+            # `n` comes as text so `x` and `-1` are 404, not a validation error; ASCII digits only.
+            index = int(n) if n.isascii() and n.isdigit() else -1
+            if not 0 <= index < len(transcript.lines):
+                raise SpoilError(404, "not_found", "ไม่พบบรรทัดนี้")
+            if self._taken() and self._job.clip_id == clip_id:
+                raise SpoilError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ รอให้ถอดเสร็จก่อนแล้วแก้")
+            if any(in_use(clip_id) for in_use in clip_users):
+                raise SpoilError(409, "clip_busy", "คลิปนี้กำลังถูกใช้ในงานอื่น")
+            line = transcript.lines[index]
+            line.text, line.edited = text, True
+            write_transcript(project, transcript)
+            return line
 
     def stop_on_shutdown(self) -> None:
         """Ctrl+C must not leave a child holding the GPU (D28). A child started after
@@ -217,6 +255,12 @@ def _needed_rows(project: ProjectPaths) -> dict[str, checks.Check]:
         WHISPER.label: lambda: checks.check_model(project, WHISPER),
         "Device": lambda: checks.check_device(checks.probe_device),
     }
+
+
+def _has_edits(project: ProjectPaths, clip_id: str) -> bool:
+    if not clips.transcript_path(project, clip_id).is_file():
+        return False
+    return any(line.edited for line in read_transcript(project, clip_id).lines)
 
 
 def _build_transcript(clip: clips.TempClip, segments: list[Segment]) -> Transcript:

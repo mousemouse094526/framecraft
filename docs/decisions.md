@@ -112,6 +112,7 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กตอน build กล่องถอด: คลิปที่เลือกอยู่กับ `useTranscribe`, status GET ครั้งเดียว, `busy` → GET current, ลบคลิปที่กำลังถอดไม่ปลด player, ซ่อน Transcript ระหว่างถอดใหม่, ไม่ autoPlay เมื่อเลือกเพราะงาน, `PageLayout wide` | [spoil](features/spoil/decisions.md) | D34 | — | — | changed by spoil-maker D53 |
 | แก้จาก feature review: gate สองงานผ่าน `require_rows`, `JobFailed`, `write_atomic`, `jobs.py` → `downloads.py`, `features/spoil/lib/`, งานโหลดไม่หลุดเมื่องานถอดได้ 503 | [spoil](features/spoil/decisions.md) | D35 | — | — | active |
 | แก้ข้อความ Transcript ทีละบรรทัดใน tab คลิป (เวลาและจำนวนบรรทัดไม่เปลี่ยน), `edited: true`, `PATCH .../transcript/lines/{n}`; ถอดใหม่ต้องยืนยัน (`has_edits`); `.txt` `.srt` token Draft job ใช้ข้อความที่แก้ | [spoil-maker](features/spoil-maker/decisions.md) | D54 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
+| ทางเลือกเล็กตอน build แถบ 3 tab และแก้ Transcript: `ClipsPage`/`SpoilMakerPage`, `useHash.ts`, `#/spoil/…` ไม่รู้จัก = ขั้น 1, `clip_users` ของ `clip_busy`, `PATCH` ต้องเป็น JSON, ข้อความแก้เป็นบรรทัดเดียว, ปุ่ม "แก้" แสดงตลอดบนจอสัมผัส, error ใต้ช่องแก้ | [spoil-maker](features/spoil-maker/decisions.md) | D55 | — | [0013](adr/0013-post-requires-json.md) | active |
 
 ## สร้างคลิปสปอย
 

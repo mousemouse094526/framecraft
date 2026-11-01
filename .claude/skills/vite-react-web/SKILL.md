@@ -17,7 +17,7 @@ The local UI. It only talks to the backend through `/api` (Vite proxy to
 frontend/src/
 ├── main.tsx
 ├── App.tsx
-├── features/[feature]/
+├── features/[feature]/   ← spoil (คลิป tab), spoil-maker (สปอย tab), setup-status
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   ├── hooks/        ← data fetching and state (calls lib/api)
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)
@@ -27,12 +27,13 @@ frontend/src/
 └── lib/
     ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
-    ├── useHashTab.ts ← which top tab is open, from the URL hash
+    ├── useHash.ts    ← the URL hash (`useHash`) and which top tab it opens (`tabOf`)
     └── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
 ```
 
 No router library and no `routes/`: `App` picks the page from the hash
-(`#/spoil`, `#/setup`, spoil D10). Each page wraps itself in `PageLayout`,
+(`#/setup`, `#/clips`, `#/spoil`, spoil D10, spoil-maker D53); a page with
+steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too. Each page wraps itself in `PageLayout`,
 whose tabs are plain `#/…` links, so clicks and the back button both just
 change the hash.
 

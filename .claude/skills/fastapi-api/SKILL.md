@@ -62,8 +62,8 @@ through a queue; the thread writes the result file (ADR 0012).
   fake (`spoil.adapter`, `spoil.start_worker`).
 - torch and transformers are imported inside the function that needs them,
   never at module import: the backend must start in under a second.
-- Every `POST` must be `application/json`, else `415` (ADR 0013); `app.py`
-  enforces it with an app-wide dependency, `require_json`.
+- Every `POST` and `PATCH` must be `application/json`, else `415` (ADR 0013);
+  `app.py` enforces it with an app-wide dependency, `require_json`.
 - `TrustedHostMiddleware` allows only `127.0.0.1`, `localhost`, `[::1]`
   (ADR 0011).
 - Every Hugging Face call passes `cache_dir` from `backend.paths`; never rely on

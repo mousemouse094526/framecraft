@@ -8,7 +8,7 @@ from backend.spoil import clips, downloads, transcribe
 from backend.spoil.clips import ListedClip
 from backend.spoil.errors import SpoilError
 from backend.spoil.downloads import DownloadJob
-from backend.spoil.transcribe import TranscribeJob, Transcript
+from backend.spoil.transcribe import TranscribeJob, Transcript, TranscriptLine
 
 
 router = APIRouter(prefix="/spoil")
@@ -20,6 +20,11 @@ class DownloadRequest(BaseModel):
 
 class TranscribeRequest(BaseModel):
     clip_id: str
+    confirm_edit_loss: bool = False
+
+
+class LineEdit(BaseModel):
+    text: str
 
 
 class ClipList(BaseModel):
@@ -58,6 +63,11 @@ def get_transcript(clip_id: str) -> Transcript:
     return transcribe.read_transcript(_project(), clip_id)
 
 
+@router.patch("/clips/{clip_id}/transcript/lines/{n}")
+def edit_transcript_line(clip_id: str, n: str, body: LineEdit) -> TranscriptLine:
+    return transcribe.transcriptions.edit_line(clip_id, n, body.text)
+
+
 @router.get("/clips/{clip_id}/transcript.txt")
 def get_transcript_txt(clip_id: str) -> Response:
     text = transcribe.transcript_txt(_project(), clip_id)
@@ -78,7 +88,7 @@ def _download(text: str, media_type: str, filename: str) -> Response:
 
 @router.post("/transcriptions", status_code=202)
 def start_transcription(body: TranscribeRequest) -> TranscribeJob:
-    return transcribe.transcriptions.start(body.clip_id)
+    return transcribe.transcriptions.start(body.clip_id, body.confirm_edit_loss)
 
 
 @router.get("/transcriptions/current")

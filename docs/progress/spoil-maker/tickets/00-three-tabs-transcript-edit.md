@@ -11,7 +11,7 @@
 - Seams: 1 (`PATCH .../transcript/lines/{n}`, `has_edits`), 2 (แถบ tab, route, แก้บรรทัด)
 - User stories: 13; spoil 1
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

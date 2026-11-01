@@ -15,8 +15,8 @@ import { NotReady } from "./NotReady";
 import { TempClipList } from "./TempClipList";
 import { TranscriptPanel } from "./TranscriptPanel";
 
-/** The สปอย tab: the link field and clip list, an arrow, then the transcript panel (D25, D33). */
-export function SpoilPage() {
+/** The คลิป tab (spoil-maker D53): the link field and clip list, an arrow, then the transcript panel (D25, D33). */
+export function ClipsPage() {
   const list = useTempClips();
   // A job that ends (or is lost) changes the list: load it once (D6).
   const { state, start, cancel, reload, recheckStatus } = useSpoilDownload(list.refetch);
@@ -32,7 +32,7 @@ export function SpoilPage() {
 
   if (state.kind === "offline" || list.state.kind === "offline" || transcribe.state.kind === "offline") {
     return (
-      <PageLayout tab="spoil" action={<RefreshButton onClick={refresh} />}>
+      <PageLayout tab="clips" action={<RefreshButton onClick={refresh} />}>
         <OfflinePanel />
       </PageLayout>
     );
@@ -40,7 +40,7 @@ export function SpoilPage() {
 
   if (state.kind === "loading" || list.state.kind === "loading" || transcribe.state.kind === "loading") {
     return (
-      <PageLayout tab="spoil">
+      <PageLayout tab="clips">
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
       </PageLayout>
     );
@@ -52,6 +52,12 @@ export function SpoilPage() {
   const transcribingClip = panel.job ? clips.find((clip) => clip.id === panel.job?.clip_id) : undefined;
   const notice = state.kind === "ready" ? state.notice : null;
 
+  /** Transcribing again replaces the lines the user edited, so it asks first (spoil-maker D54). */
+  const startTranscribe = async (clipId: string) => {
+    const result = await transcribe.start(clipId);
+    if (result.kind === "has_edits" && window.confirm(result.message)) await transcribe.start(clipId, true);
+  };
+
   /** Lets go of the file (Windows can't delete one the player holds open, D15), then empties the panel. */
   const closePlayer = () => {
     if (video.current) {
@@ -62,7 +68,7 @@ export function SpoilPage() {
   };
 
   return (
-    <PageLayout tab="spoil" wide>
+    <PageLayout tab="clips" wide>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-col gap-4 lg:w-[520px] lg:shrink-0">
           {state.kind === "notReady" && <NotReady missing={state.missing} />}
@@ -98,8 +104,9 @@ export function SpoilPage() {
           jobTitle={transcribingClip?.title ?? panel.job?.clip_id ?? null}
           notice={panel.notice}
           transcript={panel.transcript}
-          onStart={() => selected && void transcribe.start(selected.id)}
+          onStart={() => selected && void startTranscribe(selected.id)}
           onCancel={() => void transcribe.cancel()}
+          onEditLine={transcribe.editLine}
         />
       </div>
     </PageLayout>

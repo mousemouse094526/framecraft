@@ -863,6 +863,29 @@
 
 **From:** design review · **Status:** active
 
+## D55: ทางเลือกเล็กตอน build แถบ 3 tab และแก้ Transcript
+
+**Chosen:** รายละเอียดที่ build ticket 00 ตัดสินเองจาก conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **ชื่อในโค้ด:** หน้าของ tab คลิปคือ `ClipsPage` (เดิม `SpoilPage`) ยังอยู่ใน `features/spoil`; tab สปอยคือ `features/spoil-maker` (`SpoilMakerPage`, `SpoilSteps`). `lib/useHashTab.ts` เปลี่ยนเป็น `lib/useHash.ts` (`useHash()`, `tabOf`) ให้ทั้งแถบ tab และ tab สปอยอ่าน hash เดียวกัน
+- **hash ใต้ `#/spoil/` ที่ไม่รู้จัก:** เปิด tab สปอยที่ขั้น 1; `#/spoil/voices` ให้ ticket 02 ตัดสิน
+- **เนื้อหาของแต่ละขั้น:** ใน ticket นี้ใต้ตัวบอกขั้นยังว่าง; ticket 03 และ 04 ใส่
+- **ลิงก์ติดตั้งไม่ครบ:** ข้อความเป็น "ไปหน้าติดตั้ง" ทั้งของงานโหลดและงานถอด
+- **`clip_busy` ของการแก้บรรทัด:** `backend.spoil.transcribe.clip_users` เป็นรายการ check ที่งานของ feature อื่นใส่ไว้ (Draft job ใน ticket 03); test ของ ticket นี้ใช้ check ปลอม
+- **`n` ของบรรทัด:** รับเป็นข้อความแล้วแปลงเอง เพื่อให้ `x` และ `-1` เป็น `404` ไม่ใช่ `422`
+- **ลำดับการเช็คของ `PATCH`:** ข้อความว่าง `400` → คลิปหรือ Transcript หรือบรรทัดไม่มี `404` → `transcribing` → `clip_busy`; `has_edits` ของ `POST /transcriptions` อยู่หลัง `busy`
+- **`PATCH` ต้องเป็น JSON:** `require_json` ครอบ `PATCH` ด้วย (ADR-0013) ไม่รอ router ของ spoil-maker
+- **ปุ่ม "แก้":** ซ่อนจนชี้หรือ focus บรรทัด; จอสัมผัส (`pointer: coarse`) ไม่มี hover จึงแสดงตลอด — ต่างจาก frame มือถือที่แสดงบรรทัดแบบ default
+- **บรรทัดเดียวเสมอ:** backend รวมช่องว่างและขึ้นบรรทัดใหม่ในข้อความเป็นช่องว่างเดียว — ขึ้นบรรทัดใหม่จะเพิ่มบรรทัดใน `.txt` และแบ่ง cue ของ `.srt`
+- **ช่องแก้:** `textarea` บรรทัดเดียวที่ยืดตามข้อความ; Enter (กด Shift ด้วยก็ได้) = บันทึก, Escape = ยกเลิก; แก้ได้ทีละบรรทัด เปิดบรรทัดอื่นหรือเลือกคลิปอื่นทิ้งข้อความที่ยังไม่บันทึก
+- **error ของการบันทึก:** `400`, `404`, `409` แสดง `message` ของ backend ใต้ช่องและช่องยังเปิดอยู่ ข้อความที่พิมพ์ไม่หาย (`message` ของ `clip_busy` คือข้อความในตาราง Frontend); status อื่นเป็น offline
+- **ยืนยันถอดใหม่:** `window.confirm` ด้วย `message` ของ `409` `has_edits` ("ถอดใหม่จะลบบทพูดที่แก้ไว้") แบบเดียวกับยืนยันลบคลิป
+
+**Why:** อยู่ในขอบของ D53 และ D54 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบที่โค้ดเดิมใช้ (confirm ของการลบ, refusal เป็นคำตอบ, gate ของ route).
+
+**From:** build ticket 00 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)
