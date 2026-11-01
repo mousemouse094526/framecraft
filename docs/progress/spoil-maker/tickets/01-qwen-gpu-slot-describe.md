@@ -7,7 +7,7 @@
 **Covers:**
 - Decisions: D13, D14, D15, D16, D17, D45, D49 (`clip_busy` ของ Describe job), D50, D51, spoil D24
 - ADR: 0004, 0009, 0010, 0011, 0012, 0013, 0015, 0016, 0018
-- Screens: แถว Temp clip ใน tab คลิป (ยกเว้นคำเตือนของคลิปใน Spoil draft)
+- Screens: แถว Temp clip ใน tab คลิป (ยกเว้นคำเตือนของคลิปใน Spoil draft) — [Figma: Clip row states](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275)
 - Seams: 1 (Describe, ช่อง GPU และคลิปที่ไม่ใช้ Spoil draft, Status check ของ `model_qwen` และ `mlx_vlm`, ความปลอดภัยของ route ใน ticket นี้), 2 (ข้อของปุ่มดูภาพและ `gpu_busy`), 3 (Describe job)
 - User stories: 1
 
@@ -42,6 +42,7 @@
 
 ### หน้าเว็บ
 
+- แถว Temp clip ทุก state ของปุ่มดูภาพตรง [Figma: Clip row states](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275) ที่ 375 และ 1440 และเข้ากับหน้า tab คลิปของ ticket 00
 - แถวคลิปที่ถอดแล้ว กดดูภาพ, current คืน `describing` 40/100 แล้ว `done` → เห็น 40% แล้ว "ดูภาพแล้ว"
 - `409` `gpu_busy` `running: "transcribe"` → เห็น "รอให้งานถอดบทพูดเสร็จก่อน"; ปุ่มกดไม่ได้พร้อมเหตุผลเมื่อมีงาน GPU อื่น
 - ดูภาพคลิปที่ดูแล้ว → ยืนยันก่อนส่ง

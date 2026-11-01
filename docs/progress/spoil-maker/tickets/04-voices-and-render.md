@@ -7,7 +7,7 @@
 **Covers:**
 - Decisions: D9, D10, D20, D21, D22, D24, D30, D31, D36 (`.srt` ไม่แปลงตัวเลข), D40, D41, D42, D45 (Kanit, ค่าที่จำไว้), D49 (`clip_busy` ช่วง `voicing`), D51
 - ADR: 0005, 0009, 0010, 0012, 0015, 0017
-- Screens: หน้าตรวจแก้ (เสียง ลายน้ำ เสียงต้นฉบับ และ render), ผล render
+- Screens: หน้าตรวจแก้ (เสียง ลายน้ำ เสียงต้นฉบับ และ render) — [Figma: Script review](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390); ผล render — [Figma: Render results](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8055-16850); ขั้น 3 ใน [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633)
 - Seams: 1 (เสียงและตัวเลขข้อ Voice job `sentences`, Render, ข้อ Voice job ของแก้ draft, `clip_busy` และ `rendering` ของช่อง GPU, start ข้อ `.partial` และ `.render/`, Status check ของ `font_kanit` และแถวรวมทั้ง 4), 2 (หน้าตรวจแก้ข้อเสียงและลายน้ำ, ผล render), 3 (เสียงประโยค, ตัวเลข, render, iPhone และ YouTube Shorts)
 - User stories: 9, 10, 11
 - Legal: 1
@@ -43,6 +43,7 @@
 
 ### หน้าเว็บ
 
+- หน้าตาตรง Figma ทุก state ที่ 375 และ 1440: ส่วนเสียง ลายน้ำ เสียงต้นฉบับ และปุ่ม render ตาม [Figma: Script review](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390); ขั้น 3 ตาม [Figma: Render results](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8055-16850) วางในขั้นของ tab สปอยตาม [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633)
 - หน้าตรวจแก้: ฟังเสียงประโยค, สร้างเสียงใหม่, ปุ่มสร้างเสียงทั้งหมด; ความยาวประมาณ / เป้าหมายพร้อมคำเตือนเมื่อนอก ±25%
 - `GET /draft` มี `locked: true` และ current ของ Voice job `sentences` 1/3 → เห็น "สร้างเสียง 1/3" ปุ่มยกเลิก และช่องข้อความกดไม่ได้
 - ประโยค `no_shot` → ปุ่ม render กดไม่ได้

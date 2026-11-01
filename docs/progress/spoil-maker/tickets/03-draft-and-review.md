@@ -7,7 +7,7 @@
 **Covers:**
 - Decisions: D4, D5, D7, D8, D11, D18, D19, D25, D26, D27, D28, D29, D39, D40 (`original_volume` ใน draft และ settings), D43 (`voice_in_use`), D46, D49, D51
 - ADR: 0010, 0012, 0013, 0015, 0018
-- Screens: ตั้งค่าคลิปสปอย, หน้าตรวจแก้ (ยกเว้นเสียง ลายน้ำ และ render), ตัวเลือก Shot, แถว Temp clip ใน tab คลิป (คำเตือนของคลิปใน Spoil draft)
+- Screens: ตั้งค่าคลิปสปอย — [Figma: Spoiler setup](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8038-4681); หน้าตรวจแก้ (ยกเว้นเสียง ลายน้ำ และ render) — [Figma: Script review](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390); ตัวเลือก Shot — [Figma: Shot picker](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186); แถว Temp clip ใน tab คลิป (คำเตือนของคลิปใน Spoil draft) — [Figma: Clip row states](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275); ขั้น 1 และ 2 ใน [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633)
 - Seams: 1 (Draft, แก้ draft ยกเว้นข้อ Voice job, คลิปใน Spoil draft, ลบคลิปและ start ข้อ Spoil draft, `voice_in_use`, `POST /draft-jobs` `not_ready`), 2 (หน้าตั้งค่า, หน้าตรวจแก้ข้อบทและ Shot, ตัวเลือก Shot, คำเตือน `in_draft`, `voice_in_use`), 3 (ร่างบท)
 - User stories: 3, 5, 6, 7, 8, 12
 
@@ -47,6 +47,7 @@
 
 ### หน้าเว็บ
 
+- หน้าตาตรง Figma ทุก state ที่ 375 และ 1440: ขั้น 1 ตาม [Figma: Spoiler setup](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8038-4681), ขั้น 2 ตาม [Figma: Script review](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390) (ส่วนบทและ Shot), overlay ตาม [Figma: Shot picker](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186), คำเตือนในแถวคลิปตาม [Figma: Clip row states](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275); วางในขั้นของ tab สปอยตาม [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633)
 - `#/spoil` เปิด tab สปอยที่ขั้นเลือกคลิป (หน้าตั้งค่า, D53); ไม่มี Spoil draft ที่ `#/spoil/review` → ลิงก์ไปหน้าตั้งค่า
 - เลือก 2 คลิป `GET /tokens` คืน `total` 40,000 → ปุ่มร่างกดไม่ได้ และเห็น 40,000 / 32,000
 - คลิปที่ยังไม่ดูภาพเลือกไม่ได้และเห็น "ยังไม่ดูภาพ"; ไม่มีคลิปพร้อมเลย → เห็นข้อความว่างพร้อมลิงก์

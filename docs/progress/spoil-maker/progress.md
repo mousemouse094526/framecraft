@@ -1,6 +1,6 @@
 # Progress: spoil-maker
 
-**Now:** ticket 5 ใบ (00–04) ยังไม่เริ่ม; แบบหน้าจอครบทั้ง 7 จอใน Figma (ลิงก์ใน spec.md › Design)
+**Now:** ticket 5 ใบ (00–04) ยังไม่เริ่ม; ทุก ticket มี Figma link ของจอตัวเอง และมีข้อ acceptance ว่าหน้าตาตรง Figma (tab คลิปทั้งหน้าอยู่ใน 00)
 
 **Next:**
 

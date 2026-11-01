@@ -7,7 +7,7 @@
 **Covers:**
 - Decisions: D1, D32, D35, D36, D37, D41 (NOTICE.md), D43 (ยกเว้น `voice_in_use`), D44, D45 (pythainlp), D48, spoil D10
 - ADR: 0003, 0009, 0012, 0015, 0017, 0019
-- Screens: Saved voice (ยกเว้น error ลบเสียงที่ Spoil draft ใช้)
+- Screens: Saved voice (ยกเว้น error ลบเสียงที่ Spoil draft ใช้) — [Figma: Saved voice](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8034-3220)
 - Seams: 1 (เสียงและตัวเลข ข้อ `design_preview` และชื่อเสียง; Status check ของ `pythainlp`), 2 (หน้า Saved voice ยกเว้น `voice_in_use`), 3 (pythainlp ไม่สร้าง `~/pythainlp-data`)
 - User stories: 2, 4
 - Legal: 2
@@ -36,6 +36,7 @@
 
 ### หน้าเว็บ
 
+- หน้า Saved voice ตรง [Figma: Saved voice](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8034-3220) ทุก state ที่ 375 และ 1440 (ยกเว้น error `voice_in_use`) อยู่ใต้แถบ tab ของ ticket 00
 - `#/spoil/voices` เปิด tab สปอยที่หน้า Saved voice; hash ที่ขึ้นต้นด้วย `#/spoil/` ทุกอันเปิด tab สปอย
 - กดสุ่ม current `done` → มีปุ่มฟังและช่องชื่อ; บันทึก → อยู่ในรายการ; เปลี่ยนชื่อ → ส่ง `PATCH`; ลบ → ยืนยันก่อนส่ง `DELETE`
 - ไม่มี Saved voice → เห็น "ยังไม่มีเสียง กดสุ่มเพื่อออกแบบเสียงแรก"
