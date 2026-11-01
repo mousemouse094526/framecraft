@@ -43,6 +43,19 @@ class ProjectPaths:
         """Where yt-dlp writes while downloading; emptied on every start (spoil D14)."""
         return self.media_temp_dir / ".partial"
 
+    @property
+    def shots_dir(self) -> Path:
+        """Shots of every described Temp clip, one folder each (spoil-maker D51)."""
+        return self.media_temp_dir / "shots"
+
+    def clip_shots_dir(self, video_id: str) -> Path:
+        """A described clip's `shots.json` and `{n}.jpg` thumbnails."""
+        return self.shots_dir / video_id
+
+    def new_shots_dir(self, video_id: str) -> Path:
+        """Where a Describe job writes until it is `done`, so the old shots stay till then (D51)."""
+        return self.shots_dir / f".new-{video_id}"
+
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"
 

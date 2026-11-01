@@ -3,6 +3,8 @@ import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
 import { missingLabels, TRANSCRIBE_ITEMS } from "../lib/gate";
+import { gpuBusyText } from "../lib/gpu";
+import { useDescribe } from "../hooks/useDescribe";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";
 import { useTranscribe } from "../hooks/useTranscribe";
@@ -22,15 +24,22 @@ export function ClipsPage() {
   const { state, start, cancel, reload, recheckStatus } = useSpoilDownload(list.refetch);
   // A 503 to ถอดบทพูด means the install changed: check the status again.
   const transcribe = useTranscribe(list.refetch, recheckStatus);
+  const describe = useDescribe(list.refetch, recheckStatus);
   const video = useRef<HTMLVideoElement>(null);
 
   const refresh = () => {
     reload();
     list.reload();
     transcribe.reload();
+    describe.reload();
   };
 
-  if (state.kind === "offline" || list.state.kind === "offline" || transcribe.state.kind === "offline") {
+  if (
+    state.kind === "offline" ||
+    list.state.kind === "offline" ||
+    transcribe.state.kind === "offline" ||
+    describe.state.kind === "offline"
+  ) {
     return (
       <PageLayout tab="clips" action={<RefreshButton onClick={refresh} />}>
         <OfflinePanel />
@@ -38,7 +47,12 @@ export function ClipsPage() {
     );
   }
 
-  if (state.kind === "loading" || list.state.kind === "loading" || transcribe.state.kind === "loading") {
+  if (
+    state.kind === "loading" ||
+    list.state.kind === "loading" ||
+    transcribe.state.kind === "loading" ||
+    describe.state.kind === "loading"
+  ) {
     return (
       <PageLayout tab="clips">
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
@@ -51,6 +65,9 @@ export function ClipsPage() {
   const selected = clips.find((clip) => clip.id === panel.selectedId) ?? null;
   const transcribingClip = panel.job ? clips.find((clip) => clip.id === panel.job?.clip_id) : undefined;
   const notice = state.kind === "ready" ? state.notice : null;
+  const describing = describe.state.job;
+  // One GPU job at a time (spoil-maker D45): while one runs, ดูภาพ waits, saying for what.
+  const gpuBusyReason = panel.job ? gpuBusyText("transcribe") : describing ? gpuBusyText("describe") : null;
 
   /** Transcribing again replaces the lines the user edited, so it asks first (spoil-maker D54). */
   const startTranscribe = async (clipId: string) => {
@@ -89,6 +106,13 @@ export function ClipsPage() {
             onSelect={transcribe.select}
             onClosePlayer={closePlayer}
             onDelete={list.remove}
+            describe={{
+              job: describing,
+              errors: describe.state.errors,
+              busyReason: gpuBusyReason,
+              onStart: (id) => void describe.start(id),
+              onCancel: () => void describe.cancel(),
+            }}
           />
         </div>
         <div className="flex justify-center lg:pt-[140px]">

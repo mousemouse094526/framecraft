@@ -5,7 +5,7 @@ import shutil
 import pytest
 
 from backend.checks import run_checks
-from backend.models import MODELS, OMNIVOICE
+from backend.models import MODELS, OMNIVOICE, QWEN
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
@@ -113,16 +113,17 @@ def test_stale_lock_from_a_dead_process_is_taken_over(empty_root):
     assert not lock.exists()
 
 
-def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys):
+@pytest.mark.parametrize(("sys_platform", "required"), [("darwin", "20 GB"), ("win32", "15 GB")])
+def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys, sys_platform, required):
     download = FakeDownload(empty_root)
 
-    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 9 * GB)
+    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 9 * GB, sys_platform=sys_platform)
 
     assert exit_code == 1
     assert download.calls == []
     out = capsys.readouterr().out
     assert "9.0 GB" in out
-    assert "15 GB" in out
+    assert f"ต้องการ {required}" in out
 
 
 def test_running_backend_stops_setup_before_anything(empty_root, capsys):
@@ -194,3 +195,21 @@ def test_failed_npm_install_removes_lock_and_exits_1(fake_root, capsys):
     assert exit_code == 1
     assert not ProjectPaths(fake_root).setup_lock.exists()
     assert "ล้มที่ขั้น npm install: npm ERR! network" in capsys.readouterr().out
+
+
+def test_mac_setup_downloads_qwen_too(empty_root):
+    download = FakeDownload(empty_root)
+
+    run_with_fakes(empty_root, download, sys_platform="darwin")
+
+    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo", "mlx-community/Qwen3.5-9B-MLX-4bit"]
+    assert ProjectPaths(empty_root).marker(QWEN).is_file()
+
+
+def test_windows_setup_skips_the_mlx_model(empty_root):
+    download = FakeDownload(empty_root)
+
+    run_with_fakes(empty_root, download, sys_platform="win32")
+
+    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo"]
+    assert not ProjectPaths(empty_root).marker(QWEN).exists()

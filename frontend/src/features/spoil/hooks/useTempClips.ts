@@ -19,6 +19,8 @@ export type TempClip = {
   yt_dlp_version: string;
   /** Has a Transcript (D23). */
   transcribed: boolean;
+  /** Has Shots from a Describe job (spoil-maker D16). */
+  described: boolean;
 };
 
 export type ClipsState =
@@ -73,7 +75,7 @@ export function useTempClips() {
               deleteErrors,
             };
           });
-        } else if (reply.status === 409 && (refusal?.code === "in_use" || refusal?.code === "transcribing")) {
+        } else if (reply.status === 409 && refusal && ["in_use", "transcribing", "clip_busy"].includes(refusal.code)) {
           const message = refusal.message;
           setIfMounted((previous) =>
             previous.kind === "loaded" ? { ...previous, deleteErrors: { ...previous.deleteErrors, [id]: message } } : previous,

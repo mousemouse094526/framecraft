@@ -54,6 +54,10 @@ def ok_yt_dlp() -> str:
     return "2026.10.26"
 
 
+def ok_mlx_vlm() -> str:
+    return "0.7.11"
+
+
 def ok_deno() -> str:
     return "2.9.8"
 
@@ -68,7 +72,7 @@ def cuda_device() -> str:
 
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
-    probes = Probes(device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp)
+    probes = Probes(device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp, mlx_vlm=ok_mlx_vlm)
     return dataclasses.replace(probes, **overrides)
 
 
@@ -304,3 +308,123 @@ def write_transcript(project: ProjectPaths, video_id: str = "dQw4w9WgXcQ", lines
     }
     clips.transcript_path(project, video_id).write_text(json.dumps(transcript, ensure_ascii=False), encoding="utf-8")
     return transcript
+
+
+def make_test_clip(path: Path, colors: tuple[str, ...] = ("red", "white", "blue"), seconds_each: float = 1) -> Path:
+    """An mp4 of solid colours, `seconds_each` apiece, with a sine tone, made with ffmpeg's
+    `lavfi` so no media file sits in git (spoil-maker seam 1).
+
+    The scene filter compares brightness more than hue: red to green (about the same
+    luma) is no cut, so the default colours differ in brightness."""
+    import subprocess
+
+    import imageio_ffmpeg
+
+    inputs = []
+    for color in colors:
+        inputs += ["-f", "lavfi", "-i", f"color=c={color}:s=320x180:r=10:d={seconds_each}"]
+    total = seconds_each * len(colors)
+    inputs += ["-f", "lavfi", "-i", f"sine=frequency=440:duration={total}"]
+    joined = "".join(f"[{index}:v]" for index in range(len(colors)))
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(), "-nostdin", "-v", "error", "-y", *inputs,
+        "-filter_complex", f"{joined}concat=n={len(colors)}:v=1:a=0[v]",
+        "-map", "[v]", "-map", f"{len(colors)}:a",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(path),
+    ]  # fmt: skip
+    subprocess.run(command, check=True)
+    return path
+
+
+class FakeLlm:
+    """Stands in for `backend.spoil_maker.start_worker`, the mlx-vlm child process.
+
+    Each start runs a thread that answers `Ready`, then one `Generated` per
+    request: `describe(request)` makes its text. It can pause before answering
+    request `index` until the test calls `release` (or the process is
+    terminated) with `pause_at`, never answer it (`hang_at`, for timeouts), or
+    exit at it without a word (`crash_at`).
+    """
+
+    def __init__(self):
+        self.describe = lambda request: f"A frame at {request.image.name}."
+        self.requests = []
+        self.processes: list["FakeLlmProcess"] = []
+        self.crash_at: int | None = None
+        self.hang_at: int | None = None
+        self._paused: dict[int, threading.Event] = {}
+        self._reached: dict[int, threading.Event] = {}
+
+    def pause_at(self, index: int) -> None:
+        self._paused[index] = threading.Event()
+        self._reached[index] = threading.Event()
+
+    def wait_until(self, index: int) -> None:
+        assert self._reached[index].wait(5), f"LLM never reached request {index}"
+
+    def release(self, index: int) -> None:
+        self._paused[index].set()
+
+    def __call__(self, snapshot_dir: Path):
+        import queue
+
+        requests: queue.Queue = queue.Queue()
+        replies: queue.Queue = queue.Queue()
+        process = FakeLlmProcess(self, snapshot_dir, requests, replies)
+        self.processes.append(process)
+        process.start()
+        return process, requests, replies
+
+
+class FakeLlmProcess(FakeProcess):
+    """The `multiprocessing.Process` surface, answering requests from a thread."""
+
+    def __init__(self, llm: FakeLlm, snapshot_dir: Path, requests, replies):
+        self._llm, self.snapshot_dir = llm, snapshot_dir
+        self._requests, self._replies = requests, replies
+        self._killed = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self.terminated = False
+        self.exitcode: int | None = None
+
+    def _run(self) -> None:
+        from queue import Empty
+
+        from backend.spoil_maker.llm import Generated, Ready
+
+        self._replies.put(Ready())
+        index = 0
+        while not self._killed.is_set():
+            try:
+                request = self._requests.get(timeout=0.01)
+            except Empty:
+                continue
+            if request is None:
+                break
+            self._llm.requests.append(request)
+            if index == self._llm.crash_at:
+                self.exitcode = -11
+                return
+            if index in self._llm._paused:
+                self._llm._reached[index].set()
+                while not (self._llm._paused[index].is_set() or self._killed.is_set()):
+                    self._killed.wait(0.01)
+            if index == self._llm.hang_at:
+                self._killed.wait()
+            if self._killed.is_set():
+                break
+            self._replies.put(Generated(self._llm.describe(request)))
+            index += 1
+        self.exitcode = -15 if self._killed.is_set() else 0
+
+
+def jpeg_width(path: Path) -> int:
+    """The width in a JPEG's start-of-frame header, so tests need no image library."""
+    data = path.read_bytes()
+    index = 2  # after the SOI marker
+    while index < len(data):
+        marker, length = data[index + 1], int.from_bytes(data[index + 2 : index + 4], "big")
+        if marker in (0xC0, 0xC1, 0xC2):  # SOF0–SOF2: height then width follow the precision byte
+            return int.from_bytes(data[index + 7 : index + 9], "big")
+        index += 2 + length
+    raise ValueError(f"no frame header in {path}")

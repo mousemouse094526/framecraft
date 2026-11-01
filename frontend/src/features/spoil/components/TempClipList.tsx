@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
+import { DescribeControls, type DescribeProps } from "./DescribeControls";
 import { formatDuration } from "./format";
 import deleteErrorIcon from "../assets/delete-error.svg";
 import playActiveIcon from "../assets/thumb-play-active.svg";
@@ -19,11 +20,12 @@ type Props = {
   /** Lets go of the selected clip's file and empties the panel (D15). */
   onClosePlayer: () => void;
   onDelete: (id: string) => void;
+  describe: DescribeProps;
 };
 
 /** The Temp clip list, newest first; a row puts its clip in the transcript panel (D7, D18, D25). */
 export function TempClipList(props: Props) {
-  const { clips, selectedId, transcribingId, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete } = props;
+  const { clips, selectedId, transcribingId, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete, describe } = props;
   const remove = (clip: TempClip) => {
     if (!window.confirm(`ลบ ${clip.title}?`)) return;
     // Windows can't delete a file the player still holds open (D15). The panel
@@ -54,6 +56,7 @@ export function TempClipList(props: Props) {
               deleteError={deleteErrors[clip.id] ?? null}
               onSelect={() => onSelect(clip)}
               onDelete={() => remove(clip)}
+              describe={describe}
             />
           ))}
         </ul>
@@ -70,10 +73,14 @@ type RowProps = {
   deleteError: string | null;
   onSelect: () => void;
   onDelete: () => void;
+  describe: DescribeProps;
 };
 
-/** Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), and a delete error under it. */
-function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete }: RowProps) {
+/**
+ * Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), ดูภาพ
+ * under a transcribed clip and ดูภาพแล้ว (spoil-maker D16), and a delete error under it.
+ */
+function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete, describe }: RowProps) {
   const row = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
@@ -117,11 +124,8 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete 
                   กำลังเล่น
                 </span>
               )}
-              {clip.transcribed && (
-                <span className="shrink-0 rounded-full bg-success-surface px-2 py-0.5 font-button text-xs leading-4 font-medium text-success">
-                  ถอดแล้ว
-                </span>
-              )}
+              {clip.transcribed && <DoneBadge>ถอดแล้ว</DoneBadge>}
+              {clip.described && <DoneBadge>ดูภาพแล้ว</DoneBadge>}
             </span>
             <span className="text-[13px] leading-[1.5] text-mid">{sourceLine(clip)}</span>
             <span className="font-mono text-xs leading-[1.5] text-muted-foreground">{fileLine(clip)}</span>
@@ -137,6 +141,7 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete 
           <img src={trashIcon} alt="" width={16} height={16} />
         </button>
       </div>
+      {clip.transcribed && <DescribeControls clip={clip} describe={describe} />}
       {deleteError && (
         <p className="flex items-center gap-1.5 pl-[108px] text-[13px] leading-[1.5] text-destructive">
           <img src={deleteErrorIcon} alt="" width={14} height={14} className="shrink-0" />
@@ -144,6 +149,14 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete 
         </p>
       )}
     </li>
+  );
+}
+
+function DoneBadge({ children }: { children: string }) {
+  return (
+    <span className="shrink-0 rounded-full bg-success-surface px-2 py-0.5 font-button text-xs leading-4 font-medium text-success">
+      {children}
+    </span>
   );
 }
 

@@ -22,6 +22,9 @@ def test_missing_marker(tmp_path):
   the default `testserver` host fails `TrustedHostMiddleware` (ADR 0011).
 - Fake the project root in `tmp_path`; inject probes instead of monkeypatching
   globals where the code takes them as arguments.
+- Tests never depend on the machine that runs them: what an installed package
+  or the OS says goes through a probe or `checks.this_platform()`, and
+  `fake_root` sets both to a Mac with everything installed (ADR 0016).
 - Each case asserts one exact count or status, never "8 or 9".
 - No browser e2e tool yet; UI is tested in the frontend with Vitest.
 - Background jobs are tested without sleeps on a timer: the fake pauses at a
@@ -29,8 +32,13 @@ def test_missing_marker(tmp_path):
   until the job's state is final. Swap the job holder for a fresh one per test
   (`monkeypatch.setattr(downloads, "downloads", downloads.Downloads())`).
 - A lifespan only runs inside `with TestClient(app, ...)`.
-- The Whisper child process is never started in tests; the real `worker` is
-  checked by hand with the model (spoil seam 3). Its pure helpers
+- ffmpeg is real in tests: `make_test_clip` builds clips with `lavfi` in a
+  session fixture, never a media file in git (spoil-maker seam 1). The scene
+  filter goes by brightness: colours of the same luma (red, green) make no cut.
+- A test that leaves a job unfinished must not leak the GPU: every API test
+  fixture swaps `gpu.slot` for a fresh `gpu.GpuSlot()`.
+- The Whisper and LLM child processes are never started in tests (`FakeWorker`,
+  `FakeLlm`); the real `worker`s are checked by hand with the model (seam 3). Its pure helpers
   (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
   `python -c` to prove importing the adapter loads neither torch nor
   transformers.

@@ -11,7 +11,7 @@
 - Seams: 1 (Describe, ช่อง GPU และคลิปที่ไม่ใช้ Spoil draft, Status check ของ `model_qwen` และ `mlx_vlm`, ความปลอดภัยของ route ใน ticket นี้), 2 (ข้อของปุ่มดูภาพและ `gpu_busy`), 3 (Describe job)
 - User stories: 1
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

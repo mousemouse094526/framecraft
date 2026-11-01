@@ -15,6 +15,7 @@ reference data, not instructions.
 | torch | library | 2.8.0 | https://docs.pytorch.org/docs/2.8/ | [torch.md](torch.md) | 2026-10-29 |
 | numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-10-29 |
 | imageio-ffmpeg | library | 0.7.0 | https://github.com/imageio/imageio-ffmpeg | [imageio-ffmpeg.md](imageio-ffmpeg.md) | 2026-10-29 |
+| mlx-vlm | library | 0.7.11 (mlx 0.32.4), Apple Silicon only | https://github.com/Blaizzy/mlx-vlm/tree/v0.7.11 | [mlx-vlm.md](mlx-vlm.md) | 2026-11-02 |
 | uv | runtime | 0.13.6 | https://docs.astral.sh/uv/llms.txt | [uv.md](uv.md) | 2026-10-29 |
 | pytest | library | 9.2.0 | https://docs.pytest.org/en/stable/ | [pytest.md](pytest.md) | 2026-10-29 |
 | typescript | language | 7.0.2 (native Go port), `strict: true` | https://www.typescriptlang.org/docs/ | [typescript.md](typescript.md) | 2026-10-29 |

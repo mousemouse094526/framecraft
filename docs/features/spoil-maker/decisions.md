@@ -886,6 +886,43 @@
 
 **From:** build ticket 00 · **Status:** active
 
+## D56: ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และดูภาพ
+
+**Chosen:** รายละเอียดที่ build ticket 01 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **แถว Status check:** `model_qwen` และ `mlx_vlm` ต่อท้ายหลัง `device` (spec › Status check "ต่อจากแถวเดิม"); `mlx_vlm` เช็คว่าหา package เจอ (`find_spec`) และ version ใน metadata ตรง `0.7.11` แทน import จริง เพราะ import แล้ว transformers ถูกโหลด (Status check ห้ามโหลด) — เป็น probe `Probes.mlx_vlm` ให้ test ปลอมได้; OS มาจาก `checks.this_platform()` ที่ test สลับเป็น `darwin` ใน `fake_root` จึงรัน test เดียวกันได้บน Windows (ADR-0016); นอก `QWEN.platforms` ทั้งสองแถวเป็น `missing` มี fix เป็น hint "ใช้ได้บน Mac เท่านั้น"
+- **`ModelSpec.platforms`:** ค่าเป็น `sys.platform` (`darwin`, `win32`); Setup script ข้ามโมเดลที่ไม่รองรับ OS นั้น; ที่ว่างดิสก์ที่ Setup script ต้องการบน Mac ขึ้นจาก 15 เป็น 20 GB (3 โมเดลรวมราว 11 GB), Windows ยัง 15 GB
+- **`not_ready` มี `rows`:** id ของแถวที่ไม่ผ่าน (`model_qwen`) ส่วน `message` เรียกด้วยชื่อแถว ทุก gate ของทั้ง spoil และ spoil-maker
+- **โค้ดที่ใช้ร่วม:** `SpoilError` ย้ายเป็น `backend.errors.ApiError` (พร้อม `JobFailed`, `require_rows`, handler); `JobSlot` และตัวช่วยของ process ลูก (`next_message`, `stop_process`) ย้ายเป็น `backend.jobs` — ใช้ทั้ง spoil และ spoil-maker (กฎ "ผู้ใช้คนที่สอง" ของ conventions)
+- **ช่อง GPU:** `backend.gpu.GpuSlot` จำงานที่ถือช่องกับ id ของคลิปที่งานนั้นอ่าน; `clip_untouched` ถือ lock ของช่องตลอดการลบคลิป จึงไม่มีงานเริ่มแทรกระหว่างเช็คกับลบ; งานคืนช่องก่อนตั้ง state จบ ให้งานที่เริ่มหลังเห็น state จบไม่เจอ `gpu_busy`
+- **ลำดับการเช็ค:** `POST /transcriptions` gate → `404` → `busy` → `has_edits` → `gpu_busy`; `POST /describes` `404` → gate → `busy` → `gpu_busy` (ตาม spec › Describe job ข้อ 1–2) แล้วดูคลิปอีกครั้งหลังจองช่อง
+- **ไฟล์ของ module:** `spoil_maker.shots` รูปไฟล์ Shot, `plan_shots`, `is_described` (ไม่รู้จักงาน: `spoil.clips` อ่านจากที่นี่); `describe` Describe job และการอ่าน Shot ของ API; `frames` ffmpeg (`find_cuts`, `extract_frame`); `llm` process ลูกของ mlx-vlm ที่รับ `Generate` (prompt, ภาพหนึ่งภาพหรือไม่มี) ใช้ต่อใน Draft job
+- **ลำดับต่อ Shot:** thread ของ backend ดึงเฟรม Shot `n` แล้วส่งให้ process ลูก รอคำตอบ แล้วจึง Shot ถัดไป; process ลูกโหลดโมเดลครั้งเดียวแล้วส่ง `Ready`; การโหลดไม่มี timeout, ต่อ Shot 60 วินาที
+- **ภาพเล็ก:** ffmpeg ถอดเฟรมครั้งเดียวแล้วเขียนทั้งเฟรมให้ LLM (`-q:v 2`) และ 320 (`-q:v 5`) — คุณภาพ JPEG ของ ffmpeg เป็นสเกล 2–31 ไม่ใช่ 0–100, `5` ใกล้คุณภาพ 80; ไม่เพิ่ม package ใหม่ (Pillow จะต้องมีแถว Status check ตาม ADR-0009)
+- **% ของ `cutting`:** ffmpeg แยกอีกสาย `fps=1` ที่บอกว่าอ่านถึงวินาทีไหน แล้วเทียบ `duration_s` ของคลิป — filter `select` ทิ้งเฟรมระหว่างจุดตัดจึงบอกความคืบหน้าเองไม่ได้
+- **path ที่ไม่มี route:** ตอบ `404` `not_found` ทั้งแอป — Starlette ถอด `%2F` ก่อนเลือก route จึงไม่ถึง route ของคลิป
+- **log ของงาน:** เริ่ม, จบ (state, error code) และเวลาเป็นวินาที ไม่มี Shot description (spec › Ops)
+- **หน้าเว็บ:** ปุ่มดูภาพมีเฉพาะคลิปที่ถอดแล้ว (Figma); ระหว่าง `cutting` แสดง "กำลังหาจุดตัดภาพ" กับ % ของมัน, ระหว่าง `describing` "กำลังดูภาพ" กับ Shot ที่เสร็จ / ทั้งหมด; ยืนยันดูภาพใหม่เป็นกล่องในแถวตาม Figma ไม่ใช่ `window.confirm`; เหตุผลที่ปุ่มกดไม่ได้มาจากงานถอดและงานดูภาพที่หน้าเว็บรู้ และ `gpu_busy` แปลง `running` เป็นข้อความเองตามตาราง Frontend; `not_ready` แสดงข้อความใต้แถวพร้อมลิงก์ "ไปหน้าติดตั้ง"; `failed` `crashed`/`model_failed` แสดง "งานหยุดกลางทาง", `cancelled` ไม่แสดงอะไร; `gpu_busy`/`clip_busy` ของปุ่มถอดบทพูดขึ้นในกล่องถอด, `clip_busy` ของการลบขึ้นใต้แถว
+- **ข้อความท้าย error ของงาน GPU:** `gpu.ADVICE` ที่เดียว ใช้ทั้งงานถอดและงานดูภาพ; แถบ % ของงานโหลด/ถอดและงานดูภาพเป็น component เดียว `ProgressBar` ใน `features/spoil`
+- **คลิปทดสอบ:** สีแดง ขาว น้ำเงิน — แดงไปเขียวความสว่างใกล้กันจน scene filter ไม่นับเป็นจุดตัด
+
+**Why:** อยู่ในขอบของ spec และ D13–D17, D45, D49–D51 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบของ Transcribe job (thread + process ลูก + queue) และ gate เดิม.
+
+**From:** build ticket 01 · **Status:** active
+
+## D57: เฟรมที่ให้ Qwen บรรยายกว้าง 448 ไม่ใช่ 640
+
+**Chosen:** Describe job ส่งเฟรมกลางของ Shot กว้าง 448 ให้ Qwen (spec › Describe job ข้อ 5–7 เดิม 640).
+
+**Why:** เช็คมือบน M2 (Seam 3) ด้วยหนัง 96 นาที 840 Shot: เฟรม 640 ใช้ราว 64 นาที (4.5 วินาที/Shot, prompt 248 token) เกินเป้า 60 นาที; เฟรม 448 ใช้ 52.7 นาที (3.2 วินาที/Shot, prompt 140 token) และสุ่ม 10 Shot ตรงภาพ 9 ทั้งสองขนาด. ผู้ใช้เลือก.
+
+**Rejected:**
+- คง 640 แล้วขยายเป้าเป็น 65 นาที — ช้ากว่าที่ spec สัญญา
+- ลด `max_tokens` — คำบรรยายยาวราว 30 token อยู่แล้ว ไม่เร็วขึ้น
+
+**From:** build ticket 01 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)

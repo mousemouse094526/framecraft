@@ -1,0 +1,245 @@
+"""The Describe job: one at a time, a backend thread that owns the state and every
+file, ffmpeg for the cuts and frames, and a child process that runs Qwen (ADR 0010,
+ADR 0012, ADR 0015). Also reads the Shots it leaves, for the API.
+
+Steps and rules are in docs/features/spoil-maker/spec.md › Describe job (D15, D16, D17, D51).
+"""
+
+import logging
+import re
+import shutil
+import threading
+import time
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel
+
+from backend import checks, gpu, paths, spoil_maker
+from backend.models import QWEN
+from backend.paths import ProjectPaths
+from backend.spoil import clips
+from backend.errors import ApiError, JobFailed, Row, require_rows
+from backend.jobs import Cancelled, ChildGone, JobSlot, next_message, short, stop_process
+from backend.spoil_maker import frames, shots
+from backend.spoil_maker.frames import FfmpegFailed
+from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
+
+log = logging.getLogger(__name__)
+
+State = Literal["cutting", "describing", "done", "failed", "cancelled"]
+UNFINISHED: frozenset[State] = frozenset({"cutting", "describing"})
+ErrorCode = Literal["crashed", "model_failed", "ffmpeg_failed", "internal"]
+
+# llm-trial › รอบ 2: English, short, one frame at a time.
+DESCRIBE_PROMPT = "Describe this frame in English in no more than 30 words."
+DESCRIBE_MAX_TOKENS = 80
+DESCRIBE_TEMPERATURE = 0.0
+DESCRIBE_TIMEOUT_SECONDS = 60  # per Shot; longer and the child is terminated (spec › ค่าการสร้างข้อความ)
+
+SHOT_IMAGE = re.compile(r"(\d{1,5})\.jpg")
+
+
+class DescribeJobError(BaseModel):
+    code: ErrorCode
+    message: str
+
+
+class DescribeJob(BaseModel):
+    """Every spoil-maker job has these fields; the ones a kind doesn't use stay null (spec › API)."""
+
+    kind: Literal["describe"] = "describe"
+    state: State
+    clip_id: str
+    percent: int | None = None
+    done: int | None = None
+    total: int | None = None
+    error: DescribeJobError | None = None
+    cancel_requested: bool = False
+    started_at: str
+
+
+class Describes(JobSlot[DescribeJob]):
+    """Holds the latest Describe job."""
+
+    unfinished = UNFINISHED
+
+    def __init__(self):
+        super().__init__()
+        self._process = None  # the running child, for shutdown
+
+    def start(self, clip_id: str) -> DescribeJob:
+        """Checks in spec order (404, the gate, `busy`, `gpu_busy`), then starts the job's thread."""
+        project = ProjectPaths(paths.ROOT)
+        clips.video_file(project, clip_id)
+        require_rows(_needed_rows(project))
+        with self._lock:
+            if self._taken():
+                raise ApiError(409, "busy", "กำลังดูภาพคลิปอื่นอยู่")
+            gpu.slot.take("describe", [clip_id])
+            try:
+                # Again under the slot: a delete may have run since the first look, and none can now.
+                mp4 = clips.video_file(project, clip_id)
+                clip = clips.read_clip(project, clip_id)
+            except ApiError:
+                gpu.slot.release("describe")
+                raise
+            self._job = DescribeJob(clip_id=clip_id, state="cutting", percent=0, started_at=checks.now_iso())
+            self._cancel.clear()
+            job = self._job.model_copy(deep=True)
+        thread = threading.Thread(target=self._run, args=(project, clip, mp4), daemon=True)
+        thread.start()
+        return job
+
+    def cancel(self) -> DescribeJob:
+        """Asks the thread to stop ffmpeg or the child; the job ends as `cancelled`."""
+        with self._lock:
+            if not self._taken():
+                raise ApiError(404, "not_found", "ไม่มีงานดูภาพที่ยังไม่จบ")
+            self._job.cancel_requested = True
+            self._cancel.set()
+            return self._job.model_copy(deep=True)
+
+    def stop_on_shutdown(self) -> None:
+        """Ctrl+C must not leave a child holding the GPU. A child started after this
+        sees the cancel flag at its first poll and is stopped by its thread."""
+        self._cancel.set()
+        with self._lock:
+            process = self._process
+        if process is not None:
+            stop_process(process)
+
+    def _run(self, project: ProjectPaths, clip: clips.TempClip, mp4: Path) -> None:
+        # Stays `failed` only if something escapes every handler below.
+        ending: dict = {"state": "failed"}
+        started = time.monotonic()
+        log.info("describing %s started", clip.id)
+        new = project.new_shots_dir(clip.id)
+        process = None
+        try:
+            shutil.rmtree(new, ignore_errors=True)
+            (new / "frames").mkdir(parents=True)
+            spans = self._cut(mp4, clip.duration_s)
+            self._update(state="describing", percent=None, done=0, total=len(spans))
+            process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(QWEN, QWEN.revision))
+            with self._lock:
+                self._process = process
+            self._reply(process, replies, timeout=None)  # `Ready`: loading has no timeout
+            described = []
+            for n, (start, end) in enumerate(spans):
+                frame = new / "frames" / f"{n}.jpg"
+                # The middle frame: the start and end of a Shot blur into its neighbours (D17).
+                frames.extract_frame(mp4, (start + end) / 2, thumbnail=new / f"{n}.jpg", llm_frame=frame)
+                requests.put(Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE))
+                reply = self._reply(process, replies, timeout=DESCRIBE_TIMEOUT_SECONDS)
+                described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
+                self._update(done=n + 1)
+            requests.put(None)
+            result = shots.ShotsFile(clip_id=clip.id, shots=described)
+            (new / shots.SHOTS_FILE).write_text(result.model_dump_json(indent=2), encoding="utf-8")
+            shutil.rmtree(new / "frames")
+            _swap(project, clip.id)
+            ending = {"state": "done"}
+        except Cancelled:
+            ending = {"state": "cancelled"}
+        except FfmpegFailed as error:
+            log.error("ffmpeg failed on %s: %s", clip.id, error)
+            ending = _failed("ffmpeg_failed", "อ่านภาพจากคลิปไม่ได้")
+        except JobFailed as failure:
+            ending = _failed(failure.code, failure.message)
+        except Exception as error:
+            log.exception("describing %s failed", clip.id)  # the full error, for [api]
+            ending = _failed("internal", f"ดูภาพไม่สำเร็จ: {short(error)}")
+        finally:
+            # Whatever happened, the job must end and free the GPU, or every later POST is refused.
+            if process is not None:
+                try:
+                    stop_process(process)
+                except Exception:
+                    log.exception("could not stop the LLM process")
+            with self._lock:
+                self._process = None
+            if ending["state"] != "done":
+                shutil.rmtree(new, ignore_errors=True)  # the old Shots stay (D51)
+            gpu.slot.release("describe")
+            self._update(**ending)
+            # No Shot description in the log: only what happened and how long (spec › Ops).
+            code = ending["error"].code if ending.get("error") else None
+            log.info("describing %s ended %s %s after %.0f s", clip.id, ending["state"], code or "", time.monotonic() - started)
+
+    def _cut(self, mp4: Path, duration_s: int | None) -> list[tuple[float, float]]:
+        """`cutting`: the scene filter's cut times, as Shot spans. Raises `Cancelled`."""
+
+        def on_progress(at_s: float) -> None:
+            # 100 waits for the cut list: ffmpeg reads the last second before it ends.
+            if duration_s:
+                self._update(percent=min(99, int(at_s * 100 / duration_s)))
+
+        cuts, duration = spoil_maker.find_cuts(mp4, on_progress, self._cancel)
+        if self._cancel.is_set():
+            raise Cancelled()
+        return shots.plan_shots(cuts, duration)
+
+    def _reply(self, process, replies, timeout: float | None) -> Ready | Generated:
+        """The child's next message. Raises `Cancelled`, or `JobFailed` when the child
+        errs, dies, or takes longer than `timeout` seconds."""
+        try:
+            message = next_message(process, replies, self._cancel, timeout)
+        except ChildGone as gone:
+            raise JobFailed("crashed", f"ตัวดูภาพหยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
+        except TimeoutError:
+            raise JobFailed("model_failed", f"บรรยายภาพเกิน {timeout:g} วินาที. {gpu.ADVICE}") from None
+        if isinstance(message, WorkerError):
+            log.error("the LLM process failed (%s): %s", message.code, message.detail)
+            raise JobFailed("model_failed", f"ดูภาพไม่สำเร็จ: {short(message.detail)}. {gpu.ADVICE}")
+        if not isinstance(message, (Ready, Generated)):
+            raise RuntimeError(f"unknown message from the LLM process: {message!r}")
+        return message
+
+
+def _swap(project: ProjectPaths, video_id: str) -> None:
+    """The new Shots replace the old ones only now, at the end (D51)."""
+    target = project.clip_shots_dir(video_id)
+    shutil.rmtree(target, ignore_errors=True)
+    project.new_shots_dir(video_id).rename(target)
+
+
+def _failed(code: ErrorCode, message: str) -> dict:
+    return {"state": "failed", "error": DescribeJobError(code=code, message=message)}
+
+
+def _needed_rows(project: ProjectPaths) -> dict[str, Row]:
+    """The Status check rows a Describe job needs, by id (spec › Status check).
+
+    Off a Mac the two LLM rows are never ok (D50).
+    """
+    return {
+        "ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg)),
+        "device": ("Device", lambda: checks.check_device(checks.probe_device)),
+        QWEN.check_id: (QWEN.label, lambda: checks.check_model_on_platform(project, QWEN, checks.this_platform())),
+        "mlx_vlm": ("mlx-vlm", lambda: checks.check_mlx_vlm(checks.probe_mlx_vlm, checks.this_platform())),
+    }
+
+
+def clip_shots(project: ProjectPaths, video_id: str) -> shots.ShotsFile:
+    """A described clip's Shots. Raises `ApiError` 404 `not_found` for an unknown
+    clip, `not_described` for one never described."""
+    clips.check_known(project, video_id)
+    found = shots.read_shots(project, video_id)
+    if found is None:
+        raise ApiError(404, "not_described", "คลิปนี้ยังไม่ได้ดูภาพ")
+    return found
+
+
+def shot_image(project: ProjectPaths, video_id: str, name: str) -> Path:
+    """`{n}.jpg` of a described clip. Only a Shot number of that clip gets near the disk."""
+    clips.check_known(project, video_id)
+    found = shots.read_shots(project, video_id)
+    match = SHOT_IMAGE.fullmatch(name)
+    path = project.clip_shots_dir(video_id) / name
+    if found is None or match is None or int(match.group(1)) >= len(found.shots) or not path.is_file():
+        raise ApiError(404, "not_found", "ไม่พบภาพนี้")
+    return path
+
+
+describes = Describes()

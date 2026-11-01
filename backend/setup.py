@@ -27,8 +27,9 @@ from backend.paths import ROOT, ProjectPaths
 
 IS_WINDOWS = sys.platform == "win32"
 BACKEND_ADDRESS = ("127.0.0.1", 8000)
-# The two models together are about 5 GB; the rest is headroom for partial downloads.
-REQUIRED_FREE_BYTES = 15_000_000_000
+# The models are about 11 GB with Qwen (Mac only) and 5 GB without; the rest is
+# headroom for partial downloads.
+REQUIRED_FREE_BYTES = {"darwin": 20_000_000_000, "win32": 15_000_000_000}
 STATUS_ICONS = {"ok": "✓", "warning": "!", "missing": "✗"}
 
 Download = Callable[..., str]
@@ -42,6 +43,7 @@ def run_setup(
     backend_running: Callable[[], bool] | None = None,
     free_bytes: Callable[[Path], int] | None = None,
     probes: Probes | None = None,
+    sys_platform: str = sys.platform,
 ) -> int:
     """Downloads what is missing and prints the checklist. Returns the exit code."""
     download = download or _snapshot_download
@@ -60,15 +62,17 @@ def run_setup(
         return 1
     step = "เช็คโมเดล"
     try:
-        to_download = [m for m in MODELS if check_model(project, m)[0] != "ok"]
+        # An MLX model doesn't run on Windows, so it isn't downloaded there (spoil-maker D50).
+        to_download = [
+            m for m in MODELS if sys_platform in m.platforms and check_model(project, m)[0] != "ok"
+        ]
         if to_download:
             step = "เช็คที่ว่างบนดิสก์"
             free = free_bytes(root)
-            if free < REQUIRED_FREE_BYTES:
-                print(
-                    f"ที่ว่างบนดิสก์ไม่พอ: มี {free / 1e9:.1f} GB "
-                    f"ต้องการ {REQUIRED_FREE_BYTES // 1_000_000_000} GB"
-                )
+            # Another OS (Linux, for tests) is held to the larger, Mac figure.
+            required = REQUIRED_FREE_BYTES.get(sys_platform, REQUIRED_FREE_BYTES["darwin"])
+            if free < required:
+                print(f"ที่ว่างบนดิสก์ไม่พอ: มี {free / 1e9:.1f} GB ต้องการ {required // 1_000_000_000} GB")
                 return 1
         for model in to_download:
             step = f"โหลด {model.repo_id}"
@@ -90,7 +94,7 @@ def run_setup(
     finally:
         project.setup_lock.unlink(missing_ok=True)
 
-    result = run_checks(root, probes)
+    result = run_checks(root, probes, sys_platform)
     _print_checklist(result)
     if not result.ready:
         missing = [i.label for i in result.items if i.status == "missing"]

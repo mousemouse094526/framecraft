@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson, getReply, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
+import { busyText } from "../lib/gpu";
 import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../lib/job";
 import { notice, type Notice } from "../lib/notice";
 import { refusalOf, type Refusal } from "../lib/refusal";
@@ -200,6 +201,12 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
           return HANDLED;
         }
         if (reply.status === 409 && refusal?.code === "has_edits") return { kind: "has_edits", message: refusal.message };
+        const busy = busyText(refusal);
+        if (reply.status === 409 && busy) {
+          // Another GPU job runs, or one reads this clip (spoil-maker D45, D49).
+          setIfMounted(whenLoaded((s) => ({ ...s, notice: notice("error", busy, clipId) })));
+          return HANDLED;
+        }
         if (reply.status === 404 && code === "not_found") {
           setIfMounted(whenLoaded((s) => ({ ...s, notice: notice("error", "ไม่พบคลิปนี้", clipId) })));
           onClipsChanged();

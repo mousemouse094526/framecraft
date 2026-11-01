@@ -14,6 +14,7 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "yt-dlp[default,deno]>=2026.10.26",
+    "mlx-vlm==0.7.11 ; sys_platform == 'darwin'",
 ]
 
 [dependency-groups]

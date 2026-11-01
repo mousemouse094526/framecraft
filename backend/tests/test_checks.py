@@ -1,7 +1,8 @@
 import sys
 
+from backend import checks
 from backend.checks import DeviceProbe, run_checks
-from backend.models import OMNIVOICE
+from backend.models import OMNIVOICE, QWEN
 from backend.paths import ProjectPaths
 
 from .fakes import (
@@ -18,18 +19,18 @@ def checks_with_fakes(root, sys_platform=None, **probe_overrides):
     return run_checks(root, fake_probes(**probe_overrides), sys_platform)
 
 
-def test_complete_root_with_cuda_is_ready_with_eleven_ok(fake_root):
-    result = checks_with_fakes(fake_root)
+def test_a_complete_root_on_a_mac_is_ready_with_thirteen_ok(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="darwin")
 
     assert result.ready is True
-    assert result.ok_count == 11
-    assert result.total == 11
+    assert result.ok_count == 13
+    assert result.total == 13
 
 
 def test_cpu_only_device_is_a_warning_but_still_ready(fake_root):
     result = checks_with_fakes(fake_root, device=lambda: "cpu")
 
-    assert result.ok_count == 10
+    assert result.ok_count == 12
     assert result.warning_count == 1
     assert item(result, "device").status == "warning"
     assert result.ready is True
@@ -76,7 +77,7 @@ def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
 
     assert item(result, "ffmpeg").status == "missing"
     assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
-    assert len(result.items) == 11
+    assert len(result.items) == 13
 
 
 def test_yt_dlp_and_deno_rows_follow_ffmpeg_with_their_versions(fake_root):
@@ -105,7 +106,7 @@ def test_deno_probe_that_raises_makes_only_deno_missing(fake_root):
 
     assert item(result, "deno").status == "missing"
     assert item(result, "deno").fix == "./setup.sh"
-    assert len(result.items) == 11
+    assert len(result.items) == 13
     assert result.missing_count == 1
 
 
@@ -150,6 +151,8 @@ def test_items_come_in_the_spec_order(fake_root):
         "model_omnivoice",
         "model_whisper",
         "device",
+        "model_qwen",
+        "mlx_vlm",
     ]
 
 
@@ -225,3 +228,37 @@ def test_wrong_python_inside_the_venv_says_the_version_not_the_venv(fake_root, m
     assert python.status == "warning"
     assert python.detail == "Python 3.13.1 ใน .venv ต้องเป็น 3.12"
     assert python.fix_kind == "hint"
+
+
+def test_qwen_and_mlx_vlm_rows_are_ok_on_a_mac(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="darwin")
+
+    assert item(result, "model_qwen").status == "ok"
+    assert item(result, "model_qwen").license.name == "Apache-2.0"
+    assert item(result, "mlx_vlm").status == "ok"
+    assert item(result, "mlx_vlm").detail == "0.7.11"
+
+
+def test_qwen_and_mlx_vlm_rows_are_missing_on_windows_even_when_installed(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="win32")
+
+    for row in ("model_qwen", "mlx_vlm"):
+        assert item(result, row).status == "missing"
+        assert item(result, row).detail == "ยังไม่รองรับบน Windows"
+    assert item(result, "model_whisper").status == "ok"
+
+
+def test_missing_qwen_marker_makes_only_qwen_missing(fake_root):
+    ProjectPaths(fake_root).marker(QWEN).unlink()
+
+    result = checks_with_fakes(fake_root, sys_platform="darwin")
+
+    assert item(result, "model_qwen").status == "missing"
+    assert result.missing_count == 1
+
+
+def test_another_mlx_vlm_version_makes_mlx_vlm_missing(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="darwin", mlx_vlm=lambda: "0.8.0")
+
+    assert item(result, "mlx_vlm").status == "missing"
+    assert item(result, "mlx_vlm").detail == "version ไม่ตรง: ติดตั้งไว้ 0.8.0 ต้องการ 0.7.11"

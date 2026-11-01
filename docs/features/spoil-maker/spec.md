@@ -182,9 +182,9 @@
    2. ช่วงยาวกว่า 10 วินาทีแบ่งเป็น `ceil(ยาว / 10)` ท่อนเท่ากัน
    3. Shot สั้นกว่า 1 วินาทีรวมเข้า Shot ก่อนหน้า; Shot แรกที่สั้นกว่า 1 วินาทีรวมเข้า Shot ถัดไป
    4. เลข Shot `n` เริ่มที่ 0 ตามเวลา
-5. ดึงเฟรมกลางของแต่ละ Shot ลง folder ชั่วคราว `media/temp/shots/.new-{id}/`: JPEG กว้าง 320 คุณภาพ 80 ชื่อ `{n}.jpg` และ JPEG กว้าง 640 ให้ LLM (D45, D51)
-6. state `describing` (`done` / `total` Shot): process ลูกโหลด Qwen แล้วบรรยายเฟรม 640 ทีละ Shot เป็นภาษาอังกฤษไม่เกิน 30 คำ ตาม llm-trial › รอบ 2; ค่าการสร้างตาม Draft job › ค่าการสร้างข้อความ
-7. เขียน `media/temp/shots/.new-{id}/shots.json`, ลบเฟรม 640, แล้วสลับ: ลบ `media/temp/shots/{id}/` เดิมถ้ามี และ rename folder ใหม่เป็น `media/temp/shots/{id}/` (D51)
+5. ดึงเฟรมกลางของแต่ละ Shot ลง folder ชั่วคราว `media/temp/shots/.new-{id}/`: JPEG กว้าง 320 คุณภาพ 80 ชื่อ `{n}.jpg` และ JPEG กว้าง 448 ให้ LLM (D45, D51, D57)
+6. state `describing` (`done` / `total` Shot): process ลูกโหลด Qwen แล้วบรรยายเฟรม 448 ทีละ Shot เป็นภาษาอังกฤษไม่เกิน 30 คำ ตาม llm-trial › รอบ 2; ค่าการสร้างตาม Draft job › ค่าการสร้างข้อความ
+7. เขียน `media/temp/shots/.new-{id}/shots.json`, ลบเฟรม 448, แล้วสลับ: ลบ `media/temp/shots/{id}/` เดิมถ้ามี และ rename folder ใหม่เป็น `media/temp/shots/{id}/` (D51)
 8. คลิปอยู่ใน Spoil draft (ยืนยันแล้วในข้อ 1) → ลบ Spoil draft (D49)
 9. คืนช่อง GPU
 

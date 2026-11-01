@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import checks, paths, spoil
+from backend import checks, gpu, paths, spoil
 from backend.app import app
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
@@ -51,6 +51,7 @@ def ready(fake_root, worker, monkeypatch) -> None:
     monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
     monkeypatch.setattr(checks, "probe_device", cuda_device)
     monkeypatch.setattr(transcribe, "transcriptions", transcribe.Transcriptions())
+    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
 
 
 @pytest.fixture
@@ -338,7 +339,11 @@ def test_a_missing_whisper_marker_is_not_ready(client, project):
     response = start(client)
 
     assert response.status_code == 503
-    assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Whisper model"}
+    assert response.json() == {
+        "code": "not_ready",
+        "message": "ยังติดตั้งไม่ครบ: Whisper model",
+        "rows": ["model_whisper"],
+    }
 
 
 def test_a_cpu_device_is_not_ready(client, project, monkeypatch):
@@ -348,7 +353,7 @@ def test_a_cpu_device_is_not_ready(client, project, monkeypatch):
     response = start(client)
 
     assert response.status_code == 503
-    assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Device"}
+    assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Device", "rows": ["device"]}
 
 
 def test_a_broken_ffmpeg_is_not_ready(client, project, monkeypatch):

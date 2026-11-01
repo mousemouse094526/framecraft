@@ -4,6 +4,7 @@ Never imports `omnivoice` or `transformers` and never uses the network.
 Packages are checked through their installed metadata only.
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -18,7 +19,7 @@ from typing import Literal, get_args
 from pydantic import BaseModel
 
 from backend import paths
-from backend.models import MODELS, ModelSpec
+from backend.models import OMNIVOICE, QWEN, WHISPER, ModelSpec
 from backend.paths import ProjectPaths
 
 ItemStatus = Literal["ok", "missing", "warning"]
@@ -26,6 +27,7 @@ ItemStatus = Literal["ok", "missing", "warning"]
 FixKind = Literal["command", "hint"]
 
 VERSION_TIMEOUT_SECONDS = 5
+MLX_VLM_VERSION = "0.7.11"  # the pin in pyproject.toml (spoil-maker spec › Dependencies)
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,9 @@ class FixTexts:
 
 
 RUN_BACKEND_FIX = Fix("รัน backend ด้วย npm run dev", "hint")
+MAC_ONLY_FIX = Fix("ใช้ได้บน Mac เท่านั้น", "hint")
+# Only Mac and Windows are supported (ADR 0006), so "not here" means Windows.
+UNSUPPORTED_HERE = "ยังไม่รองรับบน Windows"
 
 
 def _fix_texts(sys_platform: str) -> FixTexts:
@@ -158,6 +163,23 @@ def probe_yt_dlp() -> str:
         raise RuntimeError("ยังไม่ได้ติดตั้ง") from None
 
 
+def probe_mlx_vlm() -> str:
+    """The installed mlx-vlm version, from its metadata only: importing mlx_vlm loads
+    transformers, which the Status check never does. Raises when it isn't installed."""
+    try:
+        version = metadata.version("mlx-vlm")
+    except metadata.PackageNotFoundError:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง") from None
+    if importlib.util.find_spec("mlx_vlm") is None:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง")
+    return version
+
+
+def this_platform() -> str:
+    """The OS this process runs on, as `sys.platform`; tests swap it."""
+    return sys.platform
+
+
 def probe_deno() -> str:
     """Runs `deno --version` from the `deno` wheel in the venv; raises if it fails.
 
@@ -198,11 +220,14 @@ class Probes:
     ffmpeg: Callable[[], FfmpegInfo]
     deno: Callable[[], str]
     yt_dlp: Callable[[], str]
+    mlx_vlm: Callable[[], str]
 
 
 def real_probes() -> Probes:
     # Looked up at call time, so tests can swap the module's probes.
-    return Probes(device=probe_device, ffmpeg=probe_ffmpeg, deno=probe_deno, yt_dlp=probe_yt_dlp)
+    return Probes(
+        device=probe_device, ffmpeg=probe_ffmpeg, deno=probe_deno, yt_dlp=probe_yt_dlp, mlx_vlm=probe_mlx_vlm
+    )
 
 
 def run_checks(
@@ -216,7 +241,10 @@ def run_checks(
     """
     project = ProjectPaths(root or paths.ROOT)
     probes = probes or real_probes()
-    fixes = _fix_texts(sys_platform or sys.platform)
+    sys_platform = sys_platform or this_platform()
+    fixes = _fix_texts(sys_platform)
+    # The LLM runs on Apple Silicon only; Windows is the windows-launch feature (spoil-maker D50, ADR 0016).
+    llm_fix = fixes.setup if sys_platform in QWEN.platforms else MAC_ONLY_FIX
 
     items = [
         _item("python", "Python venv", lambda: _check_python(project), RUN_BACKEND_FIX),
@@ -228,8 +256,12 @@ def run_checks(
         # The spoil download gate calls these two probes too (spoil D9).
         _item("yt_dlp", "yt-dlp", lambda: check_version(probes.yt_dlp), fixes.setup),
         _item("deno", "Deno", lambda: check_version(probes.deno), fixes.setup),
-        *(_model_item(project, model, fixes.setup) for model in MODELS),
+        _model_item(project, OMNIVOICE, fixes.setup, sys_platform),
+        _model_item(project, WHISPER, fixes.setup, sys_platform),
         _item("device", "Device", lambda: check_device(probes.device), fixes.device),
+        # spoil-maker's rows follow the older ones (spoil-maker spec › Status check).
+        _model_item(project, QWEN, llm_fix, sys_platform),
+        _item("mlx_vlm", "mlx-vlm", lambda: check_mlx_vlm(probes.mlx_vlm, sys_platform), llm_fix),
     ]
     counts = {s: sum(1 for i in items if i.status == s) for s in get_args(ItemStatus)}
     return StatusResponse(
@@ -290,7 +322,7 @@ def _item(
     )
 
 
-def _model_item(project: ProjectPaths, model: ModelSpec, fix: Fix) -> ChecklistItem:
+def _model_item(project: ProjectPaths, model: ModelSpec, fix: Fix, sys_platform: str) -> ChecklistItem:
     license = License(
         name=model.license,
         url=model.license_url,
@@ -300,10 +332,28 @@ def _model_item(project: ProjectPaths, model: ModelSpec, fix: Fix) -> ChecklistI
     return _item(
         model.check_id,
         model.label,
-        lambda: check_model(project, model),
+        lambda: check_model_on_platform(project, model, sys_platform),
         fix,
         license,
     )
+
+
+def check_model_on_platform(project: ProjectPaths, model: ModelSpec, sys_platform: str) -> tuple[ItemStatus, str]:
+    """`check_model`, on an OS the model runs on; never `ok` on another (spoil-maker D50)."""
+    if sys_platform not in model.platforms:
+        return "missing", UNSUPPORTED_HERE
+    return check_model(project, model)
+
+
+def check_mlx_vlm(probe: Callable[[], str], sys_platform: str) -> tuple[ItemStatus, str]:
+    """Installed at the pinned version. MLX runs where Qwen runs (D50); a failing probe
+    raises, and _item turns that into `missing`."""
+    if sys_platform not in QWEN.platforms:
+        return "missing", UNSUPPORTED_HERE
+    version = probe()
+    if version != MLX_VLM_VERSION:
+        return "missing", f"version ไม่ตรง: ติดตั้งไว้ {version} ต้องการ {MLX_VLM_VERSION}"
+    return "ok", version
 
 
 def _check_python(project: ProjectPaths) -> tuple[ItemStatus, str]:

@@ -1,5 +1,6 @@
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import cancelIcon from "../assets/cancel-x.svg";
+import { ProgressBar } from "./ProgressBar";
 
 type Props = {
   headline: string;
@@ -26,7 +27,7 @@ export function ProgressCard({ headline, percent, bar, cancelling, onCancel, noC
           <p className="shrink-0 font-mono font-medium text-brand">{percent}%</p>
         )}
       </div>
-      {bar !== undefined && <Bar percent={bar} cancelling={cancelling} />}
+      {bar !== undefined && <ProgressBar percent={bar} label="ความคืบหน้า" cancelling={cancelling} />}
       <div className="flex justify-end">
         {noCancelReason ? (
           <p className="text-[13px] leading-[1.5] text-muted-foreground">{noCancelReason}</p>
@@ -38,26 +39,5 @@ export function ProgressCard({ headline, percent, bar, cancelling, onCancel, noC
         )}
       </div>
     </section>
-  );
-}
-
-/** A known percent fills the bar; an unknown one shows a segment (Figma frame 5). */
-function Bar({ percent, cancelling }: { percent: number | "unknown"; cancelling: boolean }) {
-  const fillColor = cancelling ? "bg-border-strong" : "bg-brand-accent";
-  return (
-    <div
-      role="progressbar"
-      aria-label="ความคืบหน้า"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent === "unknown" ? undefined : percent}
-      className="relative h-2 w-full overflow-hidden rounded-full bg-muted"
-    >
-      {percent === "unknown" ? (
-        <div className={`absolute inset-y-0 left-[32%] w-[23%] rounded-[4px] opacity-90 ${fillColor}`} />
-      ) : (
-        <div className={`absolute inset-y-0 left-0 rounded-[4px] ${fillColor}`} style={{ width: `${percent}%` }} />
-      )}
-    </div>
   );
 }

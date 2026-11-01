@@ -4,12 +4,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.exception_handlers import http_exception_handler
+from starlette.exceptions import HTTPException
 
-from backend import paths
+from backend import errors, paths
+from backend.errors import ApiError
 from backend.paths import ProjectPaths
-from backend.routes import setup_status, spoil
+from backend.routes import setup_status, spoil, spoil_maker
 from backend.spoil import clips, downloads, transcribe
-from backend.spoil.errors import SpoilError
+from backend.spoil_maker import describe, shots
 
 # Binding 127.0.0.1 doesn't stop DNS rebinding from another site (ADR 0011).
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
@@ -18,10 +21,14 @@ ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Jobs don't survive a restart, so their leftovers go (spoil D15, D29).
-    clips.clean_on_start(ProjectPaths(paths.ROOT))
+    project = ProjectPaths(paths.ROOT)
+    clips.clean_on_start(project)
+    # After the clips: Shots of a clip that start-up removed go too (spoil-maker spec › Ops).
+    shots.clean_on_start(project, {clip.id for clip in clips.list_clips(project)})
     yield
     downloads.downloads.stop_on_shutdown()
     transcribe.transcriptions.stop_on_shutdown()
+    describe.describes.stop_on_shutdown()
 
 
 def require_json(request: Request) -> None:
@@ -31,12 +38,22 @@ def require_json(request: Request) -> None:
         return
     media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if media_type != "application/json":
-        # SpoilError is the API's one refusal shape, `{"code", "message"}`.
-        raise SpoilError(415, "unsupported_media_type", "ต้องส่งเป็น JSON")
+        # ApiError is the API's one refusal shape, `{"code", "message"}`.
+        raise ApiError(415, "unsupported_media_type", "ต้องส่งเป็น JSON")
+
+
+async def unknown_path_response(request: Request, error: HTTPException):
+    """A path no route matches (`..%2F` decodes to `../` before routing) answers in the
+    API's one refusal shape too, `404` `not_found` (spoil-maker spec › API)."""
+    if error.status_code == 404:
+        return errors.error_response(request, ApiError(404, "not_found", "ไม่พบ"))
+    return await http_exception_handler(request, error)
 
 
 app = FastAPI(title="framecraft", lifespan=lifespan, dependencies=[Depends(require_json)])
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
-app.add_exception_handler(SpoilError, spoil.spoil_error_response)
+app.add_exception_handler(ApiError, errors.error_response)
+app.add_exception_handler(HTTPException, unknown_path_response)
 app.include_router(setup_status.router, prefix="/api")
 app.include_router(spoil.router, prefix="/api")
+app.include_router(spoil_maker.router, prefix="/api")

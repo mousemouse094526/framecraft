@@ -1,12 +1,11 @@
-from fastapi import APIRouter, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend import paths
 from backend.paths import ProjectPaths
 from backend.spoil import clips, downloads, transcribe
 from backend.spoil.clips import ListedClip
-from backend.spoil.errors import SpoilError
 from backend.spoil.downloads import DownloadJob
 from backend.spoil.transcribe import TranscribeJob, Transcript, TranscriptLine
 
@@ -116,11 +115,3 @@ def get_current_download() -> DownloadJob | None:
 @router.delete("/downloads/current", status_code=202)
 def cancel_download() -> DownloadJob:
     return downloads.downloads.cancel()
-
-
-def spoil_error_response(request: Request, error: SpoilError) -> JSONResponse:
-    """Registered in app.py: every refusal is `{"code", "message"}` plus any extra field."""
-    return JSONResponse(
-        status_code=error.status,
-        content={"code": error.code, "message": error.message, **error.extra},
-    )

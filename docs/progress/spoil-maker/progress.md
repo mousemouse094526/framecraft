@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** 00 done — แอปมี 3 tab และแก้ Transcript ทีละบรรทัดได้; ต่อไป 01 (Qwen, ช่อง GPU, ดูภาพ)
+**Now:** 01 done — ติดตั้ง Qwen บน Mac, ช่อง GPU ช่องเดียว และปุ่มดูภาพในแถว Temp clip; ต่อไป 02 (Saved voice)
 
 **Next:**
 
 ```
-/warroom-build spoil-maker 01
+/warroom-build spoil-maker 02
 ```
 
 ## Tickets
@@ -13,12 +13,38 @@
 | # | Title | Status |
 |---|---|---|
 | 00 | แถบ 3 tab และแก้ Transcript | done |
-| 01 | ติดตั้ง Qwen, ช่อง GPU และดูภาพ | ready |
+| 01 | ติดตั้ง Qwen, ช่อง GPU และดูภาพ | done |
 | 02 | Saved voice | ready |
 | 03 | ร่างบทและหน้าตรวจแก้ | ready |
 | 04 | เสียงต่อประโยคและ render | ready |
 
 ## Log
+
+### 01: ติดตั้ง Qwen, ช่อง GPU และดูภาพ — done 2026-11-02
+
+**Built:**
+- ติดตั้ง: `QWEN` (Qwen3.5 9B MLX 4bit) ต่อท้าย `MODELS`, `ModelSpec.platforms` — Setup script บน Mac โหลดและเขียน marker, Windows ข้าม; ที่ว่างดิสก์บน Mac 20 GB; `mlx-vlm==0.7.11` marker `darwin`
+- Status check: แถว `model_qwen` และ `mlx_vlm` หลัง `device` (13 แถว); Windows → `missing` "ยังไม่รองรับบน Windows"; `mlx_vlm` อ่าน metadata ผ่าน probe `Probes.mlx_vlm` ไม่ import
+- ช่อง GPU `backend.gpu.GpuSlot`: งานถอดและงานดูภาพจองก่อนเริ่ม, ชนกัน → `409` `gpu_busy` `running`; คืนช่องทุกทางออก; ลบคลิปที่งานอ่านอยู่ → `409` `clip_busy`; งานโหลดไม่ใช้ช่อง
+- Describe job (`backend.spoil_maker`): `POST/GET/DELETE /api/spoil-maker/describes[/current]`, `GET /clips/{id}/shots[/{n}]`; ffmpeg หาจุดตัด (% ของ `cutting`) → `plan_shots` (แบ่งช่วง > 10 วินาที, รวมช่วง < 1 วินาที) → เฟรมกลาง 448 ให้ Qwen + ภาพเล็ก 320 → process ลูก mlx-vlm บรรยายทีละ Shot (timeout 60 วินาที) → สลับ folder `.new-{id}` เมื่อ `done`; ยกเลิกเก็บ Shot เดิม; startup ล้าง `.new-*` และ Shot ของคลิปที่ล้าง; ลบคลิปลบ Shot
+- โค้ดใช้ร่วม: `backend.errors.ApiError` (เดิม `SpoilError`), `backend.jobs` (`JobSlot`, `next_message`, `stop_process`); `404` `not_found` สำหรับ path ที่ไม่มี route ทั้งแอป
+- หน้าเว็บ: `DescribeControls` ในแถว Temp clip ที่ถอดแล้วตาม Figma Clip row states — ดูภาพ / % / ดูภาพแล้ว / กดไม่ได้พร้อมเหตุผล / ยืนยันดูภาพใหม่ในแถว / error ใต้แถว + ลิงก์ติดตั้ง; `gpu_busy` ของปุ่มถอดขึ้นในกล่องถอด; `ProgressBar` ใช้ร่วมกับ `ProgressCard`
+- test เดิน Windows ได้: `fake_root` ตั้ง `checks.this_platform()` = `darwin` และ probe mlx-vlm ปลอม (ADR-0016); กฎใน `fastapi-api/rules/testing.md`
+- เช็คมือบน M2 (Seam 3): Library assumptions mlx-vlm ทั้ง 3 ข้อผ่าน (โหลดจาก snapshot 4 วินาที, `enable_thinking=False` ให้ `<think></think>` ว่าง, `generate` มีและไม่มีภาพ → `.text`); หนัง 96 นาที (Night of the Living Dead, 5743 วินาที) → 840 Shot, เฟรม 640 ใช้ ~64 นาที (เกินเป้า) → เปลี่ยนเป็น 448 ใช้ **52.7 นาที** (cutting ~4 นาที, 3.2 วินาที/Shot), สุ่ม 10 Shot ตรงภาพ 9 ทั้งสองรอบ; ยกเลิกระหว่าง `describing` → process ลูกหายใน 0.31 วินาที, ไม่มี `.new-*`
+- หน้าเว็บเทียบ Figma ที่ 1440 และ 375 ระหว่างงานจริง (กำลังหาจุดตัดภาพ %, ปุ่มคลิปอื่นกดไม่ได้ "รอให้งานดูภาพเสร็จก่อน"), 375 ไม่มี scroll แนวนอน
+
+**Decided:**
+- D56 — ทางเลือกเล็ก: ตำแหน่งแถว Status check, probe mlx-vlm และ `this_platform`, `platforms`, `not_ready` มี `rows`, โค้ดใช้ร่วม, `GpuSlot.clip_untouched`, ลำดับการเช็ค, ไฟล์ของ module, ลำดับต่อ Shot และ timeout, ภาพเล็ก ffmpeg `-q:v 5`, % ของ `cutting`, `404` ทั้งแอป, log, รายละเอียดหน้าเว็บ, `gpu.ADVICE`, `ProgressBar`
+- D57 — เฟรมที่ Qwen บรรยายกว้าง 448 ไม่ใช่ 640 (ผู้ใช้เลือก; spec › Describe job ข้อ 5–7 แก้แล้ว)
+
+**For the next ticket:**
+- 03: Draft job ใช้ `backend.spoil_maker.llm` (`Generate` ไม่มีภาพ) และต้องจองช่อง GPU (`gpu.Kind` เพิ่ม `draft`, `RUNNING_NAMES` ทั้ง backend และ `frontend/.../lib/gpu.ts`); `confirm_draft_loss` และ `in_draft` ยังไม่มี; ใส่ check ใน `transcribe.clip_users` (จาก 00)
+- review ที่ไม่ได้แก้ (refactor ใหญ่): ท้าย `_run` และ `stop_on_shutdown` ของ `Describes` กับ `Transcriptions` ซ้ำกัน — ย้ายเข้า `backend.jobs` เมื่อ Draft job เป็นงานลูกที่สาม; แถว gate (`ffmpeg`, `Device`) ซ้ำใน `_needed_rows` สามที่; `ending` เป็น `dict` ไม่มี type; `video_id` กับ `clip_id` ใช้ปนใน `describe.py`/`paths.py`; `ClipsPage` เช็ค `.kind` ของ hook ทีละตัวซ้ำ
+- `not_ready` ของ spoil มี `rows` และ `404` `not_found` ทั้งแอป — ขยายเกิน ticket (D56); ยืนยันตอน feature review
+- หน้าเว็บที่เปิดค้างก่อนงานดูภาพเริ่มจากที่อื่นไม่เห็นงานจนโหลดหน้าใหม่ (poll เฉพาะเมื่อตามงานอยู่, D16) — แบบเดียวกับงานถอด
+- มือถือ: tag "ถอดแล้ว" อยู่ใต้ชื่อ แต่ Figma วางท้าย meta (layout ของ ticket 00)
+
+**Checks:** `uv run pytest` — 233 passed; `npm --prefix frontend test` — 100 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 00: แถบ 3 tab และแก้ Transcript — done 2026-11-01
 

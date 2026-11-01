@@ -20,15 +20,22 @@ backend/
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
 ├── disk.py       ← free disk space, shared by setup and spoil
+├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
+│                    JobFailed, `require_rows` (the gate of every job)
+├── jobs.py       ← JobSlot (one job of a kind, ADR 0010) and the child
+│                    process helpers every GPU job uses (ADR 0012)
+├── gpu.py        ← the one GPU slot every model job takes (ADR 0015)
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips,
 │                    downloads (Download job),
 │                    transcribe (Transcribe job, Transcript files),
 │                    whisper (the only torch/transformers import for
-│                    transcribing; its `worker` runs in a child process),
-│                    errors (SpoilError, JobFailed, and `require_rows`,
-│                    the gate both jobs use)
+│                    transcribing; its `worker` runs in a child process)
+├── spoil_maker/  ← the สปอย tab (spoil-maker D56): shots (Shot files),
+│                    describe (Describe job), frames (ffmpeg for Shots),
+│                    llm (the only mlx-vlm import; its `worker` runs in a
+│                    child process)
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -50,20 +57,26 @@ through a queue; the thread writes the result file (ADR 0012).
 - A second user appears → move it to a top-level module named for its kind, in
   the same change. Never create a shared file ahead of need.
 - Transcribing stayed inside `backend/spoil/` (spoil spec › Modules touched):
-  it works on Temp clips only. The next AI feature (TTS) decides whether
-  features move into `backend/features/{feature}/`; record it here when it does.
+  it works on Temp clips only. spoil-maker, the next AI feature, is a sibling
+  package `backend/spoil_maker/` (its spec › Modules touched); features stay
+  top-level packages, not `backend/features/{feature}/`.
 
 ## Never break
 
 - Nothing installs packages or downloads models at runtime; only `backend.setup`
   does. Media from a link the user typed may be fetched at runtime (ADR 0008).
 - Only one module per library that talks to the outside world (the yt-dlp
-  adapter, the Whisper adapter in `backend.spoil`); tests replace it with a
-  fake (`spoil.adapter`, `spoil.start_worker`).
-- torch and transformers are imported inside the function that needs them,
-  never at module import: the backend must start in under a second.
+  adapter, the Whisper adapter in `backend.spoil`, the mlx-vlm adapter
+  `spoil_maker.llm`); tests replace it with a fake (`spoil.adapter`,
+  `spoil.start_worker`, `spoil_maker.start_worker`).
+- torch, transformers, mlx-vlm and Pillow are imported inside the function
+  that needs them, never at module import: the backend must start in under a second.
+- Every job that loads a model takes `gpu.slot` before it starts and releases
+  it on every ending, before its state reads as finished (ADR 0015).
 - Every `POST` and `PATCH` must be `application/json`, else `415` (ADR 0013);
   `app.py` enforces it with an app-wide dependency, `require_json`.
+- A path no route matches answers `404` `not_found` in the same shape
+  (`app.py`): `%2F` decodes before routing.
 - `TrustedHostMiddleware` allows only `127.0.0.1`, `localhost`, `[::1]`
   (ADR 0011).
 - Every Hugging Face call passes `cache_dir` from `backend.paths`; never rely on

@@ -113,6 +113,8 @@ question; the full entry is in the feature's decisions.md.
 | แก้จาก feature review: gate สองงานผ่าน `require_rows`, `JobFailed`, `write_atomic`, `jobs.py` → `downloads.py`, `features/spoil/lib/`, งานโหลดไม่หลุดเมื่องานถอดได้ 503 | [spoil](features/spoil/decisions.md) | D35 | — | — | active |
 | แก้ข้อความ Transcript ทีละบรรทัดใน tab คลิป (เวลาและจำนวนบรรทัดไม่เปลี่ยน), `edited: true`, `PATCH .../transcript/lines/{n}`; ถอดใหม่ต้องยืนยัน (`has_edits`); `.txt` `.srt` token Draft job ใช้ข้อความที่แก้ | [spoil-maker](features/spoil-maker/decisions.md) | D54 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
 | ทางเลือกเล็กตอน build แถบ 3 tab และแก้ Transcript: `ClipsPage`/`SpoilMakerPage`, `useHash.ts`, `#/spoil/…` ไม่รู้จัก = ขั้น 1, `clip_users` ของ `clip_busy`, `PATCH` ต้องเป็น JSON, ข้อความแก้เป็นบรรทัดเดียว, ปุ่ม "แก้" แสดงตลอดบนจอสัมผัส, error ใต้ช่องแก้ | [spoil-maker](features/spoil-maker/decisions.md) | D55 | — | [0013](adr/0013-post-requires-json.md) | active |
+| ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และดูภาพ: แถว `model_qwen`/`mlx_vlm` หลัง `device`, `ModelSpec.platforms`, `not_ready` มี `rows` (id), `ApiError`/`backend.jobs` ใช้ร่วม, `GpuSlot.clip_untouched`, ลำดับการเช็ค, ไฟล์ของ `spoil_maker`, ภาพเล็ก ffmpeg `-q:v 5`, `404` `not_found` ทั้งแอป, ยืนยันดูภาพใหม่ในแถว | [spoil-maker](features/spoil-maker/decisions.md) | D56 | — | [0015](adr/0015-one-gpu-slot.md) | active |
+| เฟรมที่ Qwen บรรยายกว้าง 448 (เดิม 640): หนัง 96 นาทีจบใน 52.7 นาทีแทน 64 นาทีบน M2 | [spoil-maker](features/spoil-maker/decisions.md) | D57 | — | — | active |
 
 ## สร้างคลิปสปอย
 
