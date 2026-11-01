@@ -1,6 +1,6 @@
 # Spec: spoil
 
-ผู้ใช้วางลิงก์ YouTube ใน tab สปอย แล้วแอปโหลดคลิปมาเก็บเป็น Temp clip พร้อมหน้าต่างบอกว่าโหลดอะไรมา. จากนั้นเลือกคลิปเข้ากล่องถอดบทพูด แล้วกดให้ Whisper ถอดคำพูดเป็น Transcript ที่อ่าน คัดลอก และโหลดเป็นไฟล์ได้.
+ผู้ใช้วางลิงก์ YouTube ใน tab คลิป (spoil-maker D53) แล้วแอปโหลดคลิปมาเก็บเป็น Temp clip พร้อมหน้าต่างบอกว่าโหลดอะไรมา. จากนั้นเลือกคลิปเข้ากล่องถอดบทพูด แล้วกดให้ Whisper ถอดคำพูดเป็น Transcript ที่อ่าน คัดลอก และโหลดเป็นไฟล์ได้.
 
 **Status:** ready-to-build
 
@@ -10,19 +10,19 @@
 
 ## Solution
 
-- tab ด้านบนของแอปสลับระหว่าง สปอย กับ Setup status (D10)
+- tab ด้านบนของแอป 3 tab: ติดตั้ง · คลิป · สปอย (D10, spoil-maker D53)
 - วางลิงก์ YouTube คลิปเดียว แล้วโหลดคลิปทุกแนวที่ด้านสั้นไม่เกิน 1080 px เป็น mp4 (D5)
 - เห็น % ระหว่างโหลด และกดยกเลิกได้ (D6)
 - เห็นรายการ Temp clip ที่โหลดมา เล่นดูในหน้าเว็บ และกดลบได้ (D3, D7)
 - Setup script ติดตั้ง yt-dlp กับ Deno และ Status check บอกว่าติดตั้งครบไหม (D1, D8, D9)
-- เลือก Temp clip เข้ากล่องถอดบทพูดทางขวาของรายการ มีลูกศรคั่นกลาง (D25)
+- เลือก Temp clip เข้ากล่องถอดบทพูดทางขวาของรายการใน tab คลิป มีลูกศรคั่นกลาง (D25, spoil-maker D53)
 - กดถอด → Whisper large-v3-turbo ถอดคำพูดทุกภาษาเป็น Transcript พร้อมเวลา เห็น % และยกเลิกได้ (D21, D24, D26)
-- Transcript เก็บคู่คลิป แถวแสดง "ถอดแล้ว", Copy ทั้งหมด, โหลด `.txt` และ `.srt` (D22, D23)
+- Transcript เก็บคู่คลิป แถวแสดง "ถอดแล้ว", Copy ทั้งหมด, โหลด `.txt` และ `.srt` (D22, D23); แก้ข้อความทีละบรรทัดได้ (spoil-maker D54)
 
 ## User Stories
 
 **ผู้ทำคลิปสปอย**
-1. As a ผู้ทำคลิปสปอย, I want สลับ tab สปอยกับ Setup status ได้จากด้านบน, so that ใช้งานและเช็คการติดตั้งในแอปเดียว (D10)
+1. As a ผู้ทำคลิปสปอย, I want สลับ tab ติดตั้ง คลิป และสปอยได้จากด้านบน, so that ใช้งานและเช็คการติดตั้งในแอปเดียว (D10)
 2. As a ผู้ทำคลิปสปอย, I want วางลิงก์ YouTube แล้วกดโหลด, so that คลิปต้นทางมาอยู่ในเครื่องพร้อมทำต่อ (D2, D5)
 3. As a ผู้ทำคลิปสปอย, I want เห็น % ระหว่างโหลดและยกเลิกได้, so that รู้ว่าคลิปยาวยังเดินอยู่ และหยุดเมื่อวางลิงก์ผิด (D6)
 4. As a ผู้ทำคลิปสปอย, I want เห็นรายการคลิปที่โหลดมาและเล่นดูได้, so that เช็คว่าได้คลิปถูกตัว (D7)
@@ -38,11 +38,11 @@
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
-| แถบ tab | 1 | tab "สปอย" และ "Setup status" ตามลำดับนี้, tab ที่เปิดอยู่เด่นกว่า (D10) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frame "Tab bar / Setup status active" และ header ของทุก frame สปอย; component `Tab` |
-| tab สปอย | 2, 3, 6, 7 | ช่องลิงก์กับปุ่ม "โหลด"; ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ไป Setup status แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 1 loading, 2–3 idle, 4 downloading, 5 progress states, 6 done, 7 failed with fix, 8 messages, 9 duplicate, 11 not ready, 12 offline, 13 mobile 375px; component `Download progress` |
-| หน้าต่างรายการ Temp clip | 4, 5 | ใน tab สปอยใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); state ว่าง: "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน" | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 2 empty, 3 list, 6 and 9 highlight, 10 playing and delete error; component `Clip row` (D18) |
-| layout สองคอลัมน์ | 8 | จอกว้าง: รายการคลิปซ้าย, ลูกศร → กลาง, กล่องถอดบทพูดขวา; 375px เรียงบนลงล่างพร้อมลูกศร ↓ (D25); แถวที่เลือกเด่นกว่า; แถวที่ถอดแล้วมีสถานะ "ถอดแล้ว" (D23); ช่องลิงก์กับแถบโหลดอยู่คอลัมน์ซ้ายเหนือรายการ (D33) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 14 nothing selected, 15 selected, 16 transcribing while downloading, 17 transcribed, 19 mobile 375 stacked; component `Clip row` (property `Show transcribed`), icon `icon/arrow-right`, `icon/arrow-down` |
-| กล่องถอดบทพูด | 8–11 | ยังไม่เลือก: "เลือกคลิปจากรายการ"; เลือกแล้ว: player, ชื่อคลิป, ความยาว, ปุ่ม "ถอดบทพูด" (ถอดแล้ว → "ถอดใหม่" พร้อม alert "คลิปนี้ถอดแล้ว"); ระหว่างถอด: "กำลังเตรียมเสียง…" หรือ "กำลังถอด {n}%" กับแถบ % และปุ่ม "ยกเลิก"; Transcript: บรรทัด `[hh:mm:ss] ข้อความ` กดได้, ภาษาที่ตรวจได้, ปุ่ม Copy, `.txt`, `.srt`; ว่าง: "ไม่พบคำพูดในคลิปนี้"; error ของงานถอด; ติดตั้งไม่ครบ: ข้อความกับลิงก์ไป Setup status แทนปุ่มถอด (D22–D27); ข้อความหลังงานจบเป็น Alert ในกล่อง (D33) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — component `Transcript panel` (ทุก state), `Transcript line`, `Player`; frames: 14–17, 18 messages, 19 mobile |
+| แถบ tab | 1 | tab "ติดตั้ง" · "คลิป" · "สปอย" ตามลำดับนี้, tab ที่เปิดอยู่เด่นกว่า (D10, spoil-maker D53) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — header ของทุก frame; component `Tab`. เดิม 2 tab: [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frame "Tab bar / Setup status active" |
+| tab คลิป | 2, 3, 6, 7 | ช่องลิงก์กับปุ่ม "โหลด"; ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ "ไปหน้าติดตั้ง" แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 1 loading, 2–3 idle, 4 downloading, 5 progress states, 6 done, 7 failed with fix, 8 messages, 9 duplicate, 11 not ready, 12 offline, 13 mobile 375px; component `Download progress` |
+| หน้าต่างรายการ Temp clip | 4, 5 | ใน tab คลิปใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); state ว่าง: "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน" | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 2 empty, 3 list, 6 and 9 highlight, 10 playing and delete error; component `Clip row` (D18) |
+| layout สองคอลัมน์ของ tab คลิป | 8 | จอกว้าง: รายการคลิปซ้าย, ลูกศร → กลาง, กล่องถอดบทพูดขวา; 375px เรียงบนลงล่างพร้อมลูกศร ↓ (D25); แถวที่เลือกเด่นกว่า; แถวที่ถอดแล้วมีสถานะ "ถอดแล้ว" (D23); ช่องลิงก์กับแถบโหลดอยู่คอลัมน์ซ้ายเหนือรายการ (D33) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 14 nothing selected, 15 selected, 16 transcribing while downloading, 17 transcribed, 19 mobile 375 stacked; component `Clip row` (property `Show transcribed`), icon `icon/arrow-right`, `icon/arrow-down`; ใน tab คลิป: [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — frame คลิป |
+| กล่องถอดบทพูด | 8–11 | ยังไม่เลือก: "เลือกคลิปจากรายการ"; เลือกแล้ว: player, ชื่อคลิป, ความยาว, ปุ่ม "ถอดบทพูด" (ถอดแล้ว → "ถอดใหม่" พร้อม alert "คลิปนี้ถอดแล้ว"); ระหว่างถอด: "กำลังเตรียมเสียง…" หรือ "กำลังถอด {n}%" กับแถบ % และปุ่ม "ยกเลิก"; Transcript: บรรทัด `[hh:mm:ss] ข้อความ` กดได้, ภาษาที่ตรวจได้, ปุ่ม Copy, `.txt`, `.srt`; ว่าง: "ไม่พบคำพูดในคลิปนี้"; error ของงานถอด; ติดตั้งไม่ครบ: ข้อความกับลิงก์ "ไปหน้าติดตั้ง" แทนปุ่มถอด (D22–D27); ข้อความหลังงานจบเป็น Alert ในกล่อง (D33); ชี้บรรทัดแล้วมีปุ่ม "แก้", กำลังแก้: ช่องพิมพ์กับ "บันทึก" และ "ยกเลิก", บรรทัดที่แก้แล้วมีป้าย "แก้แล้ว" (spoil-maker D54) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — component `Transcript panel` (ทุก state), `Transcript line`, `Player`; frames: 14–17, 18 messages, 19 mobile; แก้บรรทัด: [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — frames คลิป และ คลิป — แก้ประโยค; component `Transcript line` state hover, editing, edited |
 
 ออกแบบใน Figma หลัง plan (setup-status D9) ในไฟล์เดียวกับหน้า Setup status. Section "framecraft — สปอย" มี component `Tab`, `Clip row`, `Download progress` และ frame ทุก state; ใช้ token และ component ของหน้า `:: Token` (Button, Field, Alert, Badge, icon).
 
@@ -132,7 +132,7 @@
 
 - `run_checks` รับ probe ของ Deno และ yt-dlp ใน `Probes` เหมือน ffmpeg ให้ test ส่งตัวปลอมได้ (setup-status D26)
 - probe ของ Deno ไม่ cache ผล
-- tab สปอยและ `POST /downloads` ใช้แค่แถว `yt_dlp`, `deno` และ `ffmpeg` ไม่ใช้ `ready` (D9). `backend.spoil` เรียก check ของสามแถวนี้เองผ่าน `require_rows` (ตัวเดียวกับ gate ของงานถอด, D35) ไม่เรียก `run_checks` ทั้งชุด (ไม่ import torch)
+- tab คลิปและ `POST /downloads` ใช้แค่แถว `yt_dlp`, `deno` และ `ffmpeg` ไม่ใช้ `ready` (D9); แต่ละ tab gate เฉพาะแถวที่ตัวเองใช้ (spoil-maker D53). `backend.spoil` เรียก check ของสามแถวนี้เองผ่าน `require_rows` (ตัวเดียวกับ gate ของงานถอด, D35) ไม่เรียก `run_checks` ทั้งชุด (ไม่ import torch)
 
 ### Download
 
@@ -230,13 +230,15 @@ Adapter `backend.spoil.whisper` (ตัวเดียวที่ import `trans
   "revision": "41f01f3",
   "transcribed_at": "2026-10-30T10:12:00+07:00",
   "lines": [
-    {"start_s": 12.4, "end_s": 15.0, "text": "Where are you going?"}
+    {"start_s": 12.4, "end_s": 15.0, "text": "Where are you going?"},
+    {"start_s": 15.2, "end_s": 17.8, "text": "Home.", "edited": true}
   ]
 }
 ```
 
 - `lines` เรียงตาม `start_s`; ว่างได้ (ไม่พบคำพูด)
 - `language` เป็น `null` เมื่อไม่มีช่วงไหนตรวจภาษาได้ (D29)
+- `edited: true` มีเฉพาะบรรทัดที่ผู้ใช้แก้ข้อความ บรรทัดที่ไม่ได้แก้ไม่มี field นี้; ไม่เก็บข้อความเดิม; `.txt` และ `.srt` ใช้ข้อความที่แก้ (spoil-maker D54)
 - `.txt` = บรรทัดละ `[hh:mm:ss] ข้อความ`; `.srt` = มาตรฐาน SRT เลขลำดับจาก 1 เวลา `hh:mm:ss,mmm`; ทั้งสอง UTF-8 ไม่มี BOM, ขึ้นบรรทัด `\n`
 
 ### Temp clip
@@ -281,7 +283,8 @@ Adapter `backend.spoil.whisper` (ตัวเดียวที่ import `trans
 | `DELETE` | `/clips/{id}` | `204`; ไม่มี → `404` `not_found`; ไฟล์ถูกเปิดอยู่ → `409` `in_use` "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"; กำลังถอดคลิปนี้ → `409` `transcribing` "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ" |
 | `GET` | `/clips/{id}/transcript` | `200` เนื้อ `{id}.transcript.json`; ไม่มี → `404` `not_found` |
 | `GET` | `/clips/{id}/transcript.txt`, `/clips/{id}/transcript.srt` | `200` `text/plain; charset=utf-8` หรือ `application/x-subrip`, `Content-Disposition: attachment; filename="{id}.txt"` หรือ `.srt`; ไม่มี → `404` `not_found` |
-| `POST` | `/transcriptions` | body `{"clip_id": "..."}`. `202` กับ Transcribe job. error: `503` `not_ready`, `404` `not_found`, `409` `busy` "กำลังถอดคลิปอื่นอยู่" |
+| `PATCH` | `/clips/{id}/transcript/lines/{n}` | body `{"text": "..."}` แก้ข้อความบรรทัดที่ `n` (นับจาก 0) ตั้ง `edited: true` เขียนแบบ `.tmp` แล้ว rename → `200` บรรทัดนั้น; `text` ว่างหลังตัดช่องว่าง → `400` `invalid_request`; ไม่มีคลิป Transcript หรือบรรทัด → `404` `not_found`; Transcribe job ของคลิปนั้นยังไม่จบ → `409` `transcribing`; Draft job ที่ใช้คลิปนั้น → `409` `clip_busy` (spoil-maker D54) |
+| `POST` | `/transcriptions` | body `{"clip_id": "...", "confirm_edit_loss"?: true}`. `202` กับ Transcribe job. error: `503` `not_ready`, `404` `not_found`, `409` `busy` "กำลังถอดคลิปอื่นอยู่"; คลิปมีบรรทัด `edited` และไม่มี `confirm_edit_loss: true` → `409` `has_edits` "ถอดใหม่จะลบบทพูดที่แก้ไว้" (spoil-maker D54) |
 | `GET` | `/transcriptions/current` | `200` Transcribe job ล่าสุด หรือ `null` |
 | `DELETE` | `/transcriptions/current` | `202` ตั้ง flag ยกเลิก; ไม่มีงานที่ยังไม่จบ → `404` `not_found` |
 | `POST` | `/downloads` | body `{"url": "..."}`. `202` กับ Download job. error: `503` `not_ready`, `400` `invalid_url`, `409` `duplicate` (body มี `clip_id` เพิ่ม), `409` `busy` |
@@ -352,16 +355,16 @@ error ของ Download job (`failed`):
 
 ### Frontend
 
-แถบ tab (D10):
-- hash `#/spoil` → tab สปอย, `#/setup` → Setup status, อื่นหรือว่าง → Setup status
+แถบ tab (D10, spoil-maker D53):
+- hash `#/setup` → tab ติดตั้ง, `#/clips` → tab คลิป, `#/spoil` และ `#/spoil/…` → tab สปอย, อื่นหรือว่าง → tab ติดตั้ง
 - กด tab → เปลี่ยน hash; ปุ่ม back ของ browser สลับ tab ตาม hash
 
-tab สปอย:
+tab คลิป (เดิม tab สปอย, spoil-maker D53):
 
 | State | เมื่อไร | แสดง |
 |---|---|---|
 | loading | เปิด tab ยังไม่ได้ผลจาก `/api/setup/status` และ `/api/spoil/clips` | "กำลังโหลด…" |
-| not ready | แถว `yt_dlp`, `deno` หรือ `ffmpeg` ไม่ `ok` | "ยังติดตั้งไม่ครบ: {label ที่ขาด}" กับลิงก์ "ไปหน้า Setup status" แทนช่องลิงก์; รายการยังแสดง (D9) |
+| not ready | แถว `yt_dlp`, `deno` หรือ `ffmpeg` ไม่ `ok` | "ยังติดตั้งไม่ครบ: {label ที่ขาด}" กับลิงก์ "ไปหน้าติดตั้ง" แทนช่องลิงก์; รายการยังแสดง (D9) |
 | idle | พร้อม ไม่มีงานที่ยังไม่จบ | ช่องลิงก์, ปุ่ม "โหลด", รายการ |
 | downloading | งานเป็น `checking`, `downloading` หรือ `merging` | "กำลังเช็คลิงก์…", "กำลังโหลด {title}" กับแถบ % หรือ "กำลังรวมไฟล์…"; ปุ่ม "ยกเลิก" ยกเว้นตอน `merging` ที่แสดง "ยกเลิกไม่ได้ระหว่างรวมไฟล์" แทน (D18); ปุ่มโหลด disabled (D6, D15) |
 | cancelling | `cancel_requested` เป็น `true` และงานยังไม่จบ | "กำลังยกเลิก…", ปุ่มยกเลิก disabled |
@@ -391,16 +394,17 @@ tab สปอย:
 - ความยาวแสดงเป็น `h:mm:ss` หรือ `m:ss`; ขนาดไฟล์เป็น MB หรือ GB ทศนิยมหนึ่งตำแหน่ง; เวลาโหลดเป็นเวลาท้องถิ่น
 - ข้อความในหน้าเป็นภาษาไทย
 
-กล่องถอดบทพูด (D22–D25):
+กล่องถอดบทพูดใน tab คลิป (D22–D25, spoil-maker D53):
 
 | State | เมื่อไร | แสดง |
 |---|---|---|
 | ยังไม่เลือก | ไม่มีคลิปที่เลือก | "เลือกคลิปจากรายการ" |
-| not ready | แถว gate ของงานถอด (D27) ไม่ผ่าน | player และ "ยังติดตั้งไม่ครบ: {label ที่ขาด}" กับลิงก์ไป Setup status แทนปุ่มถอด |
+| not ready | แถว gate ของงานถอด (D27) ไม่ผ่าน | player และ "ยังติดตั้งไม่ครบ: {label ที่ขาด}" กับลิงก์ "ไปหน้าติดตั้ง" แทนปุ่มถอด |
 | เลือกแล้ว | คลิปไม่มี Transcript | player, ชื่อ, ความยาว, ปุ่ม "ถอดบทพูด" |
-| ถอดแล้ว | `transcribed` เป็น `true` | alert "คลิปนี้ถอดแล้ว", ปุ่ม "ถอดใหม่", Transcript; ไม่มีบรรทัด → "ไม่พบคำพูดในคลิปนี้" ไม่มีปุ่ม Copy, `.txt`, `.srt` (D33) |
+| ถอดแล้ว | `transcribed` เป็น `true` | alert "คลิปนี้ถอดแล้ว", ปุ่ม "ถอดใหม่", Transcript (บรรทัด `edited` มีป้าย "แก้แล้ว"); ไม่มีบรรทัด → "ไม่พบคำพูดในคลิปนี้" ไม่มีปุ่ม Copy, `.txt`, `.srt` (D33) |
 | กำลังถอด | งานของคลิปนี้ยังไม่จบ | "กำลังเตรียมเสียง…" กับแถบไม่มีตัวเลข หรือ "กำลังถอด" กับแถบ % และ "{percent}%" ขวา (component `Download progress`, D33), ปุ่ม "ยกเลิก"; cancel_requested → "กำลังยกเลิก…" |
 | คลิปอื่นกำลังถอด | งานของคลิปอื่นยังไม่จบ | ปุ่มถอด disabled กับ "กำลังถอด {ชื่อคลิปนั้น}" |
+| แก้บรรทัด | กด "แก้" ของบรรทัด | บรรทัดนั้นเป็นช่องพิมพ์ที่มีข้อความเดิม กับปุ่ม "บันทึก" และ "ยกเลิก" (spoil-maker D54) |
 
 กฎอื่นของกล่อง:
 - กดแถว = เลือกคลิปนั้นและเล่นใน player ของกล่อง (แทน player เหนือรายการ, D25); แถวที่เลือกมี badge "กำลังเล่น" (D18)
@@ -409,6 +413,8 @@ tab สปอย:
 - ข้อความหลังงานถอดจบ: `done` → "ถอดเสร็จ"; `cancelled` → "ยกเลิกแล้ว"; `failed` → `error.message`; poll ได้ `null` → "งานถอดหายเพราะ backend เริ่มใหม่ ลองถอดอีกครั้ง". เป็น `Alert` ในกล่อง ใต้ชื่อคลิปและความยาว: `done` success, `cancelled` info, `failed` error, `null` warning; `404` ของ `POST` → "ไม่พบคลิปนี้" error (D33)
 - บรรทัดของ Transcript: `[hh:mm:ss] ข้อความ`; กด → `video.currentTime = start_s` แล้วเล่น; ใต้หัวแสดง "ภาษา: {language}" หรือ "ภาษา: ไม่ทราบ" เมื่อ `null` (D29)
 - ผลของ `POST /transcriptions`: `409` `busy` ที่งานเป็นของคลิปนี้ → เข้า state กำลังถอด; `busy` ของคลิปอื่น → "กำลังถอด {ชื่อคลิปนั้น}"; `404` `not_found` → "ไม่พบคลิปนี้" แล้วโหลดรายการใหม่; `503` `not_ready` → state not ready ของกล่อง; อื่น → offline (D29)
+- แก้บรรทัด (spoil-maker D54): ชี้บรรทัดแล้วมีปุ่ม "แก้"; "บันทึก" → `PATCH /api/spoil/clips/{id}/transcript/lines/{n}` ได้ `200` → แทนบรรทัดนั้นพร้อมป้าย "แก้แล้ว"; "ยกเลิก" → กลับเป็นข้อความเดิม ไม่ส่งอะไร; ช่องว่างหลังตัดช่องว่าง → "บันทึก" กดไม่ได้; `409` `transcribing` หรือ `clip_busy` → ข้อความตาราง Frontend ของ spoil-maker
+- ถอดใหม่ได้ `409` `has_edits` → ถามยืนยัน "ถอดใหม่จะลบบทพูดที่แก้ไว้"; ยืนยัน → ส่ง `POST /transcriptions` ซ้ำพร้อม `confirm_edit_loss: true` (spoil-maker D54)
 - Copy → คัดลอกเนื้อเดียวกับ `.txt` ด้วย `useCopy`; `.txt` และ `.srt` เป็นลิงก์ไป API (browser โหลดไฟล์เอง)
 - ลบคลิปที่เลือกอยู่ → กล่องกลับเป็น "ยังไม่เลือก"; `409` `transcribing` → `message` ใต้แถว
 - แถวที่ `transcribed` มี badge "ถอดแล้ว" (D23)
@@ -461,6 +467,10 @@ tab สปอย:
    - marker ของ Whisper หาย → `POST /transcriptions` → `503` `not_ready`; device `cpu` → `503`
    - `DELETE /clips/{id}` ระหว่างถอดคลิปนั้น → `409` `transcribing`; หลังงานจบ → `204` และ `{id}.transcript.json` หาย
    - worker ปลอมส่งช่วงที่ไม่มีบรรทัด → `done` และ `lines` ว่าง
+   - `PATCH /clips/{id}/transcript/lines/1` `{"text": "Home."}` → `200`; `GET /clips/{id}/transcript` บรรทัด 1 มีข้อความใหม่และ `edited: true`, บรรทัดอื่นไม่มี `edited`, เวลาและจำนวนบรรทัดเท่าเดิม; `.txt` มีข้อความใหม่ (spoil-maker D54)
+   - `PATCH` `text` ช่องว่างล้วน → `400` `invalid_request`; บรรทัด `n` ที่ไม่มี → `404` `not_found`
+   - `PATCH` ระหว่าง Transcribe job ของคลิปนั้น → `409` `transcribing`
+   - คลิปที่มีบรรทัด `edited`: `POST /transcriptions` ไม่มี `confirm_edit_loss` → `409` `has_edits`; มี `confirm_edit_loss: true` → `202` และหลัง `done` ไม่มีบรรทัด `edited`
 2. **yt-dlp adapter** `backend.spoil` กับ YouTube จริง (เช็คมือ ไม่อยู่ใน test ที่รันทุกครั้ง)
    - Shorts หนึ่งคลิป → mp4 ด้านสั้น ≤ 1080 และมีเสียง
    - คลิปแนวนอนยาวกว่า 1 ชั่วโมง → mp4 1920×1080 หรือเล็กกว่า
@@ -475,8 +485,8 @@ tab สปอย:
    - ช่วงละ 300 วินาทีให้ timestamp ของ `chunks` เป็นเวลาภายในช่วง และบรรทัดสุดท้ายที่ `timestamp` จบเป็น `None` → ใช้ความยาวช่วงแทน
    - ถอดพร้อมโหลดคลิปอื่น → ทั้งสองงาน `done`
    - Windows NVIDIA: ถอดได้บน `cuda`
-4. **tab สปอย** `frontend` ด้วย Vitest และ fetch ปลอม
-   - hash ว่าง → เห็นหน้า Setup status; กด tab สปอย → hash เป็น `#/spoil`
+4. **tab คลิป** `frontend` ด้วย Vitest และ fetch ปลอม (spoil-maker D53)
+   - hash ว่าง → เห็นหน้า tab ติดตั้ง; กด tab คลิป → hash เป็น `#/clips`
    - status ที่ `deno` เป็น `missing` → "ยังติดตั้งไม่ครบ: Deno" และไม่มีช่องลิงก์
    - วางลิงก์ กดโหลด, current คืน `downloading` 40 แล้ว `done` → เห็น 40%, แล้ว "โหลดเสร็จ" และแถวใหม่
    - `409` `duplicate` → "คลิปนี้โหลดไว้แล้ว" และแถวนั้น highlight
@@ -492,14 +502,16 @@ tab สปอย:
    - กดบรรทัดเวลา 12.4 → `currentTime` ของ video เป็น 12.4
    - กด Copy → clipboard ได้บรรทัด `[00:00:12] ...`; ลิงก์ `.srt` ชี้ `/api/spoil/clips/{id}/transcript.srt`
    - เปิด tab ขณะ current ของงานถอดเป็น `transcribing` → คลิปนั้นถูกเลือกและเห็น %
-   - status ที่ `model_whisper` เป็น `missing` → ไม่มีปุ่มถอด เห็นลิงก์ไป Setup status; ช่องลิงก์โหลดยังใช้ได้
+   - status ที่ `model_whisper` เป็น `missing` → ไม่มีปุ่มถอด เห็นลิงก์ "ไปหน้าติดตั้ง"; ช่องลิงก์โหลดยังใช้ได้
+   - ชี้บรรทัด กด "แก้" พิมพ์แล้วกด "บันทึก" → ส่ง `PATCH` และบรรทัดมีป้าย "แก้แล้ว"; กด "ยกเลิก" → ไม่ส่ง `PATCH` (spoil-maker D54)
+   - ถอดใหม่ได้ `409` `has_edits` และยืนยัน → ส่ง `POST /transcriptions` ซ้ำพร้อม `confirm_edit_loss: true`
 
 ## Testing decisions
 
 - **Copy:** `backend/tests/test_app.py` — `TestClient` กับ root ปลอมใน `tmp_path`
 - **Copy:** `backend/tests/fakes.py` — เพิ่ม adapter ปลอมของ yt-dlp และ deno probe ปลอมที่นี่; เพิ่ม `start_worker` ปลอมที่รันใน thread ป้อนข้อความเข้า queue และรอสัญญาณได้แบบเดียวกับ adapter ปลอมของ yt-dlp
 - **Copy:** `backend/tests/test_spoil_api.py` — โครงของ test งานโหลด (poll จนจบ, ยกเลิกด้วยสัญญาณ) ใช้กับงานถอด
-- **Copy:** `frontend/src/features/spoil/components/SpoilPage.test.tsx` — fake backend ที่ตอบตาม route; เพิ่ม route ของ `/transcriptions` และ `/transcript`
+- **Copy:** `frontend/src/features/spoil/components/SpoilPage.test.tsx` (หน้าของ tab คลิป, spoil-maker D53) — fake backend ที่ตอบตาม route; เพิ่ม route ของ `/transcriptions` และ `/transcript`
 - **Copy:** `backend/tests/test_checks.py` — test แถวใหม่ของ Status check และนับ 11 แถว
 - **Copy:** `frontend/src/features/setup-status/components/SetupStatusPage.test.tsx` — fetch ปลอมและการ assert ข้อความ
 - test ที่มีอยู่ซึ่งนับ 9 แถวต้องแก้เป็น 11
@@ -514,7 +526,7 @@ tab สปอย:
 - ตัดต่อ, ทำแนวตั้ง, เลือก p ของ output และ render (D2, D5)
 - ใส่เสียงเล่าด้วย TTS และการเลือก TTS ที่ใช้เชิงพาณิชย์ได้ (D2, D13)
 - แยกเสียงพูดออกจากดนตรี และให้ไฟล์เสียงหรือวิดีโอเงียบกับผู้ใช้ (D21)
-- แปลภาษา, แก้ไข Transcript ในแอป, แยกผู้พูด, เลือกภาษาเอง (D21, D22)
+- แปลภาษา, แยกผู้พูด, เลือกภาษาเอง (D21, D22); แก้ Transcript ในแอปอยู่ใน scope แล้วตาม spoil-maker D54
 - วิเคราะห์บทหรือเขียนบทสปอยด้วย AI ในแอป — ผู้ใช้ทำที่อื่น (D21)
 - ถอดอัตโนมัติหลังโหลด และคิวถอดหลายคลิป (D23, D24)
 - คิวหลายลิงก์ (D6)

@@ -13,19 +13,30 @@ All diagrams use the same names as [spec.md](spec.md). Diagram 1 is the map; 2�
 
 ```mermaid
 flowchart LR
-    clip["Temp clip<br/>ถอดแล้ว"] -->|กดดูภาพ| describe["Describe job"]
-    describe -->|shots.json| ready["คลิปพร้อม"]
-    voice["Saved voice"] -->|เลือกเสียง| setup["ตั้งค่า<br/>EP สไตล์ ความยาว"]
+    subgraph clips["tab คลิป"]
+        direction TB
+        dl["โหลดคลิป"] --> tr["ถอดบทพูด"]
+        tr --> edit["แก้ Transcript<br/>ทีละบรรทัด"]
+        tr -->|กดดูภาพ| describe["Describe job"]
+        describe -->|shots.json| ready["คลิปพร้อม"]
+    end
+    subgraph spoil["tab สปอย"]
+        direction TB
+        setup["ขั้น 1 เลือกคลิป<br/>EP สไตล์ ความยาว เสียง"] -->|กดร่างบท| draftjob["Draft job"]
+        draftjob -->|draft.json| review["ขั้น 2 ตรวจแก้บท"]
+        review -->|สร้างเสียง| voicejob["Voice job"]
+        review -->|กด render| render["Render job"]
+        voicejob -->|เสียงต่อประโยค| render
+        render -->|mp4 + .srt| renders["ขั้น 3 ผล render"]
+    end
     ready -->|เลือกและเรียง| setup
-    setup -->|กดร่างบท| draftjob["Draft job"]
-    draftjob -->|draft.json| review["หน้าตรวจแก้"]
-    review -->|สร้างเสียง| voicejob["Voice job"]
-    voicejob -->|เสียงต่อประโยค| render["Render job"]
-    review -->|กด render| render
-    render -->|mp4 + .srt| renders["รายการผล render"]
+    edit -.->|ข้อความที่แก้| setup
+    voice["Saved voice"] -->|เลือกเสียง| setup
 ```
 
 **ผู้ใช้ทำคลิปสปอยหนึ่งคลิปผ่านขั้นไหนบ้าง**
+- เตรียมคลิปใน tab คลิป แล้วทำสปอยใน tab สปอย 3 ขั้น (D53)
+- แก้ Transcript ก่อนร่างบทได้; Draft job และ token ใช้ข้อความที่แก้ (D54)
 - Describe job ทำครั้งเดียวต่อคลิป ใช้ราว 45 นาทีต่อหนัง 96 นาที (D16, D18)
 - Saved voice สร้างก่อนครั้งเดียว ใช้ซ้ำทุกคลิป (D32)
 - สร้างเสียงก่อนก็ได้ ข้ามไปกด render ก็ได้: render สร้างเสียงที่ขาดให้ (D30)

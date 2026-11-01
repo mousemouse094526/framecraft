@@ -6,7 +6,7 @@
 
 ## Problem
 
-ผู้ใช้โหลดคลิปและถอดบทพูดใน tab สปอยได้แล้ว แต่ยังต้องเขียนบท อัดเสียง หาภาพที่ตรงกับแต่ละประโยค และตัดต่อเองในโปรแกรมอื่น. คลิปสปอยหนึ่งคลิปใช้เวลาหลายชั่วโมง.
+ผู้ใช้โหลดคลิปและถอดบทพูดใน tab คลิปได้แล้ว แต่ยังต้องเขียนบท อัดเสียง หาภาพที่ตรงกับแต่ละประโยค และตัดต่อเองในโปรแกรมอื่น. คลิปสปอยหนึ่งคลิปใช้เวลาหลายชั่วโมง.
 
 ## Solution
 
@@ -17,6 +17,8 @@
 - สร้างและฟังเสียงทั้งหมดหรือทีละประโยค (D30)
 - ใส่ลายน้ำข้อความได้หลายอัน และตั้งระดับเสียงต้นฉบับ (D40, D41)
 - render เป็น mp4 1080×1920 กับ `.srt` เก็บทุกครั้งในรายการให้เล่น โหลด ลบ (D10, D42)
+- แอปแบ่ง 3 tab: ติดตั้ง, คลิป (โหลด ถอด ดูภาพ แก้ Transcript), สปอย (เลือกคลิป → ตรวจแก้บท → ผล render) (D53)
+- แก้ข้อความ Transcript ทีละบรรทัดก่อนให้ AI เขียนบท (D54)
 
 ## User Stories
 
@@ -33,19 +35,23 @@
 10. As a ผู้ใช้, I want ใส่ลายน้ำหลายอันและตั้งเสียงต้นฉบับ โดยแอปจำไว้, so that ไม่ต้องตั้งซ้ำทุกคลิป (D40, D41)
 11. As a ผู้ใช้, I want render แล้วเล่น โหลด mp4 กับ `.srt` หรือลบผลเก่า, so that เอาไปลงได้และเทียบหลายรอบ (D10, D42)
 12. As a ผู้ใช้, I want ปิดแอปแล้วเปิดใหม่ Spoil draft ยังอยู่, so that ไม่เสียงานที่แก้ (D28)
+13. As a ผู้ใช้, I want แก้บทพูดที่ถอดผิดทีละประโยค, so that AI เขียนบทจากข้อความที่ถูก (D54)
 
 ## Design
 
-แบบหน้าจอทำหลังจบ plan (D38). ทุกหน้าที่มีงานแสดง error ตามตาราง Frontend › ข้อความ error.
+แบบหน้าจอทำหลังจบ plan (D38); prompt สำหรับ design tool อยู่ใน [ui-prompt.md](ui-prompt.md). ทุกหน้าที่มีงานแสดง error ตามตาราง Frontend › ข้อความ error.
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
-| แถว Temp clip ใน tab สปอย | 1, 3 | ปุ่ม "ดูภาพ" ของคลิป; ระหว่างงาน: % กับปุ่มยกเลิก; เสร็จ: "ดูภาพแล้ว" (D16); ปุ่มกดไม่ได้พร้อมเหตุผลเมื่อมีงาน GPU อื่น (D45); คลิปที่อยู่ใน Spoil draft: คำเตือนก่อนลบ ถอดใหม่ หรือดูภาพใหม่ (D29, D49); ดูภาพคลิปที่ดูแล้ว: ยืนยันก่อนทำใหม่ | pending |
-| Saved voice | 2, 4 | เพศ วัย ระดับเสียง, speed 0.8–1.2, ปุ่มสุ่มและฟัง (D32, D35); บันทึกพร้อมชื่อ; รายการ: ชื่อ, ฟัง, เปลี่ยนชื่อ, ลบพร้อมยืนยัน (D43); ว่าง: "ยังไม่มีเสียง กดสุ่มเพื่อออกแบบเสียงแรก"; error: ลบเสียงที่ Spoil draft ใช้ (D43) | pending |
-| ตั้งค่าคลิปสปอย | 5, 6 | เลือก Temp clip หลายคลิปพร้อมเรียงลำดับ (D5); คลิปที่เลือกไม่ได้บอกเหตุผล "ยังไม่ถอด" หรือ "ยังไม่ดูภาพ" พร้อมปุ่มไปทำ (D16); ไม่มีคลิปพร้อม: "ยังไม่มีคลิปที่ถอดและดูภาพแล้ว" พร้อมลิงก์ไปรายการคลิป; สไตล์ 3 แบบ, layout 3 แบบ ตั้งต้นตามสไตล์ (D7, D8); ความยาว 30–180 วินาที ตั้งต้น 60 (D39); Saved voice ตั้งต้นที่ใช้ล่าสุด; ไม่มี Saved voice: ลิงก์ไปสร้าง; token รวม / 32,000 และปุ่มร่างกดไม่ได้เมื่อเกิน (D46); ยืนยันก่อนทับ Spoil draft เดิม (D28); ระหว่างร่าง: "กำลังเขียนบท" แล้ว "กำลังเลือกภาพ x/y" กับปุ่มยกเลิก | pending |
-| หน้าตรวจแก้ | 7, 8, 9, 10, 11 | hook หรือชื่อตอน (D19); ความยาวประมาณ / เป้าหมาย และจำนวนประโยค (D30) พร้อมคำเตือนเมื่อนอก ±25%; แต่ละประโยค: 2 ภาพ Shot, ข้อความแก้ได้, บรรทัดที่อ้าง, สถานะ 4 แบบ (D30), ฟัง, สร้างเสียงใหม่, ให้ AI เลือก Shot ใหม่, ลบพร้อมยืนยัน, แทรกใต้ (D25, D27); ระดับเสียงต้นฉบับ (D40); ลายน้ำ: เพิ่ม ลบ ข้อความ ตำแหน่ง 6 จุด ขนาด (D41); ปุ่มสร้างเสียงทั้งหมดและ render; render กดไม่ได้เมื่อมีประโยค "ไม่มี Shot"; ระหว่าง Draft job `pick`, Voice job หรือ Render job: "สร้างเสียง x/y" หรือ "render %" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้ (D51); ไม่มี Spoil draft: ลิงก์ไปหน้าตั้งค่า | pending |
-| ตัวเลือก Shot | 8 | ภาพเล็กของ Shot ในช่วง ±30 วินาที, "ดูทั้งคลิป" เลือก EP, ชี้แล้วเห็น Shot description, เล่นช่วงนั้น (D26); ประโยคไม่มีบรรทัดที่อ้างเปิดที่ทั้งคลิปของ EP แรก (D26, D27) | pending |
-| ผล render | 11 | ระหว่าง render: "สร้างเสียง x/y" แล้ว "render %" กับปุ่มยกเลิก; รายการใหม่สุดก่อน: เวลา, ความยาว, เล่น, โหลด mp4, โหลด `.srt`, ลบพร้อมยืนยัน (D42); บรรทัด "ต้นฉบับ: {ชื่อคลิป}" พร้อมปุ่ม copy (legal 1); ว่าง: "ยังไม่มีผล render" | pending |
+| แถบ tab | — | 3 tab ตามลำดับ ติดตั้ง · คลิป · สปอย, tab ที่เปิดอยู่เด่นกว่า (D53) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — header ของทุก frame |
+| แถว Temp clip ใน tab คลิป | 1, 3 | ปุ่ม "ดูภาพ" ของคลิป; ระหว่างงาน: % กับปุ่มยกเลิก; เสร็จ: "ดูภาพแล้ว" (D16); ปุ่มกดไม่ได้พร้อมเหตุผลเมื่อมีงาน GPU อื่น (D45); คลิปที่อยู่ใน Spoil draft: คำเตือนก่อนลบ ถอดใหม่ หรือดูภาพใหม่ (D29, D49); ดูภาพคลิปที่ดูแล้ว: ยืนยันก่อนทำใหม่ | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275) — Clip row states |
+| Saved voice | 2, 4 | เพศ วัย ระดับเสียง, speed 0.8–1.2, ปุ่มสุ่มและฟัง (D32, D35); บันทึกพร้อมชื่อ; รายการ: ชื่อ, ฟัง, เปลี่ยนชื่อ, ลบพร้อมยืนยัน (D43); ว่าง: "ยังไม่มีเสียง กดสุ่มเพื่อออกแบบเสียงแรก"; error: ลบเสียงที่ Spoil draft ใช้ (D43) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8034-3220) — Saved voice |
+| ตั้งค่าคลิปสปอย | 5, 6 | เลือก Temp clip หลายคลิปพร้อมเรียงลำดับ (D5); คลิปที่เลือกไม่ได้บอกเหตุผล "ยังไม่ถอด" หรือ "ยังไม่ดูภาพ" พร้อมปุ่มไปทำ (D16); ไม่มีคลิปพร้อม: "ยังไม่มีคลิปที่ถอดและดูภาพแล้ว" พร้อมลิงก์ไปรายการคลิป; สไตล์ 3 แบบ, layout 3 แบบ ตั้งต้นตามสไตล์ (D7, D8); ความยาว 30–180 วินาที ตั้งต้น 60 (D39); Saved voice ตั้งต้นที่ใช้ล่าสุด; ไม่มี Saved voice: ลิงก์ไปสร้าง; token รวม / 32,000 และปุ่มร่างกดไม่ได้เมื่อเกิน (D46); ยืนยันก่อนทับ Spoil draft เดิม (D28); ระหว่างร่าง: "กำลังเขียนบท" แล้ว "กำลังเลือกภาพ x/y" กับปุ่มยกเลิก | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8038-4681) — Spoiler setup; ใน 3 tab: ขั้น 1 ของ tab สปอย |
+| หน้าตรวจแก้ | 7, 8, 9, 10, 11 | hook หรือชื่อตอน (D19); ความยาวประมาณ / เป้าหมาย และจำนวนประโยค (D30) พร้อมคำเตือนเมื่อนอก ±25%; แต่ละประโยค: 2 ภาพ Shot, ข้อความแก้ได้, บรรทัดที่อ้าง, สถานะ 4 แบบ (D30), ฟัง, สร้างเสียงใหม่, ให้ AI เลือก Shot ใหม่, ลบพร้อมยืนยัน, แทรกใต้ (D25, D27); ระดับเสียงต้นฉบับ (D40); ลายน้ำ: เพิ่ม ลบ ข้อความ ตำแหน่ง 6 จุด ขนาด (D41); ปุ่มสร้างเสียงทั้งหมดและ render; render กดไม่ได้เมื่อมีประโยค "ไม่มี Shot"; ระหว่าง Draft job `pick`, Voice job หรือ Render job: "สร้างเสียง x/y" หรือ "render %" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้ (D51); ไม่มี Spoil draft: ลิงก์ไปหน้าตั้งค่า | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390) — Script review; ใน 3 tab: ขั้น 2 ของ tab สปอย |
+| ตัวเลือก Shot | 8 | ภาพเล็กของ Shot ในช่วง ±30 วินาที, "ดูทั้งคลิป" เลือก EP, ชี้แล้วเห็น Shot description, เล่นช่วงนั้น (D26); ประโยคไม่มีบรรทัดที่อ้างเปิดที่ทั้งคลิปของ EP แรก (D26, D27) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186) — Shot picker |
+| Transcript ที่แก้ได้ใน tab คลิป | 13 | ชี้บรรทัดแล้วมีปุ่ม "แก้"; กำลังแก้: ช่องพิมพ์กับ "บันทึก" และ "ยกเลิก"; บรรทัดที่แก้แล้วมีป้าย "แก้แล้ว" (D54) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — frames คลิป และ คลิป — แก้ประโยค; component `Transcript line` state hover, editing, edited |
+| ตัวบอกขั้นของ tab สปอย | 5, 7, 11 | 1 เลือกคลิป → 2 ตรวจแก้บท → 3 ผล render, ขั้นปัจจุบันเด่น ขั้นที่ผ่านมีเครื่องหมายถูก, กดเพื่อย้ายขั้น; มือถือแสดงชื่อเฉพาะขั้นปัจจุบัน (D53) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — component `Spoil steps` |
+| ผล render | 11 | ระหว่าง render: "สร้างเสียง x/y" แล้ว "render %" กับปุ่มยกเลิก; รายการใหม่สุดก่อน: เวลา, ความยาว, เล่น, โหลด mp4, โหลด `.srt`, ลบพร้อมยืนยัน (D42); บรรทัด "ต้นฉบับ: {ชื่อคลิป}" พร้อมปุ่ม copy (legal 1); ว่าง: "ยังไม่มีผล render" | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8055-16850) — Render results; ใน 3 tab: ขั้น 3 ของ tab สปอย |
 
 ## Expected Outcome
 
@@ -287,11 +293,11 @@
    2. `style` และ `layout` อยู่ในตาราง → ไม่ใช่ `400` `invalid_request`
    3. `target_s` จำนวนเต็ม 30–180 → ไม่ใช่ `400` `invalid_target` (D39)
    4. Saved voice มีอยู่ → ไม่ใช่ `400` `voice_not_found`
-   5. token รวมของ Transcript ไม่เกิน 32,000 → ไม่ใช่ `400` `transcript_too_long` พร้อม `tokens` (D46)
+   5. token รวมของ Transcript (ข้อความที่แก้แล้ว, D54) ไม่เกิน 32,000 → ไม่ใช่ `400` `transcript_too_long` พร้อม `tokens` (D46)
    6. มี Spoil draft อยู่และ `replace` ไม่เป็น `true` → `409` `draft_exists` (D28)
    7. แถว Status check แล้วจองช่อง GPU
 2. state `writing` (ไม่มี %): process ลูกโหลด Qwen แล้วสั่งร่างบทจาก Transcript ทุก EP ตามลำดับ (D18):
-   - แต่ละบรรทัดส่งเป็น `[{ep}-{line} {hh:mm:ss}] {text}` โดย `ep` เริ่มที่ 1 ตามลำดับที่ผู้ใช้เรียง
+   - แต่ละบรรทัดส่งเป็น `[{ep}-{line} {hh:mm:ss}] {text}` (`text` ที่แก้แล้ว, D54) โดย `ep` เริ่มที่ 1 ตามลำดับที่ผู้ใช้เรียง
    - คำสั่งบอกสไตล์ (ตารางสไตล์), ภาษาไทย (D11), จำนวนตัวอักษรเป้าหมาย `target_s × chars_per_s`, จำนวนประโยคเป้าหมาย `round(target_s / 4)`, ให้แต่ละประโยคอ้าง 1–3 id บรรทัด, และให้เขียน `top_text` เมื่อ layout เป็น A หรือ C (D19)
    - คำตอบเป็น JSON `{"top_text": "...", "sentences": [{"text": "...", "refs": ["1-12"]}]}`
 3. ตรวจผล: JSON อ่านได้ และตัวอักษรรวม (หลังแปลงตัวเลข) อยู่ใน ±25% ของเป้าหมาย; ไม่ผ่านหรือเกิน timeout สั่งใหม่ได้อีก 2 ครั้ง (รวม 3, D18). ครบ 3 ครั้ง: ใช้ผลล่าสุดที่ JSON อ่านได้; ไม่มีเลย → `failed` `draft_failed`
@@ -426,7 +432,7 @@
 | `POST` | `/describes` | `{clip_id, confirm_draft_loss?}` เริ่ม Describe job | `202` job; `409` `busy`, `gpu_busy`, `in_draft`, `clip_busy`; `503` `not_ready`; `404` `not_found` |
 | `GET` | `/describes/current` | งานล่าสุดหรือ `null` | `200` |
 | `DELETE` | `/describes/current` | ยกเลิก | `202` job; ไม่มีงานค้าง `404` `not_found` |
-| `GET` | `/tokens?clip_ids=a,b` | token ของ Transcript (D46) | `200` `{per_clip: {a: 12000, b: 9000}, total: 21000, limit: 32000}`; คลิปยังไม่ถอด `400` `clip_not_ready` |
+| `GET` | `/tokens?clip_ids=a,b` | token ของ Transcript ที่แก้แล้ว (D46, D54) | `200` `{per_clip: {a: 12000, b: 9000}, total: 21000, limit: 32000}`; คลิปยังไม่ถอด `400` `clip_not_ready` |
 | `GET` | `/voices` | `[{id, name, speed, chars_per_s, created_at, in_use}]` ใหม่สุดก่อน | `200` |
 | `POST` | `/voices` | `{name}` บันทึก preview ล่าสุด | `201` voice; ไม่มี preview `409` `no_preview`; `400` `invalid_voice` |
 | `PATCH` | `/voices/{id}` | `{name}` | `200` voice; `400` `invalid_voice`; `404` `not_found` |
@@ -458,7 +464,7 @@
 - `{name}` ต้องตรง `^\d{8}-\d{6}$`; `{id}` ตรงกฎ id ของ Temp clip ใน spoil; `{sid}` ตรง `^s_[0-9a-f]{8}$`; อื่นๆ `404` `not_found`
 - `PATCH /draft/sentences/{sid}` ที่ `shots` ไม่ใช่ list ยาว 2 หรืออ้างคลิปที่ไม่อยู่ใน `clip_ids` หรือ `n` ที่ไม่มี → `400` `invalid_shot`
 - `PATCH /draft/sentences/{sid}` ที่แก้ `text` ไม่ลบไฟล์เสียง: สถานะเป็น `stale_audio` (D30); `text` ว่างหลังตัดช่องว่าง → `400` `invalid_request`
-- spoil เปลี่ยน: `GET /api/spoil/clips` เพิ่ม `described` และ `in_draft`; `POST /api/spoil/transcriptions` รับ `confirm_draft_loss?` และตอบ `409` `in_draft`, `clip_busy`, `gpu_busy`; `DELETE /api/spoil/clips/{id}` ตอบ `409` `clip_busy`
+- spoil เปลี่ยน: `PATCH /api/spoil/clips/{id}/transcript/lines/{n}` body `{"text"}` แก้ข้อความบรรทัดที่ `n` (นับจาก 0) แล้วตั้ง `edited: true` เขียนแบบ `.tmp` แล้ว rename ใต้ lock ของงานถอด → `200` บรรทัดนั้น; `text` ว่างหลังตัดช่องว่าง `400` `invalid_request`; ไม่มีคลิป Transcript หรือบรรทัด `404` `not_found`; Transcribe job ของคลิปนั้นยังไม่จบ `409` `transcribing`; Draft job ที่ใช้คลิปนั้นยังไม่จบ `409` `clip_busy` (D54); `POST /api/spoil/transcriptions` ของคลิปที่มีบรรทัด `edited` ไม่มี `confirm_edit_loss: true` → `409` `has_edits` (D54); `GET /api/spoil/clips` เพิ่ม `described` และ `in_draft`; `POST /api/spoil/transcriptions` รับ `confirm_draft_loss?` และตอบ `409` `in_draft`, `clip_busy`, `gpu_busy`; `DELETE /api/spoil/clips/{id}` ตอบ `409` `clip_busy`
 
 job object (ทุกชนิดมีฟิลด์เดียวกัน ฟิลด์ที่ไม่ใช้เป็น `null`):
 
@@ -493,7 +499,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 
 ### Frontend
 
-- `features/spoil-maker` อยู่ใต้ tab สปอย (D1) ที่ `#/spoil/maker`, `#/spoil/voices`, `#/spoil/renders`; `useHashTab` จับ `#/spoil/` เป็น tab สปอย
+- 3 tab: ติดตั้ง `#/setup`, คลิป `#/clips`, สปอย `#/spoil` (D53); tab สปอยมีขั้น `#/spoil` (เลือกคลิป), `#/spoil/review`, `#/spoil/renders` และหน้า `#/spoil/voices`; `useHashTab` จับ `#/spoil/` เป็น tab สปอย
 - poll งานด้วย `usePollWhile` ของ spoil ทุก 1 วินาทีระหว่างงานค้าง
 - เปิดหน้าตอนมีงานค้าง (`*/current` ไม่จบ) → แสดงความคืบหน้าของงานนั้น
 - ระหว่าง `locked: true` ทุกช่องแก้ของหน้าตรวจแก้กดไม่ได้ (D51)
@@ -512,6 +518,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 | `transcript_too_long` | "Transcript รวม {tokens} token เกิน 32,000" | เอา EP ออก |
 | `draft_failed` | "AI ร่างบทไม่สำเร็จ 3 ครั้ง" | กดร่างใหม่ |
 | `disk_full` | "ที่ว่างดิสก์ไม่ถึง 1 GiB" | ลบผล render เก่า |
+| `has_edits` | "ถอดใหม่จะลบบทพูดที่แก้ไว้" | ยืนยัน → ส่งซ้ำพร้อม `confirm_edit_loss: true` (D54) |
 | `ffmpeg_failed` | "render ไม่สำเร็จ" | กด render ใหม่ |
 | `crashed`, `model_failed` | "งานหยุดกลางทาง" | กดใหม่ |
 | `voice_in_use` | "เสียงนี้ใช้อยู่ใน Spoil draft" | — |
@@ -543,11 +550,13 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
      - `DELETE /api/spoil/clips/{id}` ระหว่าง Describe job ของคลิปนั้น → `409` `clip_busy`; ระหว่าง Render job ช่วง `voicing` ของ draft ที่ใช้คลิปนั้น → `409` `clip_busy`
      - คลิปใน Spoil draft: `POST /describes` ไม่มี `confirm_draft_loss` → `409` `in_draft`; มี → `202` แล้วหลัง `done` `GET /draft` เป็น `null`; ยกเลิกแทน → `GET /draft` ยังอยู่
      - `POST /api/spoil/transcriptions` ของคลิปใน Spoil draft ไม่มี `confirm_draft_loss` → `409` `in_draft`
+     - `PATCH /api/spoil/clips/{id}/transcript/lines/0` ระหว่าง Draft job ที่ใช้คลิปนั้น → `409` `clip_busy`; คลิปใน Spoil draft ที่ไม่มีงาน → `200` (D54)
      - render ที่ไม่มีประโยคขาดเสียง ระหว่าง `rendering` → `POST /describes` ของคลิปอื่น `202`
    - Draft:
      - คลิปถอดแล้วแต่ไม่ได้ดูภาพ → `400` `clip_not_ready` พร้อม id นั้น
      - `target_s` 29, 181, 60.5 → `400` `invalid_target`; `style` `x` → `400` `invalid_request`
      - token ปลอมรวม 32,001 → `400` `transcript_too_long`; `GET /tokens` คืน `total` 32,001 และ `per_clip`
+     - `PATCH` บรรทัด 0 ของคลิปเป็นข้อความใหม่ → ตัวนับ token ปลอมและ LLM ปลอมได้ข้อความใหม่ในบรรทัดนั้น ไม่ใช่ข้อความเดิม (D54)
      - LLM ปลอมคืนบท 2 EP ที่อ้าง `1-0` และ `2-1` → `done`, `GET /draft` มี `refs` เป็น `clip_id` ของแต่ละ EP และ Shot อยู่ใน `window`
      - ประโยคที่อ้าง `1-0` และ `2-1` พร้อมกัน → `window` ของคลิป EP 1 เท่านั้น
      - LLM ปลอมคืน JSON พัง 3 ครั้ง → `failed` `draft_failed` และ Spoil draft เดิมไม่เปลี่ยน
@@ -589,7 +598,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
      - `GET /api/setup/status` มีแถว `model_qwen`, `mlx_vlm`, `pythainlp`, `font_kanit`; `run_checks` กับ `sys_platform` `win32` → `model_qwen` และ `mlx_vlm` `missing`
      - ทุก POST และ PATCH ที่ `Content-Type: text/plain` → `415`; `Host: evil.example` → `400`
 2. **ทุกหน้าใต้ tab สปอย** `frontend` ด้วย Vitest และ fetch ปลอม (project ไม่มีเครื่องมือ e2e)
-   - `#/spoil/maker` เปิด tab สปอยที่หน้าตั้งค่า
+   - `#/spoil` เปิด tab สปอยที่ขั้น 1 เลือกคลิป (D53)
    - แถวคลิปที่ถอดแล้ว กดดูภาพ, current คืน `describing` 40/100 แล้ว `done` → เห็น 40% แล้ว "ดูภาพแล้ว"
    - `409` `gpu_busy` `running: "draft"` → เห็น "รอให้งานร่างบทเสร็จก่อน"
    - ลบ ถอดใหม่ หรือดูภาพใหม่ของคลิปที่ `in_draft: true` → เห็นคำเตือนก่อนส่ง; ยืนยันดูภาพ → ส่ง `confirm_draft_loss: true`

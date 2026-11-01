@@ -50,7 +50,7 @@ feature จบได้เมื่อผ่านบน Mac (setup-status D25) 
 
 1. **Setup และ Status check** ตาม setup-status spec › How success is judged ข้อ Windows
    - ticket 01
-2. **tab สปอย** ตาม spoil spec › How success is judged และ Seams 2, 3 ข้อ Windows
+2. **tab คลิป** (เดิม tab สปอย, spoil-maker D53) ตาม spoil spec › How success is judged และ Seams 2, 3 ข้อ Windows รวมการแก้ Transcript (spoil-maker D54)
    - ticket 02
 
 ## Testing decisions
