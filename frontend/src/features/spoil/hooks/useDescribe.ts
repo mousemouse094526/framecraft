@@ -48,7 +48,7 @@ const isUnfinished = isUnfinishedIn<DescribeJobState>(["cutting", "describing"])
 function failureText(job: DescribeJob): string {
   const code = job.error?.code;
   if (code === "crashed" || code === "model_failed") return "งานหยุดกลางทาง";
-  return job.error?.message ?? "ดูภาพไม่สำเร็จ";
+  return job.error?.message ?? "บรรยายฉากไม่สำเร็จ";
 }
 
 const whenLoaded = (change: (state: Loaded) => DescribeState) => onlyWhen<DescribeState, "loaded">("loaded", change);
@@ -66,7 +66,7 @@ const withError = (clipId: string, error: DescribeError | null) =>
  * job on mount, polls every second while one is unfinished, apart from the
  * other jobs' polls. Any failure (no backend, a status the API never sends,
  * 30 s) is offline. `onClipsChanged` (stable) loads the list again when a job
- * ends (ดูภาพแล้ว may change) or a clip is gone; `onNotReady` (stable) runs on
+ * ends (บรรยายฉากแล้ว may change) or a clip is gone; `onNotReady` (stable) runs on
  * a `503`, so the status is checked again.
  */
 export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) {

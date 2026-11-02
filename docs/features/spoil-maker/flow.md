@@ -17,7 +17,7 @@ flowchart LR
         direction TB
         dl["โหลดคลิป"] --> tr["ถอดบทพูด"]
         tr --> edit["แก้ Transcript<br/>ทีละบรรทัด"]
-        tr -->|กดดูภาพ| describe["Describe job"]
+        tr -->|กดบรรยายฉาก| describe["Describe job"]
         describe -->|shots.json| ready["คลิปพร้อม"]
     end
     subgraph spoil["tab สปอย"]
@@ -42,7 +42,7 @@ flowchart LR
 - สร้างเสียงก่อนก็ได้ ข้ามไปกด render ก็ได้: render สร้างเสียงที่ขาดให้ (D30)
 - กดร่างบทตอนมี Spoil draft อยู่ต้องยืนยันทับ (D28)
 - ทุกงานในภาพนี้ใช้ช่อง GPU เดียวกัน: ดู diagram 5 (D45)
-- ถอดใหม่หรือดูภาพใหม่ของคลิปใน Spoil draft ลบ Spoil draft หลังยืนยัน (D49)
+- ถอดใหม่หรือบรรยายฉากใหม่ของคลิปใน Spoil draft ลบ Spoil draft หลังยืนยัน (D49)
 
 ## 2. Draft job
 

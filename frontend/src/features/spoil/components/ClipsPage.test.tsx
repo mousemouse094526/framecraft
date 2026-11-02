@@ -1165,7 +1165,7 @@ describe("editing a Transcript line (spoil-maker D54)", () => {
   });
 });
 
-describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
+describe("บรรยายฉาก on a clip row (spoil-maker D16, D45)", () => {
   const TRANSCRIBED = clipOf({ transcribed: true });
 
   function describeJobOf(change: Partial<DescribeJob>): DescribeJob {
@@ -1185,15 +1185,23 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
 
   const row = () => screen.getByRole("listitem", { name: TRANSCRIBED.title });
 
-  it("offers ดูภาพ only on a transcribed clip", async () => {
+  it("offers บรรยายฉาก only on a transcribed clip", async () => {
     backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED, MOON])]);
     render(<ClipsPage />);
 
-    expect(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ดูภาพ" })).toBeEnabled();
-    expect(within(screen.getByRole("listitem", { name: MOON.title })).queryByRole("button", { name: "ดูภาพ" })).toBeNull();
+    expect(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" })).toBeEnabled();
+    expect(within(screen.getByRole("listitem", { name: MOON.title })).queryByRole("button", { name: "บรรยายฉาก" })).toBeNull();
   });
 
-  it("posts the clip, shows 40%, then ดูภาพแล้ว", async () => {
+  it("says under บรรยายฉาก what it does (spoil-maker D58)", async () => {
+    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED])]);
+    render(<ClipsPage />);
+
+    const button = await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" });
+    expect(button).toHaveAccessibleDescription("ให้ AI เขียนว่าแต่ละฉากมีภาพอะไร ใช้ตอนร่างบทสปอย");
+  });
+
+  it("posts the clip, shows 40%, then บรรยายฉากแล้ว", async () => {
     backend([
       status(READY_ITEMS),
       current(null),
@@ -1207,18 +1215,18 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ดูภาพ" }));
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
     await nextPoll();
 
     expect(within(row()).getByText("40%")).toBeInTheDocument();
-    expect(within(row()).getByText("กำลังดูภาพ")).toBeInTheDocument();
+    expect(within(row()).getByText("กำลังบรรยายฉาก")).toBeInTheDocument();
     const posted = fetchMock.mock.calls.find(([input, init]) => String(input) === "/api/spoil-maker/describes" && init?.method === "POST");
     expect(JSON.parse(String(posted![1]!.body))).toEqual({ clip_id: TRANSCRIBED.id });
 
     await nextPoll();
 
-    expect(await within(row()).findByText("ดูภาพแล้ว")).toBeInTheDocument();
-    expect(within(row()).queryByText("กำลังดูภาพ")).toBeNull();
+    expect(await within(row()).findByText("บรรยายฉากแล้ว")).toBeInTheDocument();
+    expect(within(row()).queryByText("กำลังบรรยายฉาก")).toBeNull();
   });
 
   it("sends DELETE on ยกเลิก", async () => {
@@ -1247,12 +1255,12 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ดูภาพ" }));
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
 
     expect(await within(row()).findByText("รอให้งานถอดบทพูดเสร็จก่อน")).toBeInTheDocument();
   });
 
-  it("disables ดูภาพ with the reason while a transcription runs", async () => {
+  it("disables บรรยายฉาก with the reason while a transcription runs", async () => {
     backend([
       status(READY_ITEMS),
       current(null),
@@ -1261,13 +1269,13 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     ]);
     render(<ClipsPage />);
 
-    const button = await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ดูภาพ" });
+    const button = await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" });
 
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription("รอให้งานถอดบทพูดเสร็จก่อน");
   });
 
-  it("disables ดูภาพ on other clips while one is described", async () => {
+  it("disables บรรยายฉาก on other clips while one is described", async () => {
     const other = clipOf({ id: "aaaaaaaaaaa", title: "Another clip", transcribed: true });
     backend([
       status(READY_ITEMS),
@@ -1277,27 +1285,27 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     ]);
     render(<ClipsPage />);
 
-    const button = await within(await screen.findByRole("listitem", { name: "Another clip" })).findByRole("button", { name: "ดูภาพ" });
+    const button = await within(await screen.findByRole("listitem", { name: "Another clip" })).findByRole("button", { name: "บรรยายฉาก" });
 
     expect(button).toBeDisabled();
-    expect(button).toHaveAccessibleDescription("รอให้งานดูภาพเสร็จก่อน");
+    expect(button).toHaveAccessibleDescription("รอให้งานบรรยายฉากเสร็จก่อน");
   });
 
-  it("asks before describing a described clip again, with focus on ดูภาพใหม่", async () => {
+  it("asks before describing a described clip again, with focus on บรรยายฉากใหม่", async () => {
     const described = { ...TRANSCRIBED, described: true };
     backend([status(READY_ITEMS), current(null), clips([described]), postDescribe(describeJobOf({}))]);
     render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ดูภาพ" }));
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
 
-    expect(within(row()).getByText("ดูภาพคลิปนี้ใหม่?")).toBeInTheDocument();
-    expect(within(row()).getByText("ผลเดิมจะถูกแทนที่เมื่อดูภาพเสร็จ")).toBeInTheDocument();
-    expect(within(row()).getByRole("button", { name: "ดูภาพใหม่" })).toHaveFocus();
+    expect(within(row()).getByText("บรรยายฉากคลิปนี้ใหม่?")).toBeInTheDocument();
+    expect(within(row()).getByText("ผลเดิมจะถูกแทนที่เมื่อบรรยายฉากเสร็จ")).toBeInTheDocument();
+    expect(within(row()).getByRole("button", { name: "บรรยายฉากใหม่" })).toHaveFocus();
     const posts = () => fetchMock.mock.calls.filter(([, init]) => init?.method === "POST").length;
     expect(posts()).toBe(0);
 
-    await user.click(within(row()).getByRole("button", { name: "ดูภาพใหม่" }));
+    await user.click(within(row()).getByRole("button", { name: "บรรยายฉากใหม่" }));
 
     expect(posts()).toBe(1);
   });
@@ -1307,28 +1315,28 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ดูภาพ" }));
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
     await user.click(within(row()).getByRole("button", { name: "ยกเลิก" }));
 
-    expect(within(row()).queryByText("ดูภาพคลิปนี้ใหม่?")).toBeNull();
+    expect(within(row()).queryByText("บรรยายฉากคลิปนี้ใหม่?")).toBeNull();
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
 
-  it("says งานหยุดกลางทาง when the job fails in the model, and offers ดูภาพ again", async () => {
+  it("says งานหยุดกลางทาง when the job fails in the model, and offers บรรยายฉาก again", async () => {
     backend([
       status(READY_ITEMS),
       current(null),
       clips([TRANSCRIBED]),
       describing(describeJobOf({ state: "describing", percent: null, done: 1, total: 10 })),
-      describing(describeJobOf({ state: "failed", error: { code: "model_failed", message: "ดูภาพไม่สำเร็จ: x" } })),
+      describing(describeJobOf({ state: "failed", error: { code: "model_failed", message: "บรรยายฉากไม่สำเร็จ: x" } })),
     ]);
     render(<ClipsPage />);
 
-    await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByText("กำลังดูภาพ");
+    await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByText("กำลังบรรยายฉาก");
     await nextPoll();
 
     expect(await within(row()).findByText("งานหยุดกลางทาง")).toBeInTheDocument();
-    expect(within(row()).getByRole("button", { name: "ดูภาพ" })).toBeEnabled();
+    expect(within(row()).getByRole("button", { name: "บรรยายฉาก" })).toBeEnabled();
   });
 
   it("says what is missing and links to ติดตั้ง on 503 not_ready", async () => {
@@ -1341,7 +1349,7 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ดูภาพ" }));
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
 
     expect(await within(row()).findByText("ยังติดตั้งไม่ครบ: Qwen3.5 9B model")).toBeInTheDocument();
     expect(within(row()).getByRole("link", { name: "ไปหน้าติดตั้ง" })).toHaveAttribute("href", "#/setup");
@@ -1364,7 +1372,7 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     expect(await within(row()).findByText("คลิปนี้กำลังถูกใช้ในงานอื่น")).toBeInTheDocument();
   });
 
-  it("says รอให้งานดูภาพเสร็จก่อน in the panel when ถอดบทพูด meets 409 gpu_busy", async () => {
+  it("says รอให้งานบรรยายฉากเสร็จก่อน in the panel when ถอดบทพูด meets 409 gpu_busy", async () => {
     backend([
       status(READY_ITEMS),
       current(null),
@@ -1377,6 +1385,6 @@ describe("ดูภาพ on a clip row (spoil-maker D16, D45)", () => {
     await user.click(await screen.findByText(MOON.title));
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
 
-    expect(await within(panel()).findByText("รอให้งานดูภาพเสร็จก่อน")).toBeInTheDocument();
+    expect(await within(panel()).findByText("รอให้งานบรรยายฉากเสร็จก่อน")).toBeInTheDocument();
   });
 });

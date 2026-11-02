@@ -368,7 +368,7 @@ def test_transcribe_while_describing_is_gpu_busy_but_a_download_starts(client, p
     downloading = client.post("/api/spoil/downloads", json={"url": "https://youtu.be/xvFZjo5PgG0"})
 
     assert transcribing.status_code == 409
-    assert transcribing.json() == {"code": "gpu_busy", "message": "รอให้งานดูภาพเสร็จก่อน", "running": "describe"}
+    assert transcribing.json() == {"code": "gpu_busy", "message": "รอให้งานบรรยายฉากเสร็จก่อน", "running": "describe"}
     assert downloading.status_code == 202
     llm.release(0)
     wait_for_end(client)

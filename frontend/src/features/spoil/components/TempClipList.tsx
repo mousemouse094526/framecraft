@@ -77,8 +77,8 @@ type RowProps = {
 };
 
 /**
- * Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), ดูภาพ
- * under a transcribed clip and ดูภาพแล้ว (spoil-maker D16), and a delete error under it.
+ * Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), บรรยายฉาก
+ * under a transcribed clip and บรรยายฉากแล้ว (spoil-maker D16), and a delete error under it.
  */
 function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete, describe }: RowProps) {
   const row = useRef<HTMLLIElement>(null);
@@ -125,7 +125,7 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete,
                 </span>
               )}
               {clip.transcribed && <DoneBadge>ถอดแล้ว</DoneBadge>}
-              {clip.described && <DoneBadge>ดูภาพแล้ว</DoneBadge>}
+              {clip.described && <DoneBadge>บรรยายฉากแล้ว</DoneBadge>}
             </span>
             <span className="text-[13px] leading-[1.5] text-mid">{sourceLine(clip)}</span>
             <span className="font-mono text-xs leading-[1.5] text-muted-foreground">{fileLine(clip)}</span>

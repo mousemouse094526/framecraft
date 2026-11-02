@@ -21,7 +21,7 @@ _Avoid_: requirement, dependency row
 _Avoid_: lock file, done flag
 
 **สปอย**:
-tab ในแอปที่ทำคลิปเล่าหรือสปอยหนังจาก Temp clip ที่ถอดและดูภาพแล้ว เป็น 3 ขั้น: เลือกคลิป → ตรวจแก้บท → ผล render. tab สปอยไม่โหลดและไม่ถอดคลิปเอง; ทำใน tab คลิป. แอปมี 3 tab ตามลำดับ: **ติดตั้ง** (Setup status), **คลิป** (โหลด Temp clip จากลิงก์ YouTube, ถอดบทพูด, ดูภาพ, แก้ Transcript), **สปอย** (spoil-maker D53).
+tab ในแอปที่ทำคลิปเล่าหรือสปอยหนังจาก Temp clip ที่ถอดและบรรยายฉากแล้ว เป็น 3 ขั้น: เลือกคลิป → ตรวจแก้บท → ผล render. tab สปอยไม่โหลดและไม่ถอดคลิปเอง; ทำใน tab คลิป. แอปมี 3 tab ตามลำดับ: **ติดตั้ง** (Setup status), **คลิป** (โหลด Temp clip จากลิงก์ YouTube, ถอดบทพูด, บรรยายฉาก, แก้ Transcript), **สปอย** (spoil-maker D53).
 _Avoid_: recap, spoiler page
 
 **Temp clip**:
@@ -46,7 +46,7 @@ _Avoid_: process, transcription task
 _Avoid_: scene, frame, cut
 
 **Shot description**:
-คำบรรยายภาพของ Shot หนึ่ง Shot ที่ LLM เขียนจากเฟรมของ Shot นั้น. เก็บใน `media/temp/shots/{id}/` คู่ภาพเล็กของแต่ละ Shot และหายเมื่อลบคลิป. คลิปที่มี Shot description ครบ = "ดูภาพแล้ว".
+คำบรรยายภาพของ Shot หนึ่ง Shot ที่ LLM เขียนจากเฟรมของ Shot นั้น. เก็บใน `media/temp/shots/{id}/` คู่ภาพเล็กของแต่ละ Shot และหายเมื่อลบคลิป. คลิปที่มี Shot description ครบ = "บรรยายฉากแล้ว".
 _Avoid_: caption, Transcript
 
 **Describe job**:

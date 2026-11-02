@@ -115,6 +115,7 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กตอน build แถบ 3 tab และแก้ Transcript: `ClipsPage`/`SpoilMakerPage`, `useHash.ts`, `#/spoil/…` ไม่รู้จัก = ขั้น 1, `clip_users` ของ `clip_busy`, `PATCH` ต้องเป็น JSON, ข้อความแก้เป็นบรรทัดเดียว, ปุ่ม "แก้" แสดงตลอดบนจอสัมผัส, error ใต้ช่องแก้ | [spoil-maker](features/spoil-maker/decisions.md) | D55 | — | [0013](adr/0013-post-requires-json.md) | active |
 | ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และดูภาพ: แถว `model_qwen`/`mlx_vlm` หลัง `device`, `ModelSpec.platforms`, `not_ready` มี `rows` (id), `ApiError`/`backend.jobs` ใช้ร่วม, `GpuSlot.clip_untouched`, ลำดับการเช็ค, ไฟล์ของ `spoil_maker`, ภาพเล็ก ffmpeg `-q:v 5`, `404` `not_found` ทั้งแอป, ยืนยันดูภาพใหม่ในแถว | [spoil-maker](features/spoil-maker/decisions.md) | D56 | — | [0015](adr/0015-one-gpu-slot.md) | active |
 | เฟรมที่ Qwen บรรยายกว้าง 448 (เดิม 640): หนัง 96 นาทีจบใน 52.7 นาทีแทน 64 นาทีบน M2 | [spoil-maker](features/spoil-maker/decisions.md) | D57 | — | — | active |
+| คำบนจอ "ดูภาพ" → "บรรยายฉาก", "กำลังแบ่งฉาก", บรรทัดอธิบายใต้ปุ่ม | [spoil-maker](features/spoil-maker/decisions.md) | D58 | — | — | active |
 
 ## สร้างคลิปสปอย
 

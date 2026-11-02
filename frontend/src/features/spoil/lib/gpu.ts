@@ -3,7 +3,7 @@ import type { Refusal } from "./refusal";
 // How the app names the job holding the GPU (spoil-maker spec › Frontend, `gpu_busy`).
 const RUNNING_NAMES: Record<string, string> = {
   transcribe: "ถอดบทพูด",
-  describe: "ดูภาพ",
+  describe: "บรรยายฉาก",
 };
 
 /** "รอให้งาน{running}เสร็จก่อน": why a GPU job can't start while `running` holds the GPU (spoil-maker D45). */

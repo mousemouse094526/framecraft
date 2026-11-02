@@ -23,9 +23,10 @@ type Props = { clip: TempClip; describe: DescribeProps };
 // Mobile stacks full width with 44 px buttons; from lg (the two-column page) the row's text column, 108 px in, holds one line.
 const AREA = "flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3 lg:pl-[108px]";
 const BUTTON_SIZE = "h-11 w-full px-4 lg:h-9 lg:w-auto";
+const HINT = "ให้ AI เขียนว่าแต่ละฉากมีภาพอะไร ใช้ตอนร่างบทสปอย";
 
 /**
- * Figma component `Clip row`, its ดูภาพ part: ready, describing (% and
+ * Figma component `Clip row`, its บรรยายฉาก part: ready, describing (% and
  * ยกเลิก), blocked with the reason, failed, and the ask before describing a
  * described clip again (spoil-maker D16, D45).
  */
@@ -42,13 +43,13 @@ export function DescribeControls({ clip, describe }: Props) {
       <div className={AREA}>
         <div className="flex flex-1 flex-col gap-3 rounded-lg bg-muted p-3">
           <div className="flex flex-col gap-0.5 leading-[1.5]">
-            <p className="text-sm font-medium text-foreground">ดูภาพคลิปนี้ใหม่?</p>
-            <p className="text-[13px] text-mid">ผลเดิมจะถูกแทนที่เมื่อดูภาพเสร็จ</p>
+            <p className="text-sm font-medium text-foreground">บรรยายฉากคลิปนี้ใหม่?</p>
+            <p className="text-[13px] text-mid">ผลเดิมจะถูกแทนที่เมื่อบรรยายฉากเสร็จ</p>
           </div>
           <div className="flex gap-2">
             <button
               type="button"
-              // Figma: the ask opens with focus on ดูภาพใหม่.
+              // Figma: the ask opens with focus on บรรยายฉากใหม่.
               autoFocus
               onClick={() => {
                 setAsking(false);
@@ -56,7 +57,7 @@ export function DescribeControls({ clip, describe }: Props) {
               }}
               className={`h-11 flex-1 px-4 lg:h-9 lg:flex-none ${PRIMARY_BUTTON}`}
             >
-              ดูภาพใหม่
+              บรรยายฉากใหม่
             </button>
             <button
               type="button"
@@ -80,18 +81,17 @@ export function DescribeControls({ clip, describe }: Props) {
       <button
         type="button"
         disabled={busyReason !== null}
-        aria-describedby={busyReason ? reasonId : undefined}
+        aria-describedby={reasonId}
         onClick={() => (clip.described ? setAsking(true) : describe.onStart(clip.id))}
         className={`${BUTTON_SIZE} ${OUTLINE_BUTTON} disabled:opacity-50`}
       >
         <img src={eyeIcon} alt="" width={16} height={16} />
-        ดูภาพ
+        บรรยายฉาก
       </button>
-      {busyReason && (
-        <p id={reasonId} className="text-[13px] leading-[1.5] text-mid lg:flex-1">
-          {busyReason}
-        </p>
-      )}
+      {/* What the button does, until another GPU job says why it waits (D58). */}
+      <p id={reasonId} className="text-[13px] leading-[1.5] text-mid lg:flex-1">
+        {busyReason ?? HINT}
+      </p>
     </div>
   );
 }
@@ -114,7 +114,7 @@ function ErrorLine({ error }: { error: DescribeError }) {
 function Progress({ job, onCancel }: { job: DescribeJob; onCancel: () => void }) {
   const cutting = job.state === "cutting";
   const percent = cutting ? (job.percent ?? 0) : job.total ? Math.floor(((job.done ?? 0) * 100) / job.total) : 0;
-  const headline = job.cancel_requested ? "กำลังยกเลิก…" : cutting ? "กำลังหาจุดตัดภาพ" : "กำลังดูภาพ";
+  const headline = job.cancel_requested ? "กำลังยกเลิก…" : cutting ? "กำลังแบ่งฉาก" : "กำลังบรรยายฉาก";
   return (
     <div className={AREA}>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -122,7 +122,7 @@ function Progress({ job, onCancel }: { job: DescribeJob; onCancel: () => void })
           <p className="min-w-0 flex-1 text-[13px] text-mid">{headline}</p>
           <p className="shrink-0 font-mono text-sm font-medium text-brand">{percent}%</p>
         </div>
-        <ProgressBar percent={percent} label="ความคืบหน้าการดูภาพ" cancelling={job.cancel_requested} />
+        <ProgressBar percent={percent} label="ความคืบหน้าการบรรยายฉาก" cancelling={job.cancel_requested} />
       </div>
       <button type="button" onClick={onCancel} disabled={job.cancel_requested} className={`${BUTTON_SIZE} ${OUTLINE_BUTTON}`}>
         ยกเลิก

@@ -66,7 +66,7 @@ export function ClipsPage() {
   const transcribingClip = panel.job ? clips.find((clip) => clip.id === panel.job?.clip_id) : undefined;
   const notice = state.kind === "ready" ? state.notice : null;
   const describing = describe.state.job;
-  // One GPU job at a time (spoil-maker D45): while one runs, ดูภาพ waits, saying for what.
+  // One GPU job at a time (spoil-maker D45): while one runs, บรรยายฉาก waits, saying for what.
   const gpuBusyReason = panel.job ? gpuBusyText("transcribe") : describing ? gpuBusyText("describe") : null;
 
   /** Transcribing again replaces the lines the user edited, so it asks first (spoil-maker D54). */

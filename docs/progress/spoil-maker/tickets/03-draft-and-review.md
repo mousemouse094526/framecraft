@@ -1,6 +1,6 @@
 # 03: ร่างบทและหน้าตรวจแก้
 
-**What to build:** ผู้ใช้เปิด `#/spoil` เลือก Temp clip ที่ถอดและดูภาพแล้วหลาย EP เรียงลำดับ ตั้งสไตล์ layout ความยาว และ Saved voice เห็น token รวมก่อนกด แล้วกดร่างบท: AI เขียนบทไทยและเลือก 2 Shot ต่อประโยค. หน้าตรวจแก้ให้แก้ hook หรือชื่อตอน แก้ ลบ แทรกประโยค เปลี่ยน Shot จากตัวเลือกหรือให้ AI เลือกใหม่ และตั้งเสียงต้นฉบับ; ทุกอย่างอยู่ข้าม restart. ถอดใหม่ ดูภาพใหม่ หรือลบคลิปใน Spoil draft เตือนก่อนว่าจะลบ Spoil draft.
+**What to build:** ผู้ใช้เปิด `#/spoil` เลือก Temp clip ที่ถอดและบรรยายฉากแล้วหลาย EP เรียงลำดับ ตั้งสไตล์ layout ความยาว และ Saved voice เห็น token รวมก่อนกด แล้วกดร่างบท: AI เขียนบทไทยและเลือก 2 Shot ต่อประโยค. หน้าตรวจแก้ให้แก้ hook หรือชื่อตอน แก้ ลบ แทรกประโยค เปลี่ยน Shot จากตัวเลือกหรือให้ AI เลือกใหม่ และตั้งเสียงต้นฉบับ; ทุกอย่างอยู่ข้าม restart. ถอดใหม่ บรรยายฉากใหม่ หรือลบคลิปใน Spoil draft เตือนก่อนว่าจะลบ Spoil draft.
 
 **Blocked by:** 02: Saved voice
 
@@ -17,7 +17,7 @@
 
 ### Draft job
 
-- คลิปถอดแล้วแต่ไม่ได้ดูภาพ → `400` `clip_not_ready` พร้อม id นั้น
+- คลิปถอดแล้วแต่ไม่ได้บรรยายฉาก → `400` `clip_not_ready` พร้อม id นั้น
 - `target_s` 29, 181, 60.5 → `400` `invalid_target`; `style` `x` → `400` `invalid_request`
 - token ปลอมรวม 32,001 → `400` `transcript_too_long`; `GET /tokens` คืน `total` 32,001 และ `per_clip`
 - LLM ปลอมคืนบท 2 EP ที่อ้าง `1-0` และ `2-1` → `done`, `GET /draft` มี `refs` เป็น `clip_id` ของแต่ละ EP และ Shot อยู่ใน `window`; ประโยคที่อ้างทั้งสองพร้อมกัน → `window` ของคลิป EP 1 เท่านั้น
@@ -50,14 +50,14 @@
 - หน้าตาตรง Figma ทุก state ที่ 375 และ 1440: ขั้น 1 ตาม [Figma: Spoiler setup](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8038-4681), ขั้น 2 ตาม [Figma: Script review](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390) (ส่วนบทและ Shot), overlay ตาม [Figma: Shot picker](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186), คำเตือนในแถวคลิปตาม [Figma: Clip row states](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275); วางในขั้นของ tab สปอยตาม [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633)
 - `#/spoil` เปิด tab สปอยที่ขั้นเลือกคลิป (หน้าตั้งค่า, D53); ไม่มี Spoil draft ที่ `#/spoil/review` → ลิงก์ไปหน้าตั้งค่า
 - เลือก 2 คลิป `GET /tokens` คืน `total` 40,000 → ปุ่มร่างกดไม่ได้ และเห็น 40,000 / 32,000
-- คลิปที่ยังไม่ดูภาพเลือกไม่ได้และเห็น "ยังไม่ดูภาพ"; ไม่มีคลิปพร้อมเลย → เห็นข้อความว่างพร้อมลิงก์
+- คลิปที่ยังไม่บรรยายฉากเลือกไม่ได้และเห็น "ยังไม่บรรยายฉาก"; ไม่มีคลิปพร้อมเลย → เห็นข้อความว่างพร้อมลิงก์
 - เลือกสไตล์ `drama` → layout เป็น B; เปลี่ยน layout เป็น A ได้
 - ไม่มี Saved voice → เห็นลิงก์ไปหน้า Saved voice และปุ่มร่างกดไม่ได้
 - มี Spoil draft แล้วกดร่าง → เห็นคำยืนยันก่อนส่ง `replace: true`; ระหว่างร่าง → "กำลังเขียนบท" แล้ว "กำลังเลือกภาพ x/y" กับปุ่มยกเลิก
 - หน้าตรวจแก้: ประโยค `no_shot` เห็น "เลือก" แทนภาพ; แก้ข้อความแล้ว blur → ส่ง `PATCH` และสถานะเป็น "ต้องสร้างเสียงใหม่"; กดลบประโยค → คำยืนยันก่อนส่ง `DELETE`
 - กดภาพ Shot → ตัวเลือกแสดงภาพของ Shot ใน `window`; "ดูทั้งคลิป" → ทุก Shot ของ EP; ประโยคที่แทรกเปิดที่ทั้งคลิปของ EP แรก
 - `GET /draft` มี `locked: true` และ current ของ Draft job `pick` → ช่องแก้ทุกช่องกดไม่ได้
-- ลบ ถอดใหม่ หรือดูภาพใหม่ของคลิปที่ `in_draft: true` → เห็นคำเตือนก่อนส่ง; ยืนยันดูภาพ → ส่ง `confirm_draft_loss: true`
+- ลบ ถอดใหม่ หรือบรรยายฉากใหม่ของคลิปที่ `in_draft: true` → เห็นคำเตือนก่อนส่ง; ยืนยันบรรยายฉาก → ส่ง `confirm_draft_loss: true`
 - ลบเสียงที่ใช้อยู่ได้ `409` `voice_in_use` → เห็น "เสียงนี้ใช้อยู่ใน Spoil draft"
 - หน้าตาตรงแบบของจอ "ตั้งค่าคลิปสปอย", "หน้าตรวจแก้", "ตัวเลือก Shot" (Source ยัง `pending`: Blocked #3, #4, #5)
 

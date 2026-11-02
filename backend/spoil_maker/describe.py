@@ -75,7 +75,7 @@ class Describes(JobSlot[DescribeJob]):
         require_rows(_needed_rows(project))
         with self._lock:
             if self._taken():
-                raise ApiError(409, "busy", "กำลังดูภาพคลิปอื่นอยู่")
+                raise ApiError(409, "busy", "กำลังบรรยายฉากคลิปอื่นอยู่")
             gpu.slot.take("describe", [clip_id])
             try:
                 # Again under the slot: a delete may have run since the first look, and none can now.
@@ -95,7 +95,7 @@ class Describes(JobSlot[DescribeJob]):
         """Asks the thread to stop ffmpeg or the child; the job ends as `cancelled`."""
         with self._lock:
             if not self._taken():
-                raise ApiError(404, "not_found", "ไม่มีงานดูภาพที่ยังไม่จบ")
+                raise ApiError(404, "not_found", "ไม่มีงานบรรยายฉากที่ยังไม่จบ")
             self._job.cancel_requested = True
             self._cancel.set()
             return self._job.model_copy(deep=True)
@@ -149,7 +149,7 @@ class Describes(JobSlot[DescribeJob]):
             ending = _failed(failure.code, failure.message)
         except Exception as error:
             log.exception("describing %s failed", clip.id)  # the full error, for [api]
-            ending = _failed("internal", f"ดูภาพไม่สำเร็จ: {short(error)}")
+            ending = _failed("internal", f"บรรยายฉากไม่สำเร็จ: {short(error)}")
         finally:
             # Whatever happened, the job must end and free the GPU, or every later POST is refused.
             if process is not None:
@@ -186,12 +186,12 @@ class Describes(JobSlot[DescribeJob]):
         try:
             message = next_message(process, replies, self._cancel, timeout)
         except ChildGone as gone:
-            raise JobFailed("crashed", f"ตัวดูภาพหยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
+            raise JobFailed("crashed", f"ตัวบรรยายฉากหยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
         except TimeoutError:
             raise JobFailed("model_failed", f"บรรยายภาพเกิน {timeout:g} วินาที. {gpu.ADVICE}") from None
         if isinstance(message, WorkerError):
             log.error("the LLM process failed (%s): %s", message.code, message.detail)
-            raise JobFailed("model_failed", f"ดูภาพไม่สำเร็จ: {short(message.detail)}. {gpu.ADVICE}")
+            raise JobFailed("model_failed", f"บรรยายฉากไม่สำเร็จ: {short(message.detail)}. {gpu.ADVICE}")
         if not isinstance(message, (Ready, Generated)):
             raise RuntimeError(f"unknown message from the LLM process: {message!r}")
         return message
@@ -227,7 +227,7 @@ def clip_shots(project: ProjectPaths, video_id: str) -> shots.ShotsFile:
     clips.check_known(project, video_id)
     found = shots.read_shots(project, video_id)
     if found is None:
-        raise ApiError(404, "not_described", "คลิปนี้ยังไม่ได้ดูภาพ")
+        raise ApiError(404, "not_described", "คลิปนี้ยังไม่ได้บรรยายฉาก")
     return found
 
 

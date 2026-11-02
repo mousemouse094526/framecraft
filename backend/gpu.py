@@ -17,7 +17,7 @@ Kind = Literal["transcribe", "describe"]
 # How `gpu_busy` names the running job (spoil-maker spec › Frontend).
 RUNNING_NAMES: dict[Kind, str] = {
     "transcribe": "ถอดบทพูด",
-    "describe": "ดูภาพ",
+    "describe": "บรรยายฉาก",
 }
 
 # Ends the message of a job whose model failed or stopped: another app may hold the GPU.
