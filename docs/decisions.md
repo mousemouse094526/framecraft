@@ -117,6 +117,8 @@ question; the full entry is in the feature's decisions.md.
 | เฟรมที่ Qwen บรรยายกว้าง 448 (เดิม 640): หนัง 96 นาทีจบใน 52.7 นาทีแทน 64 นาทีบน M2 | [spoil-maker](features/spoil-maker/decisions.md) | D57 | — | — | active |
 | คำบนจอ "ดูภาพ" → "บรรยายฉาก", "กำลังแบ่งฉาก", บรรทัดอธิบายใต้ปุ่ม | [spoil-maker](features/spoil-maker/decisions.md) | D58 | — | — | active |
 | ทางเลือกเล็กตอน build Saved voice: env `PYTHAINLP_DATA`, แถว `pythainlp` หลัง `mlx_vlm`, นับตัวอักษรไม่นับช่องว่างและวรรคตอน, ประโยคล็อกใช้ประโยคตัวอย่าง, process ลูกส่งเสียงและ prompt เป็น bytes, state `voicing`, `gpu.Kind` `voice`, `#/spoil/voices` ไม่มีตัวบอกขั้น, `lib/` ใช้ร่วมของหน้าเว็บ | [spoil-maker](features/spoil-maker/decisions.md) | D59 | — | [0012](adr/0012-gpu-jobs-in-child-process.md) | active |
+| ทางเลือกเล็กตอน build ร่างบทและหน้าตรวจแก้: `draft_file` แยกจาก `draft`, `gpu.slot.draft_lock` และ `take(draft=True)`, `jobs.ModelJobSlot`, ลำดับการเช็คของ Draft job, เลือก Shot ใกล้ ref แรก, `components/ui/Alert`, `lib/clips`, ลิงก์จัดการเสียง, แทรก "ประโยคใหม่", คำเตือน Spoil draft ในแถวคลิป | [spoil-maker](features/spoil-maker/decisions.md) | D60 | — | [0012](adr/0012-gpu-jobs-in-child-process.md), [0015](adr/0015-one-gpu-slot.md) | active |
+| เลือก Shot ส่งให้ AI ไม่เกิน 40 Shot ที่ใกล้ ref แรก; temperature ร่างบท 0.3; คำสั่งร่างบทบอกกฎซ้ำหลัง Transcript พร้อมตัวอักษรต่อประโยค, ครั้งที่ 2–3 บอกว่าครั้งก่อนพลาดตรงไหน, ประโยคเก็บ ref 3 ตัวแรก | [spoil-maker](features/spoil-maker/decisions.md) | D61 | — | — | active |
 
 ## สร้างคลิปสปอย
 

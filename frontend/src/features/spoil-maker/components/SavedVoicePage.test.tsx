@@ -10,6 +10,7 @@ const JOBS_PATH = "/api/spoil-maker/voice-jobs";
 const CURRENT_PATH = "/api/spoil-maker/voice-jobs/current";
 const TRANSCRIBE_PATH = "/api/spoil/transcriptions/current";
 const DESCRIBE_PATH = "/api/spoil-maker/describes/current";
+const DRAFT_JOB_PATH = "/api/spoil-maker/draft-jobs/current";
 const PREVIEW_PATH = "/api/spoil-maker/voice-jobs/preview.wav";
 
 function voiceOf(change: Partial<Voice>): Voice {
@@ -55,7 +56,7 @@ type Route = { method?: string; path: string; reply: () => Response | Promise<Re
  */
 function backend(routes: Route[]) {
   const has = (path: string) => routes.some((r) => r.path === path && (r.method ?? "GET") === "GET");
-  for (const path of [CURRENT_PATH, TRANSCRIBE_PATH, DESCRIBE_PATH]) if (!has(path)) routes.push(get(path, null));
+  for (const path of [CURRENT_PATH, TRANSCRIBE_PATH, DESCRIBE_PATH, DRAFT_JOB_PATH]) if (!has(path)) routes.push(get(path, null));
   if (!has(VOICES_PATH)) routes.push(get(VOICES_PATH, []));
   fetchMock.mockImplementation(async (input, init) => {
     const method = init?.method ?? "GET";

@@ -7,7 +7,8 @@ import { gpuBusyText } from "../../../lib/gpu";
 import { useDescribe } from "../hooks/useDescribe";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";
-import { useTranscribe } from "../hooks/useTranscribe";
+import { useTranscribe, type Confirmed } from "../hooks/useTranscribe";
+import type { TempClip } from "../../../lib/clips";
 import arrowDownIcon from "../assets/arrow-down.svg";
 import arrowRightIcon from "../assets/arrow-right.svg";
 import { DownloadProgress } from "./DownloadProgress";
@@ -69,10 +70,19 @@ export function ClipsPage() {
   // One GPU job at a time (spoil-maker D45): while one runs, บรรยายฉาก waits, saying for what.
   const gpuBusyReason = panel.job ? gpuBusyText("transcribe") : describing ? gpuBusyText("describe") : null;
 
-  /** Transcribing again replaces the lines the user edited, so it asks first (spoil-maker D54). */
-  const startTranscribe = async (clipId: string) => {
-    const result = await transcribe.start(clipId);
-    if (result.kind === "has_edits" && window.confirm(result.message)) await transcribe.start(clipId, true);
+  /**
+   * Transcribing again replaces the lines the user edited and removes the Spoil draft made
+   * from the clip, so it asks first (spoil-maker D54, D49): the panel warns about a clip the
+   * list marks `in_draft`; a loss only the API knows of (edited lines, a newer draft) is asked here.
+   */
+  const startTranscribe = async (clip: TempClip, draftConfirmed: boolean) => {
+    const confirmed: Confirmed = { draftLoss: draftConfirmed };
+    for (;;) {
+      const result = await transcribe.start(clip.id, confirmed);
+      if (result.kind === "handled" || !window.confirm(result.message)) return;
+      if (result.kind === "has_edits") confirmed.editLoss = true;
+      else confirmed.draftLoss = true;
+    }
   };
 
   /** Lets go of the file (Windows can't delete one the player holds open, D15), then empties the panel. */
@@ -110,7 +120,7 @@ export function ClipsPage() {
               job: describing,
               errors: describe.state.errors,
               busyReason: gpuBusyReason,
-              onStart: (id) => void describe.start(id),
+              onStart: (id, confirmDraftLoss) => void describe.start(id, confirmDraftLoss),
               onCancel: () => void describe.cancel(),
             }}
           />
@@ -128,7 +138,7 @@ export function ClipsPage() {
           jobTitle={transcribingClip?.title ?? panel.job?.clip_id ?? null}
           notice={panel.notice}
           transcript={panel.transcript}
-          onStart={() => selected && void startTranscribe(selected.id)}
+          onStart={(draftConfirmed = false) => selected && void startTranscribe(selected, draftConfirmed)}
           onCancel={() => void transcribe.cancel()}
           onEditLine={transcribe.editLine}
         />

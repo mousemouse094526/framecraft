@@ -1,0 +1,365 @@
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { App } from "../../../App";
+import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
+
+const DRAFT_PATH = "/api/spoil-maker/draft";
+const JOBS_PATH = "/api/spoil-maker/draft-jobs";
+const CURRENT_PATH = "/api/spoil-maker/draft-jobs/current";
+const EP1 = "aaaaaaaaaaa";
+const EP2 = "bbbbbbbbbbb";
+
+/** A Shot every 5 s: Shot n is n × 5 s. */
+function shotsOf(count: number): Shot[] {
+  return Array.from({ length: count }, (_, n) => ({ n, start: 5 * n, end: 5 * n + 5, description: `Shot ${n} picture.` }));
+}
+
+function sentenceOf(id: string, change: Partial<Sentence> = {}): Sentence {
+  return {
+    id,
+    text: "ชายคนหนึ่งตื่นขึ้นมา",
+    refs: [{ clip_id: EP1, line: 4 }],
+    shots: [
+      { clip_id: EP1, n: 20 },
+      { clip_id: EP1, n: 21 },
+    ],
+    audio: null,
+    status: "no_audio",
+    estimated_s: 4.8,
+    ref_lines: [{ clip_id: EP1, line: 4, start: 100, end: 104, text: "Where am I?" }],
+    window: { clip_id: EP1, start: 70, end: 134 },
+    ...change,
+  };
+}
+
+function draftOf(change: Partial<Draft> = {}): Draft {
+  return {
+    clip_ids: [EP1, EP2],
+    style: "fast",
+    layout: "A",
+    target_s: 30,
+    voice_id: "v_0000abcd",
+    original_volume: 20,
+    top_text: "คดีที่หลอนที่สุด",
+    sentences: [sentenceOf("s_00000001"), sentenceOf("s_00000002", { text: "ประโยคสอง" })],
+    estimated_total_s: 31,
+    locked: false,
+    ...change,
+  };
+}
+
+const PICK: DraftJob = {
+  kind: "pick",
+  state: "matching",
+  done: 0,
+  total: 1,
+  error: null,
+  cancel_requested: false,
+  started_at: "2026-11-02T11:00:00+07:00",
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+type Route = { method?: string; path: string; reply: () => Response };
+
+function backend(routes: Route[]) {
+  const has = (path: string) => routes.some((r) => r.path === path && (r.method ?? "GET") === "GET");
+  const defaults: [string, unknown][] = [
+    [DRAFT_PATH, draftOf()],
+    [CURRENT_PATH, null],
+    [`/api/spoil-maker/clips/${EP1}/shots`, { clip_id: EP1, shots: shotsOf(60) }],
+    [`/api/spoil-maker/clips/${EP2}/shots`, { clip_id: EP2, shots: shotsOf(8) }],
+  ];
+  for (const [path, body] of defaults) if (!has(path)) routes.push(get(path, body));
+  fetchMock.mockImplementation(async (input, init) => {
+    const method = init?.method ?? "GET";
+    const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
+    if (matches.length === 0) throw new Error(`unexpected ${method} ${String(input)}`);
+    const route = matches[0];
+    if (matches.length > 1) routes.splice(routes.indexOf(route), 1);
+    return route.reply();
+  });
+}
+
+const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
+const send = (method: string, path: string, body: unknown, code: number): Route => ({
+  method,
+  path,
+  reply: () => jsonResponse(body, code),
+});
+
+function sent(method: string, path: string): unknown[] {
+  return fetchMock.mock.calls
+    .filter(([input, init]) => String(input) === path && init?.method === method)
+    .map(([, init]) => (init?.body ? JSON.parse(String(init.body)) : null));
+}
+
+async function openReview() {
+  window.location.hash = "#/spoil/review";
+  render(<App />);
+  await screen.findByRole("region", { name: "ภาพรวมบท" });
+  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+}
+
+const card = (number: number) => screen.getByRole("listitem", { name: `ประโยค ${number}` });
+const shotImages = (element: HTMLElement) => [...element.querySelectorAll("img")].map((img) => img.getAttribute("src"));
+
+const fetchMock = vi.fn<typeof fetch>();
+
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.stubGlobal("fetch", fetchMock);
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  fetchMock.mockReset();
+  window.location.hash = "";
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+describe("ตรวจแก้บท", () => {
+  it("without a Spoil draft links to ตั้งค่าคลิปสปอย", async () => {
+    backend([get(DRAFT_PATH, null)]);
+    window.location.hash = "#/spoil/review";
+    render(<App />);
+
+    expect(await screen.findByText("ยังไม่มีบท")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ไปที่ตั้งค่าคลิปสปอย" })).toHaveAttribute("href", "#/spoil");
+  });
+
+  it("shows the hook, the length, and each sentence with its Shots, status and cited line", async () => {
+    backend([]);
+    await openReview();
+
+    expect(screen.getByRole("textbox", { name: "Hook" })).toHaveValue("คดีที่หลอนที่สุด");
+    expect(screen.getByText("ความยาวประมาณ 31 / 30 วินาที · 2 ประโยค")).toBeInTheDocument();
+    const first = card(1);
+    expect(within(first).getByText("ยังไม่มีเสียง")).toBeInTheDocument();
+    expect(within(first).getByText("4.8 วิ")).toBeInTheDocument();
+    expect(within(first).getByText("EP1 · 00:01:40")).toBeInTheDocument();
+    expect(within(first).getByText("EP1 00:01:40")).toBeInTheDocument();
+    expect(within(first).getByText('"Where am I?"')).toBeInTheDocument();
+    expect(shotImages(first)).toContain(`/api/spoil-maker/clips/${EP1}/shots/20.jpg`);
+  });
+
+  it("warns when the estimate is more than 25% off the target", async () => {
+    backend([get(DRAFT_PATH, draftOf({ estimated_total_s: 40 }))]);
+    await openReview();
+
+    expect(screen.getByText("ความยาวประมาณ 40 / 30 วินาที · 2 ประโยค").closest("p")).toHaveClass("text-warning");
+  });
+
+  it("a no_shot sentence shows เลือก Shot instead of a picture", async () => {
+    const empty = sentenceOf("s_00000001", { shots: [null, null], status: "no_shot", refs: [], ref_lines: [], window: null });
+    backend([get(DRAFT_PATH, draftOf({ sentences: [empty] }))]);
+    await openReview();
+
+    expect(within(card(1)).getByText("ไม่มี Shot")).toBeInTheDocument();
+    expect(within(card(1)).getAllByText("เลือก Shot")).toHaveLength(2);
+    expect(shotImages(card(1)).some((src) => src?.endsWith(".jpg"))).toBe(false);
+  });
+
+  it("edited text is sent on blur and the sentence then needs a new voice", async () => {
+    const stale = draftOf({ sentences: [sentenceOf("s_00000001", { text: "ใหม่", status: "stale_audio" })] });
+    backend([send("PATCH", `${DRAFT_PATH}/sentences/s_00000001`, stale, 200)]);
+    const user = await openReview();
+    const field = within(card(1)).getByRole("textbox", { name: "ประโยค 1" });
+
+    // One change, then leave the field: typing key by key could outlast the 800 ms save under a busy run.
+    await user.click(field);
+    fireEvent.change(field, { target: { value: "ใหม่" } });
+    await user.tab();
+
+    expect(await within(card(1)).findByText("ต้องสร้างเสียงใหม่")).toBeInTheDocument();
+    expect(sent("PATCH", `${DRAFT_PATH}/sentences/s_00000001`)).toEqual([{ text: "ใหม่" }]);
+  });
+
+  it("text saves itself 800 ms after the last key", async () => {
+    backend([send("PATCH", `${DRAFT_PATH}/sentences/s_00000002`, draftOf(), 200)]);
+    await openReview();
+
+    // One change with no key delays, so the clock is only what the test moves.
+    fireEvent.change(within(card(2)).getByRole("textbox"), { target: { value: "ประโยคสอง!" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    expect(sent("PATCH", `${DRAFT_PATH}/sentences/s_00000002`)).toEqual([]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+
+    await waitFor(() => expect(sent("PATCH", `${DRAFT_PATH}/sentences/s_00000002`)).toEqual([{ text: "ประโยคสอง!" }]));
+  });
+
+  it("ลบ asks first, then sends DELETE", async () => {
+    backend([send("DELETE", `${DRAFT_PATH}/sentences/s_00000001`, draftOf({ sentences: [sentenceOf("s_00000002")] }), 200)]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "ลบประโยค 1" }));
+    expect(within(card(1)).getByText("ลบประโยคนี้?")).toBeInTheDocument();
+    expect(sent("DELETE", `${DRAFT_PATH}/sentences/s_00000001`)).toEqual([]);
+    await user.click(within(card(1)).getByRole("button", { name: "ลบ" }));
+
+    expect(sent("DELETE", `${DRAFT_PATH}/sentences/s_00000001`)).toHaveLength(1);
+    expect(screen.queryByRole("listitem", { name: "ประโยค 2" })).not.toBeInTheDocument();
+  });
+
+  it("แทรกใต้ adds a sentence under this one", async () => {
+    const inserted = sentenceOf("s_000000ff", { text: "ประโยคใหม่", refs: [], ref_lines: [], window: null, shots: [null, null], status: "no_shot" });
+    const after = draftOf({ sentences: [sentenceOf("s_00000001"), inserted, sentenceOf("s_00000002")] });
+    backend([send("POST", `${DRAFT_PATH}/sentences`, after, 201)]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "แทรกใต้" }));
+
+    expect(sent("POST", `${DRAFT_PATH}/sentences`)).toEqual([{ after_id: "s_00000001", text: "ประโยคใหม่" }]);
+    expect(await within(card(2)).findByRole("textbox")).toHaveValue("ประโยคใหม่");
+  });
+
+  it("a Shot opens the picker on the Shots in the window, and ดูทั้งคลิป shows the whole episode", async () => {
+    backend([]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 1" }));
+    const dialog = screen.getByRole("dialog", { name: "เลือกภาพให้ประโยค 1" });
+
+    // 70–134 s: Shots 14 (70–75) to 26 (130–135).
+    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(13);
+    expect(within(dialog).getByText("Shot ภายใน ±30 วินาทีจาก EP1 00:01:40 · 13 Shot")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "ดูทั้งคลิป" }));
+    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(60);
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: "ตอน" }), EP2);
+    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(8);
+  });
+
+  it("picking a Shot sends both slots and closes the picker", async () => {
+    backend([send("PATCH", `${DRAFT_PATH}/sentences/s_00000001`, draftOf(), 200)]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 2" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Shot 00:01:15" }));
+
+    expect(sent("PATCH", `${DRAFT_PATH}/sentences/s_00000001`)).toEqual([
+      { shots: [{ clip_id: EP1, n: 20 }, { clip_id: EP1, n: 15 }] },
+    ]);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("pointing at a Shot shows its description and plays from its start", async () => {
+    backend([]);
+    const user = await openReview();
+    await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 1" }));
+    const dialog = screen.getByRole("dialog");
+
+    await user.hover(within(dialog).getByRole("button", { name: "Shot 00:01:15" }));
+
+    expect(within(dialog).getByRole("tooltip")).toHaveTextContent("Shot 15 picture.");
+    expect(dialog.querySelector("video")?.currentTime).toBe(75);
+    expect(within(dialog).getByText("EP1 · 00:01:15 – 00:01:20")).toBeInTheDocument();
+  });
+
+  it("a sentence citing no line opens the picker on the whole first episode", async () => {
+    const inserted = sentenceOf("s_00000001", { refs: [], ref_lines: [], window: null, shots: [null, null], status: "no_shot" });
+    backend([get(DRAFT_PATH, draftOf({ sentences: [inserted] }))]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 1" }));
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getByRole("button", { name: "ดูทั้งคลิป" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog).getByRole("combobox", { name: "ตอน" })).toHaveValue(EP1);
+    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(60);
+  });
+
+  it("Esc closes the picker", async () => {
+    backend([]);
+    const user = await openReview();
+    await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 1" }));
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("เลือก Shot ใหม่ runs a pick and every field waits until it ends", async () => {
+    backend([
+      send("POST", JOBS_PATH, PICK, 202),
+      get(CURRENT_PATH, null),
+      get(CURRENT_PATH, { ...PICK, state: "done", done: 1 }),
+    ]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "เลือก Shot ใหม่" }));
+
+    expect(sent("POST", JOBS_PATH)).toEqual([{ kind: "pick", sentence_id: "s_00000001" }]);
+    expect(within(card(1)).getByText("AI กำลังเลือก Shot ใหม่")).toBeInTheDocument();
+    expect(within(card(2)).getByRole("textbox")).toBeDisabled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(within(card(2)).getByRole("textbox")).not.toBeDisabled();
+  });
+
+  it("a pick running when the page opens shows its progress with ยกเลิก", async () => {
+    backend([
+      get(DRAFT_PATH, draftOf({ locked: true })),
+      get(CURRENT_PATH, PICK),
+      send("DELETE", CURRENT_PATH, { ...PICK, cancel_requested: true }, 202),
+    ]);
+    const user = await openReview();
+
+    expect(screen.getByText("AI กำลังเลือก Shot ใหม่")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "ยกเลิก" }));
+
+    expect(sent("DELETE", CURRENT_PATH)).toHaveLength(1);
+    expect(screen.getByText("กำลังยกเลิก…")).toBeInTheDocument();
+  });
+
+  it("a locked draft with a pick running disables every field", async () => {
+    backend([get(DRAFT_PATH, draftOf({ locked: true })), get(CURRENT_PATH, PICK)]);
+    await openReview();
+
+    expect(screen.getByRole("textbox", { name: "Hook" })).toBeDisabled();
+    for (const number of [1, 2]) {
+      expect(within(card(number)).getByRole("textbox")).toBeDisabled();
+      for (const button of within(card(number)).getAllByRole("button")) expect(button).toBeDisabled();
+    }
+  });
+
+  it("a sentence citing no line can't ask AI for new Shots", async () => {
+    const inserted = sentenceOf("s_00000001", { refs: [], ref_lines: [], window: null });
+    backend([get(DRAFT_PATH, draftOf({ sentences: [inserted] }))]);
+    await openReview();
+
+    expect(within(card(1)).getByRole("button", { name: "เลือก Shot ใหม่" })).toBeDisabled();
+  });
+
+  it("layout B has no text on top; C calls it ชื่อตอน", async () => {
+    backend([get(DRAFT_PATH, draftOf({ layout: "B" }))]);
+    await openReview();
+
+    expect(screen.queryByRole("textbox", { name: "Hook" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "ชื่อตอน" })).not.toBeInTheDocument();
+  });
+
+  it("a refused change shows its reason", async () => {
+    backend([
+      send("PATCH", DRAFT_PATH, { code: "invalid_request", message: "ข้อความด้านบนยาวได้ไม่เกิน 40 ตัวอักษร" }, 400),
+    ]);
+    const user = await openReview();
+    const hook = screen.getByRole("textbox", { name: "Hook" });
+
+    await user.click(hook);
+    fireEvent.change(hook, { target: { value: "ยาว" } });
+    await user.tab();
+
+    expect(await screen.findByText("ข้อความด้านบนยาวได้ไม่เกิน 40 ตัวอักษร")).toBeInTheDocument();
+  });
+});

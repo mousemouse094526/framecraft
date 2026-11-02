@@ -1,0 +1,149 @@
+import { useId, useState } from "react";
+import { Alert } from "../../../components/ui/Alert";
+import { OfflinePanel } from "../../../components/ui/OfflinePanel";
+import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import arrowRightIcon from "../assets/arrow-right-white.svg";
+import fileTextIcon from "../assets/file-text-36.svg";
+import triangleAlertIcon from "../assets/triangle-alert-24.svg";
+import { useAutoSave } from "../hooks/useAutoSave";
+import { useScriptReview } from "../hooks/useScriptReview";
+import { SETUP_HASH, type Draft, type Layout } from "../lib/draft";
+import { PickProgress, SentenceCard } from "./SentenceCard";
+import { ShotPicker } from "./ShotPicker";
+
+// What the text on top of the video is called in each layout; B has none (D19).
+const TOP_TEXT_LABELS: Partial<Record<Layout, string>> = { A: "Hook", C: "ชื่อตอน" };
+const TOP_TEXT_MAX = 40;
+const TOLERANCE = 0.25; // an estimate further off the target than this warns (D18)
+/** What แทรกใต้ puts in a new sentence: the API keeps no empty one, and the user types over it (D27). */
+const NEW_SENTENCE = "ประโยคใหม่";
+
+/**
+ * Step 2 of the สปอย tab, ตรวจแก้บท (Figma `Script review`, its script and Shots): the text
+ * on top, the length, and every sentence (spoil-maker D19, D25, D26, D27, D30, D51). The
+ * voice, watermarks, original volume and render come with the Render job.
+ */
+export function ScriptReview() {
+  const review = useScriptReview();
+  const { state } = review;
+  const [picker, setPicker] = useState<{ sentenceId: string; slot: number } | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  if (state.kind === "offline") return <OfflinePanel />;
+  if (state.kind === "loading") return <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>;
+  if (state.kind === "empty") return <NoDraft />;
+
+  const { draft, shots, job, pickingId } = state;
+  const locked = draft.locked || job !== null;
+  const pickerIndex = picker ? draft.sentences.findIndex((s) => s.id === picker.sentenceId) : -1;
+
+  /** แทรกใต้, then focus the new sentence, the one id the draft didn't have, so the user types over its text. */
+  const insertAfter = async (afterId: string) => {
+    const before = new Set(draft.sentences.map((s) => s.id));
+    const result = await review.insertAfter(afterId, NEW_SENTENCE);
+    if (result.kind === "saved") setFocusId(result.draft.sentences.find((s) => !before.has(s.id))?.id ?? null);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 lg:max-w-[744px]">
+      <TopCard draft={draft} locked={locked} onSave={async (top_text) => (await review.changeDraft({ top_text })).kind === "saved"} />
+      {state.error && <Alert tone="error">{state.error}</Alert>}
+      {/* A pick this page didn't start (it ran before the page opened): which sentence isn't known. */}
+      {job && !draft.sentences.some((s) => s.id === pickingId) && (
+        <section aria-label="งานที่กำลังทำ" className="rounded-2xl border border-border bg-card p-4">
+          <PickProgress job={job} onCancel={() => void review.cancel()} />
+        </section>
+      )}
+      <ol className="flex flex-col gap-4">
+        {draft.sentences.map((sentence, index) => (
+          <SentenceCard
+            key={sentence.id}
+            sentence={sentence}
+            number={index + 1}
+            clipIds={draft.clip_ids}
+            shots={shots}
+            locked={locked}
+            picking={pickingId === sentence.id ? job : null}
+            focus={focusId === sentence.id}
+            onText={async (text) => (await review.changeText(sentence.id, text)).kind === "saved"}
+            onOpenPicker={(slot) => setPicker({ sentenceId: sentence.id, slot })}
+            onPick={() => void review.pick(sentence.id)}
+            onCancelPick={() => void review.cancel()}
+            onInsert={() => void insertAfter(sentence.id)}
+            onDelete={() => void review.remove(sentence.id)}
+          />
+        ))}
+      </ol>
+      {picker && pickerIndex >= 0 && (
+        <ShotPicker
+          sentence={draft.sentences[pickerIndex]}
+          number={pickerIndex + 1}
+          slot={picker.slot}
+          clipIds={draft.clip_ids}
+          shots={shots}
+          onClose={() => setPicker(null)}
+          onPick={(shot) => {
+            const slots = [...draft.sentences[pickerIndex].shots];
+            slots[picker.slot] = shot;
+            setPicker(null);
+            void review.changeShots(picker.sentenceId, slots);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The text on top (layouts A and C) and the length: estimate / target and the number of sentences (D19, D30). */
+function TopCard({ draft, locked, onSave }: { draft: Draft; locked: boolean; onSave: (text: string) => Promise<boolean> }) {
+  const label = TOP_TEXT_LABELS[draft.layout];
+  const top = useAutoSave(draft.top_text, onSave);
+  const id = useId();
+  const estimate = Math.round(draft.estimated_total_s);
+  const off = Math.abs(draft.estimated_total_s - draft.target_s) > TOLERANCE * draft.target_s;
+  const length = `ความยาวประมาณ ${estimate} / ${draft.target_s} วินาที · ${draft.sentences.length} ประโยค`;
+  return (
+    <section aria-label="ภาพรวมบท" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
+      {label && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={id} className="text-sm leading-5 font-medium text-foreground">
+            {label}
+          </label>
+          <input
+            id={id}
+            value={top.value}
+            disabled={locked}
+            maxLength={TOP_TEXT_MAX * 2}
+            onChange={(event) => top.change(event.target.value)}
+            onBlur={() => void top.flush()}
+            className="h-10 rounded-lg border border-border bg-card px-3 font-button text-sm text-foreground disabled:bg-muted"
+          />
+          <p className="text-xs text-muted-foreground">ข้อความบนสุดของวิดีโอ</p>
+        </div>
+      )}
+      {off ? (
+        <p className="flex w-fit items-center gap-1.5 rounded-lg border border-warning-border bg-warning-surface py-1.5 pr-3 pl-2.5 text-sm font-medium text-warning">
+          <img src={triangleAlertIcon} alt="" width={24} height={24} />
+          {length}
+        </p>
+      ) : (
+        <p className="text-sm font-medium text-mid">{length}</p>
+      )}
+    </section>
+  );
+}
+
+/** Figma `Script review / No draft`. */
+function NoDraft() {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-6 py-14 text-center">
+      <img src={fileTextIcon} alt="" width={36} height={36} />
+      <p className="text-base font-semibold text-foreground">ยังไม่มีบท</p>
+      <p className="text-sm text-mid">ร่างบทจากหน้าตั้งค่าคลิปสปอยก่อน แล้วกลับมาตรวจที่นี่</p>
+      <a href={SETUP_HASH} className={`flex h-11 items-center gap-2 px-6 ${PRIMARY_BUTTON}`}>
+        <img src={arrowRightIcon} alt="" width={16} height={16} />
+        ไปที่ตั้งค่าคลิปสปอย
+      </a>
+    </div>
+  );
+}

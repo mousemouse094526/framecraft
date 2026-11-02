@@ -11,7 +11,7 @@
 - Seams: 1 (Draft, แก้ draft ยกเว้นข้อ Voice job, คลิปใน Spoil draft, ลบคลิปและ start ข้อ Spoil draft, `voice_in_use`, `POST /draft-jobs` `not_ready`), 2 (หน้าตั้งค่า, หน้าตรวจแก้ข้อบทและ Shot, ตัวเลือก Shot, คำเตือน `in_draft`, `voice_in_use`), 3 (ร่างบท)
 - User stories: 3, 5, 6, 7, 8, 12
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

@@ -1,10 +1,11 @@
 import { useId, useState } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import type { DescribeError, DescribeJob } from "../hooks/useDescribe";
-import type { TempClip } from "../hooks/useTempClips";
+import type { TempClip } from "../../../lib/clips";
 import deleteErrorIcon from "../assets/delete-error.svg";
 import eyeIcon from "../assets/eye.svg";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
+import { DraftWarning } from "./DraftWarning";
 
 /** What the clip list knows about the one Describe job (spoil-maker D16, D45). */
 export type DescribeProps = {
@@ -14,7 +15,8 @@ export type DescribeProps = {
   errors: Record<string, DescribeError>;
   /** Why no clip can start one now: another GPU job runs. */
   busyReason: string | null;
-  onStart: (clipId: string) => void;
+  /** `confirmDraftLoss`: the user went on past the Spoil draft warning (spoil-maker D49). */
+  onStart: (clipId: string, confirmDraftLoss?: boolean) => void;
   onCancel: () => void;
 };
 
@@ -28,7 +30,8 @@ const HINT = "ให้ AI เขียนว่าแต่ละฉากม�
 /**
  * Figma component `Clip row`, its บรรยายฉาก part: ready, describing (% and
  * ยกเลิก), blocked with the reason, failed, and the ask before describing a
- * described clip again (spoil-maker D16, D45).
+ * described clip again: the Spoil draft warning when the draft is made from it
+ * (spoil-maker D16, D45, D49).
  */
 export function DescribeControls({ clip, describe }: Props) {
   const [asking, setAsking] = useState(false);
@@ -37,6 +40,18 @@ export function DescribeControls({ clip, describe }: Props) {
 
   // Three views, in this order: this clip's job, the ask, then ready (which may be blocked or show an error).
   if (job) return <Progress job={job} onCancel={describe.onCancel} />;
+
+  if (asking && clip.in_draft) {
+    const go = () => {
+      setAsking(false);
+      describe.onStart(clip.id, true);
+    };
+    return (
+      <div className="lg:pl-[108px]">
+        <DraftWarning onGo={go} onCancel={() => setAsking(false)} />
+      </div>
+    );
+  }
 
   if (asking) {
     return (

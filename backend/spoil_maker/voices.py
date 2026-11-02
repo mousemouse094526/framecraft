@@ -22,10 +22,10 @@ from pydantic import BaseModel
 
 from backend import checks, files, gpu, paths, spoil_maker
 from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, ChildGone, JobSlot, next_message, short, stop_process
+from backend.jobs import Cancelled, ModelJobSlot, short
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
-from backend.spoil_maker import thai
+from backend.spoil_maker import draft_file, thai
 from backend.spoil_maker.tts import Design, Designed, Ready, WorkerError
 
 log = logging.getLogger(__name__)
@@ -76,17 +76,18 @@ class Voice(BaseModel):
     speed: float
     chars_per_s: float
     created_at: str
-    in_use: bool  # a Spoil draft uses it; always false until drafts exist
+    in_use: bool  # the Spoil draft uses it, so it can't be deleted (D43)
 
 
-class VoiceJobs(JobSlot[VoiceJob]):
+class VoiceJobs(ModelJobSlot[VoiceJob]):
     """Holds the latest Voice job."""
 
     unfinished = UNFINISHED
-
-    def __init__(self):
-        super().__init__()
-        self._process = None  # the running child, for shutdown
+    gpu_kind = "voice"
+    nothing_to_cancel = "ไม่มีงานสร้างเสียงที่ยังไม่จบ"
+    worker_error = WorkerError
+    child_name = "ตัวสร้างเสียง"
+    failure = "สร้างเสียงไม่สำเร็จ"
 
     def start(self, body: dict) -> VoiceJob:
         """Checks the body, then the gate, `busy`, `gpu_busy`, and starts the job's thread."""
@@ -112,23 +113,6 @@ class VoiceJobs(JobSlot[VoiceJob]):
         thread.start()
         return job
 
-    def cancel(self) -> VoiceJob:
-        """Asks the thread to stop the child; the job ends as `cancelled`."""
-        with self._lock:
-            if not self._taken():
-                raise ApiError(404, "not_found", "ไม่มีงานสร้างเสียงที่ยังไม่จบ")
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
-
-    def stop_on_shutdown(self) -> None:
-        """Ctrl+C must not leave a child holding the GPU."""
-        self._cancel.set()
-        with self._lock:
-            process = self._process
-        if process is not None:
-            stop_process(process)
-
     def _run(self, project: ProjectPaths, request: Design) -> None:
         # Stays `failed` only if something escapes every handler below.
         ending: dict = {"state": "failed"}
@@ -139,11 +123,10 @@ class VoiceJobs(JobSlot[VoiceJob]):
             device = checks.probe_device()
             snapshot = project.snapshot_dir(OMNIVOICE, OMNIVOICE.revision)
             process, requests, replies = spoil_maker.start_tts_worker(snapshot, device)
-            with self._lock:
-                self._process = process
-            self._reply(process, replies)  # `Ready`
+            self._track(process)
+            self._reply(process, replies, (Ready,))
             requests.put(request)
-            designed = self._reply(process, replies)
+            designed = self._reply(process, replies, (Designed,))
             requests.put(None)
             _write_preview(project, request, designed)
             ending = {"state": "done"}
@@ -155,32 +138,9 @@ class VoiceJobs(JobSlot[VoiceJob]):
             log.exception("voice design failed")  # the full error, for [api]
             ending = _failed("internal", f"สร้างเสียงไม่สำเร็จ: {short(error)}")
         finally:
-            # Whatever happened, the job must end and free the GPU, or every later POST is refused.
-            if process is not None:
-                try:
-                    stop_process(process)
-                except Exception:
-                    log.exception("could not stop the TTS process")
-            with self._lock:
-                self._process = None
-            gpu.slot.release("voice")
-            self._update(**ending)
+            self._finish(process, ending)
             code = ending["error"].code if ending.get("error") else None
             log.info("voice design ended %s %s after %.0f s", ending["state"], code or "", time.monotonic() - started)
-
-    def _reply(self, process, replies) -> Ready | Designed:
-        """The child's next message. Raises `Cancelled`, or `JobFailed` when the child errs or dies."""
-        try:
-            message = next_message(process, replies, self._cancel)
-        except ChildGone as gone:
-            raise JobFailed("crashed", f"ตัวสร้างเสียงหยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
-        if isinstance(message, WorkerError):
-            log.error("the TTS process failed (%s): %s", message.code, message.detail)
-            raise JobFailed("model_failed", f"สร้างเสียงไม่สำเร็จ: {short(message.detail)}. {gpu.ADVICE}")
-        if not isinstance(message, (Ready, Designed)):
-            raise RuntimeError(f"unknown message from the TTS process: {message!r}")
-        return message
-
 
 # Saving moves the preview's files and a finished job replaces them: one at a time.
 _files_lock = threading.Lock()
@@ -238,16 +198,18 @@ def save_preview(project: ProjectPaths, name: str) -> Voice:
         files.write_atomic(project.voices_dir / f"{voice_id}.json", _json(stored))
         info_path.unlink()
     log.info("saved voice %s", voice_id)
-    return _voice(voice_id, stored)
+    return _voice(voice_id, stored, in_use=False)
 
 
 def list_voices(project: ProjectPaths) -> list[Voice]:
     """Newest first; voices saved in the same second by the order their files were written."""
+    draft = draft_file.read(project)
     found = []
     for path in project.voices_dir.glob("v_*.json"):
         if VOICE_ID.fullmatch(path.stem):
             stored = json.loads(path.read_text(encoding="utf-8"))
-            found.append((stored["created_at"], path.stat().st_mtime_ns, _voice(path.stem, stored)))
+            in_use = draft is not None and draft.voice_id == path.stem
+            found.append((stored["created_at"], path.stat().st_mtime_ns, _voice(path.stem, stored, in_use)))
     return [voice for *_, voice in sorted(found, key=lambda entry: entry[:2], reverse=True)]
 
 
@@ -258,18 +220,29 @@ def rename(project: ProjectPaths, voice_id: str, name: str) -> Voice:
         stored = json.loads(path.read_text(encoding="utf-8"))
         stored["name"] = name
         files.write_atomic(path, _json(stored))
-    return _voice(voice_id, stored)
+    return _voice(voice_id, stored, draft_file.uses_voice(project, voice_id))
 
 
 def delete(project: ProjectPaths, voice_id: str) -> None:
     """Removes the three files; the json goes last, so a half-deleted voice is never listed
-    without its sample. `voice_in_use` waits for Spoil drafts (D43)."""
-    with _files_lock:
+    without its sample. The Spoil draft's voice can't go: `voice_in_use` (D43). Under the
+    draft's lock, so the draft can't switch to it between the check and the delete."""
+    with gpu.slot.draft_lock, _files_lock:
         info = _voice_file(project, voice_id, ".json")
+        if draft_file.uses_voice(project, voice_id):
+            raise ApiError(409, "voice_in_use", "เสียงนี้ใช้อยู่ใน Spoil draft")
         for suffix in (".pt", ".wav"):
             (project.voices_dir / f"{voice_id}{suffix}").unlink(missing_ok=True)
         info.unlink()
     log.info("deleted voice %s", voice_id)
+
+
+def chars_per_s(project: ProjectPaths, voice_id: str) -> float | None:
+    """The voice's measured speaking speed (D35), or None when it is gone."""
+    path = project.voices_dir / f"{voice_id}.json"
+    if not VOICE_ID.fullmatch(voice_id) or not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))["chars_per_s"]
 
 
 def sample_audio(project: ProjectPaths, voice_id: str) -> Path:
@@ -278,11 +251,8 @@ def sample_audio(project: ProjectPaths, voice_id: str) -> Path:
 
 
 def clean_on_start(project: ProjectPaths) -> None:
-    """A preview never saved and half-written files go: jobs don't survive a restart (spec › Ops)."""
+    """A preview never saved goes: jobs don't survive a restart (spec › Ops)."""
     shutil.rmtree(project.pending_voice_dir, ignore_errors=True)
-    if project.spoil_maker_dir.is_dir():
-        for leftover in project.spoil_maker_dir.rglob("*.tmp"):
-            leftover.unlink(missing_ok=True)
 
 
 def _design_choices(body: dict) -> tuple[str, float]:
@@ -324,14 +294,14 @@ def _new_id(project: ProjectPaths) -> str:
             return voice_id
 
 
-def _voice(voice_id: str, stored: dict) -> Voice:
+def _voice(voice_id: str, stored: dict, in_use: bool) -> Voice:
     return Voice(
         id=voice_id,
         name=stored["name"],
         speed=stored["speed"],
         chars_per_s=stored["chars_per_s"],
         created_at=stored["created_at"],
-        in_use=False,
+        in_use=in_use,
     )
 
 

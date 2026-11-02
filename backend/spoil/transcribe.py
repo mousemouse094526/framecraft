@@ -13,13 +13,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from backend import checks, files, gpu, paths, spoil
+from backend import checks, clock, files, gpu, paths, spoil
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, ChildGone, JobSlot, next_message, short, stop_process
+from backend.jobs import Cancelled, ChildGone, ModelJobSlot, next_message, short
 from backend.spoil.whisper import Done, Segment, WorkerError
+from backend.spoil_maker import draft_file
 
 log = logging.getLogger(__name__)
 
@@ -63,22 +64,21 @@ class Transcript(BaseModel):
 clip_users: list[Callable[[str], bool]] = []
 """Checks that answer True while another feature's job is reading that clip's
 Transcript; a line of such a clip can't be edited (`clip_busy`, spoil-maker D54).
-spoil-maker's Draft job adds one (its ticket 03)."""
+spoil-maker's Draft job adds one."""
 
 
-class Transcriptions(JobSlot[TranscribeJob]):
+class Transcriptions(ModelJobSlot[TranscribeJob]):
     """Holds the latest Transcribe job. Its lock also guards every clip delete (D29)."""
 
     unfinished = UNFINISHED
+    gpu_kind = "transcribe"
+    nothing_to_cancel = "ไม่มีงานถอดที่ยังไม่จบ"
 
-    def __init__(self):
-        super().__init__()
-        self._process = None  # the running child, for shutdown
-
-    def start(self, clip_id: str, confirm_edit_loss: bool = False) -> TranscribeJob:
+    def start(self, clip_id: str, confirm_edit_loss: bool = False, confirm_draft_loss: bool = False) -> TranscribeJob:
         """Checks in spec order, then starts the job's thread. Raises `ApiError`.
 
         A clip with edited lines needs `confirm_edit_loss`: the new Transcript replaces them (spoil-maker D54).
+        A clip in the Spoil draft needs `confirm_draft_loss`: a `done` job removes the draft (spoil-maker D49).
         """
         project = ProjectPaths(paths.ROOT)
         require_rows(_needed_rows(project))
@@ -92,22 +92,13 @@ class Transcriptions(JobSlot[TranscribeJob]):
                 raise ApiError(409, "has_edits", "ถอดใหม่จะลบบทพูดที่แก้ไว้")
             clip = clips.read_clip(project, clip_id)
             # Last: Whisper can't share the GPU with another model (spoil-maker D45, ADR 0015).
-            gpu.slot.take("transcribe", [clip_id])
+            draft_file.take_gpu_to_redo(project, clip_id, "transcribe", confirm_draft_loss)
             self._job = TranscribeJob(clip_id=clip_id, state="preparing")
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
         thread = threading.Thread(target=self._run, args=(project, clip, mp4, device), daemon=True)
         thread.start()
         return job
-
-    def cancel(self) -> TranscribeJob:
-        """Asks the thread to terminate the child; the job ends as `cancelled`."""
-        with self._lock:
-            if not self._taken():
-                raise ApiError(404, "not_found", "ไม่มีงานถอดที่ยังไม่จบ")
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
 
     def delete_clip(self, clip_id: str) -> None:
         """Deletes a clip's files unless it is being transcribed (D27) or another GPU job
@@ -116,8 +107,11 @@ class Transcriptions(JobSlot[TranscribeJob]):
         with self._lock:
             if self._taken() and self._job.clip_id == clip_id:
                 raise ApiError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ")
+            project = ProjectPaths(paths.ROOT)
             with gpu.slot.clip_untouched(clip_id):
-                clips.delete_clip(ProjectPaths(paths.ROOT), clip_id)
+                clips.delete_clip(project, clip_id)
+            # After the slot's lock (its lock comes after the draft's), and only once the clip is gone (D29).
+            draft_file.drop_if_uses(project, clip_id)
 
     def edit_line(self, clip_id: str, n: str, text: str) -> TranscriptLine:
         """Replaces line `n`'s text and marks it edited; times and line count stay,
@@ -143,15 +137,6 @@ class Transcriptions(JobSlot[TranscribeJob]):
             write_transcript(project, transcript)
             return line
 
-    def stop_on_shutdown(self) -> None:
-        """Ctrl+C must not leave a child holding the GPU (D28). A child started after
-        this sees the cancel flag at its first poll and is stopped by its thread."""
-        self._cancel.set()
-        with self._lock:
-            process = self._process
-        if process is not None:
-            stop_process(process)
-
     def _run(self, project: ProjectPaths, clip: clips.TempClip, mp4: Path, device: str) -> None:
         # Stays `failed` only if something escapes every handler below.
         ending: dict = {"state": "failed"}
@@ -159,10 +144,10 @@ class Transcriptions(JobSlot[TranscribeJob]):
         try:
             snapshot = project.snapshot_dir(WHISPER, WHISPER.revision)
             process, queue = spoil.start_worker(mp4, clip.duration_s, snapshot, device)
-            with self._lock:
-                self._process = process
+            self._track(process)
             segments = self._read_segments(process, queue)
             write_transcript(project, _build_transcript(clip, segments))
+            draft_file.drop_if_uses(project, clip.id)  # the user confirmed (spoil-maker D49)
             ending = {"state": "done"}
         except Cancelled:
             ending = {"state": "cancelled"}
@@ -174,18 +159,8 @@ class Transcriptions(JobSlot[TranscribeJob]):
             message = f"ถอดไม่สำเร็จ: {short(error)}"
             ending = {"state": "failed", "error": TranscribeJobError(code="internal", message=message)}
         finally:
-            # Whatever happened, the job must end, or every later POST is `busy` (D29).
-            if process is not None:
-                try:
-                    stop_process(process)
-                except Exception:
-                    log.exception("could not stop the Whisper process")
-            with self._lock:
-                self._process = None
-            # Freed before the job reads as finished, so a job started after that never meets `gpu_busy`.
-            gpu.slot.release("transcribe")
             # `percent` is only for `transcribing` (spec › API), so a finished job has none.
-            self._update(percent=None, **ending)
+            self._finish(process, {"percent": None, **ending})
 
     def _read_segments(self, process, queue) -> list[Segment]:
         """Reads the child's messages until `Done`. Raises `Cancelled` or `JobFailed`."""
@@ -290,7 +265,7 @@ def transcript_srt(project: ProjectPaths, clip_id: str) -> str:
 
 def to_txt(transcript: Transcript) -> str:
     """One `[hh:mm:ss] text` per line (D22)."""
-    return "".join(f"[{_clock(line.start_s)}] {line.text}\n" for line in transcript.lines)
+    return "".join(f"[{clock.hms(line.start_s)}] {line.text}\n" for line in transcript.lines)
 
 
 def to_srt(transcript: Transcript) -> str:
@@ -302,14 +277,9 @@ def to_srt(transcript: Transcript) -> str:
     return "\n".join(cues)
 
 
-def _clock(seconds: float) -> str:
-    whole = int(seconds)
-    return f"{whole // 3600:02d}:{whole % 3600 // 60:02d}:{whole % 60:02d}"
-
-
 def _srt_time(seconds: float) -> str:
     millis = round(seconds * 1000)
-    return f"{_clock(millis // 1000)},{millis % 1000:03d}"
+    return f"{clock.hms(millis // 1000)},{millis % 1000:03d}"
 
 
 transcriptions = Transcriptions()

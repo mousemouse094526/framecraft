@@ -101,12 +101,16 @@ export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) 
     () => setIfMounted({ kind: "offline" }),
   );
 
-  /** Posts the job; a refusal the user should read stays under the clip's row. */
+  /**
+   * Posts the job; a refusal the user should read stays under the clip's row.
+   * `confirmDraftLoss` once the user went on past the Spoil draft warning (spoil-maker D49).
+   */
   const start = useCallback(
-    async (clipId: string) => {
+    async (clipId: string, confirmDraftLoss = false) => {
       setIfMounted(withError(clipId, null));
       try {
-        const reply = await sendJson<DescribeJob | Refusal>("POST", DESCRIBES_PATH, { clip_id: clipId });
+        const body = confirmDraftLoss ? { clip_id: clipId, confirm_draft_loss: true } : { clip_id: clipId };
+        const reply = await sendJson<DescribeJob | Refusal>("POST", DESCRIBES_PATH, body);
         if (reply.status === 202) {
           const job = reply.body as DescribeJob;
           setIfMounted(whenLoaded((s) => ({ ...s, job })));
@@ -124,6 +128,12 @@ export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) 
           return;
         }
         if (reply.status === 404 && refusal?.code === "not_found") {
+          onClipsChanged();
+          return;
+        }
+        if (reply.status === 409 && refusal?.code === "in_draft") {
+          // A draft made since the list loaded: the new list marks the clip, so the next try warns.
+          setIfMounted(withError(clipId, { text: refusal.message, setupLink: false }));
           onClipsChanged();
           return;
         }

@@ -350,8 +350,11 @@ class FakeModel:
     per request, `index` counting that process's requests from 0. It can pause
     before answering request `index` until the test calls
     `release` (or the process is terminated) with `pause_at`, never answer it
-    (`hang_at`, for timeouts), or exit at it without a word (`crash_at`).
+    (`hang_at`, for timeouts), or exit at it without a word (`crash_at`). An
+    `answer` of `HANG` never comes either, whichever process asked.
     """
+
+    HANG = object()
 
     def __init__(self):
         self.requests = []
@@ -389,11 +392,11 @@ class FakeModel:
 
 
 class FakeLlm(FakeModel):
-    """The mlx-vlm child: `describe(request)` makes each `Generated` text."""
+    """The mlx-vlm child: `respond(request)` makes each `Generated` text, or is `HANG`."""
 
     def __init__(self):
         super().__init__()
-        self.describe = lambda request: f"A frame at {request.image.name}."
+        self.respond = lambda request: f"A frame at {request.image.name}."
 
     def ready(self):
         from backend.spoil_maker.llm import Ready
@@ -403,7 +406,8 @@ class FakeLlm(FakeModel):
     def answer(self, request, index: int):
         from backend.spoil_maker.llm import Generated
 
-        return Generated(self.describe(request))
+        text = self.respond(request)
+        return text if text is self.HANG else Generated(text)
 
 
 class FakeTts(FakeModel):
@@ -465,11 +469,12 @@ class FakeModelProcess(FakeProcess):
                 model._reached[index].set()
                 while not (model._paused[index].is_set() or self._killed.is_set()):
                     self._killed.wait(0.01)
-            if index == model.hang_at:
+            answer = model.HANG if index == model.hang_at else model.answer(request, index)
+            if answer is model.HANG:
                 self._killed.wait()
             if self._killed.is_set():
                 break
-            self._replies.put(model.answer(request, index))
+            self._replies.put(answer)
             index += 1
         self.exitcode = -15 if self._killed.is_set() else 0
 

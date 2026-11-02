@@ -43,6 +43,10 @@ class ProjectPaths:
         """Where yt-dlp writes while downloading; emptied on every start (spoil D14)."""
         return self.media_temp_dir / ".partial"
 
+    def clip_json(self, video_id: str) -> Path:
+        """A Temp clip's `{id}.json`, written last: no json, no clip (spoil D14)."""
+        return self.media_temp_dir / f"{video_id}.json"
+
     @property
     def shots_dir(self) -> Path:
         """Shots of every described Temp clip, one folder each (spoil-maker D51)."""
@@ -75,6 +79,21 @@ class ProjectPaths:
     def pending_voice_dir(self) -> Path:
         """The one preview not saved yet; emptied on every start."""
         return self.voices_dir / ".pending"
+
+    @property
+    def draft_file(self) -> Path:
+        """The one Spoil draft (spoil-maker spec › Spoil draft, D28)."""
+        return self.spoil_maker_dir / "draft.json"
+
+    @property
+    def draft_audio_dir(self) -> Path:
+        """The Spoil draft's voice, one `{sentence_id}.wav` per sentence."""
+        return self.spoil_maker_dir / "draft-audio"
+
+    @property
+    def settings_file(self) -> Path:
+        """What the สปอย tab remembers between drafts (spoil-maker spec › ค่าที่จำไว้)."""
+        return self.spoil_maker_dir / "settings.json"
 
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"

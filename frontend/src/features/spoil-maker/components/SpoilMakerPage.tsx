@@ -1,13 +1,15 @@
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { useHash } from "../../../lib/useHash";
+import { VOICES_HASH } from "../lib/draft";
 import { SavedVoicePage } from "./SavedVoicePage";
+import { ScriptReview } from "./ScriptReview";
+import { SpoilerSetup } from "./SpoilerSetup";
 import { SpoilSteps, stepOf } from "./SpoilSteps";
 
-export const VOICES_HASH = "#/spoil/voices";
-
 /**
- * The สปอย tab: the steps on top, then the open step (spoil-maker D53). Each step's
- * content comes in its own ticket. Saved voices are a page of their own, without the steps.
+ * The สปอย tab: the steps on top, then the open step (spoil-maker D53): ตั้งค่าคลิปสปอย,
+ * ตรวจแก้บท; ผล render comes with the Render job. Saved voices are a page of their own,
+ * without the steps.
  */
 export function SpoilMakerPage() {
   const hash = useHash();
@@ -16,6 +18,8 @@ export function SpoilMakerPage() {
   return (
     <PageLayout tab="spoil" wide>
       <SpoilSteps current={step} />
+      {step === 0 && <SpoilerSetup />}
+      {step === 1 && <ScriptReview />}
     </PageLayout>
   );
 }

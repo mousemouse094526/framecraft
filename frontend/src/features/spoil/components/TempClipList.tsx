@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
-import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
+import { useEffect, useRef, useState } from "react";
+import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
 import { DescribeControls, type DescribeProps } from "./DescribeControls";
-import { formatDuration } from "./format";
+import { DraftWarning } from "./DraftWarning";
+import { formatDuration } from "../../../lib/format";
 import deleteErrorIcon from "../assets/delete-error.svg";
 import playActiveIcon from "../assets/thumb-play-active.svg";
 import playIcon from "../assets/thumb-play.svg";
@@ -26,8 +27,8 @@ type Props = {
 /** The Temp clip list, newest first; a row puts its clip in the transcript panel (D7, D18, D25). */
 export function TempClipList(props: Props) {
   const { clips, selectedId, transcribingId, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete, describe } = props;
+  /** After the row's confirm: the browser's for most clips, the draft warning for one in the Spoil draft. */
   const remove = (clip: TempClip) => {
-    if (!window.confirm(`ลบ ${clip.title}?`)) return;
     // Windows can't delete a file the player still holds open (D15). The panel
     // stays empty even when the delete is refused, except for the clip being
     // transcribed: the API refuses that one, so its progress stays (D34).
@@ -82,6 +83,12 @@ type RowProps = {
  */
 function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete, describe }: RowProps) {
   const row = useRef<HTMLLIElement>(null);
+  // Deleting a clip of the Spoil draft deletes the draft too, so the row warns first (spoil-maker D29).
+  const [warning, setWarning] = useState(false);
+  const askDelete = () => {
+    if (clip.in_draft) setWarning(true);
+    else if (window.confirm(`ลบ ${clip.title}?`)) onDelete();
+  };
 
   useEffect(() => {
     if (highlighted) row.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -133,7 +140,7 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete,
         </button>
         <button
           type="button"
-          onClick={onDelete}
+          onClick={askDelete}
           aria-label={`ลบ ${clip.title}`}
           title="ลบ"
           className="flex size-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
@@ -141,7 +148,19 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete,
           <img src={trashIcon} alt="" width={16} height={16} />
         </button>
       </div>
-      {clip.transcribed && <DescribeControls clip={clip} describe={describe} />}
+      {warning ? (
+        <div className="lg:pl-[108px]">
+          <DraftWarning
+            onGo={() => {
+              setWarning(false);
+              onDelete();
+            }}
+            onCancel={() => setWarning(false)}
+          />
+        </div>
+      ) : (
+        clip.transcribed && <DescribeControls clip={clip} describe={describe} />
+      )}
       {deleteError && (
         <p className="flex items-center gap-1.5 pl-[108px] text-[13px] leading-[1.5] text-destructive">
           <img src={deleteErrorIcon} alt="" width={14} height={14} className="shrink-0" />

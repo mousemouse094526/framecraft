@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** 02 done — หน้า Saved voice (`#/spoil/voices`): ออกแบบเสียงด้วย OmniVoice ฟัง บันทึก เปลี่ยนชื่อ ลบ, ตัวแปลงตัวเลขเป็นคำไทย, แถว `pythainlp`; ต่อไป 03 (ร่างบทและหน้าตรวจแก้)
+**Now:** 03 done — ร่างบทจาก Temp clip หลาย EP (Draft job), หน้าตั้งค่าและหน้าตรวจแก้ (บท Shot ตัวเลือก Shot AI เลือกใหม่), คำเตือน Spoil draft ใน tab คลิป; ต่อไป 04 (เสียงต่อประโยคและ render)
 
 **Next:**
 
 ```
-/warroom-build spoil-maker 03
+/warroom-build spoil-maker 04
 ```
 
 ## Tickets
@@ -15,10 +15,42 @@
 | 00 | แถบ 3 tab และแก้ Transcript | done |
 | 01 | ติดตั้ง Qwen, ช่อง GPU และดูภาพ | done |
 | 02 | Saved voice | done |
-| 03 | ร่างบทและหน้าตรวจแก้ | ready |
+| 03 | ร่างบทและหน้าตรวจแก้ | done |
 | 04 | เสียงต่อประโยคและ render | ready |
 
 ## Log
+
+### 03: ร่างบทและหน้าตรวจแก้ — done 2026-11-03
+
+**Built:**
+- Draft job (`backend.spoil_maker.draft`): `POST/GET/DELETE /api/spoil-maker/draft-jobs[/current]` `kind` `draft` (เช็ค `clip_not_ready` → `invalid_request` → `invalid_target` → `voice_not_found` → `transcript_too_long` → `busy` → `draft_exists` → `not_ready` → `gpu_busy`) และ `pick` (ประโยคเดียว, `no_refs`); `writing` สูงสุด 3 ครั้ง (timeout 10 นาที, ครั้งที่ 2–3 บอกว่าครั้งก่อนพลาดตรงไหน) → `matching` ประโยคละ 2 Shot จากช่วง ±30 วินาทีของ ref แรก (ส่งให้ Qwen ไม่เกิน 40 Shot, timeout 60 วินาที) → เขียน draft ใหม่ ลบเสียงเดิม จำ `last_voice_id`
+- `spoil_maker.script` (คำสั่งร่างบทและเลือก Shot, อ่าน JSON, ทำความสะอาด, ref ประโยคละ 3), `draft_file` (Spoil draft `media/spoil-maker/draft.json` เขียนแบบ atomic, `drop_if_uses`, `take_gpu_to_redo`), `settings` (`original_volume` 20, `last_voice_id`), `tokens` (นับ token ด้วย tokenizer ของ Qwen จาก snapshot, `GET /tokens`), `backend.clock`
+- แก้ draft: `GET/PATCH /draft`, `POST /draft/sentences` (แทรกใต้), `PATCH/DELETE /draft/sentences/{id}`; สถานะประโยค `no_shot` / `no_audio` / `stale_audio` / `ready`, `estimated_s`, `window`, บรรทัดที่อ้าง; ระหว่างงานแก้ draft → `409` `draft_locked`
+- คลิปใน Spoil draft (D49): `in_draft` ในรายการคลิป, ถอดใหม่ / บรรยายฉากใหม่ / ลบคลิป → `409` `in_draft` จนส่ง `confirm_draft_loss` แล้วลบ draft; ลบ Saved voice ที่ draft ใช้ → `409` `voice_in_use`; แก้บรรทัด Transcript ที่ Draft job อ่านอยู่ไม่ได้
+- refactor: `jobs.ModelJobSlot` รวมท้ายงานลูก 4 งาน (Transcribe, Describe, Voice, Draft) และ `_reply`; `gpu.slot.draft_lock`; `files.remove_unfinished`
+- หน้าเว็บ: หน้าตั้งค่า (`SpoilerSetup`, `ClipPicker` เรียง EP, `SetupSettings` สไตล์ layout ความยาว เสียง token รวม), หน้าตรวจแก้ (`ScriptReview`, `SentenceCard` ข้อความบันทึกเองหลังพิมพ์ 800 ms หรือ blur, แทรก ลบพร้อมยืนยัน AI เลือก Shot ใหม่พร้อมยกเลิก), `ShotPicker` (Shot ในช่วง, ดูทั้งคลิปเลือก EP, tooltip คำบรรยาย, เล่นช่วงนั้น); `DraftWarning` ในแถวคลิปและกล่องถอด; ของใช้ร่วม `components/ui/Alert`, `lib/clips`, `lib/format`, `DESTRUCTIVE_BUTTON`
+- หน้าเว็บเทียบ Figma Spoiler setup, Script review, Shot picker, Clip row states ที่ 1440 และ 375
+- เช็คมือบน M2 (Seam 3), หนัง 96 นาที (Night of the Living Dead, 840 Shot, prompt 30.9k token):
+  - tokenizer จาก snapshot โหลดได้โดยไม่โหลดโมเดล
+  - ร่างบท 60 วินาที `drama` ทั้งงานผ่าน API ด้วยค่าสุดท้าย: **7:57** (`writing` ผ่านครั้งแรกใน 5:50, 1021 ตัวอักษร จากเป้า 918 = +11%, 19 ประโยค, Shot ครบ), memory process ลูกสูงสุด ~11 GB (รอบก่อนหน้า)
+  - temperature ร่างบท 0.3 ครั้งแรกผ่าน 5 จาก 6 ครั้ง (D61)
+  - Shot ตรงเนื้อหา 6 จาก 10 ประโยคที่สุ่ม
+  - ยกเลิกระหว่าง `writing` → process ลูกหายใน 0.3 วินาที, `cancelled`, draft เดิมอยู่ครบ
+  - แก้ประโยคแล้ว restart backend → draft เหมือนเดิมทุกตัวอักษร
+  - **ไม่ได้เช็ค:** 3 EP อนิเมะใต้ 32,000 token — ไม่มีคลิปอนิเมะในเครื่อง; memory ของหนังทั้งเรื่อง (30.9k token) สูงสุด ~11 GB ใต้ 13 GB
+
+**Decided:**
+- D60 — ทางเลือกเล็ก: module (`draft_file` / `draft` / `script` / `tokens` / `settings`), lock และ `take(draft=True)`, `ModelJobSlot`, ลำดับการเช็ค, กติกาเลือก Shot ใกล้ ref แรก, แก้ draft, ของใช้ร่วมหน้าเว็บ, หน้าตั้งค่า หน้าตรวจแก้ และคำเตือนใน tab คลิป
+- D61 — จากรันจริง: เลือก Shot ส่งให้ Qwen ไม่เกิน 40 Shot (160 Shot = 66.6 วินาที เกิน timeout); บทเก็บ ref ประโยคละ 3 และกฎซ้ำหลัง Transcript (ref เป็นแถว 20–60 id ทำ JSON ถูกตัด); ตัวอักษรต่อประโยคไม่เกิน 1.2 × เฉลี่ย; JSON ขาด `}` ท้ายอ่านได้; temperature ร่างบท 0.7 → 0.3 (spec › ค่าการสร้างข้อความ และข้อ 4–5 แก้แล้ว)
+
+**For the next ticket:**
+- 04: `PATCH /settings` และลายน้ำ (D60); Voice job `sentences` แทน `400` ชั่วคราว (จาก 02); ตั้งค่าวิดีโอ ฟัง สร้างเสียง และแถบ render ของหน้าตรวจแก้ (คอลัมน์ขวา); seam 3 ของ 02 ("5 ประโยคเสียงเดียวกัน", "1968, 10:30 อ่านถูก")
+- คุณภาพบท: เนื้อเรื่องที่ Qwen เล่ามีส่วนไม่ตรงหนัง (เช่น "ทิ้งแม่ไว้บ้าน") และ Shot ตรง 6/10 เฉียดเกณฑ์ — ประโยคที่อ้างบรรทัดผิดได้ Shot ผิดตาม; ดูอีกครั้งตอน render จริง
+- ครั้งที่ 2–3 ที่บอก "ยาวไป" ไม่ได้ทำให้สั้นลงที่ temperature 0.7; ที่ 0.3 ยังไม่ได้วัดผลของข้อความนี้แยก
+- ครั้งที่วน (เล่าซ้ำจน `max_tokens`) ยังเกิดได้ราว 1 ใน 6 ที่ 0.3 — นับเป็นไม่ผ่านแล้วสั่งใหม่ เสีย ~7.5 นาที
+- 3 EP อนิเมะ: เช็คเมื่อมีคลิป
+
+**Checks:** `uv run pytest` — 400 passed; `npm --prefix frontend test` — 157 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 02: Saved voice — done 2026-11-02
 

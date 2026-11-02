@@ -20,6 +20,7 @@ class DownloadRequest(BaseModel):
 class TranscribeRequest(BaseModel):
     clip_id: str
     confirm_edit_loss: bool = False
+    confirm_draft_loss: bool = False
 
 
 class LineEdit(BaseModel):
@@ -87,7 +88,7 @@ def _download(text: str, media_type: str, filename: str) -> Response:
 
 @router.post("/transcriptions", status_code=202)
 def start_transcription(body: TranscribeRequest) -> TranscribeJob:
-    return transcribe.transcriptions.start(body.clip_id, body.confirm_edit_loss)
+    return transcribe.transcriptions.start(body.clip_id, body.confirm_edit_loss, body.confirm_draft_loss)
 
 
 @router.get("/transcriptions/current")

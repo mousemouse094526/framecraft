@@ -1,4 +1,5 @@
-"""Model libraries stay out of the backend process: only child processes import them.
+"""Model libraries stay out of the backend at start: child processes import them, and
+the token count imports Qwen's tokenizer at its first call (spoil-maker D46).
 
 Qwen and OmniVoice themselves are checked by hand (spoil-maker seam 3)."""
 

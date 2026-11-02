@@ -6,7 +6,7 @@ import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
 import { notice, type Notice } from "../lib/notice";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
-import { CLIPS_PATH, type TempClip } from "./useTempClips";
+import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
 
 // The shape of a Transcribe job (backend.spoil.transcribe.TranscribeJob, spec › API).
 export type TranscribeJobState = "preparing" | "transcribing" | "done" | "failed" | "cancelled";
@@ -22,8 +22,14 @@ export type TranscribeJob = {
 // `{id}.transcript.json` (spec › Transcribe); `edited` once the user changed the text (spoil-maker D54).
 export type TranscriptLine = { start_s: number; end_s: number; text: string; edited: boolean };
 
-/** How posting a job ended: `has_edits` waits for the user to confirm its `message` (spoil-maker D54). */
-export type StartResult = { kind: "has_edits"; message: string } | { kind: "handled" };
+/**
+ * How posting a job ended: `has_edits` and `in_draft` wait for the user to confirm
+ * their `message` (spoil-maker D54, D49).
+ */
+export type StartResult = { kind: "has_edits" | "in_draft"; message: string } | { kind: "handled" };
+
+/** What the user already agreed to lose: edited lines, the Spoil draft. */
+export type Confirmed = { editLoss?: boolean; draftLoss?: boolean };
 
 /** How saving a line ended: the field closes on `saved`, and stays open with the message on `refused`. */
 export type LineEditResult = { kind: "saved" } | { kind: "refused"; message: string } | { kind: "offline" };
@@ -177,15 +183,20 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
   );
 
   /**
-   * Posts the job. Resolves to `has_edits` when the clip has edited lines and
-   * `confirmEditLoss` wasn't given: the caller asks the user, then calls again (spoil-maker D54).
-   * Every other answer is handled here.
+   * Posts the job. Resolves to `has_edits` when the clip has edited lines, or
+   * `in_draft` when the Spoil draft is made from it, and that loss isn't `confirmed`:
+   * the caller asks the user, then calls again (spoil-maker D54, D49). Every other
+   * answer is handled here.
    */
   const start = useCallback(
-    async (clipId: string, confirmEditLoss = false): Promise<StartResult> => {
+    async (clipId: string, confirmed: Confirmed = {}): Promise<StartResult> => {
       setIfMounted(whenLoaded((s) => ({ ...s, notice: null })));
       try {
-        const body = confirmEditLoss ? { clip_id: clipId, confirm_edit_loss: true } : { clip_id: clipId };
+        const body = {
+          clip_id: clipId,
+          ...(confirmed.editLoss ? { confirm_edit_loss: true } : {}),
+          ...(confirmed.draftLoss ? { confirm_draft_loss: true } : {}),
+        };
         const reply = await sendJson<TranscribeJob | Refusal>("POST", TRANSCRIPTIONS_PATH, body);
         if (reply.status === 202) {
           const job = reply.body as TranscribeJob;
@@ -200,7 +211,9 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
           if (job !== null && isUnfinished(job)) setIfMounted(whenLoaded((s) => ({ ...s, job })));
           return HANDLED;
         }
-        if (reply.status === 409 && refusal?.code === "has_edits") return { kind: "has_edits", message: refusal.message };
+        if (reply.status === 409 && (code === "has_edits" || code === "in_draft")) {
+          return { kind: code, message: refusal!.message };
+        }
         const busy = busyText(refusal);
         if (reply.status === 409 && busy) {
           // Another GPU job runs, or one reads this clip (spoil-maker D45, D49).

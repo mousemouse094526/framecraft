@@ -20,8 +20,8 @@ from backend.models import QWEN
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, ChildGone, JobSlot, next_message, short, stop_process
-from backend.spoil_maker import frames, shots
+from backend.jobs import Cancelled, ModelJobSlot, short
+from backend.spoil_maker import draft_file, frames, shots
 from backend.spoil_maker.frames import FfmpegFailed
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
 
@@ -59,24 +59,29 @@ class DescribeJob(BaseModel):
     started_at: str
 
 
-class Describes(JobSlot[DescribeJob]):
+class Describes(ModelJobSlot[DescribeJob]):
     """Holds the latest Describe job."""
 
     unfinished = UNFINISHED
+    gpu_kind = "describe"
+    nothing_to_cancel = "ไม่มีงานบรรยายฉากที่ยังไม่จบ"
+    worker_error = WorkerError
+    child_name = "ตัวบรรยายฉาก"
+    failure = "บรรยายฉากไม่สำเร็จ"
 
-    def __init__(self):
-        super().__init__()
-        self._process = None  # the running child, for shutdown
+    def start(self, clip_id: str, confirm_draft_loss: bool = False) -> DescribeJob:
+        """Checks in spec order (404, the gate, `busy`, `in_draft`, `gpu_busy`), then starts the job's thread.
 
-    def start(self, clip_id: str) -> DescribeJob:
-        """Checks in spec order (404, the gate, `busy`, `gpu_busy`), then starts the job's thread."""
+        A clip in the Spoil draft needs `confirm_draft_loss`: new Shots make the draft's
+        Shot numbers point at other pictures, so a `done` job removes it (D49).
+        """
         project = ProjectPaths(paths.ROOT)
         clips.video_file(project, clip_id)
-        require_rows(_needed_rows(project))
+        require_rows(needed_rows(project))
         with self._lock:
             if self._taken():
                 raise ApiError(409, "busy", "กำลังบรรยายฉากคลิปอื่นอยู่")
-            gpu.slot.take("describe", [clip_id])
+            draft_file.take_gpu_to_redo(project, clip_id, "describe", confirm_draft_loss)
             try:
                 # Again under the slot: a delete may have run since the first look, and none can now.
                 mp4 = clips.video_file(project, clip_id)
@@ -91,24 +96,6 @@ class Describes(JobSlot[DescribeJob]):
         thread.start()
         return job
 
-    def cancel(self) -> DescribeJob:
-        """Asks the thread to stop ffmpeg or the child; the job ends as `cancelled`."""
-        with self._lock:
-            if not self._taken():
-                raise ApiError(404, "not_found", "ไม่มีงานบรรยายฉากที่ยังไม่จบ")
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
-
-    def stop_on_shutdown(self) -> None:
-        """Ctrl+C must not leave a child holding the GPU. A child started after this
-        sees the cancel flag at its first poll and is stopped by its thread."""
-        self._cancel.set()
-        with self._lock:
-            process = self._process
-        if process is not None:
-            stop_process(process)
-
     def _run(self, project: ProjectPaths, clip: clips.TempClip, mp4: Path) -> None:
         # Stays `failed` only if something escapes every handler below.
         ending: dict = {"state": "failed"}
@@ -122,16 +109,18 @@ class Describes(JobSlot[DescribeJob]):
             spans = self._cut(mp4, clip.duration_s)
             self._update(state="describing", percent=None, done=0, total=len(spans))
             process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(QWEN, QWEN.revision))
-            with self._lock:
-                self._process = process
-            self._reply(process, replies, timeout=None)  # `Ready`: loading has no timeout
+            self._track(process)
+            self._reply(process, replies, (Ready,))  # loading has no timeout
             described = []
             for n, (start, end) in enumerate(spans):
                 frame = new / "frames" / f"{n}.jpg"
                 # The middle frame: the start and end of a Shot blur into its neighbours (D17).
                 frames.extract_frame(mp4, (start + end) / 2, thumbnail=new / f"{n}.jpg", llm_frame=frame)
                 requests.put(Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE))
-                reply = self._reply(process, replies, timeout=DESCRIBE_TIMEOUT_SECONDS)
+                try:
+                    reply = self._reply(process, replies, (Generated,), DESCRIBE_TIMEOUT_SECONDS)
+                except TimeoutError:
+                    raise JobFailed("model_failed", f"บรรยายภาพเกิน {DESCRIBE_TIMEOUT_SECONDS:g} วินาที. {gpu.ADVICE}") from None
                 described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
                 self._update(done=n + 1)
             requests.put(None)
@@ -139,6 +128,7 @@ class Describes(JobSlot[DescribeJob]):
             (new / shots.SHOTS_FILE).write_text(result.model_dump_json(indent=2), encoding="utf-8")
             shutil.rmtree(new / "frames")
             _swap(project, clip.id)
+            draft_file.drop_if_uses(project, clip.id)  # the user confirmed (D49)
             ending = {"state": "done"}
         except Cancelled:
             ending = {"state": "cancelled"}
@@ -151,18 +141,9 @@ class Describes(JobSlot[DescribeJob]):
             log.exception("describing %s failed", clip.id)  # the full error, for [api]
             ending = _failed("internal", f"บรรยายฉากไม่สำเร็จ: {short(error)}")
         finally:
-            # Whatever happened, the job must end and free the GPU, or every later POST is refused.
-            if process is not None:
-                try:
-                    stop_process(process)
-                except Exception:
-                    log.exception("could not stop the LLM process")
-            with self._lock:
-                self._process = None
             if ending["state"] != "done":
                 shutil.rmtree(new, ignore_errors=True)  # the old Shots stay (D51)
-            gpu.slot.release("describe")
-            self._update(**ending)
+            self._finish(process, ending)
             # No Shot description in the log: only what happened and how long (spec › Ops).
             code = ending["error"].code if ending.get("error") else None
             log.info("describing %s ended %s %s after %.0f s", clip.id, ending["state"], code or "", time.monotonic() - started)
@@ -180,23 +161,6 @@ class Describes(JobSlot[DescribeJob]):
             raise Cancelled()
         return shots.plan_shots(cuts, duration)
 
-    def _reply(self, process, replies, timeout: float | None) -> Ready | Generated:
-        """The child's next message. Raises `Cancelled`, or `JobFailed` when the child
-        errs, dies, or takes longer than `timeout` seconds."""
-        try:
-            message = next_message(process, replies, self._cancel, timeout)
-        except ChildGone as gone:
-            raise JobFailed("crashed", f"ตัวบรรยายฉากหยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
-        except TimeoutError:
-            raise JobFailed("model_failed", f"บรรยายภาพเกิน {timeout:g} วินาที. {gpu.ADVICE}") from None
-        if isinstance(message, WorkerError):
-            log.error("the LLM process failed (%s): %s", message.code, message.detail)
-            raise JobFailed("model_failed", f"บรรยายฉากไม่สำเร็จ: {short(message.detail)}. {gpu.ADVICE}")
-        if not isinstance(message, (Ready, Generated)):
-            raise RuntimeError(f"unknown message from the LLM process: {message!r}")
-        return message
-
-
 def _swap(project: ProjectPaths, video_id: str) -> None:
     """The new Shots replace the old ones only now, at the end (D51)."""
     target = project.clip_shots_dir(video_id)
@@ -208,8 +172,8 @@ def _failed(code: ErrorCode, message: str) -> dict:
     return {"state": "failed", "error": DescribeJobError(code=code, message=message)}
 
 
-def _needed_rows(project: ProjectPaths) -> dict[str, Row]:
-    """The Status check rows a Describe job needs, by id (spec › Status check).
+def needed_rows(project: ProjectPaths) -> dict[str, Row]:
+    """The Status check rows a Describe job and a Draft job need, by id (spec › Status check).
 
     Off a Mac the two LLM rows are never ok (D50).
     """

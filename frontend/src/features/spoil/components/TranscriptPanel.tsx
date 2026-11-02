@@ -2,13 +2,14 @@ import { useState, type RefObject } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
 import { notice, type Notice } from "../lib/notice";
-import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
+import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
 import { transcriptPath, type LineEditResult, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
 import clockIcon from "../assets/clock.svg";
 import copyIcon from "../assets/copy.svg";
 import fileIcon from "../assets/file-text.svg";
 import emptyIcon from "../assets/panel-empty.svg";
-import { formatClock, formatDuration } from "./format";
+import { formatClock, formatDuration } from "../../../lib/format";
+import { DraftWarning } from "./DraftWarning";
 import { NoticeAlert } from "./NoticeAlert";
 import { NotReady } from "./NotReady";
 import { ProgressCard } from "./ProgressCard";
@@ -29,7 +30,8 @@ type Props = {
   /** The message after this clip's last job or refusal (D33); also shown once the clip is gone. */
   notice: Notice | null;
   transcript: Transcript | null;
-  onStart: () => void;
+  /** `confirmDraftLoss`: the user went on past the Spoil draft warning (spoil-maker D49). */
+  onStart: (confirmDraftLoss?: boolean) => void;
   onCancel: () => void;
   /** Saves line `index`'s new text (spoil-maker D54). */
   onEditLine: (clipId: string, index: number, text: string) => Promise<LineEditResult>;
@@ -96,7 +98,16 @@ export function TranscriptPanel(props: Props) {
         )}
       </div>
       {notice && <NoticeAlert notice={notice} />}
-      <ActionArea action={action} transcribed={clip.transcribed} missing={missing} onStart={onStart} onCancel={onCancel} />
+      <ActionArea
+        // Keyed apart from the player: another clip starts with no warning open.
+        key={`action-${clip.id}`}
+        action={action}
+        transcribed={clip.transcribed}
+        inDraft={clip.in_draft}
+        missing={missing}
+        onStart={onStart}
+        onCancel={onCancel}
+      />
       {/* A new job replaces the Transcript when it ends; until then only its progress shows. */}
       {clip.transcribed && transcript && action.kind !== "progress" && (
         // Keyed apart from the player beside it, so another clip starts with no field open.
@@ -109,12 +120,22 @@ export function TranscriptPanel(props: Props) {
 type ActionProps = {
   action: Action;
   transcribed: boolean;
+  /** The Spoil draft is made from this clip: ถอดใหม่ warns first (spoil-maker D49). */
+  inDraft: boolean;
   missing: string[];
-  onStart: () => void;
+  onStart: (confirmDraftLoss?: boolean) => void;
   onCancel: () => void;
 };
 
-function ActionArea({ action, transcribed, missing, onStart, onCancel }: ActionProps) {
+function ActionArea({ action, transcribed, inDraft, missing, onStart, onCancel }: ActionProps) {
+  const [warning, setWarning] = useState(false);
+  if (warning) {
+    const go = () => {
+      setWarning(false);
+      onStart(true);
+    };
+    return <DraftWarning onGo={go} onCancel={() => setWarning(false)} />;
+  }
   switch (action.kind) {
     case "progress":
       return <JobProgress job={action.job} onCancel={onCancel} />;
@@ -136,14 +157,14 @@ function ActionArea({ action, transcribed, missing, onStart, onCancel }: ActionP
           <div className="min-w-0 flex-1">
             <NoticeAlert notice={TRANSCRIBED} />
           </div>
-          <button type="button" onClick={onStart} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
+          <button type="button" onClick={() => (inDraft ? setWarning(true) : onStart())} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
             ถอดใหม่
           </button>
         </div>
       );
     case "start":
       return (
-        <button type="button" onClick={onStart} className={`h-9 w-fit px-4 ${PRIMARY_BUTTON}`}>
+        <button type="button" onClick={() => onStart()} className={`h-9 w-fit px-4 ${PRIMARY_BUTTON}`}>
           ถอดบทพูด
         </button>
       );

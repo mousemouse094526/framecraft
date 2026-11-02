@@ -154,7 +154,7 @@ def test_a_job_finds_three_shots_describes_each_and_lists_the_clip_as_described(
 def test_the_llm_gets_a_448_frame_the_pinned_snapshot_and_the_generation_settings(client, project, llm, three_colours):
     add_clip(project, three_colours)
     widths = []
-    llm.describe = lambda request: (widths.append(jpeg_width(request.image)), "A frame.")[1]
+    llm.respond = lambda request: (widths.append(jpeg_width(request.image)), "A frame.")[1]
 
     start(client)
     wait_for_end(client)
@@ -263,7 +263,7 @@ def test_cancelling_a_redo_keeps_the_old_shots_and_leaves_no_new_folder(client, 
     wait_for_end(client)
     old = shots_of(client)
     old_thumbnail = (project.clip_shots_dir(VIDEO_ID) / "0.jpg").read_bytes()
-    llm.describe = lambda request: "Something else."
+    llm.respond = lambda request: "Something else."
     llm.pause_at(1)
 
     start(client)

@@ -23,7 +23,8 @@ frontend/src/
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)
 ├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
 │                        tab bar, action; `wide` = 1120px from lg for two
-│                        columns), OfflinePanel, RefreshButton, ProgressBar
+│                        columns), OfflinePanel, RefreshButton, ProgressBar,
+│                        Alert (the Figma toned box), buttonStyles
 └── lib/
     ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
@@ -32,13 +33,16 @@ frontend/src/
     ├── usePollWhile.ts ← polls a job's `…/current` every second while it runs
     ├── job.ts        ← `isUnfinishedIn`, `onlyWhen`, `cancelCurrent` for every job hook
     ├── refusal.ts    ← the API's `{code, message}` refusal
-    └── gpu.ts        ← "รอให้งาน{running}เสร็จก่อน" for `gpu_busy` (spoil-maker D45)
+    ├── gpu.ts        ← "รอให้งาน{running}เสร็จก่อน" for `gpu_busy` (spoil-maker D45)
+    ├── clips.ts      ← the Temp clip type and `/api/spoil/clips`: both tabs read it
+    └── format.ts     ← a clip's length and `hh:mm:ss` of a line or a Shot
 ```
 
 No router library and no `routes/`: `App` picks the page from the hash
 (`#/setup`, `#/clips`, `#/spoil`, spoil D10, spoil-maker D53); a page with
 steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
-`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59). Each page wraps itself in `PageLayout`,
+`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59);
+the สปอย tab's hashes live in `features/spoil-maker/lib/draft.ts`. Each page wraps itself in `PageLayout`,
 whose tabs are plain `#/…` links, so clicks and the back button both just
 change the hash.
 

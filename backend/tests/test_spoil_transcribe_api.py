@@ -755,19 +755,6 @@ def test_editing_while_another_clip_is_being_transcribed_is_accepted(client, pro
     wait_for_end(client)
 
 
-def test_editing_a_clip_another_features_job_is_using_is_clip_busy(client, project, monkeypatch):
-    # spoil-maker's Draft job registers itself here (ticket 03); a stand-in for now.
-    monkeypatch.setattr(transcribe, "clip_users", [lambda clip_id: clip_id == VIDEO_ID])
-    write_temp_clip(project)
-    original = write_transcript(project, lines=TWO_LINES)
-
-    response = edit(client, 0)
-
-    assert response.status_code == 409
-    assert response.json() == {"code": "clip_busy", "message": "คลิปนี้กำลังถูกใช้ในงานอื่น"}
-    assert json.loads(transcript_path(project).read_text(encoding="utf-8")) == original
-
-
 def test_a_patch_that_is_not_json_is_415(client, project):
     write_temp_clip(project)
     write_transcript(project, lines=TWO_LINES)

@@ -6,8 +6,10 @@ from pydantic import BaseModel
 
 from backend import paths
 from backend.paths import ProjectPaths
-from backend.spoil_maker import describe, voices
+from backend.spoil_maker import describe, draft, settings, voices
 from backend.spoil_maker.describe import DescribeJob
+from backend.spoil_maker.draft import DraftJob, DraftView, TokenCount
+from backend.spoil_maker.settings import Settings
 from backend.spoil_maker.shots import ShotsFile
 from backend.spoil_maker.voices import Voice, VoiceJob
 
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/spoil-maker")
 
 class DescribeRequest(BaseModel):
     clip_id: str
+    confirm_draft_loss: bool = False
 
 
 class VoiceName(BaseModel):
@@ -40,7 +43,7 @@ def get_shot_image(clip_id: str, name: str) -> FileResponse:
 
 @router.post("/describes", status_code=202)
 def start_describe(body: DescribeRequest) -> DescribeJob:
-    return describe.describes.start(body.clip_id)
+    return describe.describes.start(body.clip_id, body.confirm_draft_loss)
 
 
 @router.get("/describes/current")
@@ -102,3 +105,58 @@ def cancel_voice_job() -> VoiceJob:
 def get_voice_preview() -> FileResponse:
     """`HEAD` tells the page whether a preview is there without downloading it."""
     return FileResponse(voices.preview_audio(_project()), media_type="audio/wav")
+
+
+@router.get("/tokens")
+def get_tokens(clip_ids: str = "") -> TokenCount:
+    """`clip_ids=a,b` in the order the user put them."""
+    return draft.tokens(_project(), clip_ids)
+
+
+@router.get("/draft")
+def get_draft() -> DraftView | None:
+    """The Spoil draft, or null when there is none."""
+    return draft.view(_project())
+
+
+@router.patch("/draft")
+def change_draft(body: dict[str, Any]) -> DraftView:
+    """Each field is optional and checked by the module (spec › API)."""
+    return draft.change_draft(_project(), body)
+
+
+@router.post("/draft/sentences", status_code=201)
+def insert_sentence(body: dict[str, Any]) -> DraftView:
+    return draft.insert_sentence(_project(), body)
+
+
+@router.patch("/draft/sentences/{sentence_id}")
+def change_sentence(sentence_id: str, body: dict[str, Any]) -> DraftView:
+    return draft.change_sentence(_project(), sentence_id, body)
+
+
+@router.delete("/draft/sentences/{sentence_id}")
+def delete_sentence(sentence_id: str) -> DraftView:
+    return draft.delete_sentence(_project(), sentence_id)
+
+
+@router.post("/draft-jobs", status_code=202)
+def start_draft_job(body: dict[str, Any]) -> DraftJob:
+    """The body depends on `kind` (spec › API), so the module checks it."""
+    return draft.draft_jobs.start(body)
+
+
+@router.get("/draft-jobs/current")
+def get_current_draft_job() -> DraftJob | None:
+    """The latest job, or null when none ran since the backend started."""
+    return draft.draft_jobs.current()
+
+
+@router.delete("/draft-jobs/current", status_code=202)
+def cancel_draft_job() -> DraftJob:
+    return draft.draft_jobs.cancel()
+
+
+@router.get("/settings")
+def get_settings() -> Settings:
+    return settings.read(_project())

@@ -301,12 +301,12 @@
    - คำสั่งบอกสไตล์ (ตารางสไตล์), ภาษาไทย (D11), จำนวนตัวอักษรเป้าหมาย `target_s × chars_per_s`, จำนวนประโยคเป้าหมาย `round(target_s / 4)`, ให้แต่ละประโยคอ้าง 1–3 id บรรทัด, และให้เขียน `top_text` เมื่อ layout เป็น A หรือ C (D19)
    - คำตอบเป็น JSON `{"top_text": "...", "sentences": [{"text": "...", "refs": ["1-12"]}]}`
 3. ตรวจผล: JSON อ่านได้ และตัวอักษรรวม (หลังแปลงตัวเลข) อยู่ใน ±25% ของเป้าหมาย; ไม่ผ่านหรือเกิน timeout สั่งใหม่ได้อีก 2 ครั้ง (รวม 3, D18). ครบ 3 ครั้ง: ใช้ผลล่าสุดที่ JSON อ่านได้; ไม่มีเลย → `failed` `draft_failed`
-4. ทำความสะอาด: ลบอักษรจีน ญี่ปุ่น เกาหลี (Unicode Han, Hiragana, Katakana, Hangul) ออกจากข้อความ (D18); id บรรทัดที่ไม่มีจริงถูกตัดออกจาก `refs`; ประโยคที่ว่างหลังทำความสะอาดถูกตัดทิ้ง
+4. ทำความสะอาด: ลบอักษรจีน ญี่ปุ่น เกาหลี (Unicode Han, Hiragana, Katakana, Hangul) ออกจากข้อความ (D18); id บรรทัดที่ไม่มีจริงถูกตัดออกจาก `refs` และเก็บแค่ 3 ตัวแรก (D61); ประโยคที่ว่างหลังทำความสะอาดถูกตัดทิ้ง
 5. state `matching` (`done` / `total` ประโยค): ต่อประโยคที่มี `refs` (D18):
    1. คลิปของประโยค = คลิปของ ref แรก; ใช้เฉพาะ refs ของคลิปนั้น (D51)
    2. ช่วง = [เวลาเริ่มต่ำสุดของ refs เหล่านั้น − 30, เวลาจบสูงสุด + 30]
-   3. ส่ง Shot ของคลิปที่ทับช่วงนั้นพร้อม Shot description ให้ LLM เลือก 2 Shot; คำตอบเป็น JSON `{"shots": [31, 32]}`
-   4. เลขที่ไม่อยู่ในช่วง หรือ JSON พัง → ใช้ 2 Shot ในช่วงที่ใกล้เวลาเริ่มของ ref แรกที่สุด
+   3. ส่ง Shot ของคลิปที่ทับช่วงนั้นพร้อม Shot description ให้ LLM เลือก 2 Shot — ไม่เกิน 40 Shot ที่ใกล้เวลาเริ่มของ ref แรกที่สุด (D61); คำตอบเป็น JSON `{"shots": [31, 32]}`
+   4. เลขที่ไม่อยู่ใน Shot ที่ส่งไป หรือ JSON พัง → ใช้ 2 Shot ในนั้นที่ใกล้เวลาเริ่มของ ref แรกที่สุด
    5. ช่วงมี Shot เดียว → ใช้ Shot นั้นทั้งสองช่อง
    6. ประโยคที่ไม่มี `refs` → `shots` เป็น `[null, null]`
 6. เขียน Spoil draft ใหม่ทับของเดิม ลบ `draft-audio/` เดิม (D28); `original_volume` มาจากค่าที่จำไว้ (D40); `last_voice_id` ใน settings เป็น `voice_id` นี้
@@ -322,7 +322,7 @@
 
 | ขั้น | thinking | `temperature` | `max_tokens` | timeout ต่อครั้ง |
 |---|---|---|---|---|
-| ร่างบท | ปิด | 0.7 | `2 × ตัวอักษรเป้าหมาย + 1,000` | 10 นาที |
+| ร่างบท | ปิด | 0.3 (D61) | `2 × ตัวอักษรเป้าหมาย + 1,000` | 10 นาที |
 | เลือก Shot | ปิด | 0 | 64 | 60 วินาที |
 | บรรยายภาพ (Describe job) | ปิด | 0 | 80 | 60 วินาที |
 
@@ -432,7 +432,7 @@
 | `POST` | `/describes` | `{clip_id, confirm_draft_loss?}` เริ่ม Describe job | `202` job; `409` `busy`, `gpu_busy`, `in_draft`, `clip_busy`; `503` `not_ready`; `404` `not_found` |
 | `GET` | `/describes/current` | งานล่าสุดหรือ `null` | `200` |
 | `DELETE` | `/describes/current` | ยกเลิก | `202` job; ไม่มีงานค้าง `404` `not_found` |
-| `GET` | `/tokens?clip_ids=a,b` | token ของ Transcript ที่แก้แล้ว (D46, D54) | `200` `{per_clip: {a: 12000, b: 9000}, total: 21000, limit: 32000}`; คลิปยังไม่ถอด `400` `clip_not_ready` |
+| `GET` | `/tokens?clip_ids=a,b` | token ของ Transcript ที่แก้แล้ว (D46, D54) | `200` `{per_clip: {a: 12000, b: 9000}, total: 21000, limit: 32000}`; คลิปยังไม่ถอด `400` `clip_not_ready`; tokenizer ของ Qwen ไม่มี `503` `not_ready` (D60) |
 | `GET` | `/voices` | `[{id, name, speed, chars_per_s, created_at, in_use}]` ใหม่สุดก่อน | `200` |
 | `POST` | `/voices` | `{name}` บันทึก preview ล่าสุด | `201` voice; ไม่มี preview `409` `no_preview`; `400` `invalid_voice` |
 | `PATCH` | `/voices/{id}` | `{name}` | `200` voice; `400` `invalid_voice`; `404` `not_found` |

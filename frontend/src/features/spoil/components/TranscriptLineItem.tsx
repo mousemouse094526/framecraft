@@ -2,7 +2,7 @@ import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { GHOST_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import type { LineEditResult, TranscriptLine } from "../hooks/useTranscribe";
 import pencilIcon from "../assets/pencil.svg";
-import { formatClock } from "./format";
+import { formatClock } from "../../../lib/format";
 
 type Props = {
   line: TranscriptLine;

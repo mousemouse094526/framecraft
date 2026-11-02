@@ -7,12 +7,12 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from starlette.exceptions import HTTPException
 
-from backend import errors, paths
+from backend import errors, files, paths
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil, spoil_maker
 from backend.spoil import clips, downloads, transcribe
-from backend.spoil_maker import describe, shots, voices
+from backend.spoil_maker import describe, draft, shots, voices
 
 # Binding 127.0.0.1 doesn't stop DNS rebinding from another site (ADR 0011).
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
@@ -26,10 +26,13 @@ async def lifespan(app: FastAPI):
     # After the clips: Shots of a clip that start-up removed go too (spoil-maker spec › Ops).
     shots.clean_on_start(project, {clip.id for clip in clips.list_clips(project)})
     voices.clean_on_start(project)
+    # Half-written `draft.json`, `settings.json`, voice files (spoil-maker spec › Ops).
+    files.remove_unfinished(project.spoil_maker_dir)
     yield
     downloads.downloads.stop_on_shutdown()
     transcribe.transcriptions.stop_on_shutdown()
     describe.describes.stop_on_shutdown()
+    draft.draft_jobs.stop_on_shutdown()
     voices.voice_jobs.stop_on_shutdown()
 
 

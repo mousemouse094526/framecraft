@@ -20,11 +20,16 @@ backend/
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
 ├── disk.py       ← free disk space, shared by setup and spoil
+├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
+├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
 │                    JobFailed, `require_rows` (the gate of every job)
-├── jobs.py       ← JobSlot (one job of a kind, ADR 0010) and the child
-│                    process helpers every GPU job uses (ADR 0012)
-├── gpu.py        ← the one GPU slot every model job takes (ADR 0015)
+├── jobs.py       ← JobSlot (one job of a kind, ADR 0010), ModelJobSlot (a job
+│                    whose model runs in a child: cancel, shutdown, the
+│                    ending that frees the GPU) and the child process helpers
+│                    every GPU job uses (ADR 0012)
+├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), and the
+│                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51)
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips,
@@ -37,7 +42,13 @@ backend/
 │                    llm (the only mlx-vlm import), tts (the only omnivoice
 │                    import), voices (Saved voices, Voice job), thai
 │                    (numbers as words, letter count, the only pythainlp
-│                    import); llm's and tts's `worker` run in a child process
+│                    import), draft_file (the Spoil draft on disk; spoil
+│                    imports it), draft (the draft's view and edits, the
+│                    Draft job, the token count), script (the prompts and
+│                    the reading of Qwen's answers), tokens (the only
+│                    transformers import of the backend process: Qwen's
+│                    tokenizer), settings (what the tab remembers); llm's
+│                    and tts's `worker` run in a child process
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -69,12 +80,16 @@ through a queue; the thread writes the result file (ADR 0012).
   does. Media from a link the user typed may be fetched at runtime (ADR 0008).
 - Only one module per library that talks to the outside world (the yt-dlp
   adapter, the Whisper adapter in `backend.spoil`, the mlx-vlm adapter
-  `spoil_maker.llm`, the OmniVoice adapter `spoil_maker.tts`); tests replace it
-  with a fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
-  `spoil_maker.start_tts_worker`).
+  `spoil_maker.llm`, the OmniVoice adapter `spoil_maker.tts`, the tokenizer
+  `spoil_maker.tokens`); tests replace it with a fake (`spoil.adapter`,
+  `spoil.start_worker`, `spoil_maker.start_worker`, `spoil_maker.start_tts_worker`,
+  `spoil_maker.count_tokens`).
 - torch, transformers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
-  start in under a second.
+  start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
+  transformers use in the backend process: no model, no GPU.
+- Locks are taken in one order: a job slot's, then `gpu.slot.draft_lock`, then
+  the GPU slot's own (inside `GpuSlot`); never the other way round.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases

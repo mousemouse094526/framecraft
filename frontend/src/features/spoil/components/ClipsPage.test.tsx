@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChecklistItem, StatusResponse } from "../../../lib/statusTypes";
 import type { DescribeJob } from "../hooks/useDescribe";
 import type { DownloadJob } from "../hooks/useSpoilDownload";
-import type { TempClip } from "../hooks/useTempClips";
+import type { TempClip } from "../../../lib/clips";
 import type { TranscribeJob, Transcript } from "../hooks/useTranscribe";
 import { ClipsPage } from "./ClipsPage";
 
@@ -83,6 +83,7 @@ function clipOf(change: Partial<TempClip>): TempClip {
     yt_dlp_version: "2026.10.26",
     transcribed: false,
     described: false,
+    in_draft: false,
     ...change,
   };
 }
@@ -1386,5 +1387,103 @@ describe("บรรยายฉาก on a clip row (spoil-maker D16, D45)", () 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
 
     expect(await within(panel()).findByText("รอให้งานบรรยายฉากเสร็จก่อน")).toBeInTheDocument();
+  });
+});
+
+describe("a clip in the Spoil draft (spoil-maker D29, D49)", () => {
+  const IN_DRAFT = clipOf({ transcribed: true, described: true, in_draft: true });
+  const WARNING = "คลิปนี้อยู่ใน Spoil draft: ทำต่อจะลบ Spoil draft";
+  const row = () => screen.getByRole("listitem", { name: IN_DRAFT.title });
+  const sentWith = (method: string) => fetchMock.mock.calls.filter(([, init]) => init?.method === method);
+
+  async function openList() {
+    render(<ClipsPage />);
+    await screen.findByRole("listitem", { name: IN_DRAFT.title });
+    return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  }
+
+  it("ลบ warns in the row first, then ทำต่อ deletes it", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    backend([status(READY_ITEMS), current(null), clips([IN_DRAFT]), deleteClip(IN_DRAFT.id, () => new Response(null, { status: 204 }))]);
+    const user = await openList();
+
+    await user.click(within(row()).getByRole("button", { name: `ลบ ${IN_DRAFT.title}` }));
+
+    expect(within(row()).getByText(WARNING)).toBeInTheDocument();
+    expect(within(row()).getByRole("button", { name: "ทำต่อ" })).toHaveFocus();
+    expect(sentWith("DELETE")).toHaveLength(0);
+    expect(confirm).not.toHaveBeenCalled();
+    await user.click(within(row()).getByRole("button", { name: "ทำต่อ" }));
+
+    expect(sentWith("DELETE")).toHaveLength(1);
+  });
+
+  it("ยกเลิก on that warning deletes nothing", async () => {
+    backend([status(READY_ITEMS), current(null), clips([IN_DRAFT])]);
+    const user = await openList();
+
+    await user.click(within(row()).getByRole("button", { name: `ลบ ${IN_DRAFT.title}` }));
+    await user.click(within(row()).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(within(row()).queryByText(WARNING)).toBeNull();
+    expect(sentWith("DELETE")).toHaveLength(0);
+  });
+
+  it("บรรยายฉาก again warns, then ทำต่อ sends confirm_draft_loss", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([IN_DRAFT]),
+      postDescribe({ kind: "describe", state: "cutting", clip_id: IN_DRAFT.id, percent: 0, done: null, total: null, error: null, cancel_requested: false, started_at: "2026-11-02T10:00:00+07:00" }),
+    ]);
+    const user = await openList();
+
+    await user.click(within(row()).getByRole("button", { name: "บรรยายฉาก" }));
+
+    expect(within(row()).getByText(WARNING)).toBeInTheDocument();
+    expect(sentWith("POST")).toHaveLength(0);
+    await user.click(within(row()).getByRole("button", { name: "ทำต่อ" }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/spoil-maker/describes",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ clip_id: IN_DRAFT.id, confirm_draft_loss: true }) }),
+    );
+  });
+
+  it("ถอดใหม่ warns in the panel before sending, then ทำต่อ sends confirm_draft_loss", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([IN_DRAFT]),
+      transcript({ ...NIGHT_TRANSCRIPT, clip_id: IN_DRAFT.id }),
+      postTranscription(transcribeJobOf({ clip_id: IN_DRAFT.id })),
+      transcription(null),
+      transcription(transcribeJobOf({ clip_id: IN_DRAFT.id, state: "transcribing", percent: 5 })),
+    ]);
+    const user = await openList();
+    await user.click(within(row()).getAllByRole("button")[0]);
+
+    await user.click(await within(panel()).findByRole("button", { name: "ถอดใหม่" }));
+
+    expect(within(panel()).getByText(WARNING)).toBeInTheDocument();
+    expect(sentWith("POST")).toHaveLength(0);
+    await user.click(within(panel()).getByRole("button", { name: "ทำต่อ" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/spoil/transcriptions",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ clip_id: IN_DRAFT.id, confirm_draft_loss: true }) }),
+    );
+  });
+
+  it("ถอดใหม่ sends nothing when the warning is cancelled", async () => {
+    backend([status(READY_ITEMS), current(null), clips([IN_DRAFT]), transcript({ ...NIGHT_TRANSCRIPT, clip_id: IN_DRAFT.id })]);
+    const user = await openList();
+    await user.click(within(row()).getAllByRole("button")[0]);
+
+    await user.click(await within(panel()).findByRole("button", { name: "ถอดใหม่" }));
+    await user.click(within(panel()).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(sentWith("POST")).toHaveLength(0);
+    expect(within(panel()).getByRole("button", { name: "ถอดใหม่" })).toBeInTheDocument();
   });
 });

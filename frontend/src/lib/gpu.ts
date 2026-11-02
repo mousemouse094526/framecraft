@@ -4,6 +4,7 @@ import type { Refusal } from "./refusal";
 const RUNNING_NAMES: Record<string, string> = {
   transcribe: "ถอดบทพูด",
   describe: "บรรยายฉาก",
+  draft: "ร่างบท",
   voice: "สร้างเสียง",
 };
 
@@ -11,6 +12,7 @@ const RUNNING_NAMES: Record<string, string> = {
 export const GPU_JOB_PATHS: Record<string, string> = {
   transcribe: "/api/spoil/transcriptions/current",
   describe: "/api/spoil-maker/describes/current",
+  draft: "/api/spoil-maker/draft-jobs/current",
 };
 
 /** "รอให้งาน{running}เสร็จก่อน": why a GPU job can't start while `running` holds the GPU (spoil-maker D45). */

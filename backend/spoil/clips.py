@@ -13,7 +13,7 @@ from backend import files
 from backend.paths import ProjectPaths
 from backend.errors import ApiError
 from backend.spoil.links import VIDEO_ID
-from backend.spoil_maker import shots
+from backend.spoil_maker import draft_file, shots
 
 log = logging.getLogger(__name__)
 
@@ -34,11 +34,12 @@ class TempClip(BaseModel):
 
 
 class ListedClip(TempClip):
-    """A row of `GET /clips`: the stored clip plus whether it has a Transcript (D23)
-    and Shots (spoil-maker D16)."""
+    """A row of `GET /clips`: the stored clip plus whether it has a Transcript (D23),
+    Shots (spoil-maker D16), and a Spoil draft made from it (spoil-maker D49)."""
 
     transcribed: bool
     described: bool
+    in_draft: bool
 
 
 TRANSCRIPT_SUFFIX = ".transcript.json"
@@ -49,7 +50,7 @@ def _not_found() -> ApiError:
 
 
 def json_path(project: ProjectPaths, video_id: str) -> Path:
-    return project.media_temp_dir / f"{video_id}.json"
+    return project.clip_json(video_id)
 
 
 def has_clip(project: ProjectPaths, video_id: str) -> bool:
@@ -70,6 +71,7 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
     `{id}.transcript.json` is not a clip, and `transcribed` only asks whether it exists (D29).
     """
     found: list[tuple[datetime, ListedClip]] = []
+    in_draft = draft_file.clip_ids(project)
     for path in project.media_temp_dir.glob("*.json"):
         if path.name.endswith(TRANSCRIPT_SUFFIX):
             continue
@@ -82,7 +84,9 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
         if clip.id == path.stem and _mp4_path(project, clip.id).is_file():
             transcribed = transcript_path(project, clip.id).is_file()
             described = shots.is_described(project, clip.id)
-            listed = ListedClip(**clip.model_dump(), transcribed=transcribed, described=described)
+            listed = ListedClip(
+                **clip.model_dump(), transcribed=transcribed, described=described, in_draft=clip.id in in_draft
+            )
             found.append((downloaded, listed))
     found.sort(key=lambda pair: pair[0], reverse=True)
     return [clip for _, clip in found]

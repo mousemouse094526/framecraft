@@ -1,6 +1,8 @@
+import type { Tone } from "../../../components/ui/Alert";
+
 /** A message after a job or a refusal, shown as an Alert (spec › Frontend, D33). */
 export type Notice = {
-  tone: "success" | "info" | "warning" | "error";
+  tone: Tone;
   text: string;
   /** A command to copy, from `error.fix` (D8). */
   fix: string | null;
