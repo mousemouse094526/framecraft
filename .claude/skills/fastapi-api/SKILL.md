@@ -32,10 +32,12 @@ backend/
 │                    transcribe (Transcribe job, Transcript files),
 │                    whisper (the only torch/transformers import for
 │                    transcribing; its `worker` runs in a child process)
-├── spoil_maker/  ← the สปอย tab (spoil-maker D56): shots (Shot files),
+├── spoil_maker/  ← the สปอย tab (spoil-maker D56, D59): shots (Shot files),
 │                    describe (Describe job), frames (ffmpeg for Shots),
-│                    llm (the only mlx-vlm import; its `worker` runs in a
-│                    child process)
+│                    llm (the only mlx-vlm import), tts (the only omnivoice
+│                    import), voices (Saved voices, Voice job), thai
+│                    (numbers as words, letter count, the only pythainlp
+│                    import); llm's and tts's `worker` run in a child process
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -67,10 +69,14 @@ through a queue; the thread writes the result file (ADR 0012).
   does. Media from a link the user typed may be fetched at runtime (ADR 0008).
 - Only one module per library that talks to the outside world (the yt-dlp
   adapter, the Whisper adapter in `backend.spoil`, the mlx-vlm adapter
-  `spoil_maker.llm`); tests replace it with a fake (`spoil.adapter`,
-  `spoil.start_worker`, `spoil_maker.start_worker`).
-- torch, transformers, mlx-vlm and Pillow are imported inside the function
-  that needs them, never at module import: the backend must start in under a second.
+  `spoil_maker.llm`, the OmniVoice adapter `spoil_maker.tts`); tests replace it
+  with a fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
+  `spoil_maker.start_tts_worker`).
+- torch, transformers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
+  inside the function that needs them, never at module import: the backend must
+  start in under a second.
+- pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
+  before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases
   it on every ending, before its state reads as finished (ADR 0015).
 - Every `POST` and `PATCH` must be `application/json`, else `415` (ADR 0013);

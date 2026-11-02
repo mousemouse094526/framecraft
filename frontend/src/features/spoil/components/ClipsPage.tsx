@@ -3,7 +3,7 @@ import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
 import { missingLabels, TRANSCRIBE_ITEMS } from "../lib/gate";
-import { gpuBusyText } from "../lib/gpu";
+import { gpuBusyText } from "../../../lib/gpu";
 import { useDescribe } from "../hooks/useDescribe";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";

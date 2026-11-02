@@ -28,6 +28,7 @@ FixKind = Literal["command", "hint"]
 
 VERSION_TIMEOUT_SECONDS = 5
 MLX_VLM_VERSION = "0.7.11"  # the pin in pyproject.toml (spoil-maker spec › Dependencies)
+PYTHAINLP_VERSION = "5.4.0"  # the pin in pyproject.toml (spoil-maker spec › Dependencies)
 
 
 @dataclass(frozen=True)
@@ -175,6 +176,19 @@ def probe_mlx_vlm() -> str:
     return version
 
 
+def probe_pythainlp() -> str:
+    """The installed pythainlp version, from its metadata only: importing pythainlp may
+    create its data folder (docs/library-notes/pythainlp.md). Raises when it isn't installed;
+    metadata alone can outlive a package whose files are gone, hence `find_spec` too."""
+    try:
+        version = metadata.version("pythainlp")
+    except metadata.PackageNotFoundError:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง") from None
+    if importlib.util.find_spec("pythainlp") is None:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง")
+    return version
+
+
 def this_platform() -> str:
     """The OS this process runs on, as `sys.platform`; tests swap it."""
     return sys.platform
@@ -221,12 +235,18 @@ class Probes:
     deno: Callable[[], str]
     yt_dlp: Callable[[], str]
     mlx_vlm: Callable[[], str]
+    pythainlp: Callable[[], str]
 
 
 def real_probes() -> Probes:
     # Looked up at call time, so tests can swap the module's probes.
     return Probes(
-        device=probe_device, ffmpeg=probe_ffmpeg, deno=probe_deno, yt_dlp=probe_yt_dlp, mlx_vlm=probe_mlx_vlm
+        device=probe_device,
+        ffmpeg=probe_ffmpeg,
+        deno=probe_deno,
+        yt_dlp=probe_yt_dlp,
+        mlx_vlm=probe_mlx_vlm,
+        pythainlp=probe_pythainlp,
     )
 
 
@@ -262,6 +282,7 @@ def run_checks(
         # spoil-maker's rows follow the older ones (spoil-maker spec › Status check).
         _model_item(project, QWEN, llm_fix, sys_platform),
         _item("mlx_vlm", "mlx-vlm", lambda: check_mlx_vlm(probes.mlx_vlm, sys_platform), llm_fix),
+        _item("pythainlp", "pythainlp", lambda: check_pinned(probes.pythainlp, PYTHAINLP_VERSION), fixes.setup),
     ]
     counts = {s: sum(1 for i in items if i.status == s) for s in get_args(ItemStatus)}
     return StatusResponse(
@@ -350,9 +371,14 @@ def check_mlx_vlm(probe: Callable[[], str], sys_platform: str) -> tuple[ItemStat
     raises, and _item turns that into `missing`."""
     if sys_platform not in QWEN.platforms:
         return "missing", UNSUPPORTED_HERE
+    return check_pinned(probe, MLX_VLM_VERSION)
+
+
+def check_pinned(probe: Callable[[], str], pinned: str) -> tuple[ItemStatus, str]:
+    """Installed at the pinned version; a failing probe raises, and _item turns that into `missing`."""
     version = probe()
-    if version != MLX_VLM_VERSION:
-        return "missing", f"version ไม่ตรง: ติดตั้งไว้ {version} ต้องการ {MLX_VLM_VERSION}"
+    if version != pinned:
+        return "missing", f"version ไม่ตรง: ติดตั้งไว้ {version} ต้องการ {pinned}"
     return "ok", version
 
 

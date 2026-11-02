@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
-import { busyText } from "../lib/gpu";
-import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../lib/job";
-import { refusalOf, type Refusal } from "../lib/refusal";
-import { usePollWhile } from "./usePollWhile";
+import { busyText } from "../../../lib/gpu";
+import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
+import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { usePollWhile } from "../../../lib/usePollWhile";
 
 // The shape of a Describe job (backend.spoil_maker.describe.DescribeJob, spoil-maker spec › API).
 export type DescribeJobState = "cutting" | "describing" | "done" | "failed" | "cancelled";

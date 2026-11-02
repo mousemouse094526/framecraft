@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** 01 done — ติดตั้ง Qwen บน Mac, ช่อง GPU ช่องเดียว และปุ่มดูภาพในแถว Temp clip; ต่อไป 02 (Saved voice)
+**Now:** 02 done — หน้า Saved voice (`#/spoil/voices`): ออกแบบเสียงด้วย OmniVoice ฟัง บันทึก เปลี่ยนชื่อ ลบ, ตัวแปลงตัวเลขเป็นคำไทย, แถว `pythainlp`; ต่อไป 03 (ร่างบทและหน้าตรวจแก้)
 
 **Next:**
 
 ```
-/warroom-build spoil-maker 02
+/warroom-build spoil-maker 03
 ```
 
 ## Tickets
@@ -14,11 +14,37 @@
 |---|---|---|
 | 00 | แถบ 3 tab และแก้ Transcript | done |
 | 01 | ติดตั้ง Qwen, ช่อง GPU และดูภาพ | done |
-| 02 | Saved voice | ready |
+| 02 | Saved voice | done |
 | 03 | ร่างบทและหน้าตรวจแก้ | ready |
 | 04 | เสียงต่อประโยคและ render | ready |
 
 ## Log
+
+### 02: Saved voice — done 2026-11-02
+
+**Built:**
+- ติดตั้ง: `pythainlp==5.4.0` ใน `pyproject.toml`; แถว Status check `pythainlp` หลัง `mlx_vlm` (14 แถว) เช็คจาก metadata + `find_spec` ผ่าน `Probes.pythainlp`, ทั้ง Mac และ Windows; `checks.check_pinned` ใช้ร่วมกับ `mlx_vlm`
+- `backend.spoil_maker.thai`: `spoken` (เลขไทย → จุลภาค → เวลา → % → ทศนิยม → จำนวนเต็ม, `เอ็ด`/`ยี่สิบ`/`สิบ`/ล้านซ้ำ, `007` ทีละหลัก), `letters` (ไม่นับช่องว่างและวรรคตอน), `words` (pythainlp `newmm` ตั้ง `PYTHAINLP_DATA` = `models/pythainlp/` และ `PYTHAINLP_OFFLINE` ก่อน import)
+- `backend.spoil_maker.tts`: adapter ของ OmniVoice ใน process ลูก `spawn` — `Design` → พูดประโยคตัวอย่างด้วย `instruct`, สร้าง clone prompt, พูดอีกครั้งที่ speed ที่เลือก, `num_step` 16 → `Designed` (PCM 16 บิต, sample rate, prompt เป็น bytes)
+- `backend.spoil_maker.voices` + routes: `POST/GET/DELETE /voice-jobs[/current]`, `GET|HEAD /voice-jobs/preview.wav`, `GET/POST /voices`, `PATCH/DELETE /voices/{id}`, `GET /voices/{id}/sample.wav`; gate `device`, `model_omnivoice`, `pythainlp`; จองช่อง GPU `voice` ("สร้างเสียง"); `invalid_voice`, `no_preview`, `busy`, `gpu_busy`, `not_ready`, `404`; preview ใน `.pending/` (json เขียนท้ายสุด), ยกเลิกหรือล้มเก็บ preview เดิม; start ล้าง `.pending/` และ `*.tmp`; `kind: "sentences"` ตอบ `400` `invalid_request` จนมี Spoil draft
+- `backend.files.write_atomic` (ย้ายจาก `spoil.clips`, ผู้ใช้คนที่สาม); `FakeLlm` → `FakeModel` ที่ `FakeTts` ใช้ด้วย
+- หน้าเว็บ `#/spoil/voices` (`SavedVoicePage`, `VoiceDesigner`, `VoiceRow`, `NameForm`, `useVoices`) ตาม Figma Saved voice: ไม่มี preview / กำลังสุ่ม / GPU busy (poll งานถอดหรืองานบรรยายฉากจนจบ) / preview พร้อม, แถว default / เปลี่ยนชื่อ / ยืนยันลบ / ลบไม่ได้, รายการว่าง; preview ที่บันทึกไปแล้วเช็คด้วย `HEAD`
+- โค้ดใช้ร่วมหน้าเว็บ: `lib/gpu.ts` (+ `GPU_JOB_PATHS`), `lib/job.ts` (+ `isRunning`), `lib/refusal.ts`, `lib/usePollWhile.ts`, `lib/api.ts` `headStatus`, `components/ui/ProgressBar.tsx`
+- NOTICE.md: เครดิตโมเดลแนะนำ ไม่บังคับ (D41); README: ส่วน "เสียงบรรยาย" และคำ "บรรยายฉาก" แทน "ดูภาพ" (D58); library notes `omnivoice.md`, `pythainlp.md`; skills `fastapi-api` (module, import, pythainlp, routes รับ body เป็น dict), `vite-react-web` (`lib/`, `#/spoil/voices`)
+- เช็คมือบน M2 (Seam 3): Library assumptions ของ omnivoice ผ่านครบก่อนเขียน worker (โหลด 3.8 วินาที, `generate(instruct=…)` 5.6 วินาที, `create_voice_clone_prompt` แล้ว `save` ลง `BytesIO` 10 KB และ `load` ได้, speed 0.8 → 5.96 วินาที / 1.2 → 4.5 วินาที, `num_step` 16); ออกแบบเสียงหญิง young adult จากหน้าเว็บ → preview 4.97 วินาที, `chars_per_s` 15.3, บันทึกแล้ว restart backend → รายการเดิม, `sample.wav` md5 เดิม, `.pt` โหลดกลับเป็น clone prompt ได้, `.pending/` หาย; ตัดคำ pythainlp → ไม่มี `~/pythainlp-data`
+- หน้าเว็บเทียบ Figma: 1440 designer 520×390 ที่ (160,177), รายการ 584×212 ที่ (696,177), แถว 60 / เปลี่ยนชื่อ 92 / ยืนยันลบ 139; 375 designer 343×478, แถว 341×97, ปุ่มกลับ 44, ไม่มี scroll แนวนอน
+
+**Decided:**
+- D59 — ทางเลือกเล็ก: `PYTHAINLP_DATA` แทน `PYTHAINLP_DATA_DIR` (spec และ ticket แก้แล้ว), แถว `pythainlp` ไม่ import จริง, นับตัวอักษร, กฎตัวเลขที่ spec ไม่ระบุ, ประโยคล็อก, ไฟล์ผลเป็น bytes, state `voicing`, body ของ `POST /voice-jobs`, `gpu.Kind` `voice`, ลำดับรายการ, หน้าเว็บไม่มีตัวบอกขั้นและค่าตั้งต้น, โค้ดใช้ร่วม, NOTICE.md
+
+**For the next ticket:**
+- 03/04: Voice job เป็นงานลูกที่สามที่ท้าย `_run`, `cancel`, `stop_on_shutdown`, `_reply`, `_failed` ซ้ำกับ `Describes` (และ `Transcriptions`) — ย้ายเข้า `backend.jobs` ก่อนเพิ่ม Draft job (review ticket 01 และ 02)
+- 03: `voice_in_use` ของ `DELETE /voices/{id}` และ `in_use` ของ `GET /voices` (ตอนนี้ `false` เสมอ); `last_voice_id` ใน settings; ลิงก์ไป `#/spoil/voices` จากหน้าตั้งค่า; `gpu.Kind` เพิ่ม `draft` และ `GPU_JOB_PATHS` ใน `lib/gpu.ts` เพิ่ม path ของ Draft job
+- 04: Voice job `sentences` แทนที่ `400` ชั่วคราวใน `voices.VoiceJobs.start` (test `test_sentences_with_ids_that_no_draft_has_are_invalid_request` ต้องเปลี่ยน); test ระดับ API ของประโยคตัวเลขตาม Seam 1 (ตอนนี้ test `thai.spoken` ตรง); `thai.words` ใช้ตัดซับ; seam 3 "5 ประโยคด้วยเสียงเดียวกันฟังเป็นเสียงเดียวกัน" และ "1968, 10:30 อ่านถูก"
+- review ที่ไม่ได้แก้: ตัวเลือกเพศ วัย ระดับเสียง และสเกล speed อยู่ทั้ง `voices.py` และ `VoiceDesigner.tsx` (คนละภาษา แยกไม่ได้โดยไม่เพิ่ม API); test ที่อ่าน `{id}.json` และ `.pending/` ตรง (รูปไฟล์ใน spec › Saved voice และ Seams 1 › start)
+- ผู้ใช้ควรฟังเสียง `พี่สาวเล่าหนัง` (`media/spoil-maker/voices/v_be1485d1.wav`) ด้วยหูเอง — เช็คมือนี้ยืนยันว่าไฟล์เดิมหลัง restart แต่ไม่ได้ฟัง
+
+**Checks:** `uv run pytest` — 310 passed; `npm --prefix frontend test` — 120 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 01: ติดตั้ง Qwen, ช่อง GPU และดูภาพ — done 2026-11-02
 

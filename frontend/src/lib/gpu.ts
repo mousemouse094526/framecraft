@@ -4,6 +4,13 @@ import type { Refusal } from "./refusal";
 const RUNNING_NAMES: Record<string, string> = {
   transcribe: "ถอดบทพูด",
   describe: "บรรยายฉาก",
+  voice: "สร้างเสียง",
+};
+
+/** The `…/current` of each GPU job a page can poll to see it end; later jobs add theirs. */
+export const GPU_JOB_PATHS: Record<string, string> = {
+  transcribe: "/api/spoil/transcriptions/current",
+  describe: "/api/spoil-maker/describes/current",
 };
 
 /** "รอให้งาน{running}เสร็จก่อน": why a GPU job can't start while `running` holds the GPU (spoil-maker D45). */

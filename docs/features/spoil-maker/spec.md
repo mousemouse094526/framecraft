@@ -135,7 +135,7 @@
 | transformers | ที่ติดตั้งอยู่ (≥ 5.3) | `AutoTokenizer.from_pretrained(snapshot_dir)` โหลด tokenizer ของ Qwen3.5 จาก snapshot เพื่อนับ token (D46) โดยไม่โหลดโมเดล | [AutoTokenizer](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoTokenizer) |
 | omnivoice | 0.2.1 | `generate(text, instruct=…)` สร้างเสียงจากคุณสมบัติ; `create_voice_clone_prompt(ref_audio, ref_text)` คืน prompt ที่ `save` เป็น `.pt` และ `load` ใช้ซ้ำ; `generate` รับ `speed` และ `num_step` | [k2-fsa/OmniVoice](https://github.com/k2-fsa/OmniVoice) |
 | pythainlp | 5.4.0 | `word_tokenize(text, engine="newmm")` ใช้พจนานุกรมใน package ไม่ใช้ network | [tokenize API](https://pythainlp.org/dev-docs/api/tokenize.html), [v5.4.0](https://github.com/PyThaiNLP/pythainlp/tree/v5.4.0) |
-| pythainlp | 5.4.0 | env `PYTHAINLP_DATA_DIR` ย้าย folder ข้อมูลจาก `~/pythainlp-data` มาที่ `models/pythainlp/` (ADR-0003); ตั้งก่อน import | [v5.4.0](https://github.com/PyThaiNLP/pythainlp/tree/v5.4.0) |
+| pythainlp | 5.4.0 | env `PYTHAINLP_DATA` (`PYTHAINLP_DATA_DIR` เลิกใช้แล้ว, D59) ย้าย folder ข้อมูลจาก `~/pythainlp-data` มาที่ `models/pythainlp/` (ADR-0003); ตั้งก่อน import | [v5.4.0](https://github.com/PyThaiNLP/pythainlp/tree/v5.4.0) |
 | ffmpeg (imageio-ffmpeg 0.7.0) | 7.1 | filter `select='gt(scene,0.3)'` กับ `showinfo` ให้เวลาของจุดตัดภาพ; `ass` วาดข้อความไทยด้วย libass กับ harfbuzz; `gblur`, `tpad` (`stop_mode=clone`), `amix`; encoder `libx264` กับ `aac`; `-progress pipe:1` | [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) |
 | libass (ใน ffmpeg) | ที่มากับ ffmpeg 7.1 | ASS tag `\pos`, `\an`, `\bord`, `\3c`, `\fs` และ `fontsdir` ชี้ folder ของ Kanit | [ASS tags](https://aegisub.org/docs/latest/ass_tags/) |
 | Kanit (google/fonts) | commit `130fcfb` | `Kanit-Bold.ttf` ใช้ใน libass ได้ และ license OFL ให้แจกจ่ายได้ | [ofl/kanit](https://github.com/google/fonts/tree/130fcfb0ff422fec96b335616b2ca99f91914792/ofl/kanit) |
@@ -148,7 +148,7 @@
 |---|---|---|
 | `model_qwen` | Model marker ของ `QWEN` ตรง revision (ADR-0004) | `missing` "ยังไม่รองรับบน Windows" (D50) |
 | `mlx_vlm` | import `mlx_vlm` ได้และ version ตรง | `missing` "ยังไม่รองรับบน Windows" (D50) |
-| `pythainlp` | import `pythainlp` ได้และ version ตรง | เหมือน Mac |
+| `pythainlp` | หา package `pythainlp` ได้และ version ตรง (ไม่ import จริง เพราะ import สร้าง folder ข้อมูล, D59) | เหมือน Mac |
 | `font_kanit` | ไฟล์ทั้งสองอยู่และ marker มี sha256 ตรง | เหมือน Mac |
 
 แต่ละงานเช็คเฉพาะแถวที่ตัวเองใช้ (ADR-0009). ไม่ผ่าน → `503` `not_ready` พร้อม `rows`:
@@ -664,7 +664,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 - [transformers AutoTokenizer](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoTokenizer) — นับ token จาก snapshot (accessed 2026-10-31)
 - [k2-fsa/OmniVoice](https://github.com/k2-fsa/OmniVoice) — `instruct`, `create_voice_clone_prompt`, `speed`, `num_step` (accessed 2026-10-31)
 - [PyThaiNLP tokenize API](https://pythainlp.org/dev-docs/api/tokenize.html) — `word_tokenize` engine `newmm` (accessed 2026-10-31)
-- [PyThaiNLP v5.4.0](https://github.com/PyThaiNLP/pythainlp/tree/v5.4.0) — version ที่ pin และ `PYTHAINLP_DATA_DIR` (accessed 2026-10-31)
+- [PyThaiNLP v5.4.0](https://github.com/PyThaiNLP/pythainlp/tree/v5.4.0) — version ที่ pin และ `PYTHAINLP_DATA` (accessed 2026-10-31)
 - [FFmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) — `select` scene, `showinfo`, `ass`, `gblur`, `tpad`, `amix` (accessed 2026-10-31)
 - [ASS override tags](https://aegisub.org/docs/latest/ass_tags/) — `\pos`, `\an`, `\bord`, `\3c`, `\fs` (accessed 2026-10-31)
 - [google/fonts ofl/kanit @ 130fcfb](https://github.com/google/fonts/tree/130fcfb0ff422fec96b335616b2ca99f91914792/ofl/kanit) — ไฟล์ Kanit Bold และ OFL (accessed 2026-10-31)

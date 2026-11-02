@@ -11,13 +11,14 @@ from typing import Literal
 
 from backend.errors import ApiError
 
-# Later tickets add their jobs here: draft, voice, render (spoil-maker spec › ช่อง GPU).
-Kind = Literal["transcribe", "describe"]
+# Later tickets add their jobs here: draft, render (spoil-maker spec › ช่อง GPU).
+Kind = Literal["transcribe", "describe", "voice"]
 
 # How `gpu_busy` names the running job (spoil-maker spec › Frontend).
 RUNNING_NAMES: dict[Kind, str] = {
     "transcribe": "ถอดบทพูด",
     "describe": "บรรยายฉาก",
+    "voice": "สร้างเสียง",
 }
 
 # Ends the message of a job whose model failed or stopped: another app may hold the GPU.

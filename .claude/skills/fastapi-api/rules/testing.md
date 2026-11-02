@@ -37,8 +37,9 @@ def test_missing_marker(tmp_path):
   filter goes by brightness: colours of the same luma (red, green) make no cut.
 - A test that leaves a job unfinished must not leak the GPU: every API test
   fixture swaps `gpu.slot` for a fresh `gpu.GpuSlot()`.
-- The Whisper and LLM child processes are never started in tests (`FakeWorker`,
-  `FakeLlm`); the real `worker`s are checked by hand with the model (seam 3). Its pure helpers
+- The Whisper, LLM and TTS child processes are never started in tests (`FakeWorker`,
+  and `FakeLlm` and `FakeTts`, both a `FakeModel` that answers a request queue);
+  the real `worker`s are checked by hand with the model (seam 3). Its pure helpers
   (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
   `python -c` to prove importing the adapter loads neither torch nor
   transformers.

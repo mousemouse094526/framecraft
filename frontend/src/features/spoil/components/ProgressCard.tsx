@@ -1,6 +1,6 @@
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import cancelIcon from "../assets/cancel-x.svg";
-import { ProgressBar } from "./ProgressBar";
+import { ProgressBar } from "../../../components/ui/ProgressBar";
 
 type Props = {
   headline: string;

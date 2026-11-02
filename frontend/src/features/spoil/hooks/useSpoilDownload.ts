@@ -3,10 +3,10 @@ import { getJson, sendJson } from "../../../lib/api";
 import type { StatusResponse } from "../../../lib/statusTypes";
 import { useMountedState } from "../../../lib/useMountedState";
 import { DOWNLOAD_ITEMS, missingLabels } from "../lib/gate";
-import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../lib/job";
+import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
 import { notice, type Notice } from "../lib/notice";
-import { refusalOf, type Refusal } from "../lib/refusal";
-import { usePollWhile } from "./usePollWhile";
+import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { usePollWhile } from "../../../lib/usePollWhile";
 
 // The shape of a Download job (backend.spoil.downloads.DownloadJob, spec › API).
 export type JobState = "checking" | "downloading" | "merging" | "done" | "failed" | "cancelled";

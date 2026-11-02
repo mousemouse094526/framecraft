@@ -12,13 +12,13 @@
 - User stories: 2, 4
 - Legal: 2
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 
 ### ติดตั้งและตัวเลข
 
-- `pythainlp` pin ตาม spec › Dependencies; `PYTHAINLP_DATA_DIR` ตั้งก่อน import; `GET /api/setup/status` มีแถว `pythainlp`
+- `pythainlp` pin ตาม spec › Dependencies; `PYTHAINLP_DATA` ตั้งก่อน import (`PYTHAINLP_DATA_DIR` เลิกใช้ใน 5.4.0, D59); `GET /api/setup/status` มีแถว `pythainlp`
 - ตัวแปลงตัวเลข: `ปี 1968 เวลา 10:30 ราว 50% หรือ 3.25 เท่า ๑๑ คน 114,000 บาท 007` → ข้อความตามตัวอย่างใน spec › Seams 1 › เสียงและตัวเลข
 - จำนวนเต็มตามกฎใน spec › ตัวเลขเป็นคำ: `21` → `ยี่สิบเอ็ด`, `101` → `หนึ่งร้อยเอ็ด`, `10` → `สิบ`, `1000000000000` → `หนึ่งล้านล้าน`, `10:00` → `สิบนาฬิกา`, `1/2` → `หนึ่ง/สอง`
 - NOTICE.md แนะนำให้ใส่เครดิตโมเดล ไม่บังคับ (D41)

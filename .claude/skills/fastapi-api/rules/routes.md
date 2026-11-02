@@ -19,6 +19,11 @@ def get_status() -> StatusResponse:
 
 - One router file per feature in `backend/routes/`, mounted in `app.py` under `/api`.
 - Response models are Pydantic models; field names in snake_case.
+- Request bodies are Pydantic models too. The one exception: a body whose bad
+  values the spec answers with its own code (`400` `invalid_voice`) or whose shape
+  depends on a field (`kind`) is taken as `dict[str, Any]` or `Any` fields and
+  checked by the module, so FastAPI's `422` never stands in for the spec's code
+  (`routes/spoil_maker.py` voice routes).
 - Errors a user should see go inside the response body, not as 5xx, when the
   spec says so (setup-status: always 200).
 - A refusal with its own status (`400`, `404`, `409`, `503`) is raised by the

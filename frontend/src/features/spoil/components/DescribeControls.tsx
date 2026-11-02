@@ -4,7 +4,7 @@ import type { DescribeError, DescribeJob } from "../hooks/useDescribe";
 import type { TempClip } from "../hooks/useTempClips";
 import deleteErrorIcon from "../assets/delete-error.svg";
 import eyeIcon from "../assets/eye.svg";
-import { ProgressBar } from "./ProgressBar";
+import { ProgressBar } from "../../../components/ui/ProgressBar";
 
 /** What the clip list knows about the one Describe job (spoil-maker D16, D45). */
 export type DescribeProps = {

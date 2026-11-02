@@ -19,18 +19,18 @@ def checks_with_fakes(root, sys_platform=None, **probe_overrides):
     return run_checks(root, fake_probes(**probe_overrides), sys_platform)
 
 
-def test_a_complete_root_on_a_mac_is_ready_with_thirteen_ok(fake_root):
+def test_a_complete_root_on_a_mac_is_ready_with_fourteen_ok(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="darwin")
 
     assert result.ready is True
-    assert result.ok_count == 13
-    assert result.total == 13
+    assert result.ok_count == 14
+    assert result.total == 14
 
 
 def test_cpu_only_device_is_a_warning_but_still_ready(fake_root):
     result = checks_with_fakes(fake_root, device=lambda: "cpu")
 
-    assert result.ok_count == 12
+    assert result.ok_count == 13
     assert result.warning_count == 1
     assert item(result, "device").status == "warning"
     assert result.ready is True
@@ -77,7 +77,7 @@ def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
 
     assert item(result, "ffmpeg").status == "missing"
     assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
-    assert len(result.items) == 13
+    assert len(result.items) == 14
 
 
 def test_yt_dlp_and_deno_rows_follow_ffmpeg_with_their_versions(fake_root):
@@ -106,7 +106,7 @@ def test_deno_probe_that_raises_makes_only_deno_missing(fake_root):
 
     assert item(result, "deno").status == "missing"
     assert item(result, "deno").fix == "./setup.sh"
-    assert len(result.items) == 13
+    assert len(result.items) == 14
     assert result.missing_count == 1
 
 
@@ -153,6 +153,7 @@ def test_items_come_in_the_spec_order(fake_root):
         "device",
         "model_qwen",
         "mlx_vlm",
+        "pythainlp",
     ]
 
 
@@ -262,3 +263,17 @@ def test_another_mlx_vlm_version_makes_mlx_vlm_missing(fake_root):
 
     assert item(result, "mlx_vlm").status == "missing"
     assert item(result, "mlx_vlm").detail == "version ไม่ตรง: ติดตั้งไว้ 0.8.0 ต้องการ 0.7.11"
+
+
+def test_pythainlp_row_is_ok_at_the_pinned_version_on_windows_too(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="win32")
+
+    assert (item(result, "pythainlp").status, item(result, "pythainlp").detail) == ("ok", "5.4.0")
+
+
+def test_another_pythainlp_version_makes_pythainlp_missing(fake_root):
+    result = checks_with_fakes(fake_root, pythainlp=lambda: "5.3.0")
+
+    assert item(result, "pythainlp").status == "missing"
+    assert item(result, "pythainlp").detail == "version ไม่ตรง: ติดตั้งไว้ 5.3.0 ต้องการ 5.4.0"
+    assert item(result, "pythainlp").fix == "./setup.sh"

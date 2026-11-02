@@ -2,7 +2,6 @@
 written last, so a clip without json is unfinished (spoil D14, D15)."""
 
 import logging
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
+from backend import files
 from backend.paths import ProjectPaths
 from backend.errors import ApiError
 from backend.spoil.links import VIDEO_ID
@@ -167,19 +167,7 @@ def _instant(downloaded_at: str) -> datetime:
 
 def write_clip(project: ProjectPaths, clip: TempClip) -> None:
     """Writes `{id}.json` so it appears complete or not at all."""
-    write_atomic(json_path(project, clip.id), clip.model_dump_json(indent=2))
-
-
-def write_atomic(target: Path, text: str) -> None:
-    """Writes through `{target}.tmp` then renames it, removing the `.tmp` if the
-    rename fails; a crash in between leaves a `.tmp` that `clean_on_start` removes."""
-    temporary = target.with_name(target.name + ".tmp")
-    temporary.write_text(text, encoding="utf-8")
-    try:
-        os.replace(temporary, target)
-    except OSError:
-        temporary.unlink(missing_ok=True)
-        raise
+    files.write_atomic(json_path(project, clip.id), clip.model_dump_json(indent=2))
 
 
 def remove_unfinished(project: ProjectPaths, video_id: str) -> None:

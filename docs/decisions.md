@@ -116,6 +116,7 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และดูภาพ: แถว `model_qwen`/`mlx_vlm` หลัง `device`, `ModelSpec.platforms`, `not_ready` มี `rows` (id), `ApiError`/`backend.jobs` ใช้ร่วม, `GpuSlot.clip_untouched`, ลำดับการเช็ค, ไฟล์ของ `spoil_maker`, ภาพเล็ก ffmpeg `-q:v 5`, `404` `not_found` ทั้งแอป, ยืนยันดูภาพใหม่ในแถว | [spoil-maker](features/spoil-maker/decisions.md) | D56 | — | [0015](adr/0015-one-gpu-slot.md) | active |
 | เฟรมที่ Qwen บรรยายกว้าง 448 (เดิม 640): หนัง 96 นาทีจบใน 52.7 นาทีแทน 64 นาทีบน M2 | [spoil-maker](features/spoil-maker/decisions.md) | D57 | — | — | active |
 | คำบนจอ "ดูภาพ" → "บรรยายฉาก", "กำลังแบ่งฉาก", บรรทัดอธิบายใต้ปุ่ม | [spoil-maker](features/spoil-maker/decisions.md) | D58 | — | — | active |
+| ทางเลือกเล็กตอน build Saved voice: env `PYTHAINLP_DATA`, แถว `pythainlp` หลัง `mlx_vlm`, นับตัวอักษรไม่นับช่องว่างและวรรคตอน, ประโยคล็อกใช้ประโยคตัวอย่าง, process ลูกส่งเสียงและ prompt เป็น bytes, state `voicing`, `gpu.Kind` `voice`, `#/spoil/voices` ไม่มีตัวบอกขั้น, `lib/` ใช้ร่วมของหน้าเว็บ | [spoil-maker](features/spoil-maker/decisions.md) | D59 | — | [0012](adr/0012-gpu-jobs-in-child-process.md) | active |
 
 ## สร้างคลิปสปอย
 

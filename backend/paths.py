@@ -56,6 +56,26 @@ class ProjectPaths:
         """Where a Describe job writes until it is `done`, so the old shots stay till then (D51)."""
         return self.shots_dir / f".new-{video_id}"
 
+    @property
+    def pythainlp_dir(self) -> Path:
+        """pythainlp's data folder, instead of `~/pythainlp-data` (spoil-maker spec › Library assumptions)."""
+        return self.models_dir / "pythainlp"
+
+    @property
+    def spoil_maker_dir(self) -> Path:
+        """Everything the สปอย tab keeps that isn't a Temp clip's (spoil-maker spec › Ops)."""
+        return self.root / "media" / "spoil-maker"
+
+    @property
+    def voices_dir(self) -> Path:
+        """Saved voices: `{voice_id}.json`, `.pt` and `.wav` each (spoil-maker spec › Saved voice)."""
+        return self.spoil_maker_dir / "voices"
+
+    @property
+    def pending_voice_dir(self) -> Path:
+        """The one preview not saved yet; emptied on every start."""
+        return self.voices_dir / ".pending"
+
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"
 

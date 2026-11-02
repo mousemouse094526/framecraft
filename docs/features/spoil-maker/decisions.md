@@ -935,6 +935,29 @@
 
 **From:** ผู้ใช้หลัง build ticket 01 · **Status:** active
 
+## D59: ทางเลือกเล็กตอน build Saved voice
+
+**Chosen:** รายละเอียดที่ build ticket 02 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **env ของ pythainlp:** ตั้ง `PYTHAINLP_DATA` (ไม่ใช่ `PYTHAINLP_DATA_DIR` ที่ spec เขียน) และ `PYTHAINLP_OFFLINE=1` ใน `thai.words` ก่อน import — 5.4.0 เลิกใช้ `PYTHAINLP_DATA_DIR` แล้ว (เตือนทุกครั้ง, ตั้งคู่กันล้ม) ผลเหมือนกัน: ข้อมูลอยู่ใน `models/pythainlp/` (docs/library-notes/pythainlp.md); spec › Library assumptions แก้ตาม
+- **แถว `pythainlp`:** ต่อท้ายหลัง `mlx_vlm` (แถวที่ 14), เช็คจาก metadata + `find_spec` ผ่าน probe `Probes.pythainlp` แบบเดียวกับ mlx-vlm ไม่ import จริง (import สร้าง folder ข้อมูล); ทั้ง Mac และ Windows; `check_pinned` ใช้ร่วมกับ `mlx_vlm`
+- **นับตัวอักษร:** ทุกตัวที่ไม่ใช่ช่องว่างและไม่อยู่ใน Unicode category `P*` รวมสระบนล่างและวรรณยุกต์ ตามที่ tts-trial นับ (D35)
+- **ตัวเลข:** `1000001` → `หนึ่งล้านเอ็ด` (เลขหน่วยของกลุ่มล่างสุดเป็น `เอ็ด` เมื่อกลุ่มบนไม่เป็นศูนย์); ชั่วโมงและนาทีอ่านเป็นจำนวนเต็ม (`9:05` → `เก้านาฬิกาห้านาที`); เลขหน้าจุดทศนิยมอ่านเป็นจำนวนเต็ม
+- **ประโยคล็อก:** voice design พูดประโยคตัวอย่างเดียวกับที่ใช้ฟัง (spec ไม่ระบุข้อความ) แล้วสร้าง clone prompt จากเสียงนั้น; ทั้งสองครั้ง `num_step` 16 (D37), ครั้งแรกไม่ตั้ง speed
+- **ไฟล์ผล:** process ลูกส่งเสียงเป็น PCM 16 บิตกับ clone prompt เป็น bytes (`VoiceClonePrompt.save` ลง `BytesIO`) — thread ของ backend เขียน `.wav` ด้วย `wave` ของ Python และ `.pt` เอง (ADR-0012); preview คือ `preview.wav`, `.pt`, `.json` ใน `.pending/` โดย `.json` เขียนท้ายสุดเป็นตัวบอกว่าครบ; ยกเลิกหรือล้มเก็บ preview เดิมไว้
+- **state ของ Voice job:** `voicing` แล้ว `done`, `failed`, `cancelled` — ชื่อเดียวกับช่วงเสียงของ Render job; `done`/`total` ว่างสำหรับ `design_preview`
+- **body ของ `POST /voice-jobs`:** module เช็คเอง; `kind` อื่นนอกจาก `design_preview`/`sentences` → `400` `invalid_request`; `sentences` ตอนนี้ตอบ `400` `invalid_request` เสมอเพราะยังไม่มี Spoil draft (ticket 04 ทำต่อ); speed ต้องอยู่บนสเกล 0.05 (`0.83` → `invalid_voice`)
+- **ช่อง GPU:** `gpu.Kind` เพิ่ม `voice` ชื่อบนจอ "สร้างเสียง" ทั้ง backend และ `lib/gpu.ts`; Voice job ไม่จองคลิป
+- **รายการเสียง:** ใหม่สุดก่อนตาม `created_at` แล้วเวลาที่เขียนไฟล์; `in_use` เป็น `false` เสมอจนมี Spoil draft; ลบไฟล์ `.pt`, `.wav` ก่อน `.json`
+- **หน้าเว็บ:** `#/spoil/voices` ไม่มีตัวบอกขั้น มีปุ่ม "กลับ" ไป `#/spoil` และหัว "เสียงบรรยาย" ตาม Figma; ค่าตั้งต้น ชาย, วัยหนุ่มสาว, ระดับเสียงกลาง, speed 1.00; ชื่อวัยและระดับเสียงเป็นไทย (เด็ก/วัยรุ่น/วัยหนุ่มสาว/วัยกลางคน/สูงอายุ, ต่ำมาก/ต่ำ/กลาง/สูง/สูงมาก); preview ที่หน้าเว็บรู้มาจาก current ที่ `done` (บันทึกที่อื่นแล้วจะได้ `no_preview` ตอนกดบันทึก ซึ่งหน้าเว็บแสดงแล้วซ่อนช่องชื่อ); สุ่มกดไม่ได้ระหว่างงานถอดหรืองานบรรยายฉากที่หน้าเว็บ poll ได้ ส่วน `gpu_busy` ของงานอื่นแสดงเหตุผลแต่กดได้; ฟังใช้ `new Audio(url)` พร้อม `?v={started_at}` ของ preview
+- **โค้ดใช้ร่วมหน้าเว็บ:** `lib/gpu.ts`, `lib/job.ts`, `lib/refusal.ts`, `lib/usePollWhile.ts` และ `components/ui/ProgressBar.tsx` ย้ายออกจาก `features/spoil` (ผู้ใช้คนที่สอง); `FakeLlm` ใน test กลายเป็น `FakeModel` ที่ `FakeTts` ใช้ด้วย
+- **NOTICE.md:** "should credit the model" เปลี่ยนเป็นแนะนำ ไม่บังคับ และบอกว่าแอปไม่ใส่เครดิตให้เอง (D41, ADR-0017)
+
+**Why:** อยู่ในขอบของ spec และ D32–D37, D43–D45, D48 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบของ Describe job (thread + process ลูก + queue) และ Figma Saved voice.
+
+**From:** build ticket 02 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)

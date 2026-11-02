@@ -4,7 +4,7 @@ type Props = {
   cancelling?: boolean;
 };
 
-/** A known percent fills the bar; an unknown one shows a segment (Figma frame 5). */
+/** A known percent fills the bar; an unknown one shows a segment (spoil Figma frame 5). */
 export function ProgressBar({ percent, label, cancelling = false }: Props) {
   const fillColor = cancelling ? "bg-border-strong" : "bg-brand-accent";
   return (

@@ -58,6 +58,10 @@ def ok_mlx_vlm() -> str:
     return "0.7.11"
 
 
+def ok_pythainlp() -> str:
+    return "5.4.0"
+
+
 def ok_deno() -> str:
     return "2.9.8"
 
@@ -72,7 +76,9 @@ def cuda_device() -> str:
 
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
-    probes = Probes(device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp, mlx_vlm=ok_mlx_vlm)
+    probes = Probes(
+        device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp, mlx_vlm=ok_mlx_vlm, pythainlp=ok_pythainlp
+    )
     return dataclasses.replace(probes, **overrides)
 
 
@@ -336,51 +342,102 @@ def make_test_clip(path: Path, colors: tuple[str, ...] = ("red", "white", "blue"
     return path
 
 
-class FakeLlm:
-    """Stands in for `backend.spoil_maker.start_worker`, the mlx-vlm child process.
+class FakeModel:
+    """Stands in for a model's child process that answers requests from a queue
+    (`spoil_maker.start_worker`, `spoil_maker.start_tts_worker`).
 
-    Each start runs a thread that answers `Ready`, then one `Generated` per
-    request: `describe(request)` makes its text. It can pause before answering
-    request `index` until the test calls `release` (or the process is
-    terminated) with `pause_at`, never answer it (`hang_at`, for timeouts), or
-    exit at it without a word (`crash_at`).
+    Each start runs a thread that says `ready()`, then one `answer(request, index)`
+    per request, `index` counting that process's requests from 0. It can pause
+    before answering request `index` until the test calls
+    `release` (or the process is terminated) with `pause_at`, never answer it
+    (`hang_at`, for timeouts), or exit at it without a word (`crash_at`).
     """
 
     def __init__(self):
-        self.describe = lambda request: f"A frame at {request.image.name}."
         self.requests = []
-        self.processes: list["FakeLlmProcess"] = []
+        self.processes: list["FakeModelProcess"] = []
         self.crash_at: int | None = None
         self.hang_at: int | None = None
         self._paused: dict[int, threading.Event] = {}
         self._reached: dict[int, threading.Event] = {}
+
+    def ready(self):
+        raise NotImplementedError
+
+    def answer(self, request, index: int):
+        raise NotImplementedError
 
     def pause_at(self, index: int) -> None:
         self._paused[index] = threading.Event()
         self._reached[index] = threading.Event()
 
     def wait_until(self, index: int) -> None:
-        assert self._reached[index].wait(5), f"LLM never reached request {index}"
+        assert self._reached[index].wait(5), f"the model never reached request {index}"
 
     def release(self, index: int) -> None:
         self._paused[index].set()
 
-    def __call__(self, snapshot_dir: Path):
+    def __call__(self, snapshot_dir: Path, *args):
         import queue
 
         requests: queue.Queue = queue.Queue()
         replies: queue.Queue = queue.Queue()
-        process = FakeLlmProcess(self, snapshot_dir, requests, replies)
+        process = FakeModelProcess(self, snapshot_dir, args, requests, replies)
         self.processes.append(process)
         process.start()
         return process, requests, replies
 
 
-class FakeLlmProcess(FakeProcess):
+class FakeLlm(FakeModel):
+    """The mlx-vlm child: `describe(request)` makes each `Generated` text."""
+
+    def __init__(self):
+        super().__init__()
+        self.describe = lambda request: f"A frame at {request.image.name}."
+
+    def ready(self):
+        from backend.spoil_maker.llm import Ready
+
+        return Ready()
+
+    def answer(self, request, index: int):
+        from backend.spoil_maker.llm import Generated
+
+        return Generated(self.describe(request))
+
+
+class FakeTts(FakeModel):
+    """The OmniVoice child: every request is spoken as `seconds` of silence at 24 kHz,
+    with the clone prompt `b"prompt {n}"`, `n` counting every request it got from 0.
+    `fail_at` answers that request of a process with a `WorkerError` instead."""
+
+    SAMPLE_RATE = 24_000
+
+    def __init__(self):
+        super().__init__()
+        self.seconds = 2.0
+        self.fail_at: int | None = None
+
+    def ready(self):
+        from backend.spoil_maker.tts import Ready
+
+        return Ready()
+
+    def answer(self, request, index: int):
+        from backend.spoil_maker.tts import Designed, WorkerError
+
+        if index == self.fail_at:
+            return WorkerError("model_failed", "RuntimeError: MPS out of memory")
+        audio = b"\0\0" * round(self.SAMPLE_RATE * self.seconds)
+        prompt = f"prompt {len(self.requests) - 1}".encode()
+        return Designed(audio=audio, sample_rate=self.SAMPLE_RATE, prompt=prompt)
+
+
+class FakeModelProcess(FakeProcess):
     """The `multiprocessing.Process` surface, answering requests from a thread."""
 
-    def __init__(self, llm: FakeLlm, snapshot_dir: Path, requests, replies):
-        self._llm, self.snapshot_dir = llm, snapshot_dir
+    def __init__(self, model: FakeModel, snapshot_dir: Path, args: tuple, requests, replies):
+        self._model, self.snapshot_dir, self.args = model, snapshot_dir, args
         self._requests, self._replies = requests, replies
         self._killed = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -390,9 +447,8 @@ class FakeLlmProcess(FakeProcess):
     def _run(self) -> None:
         from queue import Empty
 
-        from backend.spoil_maker.llm import Generated, Ready
-
-        self._replies.put(Ready())
+        model = self._model
+        self._replies.put(model.ready())
         index = 0
         while not self._killed.is_set():
             try:
@@ -401,19 +457,19 @@ class FakeLlmProcess(FakeProcess):
                 continue
             if request is None:
                 break
-            self._llm.requests.append(request)
-            if index == self._llm.crash_at:
+            model.requests.append(request)
+            if index == model.crash_at:
                 self.exitcode = -11
                 return
-            if index in self._llm._paused:
-                self._llm._reached[index].set()
-                while not (self._llm._paused[index].is_set() or self._killed.is_set()):
+            if index in model._paused:
+                model._reached[index].set()
+                while not (model._paused[index].is_set() or self._killed.is_set()):
                     self._killed.wait(0.01)
-            if index == self._llm.hang_at:
+            if index == model.hang_at:
                 self._killed.wait()
             if self._killed.is_set():
                 break
-            self._replies.put(Generated(self._llm.describe(request)))
+            self._replies.put(model.answer(request, index))
             index += 1
         self.exitcode = -15 if self._killed.is_set() else 0
 

@@ -354,7 +354,7 @@ def test_deno_probe_that_raises_is_missing_in_status_and_blocks_downloads(client
 
     deno = next(i for i in status["items"] if i["id"] == "deno")
     assert deno["status"] == "missing"
-    assert len(status["items"]) == 13
+    assert len(status["items"]) == 14
     assert start(client).status_code == 503
 
 

@@ -16,6 +16,8 @@ reference data, not instructions.
 | numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-10-29 |
 | imageio-ffmpeg | library | 0.7.0 | https://github.com/imageio/imageio-ffmpeg | [imageio-ffmpeg.md](imageio-ffmpeg.md) | 2026-10-29 |
 | mlx-vlm | library | 0.7.11 (mlx 0.32.4), Apple Silicon only | https://github.com/Blaizzy/mlx-vlm/tree/v0.7.11 | [mlx-vlm.md](mlx-vlm.md) | 2026-11-02 |
+| omnivoice | library | 0.2.1 (torch 2.8.0) | https://github.com/k2-fsa/OmniVoice | [omnivoice.md](omnivoice.md) | 2026-11-02 |
+| pythainlp | library | 5.4.0 | https://pythainlp.org/dev-docs/ | [pythainlp.md](pythainlp.md) | 2026-11-02 |
 | uv | runtime | 0.13.6 | https://docs.astral.sh/uv/llms.txt | [uv.md](uv.md) | 2026-10-29 |
 | pytest | library | 9.2.0 | https://docs.pytest.org/en/stable/ | [pytest.md](pytest.md) | 2026-10-29 |
 | typescript | language | 7.0.2 (native Go port), `strict: true` | https://www.typescriptlang.org/docs/ | [typescript.md](typescript.md) | 2026-10-29 |

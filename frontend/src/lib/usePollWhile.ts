@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
-import { getJson } from "../../../lib/api";
+import { getJson } from "./api";
 
 const POLL_MS = 1000;
 
 /**
- * GETs `path` every second while `active` (D6, D24); each answer goes to
- * `onAnswer`, a failure to `onFail` and the polling stops. The download and
- * the Transcribe job each run one, apart from each other. The callbacks may
+ * GETs `path` every second while `active` (spoil D6, D24); each answer goes to
+ * `onAnswer`, a failure to `onFail` and the polling stops. Every job (a download,
+ * a Transcribe job, a Voice job…) runs its own, apart from the others. The callbacks may
  * change between renders; the latest ones are called.
  */
 export function usePollWhile<T>(active: boolean, path: string, onAnswer: (answer: T) => void, onFail: () => void) {

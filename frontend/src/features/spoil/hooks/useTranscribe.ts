@@ -1,11 +1,11 @@
 import { useCallback, useEffect } from "react";
 import { getJson, getReply, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
-import { busyText } from "../lib/gpu";
-import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../lib/job";
+import { busyText } from "../../../lib/gpu";
+import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
 import { notice, type Notice } from "../lib/notice";
-import { refusalOf, type Refusal } from "../lib/refusal";
-import { usePollWhile } from "./usePollWhile";
+import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { usePollWhile } from "../../../lib/usePollWhile";
 import { CLIPS_PATH, type TempClip } from "./useTempClips";
 
 // The shape of a Transcribe job (backend.spoil.transcribe.TranscribeJob, spec › API).

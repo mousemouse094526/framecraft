@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from backend import checks, gpu, paths, spoil
+from backend import checks, files, gpu, paths, spoil
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
 from backend.spoil import clips
@@ -264,7 +264,7 @@ def _language(languages: list[str | None]) -> str | None:
 def write_transcript(project: ProjectPaths, transcript: Transcript) -> None:
     """Through a temporary file, so a crash never leaves half a transcript (D27)."""
     target = clips.transcript_path(project, transcript.clip_id)
-    clips.write_atomic(target, transcript.model_dump_json(indent=2))
+    files.write_atomic(target, transcript.model_dump_json(indent=2))
 
 
 def read_transcript(project: ProjectPaths, clip_id: str) -> Transcript:

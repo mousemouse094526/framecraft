@@ -12,7 +12,7 @@ from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil, spoil_maker
 from backend.spoil import clips, downloads, transcribe
-from backend.spoil_maker import describe, shots
+from backend.spoil_maker import describe, shots, voices
 
 # Binding 127.0.0.1 doesn't stop DNS rebinding from another site (ADR 0011).
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
@@ -25,10 +25,12 @@ async def lifespan(app: FastAPI):
     clips.clean_on_start(project)
     # After the clips: Shots of a clip that start-up removed go too (spoil-maker spec › Ops).
     shots.clean_on_start(project, {clip.id for clip in clips.list_clips(project)})
+    voices.clean_on_start(project)
     yield
     downloads.downloads.stop_on_shutdown()
     transcribe.transcriptions.stop_on_shutdown()
     describe.describes.stop_on_shutdown()
+    voices.voice_jobs.stop_on_shutdown()
 
 
 def require_json(request: Request) -> None:

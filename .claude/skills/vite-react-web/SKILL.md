@@ -23,17 +23,22 @@ frontend/src/
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)
 ├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
 │                        tab bar, action; `wide` = 1120px from lg for two
-│                        columns), OfflinePanel, RefreshButton
+│                        columns), OfflinePanel, RefreshButton, ProgressBar
 └── lib/
     ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
     ├── useHash.ts    ← the URL hash (`useHash`) and which top tab it opens (`tabOf`)
-    └── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
+    ├── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
+    ├── usePollWhile.ts ← polls a job's `…/current` every second while it runs
+    ├── job.ts        ← `isUnfinishedIn`, `onlyWhen`, `cancelCurrent` for every job hook
+    ├── refusal.ts    ← the API's `{code, message}` refusal
+    └── gpu.ts        ← "รอให้งาน{running}เสร็จก่อน" for `gpu_busy` (spoil-maker D45)
 ```
 
 No router library and no `routes/`: `App` picks the page from the hash
 (`#/setup`, `#/clips`, `#/spoil`, spoil D10, spoil-maker D53); a page with
-steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too. Each page wraps itself in `PageLayout`,
+steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
+`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59). Each page wraps itself in `PageLayout`,
 whose tabs are plain `#/…` links, so clicks and the back button both just
 change the hash.
 
