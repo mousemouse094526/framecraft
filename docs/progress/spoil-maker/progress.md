@@ -1,12 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** ทุก ticket และ Blocked เสร็จ; แบบ Figma สวิตช์และคำเตือนลายน้ำทำแล้ว (Blocked 12) — เหลือเปิด PR
+**Now:** merged ([PR #3](https://github.com/mousemouse094526/framecraft/pull/3), `40a89b0`)
 
-**Next:** เปิด PR เข้า `develop`
-
-```
-/pr-open
-```
+**Next:** —
 
 ## Tickets
 
