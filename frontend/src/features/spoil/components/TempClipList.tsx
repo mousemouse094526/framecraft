@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
-import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
-import { formatDuration } from "./format";
-import deleteErrorIcon from "../assets/delete-error.svg";
+import { useEffect, useRef, useState } from "react";
+import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
+import { DescribeControls, type DescribeProps } from "./DescribeControls";
+import { DraftWarning } from "./DraftWarning";
+import { formatDuration } from "../../../lib/format";
+import circleAlertIcon from "../../../components/ui/assets/circle-alert.svg";
 import playActiveIcon from "../assets/thumb-play-active.svg";
-import playIcon from "../assets/thumb-play.svg";
-import trashIcon from "../assets/trash.svg";
+import playIcon from "../../../components/ui/assets/play.svg";
+import trashIcon from "../../../components/ui/assets/trash.svg";
 
 type Props = {
   clips: TempClip[];
@@ -19,13 +21,14 @@ type Props = {
   /** Lets go of the selected clip's file and empties the panel (D15). */
   onClosePlayer: () => void;
   onDelete: (id: string) => void;
+  describe: DescribeProps;
 };
 
 /** The Temp clip list, newest first; a row puts its clip in the transcript panel (D7, D18, D25). */
 export function TempClipList(props: Props) {
-  const { clips, selectedId, transcribingId, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete } = props;
+  const { clips, selectedId, transcribingId, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete, describe } = props;
+  /** After the row's confirm: the browser's for most clips, the draft warning for one in the Spoil draft. */
   const remove = (clip: TempClip) => {
-    if (!window.confirm(`ลบ ${clip.title}?`)) return;
     // Windows can't delete a file the player still holds open (D15). The panel
     // stays empty even when the delete is refused, except for the clip being
     // transcribed: the API refuses that one, so its progress stays (D34).
@@ -54,6 +57,7 @@ export function TempClipList(props: Props) {
               deleteError={deleteErrors[clip.id] ?? null}
               onSelect={() => onSelect(clip)}
               onDelete={() => remove(clip)}
+              describe={describe}
             />
           ))}
         </ul>
@@ -70,11 +74,21 @@ type RowProps = {
   deleteError: string | null;
   onSelect: () => void;
   onDelete: () => void;
+  describe: DescribeProps;
 };
 
-/** Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), and a delete error under it. */
-function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete }: RowProps) {
+/**
+ * Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), บรรยายฉาก
+ * under a transcribed clip and บรรยายฉากแล้ว (spoil-maker D16), and a delete error under it.
+ */
+function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete, describe }: RowProps) {
   const row = useRef<HTMLLIElement>(null);
+  // Deleting a clip of the Spoil draft deletes the draft too, so the row warns first (spoil-maker D29).
+  const [warning, setWarning] = useState(false);
+  const askDelete = () => {
+    if (clip.in_draft) setWarning(true);
+    else if (window.confirm(`ลบ ${clip.title}?`)) onDelete();
+  };
 
   useEffect(() => {
     if (highlighted) row.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -117,11 +131,8 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete 
                   กำลังเล่น
                 </span>
               )}
-              {clip.transcribed && (
-                <span className="shrink-0 rounded-full bg-success-surface px-2 py-0.5 font-button text-xs leading-4 font-medium text-success">
-                  ถอดแล้ว
-                </span>
-              )}
+              {clip.transcribed && <DoneBadge>ถอดแล้ว</DoneBadge>}
+              {clip.described && <DoneBadge>บรรยายฉากแล้ว</DoneBadge>}
             </span>
             <span className="text-[13px] leading-[1.5] text-mid">{sourceLine(clip)}</span>
             <span className="font-mono text-xs leading-[1.5] text-muted-foreground">{fileLine(clip)}</span>
@@ -129,7 +140,7 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete 
         </button>
         <button
           type="button"
-          onClick={onDelete}
+          onClick={askDelete}
           aria-label={`ลบ ${clip.title}`}
           title="ลบ"
           className="flex size-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
@@ -137,13 +148,34 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete 
           <img src={trashIcon} alt="" width={16} height={16} />
         </button>
       </div>
+      {warning ? (
+        <div className="lg:pl-[108px]">
+          <DraftWarning
+            onGo={() => {
+              setWarning(false);
+              onDelete();
+            }}
+            onCancel={() => setWarning(false)}
+          />
+        </div>
+      ) : (
+        clip.transcribed && <DescribeControls clip={clip} describe={describe} />
+      )}
       {deleteError && (
         <p className="flex items-center gap-1.5 pl-[108px] text-[13px] leading-[1.5] text-destructive">
-          <img src={deleteErrorIcon} alt="" width={14} height={14} className="shrink-0" />
+          <img src={circleAlertIcon} alt="" width={14} height={14} className="shrink-0" />
           {deleteError}
         </p>
       )}
     </li>
+  );
+}
+
+function DoneBadge({ children }: { children: string }) {
+  return (
+    <span className="shrink-0 rounded-full bg-success-surface px-2 py-0.5 font-button text-xs leading-4 font-medium text-success">
+      {children}
+    </span>
   );
 }
 

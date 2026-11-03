@@ -19,15 +19,20 @@ def get_status() -> StatusResponse:
 
 - One router file per feature in `backend/routes/`, mounted in `app.py` under `/api`.
 - Response models are Pydantic models; field names in snake_case.
+- Request bodies are Pydantic models too. The one exception: a body whose bad
+  values the spec answers with its own code (`400` `invalid_voice`) or whose shape
+  depends on a field (`kind`) is taken as `dict[str, Any]` or `Any` fields and
+  checked by the module, so FastAPI's `422` never stands in for the spec's code
+  (`routes/spoil_maker.py` voice routes).
 - Errors a user should see go inside the response body, not as 5xx, when the
   spec says so (setup-status: always 200).
-- A refusal with its own status (spoil: `400`, `404`, `409`, `503`) is raised
-  by the module as the feature's error (`SpoilError`); one handler registered
-  in `app.py` turns it into `{"code", "message", ...}`. Routes never build error
-  responses themselves.
-- A rule for every route (`POST` must be JSON, `415`) is an app-wide
+- A refusal with its own status (`400`, `404`, `409`, `503`) is raised by the
+  module as `backend.errors.ApiError`; one handler registered in `app.py`
+  (`errors.error_response`) turns it into `{"code", "message", ...}`. Routes
+  never build error responses themselves.
+- A rule for every route (`POST` and `PATCH` must be JSON, `415`) is an app-wide
   dependency in `app.py` (`FastAPI(dependencies=[Depends(...)])`) that raises
-  the API's refusal (`SpoilError`).
+  the API's refusal (`ApiError`).
 - A route that serves a file built in memory calls one module function that
   returns its text (`transcribe.transcript_srt`), then wraps it in a `Response`.
 - A file download built in memory is a `Response` with `media_type` and
@@ -38,4 +43,5 @@ def get_status() -> StatusResponse:
 ## Good examples
 
 - [backend/routes/setup_status.py](../../../../backend/routes/setup_status.py) — one router, one call to `run_checks`, always 200.
-- [backend/routes/spoil.py](../../../../backend/routes/spoil.py) — each route one call on `downloads.downloads` or `transcribe.transcriptions`; `spoil_error_response` is the handler `app.py` registers.
+- [backend/routes/spoil.py](../../../../backend/routes/spoil.py) — each route one call on `downloads.downloads` or `transcribe.transcriptions`.
+- [backend/routes/spoil_maker.py](../../../../backend/routes/spoil_maker.py) — a file route (`FileResponse`) whose path the module checks before it reaches the disk.

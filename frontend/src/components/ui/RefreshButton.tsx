@@ -1,5 +1,5 @@
 import { OUTLINE_BUTTON } from "./buttonStyles";
-import refreshIcon from "./assets/refresh-button.svg";
+import refreshIcon from "./assets/refresh-cw.svg";
 import spinnerRefreshIcon from "./assets/spinner-refresh.svg";
 
 type Props = {

@@ -1,11 +1,12 @@
 import { useCallback, useEffect } from "react";
 import { getJson, getReply, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
-import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../lib/job";
+import { busyText } from "../../../lib/gpu";
+import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
 import { notice, type Notice } from "../lib/notice";
-import { refusalOf, type Refusal } from "../lib/refusal";
-import { usePollWhile } from "./usePollWhile";
-import { CLIPS_PATH, type TempClip } from "./useTempClips";
+import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { usePollWhile } from "../../../lib/usePollWhile";
+import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
 
 // The shape of a Transcribe job (backend.spoil.transcribe.TranscribeJob, spec › API).
 export type TranscribeJobState = "preparing" | "transcribing" | "done" | "failed" | "cancelled";
@@ -18,8 +19,20 @@ export type TranscribeJob = {
   error: { code: string; message: string } | null;
 };
 
-// `{id}.transcript.json` (spec › Transcribe).
-export type TranscriptLine = { start_s: number; end_s: number; text: string };
+// `{id}.transcript.json` (spec › Transcribe); `edited` once the user changed the text (spoil-maker D54).
+export type TranscriptLine = { start_s: number; end_s: number; text: string; edited: boolean };
+
+/**
+ * How posting a job ended: `has_edits` and `in_draft` wait for the user to confirm
+ * their `message` (spoil-maker D54, D49).
+ */
+export type StartResult = { kind: "has_edits" | "in_draft"; message: string } | { kind: "handled" };
+
+/** What the user already agreed to lose: edited lines, the Spoil draft. */
+export type Confirmed = { editLoss?: boolean; draftLoss?: boolean };
+
+/** How saving a line ended: the field closes on `saved`, and stays open with the message on `refused`. */
+export type LineEditResult = { kind: "saved" } | { kind: "refused"; message: string } | { kind: "offline" };
 
 export type Transcript = {
   clip_id: string;
@@ -52,6 +65,8 @@ type Loaded = Extract<TranscribeState, { kind: "loaded" }>;
 
 const TRANSCRIPTIONS_PATH = "/api/spoil/transcriptions";
 const CURRENT_PATH = "/api/spoil/transcriptions/current";
+
+const HANDLED: StartResult = { kind: "handled" };
 
 const isUnfinished = isUnfinishedIn<TranscribeJobState>(["preparing", "transcribing"]);
 
@@ -167,36 +182,58 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
     [loadTranscript, setState],
   );
 
+  /**
+   * Posts the job. Resolves to `has_edits` when the clip has edited lines, or
+   * `in_draft` when the Spoil draft is made from it, and that loss isn't `confirmed`:
+   * the caller asks the user, then calls again (spoil-maker D54, D49). Every other
+   * answer is handled here.
+   */
   const start = useCallback(
-    async (clipId: string) => {
+    async (clipId: string, confirmed: Confirmed = {}): Promise<StartResult> => {
       setIfMounted(whenLoaded((s) => ({ ...s, notice: null })));
       try {
-        const reply = await sendJson<TranscribeJob | Refusal>("POST", TRANSCRIPTIONS_PATH, { clip_id: clipId });
+        const body = {
+          clip_id: clipId,
+          ...(confirmed.editLoss ? { confirm_edit_loss: true } : {}),
+          ...(confirmed.draftLoss ? { confirm_draft_loss: true } : {}),
+        };
+        const reply = await sendJson<TranscribeJob | Refusal>("POST", TRANSCRIPTIONS_PATH, body);
         if (reply.status === 202) {
           const job = reply.body as TranscribeJob;
           setIfMounted(whenLoaded((s) => ({ ...s, job })));
-          return;
+          return HANDLED;
         }
-        const code = refusalOf(reply.body)?.code;
+        const refusal = refusalOf(reply.body);
+        const code = refusal?.code;
         if (reply.status === 409 && code === "busy") {
           // Whichever clip it is, follow it: this clip shows its progress, another names it.
           const job = await getJson<TranscribeJob | null>(CURRENT_PATH);
           if (job !== null && isUnfinished(job)) setIfMounted(whenLoaded((s) => ({ ...s, job })));
-          return;
+          return HANDLED;
+        }
+        if (reply.status === 409 && (code === "has_edits" || code === "in_draft")) {
+          return { kind: code, message: refusal!.message };
+        }
+        const busy = busyText(refusal);
+        if (reply.status === 409 && busy) {
+          // Another GPU job runs, or one reads this clip (spoil-maker D45, D49).
+          setIfMounted(whenLoaded((s) => ({ ...s, notice: notice("error", busy, clipId) })));
+          return HANDLED;
         }
         if (reply.status === 404 && code === "not_found") {
           setIfMounted(whenLoaded((s) => ({ ...s, notice: notice("error", "ไม่พบคลิปนี้", clipId) })));
           onClipsChanged();
-          return;
+          return HANDLED;
         }
         if (reply.status === 503 && code === "not_ready") {
           onNotReady();
-          return;
+          return HANDLED;
         }
         setIfMounted({ kind: "offline" });
       } catch {
         setIfMounted({ kind: "offline" });
       }
+      return HANDLED;
     },
     [onClipsChanged, onNotReady, setIfMounted],
   );
@@ -211,10 +248,40 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
     }
   }, [setIfMounted]);
 
+  /** Saves line `index`'s new text; times and line count stay (spoil-maker D54). */
+  const editLine = useCallback(
+    async (clipId: string, index: number, text: string): Promise<LineEditResult> => {
+      try {
+        const reply = await sendJson<TranscriptLine | Refusal>("PATCH", `${transcriptPath(clipId)}/lines/${index}`, { text });
+        if (reply.status === 200) {
+          const line = reply.body as TranscriptLine;
+          setIfMounted(
+            whenLoaded((s) =>
+              s.transcript?.clip_id === clipId
+                ? { ...s, transcript: { ...s.transcript, lines: s.transcript.lines.map((old, i) => (i === index ? line : old)) } }
+                : s,
+            ),
+          );
+          return { kind: "saved" };
+        }
+        const refusal = refusalOf(reply.body);
+        if (refusal && [400, 404, 409].includes(reply.status)) {
+          // The API's messages are the Frontend table's (`clip_busy`, `transcribing`).
+          return { kind: "refused", message: refusal.message };
+        }
+      } catch {
+        // offline, below
+      }
+      setIfMounted({ kind: "offline" });
+      return { kind: "offline" };
+    },
+    [setIfMounted],
+  );
+
   const reload = useCallback(() => {
     setState({ kind: "loading" });
     void load();
   }, [load, setState]);
 
-  return { state, select, start, cancel, reload };
+  return { state, select, start, cancel, editLine, reload };
 }

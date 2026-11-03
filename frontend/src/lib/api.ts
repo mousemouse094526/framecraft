@@ -47,3 +47,8 @@ export async function sendJson<T>(method: string, path: string, body?: unknown):
   const text = await response.text();
   return { status: response.status, body: text ? (JSON.parse(text) as T) : null };
 }
+
+/** The status of a `HEAD`: whether a file is there without downloading it. Throws as `sendJson` does. */
+export async function headStatus(path: string): Promise<number> {
+  return (await fetchWithTimeout(path, { method: "HEAD" })).status;
+}

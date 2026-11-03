@@ -2,7 +2,6 @@
 written last, so a clip without json is unfinished (spoil D14, D15)."""
 
 import logging
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -10,9 +9,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
+from backend import files
 from backend.paths import ProjectPaths
-from backend.spoil.errors import SpoilError
+from backend.errors import ApiError
 from backend.spoil.links import VIDEO_ID
+from backend.spoil_maker import draft_file, shots
 
 log = logging.getLogger(__name__)
 
@@ -33,20 +34,23 @@ class TempClip(BaseModel):
 
 
 class ListedClip(TempClip):
-    """A row of `GET /clips`: the stored clip plus whether it has a Transcript (D23)."""
+    """A row of `GET /clips`: the stored clip plus whether it has a Transcript (D23),
+    Shots (spoil-maker D16), and a Spoil draft made from it (spoil-maker D49)."""
 
     transcribed: bool
+    described: bool
+    in_draft: bool
 
 
 TRANSCRIPT_SUFFIX = ".transcript.json"
 
 
-def _not_found() -> SpoilError:
-    return SpoilError(404, "not_found", "ไม่พบคลิปนี้")
+def _not_found() -> ApiError:
+    return ApiError(404, "not_found", "ไม่พบคลิปนี้")
 
 
 def json_path(project: ProjectPaths, video_id: str) -> Path:
-    return project.media_temp_dir / f"{video_id}.json"
+    return project.clip_json(video_id)
 
 
 def has_clip(project: ProjectPaths, video_id: str) -> bool:
@@ -67,6 +71,7 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
     `{id}.transcript.json` is not a clip, and `transcribed` only asks whether it exists (D29).
     """
     found: list[tuple[datetime, ListedClip]] = []
+    in_draft = draft_file.clip_ids(project)
     for path in project.media_temp_dir.glob("*.json"):
         if path.name.endswith(TRANSCRIPT_SUFFIX):
             continue
@@ -78,13 +83,17 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
             continue
         if clip.id == path.stem and _mp4_path(project, clip.id).is_file():
             transcribed = transcript_path(project, clip.id).is_file()
-            found.append((downloaded, ListedClip(**clip.model_dump(), transcribed=transcribed)))
+            described = shots.is_described(project, clip.id)
+            listed = ListedClip(
+                **clip.model_dump(), transcribed=transcribed, described=described, in_draft=clip.id in in_draft
+            )
+            found.append((downloaded, listed))
     found.sort(key=lambda pair: pair[0], reverse=True)
     return [clip for _, clip in found]
 
 
 def read_clip(project: ProjectPaths, video_id: str) -> TempClip:
-    """A listed clip's `{id}.json`. Raises `SpoilError` 404 when it isn't there."""
+    """A listed clip's `{id}.json`. Raises `ApiError` 404 when it isn't there."""
     check_known(project, video_id)
     try:
         return TempClip.model_validate_json(json_path(project, video_id).read_bytes())
@@ -93,7 +102,7 @@ def read_clip(project: ProjectPaths, video_id: str) -> TempClip:
 
 
 def video_file(project: ProjectPaths, video_id: str) -> Path:
-    """The clip's mp4. Raises `SpoilError` 404 when it isn't a listed clip."""
+    """The clip's mp4. Raises `ApiError` 404 when it isn't a listed clip."""
     check_known(project, video_id)
     mp4 = _mp4_path(project, video_id)
     if not mp4.is_file():
@@ -102,7 +111,7 @@ def video_file(project: ProjectPaths, video_id: str) -> Path:
 
 
 def thumbnail_file(project: ProjectPaths, video_id: str) -> Path:
-    """The clip's thumbnail. Raises `SpoilError` 404 when there is none."""
+    """The clip's thumbnail. Raises `ApiError` 404 when there is none."""
     check_known(project, video_id)
     name = find_thumbnail(project, video_id)
     if name is None:
@@ -114,7 +123,7 @@ def delete_clip(project: ProjectPaths, video_id: str) -> None:
     """mp4, thumbnail and Transcript first, json last, so a clip half deleted is
     cleaned at the next start (D15, D23).
 
-    An mp4 Windows still holds open → `SpoilError` 409 `in_use`, json untouched.
+    An mp4 Windows still holds open → `ApiError` 409 `in_use`, json untouched.
     The API calls it through `transcribe.transcriptions.delete_clip`, which holds
     the Transcribe job's lock and refuses a clip being transcribed.
     """
@@ -122,7 +131,7 @@ def delete_clip(project: ProjectPaths, video_id: str) -> None:
     try:
         _mp4_path(project, video_id).unlink(missing_ok=True)
     except PermissionError:
-        raise SpoilError(409, "in_use", "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง") from None
+        raise ApiError(409, "in_use", "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง") from None
     thumbnail = find_thumbnail(project, video_id)
     leftovers = [project.media_temp_dir / thumbnail] if thumbnail else []
     for path in leftovers + [transcript_path(project, video_id)]:
@@ -130,6 +139,8 @@ def delete_clip(project: ProjectPaths, video_id: str) -> None:
             path.unlink(missing_ok=True)
         except OSError:
             log.exception("could not remove %s; it goes at the next start", path.name)
+    # Shots belong to the clip, whichever feature made them (ADR 0018); left ones go at the next start.
+    shutil.rmtree(project.clip_shots_dir(video_id), ignore_errors=True)
     json_path(project, video_id).unlink(missing_ok=True)
 
 
@@ -160,19 +171,7 @@ def _instant(downloaded_at: str) -> datetime:
 
 def write_clip(project: ProjectPaths, clip: TempClip) -> None:
     """Writes `{id}.json` so it appears complete or not at all."""
-    write_atomic(json_path(project, clip.id), clip.model_dump_json(indent=2))
-
-
-def write_atomic(target: Path, text: str) -> None:
-    """Writes through `{target}.tmp` then renames it, removing the `.tmp` if the
-    rename fails; a crash in between leaves a `.tmp` that `clean_on_start` removes."""
-    temporary = target.with_name(target.name + ".tmp")
-    temporary.write_text(text, encoding="utf-8")
-    try:
-        os.replace(temporary, target)
-    except OSError:
-        temporary.unlink(missing_ok=True)
-        raise
+    files.write_atomic(json_path(project, clip.id), clip.model_dump_json(indent=2))
 
 
 def remove_unfinished(project: ProjectPaths, video_id: str) -> None:

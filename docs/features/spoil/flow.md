@@ -13,7 +13,7 @@ All diagrams use the same names as [spec.md](spec.md).
 ```mermaid
 sequenceDiagram
     actor U as ผู้ใช้
-    participant W as tab สปอย
+    participant W as tab คลิป
     participant A as Spoil API
     participant J as Download job (thread)
     participant Y as yt-dlp adapter
@@ -139,4 +139,5 @@ stateDiagram-v2
 - `failed` และ `cancelled`: Transcript เดิม (ถ้ามี) ไม่ถูกแตะ; ทุกทาง process ลูกไม่เหลือ (D28, D29)
 - ระหว่างงานยังไม่จบ ลบคลิปนั้นได้ `409` `transcribing` (D27)
 - restart backend ระหว่างงาน → งานหาย Transcript เดิมยังอยู่ (ADR-0010)
+- หลัง `done` แก้ข้อความทีละบรรทัดได้ด้วย `PATCH /clips/{id}/transcript/lines/{n}`: เวลาและจำนวนบรรทัดไม่เปลี่ยน บรรทัดได้ `edited: true`; ระหว่าง Transcribe job ของคลิปนั้น `409` `transcribing`; ถอดใหม่จน `done` ทับที่แก้ไว้ (spoil-maker D54)
 

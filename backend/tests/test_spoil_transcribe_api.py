@@ -2,14 +2,13 @@
 
 import json
 import os
-import time
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import checks, paths, spoil
+from backend import checks, gpu, paths, spoil
 from backend.app import app
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
@@ -17,6 +16,7 @@ from backend.spoil import clips, downloads, transcribe
 from backend.spoil.whisper import Done, WorkerError
 
 from .fakes import (
+    poll_until,
     FakeAdapter,
     FakeWorker,
     cuda_device,
@@ -51,6 +51,7 @@ def ready(fake_root, worker, monkeypatch) -> None:
     monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
     monkeypatch.setattr(checks, "probe_device", cuda_device)
     monkeypatch.setattr(transcribe, "transcriptions", transcribe.Transcriptions())
+    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
 
 
 @pytest.fixture
@@ -58,8 +59,8 @@ def client(ready):
     return TestClient(app, base_url="http://127.0.0.1")
 
 
-def start(client, clip_id: str = VIDEO_ID):
-    return client.post("/api/spoil/transcriptions", json={"clip_id": clip_id})
+def start(client, clip_id: str = VIDEO_ID, **body):
+    return client.post("/api/spoil/transcriptions", json={"clip_id": clip_id, **body})
 
 
 def current(client) -> dict | None:
@@ -67,13 +68,7 @@ def current(client) -> dict | None:
 
 
 def wait_for(client, condition, path: str = "/api/spoil/transcriptions/current") -> dict:
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
-        job = client.get(path).json()
-        if condition(job):
-            return job
-        time.sleep(0.01)
-    raise AssertionError(f"job never got there: {job}")
+    return poll_until(client, path, condition)
 
 
 def wait_for_end(client, path: str = "/api/spoil/transcriptions/current") -> dict:
@@ -113,8 +108,8 @@ def test_a_job_runs_until_done_and_writes_every_segments_lines(client, project, 
     assert wait_for_end(client)["state"] == "done"
     transcript = client.get(f"/api/spoil/clips/{VIDEO_ID}/transcript").json()
     assert transcript["lines"] == [
-        {"start_s": 1.0, "end_s": 2.5, "text": "Where are you going?"},
-        {"start_s": 301.0, "end_s": 302.5, "text": "Home."},
+        {"start_s": 1.0, "end_s": 2.5, "text": "Where are you going?", "edited": False},
+        {"start_s": 301.0, "end_s": 302.5, "text": "Home.", "edited": False},
     ]
     assert transcript["clip_id"] == VIDEO_ID
     assert transcript["language"] == "en"
@@ -215,7 +210,7 @@ def test_a_new_transcript_replaces_the_old_one(client, project, worker):
     wait_for_end(client)
 
     lines = client.get(f"/api/spoil/clips/{VIDEO_ID}/transcript").json()["lines"]
-    assert lines == [{"start_s": 1.0, "end_s": 2.5, "text": "Hello."}]
+    assert lines == [{"start_s": 1.0, "end_s": 2.5, "text": "Hello.", "edited": False}]
 
 
 # --- Transcript files ---
@@ -338,7 +333,11 @@ def test_a_missing_whisper_marker_is_not_ready(client, project):
     response = start(client)
 
     assert response.status_code == 503
-    assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Whisper model"}
+    assert response.json() == {
+        "code": "not_ready",
+        "message": "ยังติดตั้งไม่ครบ: Whisper model",
+        "rows": ["model_whisper"],
+    }
 
 
 def test_a_cpu_device_is_not_ready(client, project, monkeypatch):
@@ -348,7 +347,7 @@ def test_a_cpu_device_is_not_ready(client, project, monkeypatch):
     response = start(client)
 
     assert response.status_code == 503
-    assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Device"}
+    assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Device", "rows": ["device"]}
 
 
 def test_a_broken_ffmpeg_is_not_ready(client, project, monkeypatch):
@@ -621,3 +620,167 @@ def test_a_transcript_that_cant_be_removed_doesnt_stop_the_delete(client, projec
     assert client.delete(f"/api/spoil/clips/{VIDEO_ID}").status_code == 204
     # Left for the clean-up at the next start, which removes a transcript without its json.
     assert sorted(p.name for p in project.media_temp_dir.glob(f"{VIDEO_ID}.*")) == [f"{VIDEO_ID}.transcript.json"]
+
+
+# --- Editing a line (spoil-maker D54) ---
+
+# No `edited` field: a Transcript written before lines could be edited.
+TWO_LINES = [
+    {"start_s": 12.4, "end_s": 15.0, "text": "Where are you gong?"},
+    {"start_s": 20.0, "end_s": 21.5, "text": "Home."},
+]
+
+
+def edit(client, n, text: str = "Where are you going?", clip_id: str = VIDEO_ID):
+    return client.patch(f"/api/spoil/clips/{clip_id}/transcript/lines/{n}", json={"text": text})
+
+
+def test_editing_a_line_changes_only_its_text_and_marks_it_edited(client, project):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+
+    response = edit(client, 0, "  Where are you going?  ")
+
+    assert response.status_code == 200
+    assert response.json() == {"start_s": 12.4, "end_s": 15.0, "text": "Where are you going?", "edited": True}
+    saved = json.loads(transcript_path(project).read_text(encoding="utf-8"))
+    assert saved["lines"] == [
+        {"start_s": 12.4, "end_s": 15.0, "text": "Where are you going?", "edited": True},
+        {"start_s": 20.0, "end_s": 21.5, "text": "Home.", "edited": False},
+    ]
+    assert list(project.media_temp_dir.glob("*.tmp")) == []
+
+
+def test_a_transcript_from_before_edits_reads_as_unedited(client, project):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+
+    lines = client.get(f"/api/spoil/clips/{VIDEO_ID}/transcript").json()["lines"]
+
+    assert [line["edited"] for line in lines] == [False, False]
+
+
+def test_line_breaks_inside_the_text_become_spaces(client, project):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+
+    response = edit(client, 0, "Where are\nyou  going?\r\n")
+
+    assert response.json()["text"] == "Where are you going?"
+    assert client.get(f"/api/spoil/clips/{VIDEO_ID}/transcript.txt").text.count("\n") == 2
+
+
+def test_txt_and_srt_carry_the_edited_text(client, project):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+
+    edit(client, 1, "กลับบ้าน")
+
+    txt = client.get(f"/api/spoil/clips/{VIDEO_ID}/transcript.txt").text
+    srt = client.get(f"/api/spoil/clips/{VIDEO_ID}/transcript.srt").text
+    assert txt == "[00:00:12] Where are you gong?\n[00:00:20] กลับบ้าน\n"
+    assert srt.endswith("2\n00:00:20,000 --> 00:00:21,500\nกลับบ้าน\n")
+
+
+@pytest.mark.parametrize("text", ["", "   ", "\n\t"])
+def test_an_empty_text_is_invalid(client, project, text):
+    write_temp_clip(project)
+    original = write_transcript(project, lines=TWO_LINES)
+
+    response = edit(client, 0, text)
+
+    assert response.status_code == 400
+    assert response.json() == {"code": "invalid_request", "message": "บรรทัดต้องมีข้อความ"}
+    assert json.loads(transcript_path(project).read_text(encoding="utf-8")) == original
+
+
+@pytest.mark.parametrize("n", ["2", "-1", "x", "๑"])
+def test_a_line_that_isnt_there_is_404(client, project, n):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+
+    response = edit(client, n)
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+
+
+def test_editing_a_clip_without_a_transcript_is_404(client, project):
+    write_temp_clip(project)
+
+    response = edit(client, 0)
+
+    assert response.status_code == 404
+    assert response.json() == {"code": "not_found", "message": "คลิปนี้ยังไม่ได้ถอดบทพูด"}
+
+
+@pytest.mark.parametrize("clip_id", ["bbbbbbbbbbb", "..%2Fx"])
+def test_editing_an_unknown_clip_is_404(client, project, clip_id):
+    write_temp_clip(project)
+
+    assert edit(client, 0, clip_id=clip_id).status_code == 404
+
+
+def test_editing_while_the_clip_is_being_transcribed_is_refused(client, project, worker):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+    worker.pause_at(0)
+    start(client, confirm_edit_loss=True)
+    worker.wait_until(0)
+
+    response = edit(client, 0)
+
+    assert response.status_code == 409
+    assert response.json() == {"code": "transcribing", "message": "กำลังถอดคลิปนี้อยู่ รอให้ถอดเสร็จก่อนแล้วแก้"}
+    worker.release(0)
+    wait_for_end(client)
+
+
+def test_editing_while_another_clip_is_being_transcribed_is_accepted(client, project, worker):
+    write_temp_clip(project)
+    write_temp_clip(project, "aaaaaaaaaaa")
+    write_transcript(project, lines=TWO_LINES)
+    worker.pause_at(0)
+    start(client, "aaaaaaaaaaa")
+    worker.wait_until(0)
+
+    assert edit(client, 0).status_code == 200
+    worker.release(0)
+    wait_for_end(client)
+
+
+def test_a_patch_that_is_not_json_is_415(client, project):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+
+    response = client.patch(
+        f"/api/spoil/clips/{VIDEO_ID}/transcript/lines/0",
+        content=b'{"text": "x"}',
+        headers={"Content-Type": "text/plain"},
+    )
+
+    assert response.status_code == 415
+
+
+def test_transcribing_a_clip_with_edited_lines_needs_confirm(client, project, worker):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+    edit(client, 0)
+
+    refused = start(client)
+
+    assert refused.status_code == 409
+    assert refused.json() == {"code": "has_edits", "message": "ถอดใหม่จะลบบทพูดที่แก้ไว้"}
+    assert worker.calls == []
+    assert start(client, confirm_edit_loss=True).status_code == 202
+    assert wait_for_end(client)["state"] == "done"
+    lines = client.get(f"/api/spoil/clips/{VIDEO_ID}/transcript").json()["lines"]
+    assert lines == [{"start_s": 1.0, "end_s": 2.5, "text": "Hello.", "edited": False}]
+
+
+def test_transcribing_a_clip_without_edits_needs_no_confirm(client, project):
+    write_temp_clip(project)
+    write_transcript(project, lines=TWO_LINES)
+
+    assert start(client).status_code == 202
+    wait_for_end(client)

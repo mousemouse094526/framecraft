@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from backend import checks, paths
 from backend.app import app
+from backend.paths import ProjectPaths
 
 from .fakes import ok_deno, ok_ffmpeg, ok_yt_dlp
 
@@ -23,9 +24,9 @@ def test_status_api_returns_the_checklist_as_json(client):
     assert response.status_code == 200
     body = response.json()
     assert body["ready"] is True
-    assert body["ok_count"] == 11
-    assert body["total"] == 11
-    assert len(body["items"]) == 11
+    assert body["ok_count"] == 15
+    assert body["total"] == 15
+    assert len(body["items"]) == 15
 
 
 def test_status_api_rows_have_fix_null_when_ok_and_license_only_on_models(client):
@@ -48,3 +49,40 @@ def test_status_api_rows_have_fix_null_when_ok_and_license_only_on_models(client
         "author": "OpenAI",
         "model_url": "https://huggingface.co/openai/whisper-large-v3-turbo",
     }
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body", "status", "code"),
+    [
+        ("GET", "/api/no-such-thing", None, 404, "not_found"),
+        ("DELETE", "/api/setup/status", None, 405, "method_not_allowed"),
+        ("POST", "/api/spoil-maker/voices", [], 400, "invalid_request"),
+    ],
+)
+def test_every_refusal_has_the_one_flat_shape(client, method, path, body, status, code):
+    response = client.request(method, path, json=body)
+
+    assert response.status_code == status
+    assert response.json()["code"] == code
+    assert isinstance(response.json()["message"], str)
+
+
+def test_start_up_removes_what_every_job_left_unfinished(fake_root, monkeypatch):
+    """`JOB_HOLDERS` runs each job's start-up clean (spoil-maker spec › Ops)."""
+    monkeypatch.setattr(paths, "ROOT", fake_root)
+    project = ProjectPaths(fake_root)
+    leftovers = [
+        project.renders_dir / "x.partial",
+        project.new_shots_dir("a") / "0.jpg",
+        project.pending_voice_dir / "preview.wav",
+    ]
+    for path in leftovers:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"half")
+
+    with TestClient(app, base_url="http://127.0.0.1"):
+        pass
+
+    assert [path for path in leftovers if path.exists()] == []
+    assert not project.new_shots_dir("a").exists()
+    assert not project.pending_voice_dir.exists()

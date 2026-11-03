@@ -3,9 +3,12 @@ import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
 import { missingLabels, TRANSCRIBE_ITEMS } from "../lib/gate";
+import { gpuBusyText } from "../../../lib/gpu";
+import { useDescribe } from "../hooks/useDescribe";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";
-import { useTranscribe } from "../hooks/useTranscribe";
+import { useTranscribe, type Confirmed } from "../hooks/useTranscribe";
+import type { TempClip } from "../../../lib/clips";
 import arrowDownIcon from "../assets/arrow-down.svg";
 import arrowRightIcon from "../assets/arrow-right.svg";
 import { DownloadProgress } from "./DownloadProgress";
@@ -15,32 +18,44 @@ import { NotReady } from "./NotReady";
 import { TempClipList } from "./TempClipList";
 import { TranscriptPanel } from "./TranscriptPanel";
 
-/** The สปอย tab: the link field and clip list, an arrow, then the transcript panel (D25, D33). */
-export function SpoilPage() {
+/** The คลิป tab (spoil-maker D53): the link field and clip list, an arrow, then the transcript panel (D25, D33). */
+export function ClipsPage() {
   const list = useTempClips();
   // A job that ends (or is lost) changes the list: load it once (D6).
   const { state, start, cancel, reload, recheckStatus } = useSpoilDownload(list.refetch);
   // A 503 to ถอดบทพูด means the install changed: check the status again.
   const transcribe = useTranscribe(list.refetch, recheckStatus);
+  const describe = useDescribe(list.refetch, recheckStatus);
   const video = useRef<HTMLVideoElement>(null);
 
   const refresh = () => {
     reload();
     list.reload();
     transcribe.reload();
+    describe.reload();
   };
 
-  if (state.kind === "offline" || list.state.kind === "offline" || transcribe.state.kind === "offline") {
+  if (
+    state.kind === "offline" ||
+    list.state.kind === "offline" ||
+    transcribe.state.kind === "offline" ||
+    describe.state.kind === "offline"
+  ) {
     return (
-      <PageLayout tab="spoil" action={<RefreshButton onClick={refresh} />}>
+      <PageLayout tab="clips" action={<RefreshButton onClick={refresh} />}>
         <OfflinePanel />
       </PageLayout>
     );
   }
 
-  if (state.kind === "loading" || list.state.kind === "loading" || transcribe.state.kind === "loading") {
+  if (
+    state.kind === "loading" ||
+    list.state.kind === "loading" ||
+    transcribe.state.kind === "loading" ||
+    describe.state.kind === "loading"
+  ) {
     return (
-      <PageLayout tab="spoil">
+      <PageLayout tab="clips">
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
       </PageLayout>
     );
@@ -51,6 +66,24 @@ export function SpoilPage() {
   const selected = clips.find((clip) => clip.id === panel.selectedId) ?? null;
   const transcribingClip = panel.job ? clips.find((clip) => clip.id === panel.job?.clip_id) : undefined;
   const notice = state.kind === "ready" ? state.notice : null;
+  const describing = describe.state.job;
+  // One GPU job at a time (spoil-maker D45): while one runs, บรรยายฉาก waits, saying for what.
+  const gpuBusyReason = panel.job ? gpuBusyText("transcribe") : describing ? gpuBusyText("describe") : null;
+
+  /**
+   * Transcribing again replaces the lines the user edited and removes the Spoil draft made
+   * from the clip, so it asks first (spoil-maker D54, D49): the panel warns about a clip the
+   * list marks `in_draft`; a loss only the API knows of (edited lines, a newer draft) is asked here.
+   */
+  const startTranscribe = async (clip: TempClip, draftConfirmed: boolean) => {
+    const confirmed: Confirmed = { draftLoss: draftConfirmed };
+    for (;;) {
+      const result = await transcribe.start(clip.id, confirmed);
+      if (result.kind === "handled" || !window.confirm(result.message)) return;
+      if (result.kind === "has_edits") confirmed.editLoss = true;
+      else confirmed.draftLoss = true;
+    }
+  };
 
   /** Lets go of the file (Windows can't delete one the player holds open, D15), then empties the panel. */
   const closePlayer = () => {
@@ -62,7 +95,7 @@ export function SpoilPage() {
   };
 
   return (
-    <PageLayout tab="spoil" wide>
+    <PageLayout tab="clips" wide>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-col gap-4 lg:w-[520px] lg:shrink-0">
           {state.kind === "notReady" && <NotReady missing={state.missing} />}
@@ -83,6 +116,13 @@ export function SpoilPage() {
             onSelect={transcribe.select}
             onClosePlayer={closePlayer}
             onDelete={list.remove}
+            describe={{
+              job: describing,
+              errors: describe.state.errors,
+              busyReason: gpuBusyReason,
+              onStart: (id, confirmDraftLoss) => void describe.start(id, confirmDraftLoss),
+              onCancel: () => void describe.cancel(),
+            }}
           />
         </div>
         <div className="flex justify-center lg:pt-[140px]">
@@ -98,8 +138,9 @@ export function SpoilPage() {
           jobTitle={transcribingClip?.title ?? panel.job?.clip_id ?? null}
           notice={panel.notice}
           transcript={panel.transcript}
-          onStart={() => selected && void transcribe.start(selected.id)}
+          onStart={(draftConfirmed = false) => selected && void startTranscribe(selected, draftConfirmed)}
           onCancel={() => void transcribe.cancel()}
+          onEditLine={transcribe.editLine}
         />
       </div>
     </PageLayout>

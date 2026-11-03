@@ -6,8 +6,9 @@ fetches them into `models/`.
 
 Use framecraft for personal or experimental work only. The OmniVoice model is
 licensed for non-commercial use (CC BY-NC 4.0), so videos and audio made with
-it must not be used for commercial purposes, and anything you publish should
-credit the model.
+it must not be used for commercial purposes. Crediting the model in what you
+publish is recommended but not required: framecraft adds no credit by itself,
+and you can add one yourself, for example as a watermark.
 
 ## OmniVoice
 

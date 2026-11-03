@@ -1,11 +1,13 @@
+import hashlib
 import json
 import os
 import shutil
 
 import pytest
 
+from backend import fonts
 from backend.checks import run_checks
-from backend.models import MODELS, OMNIVOICE
+from backend.models import MODELS, OMNIVOICE, QWEN
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
@@ -34,6 +36,29 @@ class FakeNpmInstall:
             raise RuntimeError("npm ERR! network")
 
 
+KANIT_BYTES = {"Kanit-Bold.ttf": b"ttf bytes", "OFL.txt": b"license text"}
+
+
+@pytest.fixture(autouse=True)
+def fake_kanit(monkeypatch):
+    """The pinned sha256 of the fake files, so setup can check them without the network.
+    Autouse fixtures run first, so `fake_root` writes its marker with these too."""
+    monkeypatch.setattr(fonts, "KANIT_SHA256", {n: hashlib.sha256(b).hexdigest() for n, b in KANIT_BYTES.items()})
+
+
+class FakeFetch:
+    """Stands in for fetching a Kanit file over HTTPS; `wrong` serves other bytes for that file."""
+
+    def __init__(self, wrong: str | None = None):
+        self.wrong = wrong
+        self.urls: list[str] = []
+
+    def __call__(self, url: str) -> bytes:
+        self.urls.append(url)
+        name = url.rsplit("/", 1)[1]
+        return b"something else" if name == self.wrong else KANIT_BYTES[name]
+
+
 class FakeDownload:
     """Stands in for huggingface_hub.snapshot_download."""
 
@@ -55,6 +80,7 @@ def run_with_fakes(root, download, probes=None, **overrides):
     options = {
         "download": download,
         "npm_install": FakeNpmInstall(),
+        "fetch": FakeFetch(),
         "backend_running": lambda: False,
         "free_bytes": lambda path: 100 * GB,
         "probes": probes or fake_probes(),
@@ -113,16 +139,17 @@ def test_stale_lock_from_a_dead_process_is_taken_over(empty_root):
     assert not lock.exists()
 
 
-def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys):
+@pytest.mark.parametrize(("sys_platform", "required"), [("darwin", "20 GB"), ("win32", "15 GB")])
+def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys, sys_platform, required):
     download = FakeDownload(empty_root)
 
-    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 9 * GB)
+    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 9 * GB, sys_platform=sys_platform)
 
     assert exit_code == 1
     assert download.calls == []
     out = capsys.readouterr().out
     assert "9.0 GB" in out
-    assert "15 GB" in out
+    assert f"ต้องการ {required}" in out
 
 
 def test_running_backend_stops_setup_before_anything(empty_root, capsys):
@@ -194,3 +221,55 @@ def test_failed_npm_install_removes_lock_and_exits_1(fake_root, capsys):
     assert exit_code == 1
     assert not ProjectPaths(fake_root).setup_lock.exists()
     assert "ล้มที่ขั้น npm install: npm ERR! network" in capsys.readouterr().out
+
+
+def test_mac_setup_downloads_qwen_too(empty_root):
+    download = FakeDownload(empty_root)
+
+    run_with_fakes(empty_root, download, sys_platform="darwin")
+
+    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo", "mlx-community/Qwen3.5-9B-MLX-4bit"]
+    assert ProjectPaths(empty_root).marker(QWEN).is_file()
+
+
+def test_windows_setup_skips_the_mlx_model(empty_root):
+    download = FakeDownload(empty_root)
+
+    run_with_fakes(empty_root, download, sys_platform="win32")
+
+    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo"]
+    assert not ProjectPaths(empty_root).marker(QWEN).exists()
+
+
+def test_setup_fetches_kanit_at_the_pinned_commit_and_writes_its_marker(empty_root):
+    fetch = FakeFetch()
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    assert exit_code == 0
+    base = "https://raw.githubusercontent.com/google/fonts/130fcfb0ff422fec96b335616b2ca99f91914792/ofl/kanit/"
+    assert fetch.urls == [base + "Kanit-Bold.ttf", base + "OFL.txt"]
+    project = ProjectPaths(empty_root)
+    assert (project.kanit_dir / "Kanit-Bold.ttf").read_bytes() == b"ttf bytes"
+    marker = json.loads(project.kanit_marker.read_text(encoding="utf-8"))
+    assert marker["files"] == fonts.KANIT_SHA256
+    assert item(run_checks(empty_root, fake_probes()), "font_kanit").status == "ok"
+
+
+def test_a_kanit_file_with_another_sha256_is_removed_and_setup_fails(empty_root, capsys):
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=FakeFetch(wrong="OFL.txt"))
+
+    project = ProjectPaths(empty_root)
+    assert exit_code == 1
+    assert not (project.kanit_dir / "OFL.txt").exists()
+    assert not project.kanit_marker.exists()
+    assert "ล้มที่ขั้น โหลด Kanit: sha256 ของ OFL.txt ไม่ตรง" in capsys.readouterr().out
+
+
+def test_kanit_already_there_is_not_fetched_again(fake_root):
+    fetch = FakeFetch()
+
+    exit_code = run_with_fakes(fake_root, FakeDownload(fake_root), fetch=fetch)
+
+    assert exit_code == 0
+    assert fetch.urls == []

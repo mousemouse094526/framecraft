@@ -1,11 +1,11 @@
 # 02: เช็ค spoil บน Windows NVIDIA
 
-**What to build:** ผู้ใช้ Windows ที่มีการ์ด NVIDIA โหลด เล่น ลบ และถอดบทพูดของ Temp clip ใน tab สปอยได้เหมือนบน Mac. แก้สิ่งที่พังเฉพาะ Windows.
+**What to build:** ผู้ใช้ Windows ที่มีการ์ด NVIDIA โหลด เล่น ลบ และถอดบทพูดของ Temp clip ใน tab คลิป (spoil-maker D53) และแก้ Transcript ทีละบรรทัดได้เหมือนบน Mac. แก้สิ่งที่พังเฉพาะ Windows.
 
 **Blocked by:** 01: เช็ค setup-status บน Windows NVIDIA
 
 **Covers:**
-- Decisions: spoil D15, spoil D30, setup-status D25
+- Decisions: spoil D15, spoil D30, setup-status D25, spoil-maker D54
 - ADR: 0012, 0014
 - Seams: 2, 3
 
@@ -39,3 +39,4 @@
 - ฆ่า process ลูกด้วยมือระหว่างถอดขณะมีงานโหลด → งานถอด `crashed`, งานโหลดเดินต่อจน `done`
 - process ลูก `spawn` เริ่มได้บน Windows
 - ยกเลิกงานถอด → process ลูกและ ffmpeg ที่มันเปิดหายภายใน 5 วินาที และ memory ของ backend ไม่โตขึ้น
+- แก้บรรทัดของ Transcript แล้วกด "บันทึก" → `PATCH` ได้ `200`, บรรทัดมีป้าย "แก้แล้ว"; `.tmp` rename ทับ `{id}.transcript.json` ได้บน Windows และไม่มี `{id}.transcript.json.tmp` ค้าง; restart `npm run dev` → ข้อความที่แก้ยังอยู่ (spoil-maker D54)

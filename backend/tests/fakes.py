@@ -3,6 +3,8 @@
 import dataclasses
 import json
 import threading
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 from backend.checks import FfmpegInfo, Probes
@@ -10,6 +12,19 @@ from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.spoil.whisper import Done, Segment
+
+
+
+def poll_until(client, path: str, condition: Callable[[dict], bool], timeout_s: float = 10) -> dict:
+    """GETs `path` until its JSON meets `condition`; how a test waits for a job (rules › testing)."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        job = client.get(path).json()
+        if condition(job):
+            return job
+        time.sleep(0.01)
+    raise AssertionError(f"job never got there: {job}")
+
 
 MODEL_FILES = {"config.json": 120, "model.safetensors": 4096}
 
@@ -42,6 +57,18 @@ def write_marker(root: Path, model: ModelSpec, revision: str | None = None) -> P
     return marker
 
 
+def write_kanit(root: Path) -> None:
+    """Kanit's two files and the marker setup writes once their sha256 match the pins."""
+    from backend import fonts
+
+    project = ProjectPaths(root)
+    project.kanit_dir.mkdir(parents=True, exist_ok=True)
+    for name in fonts.KANIT_SHA256:
+        (project.kanit_dir / name).write_bytes(b"font file")
+    project.kanit_marker.parent.mkdir(parents=True, exist_ok=True)
+    project.kanit_marker.write_text(json.dumps({"files": dict(fonts.KANIT_SHA256)}), encoding="utf-8")
+
+
 def ok_ffmpeg() -> FfmpegInfo:
     return FfmpegInfo(version="7.1", source="imageio-ffmpeg")
 
@@ -52,6 +79,14 @@ def broken_ffmpeg() -> FfmpegInfo:
 
 def ok_yt_dlp() -> str:
     return "2026.10.26"
+
+
+def ok_mlx_vlm() -> str:
+    return "0.7.11"
+
+
+def ok_pythainlp() -> str:
+    return "5.4.0"
 
 
 def ok_deno() -> str:
@@ -68,7 +103,9 @@ def cuda_device() -> str:
 
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
-    probes = Probes(device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp)
+    probes = Probes(
+        device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp, mlx_vlm=ok_mlx_vlm, pythainlp=ok_pythainlp
+    )
     return dataclasses.replace(probes, **overrides)
 
 
@@ -304,3 +341,180 @@ def write_transcript(project: ProjectPaths, video_id: str = "dQw4w9WgXcQ", lines
     }
     clips.transcript_path(project, video_id).write_text(json.dumps(transcript, ensure_ascii=False), encoding="utf-8")
     return transcript
+
+
+def make_test_clip(path: Path, colors: tuple[str, ...] = ("red", "white", "blue"), seconds_each: float = 1) -> Path:
+    """An mp4 of solid colours, `seconds_each` apiece, with a sine tone, made with ffmpeg's
+    `lavfi` so no media file sits in git (spoil-maker seam 1).
+
+    The scene filter compares brightness more than hue: red to green (about the same
+    luma) is no cut, so the default colours differ in brightness."""
+    import subprocess
+
+    import imageio_ffmpeg
+
+    inputs = []
+    for color in colors:
+        inputs += ["-f", "lavfi", "-i", f"color=c={color}:s=320x180:r=10:d={seconds_each}"]
+    total = seconds_each * len(colors)
+    inputs += ["-f", "lavfi", "-i", f"sine=frequency=440:duration={total}"]
+    joined = "".join(f"[{index}:v]" for index in range(len(colors)))
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(), "-nostdin", "-v", "error", "-y", *inputs,
+        "-filter_complex", f"{joined}concat=n={len(colors)}:v=1:a=0[v]",
+        "-map", "[v]", "-map", f"{len(colors)}:a",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(path),
+    ]  # fmt: skip
+    subprocess.run(command, check=True)
+    return path
+
+
+class FakeModel:
+    """Stands in for a model's child process that answers requests from a queue
+    (`spoil_maker.start_worker`, `spoil_maker.start_tts_worker`).
+
+    Each start runs a thread that says `ready()`, then one `answer(request, index)`
+    per request, `index` counting that process's requests from 0. It can pause
+    before answering request `index` until the test calls
+    `release` (or the process is terminated) with `pause_at`, never answer it
+    (`hang_at`, for timeouts), or exit at it without a word (`crash_at`). An
+    `answer` of `HANG` never comes either, whichever process asked.
+    """
+
+    HANG = object()
+
+    def __init__(self):
+        self.requests = []
+        self.processes: list["FakeModelProcess"] = []
+        self.crash_at: int | None = None
+        self.hang_at: int | None = None
+        self._paused: dict[int, threading.Event] = {}
+        self._reached: dict[int, threading.Event] = {}
+
+    def ready(self):
+        raise NotImplementedError
+
+    def answer(self, request, index: int):
+        raise NotImplementedError
+
+    def pause_at(self, index: int) -> None:
+        self._paused[index] = threading.Event()
+        self._reached[index] = threading.Event()
+
+    def wait_until(self, index: int) -> None:
+        assert self._reached[index].wait(5), f"the model never reached request {index}"
+
+    def release(self, index: int) -> None:
+        self._paused[index].set()
+
+    def __call__(self, snapshot_dir: Path, *args):
+        import queue
+
+        requests: queue.Queue = queue.Queue()
+        replies: queue.Queue = queue.Queue()
+        process = FakeModelProcess(self, snapshot_dir, args, requests, replies)
+        self.processes.append(process)
+        process.start()
+        return process, requests, replies
+
+
+class FakeLlm(FakeModel):
+    """The mlx-vlm child: `respond(request)` makes each `Generated` text, or is `HANG`."""
+
+    def __init__(self):
+        super().__init__()
+        self.respond = lambda request: f"A frame at {request.image.name}."
+
+    def ready(self):
+        from backend.spoil_maker.llm import Ready
+
+        return Ready()
+
+    def answer(self, request, index: int):
+        from backend.spoil_maker.llm import Generated
+
+        text = self.respond(request)
+        return text if text is self.HANG else Generated(text)
+
+
+class FakeTts(FakeModel):
+    """The OmniVoice child: every request is spoken as `seconds` of silence at 24 kHz;
+    a `Design` also gets the clone prompt `b"prompt {n}"`, `n` counting every request
+    it got from 0. `fail_at` answers that request of a process with a `WorkerError` instead."""
+
+    SAMPLE_RATE = 24_000
+
+    def __init__(self):
+        super().__init__()
+        self.seconds = 2.0
+        self.fail_at: int | None = None
+
+    def ready(self):
+        from backend.spoil_maker.tts import Ready
+
+        return Ready()
+
+    def answer(self, request, index: int):
+        from backend.spoil_maker.tts import Designed, Speak, Spoken, WorkerError
+
+        if index == self.fail_at:
+            return WorkerError("model_failed", "RuntimeError: MPS out of memory")
+        audio = b"\0\0" * round(self.SAMPLE_RATE * self.seconds)
+        if isinstance(request, Speak):
+            return Spoken(audio=audio, sample_rate=self.SAMPLE_RATE)
+        prompt = f"prompt {len(self.requests) - 1}".encode()
+        return Designed(audio=audio, sample_rate=self.SAMPLE_RATE, prompt=prompt)
+
+
+class FakeModelProcess(FakeProcess):
+    """The `multiprocessing.Process` surface, answering requests from a thread."""
+
+    def __init__(self, model: FakeModel, snapshot_dir: Path, args: tuple, requests, replies):
+        self._model, self.snapshot_dir, self.args = model, snapshot_dir, args
+        self._requests, self._replies = requests, replies
+        self._killed = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self.terminated = False
+        self.exitcode: int | None = None
+
+    def _run(self) -> None:
+        from queue import Empty
+
+        model = self._model
+        self._replies.put(model.ready())
+        index = 0
+        while not self._killed.is_set():
+            try:
+                request = self._requests.get(timeout=0.01)
+            except Empty:
+                continue
+            if request is None:
+                break
+            model.requests.append(request)
+            if index == model.crash_at:
+                self.exitcode = -11
+                return
+            if index in model._paused:
+                model._reached[index].set()
+                while not (model._paused[index].is_set() or self._killed.is_set()):
+                    self._killed.wait(0.01)
+            answer = model.HANG if index == model.hang_at else model.answer(request, index)
+            if answer is model.HANG:
+                self._killed.wait()
+            if self._killed.is_set():
+                break
+            self._replies.put(answer)
+            index += 1
+        self.exitcode = -15 if self._killed.is_set() else 0
+
+
+def jpeg_width(path: Path) -> int:
+    """The width in a JPEG's start-of-frame header, so tests need no image library."""
+    data = path.read_bytes()
+    index = 2  # after the SOI marker
+    while index < len(data):
+        marker, length = data[index + 1], int.from_bytes(data[index + 2 : index + 4], "big")
+        if marker in (0xC0, 0xC1, 0xC2):  # SOF0–SOF2: height then width follow the precision byte
+            return int.from_bytes(data[index + 7 : index + 9], "big")
+        index += 2 + length
+    raise ValueError(f"no frame header in {path}")

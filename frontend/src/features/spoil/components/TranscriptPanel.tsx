@@ -1,17 +1,19 @@
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
 import { notice, type Notice } from "../lib/notice";
-import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
-import { transcriptPath, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
+import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
+import { transcriptPath, type LineEditResult, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
 import clockIcon from "../assets/clock.svg";
-import copyIcon from "../assets/copy.svg";
+import copyIcon from "../../../components/ui/assets/copy.svg";
 import fileIcon from "../assets/file-text.svg";
-import emptyIcon from "../assets/panel-empty.svg";
-import { formatClock, formatDuration } from "./format";
+import fileText24Icon from "../../../components/ui/assets/file-text-24.svg";
+import { formatClock, formatDuration } from "../../../lib/format";
+import { DraftWarning } from "./DraftWarning";
 import { NoticeAlert } from "./NoticeAlert";
 import { NotReady } from "./NotReady";
 import { ProgressCard } from "./ProgressCard";
+import { TranscriptLineItem } from "./TranscriptLineItem";
 
 type Props = {
   /** The selected clip, or null (D25). */
@@ -28,8 +30,11 @@ type Props = {
   /** The message after this clip's last job or refusal (D33); also shown once the clip is gone. */
   notice: Notice | null;
   transcript: Transcript | null;
-  onStart: () => void;
+  /** `confirmDraftLoss`: the user went on past the Spoil draft warning (spoil-maker D49). */
+  onStart: (confirmDraftLoss?: boolean) => void;
   onCancel: () => void;
+  /** Saves line `index`'s new text (spoil-maker D54). */
+  onEditLine: (clipId: string, index: number, text: string) => Promise<LineEditResult>;
 };
 
 /** What stands under the clip's title: one state of the panel's table (spec › Frontend). */
@@ -51,7 +56,7 @@ const TRANSCRIBED = notice("info", "คลิปนี้ถอดแล้ว")
 
 /** Figma component `Transcript panel`: the selected clip's player, its Transcribe job and Transcript (D22–D27, D33). */
 export function TranscriptPanel(props: Props) {
-  const { clip, videoRef, autoPlay, missing, job, jobTitle, notice, transcript, onStart, onCancel } = props;
+  const { clip, videoRef, autoPlay, missing, job, jobTitle, notice, transcript, onStart, onCancel, onEditLine } = props;
 
   if (clip === null) {
     return (
@@ -65,7 +70,7 @@ export function TranscriptPanel(props: Props) {
             <NoticeAlert notice={notice} />
           </div>
         )}
-        <img src={emptyIcon} alt="" width={24} height={24} />
+        <img src={fileText24Icon} alt="" width={24} height={24} />
         <p className="text-sm leading-[1.5] text-muted-foreground">เลือกคลิปจากรายการ</p>
       </section>
     );
@@ -93,10 +98,20 @@ export function TranscriptPanel(props: Props) {
         )}
       </div>
       {notice && <NoticeAlert notice={notice} />}
-      <ActionArea action={action} transcribed={clip.transcribed} missing={missing} onStart={onStart} onCancel={onCancel} />
+      <ActionArea
+        // Keyed apart from the player: another clip starts with no warning open.
+        key={`action-${clip.id}`}
+        action={action}
+        transcribed={clip.transcribed}
+        inDraft={clip.in_draft}
+        missing={missing}
+        onStart={onStart}
+        onCancel={onCancel}
+      />
       {/* A new job replaces the Transcript when it ends; until then only its progress shows. */}
       {clip.transcribed && transcript && action.kind !== "progress" && (
-        <TranscriptView transcript={transcript} videoRef={videoRef} />
+        // Keyed apart from the player beside it, so another clip starts with no field open.
+        <TranscriptView key={`lines-${clip.id}`} transcript={transcript} videoRef={videoRef} onEditLine={(index, text) => onEditLine(clip.id, index, text)} />
       )}
     </section>
   );
@@ -105,12 +120,22 @@ export function TranscriptPanel(props: Props) {
 type ActionProps = {
   action: Action;
   transcribed: boolean;
+  /** The Spoil draft is made from this clip: ถอดใหม่ warns first (spoil-maker D49). */
+  inDraft: boolean;
   missing: string[];
-  onStart: () => void;
+  onStart: (confirmDraftLoss?: boolean) => void;
   onCancel: () => void;
 };
 
-function ActionArea({ action, transcribed, missing, onStart, onCancel }: ActionProps) {
+function ActionArea({ action, transcribed, inDraft, missing, onStart, onCancel }: ActionProps) {
+  const [warning, setWarning] = useState(false);
+  if (warning) {
+    const go = () => {
+      setWarning(false);
+      onStart(true);
+    };
+    return <DraftWarning onGo={go} onCancel={() => setWarning(false)} />;
+  }
   switch (action.kind) {
     case "progress":
       return <JobProgress job={action.job} onCancel={onCancel} />;
@@ -132,14 +157,14 @@ function ActionArea({ action, transcribed, missing, onStart, onCancel }: ActionP
           <div className="min-w-0 flex-1">
             <NoticeAlert notice={TRANSCRIBED} />
           </div>
-          <button type="button" onClick={onStart} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
+          <button type="button" onClick={() => (inDraft ? setWarning(true) : onStart())} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
             ถอดใหม่
           </button>
         </div>
       );
     case "start":
       return (
-        <button type="button" onClick={onStart} className={`h-9 w-fit px-4 ${PRIMARY_BUTTON}`}>
+        <button type="button" onClick={() => onStart()} className={`h-9 w-fit px-4 ${PRIMARY_BUTTON}`}>
           ถอดบทพูด
         </button>
       );
@@ -162,9 +187,23 @@ function JobProgress({ job, onCancel }: { job: TranscribeJob; onCancel: () => vo
   );
 }
 
+type ViewProps = {
+  transcript: Transcript;
+  videoRef: RefObject<HTMLVideoElement | null>;
+  onEditLine: (index: number, text: string) => Promise<LineEditResult>;
+};
+
 /** The heading, Copy and the two files, then the lines; none of the buttons when there are no lines (D33). */
-function TranscriptView({ transcript, videoRef }: { transcript: Transcript; videoRef: RefObject<HTMLVideoElement | null> }) {
+function TranscriptView({ transcript, videoRef, onEditLine }: ViewProps) {
   const empty = transcript.lines.length === 0;
+  // One line at a time is a field; opening another drops the first one's unsaved text.
+  const [editing, setEditing] = useState<number | null>(null);
+
+  const save = async (index: number, text: string) => {
+    const result = await onEditLine(index, text);
+    if (result.kind === "saved") setEditing(null);
+    return result;
+  };
 
   const jumpTo = (seconds: number) => {
     const video = videoRef.current;
@@ -190,17 +229,15 @@ function TranscriptView({ transcript, videoRef }: { transcript: Transcript; vide
       ) : (
         <ol className="flex max-h-[320px] flex-col overflow-y-auto rounded-xl bg-muted p-2 leading-[1.5]">
           {transcript.lines.map((line, index) => (
-            <li key={index}>
-              {/* Figma component `Transcript line`: the whole line is the button. */}
-              <button
-                type="button"
-                onClick={() => jumpTo(line.start_s)}
-                className="flex w-full items-start gap-3 rounded-md px-2 py-1 text-left hover:bg-surface-strong"
-              >
-                <span className="shrink-0 font-mono text-[13px] whitespace-nowrap text-link">[{formatClock(line.start_s)}]</span>
-                <span className="min-w-0 flex-1 text-sm break-words text-foreground">{line.text}</span>
-              </button>
-            </li>
+            <TranscriptLineItem
+              key={index}
+              line={line}
+              editing={editing === index}
+              onJump={() => jumpTo(line.start_s)}
+              onStartEdit={() => setEditing(index)}
+              onClose={() => setEditing(null)}
+              onSave={(text) => save(index, text)}
+            />
           ))}
         </ol>
       )}

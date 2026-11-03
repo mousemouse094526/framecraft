@@ -1,0 +1,11 @@
+"""The สปอย tab's backend: Shots of Temp clips (Describe job), Saved voices (Voice
+job), the Spoil draft (Draft job), and its render (Render job).
+
+`start_worker`, `start_tts_worker` and `count_tokens` are looked up at
+call time, so tests swap them for fakes (the same way as `backend.spoil`'s adapter
+and worker).
+"""
+
+from backend.spoil_maker.llm import start_worker
+from backend.spoil_maker.tokens import count as count_tokens
+from backend.spoil_maker.tts import start_worker as start_tts_worker

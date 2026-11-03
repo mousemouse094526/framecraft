@@ -3,10 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChecklistItem, StatusResponse } from "../../../lib/statusTypes";
+import type { DescribeJob } from "../hooks/useDescribe";
 import type { DownloadJob } from "../hooks/useSpoilDownload";
-import type { TempClip } from "../hooks/useTempClips";
+import type { TempClip } from "../../../lib/clips";
 import type { TranscribeJob, Transcript } from "../hooks/useTranscribe";
-import { SpoilPage } from "./SpoilPage";
+import { ClipsPage } from "./ClipsPage";
 
 const SHORTS_URL = "https://www.youtube.com/shorts/f7jkZXvaB4g";
 
@@ -81,6 +82,8 @@ function clipOf(change: Partial<TempClip>): TempClip {
     downloaded_at: localIso(10, 28, 21, 10),
     yt_dlp_version: "2026.10.26",
     transcribed: false,
+    described: false,
+    in_draft: false,
     ...change,
   };
 }
@@ -118,14 +121,15 @@ type Route = { method?: string; path: string; reply: () => Response | Promise<Re
  * Fake backend: each request takes the first route that matches it. A route
  * answers once, so a list of routes for the same path plays out in order;
  * the last one for a path keeps answering. With no `/api/spoil/clips` route
- * the list is empty; with no `/api/spoil/transcriptions/current` route there
- * is no Transcribe job; a clip's `/transcript` with no route is `404`, as for
+ * the list is empty; with no `/api/spoil/transcriptions/current` or
+ * `/api/spoil-maker/describes/current` route there is no such job; a clip's `/transcript` with no route is `404`, as for
  * a clip not yet transcribed.
  */
 function backend(routes: Route[]) {
   const has = (path: string) => routes.some((r) => r.path === path && (r.method ?? "GET") === "GET");
   if (!has(CLIPS_PATH)) routes.push(clips([]));
   if (!has(TRANSCRIPTION_PATH)) routes.push(transcription(null));
+  if (!has(DESCRIBE_PATH)) routes.push(describing(null));
   fetchMock.mockImplementation(async (input, init) => {
     const method = init?.method ?? "GET";
     const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
@@ -152,6 +156,13 @@ const transcription = (job: TranscribeJob | null): Route => ({ path: TRANSCRIPTI
 const postTranscription = (body: unknown, code = 202): Route => ({
   method: "POST",
   path: "/api/spoil/transcriptions",
+  reply: () => jsonResponse(body, code),
+});
+const DESCRIBE_PATH = "/api/spoil-maker/describes/current";
+const describing = (job: DescribeJob | null): Route => ({ path: DESCRIBE_PATH, reply: () => jsonResponse(job) });
+const postDescribe = (body: unknown, code = 202): Route => ({
+  method: "POST",
+  path: "/api/spoil-maker/describes",
   reply: () => jsonResponse(body, code),
 });
 const transcript = (value: Transcript): Route => ({
@@ -204,17 +215,17 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("tab สปอย", () => {
+describe("tab คลิป", () => {
   it("shows กำลังโหลด… until the status and the current job answer", () => {
     fetchMock.mockReturnValue(new Promise(() => {}));
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(screen.getByText("กำลังโหลด…")).toBeInTheDocument();
   });
 
   it("keeps กำลังโหลด… until the clip list answers too", async () => {
     backend([status(), current(null), { path: CLIPS_PATH, reply: () => new Promise(() => {}) }]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
@@ -224,18 +235,18 @@ describe("tab สปอย", () => {
     expect(screen.queryByLabelText("ลิงก์ YouTube")).not.toBeInTheDocument();
   });
 
-  it("names what is missing and links to Setup status instead of the link field", async () => {
+  it("names what is missing and links to the ติดตั้ง tab instead of the link field", async () => {
     backend([status(ITEMS.map((i) => (i.id === "deno" ? { ...i, status: "missing" } : i))), current(null)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("ยังติดตั้งไม่ครบ: Deno")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปหน้า Setup status" })).toHaveAttribute("href", "#/setup");
+    expect(screen.getByRole("link", { name: "ไปหน้าติดตั้ง" })).toHaveAttribute("href", "#/setup");
     expect(screen.queryByLabelText("ลิงก์ YouTube")).not.toBeInTheDocument();
   });
 
   it("shows the link field when yt-dlp, Deno and ffmpeg are ok, even with a model missing", async () => {
     backend([status(), current(null)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByLabelText("ลิงก์ YouTube")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "โหลด" })).toBeEnabled();
@@ -253,7 +264,7 @@ describe("downloading", () => {
       clips([RICK]),
       clips([MOON, RICK]),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     await startDownload();
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -281,7 +292,7 @@ describe("downloading", () => {
 
   it("shows a bar with no number when the size is unknown", async () => {
     backend([status(), current(jobOf({ state: "downloading", title: "Me at the zoo", percent: null }))]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("กำลังโหลด Me at the zoo")).toBeInTheDocument();
     expect(screen.queryByText(/%$/)).not.toBeInTheDocument();
@@ -290,7 +301,7 @@ describe("downloading", () => {
 
   it("disables โหลด while a job is unfinished and hides ยกเลิก while merging", async () => {
     backend([status(), current(jobOf({ state: "merging", title: "From the Moon" }))]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("กำลังรวมไฟล์…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "โหลด" })).toBeDisabled();
@@ -305,7 +316,7 @@ describe("downloading", () => {
       current(DOWNLOADING_40),
       { method: "DELETE", path: "/api/spoil/downloads/current", reply: () => jsonResponse(cancelling, 202) },
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await screen.findByRole("button", { name: "ยกเลิก" }));
@@ -325,7 +336,7 @@ describe("downloading", () => {
         reply: () => jsonResponse({ code: "merging", message: "x" }, 409),
       },
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await screen.findByRole("button", { name: "ยกเลิก" }));
@@ -335,7 +346,7 @@ describe("downloading", () => {
 
   it("says ยกเลิกแล้ว when the job ends cancelled", async () => {
     backend([status(), current({ ...DOWNLOADING_40, cancel_requested: true }), current(jobOf({ state: "cancelled" }))]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     expect(await screen.findByText("กำลังยกเลิก…")).toBeInTheDocument();
 
     await nextPoll();
@@ -346,7 +357,7 @@ describe("downloading", () => {
 
   it("says the job was lost when the poll answers null", async () => {
     backend([status(), current(DOWNLOADING_40), current(null)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     expect(await screen.findByText("40%")).toBeInTheDocument();
 
     await nextPoll();
@@ -370,7 +381,7 @@ describe("messages", () => {
 
   it("shows a failed job's message and its fix as a line with a copy button", async () => {
     backend([status(), current(null), current(youtubeError), post(jobOf({}))]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await startDownload();
 
     await nextPoll();
@@ -387,7 +398,7 @@ describe("messages", () => {
       error: { code: "live", message: "คลิปนี้เป็น live หรือยังไม่เริ่มฉาย โหลดไม่ได้", yt_dlp_version: "2026.10.26", fix: null },
     });
     backend([status(), current(live)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("คลิปนี้เป็น live หรือยังไม่เริ่มฉาย โหลดไม่ได้")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /คัดลอก/ })).not.toBeInTheDocument();
@@ -398,7 +409,7 @@ describe("messages", () => {
     [409, "busy", "กำลังโหลดคลิปอื่นอยู่"],
   ])("shows the Frontend table's text on %i %s", async (code, errorCode, text) => {
     backend([status(), current(null), post({ code: errorCode, message: "from the API" }, code)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     await startDownload();
 
     expect(await screen.findByText(text)).toBeInTheDocument();
@@ -412,7 +423,7 @@ describe("messages", () => {
       clips([NIGHT, MOON, RICK]),
       post({ code: "duplicate", message: "from the API", clip_id: RICK.id }, 409),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     await startDownload();
 
     expect(await screen.findByText("คลิปนี้โหลดไว้แล้ว")).toBeInTheDocument();
@@ -429,7 +440,7 @@ describe("messages", () => {
       post({ code: "invalid_url", message: "x" }, 400),
       { method: "POST", path: "/api/spoil/downloads", reply: () => new Promise(() => {}) },
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await startDownload();
     expect(await screen.findByText("ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube")).toBeInTheDocument();
 
@@ -442,7 +453,7 @@ describe("messages", () => {
     const noDeno = ITEMS.map((i) => (i.id === "deno" ? { ...i, status: "missing" as const } : i));
     // The tab opens ready; after the 503 it asks for the status again and Deno is gone.
     backend([status(), status(noDeno), current(null), post({ code: "not_ready", message: "x" }, 503)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     await startDownload();
 
     expect(await screen.findByText("ยังติดตั้งไม่ครบ: Deno")).toBeInTheDocument();
@@ -452,7 +463,7 @@ describe("messages", () => {
 describe("offline", () => {
   it("shows the OfflinePanel when a fetch fails, and Refresh loads the tab again", async () => {
     backend([{ path: "/api/setup/status", reply: () => Promise.reject(new TypeError("Failed to fetch")) }, status(), current(null)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("Backend offline")).toBeInTheDocument();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -463,7 +474,7 @@ describe("offline", () => {
 
   it("shows the OfflinePanel when the backend gives no answer in 30 s", async () => {
     fetchMock.mockReturnValue(new Promise(() => {}));
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
@@ -478,7 +489,7 @@ describe("offline", () => {
       current(DOWNLOADING_40),
       { path: "/api/spoil/downloads/current", reply: () => Promise.reject(new TypeError("Failed to fetch")) },
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     expect(await screen.findByText("40%")).toBeInTheDocument();
 
     await nextPoll();
@@ -490,7 +501,7 @@ describe("offline", () => {
 describe("Temp clip list", () => {
   it("says there is no clip yet when the list is empty", async () => {
     backend([status(), current(null)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "คลิปที่โหลดมา 0" })).toBeInTheDocument();
@@ -498,7 +509,7 @@ describe("Temp clip list", () => {
 
   it("shows each clip newest first with what it is", async () => {
     backend([status(), current(null), clips([NIGHT, MOON, RICK])]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     const rows = await screen.findAllByRole("listitem");
     expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([NIGHT.title, MOON.title, RICK.title]);
@@ -522,7 +533,7 @@ describe("Temp clip list", () => {
 
   it("still shows the list when the tab is not ready", async () => {
     backend([status(ITEMS.map((i) => (i.id === "deno" ? { ...i, status: "missing" } : i))), current(null), clips([RICK])]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("ยังติดตั้งไม่ครบ: Deno")).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: RICK.title })).toBeInTheDocument();
@@ -530,14 +541,14 @@ describe("Temp clip list", () => {
 
   it("goes offline when the list can't be loaded", async () => {
     backend([status(), current(null), { path: CLIPS_PATH, reply: () => Promise.reject(new TypeError("Failed to fetch")) }]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await screen.findByText("Backend offline")).toBeInTheDocument();
   });
 
   it("plays a clicked row in the transcript panel and marks it กำลังเล่น", async () => {
     backend([status(), current(null), clips([MOON, RICK])]);
-    const { container } = render(<SpoilPage />);
+    const { container } = render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await screen.findByRole("button", { name: /^From the Moon/ }));
@@ -555,7 +566,7 @@ describe("Temp clip list", () => {
     const confirm = vi.fn(() => true);
     vi.stubGlobal("confirm", confirm);
     backend([status(), current(null), clips([MOON, RICK]), deleteClip(RICK.id, () => new Response(null, { status: 204 }))]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
@@ -569,7 +580,7 @@ describe("Temp clip list", () => {
   it("sends nothing when the confirm is cancelled", async () => {
     vi.stubGlobal("confirm", vi.fn(() => false));
     backend([status(), current(null), clips([RICK])]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
@@ -593,7 +604,7 @@ describe("Temp clip list", () => {
         return new Response(null, { status: 204 });
       }),
     ]);
-    const { container } = render(<SpoilPage />);
+    const { container } = render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     await user.click(await screen.findByRole("button", { name: /^From the Moon/ }));
 
@@ -613,7 +624,7 @@ describe("Temp clip list", () => {
       clips([MOON, RICK]),
       deleteClip(RICK.id, () => jsonResponse({ code: "in_use", message: inUse }, 409)),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
@@ -636,8 +647,8 @@ const NIGHT_TRANSCRIPT: Transcript = {
   revision: "41f01f3",
   transcribed_at: "2026-10-29T19:12:00+07:00",
   lines: [
-    { start_s: 12.4, end_s: 15.0, text: "They're coming to get you, Barbara." },
-    { start_s: 3725.2, end_s: 3727.9, text: "Is anybody here?" },
+    { start_s: 12.4, end_s: 15.0, text: "They're coming to get you, Barbara.", edited: false },
+    { start_s: 3725.2, end_s: 3727.9, text: "Is anybody here?", edited: false },
   ],
 };
 
@@ -656,7 +667,7 @@ describe("transcript panel", () => {
 
   it("says เลือกคลิปจากรายการ until a row is clicked, then shows the clip and ถอดบทพูด", async () => {
     backend([status(READY_ITEMS), current(null), clips([NIGHT, MOON])]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByText("เลือกคลิปจากรายการ")).toBeInTheDocument();
 
@@ -680,7 +691,7 @@ describe("transcript panel", () => {
       postTranscription(transcribeJobOf({})),
       transcript(NIGHT_TRANSCRIPT),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
@@ -710,7 +721,7 @@ describe("transcript panel", () => {
 
   it("jumps the player to a line's start and plays it", async () => {
     backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED_NIGHT]), transcript(NIGHT_TRANSCRIPT)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(await within(panel()).findByRole("button", { name: /They're coming to get you, Barbara\./ }));
@@ -722,7 +733,7 @@ describe("transcript panel", () => {
 
   it("copies the transcript as the .txt text and links the files", async () => {
     backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED_NIGHT]), transcript(NIGHT_TRANSCRIPT)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(await within(panel()).findByRole("button", { name: "Copy" }));
@@ -747,7 +758,7 @@ describe("transcript panel", () => {
       clips([TRANSCRIBED_NIGHT]),
       transcript({ ...NIGHT_TRANSCRIPT, language: null, lines: [] }),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     await selectRow(/^Night of the Living Dead/);
 
     expect(await within(panel()).findByText("ไม่พบคำพูดในคลิปนี้")).toBeInTheDocument();
@@ -764,7 +775,7 @@ describe("transcript panel", () => {
       transcription(transcribeJobOf({ state: "transcribing", percent: 35 })),
       transcription(transcribeJobOf({ state: "transcribing", percent: 40 })),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
 
     expect(await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByText("35%")).toBeInTheDocument();
     expect(within(panel()).getByText(NIGHT.title)).toBeInTheDocument();
@@ -791,7 +802,7 @@ describe("transcript panel", () => {
       transcription(transcribeJobOf({ state: "cancelled" })),
       transcript(NIGHT_TRANSCRIPT),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     expect(await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByText("35%")).toBeInTheDocument();
     expect(within(panel()).queryByRole("button", { name: /Barbara/ })).not.toBeInTheDocument();
 
@@ -801,13 +812,13 @@ describe("transcript panel", () => {
     expect(await within(panel()).findByRole("button", { name: /They're coming to get you, Barbara\./ })).toBeInTheDocument();
   });
 
-  it("links to Setup status instead of ถอดบทพูด while the Whisper model is missing; the link field still works", async () => {
+  it("links to the ติดตั้ง tab instead of ถอดบทพูด while the Whisper model is missing; the link field still works", async () => {
     backend([status(), current(null), clips([NIGHT])]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     await selectRow(/^Night of the Living Dead/);
 
     expect(within(panel()).getByText("ยังติดตั้งไม่ครบ: Whisper model")).toBeInTheDocument();
-    expect(within(panel()).getByRole("link", { name: "ไปหน้า Setup status" })).toHaveAttribute("href", "#/setup");
+    expect(within(panel()).getByRole("link", { name: "ไปหน้าติดตั้ง" })).toHaveAttribute("href", "#/setup");
     expect(within(panel()).queryByRole("button", { name: "ถอดบทพูด" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "โหลด" })).toBeEnabled();
   });
@@ -823,7 +834,7 @@ describe("transcript panel", () => {
       transcription(transcribeJobOf({ state: "cancelled" })),
       { method: "DELETE", path: TRANSCRIPTION_PATH, reply: () => jsonResponse({ ...running, cancel_requested: true }, 202) },
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByRole("button", { name: "ยกเลิก" }));
@@ -849,7 +860,7 @@ describe("transcript panel", () => {
       transcription(transcribeJobOf({ state: "transcribing", percent: 5 })),
       transcription(ended),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     expect(await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByText("5%")).toBeInTheDocument();
 
     await nextPoll();
@@ -866,7 +877,7 @@ describe("transcript panel", () => {
       transcription(transcribeJobOf({ state: "transcribing", percent: 12 })),
       postTranscription({ code: "busy", message: "กำลังถอดคลิปอื่นอยู่" }, 409),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
@@ -883,7 +894,7 @@ describe("transcript panel", () => {
       transcription(transcribeJobOf({ clip_id: MOON.id, state: "transcribing", percent: 12 })),
       postTranscription({ code: "busy", message: "กำลังถอดคลิปอื่นอยู่" }, 409),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
@@ -900,7 +911,7 @@ describe("transcript panel", () => {
       clips([]),
       postTranscription({ code: "not_found", message: "x" }, 404),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
@@ -920,7 +931,7 @@ describe("transcript panel", () => {
       clips([NIGHT]),
       postTranscription({ code: "not_ready", message: "x" }, 503),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
@@ -937,7 +948,7 @@ describe("transcript panel", () => {
       clips([NIGHT]),
       postTranscription({ code: "not_ready", message: "x" }, 503),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
@@ -951,7 +962,7 @@ describe("transcript panel", () => {
 
   it("goes offline on a POST answer the API never sends", async () => {
     backend([status(READY_ITEMS), current(null), clips([NIGHT]), postTranscription({ code: "x", message: "x" }, 500)]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
@@ -962,7 +973,7 @@ describe("transcript panel", () => {
   it("empties the panel when the selected clip is deleted", async () => {
     vi.stubGlobal("confirm", vi.fn(() => true));
     backend([status(READY_ITEMS), current(null), clips([NIGHT]), deleteClip(NIGHT.id, () => new Response(null, { status: 204 }))]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = await selectRow(/^Night of the Living Dead/);
 
     await user.click(screen.getByRole("button", { name: `ลบ ${NIGHT.title}` }));
@@ -981,12 +992,498 @@ describe("transcript panel", () => {
       transcription(transcribeJobOf({ state: "transcribing", percent: 5 })),
       deleteClip(NIGHT.id, () => jsonResponse({ code: "transcribing", message: refused }, 409)),
     ]);
-    render(<SpoilPage />);
+    render(<ClipsPage />);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     await user.click(await screen.findByRole("button", { name: `ลบ ${NIGHT.title}` }));
 
     expect(await within(screen.getByRole("listitem", { name: NIGHT.title })).findByText(refused)).toBeInTheDocument();
     expect(within(panel()).getByText("5%")).toBeInTheDocument();
+  });
+});
+
+describe("editing a Transcript line (spoil-maker D54)", () => {
+  const LINE_0_PATH = `${CLIPS_PATH}/${NIGHT.id}/transcript/lines/0`;
+  const patchLine = (reply: () => Response | Promise<Response>): Route => ({ method: "PATCH", path: LINE_0_PATH, reply });
+  const FIXED = { start_s: 12.4, end_s: 15.0, text: "They're coming for you, Barbara.", edited: true };
+
+  async function openEditor(routes: Route[] = []) {
+    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED_NIGHT]), transcript(NIGHT_TRANSCRIPT), ...routes]);
+    render(<ClipsPage />);
+    const user = await selectRow(/^Night of the Living Dead/);
+    await user.click(await within(panel()).findByRole("button", { name: "แก้ [00:00:12]" }));
+    return user;
+  }
+
+  function editor(): HTMLElement {
+    return within(panel()).getByRole("textbox", { name: "แก้บรรทัด [00:00:12]" });
+  }
+
+  function patchCalls() {
+    return fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH");
+  }
+
+  it("opens a field with the line's text, บันทึก and ยกเลิก", async () => {
+    await openEditor();
+
+    expect(editor()).toHaveValue("They're coming to get you, Barbara.");
+    expect(within(panel()).getByRole("button", { name: "บันทึก" })).toBeEnabled();
+    expect(within(panel()).getByRole("button", { name: "ยกเลิก" })).toBeEnabled();
+  });
+
+  it("can't save an empty line", async () => {
+    const user = await openEditor();
+
+    await user.clear(editor());
+    await user.type(editor(), "   ");
+
+    expect(within(panel()).getByRole("button", { name: "บันทึก" })).toBeDisabled();
+  });
+
+  it("saves the new text, then shows it with แก้แล้ว", async () => {
+    const user = await openEditor([patchLine(() => jsonResponse(FIXED))]);
+
+    await user.clear(editor());
+    await user.type(editor(), "They're coming for you, Barbara.");
+    await user.click(within(panel()).getByRole("button", { name: "บันทึก" }));
+
+    expect(await within(panel()).findByRole("button", { name: /They're coming for you, Barbara\./ })).toBeInTheDocument();
+    expect(within(panel()).getByText("แก้แล้ว")).toBeInTheDocument();
+    expect(within(panel()).queryByRole("textbox")).not.toBeInTheDocument();
+    expect(patchCalls()).toEqual([
+      [LINE_0_PATH, expect.objectContaining({ body: JSON.stringify({ text: "They're coming for you, Barbara." }) })],
+    ]);
+  });
+
+  it("saves on Enter, Shift+Enter too, so a line never breaks in two", async () => {
+    const user = await openEditor([patchLine(() => jsonResponse(FIXED))]);
+
+    await user.type(editor(), "{Shift>}{Enter}{/Shift}");
+
+    expect(await within(panel()).findByText("แก้แล้ว")).toBeInTheDocument();
+    expect(patchCalls()).toEqual([
+      [LINE_0_PATH, expect.objectContaining({ body: JSON.stringify({ text: "They're coming to get you, Barbara." }) })],
+    ]);
+  });
+
+  it("ยกเลิก puts the old text back and sends nothing", async () => {
+    const user = await openEditor();
+
+    await user.type(editor(), " typo");
+    await user.click(within(panel()).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(within(panel()).getByRole("button", { name: /They're coming to get you, Barbara\.$/ })).toBeInTheDocument();
+    expect(within(panel()).queryByText("แก้แล้ว")).not.toBeInTheDocument();
+    expect(patchCalls()).toEqual([]);
+  });
+
+  it("shows a line edited earlier with แก้แล้ว", async () => {
+    const edited = { ...NIGHT_TRANSCRIPT, lines: [FIXED, NIGHT_TRANSCRIPT.lines[1]] };
+    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED_NIGHT]), transcript(edited)]);
+    render(<ClipsPage />);
+    await selectRow(/^Night of the Living Dead/);
+
+    const line = await within(panel()).findByRole("listitem", { name: "[00:00:12]" });
+    expect(within(line).getByText("แก้แล้ว")).toBeInTheDocument();
+    expect(within(within(panel()).getByRole("listitem", { name: "[01:02:05]" })).queryByText("แก้แล้ว")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["clip_busy", "คลิปนี้กำลังถูกใช้ในงานอื่น"],
+    ["transcribing", "กำลังถอดคลิปนี้อยู่ รอให้ถอดเสร็จก่อนแล้วแก้"],
+  ])("keeps the field open and shows the API's message on 409 %s", async (code, message) => {
+    const user = await openEditor([patchLine(() => jsonResponse({ code, message }, 409))]);
+
+    await user.type(editor(), "!");
+    await user.click(within(panel()).getByRole("button", { name: "บันทึก" }));
+
+    expect(await within(panel()).findByText(message)).toBeInTheDocument();
+    expect(editor()).toHaveValue("They're coming to get you, Barbara.!");
+  });
+
+  it("closes the field when another clip is selected", async () => {
+    const transcribedMoon = { ...MOON, transcribed: true };
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED_NIGHT, transcribedMoon]),
+      transcript(NIGHT_TRANSCRIPT),
+      transcript({ ...NIGHT_TRANSCRIPT, clip_id: MOON.id }),
+    ]);
+    render(<ClipsPage />);
+    const user = await selectRow(/^Night of the Living Dead/);
+    await user.click(await within(panel()).findByRole("button", { name: "แก้ [00:00:12]" }));
+
+    await selectRow(/^From the Moon/);
+    await selectRow(/^Night of the Living Dead/);
+
+    expect(await within(panel()).findByRole("button", { name: "แก้ [00:00:12]" })).toBeInTheDocument();
+    expect(within(panel()).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("asks before transcribing a clip with edited lines again, then sends confirm_edit_loss", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED_NIGHT]),
+      transcript(NIGHT_TRANSCRIPT),
+      postTranscription({ code: "has_edits", message: "ถอดใหม่จะลบบทพูดที่แก้ไว้" }, 409),
+      postTranscription(transcribeJobOf({})),
+      transcription(null),
+      transcription(transcribeJobOf({ state: "transcribing", percent: 5 })),
+    ]);
+    render(<ClipsPage />);
+    const user = await selectRow(/^Night of the Living Dead/);
+
+    await user.click(await within(panel()).findByRole("button", { name: "ถอดใหม่" }));
+
+    expect(confirm).toHaveBeenCalledWith("ถอดใหม่จะลบบทพูดที่แก้ไว้");
+    expect(await within(panel()).findByText("กำลังเตรียมเสียง…")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/spoil/transcriptions",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ clip_id: NIGHT.id, confirm_edit_loss: true }) }),
+    );
+  });
+
+  it("sends nothing more when that confirm is cancelled", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => false));
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED_NIGHT]),
+      transcript(NIGHT_TRANSCRIPT),
+      postTranscription({ code: "has_edits", message: "ถอดใหม่จะลบบทพูดที่แก้ไว้" }, 409),
+    ]);
+    render(<ClipsPage />);
+    const user = await selectRow(/^Night of the Living Dead/);
+
+    await user.click(await within(panel()).findByRole("button", { name: "ถอดใหม่" }));
+
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    expect(within(panel()).getByText("คลิปนี้ถอดแล้ว")).toBeInTheDocument();
+  });
+});
+
+describe("บรรยายฉาก on a clip row (spoil-maker D16, D45)", () => {
+  const TRANSCRIBED = clipOf({ transcribed: true });
+
+  function describeJobOf(change: Partial<DescribeJob>): DescribeJob {
+    return {
+      kind: "describe",
+      state: "cutting",
+      clip_id: TRANSCRIBED.id,
+      percent: 0,
+      done: null,
+      total: null,
+      error: null,
+      cancel_requested: false,
+      started_at: "2026-11-02T10:00:00+07:00",
+      ...change,
+    };
+  }
+
+  const row = () => screen.getByRole("listitem", { name: TRANSCRIBED.title });
+
+  it("offers บรรยายฉาก only on a transcribed clip", async () => {
+    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED, MOON])]);
+    render(<ClipsPage />);
+
+    expect(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" })).toBeEnabled();
+    expect(within(screen.getByRole("listitem", { name: MOON.title })).queryByRole("button", { name: "บรรยายฉาก" })).toBeNull();
+  });
+
+  it("says under บรรยายฉาก what it does (spoil-maker D58)", async () => {
+    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED])]);
+    render(<ClipsPage />);
+
+    const button = await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" });
+    expect(button).toHaveAccessibleDescription("ให้ AI เขียนว่าแต่ละฉากมีภาพอะไร ใช้ตอนร่างบทสปอย");
+  });
+
+  it("posts the clip, shows 40%, then บรรยายฉากแล้ว", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED]),
+      clips([{ ...TRANSCRIBED, described: true }]),
+      describing(null),
+      postDescribe(describeJobOf({})),
+      describing(describeJobOf({ state: "describing", percent: null, done: 40, total: 100 })),
+      describing(describeJobOf({ state: "done", percent: null, done: 100, total: 100 })),
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
+    await nextPoll();
+
+    expect(within(row()).getByText("40%")).toBeInTheDocument();
+    expect(within(row()).getByText("กำลังบรรยายฉาก")).toBeInTheDocument();
+    const posted = fetchMock.mock.calls.find(([input, init]) => String(input) === "/api/spoil-maker/describes" && init?.method === "POST");
+    expect(JSON.parse(String(posted![1]!.body))).toEqual({ clip_id: TRANSCRIBED.id });
+
+    await nextPoll();
+
+    expect(await within(row()).findByText("บรรยายฉากแล้ว")).toBeInTheDocument();
+    expect(within(row()).queryByText("กำลังบรรยายฉาก")).toBeNull();
+  });
+
+  it("sends DELETE on ยกเลิก", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED]),
+      describing(describeJobOf({ state: "describing", percent: null, done: 3, total: 10 })),
+      { method: "DELETE", path: DESCRIBE_PATH, reply: () => jsonResponse(describeJobOf({ state: "describing", cancel_requested: true })) },
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "ยกเลิก" }));
+
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input) === DESCRIBE_PATH && init?.method === "DELETE")).toBe(true);
+  });
+
+  it("names the running job from 409 gpu_busy: รอให้งานถอดบทพูดเสร็จก่อน", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED]),
+      postDescribe({ code: "gpu_busy", message: "GPU busy", running: "transcribe" }, 409),
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
+
+    expect(await within(row()).findByText("รอให้งานถอดบทพูดเสร็จก่อน")).toBeInTheDocument();
+  });
+
+  it("disables บรรยายฉาก with the reason while a transcription runs", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED, NIGHT]),
+      transcription(transcribeJobOf({ clip_id: NIGHT.id, state: "transcribing", percent: 10 })),
+    ]);
+    render(<ClipsPage />);
+
+    const button = await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" });
+
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription("รอให้งานถอดบทพูดเสร็จก่อน");
+  });
+
+  it("disables บรรยายฉาก on other clips while one is described", async () => {
+    const other = clipOf({ id: "aaaaaaaaaaa", title: "Another clip", transcribed: true });
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED, other]),
+      describing(describeJobOf({ state: "describing", percent: null, done: 1, total: 10 })),
+    ]);
+    render(<ClipsPage />);
+
+    const button = await within(await screen.findByRole("listitem", { name: "Another clip" })).findByRole("button", { name: "บรรยายฉาก" });
+
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription("รอให้งานบรรยายฉากเสร็จก่อน");
+  });
+
+  it("asks before describing a described clip again, with focus on บรรยายฉากใหม่", async () => {
+    const described = { ...TRANSCRIBED, described: true };
+    backend([status(READY_ITEMS), current(null), clips([described]), postDescribe(describeJobOf({}))]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
+
+    expect(within(row()).getByText("บรรยายฉากคลิปนี้ใหม่?")).toBeInTheDocument();
+    expect(within(row()).getByText("ผลเดิมจะถูกแทนที่เมื่อบรรยายฉากเสร็จ")).toBeInTheDocument();
+    expect(within(row()).getByRole("button", { name: "บรรยายฉากใหม่" })).toHaveFocus();
+    const posts = () => fetchMock.mock.calls.filter(([, init]) => init?.method === "POST").length;
+    expect(posts()).toBe(0);
+
+    await user.click(within(row()).getByRole("button", { name: "บรรยายฉากใหม่" }));
+
+    expect(posts()).toBe(1);
+  });
+
+  it("sends nothing when that ask is cancelled", async () => {
+    backend([status(READY_ITEMS), current(null), clips([{ ...TRANSCRIBED, described: true }])]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
+    await user.click(within(row()).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(within(row()).queryByText("บรรยายฉากคลิปนี้ใหม่?")).toBeNull();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  });
+
+  it("says งานหยุดกลางทาง when the job fails in the model, and offers บรรยายฉาก again", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED]),
+      describing(describeJobOf({ state: "describing", percent: null, done: 1, total: 10 })),
+      describing(describeJobOf({ state: "failed", error: { code: "model_failed", message: "บรรยายฉากไม่สำเร็จ: x" } })),
+    ]);
+    render(<ClipsPage />);
+
+    await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByText("กำลังบรรยายฉาก");
+    await nextPoll();
+
+    expect(await within(row()).findByText("งานหยุดกลางทาง")).toBeInTheDocument();
+    expect(within(row()).getByRole("button", { name: "บรรยายฉาก" })).toBeEnabled();
+  });
+
+  it("says what is missing and links to ติดตั้ง on 503 not_ready", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED]),
+      postDescribe({ code: "not_ready", message: "ยังติดตั้งไม่ครบ: Qwen3.5 9B model", rows: ["model_qwen"] }, 503),
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await within(await screen.findByRole("listitem", { name: TRANSCRIBED.title })).findByRole("button", { name: "บรรยายฉาก" }));
+
+    expect(await within(row()).findByText("ยังติดตั้งไม่ครบ: Qwen3.5 9B model")).toBeInTheDocument();
+    expect(within(row()).getByRole("link", { name: "ไปหน้าติดตั้ง" })).toHaveAttribute("href", "#/setup");
+  });
+
+  it("shows clip_busy under the row when the clip being described is deleted", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED]),
+      describing(describeJobOf({ state: "describing", percent: null, done: 1, total: 10 })),
+      deleteClip(TRANSCRIBED.id, () => jsonResponse({ code: "clip_busy", message: "คลิปนี้กำลังถูกใช้ในงานอื่น" }, 409)),
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await screen.findByRole("button", { name: `ลบ ${TRANSCRIBED.title}` }));
+
+    expect(await within(row()).findByText("คลิปนี้กำลังถูกใช้ในงานอื่น")).toBeInTheDocument();
+  });
+
+  it("says รอให้งานบรรยายฉากเสร็จก่อน in the panel when ถอดบทพูด meets 409 gpu_busy", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([MOON]),
+      postTranscription({ code: "gpu_busy", message: "GPU busy", running: "describe" }, 409),
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await screen.findByText(MOON.title));
+    await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
+
+    expect(await within(panel()).findByText("รอให้งานบรรยายฉากเสร็จก่อน")).toBeInTheDocument();
+  });
+});
+
+describe("a clip in the Spoil draft (spoil-maker D29, D49)", () => {
+  const IN_DRAFT = clipOf({ transcribed: true, described: true, in_draft: true });
+  const WARNING = "คลิปนี้อยู่ใน Spoil draft: ทำต่อจะลบ Spoil draft";
+  const row = () => screen.getByRole("listitem", { name: IN_DRAFT.title });
+  const sentWith = (method: string) => fetchMock.mock.calls.filter(([, init]) => init?.method === method);
+
+  async function openList() {
+    render(<ClipsPage />);
+    await screen.findByRole("listitem", { name: IN_DRAFT.title });
+    return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  }
+
+  it("ลบ warns in the row first, then ทำต่อ deletes it", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    backend([status(READY_ITEMS), current(null), clips([IN_DRAFT]), deleteClip(IN_DRAFT.id, () => new Response(null, { status: 204 }))]);
+    const user = await openList();
+
+    await user.click(within(row()).getByRole("button", { name: `ลบ ${IN_DRAFT.title}` }));
+
+    expect(within(row()).getByText(WARNING)).toBeInTheDocument();
+    expect(within(row()).getByRole("button", { name: "ทำต่อ" })).toHaveFocus();
+    expect(sentWith("DELETE")).toHaveLength(0);
+    expect(confirm).not.toHaveBeenCalled();
+    await user.click(within(row()).getByRole("button", { name: "ทำต่อ" }));
+
+    expect(sentWith("DELETE")).toHaveLength(1);
+  });
+
+  it("ยกเลิก on that warning deletes nothing", async () => {
+    backend([status(READY_ITEMS), current(null), clips([IN_DRAFT])]);
+    const user = await openList();
+
+    await user.click(within(row()).getByRole("button", { name: `ลบ ${IN_DRAFT.title}` }));
+    await user.click(within(row()).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(within(row()).queryByText(WARNING)).toBeNull();
+    expect(sentWith("DELETE")).toHaveLength(0);
+  });
+
+  it("บรรยายฉาก again warns, then ทำต่อ sends confirm_draft_loss", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([IN_DRAFT]),
+      postDescribe({ kind: "describe", state: "cutting", clip_id: IN_DRAFT.id, percent: 0, done: null, total: null, error: null, cancel_requested: false, started_at: "2026-11-02T10:00:00+07:00" }),
+    ]);
+    const user = await openList();
+
+    await user.click(within(row()).getByRole("button", { name: "บรรยายฉาก" }));
+
+    expect(within(row()).getByText(WARNING)).toBeInTheDocument();
+    expect(sentWith("POST")).toHaveLength(0);
+    await user.click(within(row()).getByRole("button", { name: "ทำต่อ" }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/spoil-maker/describes",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ clip_id: IN_DRAFT.id, confirm_draft_loss: true }) }),
+    );
+  });
+
+  it("ถอดใหม่ warns in the panel before sending, then ทำต่อ sends confirm_draft_loss", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([IN_DRAFT]),
+      transcript({ ...NIGHT_TRANSCRIPT, clip_id: IN_DRAFT.id }),
+      postTranscription(transcribeJobOf({ clip_id: IN_DRAFT.id })),
+      transcription(null),
+      transcription(transcribeJobOf({ clip_id: IN_DRAFT.id, state: "transcribing", percent: 5 })),
+    ]);
+    const user = await openList();
+    await user.click(within(row()).getAllByRole("button")[0]);
+
+    await user.click(await within(panel()).findByRole("button", { name: "ถอดใหม่" }));
+
+    expect(within(panel()).getByText(WARNING)).toBeInTheDocument();
+    expect(sentWith("POST")).toHaveLength(0);
+    await user.click(within(panel()).getByRole("button", { name: "ทำต่อ" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/spoil/transcriptions",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ clip_id: IN_DRAFT.id, confirm_draft_loss: true }) }),
+    );
+  });
+
+  it("ถอดใหม่ sends nothing when the warning is cancelled", async () => {
+    backend([status(READY_ITEMS), current(null), clips([IN_DRAFT]), transcript({ ...NIGHT_TRANSCRIPT, clip_id: IN_DRAFT.id })]);
+    const user = await openList();
+    await user.click(within(row()).getAllByRole("button")[0]);
+
+    await user.click(await within(panel()).findByRole("button", { name: "ถอดใหม่" }));
+    await user.click(within(panel()).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(sentWith("POST")).toHaveLength(0);
+    expect(within(panel()).getByRole("button", { name: "ถอดใหม่" })).toBeInTheDocument();
   });
 });

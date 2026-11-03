@@ -10,7 +10,7 @@
 - เป็น change request ของ spoil — spec ของ spoil ใหญ่ขึ้นมากจนอ่านยาก
 - ชื่อ `spoil-cut`, `auto-edit`, `spoil-short`, `narrated-cut` — ผู้ใช้เลือก `spoil-maker`
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by D53
 
 ## D2: ทุกอย่างต้องฟรี
 
@@ -648,7 +648,7 @@
 
 **Sources:** [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
 
-**From:** interview · **Status:** changed by D51
+**From:** interview · **Status:** changed by D51, D64
 
 ## D42: ผล render เก็บทุกครั้งใน media/ มีรายการให้เล่น โหลด และลบ
 
@@ -818,6 +818,246 @@
 **Accepted risk:** คลิปที่เผยแพร่อาจละเมิดลิขสิทธิ์ของเจ้าของต้นฉบับ. ผู้ใช้เป็นคนเผยแพร่เอง แอปจบที่ไฟล์ (D10) และใช้แบบไม่หารายได้ (D3); ความเสี่ยงชุดเดียวกับที่รับไว้ใน spoil D13.
 
 **From:** gate · **Status:** active
+
+## D53: แอปมี 3 tab "ติดตั้ง" · "คลิป" · "สปอย"; tab สปอยเป็น 3 ขั้น
+
+**Chosen:** แถบ tab ด้านบนของแอปมี 3 tab ตามลำดับ:
+- **ติดตั้ง** (`#/setup`): หน้า Setup status เดิม
+- **คลิป** (`#/clips`): ช่องลิงก์กับแถบโหลด, รายการ Temp clip, ถอดบทพูด, ดูภาพ, Transcript ที่แก้ได้ (D54)
+- **สปอย** (`#/spoil`): ตัวบอกขั้นด้านบน 1 เลือกคลิป (`#/spoil`) → 2 ตรวจแก้บท (`#/spoil/review`) → 3 ผล render (`#/spoil/renders`); กดตัวบอกขั้นเพื่อย้ายขั้นได้; ตัวเลือก Shot เปิดเป็น overlay บนขั้น 2
+
+คลิปที่เลือกไม่ได้ในขั้น 1 มีปุ่ม "ไปถอด" หรือ "ไปดูภาพ" ที่พาไป tab คลิป. ไม่มี hash หรือ hash ไม่รู้จัก → เปิด tab ติดตั้ง เหมือนเดิม.
+
+**Details:**
+- **ติดตั้งไม่ครบ:** แต่ละ tab เช็คเฉพาะแถว Status check ที่ตัวเองใช้ แล้วแสดงข้อความพร้อมลิงก์ "ไปหน้าติดตั้ง" (`#/setup`) แทนส่วนที่ใช้ไม่ได้: tab คลิปเช็คแถวของการโหลดและถอด (spoil D9), tab สปอยเช็คแถวของร่างบท เสียง และ render (Status check ของ spoil-maker)
+- **หน้า tab คลิป:** สองคอลัมน์แบบเดิมของ tab สปอย (spoil D25, D33, D34): จอกว้าง ≥1024 ช่องลิงก์และรายการคลิปซ้าย ลูกศร กล่อง player กับ Transcript ขวา; จอแคบเรียงบนลงล่าง
+
+**Why:** ผู้ใช้บอกว่าหน้าเดิมเข้าลึกหลายขั้นจนใช้ยาก (6 หน้า กดราว 15 ครั้งกว่าจะได้ผล render) และอยากแยกตามงาน: ติดตั้ง, จัดการคลิป, ทำสปอย. ผู้ใช้ขอชื่อ tab สั้นที่สื่อ.
+
+**Rejected:**
+- 2 หน้า โดยโหลด ถอด และดูภาพต่อกันเอง — ผู้ใช้เลือกแยก 3 tab
+- ชื่อ "Setup" · "Clip storage" · "Spoil" — ผู้ใช้ขอชื่อสั้นกว่าและสื่อกว่า
+
+**Changes:** spoil D10 (2 tab "สปอย" และ "Setup status"); D1 ส่วนที่ว่า Describe อยู่ใน tab สปอย — ปุ่มดูภาพย้ายไป tab คลิป.
+
+**From:** design review · **Status:** active
+
+## D54: แก้ข้อความ Transcript ทีละบรรทัดใน tab คลิป
+
+**Chosen:** ในกล่อง Transcript ของ tab คลิป ชี้ที่บรรทัดแล้วกด "แก้" → บรรทัดนั้นเป็นช่องพิมพ์พร้อม "บันทึก" และ "ยกเลิก"; บรรทัดที่แก้แล้วมีป้าย "แก้แล้ว". แก้ได้เฉพาะข้อความ: เวลา จำนวนบรรทัด และลำดับไม่เปลี่ยน. `.txt`, `.srt`, token (D46) และ Draft job ใช้ข้อความที่แก้.
+
+**Why:** ผู้ใช้ต้องแก้บทพูดที่ Whisper ถอดผิดได้ในหน้านี้ ก่อนให้ AI เขียนบทจากมัน.
+
+**Rejected:**
+- แยก รวม หรือแก้เวลาของบรรทัด — `refs[].line` ของ Spoil draft อ้างบรรทัดด้วย index; ผู้ใช้ขอแค่แก้ประโยค
+
+**Details:**
+- เก็บ `edited: true` ในบรรทัดของ `{id}.transcript.json`; ไม่เก็บข้อความเดิม
+- ถอดใหม่ของคลิปที่มีบรรทัด `edited`: ยืนยันก่อน "ถอดใหม่จะลบบทพูดที่แก้ไว้"; ยืนยันแล้วทับบรรทัดที่แก้ทั้งหมด
+- ช่องพิมพ์ว่างหลังตัดช่องว่าง → "บันทึก" กดไม่ได้
+- ระหว่าง Draft job ที่ใช้คลิปนั้น แก้ไม่ได้: `409` `clip_busy`; คลิปที่อยู่ใน Spoil draft แก้ได้ บรรทัดที่บทอ้างแสดงข้อความใหม่
+
+**Rejected (ผู้ใช้เลือก):**
+- ห้ามแก้คลิปที่อยู่ใน Spoil draft ด้วย — แก้คำผิดไม่ทำให้บทพัง
+- ถอดใหม่ทับโดยไม่ถาม หรือปิดปุ่มถอดใหม่ — ผู้ใช้เลือกให้ยืนยันก่อน
+
+**From:** design review · **Status:** active
+
+## D55: ทางเลือกเล็กตอน build แถบ 3 tab และแก้ Transcript
+
+**Chosen:** รายละเอียดที่ build ticket 00 ตัดสินเองจาก conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **ชื่อในโค้ด:** หน้าของ tab คลิปคือ `ClipsPage` (เดิม `SpoilPage`) ยังอยู่ใน `features/spoil`; tab สปอยคือ `features/spoil-maker` (`SpoilMakerPage`, `SpoilSteps`). `lib/useHashTab.ts` เปลี่ยนเป็น `lib/useHash.ts` (`useHash()`, `tabOf`) ให้ทั้งแถบ tab และ tab สปอยอ่าน hash เดียวกัน
+- **hash ใต้ `#/spoil/` ที่ไม่รู้จัก:** เปิด tab สปอยที่ขั้น 1; `#/spoil/voices` ให้ ticket 02 ตัดสิน
+- **เนื้อหาของแต่ละขั้น:** ใน ticket นี้ใต้ตัวบอกขั้นยังว่าง; ticket 03 และ 04 ใส่
+- **ลิงก์ติดตั้งไม่ครบ:** ข้อความเป็น "ไปหน้าติดตั้ง" ทั้งของงานโหลดและงานถอด
+- **`clip_busy` ของการแก้บรรทัด:** `backend.spoil.transcribe.clip_users` เป็นรายการ check ที่งานของ feature อื่นใส่ไว้ (Draft job ใน ticket 03); test ของ ticket นี้ใช้ check ปลอม
+- **`n` ของบรรทัด:** รับเป็นข้อความแล้วแปลงเอง เพื่อให้ `x` และ `-1` เป็น `404` ไม่ใช่ `422`
+- **ลำดับการเช็คของ `PATCH`:** ข้อความว่าง `400` → คลิปหรือ Transcript หรือบรรทัดไม่มี `404` → `transcribing` → `clip_busy`; `has_edits` ของ `POST /transcriptions` อยู่หลัง `busy`
+- **`PATCH` ต้องเป็น JSON:** `require_json` ครอบ `PATCH` ด้วย (ADR-0013) ไม่รอ router ของ spoil-maker
+- **ปุ่ม "แก้":** ซ่อนจนชี้หรือ focus บรรทัด; จอสัมผัส (`pointer: coarse`) ไม่มี hover จึงแสดงตลอด — ต่างจาก frame มือถือที่แสดงบรรทัดแบบ default
+- **บรรทัดเดียวเสมอ:** backend รวมช่องว่างและขึ้นบรรทัดใหม่ในข้อความเป็นช่องว่างเดียว — ขึ้นบรรทัดใหม่จะเพิ่มบรรทัดใน `.txt` และแบ่ง cue ของ `.srt`
+- **ช่องแก้:** `textarea` บรรทัดเดียวที่ยืดตามข้อความ; Enter (กด Shift ด้วยก็ได้) = บันทึก, Escape = ยกเลิก; แก้ได้ทีละบรรทัด เปิดบรรทัดอื่นหรือเลือกคลิปอื่นทิ้งข้อความที่ยังไม่บันทึก
+- **error ของการบันทึก:** `400`, `404`, `409` แสดง `message` ของ backend ใต้ช่องและช่องยังเปิดอยู่ ข้อความที่พิมพ์ไม่หาย (`message` ของ `clip_busy` คือข้อความในตาราง Frontend); status อื่นเป็น offline
+- **ยืนยันถอดใหม่:** `window.confirm` ด้วย `message` ของ `409` `has_edits` ("ถอดใหม่จะลบบทพูดที่แก้ไว้") แบบเดียวกับยืนยันลบคลิป
+
+**Why:** อยู่ในขอบของ D53 และ D54 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบที่โค้ดเดิมใช้ (confirm ของการลบ, refusal เป็นคำตอบ, gate ของ route).
+
+**From:** build ticket 00 · **Status:** active
+
+## D56: ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และบรรยายฉาก
+
+**Chosen:** รายละเอียดที่ build ticket 01 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **แถว Status check:** `model_qwen` และ `mlx_vlm` ต่อท้ายหลัง `device` (spec › Status check "ต่อจากแถวเดิม"); `mlx_vlm` เช็คว่าหา package เจอ (`find_spec`) และ version ใน metadata ตรง `0.7.11` แทน import จริง เพราะ import แล้ว transformers ถูกโหลด (Status check ห้ามโหลด) — เป็น probe `Probes.mlx_vlm` ให้ test ปลอมได้; OS มาจาก `checks.this_platform()` ที่ test สลับเป็น `darwin` ใน `fake_root` จึงรัน test เดียวกันได้บน Windows (ADR-0016); นอก `QWEN.platforms` ทั้งสองแถวเป็น `missing` มี fix เป็น hint "ใช้ได้บน Mac เท่านั้น"
+- **`ModelSpec.platforms`:** ค่าเป็น `sys.platform` (`darwin`, `win32`); Setup script ข้ามโมเดลที่ไม่รองรับ OS นั้น; ที่ว่างดิสก์ที่ Setup script ต้องการบน Mac ขึ้นจาก 15 เป็น 20 GB (3 โมเดลรวมราว 11 GB), Windows ยัง 15 GB
+- **`not_ready` มี `rows`:** id ของแถวที่ไม่ผ่าน (`model_qwen`) ส่วน `message` เรียกด้วยชื่อแถว ทุก gate ของทั้ง spoil และ spoil-maker
+- **โค้ดที่ใช้ร่วม:** `SpoilError` ย้ายเป็น `backend.errors.ApiError` (พร้อม `JobFailed`, `require_rows`, handler); `JobSlot` และตัวช่วยของ process ลูก (`next_message`, `stop_process`) ย้ายเป็น `backend.jobs` — ใช้ทั้ง spoil และ spoil-maker (กฎ "ผู้ใช้คนที่สอง" ของ conventions)
+- **ช่อง GPU:** `backend.gpu.GpuSlot` จำงานที่ถือช่องกับ id ของคลิปที่งานนั้นอ่าน; `clip_untouched` ถือ lock ของช่องตลอดการลบคลิป จึงไม่มีงานเริ่มแทรกระหว่างเช็คกับลบ; งานคืนช่องก่อนตั้ง state จบ ให้งานที่เริ่มหลังเห็น state จบไม่เจอ `gpu_busy`
+- **ลำดับการเช็ค:** `POST /transcriptions` gate → `404` → `busy` → `has_edits` → `gpu_busy`; `POST /describes` `404` → gate → `busy` → `gpu_busy` (ตาม spec › Describe job ข้อ 1–2) แล้วดูคลิปอีกครั้งหลังจองช่อง
+- **ไฟล์ของ module:** `spoil_maker.shots` รูปไฟล์ Shot, `plan_shots`, `is_described` (ไม่รู้จักงาน: `spoil.clips` อ่านจากที่นี่); `describe` Describe job และการอ่าน Shot ของ API; `frames` ffmpeg (`find_cuts`, `extract_frame`); `llm` process ลูกของ mlx-vlm ที่รับ `Generate` (prompt, ภาพหนึ่งภาพหรือไม่มี) ใช้ต่อใน Draft job
+- **ลำดับต่อ Shot:** thread ของ backend ดึงเฟรม Shot `n` แล้วส่งให้ process ลูก รอคำตอบ แล้วจึง Shot ถัดไป; process ลูกโหลดโมเดลครั้งเดียวแล้วส่ง `Ready`; การโหลดไม่มี timeout, ต่อ Shot 60 วินาที
+- **ภาพเล็ก:** ffmpeg ถอดเฟรมครั้งเดียวแล้วเขียนทั้งเฟรมให้ LLM (`-q:v 2`) และ 320 (`-q:v 5`) — คุณภาพ JPEG ของ ffmpeg เป็นสเกล 2–31 ไม่ใช่ 0–100, `5` ใกล้คุณภาพ 80; ไม่เพิ่ม package ใหม่ (Pillow จะต้องมีแถว Status check ตาม ADR-0009)
+- **% ของ `cutting`:** ffmpeg แยกอีกสาย `fps=1` ที่บอกว่าอ่านถึงวินาทีไหน แล้วเทียบ `duration_s` ของคลิป — filter `select` ทิ้งเฟรมระหว่างจุดตัดจึงบอกความคืบหน้าเองไม่ได้
+- **path ที่ไม่มี route:** ตอบ `404` `not_found` ทั้งแอป — Starlette ถอด `%2F` ก่อนเลือก route จึงไม่ถึง route ของคลิป
+- **log ของงาน:** เริ่ม, จบ (state, error code) และเวลาเป็นวินาที ไม่มี Shot description (spec › Ops)
+- **หน้าเว็บ:** ปุ่มดูภาพมีเฉพาะคลิปที่ถอดแล้ว (Figma); ระหว่าง `cutting` แสดง "กำลังหาจุดตัดภาพ" กับ % ของมัน, ระหว่าง `describing` "กำลังดูภาพ" กับ Shot ที่เสร็จ / ทั้งหมด; ยืนยันดูภาพใหม่เป็นกล่องในแถวตาม Figma ไม่ใช่ `window.confirm`; เหตุผลที่ปุ่มกดไม่ได้มาจากงานถอดและงานดูภาพที่หน้าเว็บรู้ และ `gpu_busy` แปลง `running` เป็นข้อความเองตามตาราง Frontend; `not_ready` แสดงข้อความใต้แถวพร้อมลิงก์ "ไปหน้าติดตั้ง"; `failed` `crashed`/`model_failed` แสดง "งานหยุดกลางทาง", `cancelled` ไม่แสดงอะไร; `gpu_busy`/`clip_busy` ของปุ่มถอดบทพูดขึ้นในกล่องถอด, `clip_busy` ของการลบขึ้นใต้แถว
+- **ข้อความท้าย error ของงาน GPU:** `gpu.ADVICE` ที่เดียว ใช้ทั้งงานถอดและงานดูภาพ; แถบ % ของงานโหลด/ถอดและงานดูภาพเป็น component เดียว `ProgressBar` ใน `features/spoil`
+- **คลิปทดสอบ:** สีแดง ขาว น้ำเงิน — แดงไปเขียวความสว่างใกล้กันจน scene filter ไม่นับเป็นจุดตัด
+
+**Why:** อยู่ในขอบของ spec และ D13–D17, D45, D49–D51 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบของ Transcribe job (thread + process ลูก + queue) และ gate เดิม.
+
+**From:** build ticket 01 · **Status:** active
+
+## D57: เฟรมที่ให้ Qwen บรรยายกว้าง 448 ไม่ใช่ 640
+
+**Chosen:** Describe job ส่งเฟรมกลางของ Shot กว้าง 448 ให้ Qwen (spec › Describe job ข้อ 5–7 เดิม 640).
+
+**Why:** เช็คมือบน M2 (Seam 3) ด้วยหนัง 96 นาที 840 Shot: เฟรม 640 ใช้ราว 64 นาที (4.5 วินาที/Shot, prompt 248 token) เกินเป้า 60 นาที; เฟรม 448 ใช้ 52.7 นาที (3.2 วินาที/Shot, prompt 140 token) และสุ่ม 10 Shot ตรงภาพ 9 ทั้งสองขนาด. ผู้ใช้เลือก.
+
+**Rejected:**
+- คง 640 แล้วขยายเป้าเป็น 65 นาที — ช้ากว่าที่ spec สัญญา
+- ลด `max_tokens` — คำบรรยายยาวราว 30 token อยู่แล้ว ไม่เร็วขึ้น
+
+**From:** build ticket 01 · **Status:** active
+
+## D58: ปุ่ม "ดูภาพ" เปลี่ยนเป็น "บรรยายฉาก" พร้อมบรรทัดอธิบาย
+
+**Chosen:** คำบนจอของ Describe job เปลี่ยนจาก "ดูภาพ" เป็น "บรรยายฉาก" ทุกที่ (ปุ่ม, ป้าย "บรรยายฉากแล้ว", คำยืนยันทำใหม่, ข้อความ error และ `gpu_busy`); ขั้น `cutting` บอก "กำลังแบ่งฉาก" แทน "กำลังหาจุดตัดภาพ"; ใต้ปุ่มมีบรรทัด "ให้ AI เขียนว่าแต่ละฉากมีภาพอะไร ใช้ตอนร่างบทสปอย" ซึ่งเป็น accessible description ของปุ่ม และถูกแทนด้วยเหตุผลเมื่อมีงาน GPU อื่น. ชื่อในโค้ดและ API (`describe`, Shot) ไม่เปลี่ยน.
+
+**Why:** ผู้ใช้ลองแล้วไม่เข้าใจว่า "ดูภาพ" ทำอะไร: ฟังเหมือนเปิดดูรูปเอง ไม่บอกว่า AI เขียนคำบรรยาย และไม่บอกว่าผลไว้ใช้ตอนร่างบท. ผู้ใช้เลือก.
+
+**Rejected:**
+- "อ่านภาพในคลิป" — คู่กับ "ถอดบทพูด" แต่ยังไม่บอกว่าได้คำบรรยาย
+- คง "ดูภาพ" แล้วเพิ่มแค่บรรทัดอธิบาย — คำบนปุ่มยังกำกวม
+
+**From:** ผู้ใช้หลัง build ticket 01 · **Status:** active
+
+## D59: ทางเลือกเล็กตอน build Saved voice
+
+**Chosen:** รายละเอียดที่ build ticket 02 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **env ของ pythainlp:** ตั้ง `PYTHAINLP_DATA` (ไม่ใช่ `PYTHAINLP_DATA_DIR` ที่ spec เขียน) และ `PYTHAINLP_OFFLINE=1` ใน `thai.words` ก่อน import — 5.4.0 เลิกใช้ `PYTHAINLP_DATA_DIR` แล้ว (เตือนทุกครั้ง, ตั้งคู่กันล้ม) ผลเหมือนกัน: ข้อมูลอยู่ใน `models/pythainlp/` (docs/library-notes/pythainlp.md); spec › Library assumptions แก้ตาม
+- **แถว `pythainlp`:** ต่อท้ายหลัง `mlx_vlm` (แถวที่ 14), เช็คจาก metadata + `find_spec` ผ่าน probe `Probes.pythainlp` แบบเดียวกับ mlx-vlm ไม่ import จริง (import สร้าง folder ข้อมูล); ทั้ง Mac และ Windows; `check_pinned` ใช้ร่วมกับ `mlx_vlm`
+- **นับตัวอักษร:** ทุกตัวที่ไม่ใช่ช่องว่างและไม่อยู่ใน Unicode category `P*` รวมสระบนล่างและวรรณยุกต์ ตามที่ tts-trial นับ (D35)
+- **ตัวเลข:** `1000001` → `หนึ่งล้านเอ็ด` (เลขหน่วยของกลุ่มล่างสุดเป็น `เอ็ด` เมื่อกลุ่มบนไม่เป็นศูนย์); ชั่วโมงและนาทีอ่านเป็นจำนวนเต็ม (`9:05` → `เก้านาฬิกาห้านาที`); เลขหน้าจุดทศนิยมอ่านเป็นจำนวนเต็ม
+- **ประโยคล็อก:** voice design พูดประโยคตัวอย่างเดียวกับที่ใช้ฟัง (spec ไม่ระบุข้อความ) แล้วสร้าง clone prompt จากเสียงนั้น; ทั้งสองครั้ง `num_step` 16 (D37), ครั้งแรกไม่ตั้ง speed
+- **ไฟล์ผล:** process ลูกส่งเสียงเป็น PCM 16 บิตกับ clone prompt เป็น bytes (`VoiceClonePrompt.save` ลง `BytesIO`) — thread ของ backend เขียน `.wav` ด้วย `wave` ของ Python และ `.pt` เอง (ADR-0012); preview คือ `preview.wav`, `.pt`, `.json` ใน `.pending/` โดย `.json` เขียนท้ายสุดเป็นตัวบอกว่าครบ; ยกเลิกหรือล้มเก็บ preview เดิมไว้
+- **state ของ Voice job:** `voicing` แล้ว `done`, `failed`, `cancelled` — ชื่อเดียวกับช่วงเสียงของ Render job; `done`/`total` ว่างสำหรับ `design_preview`
+- **body ของ `POST /voice-jobs`:** module เช็คเอง; `kind` อื่นนอกจาก `design_preview`/`sentences` → `400` `invalid_request`; `sentences` ตอนนี้ตอบ `400` `invalid_request` เสมอเพราะยังไม่มี Spoil draft (ticket 04 ทำต่อ); speed ต้องอยู่บนสเกล 0.05 (`0.83` → `invalid_voice`)
+- **ช่อง GPU:** `gpu.Kind` เพิ่ม `voice` ชื่อบนจอ "สร้างเสียง" ทั้ง backend และ `lib/gpu.ts`; Voice job ไม่จองคลิป
+- **รายการเสียง:** ใหม่สุดก่อนตาม `created_at` แล้วเวลาที่เขียนไฟล์; `in_use` เป็น `false` เสมอจนมี Spoil draft; ลบไฟล์ `.pt`, `.wav` ก่อน `.json`
+- **หน้าเว็บ:** `#/spoil/voices` ไม่มีตัวบอกขั้น มีปุ่ม "กลับ" ไป `#/spoil` และหัว "เสียงบรรยาย" ตาม Figma; ค่าตั้งต้น ชาย, วัยหนุ่มสาว, ระดับเสียงกลาง, speed 1.00; ชื่อวัยและระดับเสียงเป็นไทย (เด็ก/วัยรุ่น/วัยหนุ่มสาว/วัยกลางคน/สูงอายุ, ต่ำมาก/ต่ำ/กลาง/สูง/สูงมาก); preview ที่หน้าเว็บรู้มาจาก current ที่ `done` (บันทึกที่อื่นแล้วจะได้ `no_preview` ตอนกดบันทึก ซึ่งหน้าเว็บแสดงแล้วซ่อนช่องชื่อ); สุ่มกดไม่ได้ระหว่างงานถอดหรืองานบรรยายฉากที่หน้าเว็บ poll ได้ ส่วน `gpu_busy` ของงานอื่นแสดงเหตุผลแต่กดได้; ฟังใช้ `new Audio(url)` พร้อม `?v={started_at}` ของ preview
+- **โค้ดใช้ร่วมหน้าเว็บ:** `lib/gpu.ts`, `lib/job.ts`, `lib/refusal.ts`, `lib/usePollWhile.ts` และ `components/ui/ProgressBar.tsx` ย้ายออกจาก `features/spoil` (ผู้ใช้คนที่สอง); `FakeLlm` ใน test กลายเป็น `FakeModel` ที่ `FakeTts` ใช้ด้วย
+- **NOTICE.md:** "should credit the model" เปลี่ยนเป็นแนะนำ ไม่บังคับ และบอกว่าแอปไม่ใส่เครดิตให้เอง (D41, ADR-0017)
+
+**Why:** อยู่ในขอบของ spec และ D32–D37, D43–D45, D48 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบของ Describe job (thread + process ลูก + queue) และ Figma Saved voice.
+
+**From:** build ticket 02 · **Status:** active
+
+## D60: ทางเลือกเล็กตอน build ร่างบทและหน้าตรวจแก้
+
+**Chosen:** รายละเอียดที่ build ticket 03 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **module:** ไฟล์ Spoil draft อยู่ใน `spoil_maker.draft_file` (อ่าน เขียน ลบ `made_from_clip` `drop_if_uses` `take_gpu_to_redo`) แยกจาก `spoil_maker.draft` (การแสดง การแก้ Draft job ตัวนับ token) และ `spoil_maker.script` (คำสั่งที่ส่ง Qwen กับการอ่านคำตอบ); `backend.clock` (`hh:mm:ss`) ใช้ร่วมกับ Transcript; `files.remove_unfinished` ล้าง `.tmp` ทั้ง `media/spoil-maker/` ตอน start — `backend.spoil` (ถอดใหม่ ลบคลิป `in_draft` ของรายการ) import `draft_file` ได้โดยไม่วนกลับมา `transcribe`; ตัวนับ token เป็น `spoil_maker.tokens` (import transformers ในฟังก์ชัน, โหลด tokenizer ครั้งแรกแล้วเก็บไว้, `local_files_only`, snapshot ไม่มี → error ไม่ใช้ network); `spoil_maker.settings` ticket นี้มีแค่อ่านกับเขียน `original_volume` และ `last_voice_id`; `PATCH /settings` และการเช็คลายน้ำมากับ ticket 04
+- **lock:** `gpu.slot.draft_lock` (RLock ใน `GpuSlot` จึงเปลี่ยนต่อ test ได้) ลำดับ lock ของ job slot → draft → ช่อง GPU; `GpuSlot.take(..., locks_draft=True)` บอกว่างานนั้นแก้ draft (`holds_draft` → `draft_locked`, `locked`); Draft job ทั้ง `draft` และ `pick` จองช่องเป็น `draft` ("ร่างบท") พร้อมคลิปทุกคลิปของงาน; `clip_users` ของ `transcribe` ถาม `gpu.slot.reads_clip("draft", id)`; ลบคลิปแล้วลบ draft นอก lock ของช่อง GPU (ลำดับ lock) แต่ใน lock ของงานถอด
+- **refactor:** `jobs.ModelJobSlot` รวม `cancel`, `stop_on_shutdown`, `_track`, `_finish` ของงานลูก 4 งาน (Transcribe, Describe, Voice, Draft) และ `_reply` ของ 3 งานที่ถามโมเดลทีละข้อความ (Describe, Voice, Draft) ตามที่ review ticket 01 และ 02 ทิ้งไว้
+- **ลำดับการเช็ค:** Draft job `draft`: `clip_not_ready` (ว่าง ซ้ำ ไม่ถอด ไม่บรรยายฉาก; id ที่ไม่รู้จักนับเป็นไม่พร้อม) → `invalid_request` → `invalid_target` → `voice_not_found` → `transcript_too_long` → `busy` → `draft_exists` → `not_ready` → `gpu_busy`; `pick`: `busy` → `no_draft` → `not_found` → `no_refs` → `not_ready` → `gpu_busy`; `kind` อื่น `invalid_request`; `GET /tokens` gate แถว `model_qwen` อย่างเดียว (ตัวนับใช้แค่ tokenizer) และ snapshot หายก็ `503` `not_ready` (spec › API แก้แล้ว), id ว่างหรือซ้ำ `clip_not_ready` ตามข้อ 1.1; Describe job: 404 → gate → `busy` → `in_draft` → `gpu_busy`; Transcribe job: gate → 404 → `busy` → `has_edits` → `in_draft` → `gpu_busy`
+- **ร่างบท:** คำสั่งเป็นภาษาอังกฤษ ให้ตอบไทย; ตรวจความยาวหลังทำความสะอาด; JSON ที่ไม่มี `sentences` หรือไม่เหลือประโยคเลย = อ่านไม่ได้; ประโยคที่ไม่ใช่ object หรือไม่มี `text` ถูกข้าม; ref ซ้ำเหลือหนึ่ง; `top_text` ตัดที่ 40 ตัวอักษรที่กินที่ และว่างใน layout B; ตอบเกิน timeout → terminate แล้วเริ่ม process ใหม่ตอนถามครั้งถัดไป
+- **เลือก Shot:** ต้องได้ 2 เลขที่อยู่ในช่วงทั้งคู่ ไม่งั้นใช้ 2 Shot ที่ใกล้เวลาเริ่มของ ref แรกที่สุด (ระยะถึงช่วงของ Shot, เสมอกันเอาที่เริ่มก่อน) เรียงตามเลข; Shot "ในช่วง" = ทับช่วง; ช่วงไม่มี Shot → `[null, null]`; `window.start` ไม่ติดลบ
+- **แก้ draft:** `PATCH /draft` เช็คค่าก่อน แล้ว `voice_not_found` → `no_draft` → `draft_locked`; `after_id` ที่ไม่มี → `400` `invalid_request`; ช่องของ `shots` เป็น `null` ได้; `top_text` และข้อความประโยครวมช่องว่างเป็นช่องเดียว; `estimated_s` เป็น `null` เมื่อ Saved voice ของ draft หายไป; ลบเสียงเช็ค `voice_in_use` ใต้ `draft_lock`; `drop_if_uses` อ่านไฟล์โดยไม่สนว่าคลิปยังอยู่ (คลิปที่เพิ่งลบหายไปก่อนแล้ว)
+- **หน้าเว็บ — ของใช้ร่วม:** `components/ui/Alert.tsx` (Figma `Alert` เดียวกับ `NoticeAlert`) พร้อม icon, `lib/clips.ts` (type `TempClip` + `in_draft`), `lib/format.ts`, `DESTRUCTIVE_BUTTON`, token สี `preview-blur` และ `preview-title` ของรูป layout
+- **หน้าเว็บ — ตั้งค่า:** ค่าตั้งต้นสไตล์ `drama` (Figma), เสียงตั้งต้น `last_voice_id` ถ้ายังมี ไม่งั้นเสียงใหม่สุด; นับ token เฉพาะคลิปที่เลือกและยังพร้อม; ลิงก์ "จัดการเสียง" ไป `#/spoil/voices` ข้างหัวข้อเสียงบรรยาย (ไม่มีใน Figma แต่ ticket 02 ให้มีทางไป); "ยังไม่บรรยายฉาก" / "ไปบรรยายฉาก" แทน "ดูภาพ" ของ Figma (D58); slider เป็น `input type=range`; เปิดหน้าตอนมีงานร่างอยู่ไม่รู้ว่าเลือกคลิปไหน (แสดงความคืบหน้าอย่างเดียว); ร่างเสร็จเปิด `#/spoil/review` เอง
+- **หน้าเว็บ — ตรวจแก้:** ticket นี้ทำคอลัมน์ซ้าย (บทและ Shot, กว้าง 744) ส่วนตั้งค่าวิดีโอ ฟัง สร้างเสียง และแถบ render มากับ ticket 04; ชื่อช่องข้อความบน "Hook" (A) "ชื่อตอน" (C) ไม่มีใน B; แทรกใต้ใส่ "ประโยคใหม่" แล้วเลือกข้อความไว้ให้พิมพ์ทับ (API ไม่รับประโยคว่าง); AI เลือก Shot ใหม่มีปุ่มยกเลิกในการ์ด (spec › Design; Figma ไม่มี); งานเลือกที่รันอยู่ก่อนเปิดหน้า (ไม่รู้ว่าประโยคไหน) แสดงความคืบหน้ากับยกเลิกเหนือรายการ; ตัวเลือก Shot เลือกทีละช่อง (ภาพที่กด) แล้วปิด; tooltip ของ Shot แสดงเมื่อชี้หรือ focus
+- **หน้าเว็บ — tab คลิป:** ลบและบรรยายฉากใหม่ของคลิปใน draft ใช้คำเตือนในแถวตาม Figma (ทำต่อ / ยกเลิก); ถอดใหม่ใช้คำเตือนเดียวกันในกล่องถอด (ปุ่มถอดอยู่ที่นั่น ไม่ใช่ในแถว); `in_draft` ที่ API ตอบเพราะรายการเก่า → บรรยายฉากแสดงข้อความและโหลดรายการใหม่, ถอดใหม่ถามด้วย `confirm` ของ browser แบบ `has_edits`
+
+**Why:** อยู่ในขอบของ spec และ D18, D19, D25–D30, D46, D49, D51 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบงานลูกเดิม (thread + process ลูก + queue), conventions และ Figma Spoiler setup, Script review, Shot picker, Clip row states.
+
+**From:** build ticket 03 · **Status:** active
+
+## D61: เลือก Shot ส่งให้ AI ไม่เกิน 40 Shot; บทเก็บ ref ประโยคละ 3; temperature ร่างบท 0.3
+
+**Chosen:** ข้อ 5.3 ของ Draft job ส่ง Shot ในช่วงให้ Qwen ไม่เกิน 40 Shot ที่ใกล้เวลาเริ่มของ ref แรกที่สุด (เรียงตามเลข); คำตอบที่ไม่อยู่ใน Shot ที่ส่งไปใช้ 2 Shot ที่ใกล้ที่สุดในนั้น. ช่วง (`window`) และตัวเลือก Shot ไม่เปลี่ยน. temperature ของร่างบทเป็น 0.3 (เดิม 0.7, spec › ค่าการสร้างข้อความ). คำสั่งร่างบทบอกกฎ (สไตล์ ความยาว จำนวนประโยค ตัวอักษรต่อประโยคไม่เกิน `1.2 × target_letters / จำนวนประโยค`, ref 1–3 ไม่อ้างเป็นช่วง, JSON) ทั้งก่อนและหลัง Transcript; ครั้งที่ 2–3 บอกเพิ่มว่าครั้งก่อนยาวหรือสั้นไปเท่าไร หรือไม่ได้ JSON ครบ; ประโยคเก็บ ref แค่ 3 ตัวแรกที่มีจริง; JSON ที่ขาดแค่ `}` ตัวสุดท้ายอ่านได้.
+
+**Why:** รันจริงบนหนัง 96 นาที (840 Shot): ประโยคที่อ้างบรรทัดห่างกันมากได้ช่วงเกือบทั้งเรื่อง ส่งหลายร้อย Shot ในคำสั่งเดียว เลือกเกิน 60 วินาที งานทั้งงาน `failed`. วัดบน M2: Qwen อ่านราว 0.4 วินาทีต่อ Shot (15 Shot 8 วินาที, 40 Shot 17 วินาที, 80 Shot 33 วินาที). ช่วงปกติ ±30 วินาทีมี 9–17 Shot จึงไม่ถูกตัด. จำกัดความยาววิดีโอไม่ช่วย: ref ห่างกัน 20 นาทีก็ยังเกิน. ร่างบทจริง 2 ครั้งแรกจาก 3 ได้ JSON ที่ถูกตัด: Qwen ใส่ `refs` ประโยคละ 20–60 id จนครบ `max_tokens` (Transcript ทั้งเรื่องราว 30k token อยู่หลังกฎ ทำให้ลืมกฎ); ref เป็นแถวยาวยังทำให้ช่วงกว้างทั้งเรื่อง. หลังย้ายกฎไปท้าย: JSON ครบทุกครั้ง แต่ยาวเกินเป้า 1.3–1.6 เท่าเมื่อบอก "ประมาณ" ตัวอักษรต่อประโยค; บอก "ไม่เกิน n" ได้ราว 0.77 n (838, 705, 631 จาก 918) จึงให้ที่ 1.2 เท่า: ครั้งแรกได้ 974 และ 887 (ครั้งหลังขาด `}` ท้าย) ราว 5.5 นาที. **temperature ร่างบท 0.7 → 0.3:** ครั้งแรกด้วย prompt เดียวกัน ค่าละ 3 ครั้ง (เป้า 918): 0.7 ผ่าน ~2/3 ยาว −31% ถึง +40%; 0.5 ผ่าน 2/3 (−1, +25, +42%); 0.3 ผ่าน 3/3 (−3, −19, −19%) ไม่วน และเล่าต่างกันทุกครั้ง; 0.1 ผ่าน 2/3 อีกครั้งเล่ายาว 46 ประโยคซ้ำครึ่งหนึ่งจนถูกตัด. ลองให้ที่ 1.35 เท่าที่ 0.3: −9, −14% แต่ครั้งหนึ่งเล่า 40 ประโยคแล้ววน จึงคง 1.2. รวมที่ 0.3 ครั้งแรกผ่าน 5 จาก 6; ครั้งที่วนนับเป็นไม่ผ่านแล้วสั่งใหม่ตามข้อ 3.
+
+**From:** build ticket 03 · **Status:** active
+
+## D62: ทางเลือกเล็กตอน build เสียงต่อประโยคและ render
+
+**Chosen:** รายละเอียดที่ build ticket 04 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **Kanit:** `backend.fonts` (ผู้ใช้สามที่: setup, Status check, Render job) โหลดด้วย `urllib` ใน setup เท่านั้น ตรวจ sha256 ก่อนเขียนไฟล์ marker `models/.setup/font_kanit` เป็น JSON `{files: {ชื่อ: sha256}}` เขียนท้ายสุด; แถว `font_kanit` "Kanit font" ต่อจาก `pythainlp` เทียบ marker กับค่าที่ pin และเช็คว่าไฟล์อยู่ (ไม่ hash ใหม่ทุกครั้ง); setup โหลดหลังโมเดล ก่อน `npm install`, ข้ามเมื่อแถว `ok`
+- **Voice job `sentences`:** ลำดับ `busy` → ไม่มี draft หรือ id ไม่อยู่ใน draft, ซ้ำ, ไม่ใช่ list → `400` `invalid_request` → Saved voice ของ draft หาย `400` `voice_not_found` → gate → `gpu_busy`; จองช่องเป็น `voice` พร้อมคลิปของ draft (`clip_busy`) และ `locks_draft=True` (`draft_locked`); ข้อความ `tts.Speak`/`Spoken` ส่ง clone prompt เป็น bytes ทุกประโยค; wav เขียนผ่าน `.tmp` แล้ว rename, `duration_s` ปัดถึงมิลลิวินาที; `voices.SentenceVoicer` เป็นฐานร่วมของ Voice job และ Render job; `GET /draft/sentences/{sid}/audio.wav` ไม่มีเสียง `404`
+- **ค่าที่จำไว้:** `PATCH /settings` ฟิลด์อื่นนอก `watermarks` `original_volume` → `400` `invalid_settings`; ข้อความลายน้ำรวมเป็นบรรทัดเดียว 1–40 ตัวอักษรที่กินที่; `thai.width` `thai.cut_width` ย้ายจาก `script` มา `thai` (ผู้ใช้ที่สาม); `.srt` ของ Transcript และของ render เขียนด้วย `backend.clock.srt` ตัวเดียว
+- **Render job:** ลำดับ `no_draft` → `missing_shots` → `disk_full` (ที่ว่างของ folder project) → `not_ready` → `busy` → `gpu_busy`; จองช่องเป็น `render` เฉพาะเมื่อมีประโยคขาดเสียง, อ่าน draft ที่จะ render ใต้ lock แล้วจึงคืนช่อง; ไฟล์กลาง `.render/{i}.mkv` (x264 `crf 12` `veryfast` + PCM) ต่อกันด้วย concat demuxer; จุดตัดของ Shot ปัดเป็นเฟรม 30 fps ของ timeline ทั้งคลิปจึงไม่เลื่อนสะสม; Shot ที่เริ่มหลังท้ายคลิป − 0.5 วินาทีเริ่มที่จุดนั้นแล้วค้างเฟรม; คลิปไม่มีเสียงหรือ `original_volume` 0 ใช้ `anullsrc`; เสียงบรรยายต่อกันด้วย `wave` ของ Python (OmniVoice ให้ rate เดียวกัน); `percent` 0–50 ตอนตัดชิ้น 50–100 ตอน encode; ชื่อซ้ำในวินาทีเดียวเลื่อนไปวินาทีถัดไป; ffmpeg รันใน `.render/` และอ้างไฟล์ด้วยชื่อเปล่า (ไม่ต้อง escape path ใน filter); `spoil_maker.ffmpeg` รวมตัวหา ffmpeg, kill เมื่อยกเลิก, อ่าน `ffmpeg -i` (ผู้ใช้ที่สอง: `frames`, `compose`)
+- **ข้อความบนวิดีโอ:** ASS หนึ่ง style ต่อชนิด (`Hook`, `Title`, `Sub`, `Mark`) ตำแหน่งด้วย `\an`+`\pos` ต่อบรรทัด; ลายน้ำทึบ 80% = alpha `&H33`; ซับ A อาจเป็นคำเดียวเมื่อคำถัดไปทำให้เกิน 15 ตัวอักษร (2–4 คำเมื่อทำได้); test ไฟล์ ASS เรียก `captions.ass_file` ตรง เพราะ `.render/` ถูกลบเมื่องานจบ; อ่าน draft, ทำ timeline และต่อเสียงบรรยายใต้ lock ของ draft ก่อนคืนช่อง GPU จึงไม่มีงานเสียงใดแทรกระหว่าง `rendering`; `thai.words` เก็บช่องว่างท้ายคำ ข้อความอังกฤษจึงไม่ติดกัน; `.srt` เวลาถึงมิลลิวินาที
+- **หน้าเว็บ — ตรวจแก้:** `ReviewFooter` (sticky) และ `VideoSettings` ตาม Figma; slider เสียงต้นฉบับบันทึกเองแบบช่องข้อความ (800 ms หรือปล่อย) ผ่าน `PATCH /draft`; เพิ่มลายน้ำใส่ "ลายน้ำ" ล่างขวา เล็ก แล้วเลือกข้อความไว้ให้พิมพ์ทับ (API ไม่รับข้อความว่าง); ระหว่าง `rendering` ช่องแก้ทุกช่องรอด้วย (Figma) แม้ API ให้แก้ได้; render `done` เปิด `#/spoil/renders` เอง; banner ใช้ `Alert` เดิม: `ffmpeg_failed` "render ไม่สำเร็จ", `crashed` `model_failed` "งานหยุดกลางทาง" พร้อมลองอีกครั้ง, `disk_full`; banner "แอปปิดไประหว่าง…" ของ Figma ไม่ได้ทำ เพราะงานหายเมื่อ restart (ADR-0010) ไม่มีทางรู้
+- **หน้าเว็บ — ผล render:** ภาพเล็กคือเฟรมที่ 0.5 วินาทีของ mp4 (`<video preload="metadata">`) ไม่เก็บภาพแยก; player ใช้ controls ของ browser; จอ ≥ 1024 เล่นใน panel ข้างรายการ ต่ำกว่านั้นเล่นใต้แถว (`matchMedia`, video เดียวจึงไม่มีเสียงซ้อน); copy ทั้งบรรทัด "ต้นฉบับ: {ชื่อคลิป, …}"; `GPU_JOB_PATHS` ไม่เพิ่ม Voice job และ Render job (หน้า Saved voice จะนับงานของตัวเองหรือ render ที่ไม่ได้จอง GPU เป็นผู้ถือ GPU)
+
+**Why:** อยู่ในขอบของ spec และ D9, D10, D20–D22, D30, D31, D36, D40–D42, D45, D49, D51 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบงานลูกเดิม (thread + process ลูก + queue), conventions, docs/library-notes/ffmpeg.md และ Figma Script review, Render results.
+
+**From:** build ticket 04 · **Status:** active
+
+## D63: แก้จาก feature review
+
+**Chosen:** สิ่งที่ feature review พบและผู้ใช้เลือกแก้ก่อน merge.
+
+**Details:**
+- **เวลาที่ตามด้วย `น.`:** `10:30 น.` และ `10.30 น.` → `สิบนาฬิกาสามสิบนาที` (ตัด `น.` เพราะ "นาฬิกา" บอกแล้ว); `{h}.{mm}` ไม่มี `น.` ยังเป็นทศนิยมตามข้อ 5 — OmniVoice อ่าน `น.` เป็น "น" (เช็คมือ ticket 04); ผู้ใช้เลือก
+- **เสียงประโยค:** `GET /draft/sentences/{sid}/audio.wav` ส่ง `Cache-Control: no-store` — `?v={duration_s}` ซ้ำได้เมื่อเสียงใหม่ยาวเท่าเดิม
+- **พื้นเบลอของ layout A:** ย่อเป็น 270×480 ครอปกลาง `gblur` sigma 7.5 แล้วขยายกลับ 1080×1920 แทน `gblur` sigma 30 ที่เต็มจอ: filter เร็วขึ้น ~6 เท่า (ffmpeg 7.1 บน M2, 10 วินาที testsrc2: 3.07 → 0.46 วินาที) SSIM เทียบของเดิม 0.991
+- **รูป error ของ framework:** path ไม่มี route `404` `not_found`, method ผิด `405` `method_not_allowed`, body ที่ไม่ใช่ object ที่ route รับ `400` `invalid_request` (เดิม `422` `{"detail"}`) — ทุก refusal เป็น `{"code", "message"}` ตาม spec › API
+- **โค้ดใช้ร่วม:** `jobs.ModelJobSlot._run_job` เป็นท้ายงานของทั้ง 5 งานลูก (Transcribe, Describe, Draft, Voice, Render) — `done`/`cancelled`/`failed`/`internal`, log เริ่มและจบ, `clean_up`; แต่ละงานตั้ง `error_type`; `backend.gate_rows` ตั้งชื่อแถว `ffmpeg`, `device`, `pythainlp`, `model_qwen` ครั้งเดียว (`qwen_jobs` ของ Describe job และ Draft job); `paths.project()` แทน `_project()` สองที่; หน้าเว็บ `lib/refusal.ts` `RefusalLine`/`refusalLine` แทน `DesignError`, `DescribeError`, `Refused`
+- **ชื่อ:** `draft_file.made_from_clip` (draft ทำจากคลิปนี้) กับ `draft.job_reads_clip` (Draft job อ่านคลิปนี้อยู่) แทน `uses_clip` สองตัว; `script.spoken_letters`; สำเนา draft ที่ render วาดชื่อ `drawn` ไม่ใช่ `snapshot` (คำนั้นคือ folder ของโมเดล)
+- **ADR-0013:** ขยายเป็น POST และ PATCH ตามที่ D55 ทำแล้ว
+
+**Why:** feature review สามแกน (Standards, Spec, Newcomer) ก่อน merge; ไม่เปลี่ยนสิ่งที่ spec สัญญานอกจากข้อ `น.` ที่ผู้ใช้เลือก และรูป error ที่ spec › API สัญญาไว้แล้ว.
+
+**From:** feature review · **Status:** active
+
+## D64: ลายน้ำเปิดปิดได้ทีละอัน และหน้าตรวจแก้เตือนเมื่อลายน้ำบนกลางทับข้อความบน
+
+**Chosen:** ลายน้ำแต่ละอันมีสวิตช์เปิดปิด: ปิดแล้วแอปยังจำข้อความ ตำแหน่ง และขนาดไว้ แต่ render ไม่วาด. หน้าตรวจแก้แสดงคำเตือนเมื่อมีลายน้ำ `top_center` ที่เปิดอยู่ และ layout เป็น A ที่มี hook หรือ C ที่มีชื่อตอน; render ยังกดได้ ภาพไม่เปลี่ยน.
+
+**Why:** feature review พบว่าลายน้ำบนกลางทับ hook ของ layout A (Blocked #11). ผู้ใช้เลือกเตือนแทนย้ายภาพ และอยากปิดลายน้ำชั่วคราวโดยไม่ต้องลบแล้วพิมพ์ใหม่.
+
+**Rejected:**
+- render ย้ายลายน้ำบนกลางลงใต้ hook หรือชื่อตอนเอง — เปลี่ยนภาพที่ D41 กำหนด
+- ปล่อยตาม D41 ไม่เตือน — ผู้ใช้ไม่รู้ตัวจนเห็นผล render
+- สวิตช์เดียวปิดลายน้ำทั้งหมด — ผู้ใช้อยากเลือกปิดทีละอัน
+- ลบลายน้ำ = ปิด — ต้องพิมพ์ใหม่ทุกครั้งที่จะใช้อีก
+
+**Details:**
+- changes D41: เพิ่ม `enabled` ในลายน้ำแต่ละอัน; ข้อ "ลายน้ำบนกลางทับ hook หรือชื่อตอนได้: แอปไม่กัน" ยังจริง แต่มีคำเตือน
+- `settings.json` เดิมที่ไม่มี `enabled` อ่านเป็นเปิด
+- ลายน้ำที่ปิดยังนับในสูงสุด 6 อัน
+- hook หรือชื่อตอนว่างไม่ต้องเตือน (D19: ว่าง = ไม่แสดง)
+- ถ้อยคำของคำเตือนและหน้าตาสวิตช์ build เลือกตาม component เดิมและ Figma Script review
+
+**From:** tickets · **Status:** active
+
+## D65: ทางเลือกเล็กตอน build ลายน้ำเปิดปิดและงานค้างจาก review
+
+**Chosen:** ทางเลือกที่ ticket 05 ตัดสินเองภายใน D64 และ conventions.
+
+**Details:**
+- **`PATCH /settings` ไม่มี `enabled`:** อ่านเป็น `true` เหมือนไฟล์เดิม — request แบบก่อน D64 ยังใช้ได้; `enabled` ที่มีแต่ไม่ใช่ boolean (`0`, `"no"`) → `400` `invalid_settings`
+- **ที่กรองลายน้ำที่ปิด:** `captions.ass_file` วาดเฉพาะ `enabled` — render ส่งรายการเต็ม; test อ่านไฟล์ ASS ของ render จริงตอน runner หยุดรอ
+- **สวิตช์:** `role="switch"` ข้างชื่อ "ลายน้ำ {n}" ก่อนปุ่มลบ, แถบ `brand-accent` เมื่อเปิด `border-strong` เมื่อปิด ปุ่มกด 44 px ตาม `Position cell`; ชื่อลายน้ำที่ปิดเป็นสี muted — Figma Script review ไม่มีสวิตช์ (D64 ให้ build เลือก)
+- **คำเตือน:** `Alert` tone `warning` ใต้ช่อง Hook หรือชื่อตอนใน card ภาพรวมบท: "ลายน้ำ {n} อยู่บนกลาง จะทับ {Hook|ชื่อตอน} ในวิดีโอ: ปิดหรือย้ายลายน้ำถ้าไม่ต้องการ"; อ่านข้อความที่กำลังพิมพ์ ไม่รอบันทึก จึงหายทันทีที่ลบจนว่าง; `lib/render.ts` `markNumbersOverTopText`
+- **Test ของ render:** `RenderJobs(run_ffmpeg=...)` รับ `compose.Runner` (`compose.run` เป็นค่าตั้งต้น) — `paused_ffmpeg` สร้าง holder ใหม่ที่ runner หยุดรอ
+- **`JOB_HOLDERS`:** tuple ของ `JobEntry(current, clean_on_start)` ใน `app.py`; `current` เป็นฟังก์ชันที่อ่าน holder ตอนปิด เพราะ test เปลี่ยน holder ของ module ได้; ลำดับ: Download (ล้างคลิป) → Transcribe → Describe (ล้าง Shot ของคลิปที่หาย) → Draft → Voice → Render, แล้ว `files.remove_unfinished`
+- **icon ใช้ร่วม:** `components/ui/assets/` ชื่อตาม spoil-maker (ชื่อ Lucide): `copy`, `trash`, `x`, `circle-alert`, `file-text-24`, `play`
+
+**Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; เลือกตาม component เดิม, `fastapi-api` › testing และ `vite-react-web` › components.
+
+**From:** build ticket 05 · **Status:** active
 
 ## Sources
 

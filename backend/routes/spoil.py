@@ -1,14 +1,12 @@
-from fastapi import APIRouter, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend import paths
-from backend.paths import ProjectPaths
 from backend.spoil import clips, downloads, transcribe
 from backend.spoil.clips import ListedClip
-from backend.spoil.errors import SpoilError
 from backend.spoil.downloads import DownloadJob
-from backend.spoil.transcribe import TranscribeJob, Transcript
+from backend.spoil.transcribe import TranscribeJob, Transcript, TranscriptLine
 
 
 router = APIRouter(prefix="/spoil")
@@ -20,31 +18,32 @@ class DownloadRequest(BaseModel):
 
 class TranscribeRequest(BaseModel):
     clip_id: str
+    confirm_edit_loss: bool = False
+    confirm_draft_loss: bool = False
+
+
+class LineEdit(BaseModel):
+    text: str
 
 
 class ClipList(BaseModel):
     clips: list[ListedClip]
 
 
-def _project() -> ProjectPaths:
-    # Read per request: tests point `paths.ROOT` at a fake root.
-    return ProjectPaths(paths.ROOT)
-
-
 @router.get("/clips")
 def list_clips() -> ClipList:
-    return ClipList(clips=clips.list_clips(_project()))
+    return ClipList(clips=clips.list_clips(paths.project()))
 
 
 @router.get("/clips/{clip_id}/video")
 def get_video(clip_id: str) -> FileResponse:
     """FileResponse answers `Range` with 206, so the player can seek."""
-    return FileResponse(clips.video_file(_project(), clip_id), media_type="video/mp4")
+    return FileResponse(clips.video_file(paths.project(), clip_id), media_type="video/mp4")
 
 
 @router.get("/clips/{clip_id}/thumbnail")
 def get_thumbnail(clip_id: str) -> FileResponse:
-    return FileResponse(clips.thumbnail_file(_project(), clip_id))
+    return FileResponse(clips.thumbnail_file(paths.project(), clip_id))
 
 
 @router.delete("/clips/{clip_id}", status_code=204)
@@ -55,18 +54,23 @@ def delete_clip(clip_id: str) -> Response:
 
 @router.get("/clips/{clip_id}/transcript")
 def get_transcript(clip_id: str) -> Transcript:
-    return transcribe.read_transcript(_project(), clip_id)
+    return transcribe.read_transcript(paths.project(), clip_id)
+
+
+@router.patch("/clips/{clip_id}/transcript/lines/{n}")
+def edit_transcript_line(clip_id: str, n: str, body: LineEdit) -> TranscriptLine:
+    return transcribe.transcriptions.edit_line(clip_id, n, body.text)
 
 
 @router.get("/clips/{clip_id}/transcript.txt")
 def get_transcript_txt(clip_id: str) -> Response:
-    text = transcribe.transcript_txt(_project(), clip_id)
+    text = transcribe.transcript_txt(paths.project(), clip_id)
     return _download(text, "text/plain; charset=utf-8", f"{clip_id}.txt")
 
 
 @router.get("/clips/{clip_id}/transcript.srt")
 def get_transcript_srt(clip_id: str) -> Response:
-    text = transcribe.transcript_srt(_project(), clip_id)
+    text = transcribe.transcript_srt(paths.project(), clip_id)
     return _download(text, "application/x-subrip", f"{clip_id}.srt")
 
 
@@ -78,7 +82,7 @@ def _download(text: str, media_type: str, filename: str) -> Response:
 
 @router.post("/transcriptions", status_code=202)
 def start_transcription(body: TranscribeRequest) -> TranscribeJob:
-    return transcribe.transcriptions.start(body.clip_id)
+    return transcribe.transcriptions.start(body.clip_id, body.confirm_edit_loss, body.confirm_draft_loss)
 
 
 @router.get("/transcriptions/current")
@@ -106,11 +110,3 @@ def get_current_download() -> DownloadJob | None:
 @router.delete("/downloads/current", status_code=202)
 def cancel_download() -> DownloadJob:
     return downloads.downloads.cancel()
-
-
-def spoil_error_response(request: Request, error: SpoilError) -> JSONResponse:
-    """Registered in app.py: every refusal is `{"code", "message"}` plus any extra field."""
-    return JSONResponse(
-        status_code=error.status,
-        content={"code": error.code, "message": error.message, **error.extra},
-    )

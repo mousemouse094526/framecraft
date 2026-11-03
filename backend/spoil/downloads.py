@@ -12,12 +12,12 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, paths, spoil
+from backend import checks, gate_rows, paths, spoil
 from backend.paths import ProjectPaths
 from backend.spoil import clips, links
 from backend.spoil.adapter import DownloadCancelled, ErrorCode, error_code
-from backend.spoil.errors import JobFailed, SpoilError, require_rows
-from backend.spoil.job_slot import JobSlot
+from backend.errors import ApiError, JobFailed, Row, require_rows
+from backend.jobs import JobSlot
 
 log = logging.getLogger(__name__)
 
@@ -76,18 +76,18 @@ class Downloads(JobSlot[DownloadJob]):
     unfinished = UNFINISHED
 
     def start(self, url: str) -> DownloadJob:
-        """Checks in spec order, then starts the job's thread. Raises `SpoilError`."""
+        """Checks in spec order, then starts the job's thread. Raises `ApiError`."""
         require_rows(_needed_rows())
         url = url.strip()  # yt-dlp doesn't match a link with spaces around it
         video_id = links.video_id(url)
         if video_id is None:
-            raise SpoilError(400, "invalid_url", "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube")
-        project = ProjectPaths(paths.ROOT)
+            raise ApiError(400, "invalid_url", "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube")
+        project = paths.project()
         with self._lock:
             if clips.has_clip(project, video_id):
-                raise SpoilError(409, "duplicate", "คลิปนี้โหลดไว้แล้ว", clip_id=video_id)
+                raise ApiError(409, "duplicate", "คลิปนี้โหลดไว้แล้ว", clip_id=video_id)
             if self._taken():
-                raise SpoilError(409, "busy", "กำลังโหลดคลิปอื่นอยู่")
+                raise ApiError(409, "busy", "กำลังโหลดคลิปอื่นอยู่")
             self._job = DownloadJob(url=url, id=video_id, state="checking")
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -98,9 +98,9 @@ class Downloads(JobSlot[DownloadJob]):
         """Asks the thread to stop; it does after `fetch_info` or at its next progress call (D15)."""
         with self._lock:
             if not self._taken():
-                raise SpoilError(404, "not_found", "ไม่มีงานโหลดที่ยังไม่จบ")
+                raise ApiError(404, "not_found", "ไม่มีงานโหลดที่ยังไม่จบ")
             if self._job.state == "merging":
-                raise SpoilError(409, "merging", "กำลังรวมไฟล์ ยกเลิกไม่ได้แล้ว")
+                raise ApiError(409, "merging", "กำลังรวมไฟล์ ยกเลิกไม่ได้แล้ว")
             self._job.cancel_requested = True
             self._cancel.set()
             return self._job.model_copy(deep=True)
@@ -191,14 +191,14 @@ def estimate_bytes(info: dict) -> int:
     return 0
 
 
-def _needed_rows() -> dict[str, checks.Check]:
-    """The Status check rows a download needs (D9), by label; the frontend's
+def _needed_rows() -> dict[str, Row]:
+    """The Status check rows a download needs (D9), by id; the frontend's
     `DOWNLOAD_ITEMS` gates on the same rows."""
-    return {
-        "yt-dlp": lambda: checks.check_version(checks.probe_yt_dlp),
-        "Deno": lambda: checks.check_version(checks.probe_deno),
-        "ffmpeg": lambda: checks.check_ffmpeg(checks.probe_ffmpeg),
+    tools: dict[str, Row] = {
+        "yt_dlp": ("yt-dlp", lambda: checks.check_version(checks.probe_yt_dlp)),
+        "deno": ("Deno", lambda: checks.check_version(checks.probe_deno)),
     }
+    return tools | gate_rows.FFMPEG
 
 
 def _yt_dlp_version() -> str:

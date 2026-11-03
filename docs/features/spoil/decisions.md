@@ -145,8 +145,9 @@
 
 **Details:**
 - tab สปอยเมื่อติดตั้งไม่ครบ (D9) แสดงข้อความพร้อมลิงก์ไป `#/setup` แทนช่องลิงก์
+- spoil-maker D53 เปลี่ยนเป็น 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`); ของใน tab สปอยเดิมย้ายไป tab คลิป
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by spoil-maker D53
 
 ## D11: ไม่จำกัดความยาวคลิป แต่เช็คดิสก์ก่อนโหลด
 
@@ -273,7 +274,7 @@
 **Details:**
 - **loading:** รอ `/api/setup/status` กับ `GET /downloads/current` — `GET /clips` มาใน ticket 03 แล้วค่อยรอด้วย
 - **tab:** เป็นลิงก์ `<a href="#/…">` ที่มี `aria-current="page"` บน tab ที่เปิด — กดกับปุ่ม back แค่เปลี่ยน hash; `useHashTab` ตามอย่างเดียว ไม่มี setter
-- **layout ร่วม:** `components/ui/PageLayout` (wordmark, แถบ tab, ปุ่มขวาสุด) ใช้ทั้งสอง tab; หัวข้อหน้าเป็น `h1` แบบ `sr-only` ตามชื่อ tab เพราะ header ใหม่ใน Figma ไม่มีชื่อหน้า. wordmark 26px ทุกจอตาม frame 13 (เดิมมือถือ 20.8px)
+- **layout ร่วม:** `components/ui/PageLayout` (wordmark, แถบ tab, ปุ่มขวาสุด) ใช้ทั้งสอง tab (ทั้ง 3 tab ตั้งแต่ spoil-maker D53); หัวข้อหน้าเป็น `h1` แบบ `sr-only` ตามชื่อ tab เพราะ header ใหม่ใน Figma ไม่มีชื่อหน้า. wordmark 26px ทุกจอตาม frame 13 (เดิมมือถือ 20.8px)
 - **ย้ายของร่วม:** `RefreshButton`, `OfflinePanel` ไป `components/ui/`; สไตล์ปุ่ม outline เป็น `OUTLINE_BUTTON`; การ copy เป็น `lib/useCopy` ที่ใช้ทั้งปุ่ม copy ของ Checklist และของคำสั่ง `fix` — clipboard ถูกปฏิเสธก็ไม่ throw
 - **tab สปอย offline:** ปุ่ม Refresh อยู่ขวาของ header เฉพาะตอน offline ตาม frame 12
 - **ข้อความหลังงานจบ:** อยู่ใต้แถบความคืบหน้า (409 `merging` ขึ้นระหว่างงานยังไม่จบ); tone ตาม frame 6–9: done = success, cancelled และ duplicate = info, busy, merging และงานหาย = warning, ที่เหลือ = error
@@ -286,7 +287,7 @@
 - **token ใหม่ใน `index.css`:** `accent-subtle`, `border-strong`, `info-surface`, `info-border` จาก Figma
 - **`<title>` ของหน้า:** "framecraft" — เดิม "framecraft — Setup status" ซึ่งผิดเมื่อมีสอง tab
 
-**From:** build ticket 02 · **Status:** active
+**From:** build ticket 02 · **Status:** changed by spoil-maker D53
 
 
 ## D20: ทางเลือกเล็กตอน build รายการ Temp clip
@@ -371,8 +372,9 @@
 **Details:**
 - extends D7: player ยังเล่นในหน้าเว็บ แต่อยู่ในกล่องขวาแทนเหนือรายการ
 - ออกแบบใน Figma หลัง plan (setup-status D9)
+- layout นี้ย้ายไป tab คลิป (spoil-maker D53)
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** changed by spoil-maker D53
 
 ## D26: ไม่จำกัดเวลาถอด แต่ต้องเห็น % และยกเลิกได้
 
@@ -494,7 +496,10 @@
 **Rejected:**
 - แก้ design ให้ตรง spec เดิม — ผู้ใช้อยากเก็บไว้
 
-**From:** design · **Status:** active
+**Details:**
+- ทั้งสี่อย่างย้ายไป tab คลิป (spoil-maker D53)
+
+**From:** design · **Status:** changed by spoil-maker D53
 
 ## D34: ทางเลือกเล็กตอน build กล่องถอดบทพูด
 
@@ -514,8 +519,9 @@
 - **คลิปอื่นกำลังถอดแต่คลิปนี้ถอดแล้ว:** ปุ่ม disabled เขียน "ถอดใหม่" และยังเห็น Transcript เดิม
 - **หน้าตา:** กล่องบรรทัดสูงไม่เกิน 320px (Figma สูง 320 คงที่) ให้ Transcript สั้นไม่มีที่ว่าง; hover ของบรรทัดใช้ `surface-strong` เพราะสี hover ใน Figma (`muted`) เท่ากับพื้นกล่อง; สองคอลัมน์ที่ ≥ 1024px ด้วย `PageLayout wide` (กว้าง 1120); ปุ่ม primary ใช้ `PRIMARY_BUTTON` ร่วมกับปุ่มโหลด (disabled `opacity-60` แทน 50 ใน Figma ให้สองปุ่มเท่ากัน)
 - **ส่วนร่วม:** `ProgressCard` (component `Download progress`) และ `usePollWhile` (poll ทุก 1 วินาที) ใช้ทั้งงานโหลดและงานถอด; `NotReady`, `Notice` (`hooks/notice.ts`), `formatDuration`/`formatClock` (`components/format.ts`), `PRIMARY_BUTTON` (`components/ui/buttonStyles.ts`) ย้ายออกมาเมื่อมีผู้ใช้คนที่สอง
+- กล่องถอดบทพูดและสองคอลัมน์ย้ายไป tab คลิป (spoil-maker D53)
 
-**From:** build ticket 05 · **Status:** active
+**From:** build ticket 05 · **Status:** changed by spoil-maker D53
 ## D35: แก้จาก feature review — โค้ดงานที่ซ้ำ และงานโหลดที่หลุดตอนถอดได้ 503
 
 **Chosen:**

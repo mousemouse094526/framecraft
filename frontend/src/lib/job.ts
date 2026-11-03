@@ -1,5 +1,13 @@
-import { sendJson } from "../../../lib/api";
+import { sendJson } from "./api";
 import { refusalOf, type Refusal } from "./refusal";
+
+/** The states every job ends in (spoil-maker spec › API). */
+const ENDED = ["done", "failed", "cancelled"];
+
+/** Whether a job of any kind is still running; null is no job. */
+export function isRunning(job: { state: string } | null): boolean {
+  return job !== null && !ENDED.includes(job.state);
+}
 
 /** A test for "still running" over a job's `state`, from the states that keep it polling. */
 export function isUnfinishedIn<S extends string>(unfinished: readonly S[]) {

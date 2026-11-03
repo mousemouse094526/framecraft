@@ -10,7 +10,7 @@ export function NotReady({ missing }: { missing: string[] }) {
         href="#/setup"
         className="flex h-9 shrink-0 items-center rounded-lg px-4 font-button text-sm leading-5 font-medium text-brand hover:bg-warning-border/10"
       >
-        ไปหน้า Setup status
+        ไปหน้าติดตั้ง
       </a>
     </div>
   );

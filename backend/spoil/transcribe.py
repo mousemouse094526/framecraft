@@ -7,19 +7,20 @@ Steps and rules are in docs/features/spoil/spec.md › Transcribe (D23, D24, D27
 import logging
 import threading
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
-from queue import Empty
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from backend import checks, paths, spoil
+from backend import checks, clock, files, gate_rows, gpu, paths, spoil
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
 from backend.spoil import clips
-from backend.spoil.errors import JobFailed, SpoilError, require_rows
-from backend.spoil.job_slot import JobSlot
+from backend.errors import ApiError, JobFailed, Row, require_rows
+from backend.jobs import ChildGone, ModelJobSlot, next_message, short
 from backend.spoil.whisper import Done, Segment, WorkerError
+from backend.spoil_maker import draft_file
 
 log = logging.getLogger(__name__)
 
@@ -27,10 +28,6 @@ State = Literal["preparing", "transcribing", "done", "failed", "cancelled"]
 UNFINISHED: frozenset[State] = frozenset({"preparing", "transcribing"})
 ErrorCode = Literal["no_audio", "model_failed", "crashed", "internal"]
 
-POLL_SECONDS = 0.2  # how often the thread looks at the cancel flag while the child works
-TERMINATE_SECONDS = 5  # a child that ignores SIGTERM this long is killed
-
-GPU_ADVICE = "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง"
 
 
 class TranscribeJobError(BaseModel):
@@ -50,6 +47,8 @@ class TranscriptLine(BaseModel):
     start_s: float
     end_s: float
     text: str
+    # The user changed the text (spoil-maker D54); a Transcript from before edits has none.
+    edited: bool = False
 
 
 class Transcript(BaseModel):
@@ -62,30 +61,41 @@ class Transcript(BaseModel):
     lines: list[TranscriptLine]
 
 
-class _Cancelled(Exception):
-    pass
+clip_users: list[Callable[[str], bool]] = []
+"""Checks that answer True while another feature's job is reading that clip's
+Transcript; a line of such a clip can't be edited (`clip_busy`, spoil-maker D54).
+spoil-maker's Draft job adds one."""
 
 
-class Transcriptions(JobSlot[TranscribeJob]):
+class Transcriptions(ModelJobSlot[TranscribeJob]):
     """Holds the latest Transcribe job. Its lock also guards every clip delete (D29)."""
 
     unfinished = UNFINISHED
+    gpu_kind = "transcribe"
+    nothing_to_cancel = "ไม่มีงานถอดที่ยังไม่จบ"
+    error_type = TranscribeJobError
+    failure = "ถอดไม่สำเร็จ"
+    ending_fields = {"percent": None}  # `percent` is only for `transcribing` (spec › API)
 
-    def __init__(self):
-        super().__init__()
-        self._process = None  # the running child, for shutdown
+    def start(self, clip_id: str, confirm_edit_loss: bool = False, confirm_draft_loss: bool = False) -> TranscribeJob:
+        """Checks in spec order, then starts the job's thread. Raises `ApiError`.
 
-    def start(self, clip_id: str) -> TranscribeJob:
-        """Checks in spec order, then starts the job's thread. Raises `SpoilError`."""
-        project = ProjectPaths(paths.ROOT)
+        A clip with edited lines needs `confirm_edit_loss`: the new Transcript replaces them (spoil-maker D54).
+        A clip in the Spoil draft needs `confirm_draft_loss`: a `done` job removes the draft (spoil-maker D49).
+        """
+        project = paths.project()
         require_rows(_needed_rows(project))
         # The gate just found a GPU and DeviceProbe caches it, so this is that same device.
         device = checks.probe_device()
         with self._lock:
             mp4 = clips.video_file(project, clip_id)  # 404 unless both json and mp4 are there
             if self._taken():
-                raise SpoilError(409, "busy", "กำลังถอดคลิปอื่นอยู่")
+                raise ApiError(409, "busy", "กำลังถอดคลิปอื่นอยู่")
+            if not confirm_edit_loss and _has_edits(project, clip_id):
+                raise ApiError(409, "has_edits", "ถอดใหม่จะลบบทพูดที่แก้ไว้")
             clip = clips.read_clip(project, clip_id)
+            # Last: Whisper can't share the GPU with another model (spoil-maker D45, ADR 0015).
+            draft_file.take_gpu_to_redo(project, clip_id, "transcribe", confirm_draft_loss)
             self._job = TranscribeJob(clip_id=clip_id, state="preparing")
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -93,84 +103,62 @@ class Transcriptions(JobSlot[TranscribeJob]):
         thread.start()
         return job
 
-    def cancel(self) -> TranscribeJob:
-        """Asks the thread to terminate the child; the job ends as `cancelled`."""
-        with self._lock:
-            if not self._taken():
-                raise SpoilError(404, "not_found", "ไม่มีงานถอดที่ยังไม่จบ")
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
-
     def delete_clip(self, clip_id: str) -> None:
-        """Deletes a clip's files unless it is being transcribed (D27). The check and
-        the delete share the lock `start` holds, so neither slips between the other (D29)."""
+        """Deletes a clip's files unless it is being transcribed (D27) or another GPU job
+        reads it (`clip_busy`, spoil-maker D49). The checks and the delete share the locks
+        the jobs start under, so neither slips between the other (D29)."""
         with self._lock:
             if self._taken() and self._job.clip_id == clip_id:
-                raise SpoilError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ")
-            clips.delete_clip(ProjectPaths(paths.ROOT), clip_id)
+                raise ApiError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ")
+            project = paths.project()
+            with gpu.slot.clip_untouched(clip_id):
+                clips.delete_clip(project, clip_id)
+            # After the slot's lock (its lock comes after the draft's), and only once the clip is gone (D29).
+            draft_file.drop_if_uses(project, clip_id)
 
-    def stop_on_shutdown(self) -> None:
-        """Ctrl+C must not leave a child holding the GPU (D28). A child started after
-        this sees the cancel flag at its first poll and is stopped by its thread."""
-        self._cancel.set()
+    def edit_line(self, clip_id: str, n: str, text: str) -> TranscriptLine:
+        """Replaces line `n`'s text and marks it edited; times and line count stay,
+        so whatever points at a line by its index still holds (spoil-maker D54, ADR 0018).
+        Under the job's lock, so a Transcribe job can't start between the check and the write."""
+        # One line stays one line: a line break would add lines to `.txt` and split an `.srt` cue.
+        text = " ".join(text.split())
+        if not text:
+            raise ApiError(400, "invalid_request", "บรรทัดต้องมีข้อความ")
+        project = paths.project()
         with self._lock:
-            process = self._process
-        if process is not None:
-            _stop(process)
+            transcript = read_transcript(project, clip_id)
+            # `n` comes as text so `x` and `-1` are 404, not a validation error; ASCII digits only.
+            index = int(n) if n.isascii() and n.isdigit() else -1
+            if not 0 <= index < len(transcript.lines):
+                raise ApiError(404, "not_found", "ไม่พบบรรทัดนี้")
+            if self._taken() and self._job.clip_id == clip_id:
+                raise ApiError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ รอให้ถอดเสร็จก่อนแล้วแก้")
+            if any(in_use(clip_id) for in_use in clip_users):
+                raise ApiError(409, "clip_busy", "คลิปนี้กำลังถูกใช้ในงานอื่น")
+            line = transcript.lines[index]
+            line.text, line.edited = text, True
+            write_transcript(project, transcript)
+            return line
 
     def _run(self, project: ProjectPaths, clip: clips.TempClip, mp4: Path, device: str) -> None:
-        # Stays `failed` only if something escapes every handler below.
-        ending: dict = {"state": "failed"}
-        process = None
-        try:
+        def steps() -> None:
             snapshot = project.snapshot_dir(WHISPER, WHISPER.revision)
             process, queue = spoil.start_worker(mp4, clip.duration_s, snapshot, device)
-            with self._lock:
-                self._process = process
+            self._track(process)
             segments = self._read_segments(process, queue)
             write_transcript(project, _build_transcript(clip, segments))
-            ending = {"state": "done"}
-        except _Cancelled:
-            ending = {"state": "cancelled"}
-        except JobFailed as failure:
-            error = TranscribeJobError(code=failure.code, message=failure.message)
-            ending = {"state": "failed", "error": error}
-        except Exception as error:
-            log.exception("transcribing %s failed", clip.id)  # the full error, for [api]
-            message = f"ถอดไม่สำเร็จ: {_short(error)}"
-            ending = {"state": "failed", "error": TranscribeJobError(code="internal", message=message)}
-        finally:
-            # Whatever happened, the job must end, or every later POST is `busy` (D29).
-            if process is not None:
-                try:
-                    _stop(process)
-                except Exception:
-                    log.exception("could not stop the Whisper process")
-            with self._lock:
-                self._process = None
-            # `percent` is only for `transcribing` (spec › API), so a finished job has none.
-            self._update(percent=None, **ending)
+            draft_file.drop_if_uses(project, clip.id)  # the user confirmed (spoil-maker D49)
+
+        self._run_job(f"transcribing {clip.id}", steps)
 
     def _read_segments(self, process, queue) -> list[Segment]:
-        """Reads the child's messages until `Done`. Raises `_Cancelled` or `JobFailed`."""
+        """Reads the child's messages until `Done`. Raises `Cancelled` or `JobFailed`."""
         segments: list[Segment] = []
         while True:
-            if self._cancel.is_set():
-                raise _Cancelled()
             try:
-                message = queue.get(timeout=POLL_SECONDS)
-            except Empty:
-                if process.is_alive():
-                    continue
-                # The child is gone. A queue flushes before its process exits, so one
-                # more read gets anything it sent last; nothing there means it crashed.
-                try:
-                    message = queue.get(timeout=POLL_SECONDS)
-                except Empty:
-                    raise JobFailed(
-                        "crashed", f"ตัวถอดหยุดทำงานกลางทาง (exit {process.exitcode}). {GPU_ADVICE}"
-                    ) from None
+                message = next_message(process, queue, self._cancel)
+            except ChildGone as gone:
+                raise JobFailed("crashed", f"ตัวถอดหยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
             if isinstance(message, Done):
                 return segments
             if isinstance(message, WorkerError):
@@ -181,42 +169,28 @@ class Transcriptions(JobSlot[TranscribeJob]):
             self._update(state="transcribing", percent=(message.index + 1) * 100 // message.total)
 
 
-def _stop(process) -> None:
-    """Terminates a child that is still running, then kills it if it won't go."""
-    if process.is_alive():
-        process.terminate()
-        process.join(TERMINATE_SECONDS)
-        if process.is_alive():
-            process.kill()
-    process.join(TERMINATE_SECONDS)
-
-
 def _worker_error(error: WorkerError) -> JobFailed:
     log.error("the Whisper process failed (%s): %s", error.code, error.detail)
     if error.code == "no_audio":
         return JobFailed("no_audio", "คลิปนี้ไม่มีเสียง หรืออ่านเสียงไม่ได้")
-    return JobFailed("model_failed", f"ถอดไม่สำเร็จ: {_short(error.detail)}. {GPU_ADVICE}")
+    return JobFailed("model_failed", f"ถอดไม่สำเร็จ: {short(error.detail)}. {gpu.ADVICE}")
 
 
-def _short(error: Exception | str) -> str:
-    """The first line of an error, for a message; the full one goes to the log."""
-    text = str(error).strip()
-    return text.splitlines()[0][:200] if text else type(error).__name__
-
-
-def _needed_rows(project: ProjectPaths) -> dict[str, checks.Check]:
-    """The Status check rows a transcription needs (D27), by label; the frontend's
-    `TRANSCRIBE_ITEMS` gates on the same rows.
-
-    `device` is a warning on `cpu`, which doesn't pass here (ADR 0006).
-    """
-    return {
-        "torch": lambda: checks.check_package("torch"),
-        "transformers": lambda: checks.check_package("transformers"),
-        "ffmpeg": lambda: checks.check_ffmpeg(checks.probe_ffmpeg),
-        WHISPER.label: lambda: checks.check_model(project, WHISPER),
-        "Device": lambda: checks.check_device(checks.probe_device),
+def _needed_rows(project: ProjectPaths) -> dict[str, Row]:
+    """The Status check rows a transcription needs (D27), by id; the frontend's
+    `TRANSCRIBE_ITEMS` gates on the same rows."""
+    packages: dict[str, Row] = {
+        "torch": ("torch", lambda: checks.check_package("torch")),
+        "transformers": ("transformers", lambda: checks.check_package("transformers")),
     }
+    whisper: dict[str, Row] = {WHISPER.check_id: (WHISPER.label, lambda: checks.check_model(project, WHISPER))}
+    return packages | gate_rows.FFMPEG | whisper | gate_rows.DEVICE
+
+
+def _has_edits(project: ProjectPaths, clip_id: str) -> bool:
+    if not clips.transcript_path(project, clip_id).is_file():
+        return False
+    return any(line.edited for line in read_transcript(project, clip_id).lines)
 
 
 def _build_transcript(clip: clips.TempClip, segments: list[Segment]) -> Transcript:
@@ -250,20 +224,20 @@ def _language(languages: list[str | None]) -> str | None:
 def write_transcript(project: ProjectPaths, transcript: Transcript) -> None:
     """Through a temporary file, so a crash never leaves half a transcript (D27)."""
     target = clips.transcript_path(project, transcript.clip_id)
-    clips.write_atomic(target, transcript.model_dump_json(indent=2))
+    files.write_atomic(target, transcript.model_dump_json(indent=2))
 
 
 def read_transcript(project: ProjectPaths, clip_id: str) -> Transcript:
-    """A clip's Transcript. Raises `SpoilError` 404 when the clip or its Transcript isn't there."""
+    """A clip's Transcript. Raises `ApiError` 404 when the clip or its Transcript isn't there."""
     clips.check_known(project, clip_id)
     path = clips.transcript_path(project, clip_id)
     if not path.is_file():
-        raise SpoilError(404, "not_found", "คลิปนี้ยังไม่ได้ถอดบทพูด")
+        raise ApiError(404, "not_found", "คลิปนี้ยังไม่ได้ถอดบทพูด")
     try:
         return Transcript.model_validate_json(path.read_bytes())
     except (OSError, ValidationError):
         log.exception("could not read %s", path)
-        raise SpoilError(404, "not_found", "อ่าน Transcript ไม่ได้ ถอดใหม่อีกครั้ง") from None
+        raise ApiError(404, "not_found", "อ่าน Transcript ไม่ได้ ถอดใหม่อีกครั้ง") from None
 
 
 def transcript_txt(project: ProjectPaths, clip_id: str) -> str:
@@ -276,26 +250,12 @@ def transcript_srt(project: ProjectPaths, clip_id: str) -> str:
 
 def to_txt(transcript: Transcript) -> str:
     """One `[hh:mm:ss] text` per line (D22)."""
-    return "".join(f"[{_clock(line.start_s)}] {line.text}\n" for line in transcript.lines)
+    return "".join(f"[{clock.hms(line.start_s)}] {line.text}\n" for line in transcript.lines)
 
 
 def to_srt(transcript: Transcript) -> str:
-    """Standard SRT: numbered from 1, `hh:mm:ss,mmm --> hh:mm:ss,mmm`, a blank line between cues."""
-    cues = [
-        f"{number}\n{_srt_time(line.start_s)} --> {_srt_time(line.end_s)}\n{line.text}\n"
-        for number, line in enumerate(transcript.lines, start=1)
-    ]
-    return "\n".join(cues)
-
-
-def _clock(seconds: float) -> str:
-    whole = int(seconds)
-    return f"{whole // 3600:02d}:{whole % 3600 // 60:02d}:{whole % 60:02d}"
-
-
-def _srt_time(seconds: float) -> str:
-    millis = round(seconds * 1000)
-    return f"{_clock(millis // 1000)},{millis % 1000:03d}"
+    """Standard SRT, a cue per line."""
+    return clock.srt((line.start_s, line.end_s, line.text) for line in transcript.lines)
 
 
 transcriptions = Transcriptions()

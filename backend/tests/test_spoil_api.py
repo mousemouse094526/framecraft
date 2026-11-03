@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from yt_dlp.utils import ExtractorError, GeoRestrictedError
 
-from backend import checks, paths, spoil
+from backend import checks, gpu, paths, spoil
 from backend.app import app
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
@@ -53,6 +53,7 @@ def client(fake_root, adapter, monkeypatch):
     monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
     monkeypatch.setattr(spoil, "free_bytes", lambda path: 100 * GB)
     monkeypatch.setattr(downloads, "downloads", downloads.Downloads())
+    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
     return TestClient(app, base_url="http://127.0.0.1")
 
 
@@ -353,7 +354,7 @@ def test_deno_probe_that_raises_is_missing_in_status_and_blocks_downloads(client
 
     deno = next(i for i in status["items"] if i["id"] == "deno")
     assert deno["status"] == "missing"
-    assert len(status["items"]) == 11
+    assert len(status["items"]) == 15
     assert start(client).status_code == 503
 
 
@@ -572,6 +573,8 @@ def test_a_done_job_is_in_the_list_with_every_field(client):
         "thumbnail": f"{VIDEO_ID}.webp",
         "yt_dlp_version": "2026.10.26",
         "transcribed": False,
+        "described": False,
+        "in_draft": False,
     }
     assert datetime.fromisoformat(downloaded_at).tzinfo is not None  # sortable as an instant
 
