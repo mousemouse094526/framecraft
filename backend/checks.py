@@ -18,7 +18,7 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel
 
-from backend import paths
+from backend import fonts, paths
 from backend.models import OMNIVOICE, QWEN, WHISPER, ModelSpec
 from backend.paths import ProjectPaths
 
@@ -283,6 +283,7 @@ def run_checks(
         _model_item(project, QWEN, llm_fix, sys_platform),
         _item("mlx_vlm", "mlx-vlm", lambda: check_mlx_vlm(probes.mlx_vlm, sys_platform), llm_fix),
         _item("pythainlp", "pythainlp", lambda: check_pinned(probes.pythainlp, PYTHAINLP_VERSION), fixes.setup),
+        _item(fonts.CHECK_ID, fonts.LABEL, lambda: fonts.check_kanit(project), fixes.setup),
     ]
     counts = {s: sum(1 for i in items if i.status == s) for s in get_args(ItemStatus)}
     return StatusResponse(

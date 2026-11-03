@@ -10,26 +10,15 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+from backend.spoil_maker.ffmpeg import DURATION, FfmpegFailed, exe, kill_on_cancel, seconds_of
+
 SCENE_THRESHOLD = 0.3  # D17
 THUMBNAIL_WIDTH = 320  # the Shot picker loads dozens at once (D45)
 # ffmpeg's JPEG quality is a 2–31 scale (lower is better), not 0–100: 5 is about 80 (D56).
 THUMBNAIL_QSCALE = 5
 LLM_FRAME_WIDTH = 448  # what Qwen describes (spec › Describe job step 5, D57)
 LLM_FRAME_QSCALE = 2
-KILL_POLL_SECONDS = 0.2
-
-_DURATION = re.compile(r"Duration: (\d+):(\d\d):(\d\d(?:\.\d+)?)")
 _PTS_TIME = re.compile(r"\bn:\s*\d+\s+pts:\s*\S+\s+pts_time:\s*(\d+(?:\.\d+)?)")
-
-
-class FfmpegFailed(Exception):
-    """ffmpeg exited with an error; the message is the last line it printed."""
-
-
-def _ffmpeg() -> str:
-    import imageio_ffmpeg
-
-    return imageio_ffmpeg.get_ffmpeg_exe()
 
 
 def find_cuts(
@@ -53,23 +42,22 @@ def find_cuts(
         f"[clock]fps=1,showinfo@tick[ticks]"
     )
     command = [
-        _ffmpeg(), "-nostdin", "-hide_banner", "-i", str(mp4), "-an", "-sn", "-filter_complex", graph,
+        exe(), "-nostdin", "-hide_banner", "-i", str(mp4), "-an", "-sn", "-filter_complex", graph,
         "-map", "[cuts]", "-f", "null", "-", "-map", "[ticks]", "-f", "null", "-",
     ]  # fmt: skip
     process = subprocess.Popen(
         command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, errors="replace"
     )
     finished = threading.Event()
-    threading.Thread(target=_kill_on_cancel, args=(process, cancel, finished), daemon=True).start()
+    threading.Thread(target=kill_on_cancel, args=(process, cancel, finished), daemon=True).start()
     cuts: list[float] = []
     duration: float | None = None
     last_line = ""
     try:
         for line in process.stderr:
             last_line = line.strip() or last_line
-            if duration is None and (found := _DURATION.search(line)):
-                hours, minutes, seconds = found.groups()
-                duration = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+            if duration is None and (found := DURATION.search(line)):
+                duration = seconds_of(found)
             elif found := _PTS_TIME.search(line):
                 if line.startswith("[showinfo@cut "):
                     cuts.append(float(found.group(1)))
@@ -85,13 +73,6 @@ def find_cuts(
     return cuts, duration
 
 
-def _kill_on_cancel(process: subprocess.Popen, cancel: threading.Event, finished: threading.Event) -> None:
-    while not finished.is_set():
-        if cancel.wait(KILL_POLL_SECONDS):
-            process.kill()
-            return
-
-
 def extract_frame(mp4: Path, at_s: float, thumbnail: Path, llm_frame: Path) -> None:
     """The frame at `at_s`, decoded once: a 448-wide JPEG for the LLM and a 320-wide
     thumbnail. Raises `FfmpegFailed` when ffmpeg finds no frame there."""
@@ -99,7 +80,7 @@ def extract_frame(mp4: Path, at_s: float, thumbnail: Path, llm_frame: Path) -> N
         f"[0:v]split=2[big][small];[big]scale={LLM_FRAME_WIDTH}:-2[llm];[small]scale={THUMBNAIL_WIDTH}:-2[thumb]"
     )
     command = [
-        _ffmpeg(), "-nostdin", "-v", "error", "-y", "-ss", f"{at_s:.3f}", "-i", str(mp4),
+        exe(), "-nostdin", "-v", "error", "-y", "-ss", f"{at_s:.3f}", "-i", str(mp4),
         "-filter_complex", graph,
         "-map", "[llm]", "-frames:v", "1", "-q:v", str(LLM_FRAME_QSCALE), "-update", "1", str(llm_frame),
         "-map", "[thumb]", "-frames:v", "1", "-q:v", str(THUMBNAIL_QSCALE), "-update", "1", str(thumbnail),

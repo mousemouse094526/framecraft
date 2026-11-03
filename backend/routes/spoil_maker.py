@@ -6,9 +6,10 @@ from pydantic import BaseModel
 
 from backend import paths
 from backend.paths import ProjectPaths
-from backend.spoil_maker import describe, draft, settings, voices
+from backend.spoil_maker import describe, draft, render, settings, voices
 from backend.spoil_maker.describe import DescribeJob
 from backend.spoil_maker.draft import DraftJob, DraftView, TokenCount
+from backend.spoil_maker.render import RenderJob, RenderResult
 from backend.spoil_maker.settings import Settings
 from backend.spoil_maker.shots import ShotsFile
 from backend.spoil_maker.voices import Voice, VoiceJob
@@ -140,6 +141,11 @@ def delete_sentence(sentence_id: str) -> DraftView:
     return draft.delete_sentence(_project(), sentence_id)
 
 
+@router.get("/draft/sentences/{sentence_id}/audio.wav")
+def get_sentence_audio(sentence_id: str) -> FileResponse:
+    return FileResponse(draft.sentence_audio(_project(), sentence_id), media_type="audio/wav")
+
+
 @router.post("/draft-jobs", status_code=202)
 def start_draft_job(body: dict[str, Any]) -> DraftJob:
     """The body depends on `kind` (spec › API), so the module checks it."""
@@ -160,3 +166,51 @@ def cancel_draft_job() -> DraftJob:
 @router.get("/settings")
 def get_settings() -> Settings:
     return settings.read(_project())
+
+
+@router.patch("/settings")
+def change_settings(body: dict[str, Any]) -> Settings:
+    """Each field is optional and checked by the module (spec › ค่าที่จำไว้)."""
+    return settings.change(_project(), body)
+
+
+@router.post("/renders", status_code=202)
+def start_render() -> RenderJob:
+    """The body is `{}` (JSON, ADR 0013): a render takes the Spoil draft as it is."""
+    return render.render_jobs.start()
+
+
+@router.get("/renders/current")
+def get_current_render() -> RenderJob | None:
+    """The latest job, or null when none ran since the backend started."""
+    return render.render_jobs.current()
+
+
+@router.delete("/renders/current", status_code=202)
+def cancel_render() -> RenderJob:
+    return render.render_jobs.cancel()
+
+
+@router.get("/renders")
+def list_renders() -> list[RenderResult]:
+    """Newest first."""
+    return render.list_results(_project())
+
+
+@router.get("/renders/{name}.mp4")
+def get_render_video(name: str) -> FileResponse:
+    """`FileResponse` answers `Range` with `206`, so the player can seek."""
+    return FileResponse(render.result_file(_project(), name, ".mp4"), media_type="video/mp4")
+
+
+@router.get("/renders/{name}.srt")
+def get_render_subtitles(name: str) -> FileResponse:
+    return FileResponse(
+        render.result_file(_project(), name, ".srt"), media_type="application/x-subrip", filename=f"{name}.srt"
+    )
+
+
+@router.delete("/renders/{name}", status_code=204)
+def delete_render(name: str) -> Response:
+    render.delete_result(_project(), name)
+    return Response(status_code=204)

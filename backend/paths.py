@@ -91,9 +91,29 @@ class ProjectPaths:
         return self.spoil_maker_dir / "draft-audio"
 
     @property
+    def renders_dir(self) -> Path:
+        """Every finished render: `{name}.mp4`, `.srt` and `.json` (spoil-maker D42)."""
+        return self.spoil_maker_dir / "renders"
+
+    @property
+    def render_work_dir(self) -> Path:
+        """The running render's pieces, voice and ASS file; removed when it ends."""
+        return self.spoil_maker_dir / ".render"
+
+    @property
     def settings_file(self) -> Path:
         """What the สปอย tab remembers between drafts (spoil-maker spec › ค่าที่จำไว้)."""
         return self.spoil_maker_dir / "settings.json"
+
+    @property
+    def kanit_dir(self) -> Path:
+        """Kanit Bold and its license, the font of every render (spoil-maker D21)."""
+        return self.models_dir / "fonts" / "kanit"
+
+    @property
+    def kanit_marker(self) -> Path:
+        """Written by setup once both Kanit files match their sha256."""
+        return self.markers_dir / "font_kanit"
 
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"

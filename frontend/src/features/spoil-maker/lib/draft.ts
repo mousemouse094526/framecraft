@@ -63,6 +63,7 @@ export function tokensPath(clipIds: string[]): string {
 // The สปอย tab's hashes: its steps and the Saved voice page (spoil-maker D53, D59).
 export const SETUP_HASH = "#/spoil";
 export const REVIEW_HASH = "#/spoil/review";
+export const RENDERS_HASH = "#/spoil/renders";
 export const VOICES_HASH = "#/spoil/voices";
 
 /** Whether the job still runs; null is no job. */

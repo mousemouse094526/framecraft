@@ -42,7 +42,7 @@ No router library and no `routes/`: `App` picks the page from the hash
 (`#/setup`, `#/clips`, `#/spoil`, spoil D10, spoil-maker D53); a page with
 steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
 `#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59);
-the สปอย tab's hashes live in `features/spoil-maker/lib/draft.ts`. Each page wraps itself in `PageLayout`,
+the สปอย tab's hashes live in `features/spoil-maker/lib/draft.ts`, the voice and render API shapes in `lib/render.ts`. Each page wraps itself in `PageLayout`,
 whose tabs are plain `#/…` links, so clicks and the back button both just
 change the hash.
 

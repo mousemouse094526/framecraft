@@ -6,9 +6,11 @@ const RUNNING_NAMES: Record<string, string> = {
   describe: "บรรยายฉาก",
   draft: "ร่างบท",
   voice: "สร้างเสียง",
+  render: "render",
 };
 
-/** The `…/current` of each GPU job a page can poll to see it end; later jobs add theirs. */
+/** The `…/current` of each GPU job the Saved voice page polls to see it end. A render holds
+ * the GPU only while it voices, which its `…/current` can't tell apart, so it names itself. */
 export const GPU_JOB_PATHS: Record<string, string> = {
   transcribe: "/api/spoil/transcriptions/current",
   describe: "/api/spoil-maker/describes/current",

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
@@ -7,6 +7,11 @@ import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
 const DRAFT_PATH = "/api/spoil-maker/draft";
 const JOBS_PATH = "/api/spoil-maker/draft-jobs";
 const CURRENT_PATH = "/api/spoil-maker/draft-jobs/current";
+const VOICE_JOBS = "/api/spoil-maker/voice-jobs";
+const VOICE_CURRENT = "/api/spoil-maker/voice-jobs/current";
+const RENDERS = "/api/spoil-maker/renders";
+const RENDER_CURRENT = "/api/spoil-maker/renders/current";
+const SETTINGS_PATH = "/api/spoil-maker/settings";
 const EP1 = "aaaaaaaaaaa";
 const EP2 = "bbbbbbbbbbb";
 
@@ -72,6 +77,9 @@ function backend(routes: Route[]) {
     [CURRENT_PATH, null],
     [`/api/spoil-maker/clips/${EP1}/shots`, { clip_id: EP1, shots: shotsOf(60) }],
     [`/api/spoil-maker/clips/${EP2}/shots`, { clip_id: EP2, shots: shotsOf(8) }],
+    [VOICE_CURRENT, null],
+    [RENDER_CURRENT, null],
+    [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null }],
   ];
   for (const [path, body] of defaults) if (!has(path)) routes.push(get(path, body));
   fetchMock.mockImplementation(async (input, init) => {
@@ -363,3 +371,179 @@ describe("ตรวจแก้บท", () => {
     expect(await screen.findByText("ข้อความด้านบนยาวได้ไม่เกิน 40 ตัวอักษร")).toBeInTheDocument();
   });
 });
+
+const VOICING = { kind: "sentences", state: "voicing", done: 1, total: 3, error: null, cancel_requested: false, started_at: "" };
+const RENDER = { kind: "render", state: "voicing", percent: null, done: 1, total: 3, error: null, cancel_requested: false, started_at: "" };
+const readyOf = (id: string, change: Partial<Sentence> = {}) =>
+  sentenceOf(id, { status: "ready", audio: { tts_text: "x", voice_id: "v_0000abcd", duration_s: 2.5 }, ...change });
+
+describe("ตรวจแก้บท: เสียง ลายน้ำ และ render", () => {
+  it("a no_shot sentence disables render and says why", async () => {
+    backend([get(DRAFT_PATH, draftOf({ sentences: [sentenceOf("s_00000001", { shots: [null, null], status: "no_shot" })] }))]);
+    await openReview();
+
+    expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
+    expect(screen.getByText("มี 1 ประโยคที่ไม่มี Shot: เลือก Shot ก่อน render")).toBeInTheDocument();
+  });
+
+  it("a locked draft with the Voice job at 1/3 shows its progress with ยกเลิก and every text waits", async () => {
+    backend([
+      get(DRAFT_PATH, draftOf({ locked: true })),
+      get(VOICE_CURRENT, VOICING),
+      send("DELETE", VOICE_CURRENT, { ...VOICING, cancel_requested: true }, 202),
+    ]);
+    const user = await openReview();
+    const footer = await screen.findByRole("region", { name: "สร้างเสียงและ render" });
+
+    expect(await within(footer).findByText("สร้างเสียง 1/3")).toBeInTheDocument();
+    expect(within(card(1)).getByRole("textbox")).toBeDisabled();
+    await user.click(within(footer).getByRole("button", { name: "ยกเลิก" }));
+    expect(sent("DELETE", VOICE_CURRENT)).toHaveLength(1);
+  });
+
+  it("สร้างเสียงใหม่ voices that sentence; สร้างเสียงทั้งหมด every one that isn't ready", async () => {
+    const draft = draftOf({ sentences: [readyOf("s_00000001"), sentenceOf("s_00000002"), sentenceOf("s_00000003", { status: "stale_audio" })] });
+    backend([
+      get(DRAFT_PATH, draft),
+      send("POST", VOICE_JOBS, { ...VOICING, done: 0, total: 1 }, 202),
+      send("POST", VOICE_JOBS, { ...VOICING, done: 0, total: 2 }, 202),
+      get(VOICE_CURRENT, null),
+    ]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "สร้างเสียงใหม่" }));
+    expect(sent("POST", VOICE_JOBS)).toEqual([{ kind: "sentences", sentence_ids: ["s_00000001"] }]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    await user.click(await screen.findByRole("button", { name: "สร้างเสียงทั้งหมด" }));
+    expect(sent("POST", VOICE_JOBS)[1]).toEqual({ kind: "sentences", sentence_ids: ["s_00000002", "s_00000003"] });
+  });
+
+  it("ฟัง plays the sentence's voice, new after each voicing", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    backend([get(DRAFT_PATH, draftOf({ sentences: [readyOf("s_00000001")] }))]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "ฟัง" }));
+
+    expect(play).toHaveBeenCalledOnce();
+    expect((play.mock.contexts[0] as HTMLAudioElement).src).toContain("/api/spoil-maker/draft/sentences/s_00000001/audio.wav?v=2.5");
+  });
+
+  it("two watermarks added stay after a reload", async () => {
+    let stored: unknown[] = [];
+    const settings = () => ({ watermarks: stored, original_volume: 20, last_voice_id: null });
+    const routes: Route[] = [{ path: SETTINGS_PATH, reply: () => jsonResponse(settings()) }];
+    for (let i = 0; i < 2; i++)
+      routes.push({
+        method: "PATCH",
+        path: SETTINGS_PATH,
+        reply: () => {
+          stored = JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body)).watermarks;
+          return jsonResponse(settings());
+        },
+      });
+    routes.push({ path: SETTINGS_PATH, reply: () => jsonResponse(settings()) });
+    backend(routes);
+    const user = await openReview();
+
+    await user.click(await screen.findByRole("button", { name: "เพิ่มลายน้ำ" }));
+    await user.click(await screen.findByRole("button", { name: "เพิ่มลายน้ำ" }));
+    expect(await screen.findByRole("group", { name: "ลายน้ำ 2" })).toBeInTheDocument();
+    cleanupAndReopen();
+    await screen.findByRole("region", { name: "ภาพรวมบท" });
+
+    expect(await screen.findByRole("group", { name: "ลายน้ำ 2" })).toBeInTheDocument();
+    expect(screen.getByText("2/6")).toBeInTheDocument();
+  });
+
+  it("a watermark's spot and size are sent with it", async () => {
+    const mark = { text: "@ช่อง", position: "bottom_right", size: "small" };
+    backend([
+      get(SETTINGS_PATH, { watermarks: [mark], original_volume: 20, last_voice_id: null }),
+      send("PATCH", SETTINGS_PATH, { watermarks: [{ ...mark, position: "top_left" }], original_volume: 20, last_voice_id: null }, 200),
+    ]);
+    const user = await openReview();
+    const row = await screen.findByRole("group", { name: "ลายน้ำ 1" });
+
+    await user.click(within(row).getByRole("radio", { name: "บนซ้าย" }));
+
+    expect(sent("PATCH", SETTINGS_PATH)).toEqual([{ watermarks: [{ ...mark, position: "top_left" }] }]);
+    expect(within(row).getByRole("radio", { name: "บนซ้าย" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("the original sound's level is saved to the draft", async () => {
+    backend([send("PATCH", DRAFT_PATH, draftOf({ original_volume: 35 }), 200)]);
+    await openReview();
+
+    fireEvent.change(screen.getByRole("slider", { name: "เสียงคลิปต้นฉบับ" }), { target: { value: "35" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(sent("PATCH", DRAFT_PATH)).toEqual([{ original_volume: 35 }]);
+  });
+
+  it("render voices first, renders, then opens ผล render", async () => {
+    backend([
+      get(DRAFT_PATH, draftOf({ sentences: [readyOf("s_00000001")] })),
+      send("POST", RENDERS, RENDER, 202),
+      get(RENDER_CURRENT, null),
+      get(RENDER_CURRENT, { ...RENDER, state: "rendering", percent: 50, done: null, total: null }),
+      get(RENDER_CURRENT, { ...RENDER, state: "done", percent: 100 }),
+      get(RENDERS, []),
+    ]);
+    const user = await openReview();
+    const footer = screen.getByRole("region", { name: "สร้างเสียงและ render" });
+
+    await user.click(within(footer).getByRole("button", { name: "render" }));
+    expect(within(footer).getByText("สร้างเสียง 1/3")).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(within(footer).getByText("render 50%")).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    await waitFor(() => expect(window.location.hash).toBe("#/spoil/renders"));
+  });
+
+  it("a render that failed in ffmpeg says render ไม่สำเร็จ with ลองอีกครั้ง", async () => {
+    const failed = { ...RENDER, state: "failed", error: { code: "ffmpeg_failed", message: "render ไม่สำเร็จ: x" } };
+    backend([get(RENDER_CURRENT, { ...RENDER, state: "rendering", percent: 10 }), get(RENDER_CURRENT, failed)]);
+    await openReview();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(await screen.findByText("render ไม่สำเร็จ")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ลองอีกครั้ง" })).toBeInTheDocument();
+  });
+
+  it("an install missing a row links to ติดตั้ง", async () => {
+    backend([send("POST", RENDERS, { code: "not_ready", message: "ยังติดตั้งไม่ครบ: Kanit font", rows: ["font_kanit"] }, 503)]);
+    const user = await openReview();
+
+    await user.click(screen.getByRole("button", { name: "render" }));
+
+    expect(await screen.findByText(/ยังติดตั้งไม่ครบ: Kanit font/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ไปหน้าติดตั้ง" })).toHaveAttribute("href", "#/setup");
+  });
+
+  it("too little disk says so", async () => {
+    backend([send("POST", RENDERS, { code: "disk_full", message: "ที่ว่างดิสก์ไม่ถึง 1 GiB" }, 507)]);
+    const user = await openReview();
+
+    await user.click(screen.getByRole("button", { name: "render" }));
+
+    expect(await screen.findByText("ลบ render เก่าในหน้าผล render เพื่อเพิ่มที่ว่าง")).toBeInTheDocument();
+  });
+});
+
+/** Unmounts the page and opens it again, as a reload does. */
+function cleanupAndReopen() {
+  cleanup();
+  render(<App />);
+}

@@ -39,15 +39,39 @@ def letters(text: str) -> int:
     return sum(1 for c in text if not c.isspace() and not unicodedata.category(c).startswith("P"))
 
 
+def width(text: str) -> int:
+    """Letters that take space."""
+    return sum(1 for c in text if _takes_space(c))
+
+
+def cut_width(text: str, limit: int) -> str:
+    """`text` cut after `limit` letters that take space."""
+    taken = 0
+    for index, c in enumerate(text):
+        if _takes_space(c):
+            taken += 1
+            if taken > limit:
+                return text[:index].rstrip()
+    return text
+
+
 def words(project: ProjectPaths, text: str) -> list[str]:
-    """Thai words by pythainlp's `newmm` dictionary; nothing written outside the project
-    and nothing downloaded (docs/library-notes/pythainlp.md). The Render job cuts subtitles
-    with it (D20); it is here first so seam 3 can check where pythainlp keeps its data."""
+    """Thai words by pythainlp's `newmm` dictionary, each with the spaces after it, so
+    joined back they are `text` without its leading spaces; nothing written outside the
+    project and nothing downloaded (docs/library-notes/pythainlp.md). The Render job
+    cuts subtitles and lines with it (D20)."""
     os.environ["PYTHAINLP_DATA"] = str(project.pythainlp_dir)
     os.environ["PYTHAINLP_OFFLINE"] = "1"
     from pythainlp.tokenize import word_tokenize
 
-    return word_tokenize(text, engine="newmm", keep_whitespace=False)
+    found: list[str] = []
+    for token in word_tokenize(text, engine="newmm", keep_whitespace=True):
+        if token.isspace():
+            if found:
+                found[-1] += token
+        elif token:
+            found.append(token)
+    return found
 
 
 def _time(match: re.Match) -> str:
@@ -97,3 +121,8 @@ def _group(n: int, has_higher: bool) -> str:
         else:
             said += DIGITS[digit] + PLACES[place]
     return said
+
+
+def _takes_space(c: str) -> bool:
+    """Thai vowels above and below and tone marks sit on a letter (Unicode Mn, Me)."""
+    return unicodedata.category(c) not in ("Mn", "Me")

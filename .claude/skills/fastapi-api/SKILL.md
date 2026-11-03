@@ -19,7 +19,9 @@ backend/
 ├── paths.py      ← project root, models/ and media/ paths (ADR 0003)
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
-├── disk.py       ← free disk space, shared by setup and spoil
+├── disk.py       ← free disk space, shared by setup, spoil and the Render job
+├── fonts.py      ← Kanit Bold pinned by commit and sha256: setup fetches it, the
+│                    Status check checks it, the Render job draws with it
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
 ├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
@@ -47,8 +49,12 @@ backend/
 │                    Draft job, the token count), script (the prompts and
 │                    the reading of Qwen's answers), tokens (the only
 │                    transformers import of the backend process: Qwen's
-│                    tokenizer), settings (what the tab remembers); llm's
-│                    and tts's `worker` run in a child process
+│                    tokenizer), settings (what the tab remembers),
+│                    ffmpeg (the binary, killing on cancel, `ffmpeg -i`
+│                    reading; frames and compose share it), render (the
+│                    Render job and the render files), compose (the ffmpeg
+│                    commands of a render), captions (the ASS file and the
+│                    `.srt`); llm's and tts's `worker` run in a child process
 ├── routes/       ← one router file per feature, e.g. setup_status.py
 └── tests/        ← pytest, test_{module}.py
 ```

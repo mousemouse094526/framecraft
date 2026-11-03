@@ -269,17 +269,8 @@ def to_txt(transcript: Transcript) -> str:
 
 
 def to_srt(transcript: Transcript) -> str:
-    """Standard SRT: numbered from 1, `hh:mm:ss,mmm --> hh:mm:ss,mmm`, a blank line between cues."""
-    cues = [
-        f"{number}\n{_srt_time(line.start_s)} --> {_srt_time(line.end_s)}\n{line.text}\n"
-        for number, line in enumerate(transcript.lines, start=1)
-    ]
-    return "\n".join(cues)
-
-
-def _srt_time(seconds: float) -> str:
-    millis = round(seconds * 1000)
-    return f"{clock.hms(millis // 1000)},{millis % 1000:03d}"
+    """Standard SRT, a cue per line."""
+    return clock.srt((line.start_s, line.end_s, line.text) for line in transcript.lines)
 
 
 transcriptions = Transcriptions()

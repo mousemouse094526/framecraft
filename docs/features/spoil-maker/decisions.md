@@ -987,6 +987,23 @@
 
 **From:** build ticket 03 · **Status:** active
 
+## D62: ทางเลือกเล็กตอน build เสียงต่อประโยคและ render
+
+**Chosen:** รายละเอียดที่ build ticket 04 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
+
+**Details:**
+- **Kanit:** `backend.fonts` (ผู้ใช้สามที่: setup, Status check, Render job) โหลดด้วย `urllib` ใน setup เท่านั้น ตรวจ sha256 ก่อนเขียนไฟล์ marker `models/.setup/font_kanit` เป็น JSON `{files: {ชื่อ: sha256}}` เขียนท้ายสุด; แถว `font_kanit` "Kanit font" ต่อจาก `pythainlp` เทียบ marker กับค่าที่ pin และเช็คว่าไฟล์อยู่ (ไม่ hash ใหม่ทุกครั้ง); setup โหลดหลังโมเดล ก่อน `npm install`, ข้ามเมื่อแถว `ok`
+- **Voice job `sentences`:** ลำดับ `busy` → ไม่มี draft หรือ id ไม่อยู่ใน draft, ซ้ำ, ไม่ใช่ list → `400` `invalid_request` → Saved voice ของ draft หาย `400` `voice_not_found` → gate → `gpu_busy`; จองช่องเป็น `voice` พร้อมคลิปของ draft (`clip_busy`) และ `draft=True` (`draft_locked`); ข้อความ `tts.Speak`/`Spoken` ส่ง clone prompt เป็น bytes ทุกประโยค; wav เขียนผ่าน `.tmp` แล้ว rename, `duration_s` ปัดถึงมิลลิวินาที; `voices.SentenceVoicer` เป็นฐานร่วมของ Voice job และ Render job; `GET /draft/sentences/{sid}/audio.wav` ไม่มีเสียง `404`
+- **ค่าที่จำไว้:** `PATCH /settings` ฟิลด์อื่นนอก `watermarks` `original_volume` → `400` `invalid_settings`; ข้อความลายน้ำรวมเป็นบรรทัดเดียว 1–40 ตัวอักษรที่กินที่; `thai.width` `thai.cut_width` ย้ายจาก `script` มา `thai` (ผู้ใช้ที่สาม); `.srt` ของ Transcript และของ render เขียนด้วย `backend.clock.srt` ตัวเดียว
+- **Render job:** ลำดับ `no_draft` → `missing_shots` → `disk_full` (ที่ว่างของ folder project) → `not_ready` → `busy` → `gpu_busy`; จองช่องเป็น `render` เฉพาะเมื่อมีประโยคขาดเสียง, อ่าน draft ที่จะ render ใต้ lock แล้วจึงคืนช่อง; ไฟล์กลาง `.render/{i}.mkv` (x264 `crf 12` `veryfast` + PCM) ต่อกันด้วย concat demuxer; จุดตัดของ Shot ปัดเป็นเฟรม 30 fps ของ timeline ทั้งคลิปจึงไม่เลื่อนสะสม; Shot ที่เริ่มหลังท้ายคลิป − 0.5 วินาทีเริ่มที่จุดนั้นแล้วค้างเฟรม; คลิปไม่มีเสียงหรือ `original_volume` 0 ใช้ `anullsrc`; เสียงบรรยายต่อกันด้วย `wave` ของ Python (OmniVoice ให้ rate เดียวกัน); `percent` 0–50 ตอนตัดชิ้น 50–100 ตอน encode; ชื่อซ้ำในวินาทีเดียวเลื่อนไปวินาทีถัดไป; ffmpeg รันใน `.render/` และอ้างไฟล์ด้วยชื่อเปล่า (ไม่ต้อง escape path ใน filter); `spoil_maker.ffmpeg` รวมตัวหา ffmpeg, kill เมื่อยกเลิก, อ่าน `ffmpeg -i` (ผู้ใช้ที่สอง: `frames`, `compose`)
+- **ข้อความบนวิดีโอ:** ASS หนึ่ง style ต่อชนิด (`Hook`, `Title`, `Sub`, `Mark`) ตำแหน่งด้วย `\an`+`\pos` ต่อบรรทัด; ลายน้ำทึบ 80% = alpha `&H33`; ซับ A อาจเป็นคำเดียวเมื่อคำถัดไปทำให้เกิน 15 ตัวอักษร (2–4 คำเมื่อทำได้); test ไฟล์ ASS เรียก `captions.ass_file` ตรง เพราะ `.render/` ถูกลบเมื่องานจบ; อ่าน draft, ทำ timeline และต่อเสียงบรรยายใต้ lock ของ draft ก่อนคืนช่อง GPU จึงไม่มีงานเสียงใดแทรกระหว่าง `rendering`; `thai.words` เก็บช่องว่างท้ายคำ ข้อความอังกฤษจึงไม่ติดกัน; `.srt` เวลาถึงมิลลิวินาที
+- **หน้าเว็บ — ตรวจแก้:** `ReviewFooter` (sticky) และ `VideoSettings` ตาม Figma; slider เสียงต้นฉบับบันทึกเองแบบช่องข้อความ (800 ms หรือปล่อย) ผ่าน `PATCH /draft`; เพิ่มลายน้ำใส่ "ลายน้ำ" ล่างขวา เล็ก แล้วเลือกข้อความไว้ให้พิมพ์ทับ (API ไม่รับข้อความว่าง); ระหว่าง `rendering` ช่องแก้ทุกช่องรอด้วย (Figma) แม้ API ให้แก้ได้; render `done` เปิด `#/spoil/renders` เอง; banner ใช้ `Alert` เดิม: `ffmpeg_failed` "render ไม่สำเร็จ", `crashed` `model_failed` "งานหยุดกลางทาง" พร้อมลองอีกครั้ง, `disk_full`; banner "แอปปิดไประหว่าง…" ของ Figma ไม่ได้ทำ เพราะงานหายเมื่อ restart (ADR-0010) ไม่มีทางรู้
+- **หน้าเว็บ — ผล render:** ภาพเล็กคือเฟรมที่ 0.5 วินาทีของ mp4 (`<video preload="metadata">`) ไม่เก็บภาพแยก; player ใช้ controls ของ browser; จอ ≥ 1024 เล่นใน panel ข้างรายการ ต่ำกว่านั้นเล่นใต้แถว (`matchMedia`, video เดียวจึงไม่มีเสียงซ้อน); copy ทั้งบรรทัด "ต้นฉบับ: {ชื่อคลิป, …}"; `GPU_JOB_PATHS` ไม่เพิ่ม Voice job และ Render job (หน้า Saved voice จะนับงานของตัวเองหรือ render ที่ไม่ได้จอง GPU เป็นผู้ถือ GPU)
+
+**Why:** อยู่ในขอบของ spec และ D9, D10, D20–D22, D30, D31, D36, D40–D42, D45, D49, D51 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบงานลูกเดิม (thread + process ลูก + queue), conventions, docs/library-notes/ffmpeg.md และ Figma Script review, Render results.
+
+**From:** build ticket 04 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)

@@ -13,8 +13,8 @@ from typing import Literal
 
 from backend.errors import ApiError
 
-# Render comes in a later ticket (spoil-maker spec › ช่อง GPU).
-Kind = Literal["transcribe", "describe", "draft", "voice"]
+# A Render job holds it while it voices sentences only (spoil-maker spec › ช่อง GPU).
+Kind = Literal["transcribe", "describe", "draft", "voice", "render"]
 
 # How `gpu_busy` names the running job (spoil-maker spec › Frontend).
 RUNNING_NAMES: dict[Kind, str] = {
@@ -22,6 +22,7 @@ RUNNING_NAMES: dict[Kind, str] = {
     "describe": "บรรยายฉาก",
     "draft": "ร่างบท",
     "voice": "สร้างเสียง",
+    "render": "render",
 }
 
 # Ends the message of a job whose model failed or stopped: another app may hold the GPU.

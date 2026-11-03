@@ -1,5 +1,6 @@
 """Numbers as Thai words, the letter count, and word cutting (spoil-maker spec › ตัวเลขเป็นคำ)."""
 
+import os
 import subprocess
 import sys
 
@@ -61,18 +62,26 @@ def test_letters_leave_out_spaces_and_punctuation():
     assert thai.letters("ที่") == 3
 
 
-def test_words_keep_pythainlp_data_inside_the_project(tmp_path, monkeypatch):
-    project = ProjectPaths(tmp_path / "framecraft")
-    home = tmp_path / "home"
+def test_words_keep_pythainlp_data_inside_the_project(tmp_path):
+    # pythainlp makes its data folder once, at its first use in a process: a fresh one.
+    root, home = tmp_path / "framecraft", tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
-    # `words` sets these; deleting them first makes monkeypatch restore them after the test.
-    monkeypatch.delenv("PYTHAINLP_DATA", raising=False)
-    monkeypatch.delenv("PYTHAINLP_OFFLINE", raising=False)
+    code = (
+        "import sys; from pathlib import Path; from backend.paths import ProjectPaths; from backend.spoil_maker import thai;"
+        "print(thai.words(ProjectPaths(Path(sys.argv[1])), 'ชายคนหนึ่งตื่นขึ้นมา'))"
+    )
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PYTHAINLP_")} | {"HOME": str(home)}
+    result = subprocess.run([sys.executable, "-c", code, str(root)], capture_output=True, text=True, env=env, check=True)
 
-    assert thai.words(project, "ชายคนหนึ่งตื่นขึ้นมา") == ["ชาย", "คน", "หนึ่ง", "ตื่นขึ้น", "มา"]
-    assert project.pythainlp_dir.is_dir()
+    assert result.stdout.strip() == "['ชาย', 'คน', 'หนึ่ง', 'ตื่นขึ้น', 'มา']"
+    assert ProjectPaths(root).pythainlp_dir.is_dir()
     assert not (home / "pythainlp-data").exists()
+
+
+def test_words_keep_the_spaces_after_them(tmp_path):
+    project = ProjectPaths(tmp_path / "framecraft")
+
+    assert thai.words(project, "หนัง Night of  the ศพ") == ["หนัง ", "Night ", "of  ", "the ", "ศพ"]
 
 
 def test_importing_the_module_does_not_import_pythainlp():

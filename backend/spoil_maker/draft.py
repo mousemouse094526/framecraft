@@ -10,6 +10,7 @@ import logging
 import re
 import threading
 import time
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel
@@ -461,6 +462,17 @@ def delete_sentence(project: ProjectPaths, sentence_id: str) -> DraftView:
     return view(project)
 
 
+def sentence_audio(project: ProjectPaths, sentence_id: str) -> Path:
+    """`GET /draft/sentences/{sid}/audio.wav`. Raises `ApiError` 404 `not_found` without one."""
+    with gpu.slot.draft_lock:
+        draft = draft_file.read(project)
+        sentence = _sentence(draft, sentence_id) if draft else None
+        path = project.draft_audio_dir / f"{sentence_id}.wav"
+        if sentence is None or sentence.audio is None or not path.is_file():
+            raise ApiError(404, "not_found", "ประโยคนี้ยังไม่มีเสียง")
+        return path
+
+
 def _editable(project: ProjectPaths) -> Draft:
     """The draft, for a change. Call with the draft's lock held. Raises `ApiError`
     404 `no_draft`, or 409 `draft_locked` while a job changes it (D51)."""
@@ -494,7 +506,7 @@ def _top_text(text: object) -> str:
     if not isinstance(text, str):
         raise ApiError(400, "invalid_request", "ข้อความด้านบนต้องเป็นข้อความ")
     text = " ".join(text.split())
-    if script.width(text) > script.TOP_TEXT_MAX:
+    if thai.width(text) > script.TOP_TEXT_MAX:
         raise ApiError(400, "invalid_request", f"ข้อความด้านบนยาวได้ไม่เกิน {script.TOP_TEXT_MAX} ตัวอักษร")
     return text
 
@@ -520,7 +532,7 @@ def _checked_shots(project: ProjectPaths, draft: Draft, value: object) -> list[S
 
 
 def _sentence_view(draft: Draft, sentence: Sentence, transcripts, chars_per_s: float | None) -> SentenceView:
-    status = _status(draft, sentence)
+    status = status_of(draft, sentence)
     if status == "ready":
         estimated = sentence.audio.duration_s
     elif chars_per_s:
@@ -542,7 +554,7 @@ def _sentence_view(draft: Draft, sentence: Sentence, transcripts, chars_per_s: f
     )
 
 
-def _status(draft: Draft, sentence: Sentence) -> Status:
+def status_of(draft: Draft, sentence: Sentence) -> Status:
     """In the table's order: a sentence with neither Shot nor voice is `no_shot` (D30)."""
     if None in sentence.shots:
         return "no_shot"

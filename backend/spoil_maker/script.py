@@ -6,7 +6,6 @@ D11, D18, D19). Plain functions, no job and no file.
 import json
 import re
 import secrets
-import unicodedata
 
 from pydantic import BaseModel
 
@@ -147,7 +146,7 @@ def parse_script(reply: str, brief: Brief) -> tuple[str, list[Sentence]] | None:
     if not sentences:
         return None
     top_text = found.get("top_text")
-    top_text = cut_width(_clean(top_text), TOP_TEXT_MAX) if isinstance(top_text, str) and brief.layout != "B" else ""
+    top_text = thai.cut_width(_clean(top_text), TOP_TEXT_MAX) if isinstance(top_text, str) and brief.layout != "B" else ""
     return top_text, sentences
 
 
@@ -187,33 +186,12 @@ def letters(sentences: list[Sentence]) -> int:
     return sum(thai.letters(thai.spoken(sentence.text)) for sentence in sentences)
 
 
-def width(text: str) -> int:
-    """Letters that take space."""
-    return sum(1 for c in text if _takes_space(c))
-
-
-def cut_width(text: str, limit: int) -> str:
-    """`text` cut after `limit` letters that take space."""
-    taken = 0
-    for index, c in enumerate(text):
-        if _takes_space(c):
-            taken += 1
-            if taken > limit:
-                return text[:index].rstrip()
-    return text
-
-
 def new_sentence_id(taken: set[str]) -> str:
     """`s_` and 8 hex digits, none of `taken`, which it joins."""
     while (sentence_id := f"s_{secrets.token_hex(4)}") in taken:
         pass
     taken.add(sentence_id)
     return sentence_id
-
-
-def _takes_space(c: str) -> bool:
-    """Thai vowels above and below and tone marks sit on a letter (Unicode Mn, Me)."""
-    return unicodedata.category(c) not in ("Mn", "Me")
 
 
 def _json_object(reply: str) -> dict | None:

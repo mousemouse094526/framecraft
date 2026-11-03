@@ -10,6 +10,7 @@ import trashRedIcon from "../assets/trash-red.svg";
 import trashWhiteIcon from "../assets/trash-white.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { episodeOf, shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
+import { sentenceAudioUrl } from "../lib/render";
 
 // Figma component `Status badge` (spoil-maker D30).
 const STATUS_LOOK: Record<SentenceStatus, { label: string; className: string }> = {
@@ -34,14 +35,16 @@ type Props = {
   onOpenPicker: (slot: number) => void;
   onPick: () => void;
   onCancelPick: () => void;
+  /** สร้างเสียงใหม่: this sentence alone, even when it is `ready` (D30). */
+  onVoice: () => void;
   onInsert: () => void;
   onDelete: () => void;
 };
 
 /**
  * Figma component `Sentence card`: two Shots, the text that saves itself, the lines it
- * cites, AI เลือก Shot ใหม่, แทรกใต้ and ลบ with its confirm (spoil-maker D19, D25, D26, D27).
- * ฟัง and สร้างเสียงใหม่ come with the voice of each sentence.
+ * cites, ฟัง, สร้างเสียงใหม่, AI เลือก Shot ใหม่, แทรกใต้ and ลบ with its confirm
+ * (spoil-maker D19, D25, D26, D27, D30).
  */
 export function SentenceCard(props: Props) {
   const { sentence, number, clipIds, shots, locked, picking, focus } = props;
@@ -133,16 +136,29 @@ export function SentenceCard(props: Props) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={() => listen(sentence)}
+            disabled={sentence.audio === null}
+            title={sentence.audio === null ? "ประโยคนี้ยังไม่มีเสียง" : undefined}
+            className={`h-11 px-3 sm:px-6 ${OUTLINE_BUTTON}`}
+          >
+            ฟัง
+          </button>
+          <button type="button" onClick={props.onVoice} disabled={locked} className={`h-11 px-3 sm:px-6 ${OUTLINE_BUTTON}`}>
+            <img src={refreshIcon} alt="" width={16} height={16} />
+            สร้างเสียงใหม่
+          </button>
+          <button
+            type="button"
             onClick={props.onPick}
             disabled={locked || sentence.refs.length === 0}
             title={sentence.refs.length === 0 ? "ประโยคนี้ไม่ได้อ้างบรรทัดไหน: เลือกภาพเอง" : undefined}
-            className={`h-11 px-6 ${OUTLINE_BUTTON}`}
+            className={`h-11 px-3 sm:px-6 ${OUTLINE_BUTTON}`}
           >
             <img src={refreshIcon} alt="" width={16} height={16} />
             เลือก Shot ใหม่
           </button>
-          <span className="flex-1" />
-          <button type="button" onClick={props.onInsert} disabled={locked} className={`h-11 px-6 ${GHOST_BUTTON}`}>
+          <span className="hidden flex-1 sm:block" />
+          <button type="button" onClick={props.onInsert} disabled={locked} className={`h-11 px-3 sm:px-6 ${GHOST_BUTTON}`}>
             <img src={plusIcon} alt="" width={16} height={16} />
             แทรกใต้
           </button>
@@ -151,7 +167,7 @@ export function SentenceCard(props: Props) {
             onClick={() => setConfirming(true)}
             disabled={locked}
             aria-label={`ลบประโยค ${number}`}
-            className={`h-11 px-4 sm:px-6 ${GHOST_BUTTON} text-destructive`}
+            className={`h-11 px-3 sm:px-6 ${GHOST_BUTTON} text-destructive`}
           >
             <img src={trashRedIcon} alt="" width={16} height={16} />
             {/* A phone shows the icon only, on the same line (Figma mobile frame). */}
@@ -163,6 +179,13 @@ export function SentenceCard(props: Props) {
       )}
     </li>
   );
+}
+
+/** Plays the sentence's wav; `?v=` changes with each new voice, so the browser never plays an old one. */
+function listen(sentence: Sentence) {
+  if (sentence.audio === null) return;
+  // A browser that refuses to play (no user gesture, no device) just stays quiet.
+  void new Audio(sentenceAudioUrl(sentence.id, sentence.audio.duration_s)).play().catch(() => {});
 }
 
 /** "AI กำลังเลือก Shot ใหม่" with ยกเลิก (spec › Design, หน้าตรวจแก้). */

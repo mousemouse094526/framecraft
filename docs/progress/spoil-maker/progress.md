@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** 03 done — ร่างบทจาก Temp clip หลาย EP (Draft job), หน้าตั้งค่าและหน้าตรวจแก้ (บท Shot ตัวเลือก Shot AI เลือกใหม่), คำเตือน Spoil draft ใน tab คลิป; ต่อไป 04 (เสียงต่อประโยคและ render)
+**Now:** 04 done — ทุก ticket เสร็จ: เสียงต่อประโยค (Voice job `sentences`), ลายน้ำและเสียงต้นฉบับ, Render job (mp4 1080×1920 + `.srt`) และหน้าผล render; ต่อไป feature review ก่อน merge
 
 **Next:**
 
 ```
-/warroom-build spoil-maker 04
+/warroom-build spoil-maker --review-feature
 ```
 
 ## Tickets
@@ -16,9 +16,43 @@
 | 01 | ติดตั้ง Qwen, ช่อง GPU และดูภาพ | done |
 | 02 | Saved voice | done |
 | 03 | ร่างบทและหน้าตรวจแก้ | done |
-| 04 | เสียงต่อประโยคและ render | ready |
+| 04 | เสียงต่อประโยคและ render | done |
 
 ## Log
+
+### 04: เสียงต่อประโยคและ render — done 2026-11-03
+
+**Built:**
+- ติดตั้ง Kanit: `backend.fonts` (commit `130fcfb`, sha256 ทั้งสองไฟล์) — setup โหลด `Kanit-Bold.ttf` กับ `OFL.txt` ลง `models/fonts/kanit/` หลังโมเดล, sha256 ไม่ตรงลบไฟล์และล้ม, marker `models/.setup/font_kanit` เขียนท้ายสุด; แถว Status check `font_kanit` "Kanit font" ต่อจาก `pythainlp` (15 แถว)
+- Voice job `sentences`: `voices.SentenceVoicer` (ฐานร่วมของ Voice job และ Render job) แปลงตัวเลขก่อนส่ง OmniVoice (`tts.Speak` พร้อม clone prompt และ speed ของ Saved voice, `num_step` 16), เขียน `draft-audio/{id}.wav` และ `audio` ของประโยคทันทีทีละประโยค; จองช่อง GPU `voice` พร้อมคลิปของ draft (`clip_busy`) และล็อก draft (`draft_locked`, `locked: true`); `GET /draft/sentences/{sid}/audio.wav`
+- `PATCH /settings`: ลายน้ำสูงสุด 6 อัน (`text` 1–40 ตัวอักษรที่กินที่, `position` 6 จุด, `size` small/medium) และ `original_volume`; ค่าไม่ตรง `400` `invalid_settings`
+- Render job (`spoil_maker.render`, `compose`, `captions`, `ffmpeg`): `no_draft` → `missing_shots` → `disk_full` → `not_ready` → `busy` → `gpu_busy`; ประโยคขาดเสียง → `voicing` (จอง GPU `render`) แล้วคืนช่องก่อน `rendering`; ชิ้นต่อ Shot `.render/{i}.mkv` 1080×1920 30 fps ตาม layout A/B/C (A: พื้นเบลอ `gblur` 30 + ภาพ 1080×1350 ที่ y 285; B/C: 1080×608 ที่ y 656/420), Shot เลยท้ายค้างเฟรมสุดท้าย, เสียงต้นฉบับ × `original_volume`; ต่อด้วย concat, ผสมเสียงบรรยาย `amix normalize=0`, วาด ASS ด้วย libass + Kanit, `libx264 crf 20 yuv420p` + `aac 192k 48 kHz` + `faststart`; เขียน `renders/{YYYYMMDD-HHMMSS}.mp4/.srt/.json` ผ่าน `.partial` (json ท้ายสุด); ยกเลิกฆ่า ffmpeg ลบ `.partial` และ `.render/`; start ล้างทั้งสอง
+- ASS: hook (A) / ชื่อตอน (C) ตัดบรรทัดที่ขอบคำ `newmm` 18/20 ตัวอักษรที่กินที่, ซับ A ท่อนไม่เกิน 4 คำ 15 ตัวอักษร เวลาแบ่งตามสัดส่วน, ซับ B ไม่เกิน 2 บรรทัด 28 ตัวอักษร, ลายน้ำขาวขอบดำ 3 px ทึบ 80% ที่ 6 มุม, escape `\ { }` และขึ้นบรรทัดใหม่; `.srt` ข้อความตามที่เขียน (ตัวเลขคงเดิม)
+- `GET /renders` (ใหม่สุดก่อน, `sources` ชื่อคลิปตามลำดับ EP), `GET /renders/{name}.mp4` (`Range` → `206`), `.srt` (`Content-Disposition`), `DELETE /renders/{name}`; ผล render อยู่แม้ลบคลิป
+- โค้ดใช้ร่วม: `backend.clock.srt` (Transcript และ render), `thai.width`/`cut_width` ย้ายจาก `script`, `thai.words` เก็บช่องว่างท้ายคำ, `spoil_maker.ffmpeg` (`frames` ใช้ด้วย); library note `ffmpeg.md`
+- หน้าเว็บ ตรวจแก้บท: การ์ดประโยคมี **ฟัง** และ **สร้างเสียงใหม่**; `VideoSettings` (เสียงคลิปต้นฉบับ slider บันทึกเอง, ลายน้ำ เพิ่ม ลบ ข้อความ ตำแหน่ง 6 จุด ขนาด); `ReviewFooter` sticky (สร้างเสียงทั้งหมด / render, "สร้างเสียง x/y", "render %", ยกเลิก, render กดไม่ได้เมื่อมีประโยคไม่มี Shot, รอ AI เลือก Shot); `ReviewBanner` (render ไม่สำเร็จ / งานหยุดกลางทาง พร้อมลองอีกครั้ง, ที่ว่างดิสก์), `not_ready` มีลิงก์ไปหน้าติดตั้ง; render เสร็จเปิด `#/spoil/renders`
+- หน้าเว็บ ผล render (ขั้น 3): progress พร้อมยกเลิก, รายการใหม่สุดก่อน (ภาพเล็กจาก mp4, เวลา, ความยาว, "ต้นฉบับ: {ชื่อคลิป}" พร้อม copy, โหลด mp4 / `.srt`, ลบพร้อมยืนยัน), จอ ≥ 1024 เล่นใน panel 324×576 ข้างรายการ, มือถือเล่นใต้แถว; ว่าง "ยังไม่มีผล render"
+- README: ขั้น 2–3, ที่เก็บไฟล์ `media/temp/shots/` และ `media/spoil-maker/`, font Kanit; skills `fastapi-api` (tree, rules/setup), `vite-react-web` (`lib/render.ts`, `lg:` ของหน้าสองคอลัมน์)
+- หน้าเว็บเทียบ Figma (DOM, pane ถูกซ่อน): 1440 ตรวจแก้ — บท 744, ตั้งค่าวิดีโอ 360, footer 1120×78; ผล render — รายการ 746, panel 358, player 324×576; 375 — การ์ดประโยค 343 ปุ่ม 2 แถว (382 จาก 396), แถว render 341 (เล่นอยู่ 743 จาก 744, ปกติ 182 จาก 176), ไม่มี scroll แนวนอน
+- เช็คมือบน M2 (Seam 3), draft จริงของหนัง 96 นาที 20 ประโยค เสียงหญิง young adult `v_be1485d1`:
+  - render ผ่านหน้าเว็บทั้งงาน **178 วินาที**: `voicing` 20 ประโยค ~140 วินาที (~7 วินาที/ประโยค) + `rendering` ~38 วินาที; mp4 ยาว 75.47 วินาที เทียบผลรวมเสียง 75.45 (ต่าง 0.02); 1080×1920, aac 48 kHz; 17.6 MB
+  - render ซ้ำเมื่อเสียงครบ (Open Question 1, คลิป ~75 วินาที): layout A **79 วินาที** (พื้นเบลอเต็มจอแพง), B ~38 วินาที, C **33 วินาที**
+  - ภาพจากทั้ง 3 layout: สระบนล่างและวรรณยุกต์ Kanit ไม่ซ้อนผิด, ภาพตรงตาราง layout (4:3 ใน B/C เติมดำตามสัดส่วน), ลายน้ำ 6 อันอยู่ถูกมุม, ชื่อตอน C เหลืองขอบแดง
+  - เสียงประโยค "ปี 1968 เวลา 10:30 น. ผีดิบกว่า 50% บุกเข้ามา" ให้ Whisper ฟัง → "ปี 1968 เวลา 10.30 นาที … ผีดิบกว่า 50% บุกเข้ามา" (ตัวเลขอ่านถูก)
+  - draft ของผู้ใช้คืนเป็นเหมือนก่อนเช็ค (layout B, 19 ประโยค) แต่ทุกประโยคมีเสียงแล้ว; ผล render ทดสอบ 3 ไฟล์อยู่ใน `media/spoil-maker/renders/`
+  - **ไม่ได้เช็ค:** 5 ประโยคฟังเป็นเสียงเดียวกัน และเสียงต้นฉบับ 20% "ได้ยินแต่ไม่กลบ" — ต้องฟังด้วยหู; เปิด mp4 บน iPhone และอัปโหลด YouTube Shorts แบบ private — ต้องใช้เครื่องและบัญชีของผู้ใช้
+
+**Decided:**
+- D62 — ทางเลือกเล็ก: `backend.fonts` และ marker, ลำดับการเช็คของ Voice job `sentences` และ Render job, `SentenceVoicer`, ไฟล์กลาง mkv และจุดตัดตามเฟรม 30 fps, `spoil_maker.ffmpeg`, style ของ ASS, ซับ A คำเดียวได้เมื่อคำถัดไปเกิน 15 ตัวอักษร, render เสร็จเปิดผล render, ภาพเล็กจาก mp4, player panel ≥ 1024, ไม่ทำ banner "แอปปิดไประหว่าง…" (งานหายเมื่อ restart)
+
+**For the next ticket:**
+- feature review: ลายน้ำ `top_center` (y 60) ทับ hook ของ layout A (y 70) และชิดชื่อตอน C — spec วางทั้งคู่ที่ขอบบน; ผู้ใช้ควรตัดสิน (ย้าย hook ลง หรือเตือนเมื่อเลือกบนกลาง)
+- feature review: `น.` หลังเวลา (`10:30 น.`) OmniVoice อ่าน "น" — spec › ตัวเลขเป็นคำ ไม่ได้ระบุ; อาจเพิ่ม `น.` → นาฬิกา/ตัดทิ้ง
+- feature review: layout A render ช้ากว่า B/C ~2 เท่า เพราะ `gblur` sigma 30 ที่ 1080×1920 ทุกเฟรม — ย่อ-เบลอ-ขยายจะเร็วขึ้นโดยภาพเหมือนเดิม
+- review ที่ไม่ได้แก้: `_run` ของ Voice job กับ Render job (และงานลูกเดิม) รูปเดียวกัน (ending/try/except/finally, `_failed`) — ย้ายเข้า `ModelJobSlot` ได้; `compose.run` ซ้ำการตั้ง Popen + kill กับ `frames.find_cuts`; `JobsState`/`RendersState` เก็บ banner และ refusal แยกฟิลด์แทน union; test ของไฟล์ ASS เรียก `captions.ass_file` ตรง (ไฟล์ ASS ไม่เหลือหลัง render) และ `paused_ffmpeg` แทน `compose.run`
+- `?v={duration_s}` ของ audio.wav (spec › Frontend): สองครั้งที่ยาวเท่ากันได้ URL เดียวกัน — browser อาจเล่นเสียงเก่า
+
+**Checks:** `uv run pytest` — 467 passed; `npm --prefix frontend test` — 174 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 03: ร่างบทและหน้าตรวจแก้ — done 2026-11-03
 

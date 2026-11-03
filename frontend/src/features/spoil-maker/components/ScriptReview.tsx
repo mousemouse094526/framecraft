@@ -6,10 +6,16 @@ import arrowRightIcon from "../assets/arrow-right-white.svg";
 import fileTextIcon from "../assets/file-text-36.svg";
 import triangleAlertIcon from "../assets/triangle-alert-24.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
+import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
+import { useVideoSettings } from "../hooks/useVideoSettings";
 import { SETUP_HASH, type Draft, type Layout } from "../lib/draft";
+import type { Refused } from "../lib/render";
+import { ReviewBanner } from "./ReviewBanner";
+import { ReviewFooter } from "./ReviewFooter";
 import { PickProgress, SentenceCard } from "./SentenceCard";
 import { ShotPicker } from "./ShotPicker";
+import { VideoSettings } from "./VideoSettings";
 
 // What the text on top of the video is called in each layout; B has none (D19).
 const TOP_TEXT_LABELS: Partial<Record<Layout, string>> = { A: "Hook", C: "ชื่อตอน" };
@@ -19,13 +25,15 @@ const TOLERANCE = 0.25; // an estimate further off the target than this warns (D
 const NEW_SENTENCE = "ประโยคใหม่";
 
 /**
- * Step 2 of the สปอย tab, ตรวจแก้บท (Figma `Script review`, its script and Shots): the text
- * on top, the length, and every sentence (spoil-maker D19, D25, D26, D27, D30, D51). The
- * voice, watermarks, original volume and render come with the Render job.
+ * Step 2 of the สปอย tab, ตรวจแก้บท (Figma `Script review`): the text on top, the length,
+ * every sentence with its voice, the original sound and the watermarks beside them, and
+ * the sticky footer that voices and renders (spoil-maker D19, D25–D27, D30, D40–D42, D51).
  */
 export function ScriptReview() {
   const review = useScriptReview();
   const { state } = review;
+  const { jobs, ...run } = useReviewJobs(review.refresh, review.goOffline);
+  const video = useVideoSettings();
   const [picker, setPicker] = useState<{ sentenceId: string; slot: number } | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
 
@@ -34,7 +42,10 @@ export function ScriptReview() {
   if (state.kind === "empty") return <NoDraft />;
 
   const { draft, shots, job, pickingId } = state;
-  const locked = draft.locked || job !== null;
+  const running = jobs.voice ?? jobs.render;
+  // A render that is past its voicing doesn't lock the draft, but the page waits for it too (Figma).
+  const locked = draft.locked || job !== null || running !== null;
+  const unvoiced = draft.sentences.filter((s) => s.status !== "ready").map((s) => s.id);
   const pickerIndex = picker ? draft.sentences.findIndex((s) => s.id === picker.sentenceId) : -1;
 
   /** แทรกใต้, then focus the new sentence, the one id the draft didn't have, so the user types over its text. */
@@ -45,35 +56,67 @@ export function ScriptReview() {
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:max-w-[744px]">
-      <TopCard draft={draft} locked={locked} onSave={async (top_text) => (await review.changeDraft({ top_text })).kind === "saved"} />
-      {state.error && <Alert tone="error">{state.error}</Alert>}
-      {/* A pick this page didn't start (it ran before the page opened): which sentence isn't known. */}
-      {job && !draft.sentences.some((s) => s.id === pickingId) && (
-        <section aria-label="งานที่กำลังทำ" className="rounded-2xl border border-border bg-card p-4">
-          <PickProgress job={job} onCancel={() => void review.cancel()} />
-        </section>
+    <div className="flex flex-col gap-4">
+      {jobs.banner && (
+        <ReviewBanner
+          banner={jobs.banner}
+          onRetry={() => void (jobs.banner?.kind === "render" ? run.render() : run.voice(unvoiced))}
+        />
       )}
-      <ol className="flex flex-col gap-4">
-        {draft.sentences.map((sentence, index) => (
-          <SentenceCard
-            key={sentence.id}
-            sentence={sentence}
-            number={index + 1}
-            clipIds={draft.clip_ids}
-            shots={shots}
+      {jobs.refused && <RefusedAlert refused={jobs.refused} />}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4 lg:w-[744px] lg:shrink-0">
+          <TopCard draft={draft} locked={locked} onSave={async (top_text) => (await review.changeDraft({ top_text })).kind === "saved"} />
+          {state.error && <Alert tone="error">{state.error}</Alert>}
+          {/* A pick this page didn't start (it ran before the page opened): which sentence isn't known. */}
+          {job && !draft.sentences.some((s) => s.id === pickingId) && (
+            <section aria-label="งานที่กำลังทำ" className="rounded-2xl border border-border bg-card p-4">
+              <PickProgress job={job} onCancel={() => void review.cancel()} />
+            </section>
+          )}
+          <ol className="flex flex-col gap-4">
+            {draft.sentences.map((sentence, index) => (
+              <SentenceCard
+                key={sentence.id}
+                sentence={sentence}
+                number={index + 1}
+                clipIds={draft.clip_ids}
+                shots={shots}
+                locked={locked}
+                picking={pickingId === sentence.id ? job : null}
+                focus={focusId === sentence.id}
+                onText={async (text) => (await review.changeText(sentence.id, text)).kind === "saved"}
+                onOpenPicker={(slot) => setPicker({ sentenceId: sentence.id, slot })}
+                onPick={() => void review.pick(sentence.id)}
+                onCancelPick={() => void review.cancel()}
+                onVoice={() => void run.voice([sentence.id])}
+                onInsert={() => void insertAfter(sentence.id)}
+                onDelete={() => void review.remove(sentence.id)}
+              />
+            ))}
+          </ol>
+        </div>
+        <div className="min-w-0 flex-1">
+          <VideoSettings
+            volume={draft.original_volume}
+            onVolume={async (original_volume) => (await review.changeDraft({ original_volume })).kind === "saved"}
+            settings={video.state}
             locked={locked}
-            picking={pickingId === sentence.id ? job : null}
-            focus={focusId === sentence.id}
-            onText={async (text) => (await review.changeText(sentence.id, text)).kind === "saved"}
-            onOpenPicker={(slot) => setPicker({ sentenceId: sentence.id, slot })}
-            onPick={() => void review.pick(sentence.id)}
-            onCancelPick={() => void review.cancel()}
-            onInsert={() => void insertAfter(sentence.id)}
-            onDelete={() => void review.remove(sentence.id)}
+            onAdd={video.add}
+            onChange={video.change}
+            onRemove={video.remove}
           />
-        ))}
-      </ol>
+        </div>
+      </div>
+      <ReviewFooter
+        job={running}
+        waitingFor={job ? "รอให้ AI เลือก Shot เสร็จก่อน" : null}
+        noShot={draft.sentences.filter((s) => s.status === "no_shot").length}
+        unvoiced={unvoiced.length}
+        onVoiceAll={() => void run.voice(unvoiced)}
+        onRender={() => void run.render()}
+        onCancel={() => void run.cancel()}
+      />
       {picker && pickerIndex >= 0 && (
         <ShotPicker
           sentence={draft.sentences[pickerIndex]}
@@ -91,6 +134,23 @@ export function ScriptReview() {
         />
       )}
     </div>
+  );
+}
+
+/** A refusal of a start; `not_ready` links to ติดตั้ง (spec › Frontend). */
+function RefusedAlert({ refused }: { refused: Refused }) {
+  return (
+    <Alert tone="error">
+      {refused.text}
+      {refused.setupLink && (
+        <>
+          {" "}
+          <a href="#/setup" className="font-medium text-link underline">
+            ไปหน้าติดตั้ง
+          </a>
+        </>
+      )}
+    </Alert>
   );
 }
 

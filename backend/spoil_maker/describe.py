@@ -22,7 +22,7 @@ from backend.spoil import clips
 from backend.errors import ApiError, JobFailed, Row, require_rows
 from backend.jobs import Cancelled, ModelJobSlot, short
 from backend.spoil_maker import draft_file, frames, shots
-from backend.spoil_maker.frames import FfmpegFailed
+from backend.spoil_maker.ffmpeg import FfmpegFailed
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
 
 log = logging.getLogger(__name__)

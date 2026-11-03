@@ -2,8 +2,8 @@
 and every file, and a child process that runs OmniVoice (ADR 0010, ADR 0012, ADR 0015).
 
 Rules are in docs/features/spoil-maker/spec.md › Saved voice and › Voice job
-(D32, D35, D37, D43, D48). This ticket has `design_preview`; `sentences` needs a
-Spoil draft and comes with it.
+(D30, D32, D35, D36, D37, D43, D48). `SentenceVoicer` voices the Spoil draft's
+sentences for the Voice job `sentences` and the Render job's `voicing` alike.
 """
 
 import json
@@ -16,17 +16,18 @@ import threading
 import time
 import wave
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from pydantic import BaseModel
 
 from backend import checks, files, gpu, paths, spoil_maker
 from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, ModelJobSlot, short
+from backend.jobs import Cancelled, Job, ModelJobSlot, short
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil_maker import draft_file, thai
-from backend.spoil_maker.tts import Design, Designed, Ready, WorkerError
+from backend.spoil_maker.draft_file import Audio, Draft
+from backend.spoil_maker.tts import Design, Designed, Ready, Speak, Spoken, WorkerError
 
 log = logging.getLogger(__name__)
 
@@ -79,68 +80,172 @@ class Voice(BaseModel):
     in_use: bool  # the Spoil draft uses it, so it can't be deleted (D43)
 
 
-class VoiceJobs(ModelJobSlot[VoiceJob]):
+class SentencesPlan(NamedTuple):
+    """What voicing some of the Spoil draft's sentences needs, read under the draft's lock."""
+
+    voice_id: str
+    speed: float
+    prompt: bytes  # the Saved voice's clone prompt (`{voice_id}.pt`)
+    clip_ids: list[str]  # the draft's clips: deleting one is `clip_busy` meanwhile (D49)
+    sentences: list[tuple[str, str]]  # (id, text as written), in the draft's order
+
+
+def plan_sentences(project: ProjectPaths, draft: Draft, sentence_ids: list[str]) -> SentencesPlan:
+    """The sentences in the draft's order with the draft's voice. Raises `ApiError` 400
+    `voice_not_found` when that voice is gone. Call with the draft's lock held."""
+    voice = project.voices_dir / f"{draft.voice_id}.json"
+    prompt = project.voices_dir / f"{draft.voice_id}.pt"
+    if not VOICE_ID.fullmatch(draft.voice_id) or not voice.is_file() or not prompt.is_file():
+        raise ApiError(400, "voice_not_found", "ไม่พบเสียงของ Spoil draft: เลือกเสียงใหม่")
+    wanted = set(sentence_ids)
+    return SentencesPlan(
+        voice_id=draft.voice_id,
+        speed=json.loads(voice.read_text(encoding="utf-8"))["speed"],
+        prompt=prompt.read_bytes(),
+        clip_ids=list(draft.clip_ids),
+        sentences=[(sentence.id, sentence.text) for sentence in draft.sentences if sentence.id in wanted],
+    )
+
+
+class SentenceVoicer(ModelJobSlot[Job]):
+    """A job slot whose job voices Spoil draft sentences in a TTS child (ADR 0012):
+    the Voice job `sentences` and the Render job's `voicing`."""
+
+    worker_error = WorkerError
+    child_name = "ตัวสร้างเสียง"
+    failure = "สร้างเสียงไม่สำเร็จ"
+
+    def _start_tts(self, project: ProjectPaths):
+        """Starts the OmniVoice child and waits until it is loaded; returns it with its queues."""
+        device = checks.probe_device()
+        snapshot = project.snapshot_dir(OMNIVOICE, OMNIVOICE.revision)
+        process, requests, replies = spoil_maker.start_tts_worker(snapshot, device)
+        self._track(process)
+        self._reply(process, replies, (Ready,))
+        return process, requests, replies
+
+    def _voice_sentences(self, project: ProjectPaths, plan: SentencesPlan) -> None:
+        """One sentence at a time, each written as soon as it is spoken, so a cancel keeps
+        the finished ones (spec › Voice job); `done` counts them. The draft is locked
+        meanwhile, so every sentence is still there."""
+        process, requests, replies = self._start_tts(project)
+        for done, (sentence_id, text) in enumerate(plan.sentences, start=1):
+            tts_text = thai.spoken(text)
+            requests.put(Speak(text=tts_text, prompt=plan.prompt, speed=plan.speed, num_step=NUM_STEP))
+            spoken = self._reply(process, replies, (Spoken,))
+            _write_sentence_audio(project, plan.voice_id, sentence_id, tts_text, spoken)
+            self._update(done=done)
+        requests.put(None)
+
+    def _running_child(self):
+        with self._lock:
+            return self._process
+
+
+class VoiceJobs(SentenceVoicer[VoiceJob]):
     """Holds the latest Voice job."""
 
     unfinished = UNFINISHED
     gpu_kind = "voice"
     nothing_to_cancel = "ไม่มีงานสร้างเสียงที่ยังไม่จบ"
-    worker_error = WorkerError
-    child_name = "ตัวสร้างเสียง"
-    failure = "สร้างเสียงไม่สำเร็จ"
 
     def start(self, body: dict) -> VoiceJob:
-        """Checks the body, then the gate, `busy`, `gpu_busy`, and starts the job's thread."""
         kind = body.get("kind")
         if kind == "sentences":
-            # Every id must be in the Spoil draft (spec › Voice job); drafts come in a later ticket,
-            # so for now none is.
-            raise ApiError(400, "invalid_request", "ยังไม่มี Spoil draft ให้สร้างเสียง")
+            return self._start_sentences(body.get("sentence_ids"))
         if kind != "design_preview":
             raise ApiError(400, "invalid_request", "ไม่รู้จักงานสร้างเสียงแบบนี้")
+        return self._start_design(body)
+
+    def _start_design(self, body: dict) -> VoiceJob:
+        """Checks the body, then the gate, `busy`, `gpu_busy`, and starts the job's thread."""
         instruct, speed = _design_choices(body)
         project = ProjectPaths(paths.ROOT)
-        require_rows(_needed_rows(project))
+        require_rows(needed_rows(project))
         with self._lock:
             if self._taken():
                 raise ApiError(409, "busy", "กำลังสร้างเสียงอยู่")
             gpu.slot.take("voice")
-            self._job = VoiceJob(kind=kind, state="voicing", started_at=checks.now_iso())
+            self._job = VoiceJob(kind="design_preview", state="voicing", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
         request = Design(instruct=instruct, text=SAMPLE_SENTENCE, speed=speed, num_step=NUM_STEP)
-        thread = threading.Thread(target=self._run, args=(project, request), daemon=True)
-        thread.start()
+        threading.Thread(target=self._run, args=(lambda: self._design(project, request),), daemon=True).start()
         return job
 
-    def _run(self, project: ProjectPaths, request: Design) -> None:
+    def _start_sentences(self, sentence_ids: object) -> VoiceJob:
+        """`busy`, then the ids, the gate and the GPU under the draft's lock, so no edit
+        slips in before the draft is locked (D51)."""
+        project = ProjectPaths(paths.ROOT)
+        with self._lock:
+            if self._taken():
+                raise ApiError(409, "busy", "กำลังสร้างเสียงอยู่")
+            with gpu.slot.draft_lock:
+                draft = draft_file.read(project)
+                if draft is None:
+                    raise ApiError(400, "invalid_request", "ยังไม่มี Spoil draft ให้สร้างเสียง")
+                known = {sentence.id for sentence in draft.sentences}
+                if (
+                    not isinstance(sentence_ids, list)
+                    or not sentence_ids
+                    or len(set(map(str, sentence_ids))) < len(sentence_ids)
+                    or not all(isinstance(sid, str) and sid in known for sid in sentence_ids)
+                ):
+                    raise ApiError(400, "invalid_request", "เลือกประโยคที่มีใน Spoil draft โดยไม่ซ้ำ")
+                plan = plan_sentences(project, draft, sentence_ids)
+                require_rows(needed_rows(project))
+                gpu.slot.take("voice", plan.clip_ids, draft=True)
+            self._job = VoiceJob(
+                kind="sentences", state="voicing", done=0, total=len(plan.sentences), started_at=checks.now_iso()
+            )
+            self._cancel.clear()
+            job = self._job.model_copy(deep=True)
+        threading.Thread(target=self._run, args=(lambda: self._voice_sentences(project, plan),), daemon=True).start()
+        return job
+
+    def _design(self, project: ProjectPaths, request: Design) -> None:
+        process, requests, replies = self._start_tts(project)
+        requests.put(request)
+        designed = self._reply(process, replies, (Designed,))
+        requests.put(None)
+        _write_preview(project, request, designed)
+
+    def _run(self, steps) -> None:
         # Stays `failed` only if something escapes every handler below.
         ending: dict = {"state": "failed"}
         started = time.monotonic()
-        log.info("voice design started")
-        process = None
+        kind = self.current().kind
+        log.info("voice job %s started", kind)
         try:
-            device = checks.probe_device()
-            snapshot = project.snapshot_dir(OMNIVOICE, OMNIVOICE.revision)
-            process, requests, replies = spoil_maker.start_tts_worker(snapshot, device)
-            self._track(process)
-            self._reply(process, replies, (Ready,))
-            requests.put(request)
-            designed = self._reply(process, replies, (Designed,))
-            requests.put(None)
-            _write_preview(project, request, designed)
+            steps()
             ending = {"state": "done"}
         except Cancelled:
             ending = {"state": "cancelled"}
         except JobFailed as failure:
             ending = _failed(failure.code, failure.message)
         except Exception as error:
-            log.exception("voice design failed")  # the full error, for [api]
+            log.exception("voice job %s failed", kind)  # the full error, for [api]
             ending = _failed("internal", f"สร้างเสียงไม่สำเร็จ: {short(error)}")
         finally:
-            self._finish(process, ending)
+            self._finish(self._running_child(), ending)
             code = ending["error"].code if ending.get("error") else None
-            log.info("voice design ended %s %s after %.0f s", ending["state"], code or "", time.monotonic() - started)
+            log.info("voice job %s ended %s %s after %.0f s", kind, ending["state"], code or "", time.monotonic() - started)
+
+
+def _write_sentence_audio(project: ProjectPaths, voice_id: str, sentence_id: str, tts_text: str, spoken: Spoken) -> None:
+    """The sentence's wav, then its `audio` in the draft: what was spoken and how long (D30)."""
+    project.draft_audio_dir.mkdir(parents=True, exist_ok=True)
+    target = project.draft_audio_dir / f"{sentence_id}.wav"
+    temporary = target.with_name(target.name + ".tmp")
+    _write_wav(temporary, spoken)
+    seconds = round(_wav_seconds(temporary), 3)
+    with gpu.slot.draft_lock:
+        os.replace(temporary, target)
+        draft = draft_file.read(project)
+        sentence = next(s for s in draft.sentences if s.id == sentence_id)
+        sentence.audio = Audio(tts_text=tts_text, voice_id=voice_id, duration_s=seconds)
+        draft_file.write(project, draft)
+
 
 # Saving moves the preview's files and a finished job replaces them: one at a time.
 _files_lock = threading.Lock()
@@ -309,12 +414,12 @@ def _json(content: dict) -> str:
     return json.dumps(content, ensure_ascii=False, indent=2)
 
 
-def _write_wav(path: Path, designed: Designed) -> None:
+def _write_wav(path: Path, spoken: Designed | Spoken) -> None:
     with wave.open(str(path), "wb") as audio:
         audio.setnchannels(1)
         audio.setsampwidth(2)
-        audio.setframerate(designed.sample_rate)
-        audio.writeframes(designed.audio)
+        audio.setframerate(spoken.sample_rate)
+        audio.writeframes(spoken.audio)
 
 
 def _wav_seconds(path: Path) -> float:
@@ -326,7 +431,7 @@ def _failed(code: ErrorCode, message: str) -> dict:
     return {"state": "failed", "error": VoiceJobError(code=code, message=message)}
 
 
-def _needed_rows(project: ProjectPaths) -> dict[str, Row]:
+def needed_rows(project: ProjectPaths) -> dict[str, Row]:
     """The Status check rows a Voice job needs, by id (spec › Status check)."""
     return {
         "device": ("Device", lambda: checks.check_device(checks.probe_device)),

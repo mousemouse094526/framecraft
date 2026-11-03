@@ -14,7 +14,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from backend import disk
+from backend import disk, fonts
 from backend.checks import (
     Probes,
     StatusResponse,
@@ -40,6 +40,7 @@ def run_setup(
     *,
     download: Download | None = None,
     npm_install: Callable[[Path], None] | None = None,
+    fetch: Callable[[str], bytes] | None = None,
     backend_running: Callable[[], bool] | None = None,
     free_bytes: Callable[[Path], int] | None = None,
     probes: Probes | None = None,
@@ -48,6 +49,7 @@ def run_setup(
     """Downloads what is missing and prints the checklist. Returns the exit code."""
     download = download or _snapshot_download
     npm_install = npm_install or _npm_install
+    fetch = fetch or fonts.fetch_https
     backend_running = backend_running or _backend_running
     free_bytes = free_bytes or disk.free_bytes
     project = ProjectPaths(root)
@@ -84,6 +86,10 @@ def run_setup(
                 allow_patterns=list(model.allow_patterns),
             )
             _write_marker(project, model, Path(snapshot))
+        if fonts.check_kanit(project)[0] != "ok":
+            step = "โหลด Kanit"
+            print("กำลังโหลด font Kanit…")
+            fonts.install_kanit(project, fetch)
         step = "npm install"
         print("กำลังรัน npm install…", flush=True)  # before npm writes its own output
         npm_install(root)

@@ -127,7 +127,10 @@ export function useScriptReview() {
     [load, setIfMounted],
   );
 
-  const changeDraft = useCallback((fields: { top_text?: string }) => change("PATCH", DRAFT_PATH, fields), [change]);
+  const changeDraft = useCallback(
+    (fields: { top_text?: string; original_volume?: number }) => change("PATCH", DRAFT_PATH, fields),
+    [change],
+  );
 
   const changeText = useCallback(
     (sentenceId: string, text: string) => change("PATCH", `${DRAFT_PATH}/sentences/${sentenceId}`, { text }),
@@ -185,5 +188,9 @@ export function useScriptReview() {
     void load();
   }, [load, setState]);
 
-  return { state, changeDraft, changeText, changeShots, insertAfter, remove, pick, cancel, reload };
+  /** Reads the draft again in place: a voice or render job moved on. */
+  const refresh = useCallback(() => void load(), [load]);
+  const goOffline = useCallback(() => setIfMounted({ kind: "offline" }), [setIfMounted]);
+
+  return { state, changeDraft, changeText, changeShots, insertAfter, remove, pick, cancel, reload, refresh, goOffline };
 }

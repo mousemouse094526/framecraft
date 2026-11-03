@@ -1,7 +1,7 @@
 """The TTS adapter: the only module that imports omnivoice (spoil-maker D3, ADR 0019).
 
 `worker` runs in a `spawn` child process (ADR 0012) that loads OmniVoice once, says
-`Ready`, then answers each `Design` it is sent with `Designed`. The backend thread
+`Ready`, then answers each `Design` with `Designed` and each `Speak` with `Spoken`. The backend thread
 owns the job and every file: the child sends audio and the clone prompt as bytes.
 torch and omnivoice are imported inside the child only. A later TTS keeps these
 messages and swaps `worker`.
@@ -28,8 +28,18 @@ class Design(NamedTuple):
     num_step: int
 
 
+class Speak(NamedTuple):
+    """Speak `text` (numbers already words) in a Saved voice: its clone prompt as
+    `VoiceClonePrompt.save` wrote it, and its speed (spoil-maker spec › Voice job)."""
+
+    text: str
+    prompt: bytes
+    speed: float
+    num_step: int
+
+
 # Sent back, in order: `Ready` once the model is loaded, then one `Designed` per
-# `Design`; a `WorkerError` instead ends the child.
+# `Design` and one `Spoken` per `Speak`; a `WorkerError` instead ends the child.
 
 
 class Ready(NamedTuple):
@@ -40,6 +50,11 @@ class Designed(NamedTuple):
     audio: bytes  # 16-bit little-endian mono PCM
     sample_rate: int
     prompt: bytes  # the clone prompt as `VoiceClonePrompt.save` writes it
+
+
+class Spoken(NamedTuple):
+    audio: bytes  # 16-bit little-endian mono PCM
+    sample_rate: int
 
 
 class WorkerError(NamedTuple):
@@ -75,7 +90,7 @@ def worker(snapshot_dir: Path, device: str, requests, replies) -> None:
     replies.put(Ready())
     while (request := requests.get()) is not None:
         try:
-            reply = design_voice(model, request)
+            reply = design_voice(model, request) if isinstance(request, Design) else speak(model, request)
         except Exception as error:
             _send_error(replies, error)
             return
@@ -111,6 +126,20 @@ def design_voice(model, request: Design) -> Designed:
     saved = io.BytesIO()
     prompt.save(saved)  # torch.save takes a file object as well as a path
     return Designed(audio=_pcm16(sample), sample_rate=model.sampling_rate, prompt=saved.getvalue())
+
+
+def speak(model, request: Speak) -> Spoken:
+    from omnivoice import VoiceClonePrompt
+
+    prompt = VoiceClonePrompt.load(io.BytesIO(request.prompt))  # torch.load takes a file object too
+    audio = model.generate(
+        text=request.text,
+        language=LANGUAGE,
+        voice_clone_prompt=prompt,
+        speed=request.speed,
+        num_step=request.num_step,
+    )[0]
+    return Spoken(audio=_pcm16(audio), sample_rate=model.sampling_rate)
 
 
 def _pcm16(samples) -> bytes:

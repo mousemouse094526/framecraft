@@ -42,6 +42,18 @@ def write_marker(root: Path, model: ModelSpec, revision: str | None = None) -> P
     return marker
 
 
+def write_kanit(root: Path) -> None:
+    """Kanit's two files and the marker setup writes once their sha256 match the pins."""
+    from backend import fonts
+
+    project = ProjectPaths(root)
+    project.kanit_dir.mkdir(parents=True, exist_ok=True)
+    for name in fonts.KANIT_SHA256:
+        (project.kanit_dir / name).write_bytes(b"font file")
+    project.kanit_marker.parent.mkdir(parents=True, exist_ok=True)
+    project.kanit_marker.write_text(json.dumps({"files": dict(fonts.KANIT_SHA256)}), encoding="utf-8")
+
+
 def ok_ffmpeg() -> FfmpegInfo:
     return FfmpegInfo(version="7.1", source="imageio-ffmpeg")
 
@@ -411,9 +423,9 @@ class FakeLlm(FakeModel):
 
 
 class FakeTts(FakeModel):
-    """The OmniVoice child: every request is spoken as `seconds` of silence at 24 kHz,
-    with the clone prompt `b"prompt {n}"`, `n` counting every request it got from 0.
-    `fail_at` answers that request of a process with a `WorkerError` instead."""
+    """The OmniVoice child: every request is spoken as `seconds` of silence at 24 kHz;
+    a `Design` also gets the clone prompt `b"prompt {n}"`, `n` counting every request
+    it got from 0. `fail_at` answers that request of a process with a `WorkerError` instead."""
 
     SAMPLE_RATE = 24_000
 
@@ -428,11 +440,13 @@ class FakeTts(FakeModel):
         return Ready()
 
     def answer(self, request, index: int):
-        from backend.spoil_maker.tts import Designed, WorkerError
+        from backend.spoil_maker.tts import Designed, Speak, Spoken, WorkerError
 
         if index == self.fail_at:
             return WorkerError("model_failed", "RuntimeError: MPS out of memory")
         audio = b"\0\0" * round(self.SAMPLE_RATE * self.seconds)
+        if isinstance(request, Speak):
+            return Spoken(audio=audio, sample_rate=self.SAMPLE_RATE)
         prompt = f"prompt {len(self.requests) - 1}".encode()
         return Designed(audio=audio, sample_rate=self.SAMPLE_RATE, prompt=prompt)
 
