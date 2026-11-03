@@ -45,6 +45,28 @@
   /* The small drawings of the 3 video layouts (Figma `Layout option`, spoil-maker D8, D22). */
   --color-preview-blur: #a8a29e;
   --color-preview-title: #facc15;
+
+  /* A running job's bar moves even when its percent doesn't (ProgressBar). */
+  --animate-progress-slide: progress-slide 1.4s ease-in-out infinite;
+  --animate-progress-shimmer: progress-shimmer 1.6s linear infinite;
+
+  @keyframes progress-slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(435%);
+    }
+  }
+
+  @keyframes progress-shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
 }
 
 body {
