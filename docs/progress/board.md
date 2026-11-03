@@ -7,4 +7,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [setup-status](setup-status/progress.md) | false | done | 🎨 1/1 | ✅ a027e8f | — | — |
 | [spoil](spoil/progress.md) | false | done | 🎨 5/5 | ✅ 49ee6de | — | — |
 | [windows-check](windows-check/progress.md) | false | blocked | — | 0/2 | รอเครื่อง Windows NVIDIA | `/warroom-build windows-check 01` |
-| [spoil-maker](spoil-maker/progress.md) | false | review | 🎨 7/7 | 6/6 | feature review รอบสอง | `/warroom-build spoil-maker --review-feature` |
+| [spoil-maker](spoil-maker/progress.md) | false | blocked | 🎨 7/8 | 6/6 | แบบ Figma สวิตช์และคำเตือนลายน้ำ (ui-prompt.md) | `/warroom spoil-maker` |

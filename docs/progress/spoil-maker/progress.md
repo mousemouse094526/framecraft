@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** ทุก ticket done (05 เสร็จ); รอ feature review รอบสอง
+**Now:** feature review รอบสองเสร็จ (`c1520e3`); เหลือ Blocked 12 — แบบ Figma ของสวิตช์และคำเตือนลายน้ำ
 
-**Next:**
+**Next:** วาดตาม `docs/features/spoil-maker/ui-prompt.md` ใน Figma แล้วนำลิงก์กลับมา
 
 ```
-/warroom-build spoil-maker --review-feature
+/warroom spoil-maker
 ```
 
 ## Tickets
@@ -20,6 +20,25 @@
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
 
 ## Log
+
+### Feature review รอบสอง — 2026-11-03
+
+**Built:** (`refactor(spoil-maker): feature review fixes`, `c1520e3`)
+- icon refresh ซ้ำ: `features/spoil-maker/assets/refresh-cw.svg` ลบ, `components/ui/assets/refresh-button.svg` → `refresh-cw.svg` ที่เดียว
+- `Describes(find_cuts=...)` (`frames.CutFinder`) แบบ `RenderJobs(run_ffmpeg=...)`: test สลับ holder ไม่ patch `spoil_maker.find_cuts`; กฎ `fastapi-api/rules/testing.md` ยกทั้งสองตัวอย่าง
+- `GpuSlot.take(..., locks_draft=True)` แทน `draft=True` (comment ของ Render job ย้ายจาก `Kind` มาที่ `take`); งานทุกงานใช้ `paths.project()` แทน `ProjectPaths(paths.ROOT)`; comment window อ้าง D26, D60
+- `VideoSettings` อ่าน `useVideoSettings().watermarks` (ทางเดียว); comment ว่าทำไมสวิตช์ส่งข้อความที่กำลังพิมพ์ไปด้วย; `settings._watermarks` ใช้ `mark_fields`
+- test: `fakes.poll_until` แทน `wait_for` ที่ซ้ำ 4 ไฟล์; `threading` import ปกติ; ชื่อและ docstring test render ที่ describe EP2 บอกว่า EP2 อยู่นอก draft
+- เช็คด้วยตาบน dev server (draft จริงตั้งเป็น layout A + Hook + ลายน้ำบนกลางชั่วคราว): คำเตือนขึ้นใต้ช่อง Hook, ปิดสวิตช์คำเตือนหาย เปิดกลับมา; draft และ settings คืนตรง backup ทุกไบต์
+- `docs/features/spoil-maker/ui-prompt.md`: prompt ออกแบบสวิตช์และคำเตือนลายน้ำของ Script review; spec › Design แถวหน้าตรวจแก้ `pending` ส่วนนั้น
+
+**Decided:**
+- ไม่แก้: `_clean_shots` อยู่ใน `app.py` (มี comment เหตุ import วน); คำเตือนความยาวเป็น pill ตาม Figma ต่างจาก `Alert`; `compose.Runner` Protocol; `test_app.py` start-up รวม (เป็น seam ของ `JOB_HOLDERS`); โหลดโมเดลไม่มี timeout (spec กำหนดแค่ timeout ต่อครั้งที่เรียก)
+
+**For the next ticket:**
+- เมื่อแบบ Figma กลับมา: เทียบหน้าตรวจแก้ที่ 1440 และ 375 แล้วปรับโค้ดถ้าต่าง (Blocked 12)
+
+**Checks:** `uv run pytest` — 483 passed; `npm --prefix frontend test` — 180 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 05: ลายน้ำเปิดปิดได้ และงานค้างจาก feature review — done 2026-11-03
 
@@ -219,3 +238,4 @@
 | 9 | review | ลำดับเช็คของ Describe job: โค้ดเช็ค gate ก่อน `in_draft` (D60) แต่ spec › Describe job ข้อ 1 วาง `in_draft` ก่อน — แก้ spec หรือโค้ดให้ตรงกัน | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | done (ticket 05) |
+| 12 | review | design: สวิตช์ลายน้ำและคำเตือนลายน้ำทับใน Figma Script review (D64, D65) — prompt ใน `docs/features/spoil-maker/ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
