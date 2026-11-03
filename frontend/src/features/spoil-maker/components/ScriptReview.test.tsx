@@ -547,3 +547,100 @@ function cleanupAndReopen() {
   cleanup();
   render(<App />);
 }
+
+describe("ตรวจแก้บท: ลายน้ำเปิดปิด และคำเตือนลายน้ำทับ (D64)", () => {
+  const ON_TOP = { text: "@ช่อง", position: "top_center", size: "small", enabled: true };
+  const settingsWith = (...watermarks: unknown[]) => ({ watermarks, original_volume: 20, last_voice_id: null });
+  const covers = (what = "") => screen.queryByText(new RegExp(`ลายน้ำ 1 อยู่บนกลาง จะทับ ${what}`));
+
+  it("a watermark's switch is sent, and stays where it was set after a reload", async () => {
+    let stored: unknown[] = [{ ...ON_TOP, position: "bottom_right" }];
+    const routes: Route[] = [
+      { path: SETTINGS_PATH, reply: () => jsonResponse(settingsWith(...stored)) },
+      {
+        method: "PATCH",
+        path: SETTINGS_PATH,
+        reply: () => {
+          stored = JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body)).watermarks;
+          return jsonResponse(settingsWith(...stored));
+        },
+      },
+      { path: SETTINGS_PATH, reply: () => jsonResponse(settingsWith(...stored)) },
+    ];
+    backend(routes);
+    const user = await openReview();
+    const row = await screen.findByRole("group", { name: "ลายน้ำ 1" });
+
+    await user.click(within(row).getByRole("switch", { name: "แสดงลายน้ำ 1" }));
+    expect(sent("PATCH", SETTINGS_PATH)).toEqual([{ watermarks: [{ ...ON_TOP, position: "bottom_right", enabled: false }] }]);
+    cleanupAndReopen();
+    await screen.findByRole("region", { name: "ภาพรวมบท" });
+
+    const reloaded = await screen.findByRole("group", { name: "ลายน้ำ 1" });
+    expect(within(reloaded).getByRole("switch", { name: "แสดงลายน้ำ 1" })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("a switched-on watermark at บนกลาง warns that it covers the hook of layout A, and render still works", async () => {
+    backend([get(SETTINGS_PATH, settingsWith(ON_TOP)), get(DRAFT_PATH, draftOf({ sentences: [readyOf("s_00000001")] }))]);
+    await openReview();
+
+    expect(await screen.findByText(/ลายน้ำ 1 อยู่บนกลาง จะทับ Hook ในวิดีโอ/)).toBeInTheDocument();
+    const footer = screen.getByRole("region", { name: "สร้างเสียงและ render" });
+    expect(within(footer).getByRole("button", { name: "render" })).toBeEnabled();
+  });
+
+  it("in layout C it warns that it covers ชื่อตอน", async () => {
+    backend([get(SETTINGS_PATH, settingsWith(ON_TOP)), get(DRAFT_PATH, draftOf({ layout: "C", top_text: "ตอนที่ 1" }))]);
+    await openReview();
+
+    expect(await screen.findByText(/ลายน้ำ 1 อยู่บนกลาง จะทับ ชื่อตอน ในวิดีโอ/)).toBeInTheDocument();
+  });
+
+  it("no warning in layout B, with an empty hook, or for a switched-off watermark", async () => {
+    for (const [draft, mark] of [
+      [draftOf({ layout: "B", top_text: "" }), ON_TOP],
+      [draftOf({ top_text: "  " }), ON_TOP],
+      [draftOf(), { ...ON_TOP, enabled: false }],
+      [draftOf(), { ...ON_TOP, position: "top_left" }],
+    ] as const) {
+      backend([get(SETTINGS_PATH, settingsWith(mark)), get(DRAFT_PATH, draft)]);
+      await openReview();
+      await screen.findByRole("group", { name: "ลายน้ำ 1" });
+
+      expect(covers()).not.toBeInTheDocument();
+      cleanup();
+      fetchMock.mockReset();
+    }
+  });
+
+  it("the warning goes at once when the watermark is switched off or moved", async () => {
+    const off = { ...ON_TOP, enabled: false };
+    const moved = { ...ON_TOP, position: "top_left" };
+    backend([
+      get(SETTINGS_PATH, settingsWith(ON_TOP)),
+      send("PATCH", SETTINGS_PATH, settingsWith(off), 200),
+      send("PATCH", SETTINGS_PATH, settingsWith(ON_TOP), 200),
+      send("PATCH", SETTINGS_PATH, settingsWith(moved), 200),
+    ]);
+    const user = await openReview();
+    const row = await screen.findByRole("group", { name: "ลายน้ำ 1" });
+    expect(covers("Hook")).toBeInTheDocument();
+
+    await user.click(within(row).getByRole("switch", { name: "แสดงลายน้ำ 1" }));
+    expect(covers("Hook")).not.toBeInTheDocument();
+    await user.click(within(row).getByRole("switch", { name: "แสดงลายน้ำ 1" }));
+    expect(covers("Hook")).toBeInTheDocument();
+    await user.click(within(row).getByRole("radio", { name: "บนซ้าย" }));
+    expect(covers("Hook")).not.toBeInTheDocument();
+  });
+
+  it("clearing the hook hides the warning before it is saved", async () => {
+    backend([get(SETTINGS_PATH, settingsWith(ON_TOP))]);
+    const user = await openReview();
+    expect(await screen.findByText(/จะทับ Hook/)).toBeInTheDocument();
+
+    await user.clear(screen.getByRole("textbox", { name: "Hook" }));
+
+    expect(covers("Hook")).not.toBeInTheDocument();
+  });
+});

@@ -5,9 +5,9 @@ import { notice, type Notice } from "../lib/notice";
 import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
 import { transcriptPath, type LineEditResult, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
 import clockIcon from "../assets/clock.svg";
-import copyIcon from "../assets/copy.svg";
+import copyIcon from "../../../components/ui/assets/copy.svg";
 import fileIcon from "../assets/file-text.svg";
-import emptyIcon from "../assets/panel-empty.svg";
+import fileText24Icon from "../../../components/ui/assets/file-text-24.svg";
 import { formatClock, formatDuration } from "../../../lib/format";
 import { DraftWarning } from "./DraftWarning";
 import { NoticeAlert } from "./NoticeAlert";
@@ -70,7 +70,7 @@ export function TranscriptPanel(props: Props) {
             <NoticeAlert notice={notice} />
           </div>
         )}
-        <img src={emptyIcon} alt="" width={24} height={24} />
+        <img src={fileText24Icon} alt="" width={24} height={24} />
         <p className="text-sm leading-[1.5] text-muted-foreground">เลือกคลิปจากรายการ</p>
       </section>
     );

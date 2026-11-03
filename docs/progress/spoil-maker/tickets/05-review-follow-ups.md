@@ -11,7 +11,7 @@
 - User stories: 10
 - Blocked: 8, 9, 10, 11
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

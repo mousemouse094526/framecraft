@@ -1,6 +1,9 @@
 """The framecraft backend. Run with `npm run dev`; it binds 127.0.0.1 only."""
 
+from collections.abc import Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Protocol
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -18,24 +21,50 @@ from backend.spoil_maker import describe, draft, render, shots, voices
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
 
 
+class Stoppable(Protocol):
+    def stop_on_shutdown(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class JobEntry:
+    """One kind of job in `JOB_HOLDERS`."""
+
+    # The module's holder as it is when the app stops: a test may have swapped it since import.
+    current: Callable[[], Stoppable]
+    # What this job leaves half-done that start-up removes. None: its half-written files are
+    # `.tmp` ones, which the clips' clean (a Transcript) or `files.remove_unfinished` (a draft) remove.
+    clean_on_start: Callable[[ProjectPaths], None] | None = None
+
+
+def _clean_shots(project: ProjectPaths) -> None:
+    """Shots of a clip that start-up removed go too (spoil-maker spec › Ops). Here, not in
+    `shots`: `spoil.clips` imports `shots`, so `shots` can't list the clips."""
+    shots.clean_on_start(project, {clip.id for clip in clips.list_clips(project)})
+
+
+# Every job, once. Start-up cleans in this order: the clips (a Download job's) before their Shots.
+JOB_HOLDERS = (
+    JobEntry(lambda: downloads.downloads, clips.clean_on_start),
+    JobEntry(lambda: transcribe.transcriptions),
+    JobEntry(lambda: describe.describes, _clean_shots),
+    JobEntry(lambda: draft.draft_jobs),
+    JobEntry(lambda: voices.voice_jobs, voices.clean_on_start),
+    JobEntry(lambda: render.render_jobs, render.clean_on_start),
+)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Jobs don't survive a restart, so their leftovers go (spoil D15, D29).
     project = ProjectPaths(paths.ROOT)
-    clips.clean_on_start(project)
-    # After the clips: Shots of a clip that start-up removed go too (spoil-maker spec › Ops).
-    shots.clean_on_start(project, {clip.id for clip in clips.list_clips(project)})
-    voices.clean_on_start(project)
-    render.clean_on_start(project)
+    for job in JOB_HOLDERS:
+        if job.clean_on_start:
+            job.clean_on_start(project)
     # Half-written `draft.json`, `settings.json`, voice files (spoil-maker spec › Ops).
     files.remove_unfinished(project.spoil_maker_dir)
     yield
-    downloads.downloads.stop_on_shutdown()
-    transcribe.transcriptions.stop_on_shutdown()
-    describe.describes.stop_on_shutdown()
-    draft.draft_jobs.stop_on_shutdown()
-    voices.voice_jobs.stop_on_shutdown()
-    render.render_jobs.stop_on_shutdown()
+    for job in JOB_HOLDERS:
+        job.current().stop_on_shutdown()
 
 
 def require_json(request: Request) -> None:

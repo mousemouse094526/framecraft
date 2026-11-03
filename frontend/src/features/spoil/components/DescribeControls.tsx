@@ -3,7 +3,7 @@ import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonSty
 import type { RefusalLine } from "../../../lib/refusal";
 import type { DescribeJob } from "../hooks/useDescribe";
 import type { TempClip } from "../../../lib/clips";
-import deleteErrorIcon from "../assets/delete-error.svg";
+import circleAlertIcon from "../../../components/ui/assets/circle-alert.svg";
 import eyeIcon from "../assets/eye.svg";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { DraftWarning } from "./DraftWarning";
@@ -115,7 +115,7 @@ export function DescribeControls({ clip, describe }: Props) {
 function ErrorLine({ error }: { error: RefusalLine }) {
   return (
     <p className="flex items-center gap-1.5 text-[13px] leading-[1.5] text-destructive">
-      <img src={deleteErrorIcon} alt="" width={14} height={14} className="shrink-0" />
+      <img src={circleAlertIcon} alt="" width={14} height={14} className="shrink-0" />
       {error.text}
       {error.setupLink && (
         <a href="#/setup" className="font-medium text-link underline">

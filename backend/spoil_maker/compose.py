@@ -13,6 +13,7 @@ import threading
 from collections import deque
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from pydantic import BaseModel
 
@@ -91,6 +92,14 @@ def final_command(pieces_list: str, narration: str, captions: str, fonts_dir: st
         "-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE),
         "-movflags", "+faststart", "-f", "mp4", out,
     ]  # fmt: skip
+
+
+class Runner(Protocol):
+    """What runs an ffmpeg command: `run`, or a test's stand-in that pauses it."""
+
+    def __call__(
+        self, command: list[str], cwd: Path, cancel: threading.Event, on_progress: Callable[[float], None] | None = None
+    ) -> None: ...
 
 
 def run(command: list[str], cwd: Path, cancel: threading.Event, on_progress: Callable[[float], None] | None = None) -> None:

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import circleAlertIcon from "../assets/circle-alert.svg";
+import circleAlertIcon from "../../../components/ui/assets/circle-alert.svg";
 import { sampleUrl, type RefusalText, type Voice } from "../hooks/useVoices";
 import { playAudio } from "../lib/audio";
 import { NameForm } from "./NameForm";

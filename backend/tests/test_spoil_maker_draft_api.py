@@ -972,6 +972,17 @@ def test_describing_a_clip_in_the_draft_needs_confirm_then_done_removes_the_draf
     assert client.get(DRAFT).json() is None
 
 
+def test_describing_a_clip_in_the_draft_without_qwen_is_not_ready_before_in_draft(client, project, ready, three_colours):
+    """The gate comes before `in_draft` (D60): no confirm is asked for a job that can't run."""
+    shutil.copyfile(three_colours, project.media_temp_dir / f"{EP1}.mp4")
+    write_draft(project)
+    project.marker(QWEN).unlink()
+
+    response = client.post("/api/spoil-maker/describes", json={"clip_id": EP1})
+
+    assert (response.status_code, response.json()["code"]) == (503, "not_ready")
+
+
 def test_a_cancelled_describe_keeps_the_draft(client, project, ready, llm, three_colours):
     shutil.copyfile(three_colours, project.media_temp_dir / f"{EP1}.mp4")
     write_draft(project)

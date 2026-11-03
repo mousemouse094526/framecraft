@@ -6,8 +6,18 @@ import { refusalLine, refusalOf, type Refusal, type RefusalLine } from "../../..
 
 export type Position = "top_left" | "top_center" | "top_right" | "bottom_left" | "bottom_center" | "bottom_right";
 export type MarkSize = "small" | "medium";
-export type Watermark = { text: string; position: Position; size: MarkSize };
+/** `enabled: false`: remembered but not drawn (D64). */
+export type Watermark = { text: string; position: Position; size: MarkSize; enabled: boolean };
 export type VideoSettings = { watermarks: Watermark[]; original_volume: number; last_voice_id: string | null };
+
+/**
+ * Which watermarks, by their number from 1 ("ลายน้ำ 1"), are switched on at บนกลาง, where the
+ * text on top is drawn too; none when that text is empty (D19: empty is not drawn, D64).
+ */
+export function markNumbersOverTopText(watermarks: Watermark[], topText: string): number[] {
+  if (!topText.trim()) return [];
+  return watermarks.flatMap((mark, index) => (mark.enabled && mark.position === "top_center" ? [index + 1] : []));
+}
 
 /** The Voice job `sentences`: `done`/`total` sentences voiced. */
 export type SentencesJob = {

@@ -1042,6 +1042,23 @@
 
 **From:** tickets · **Status:** active
 
+## D65: ทางเลือกเล็กตอน build ลายน้ำเปิดปิดและงานค้างจาก review
+
+**Chosen:** ทางเลือกที่ ticket 05 ตัดสินเองภายใน D64 และ conventions.
+
+**Details:**
+- **`PATCH /settings` ไม่มี `enabled`:** อ่านเป็น `true` เหมือนไฟล์เดิม — request แบบก่อน D64 ยังใช้ได้; `enabled` ที่มีแต่ไม่ใช่ boolean (`0`, `"no"`) → `400` `invalid_settings`
+- **ที่กรองลายน้ำที่ปิด:** `captions.ass_file` วาดเฉพาะ `enabled` — render ส่งรายการเต็ม; test อ่านไฟล์ ASS ของ render จริงตอน runner หยุดรอ
+- **สวิตช์:** `role="switch"` ข้างชื่อ "ลายน้ำ {n}" ก่อนปุ่มลบ, แถบ `brand-accent` เมื่อเปิด `border-strong` เมื่อปิด ปุ่มกด 44 px ตาม `Position cell`; ชื่อลายน้ำที่ปิดเป็นสี muted — Figma Script review ไม่มีสวิตช์ (D64 ให้ build เลือก)
+- **คำเตือน:** `Alert` tone `warning` ใต้ช่อง Hook หรือชื่อตอนใน card ภาพรวมบท: "ลายน้ำ {n} อยู่บนกลาง จะทับ {Hook|ชื่อตอน} ในวิดีโอ: ปิดหรือย้ายลายน้ำถ้าไม่ต้องการ"; อ่านข้อความที่กำลังพิมพ์ ไม่รอบันทึก จึงหายทันทีที่ลบจนว่าง; `lib/render.ts` `markNumbersOverTopText`
+- **Test ของ render:** `RenderJobs(run_ffmpeg=...)` รับ `compose.Runner` (`compose.run` เป็นค่าตั้งต้น) — `paused_ffmpeg` สร้าง holder ใหม่ที่ runner หยุดรอ
+- **`JOB_HOLDERS`:** tuple ของ `JobEntry(current, clean_on_start)` ใน `app.py`; `current` เป็นฟังก์ชันที่อ่าน holder ตอนปิด เพราะ test เปลี่ยน holder ของ module ได้; ลำดับ: Download (ล้างคลิป) → Transcribe → Describe (ล้าง Shot ของคลิปที่หาย) → Draft → Voice → Render, แล้ว `files.remove_unfinished`
+- **icon ใช้ร่วม:** `components/ui/assets/` ชื่อตาม spoil-maker (ชื่อ Lucide): `copy`, `trash`, `x`, `circle-alert`, `file-text-24`, `play`
+
+**Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; เลือกตาม component เดิม, `fastapi-api` › testing และ `vite-react-web` › components.
+
+**From:** build ticket 05 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)

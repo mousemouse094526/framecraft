@@ -24,7 +24,8 @@ frontend/src/
 ├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
 │                        tab bar, action; `wide` = 1120px from lg for two
 │                        columns), OfflinePanel, RefreshButton, ProgressBar,
-│                        Alert (the Figma toned box), buttonStyles
+│                        Alert (the Figma toned box), buttonStyles; assets/
+│                        holds the icons two features use (copy, trash, x, …)
 └── lib/
     ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them

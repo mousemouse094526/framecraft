@@ -2,7 +2,7 @@ import { Alert } from "../../../components/ui/Alert";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
 import type { Notice } from "../lib/notice";
-import copyIcon from "../assets/copy.svg";
+import copyIcon from "../../../components/ui/assets/copy.svg";
 
 /** The message after a job or a refusal; a `fix` is a command line with a copy button (setup-status D20). */
 export function NoticeAlert({ notice }: { notice: Notice }) {

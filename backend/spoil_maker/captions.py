@@ -83,7 +83,7 @@ class Timed(NamedTuple):
 
 
 def ass_file(project: ProjectPaths, layout: Layout, top_text: str, timed: list[Timed], watermarks: list[Watermark]) -> str:
-    """The whole ASS file of a render: the hook (A) or title (C) and the watermarks
+    """The whole ASS file of a render: the hook (A) or title (C) and the switched-on watermarks
     for the whole clip, and the subtitles (A in short chunks, B by sentence)."""
     total = timed[-1].end if timed else 0.0
     styles = [_style("Mark", MARK_LOOK)]
@@ -99,7 +99,7 @@ def ass_file(project: ProjectPaths, layout: Layout, top_text: str, timed: list[T
             pieces = _subtitle_pieces(project, layout, sentence.text)
             for (start, end), piece in zip(_split_time(sentence, pieces), pieces):
                 events.append(_event("Sub", start, end, tags, piece))
-    for mark in watermarks:
+    for mark in (m for m in watermarks if m.enabled):  # a switched-off one is only remembered (D64)
         row, column = mark.position.split("_")
         tags = f"\\an{MARK_ANCHORS[mark.position]}\\pos({MARK_X[column]},{MARK_Y[row]})\\fs{MARK_SIZES[mark.size]}"
         events.append(_event("Mark", 0.0, total, tags, [mark.text]))

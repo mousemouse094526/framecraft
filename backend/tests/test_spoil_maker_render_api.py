@@ -201,17 +201,36 @@ def test_the_audio_of_a_sentence_without_voice_is_not_found(client, project, rea
 # --- What the tab remembers ---
 
 SETTINGS = "/api/spoil-maker/settings"
-MARK = {"text": "@spoilerTH", "position": "bottom_right", "size": "small"}
+MARK = {"text": "@spoilerTH", "position": "bottom_right", "size": "small", "enabled": True}
 
 
 def test_watermarks_are_remembered(client):
-    marks = [MARK, {"text": "ห้ามนำไปใช้ต่อ", "position": "top_left", "size": "medium"}]
+    marks = [MARK, {"text": "ห้ามนำไปใช้ต่อ", "position": "top_left", "size": "medium", "enabled": True}]
 
     response = client.patch(SETTINGS, json={"watermarks": marks})
 
     assert response.status_code == 200
     assert response.json()["watermarks"] == marks
     assert client.get(SETTINGS).json() == {"watermarks": marks, "original_volume": 20, "last_voice_id": None}
+
+
+def test_a_switched_off_watermark_keeps_its_text_position_and_size(client):
+    off = MARK | {"enabled": False}
+
+    response = client.patch(SETTINGS, json={"watermarks": [off]})
+
+    assert response.status_code == 200
+    assert client.get(SETTINGS).json()["watermarks"] == [off]
+
+
+def test_a_watermark_without_enabled_reads_on(client, project):
+    """A `settings.json` written before D64, and a `PATCH` that leaves it out."""
+    project.spoil_maker_dir.mkdir(parents=True, exist_ok=True)
+    old = {k: v for k, v in MARK.items() if k != "enabled"}
+    project.settings_file.write_text(json.dumps({"watermarks": [old]}), encoding="utf-8")
+
+    assert client.get(SETTINGS).json()["watermarks"] == [MARK]
+    assert client.patch(SETTINGS, json={"watermarks": [old]}).json()["watermarks"] == [MARK]
 
 
 def test_the_volume_alone_keeps_the_watermarks(client):
@@ -232,6 +251,9 @@ def test_the_volume_alone_keeps_the_watermarks(client):
         {"watermarks": [MARK | {"text": "ก" * 41}]},
         {"watermarks": [{"text": "x", "position": "top_left"}]},
         {"watermarks": "x"},
+        {"watermarks": [MARK | {"enabled": "no"}]},
+        {"watermarks": [MARK | {"enabled": 0}]},
+        {"watermarks": [MARK | {"enabled": False}] * 2 + [MARK] * 5},  # 7: switched-off ones count
         {"original_volume": 33},
         {"original_volume": 105},
         {"last_voice_id": VOICE},
@@ -409,22 +431,62 @@ def test_deleting_a_clip_of_the_draft_while_a_render_voices_is_clip_busy(client,
 
 @pytest.fixture
 def paused_ffmpeg(monkeypatch):
-    """Holds the render's first ffmpeg run until the test sets `release` (or cancels)."""
+    """A Render job holder whose runner holds the first ffmpeg run until the test sets
+    `release` (or cancels), as `fastapi-api` › testing pauses a job that runs ffmpeg."""
     import threading
 
     from backend.spoil_maker import compose
 
     reached, release = threading.Event(), threading.Event()
-    real_run = compose.run
 
     def run(command, cwd, cancel, on_progress=None):
         reached.set()
         while not (release.is_set() or cancel.is_set()):
             cancel.wait(0.01)
-        return real_run(command, cwd, cancel, on_progress)
+        return compose.run(command, cwd, cancel, on_progress)
 
-    monkeypatch.setattr(compose, "run", run)
+    monkeypatch.setattr(render_module, "render_jobs", render_module.RenderJobs(run_ffmpeg=run))
     return reached, release
+
+
+def test_a_describe_starts_while_a_render_with_every_voice_runs_ffmpeg(
+    client, project, renderable, paused_ffmpeg, monkeypatch, three_colours
+):
+    """spec › Seams 1: no sentence lacks its voice, so the render never takes the GPU."""
+    from backend.spoil_maker import describe
+
+    from .fakes import FakeLlm
+
+    reached, release = paused_ffmpeg
+    monkeypatch.setattr(describe, "describes", describe.Describes())
+    monkeypatch.setattr(spoil_maker, "start_worker", FakeLlm())
+    ready_clip(project, EP2)
+    shutil.copyfile(three_colours, project.media_temp_dir / f"{EP2}.mp4")
+    two_sentence_draft(project)
+
+    assert client.post(RENDERS, json={}).json()["state"] == "rendering"
+    assert reached.wait(5)
+    response = client.post("/api/spoil-maker/describes", json={"clip_id": EP2})
+    release.set()
+
+    assert response.status_code == 202, response.json()
+    assert wait_for_end(client, RENDER_CURRENT)["state"] == "done"
+    wait_for_end(client, "/api/spoil-maker/describes/current")  # no job outlives the test
+
+
+def test_a_render_draws_only_the_switched_on_watermarks(client, project, renderable, paused_ffmpeg):
+    reached, release = paused_ffmpeg
+    client.patch(SETTINGS, json={"watermarks": [MARK | {"text": "@เปิด"}, MARK | {"text": "@ปิด", "enabled": False}]})
+    two_sentence_draft(project)
+
+    client.post(RENDERS, json={})
+    assert reached.wait(5)  # the ASS file is written, ffmpeg not yet run
+    ass = (project.render_work_dir / render_module.CAPTIONS).read_text(encoding="utf-8")
+    release.set()
+
+    assert "@เปิด" in ass
+    assert "@ปิด" not in ass
+    assert wait_for_end(client, RENDER_CURRENT)["state"] == "done"
 
 
 def test_a_render_frees_the_gpu_once_its_sentences_are_voiced(

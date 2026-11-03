@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** feature review เสร็จ (`12becfe`); Blocked 8–11 ตัดเป็น ticket 05 — 05 ต่อไป
+**Now:** ทุก ticket done (05 เสร็จ); รอ feature review รอบสอง
 
 **Next:**
 
 ```
-/warroom-build spoil-maker 05
+/warroom-build spoil-maker --review-feature
 ```
 
 ## Tickets
@@ -17,9 +17,31 @@
 | 02 | Saved voice | done |
 | 03 | ร่างบทและหน้าตรวจแก้ | done |
 | 04 | เสียงต่อประโยคและ render | done |
-| 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | ready |
+| 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
 
 ## Log
+
+### 05: ลายน้ำเปิดปิดได้ และงานค้างจาก feature review — done 2026-11-03
+
+**Built:**
+- ลายน้ำมี `enabled`: `PATCH /settings` รับ boolean (ไม่ใช่ boolean → `400` `invalid_settings`, ไม่มี = เปิด), `settings.json` เดิมอ่านเป็นเปิด, ที่ปิดยังนับในสูงสุด 6; `captions.ass_file` วาดเฉพาะที่เปิด
+- หน้าตรวจแก้: สวิตช์ "แสดงลายน้ำ {n}" ในแถวลายน้ำ (ปิดแล้วชื่อเป็นสี muted) และ `Alert` warning ใต้ช่อง Hook/ชื่อตอน "ลายน้ำ {n} อยู่บนกลาง จะทับ … ในวิดีโอ" ตามข้อความที่กำลังพิมพ์; render ยังกดได้ (`markNumbersOverTopText`, `useVideoSettings().watermarks`)
+- Blocked 8: `RenderJobs(run_ffmpeg=...)` (`compose.Runner`); `paused_ffmpeg` สร้าง holder ใหม่ ไม่ patch `compose.run`; test ใหม่ render ที่ทุกประโยคมีเสียงเข้า `rendering` ตรง และ `POST /describes` คลิปอื่น `202`; test ไฟล์ ASS ของ render จริงตอน runner หยุดรอ
+- Blocked 9: spec › Describe job เรียงตาม D60; test คลิปใน draft ที่ Qwen ไม่ติดตั้ง → `503` `not_ready`
+- Blocked 10: 6 icon ย้ายไป `components/ui/assets/` (`copy`, `trash`, `x`, `circle-alert`, `file-text-24`, `play`), ลบสำเนาใน `spoil/assets/`; `app.JOB_HOLDERS` (`JobEntry(current, clean_on_start)`) ขับทั้งล้างตอน start และ `stop_on_shutdown`; test รวม start-up ลบของค้างของ render, Shot และ voice
+- เช็คหน้าตาที่ 1440 และ 375 ใน dev server กับ draft จริง (layout B): สวิตช์เปิด/ปิด, reload แล้วค่าคงอยู่; คำเตือนเช็คผ่าน test เท่านั้น (draft จริงเป็น B) — ลบลายน้ำทดสอบออก settings กลับเหมือนเดิม
+- Docs: spec (Describe job, ค่าที่จำไว้, API, Design, Seams 1–2), `vite-react-web` SKILL (`components/ui/assets/`)
+- Review สามแกนแก้แล้ว: `JobEntry.current` แทน `JobHolder.holder`, ชื่อพารามิเตอร์ `run_ffmpeg`, ค่าตั้งต้น `enabled` ที่เดียว (model), ชื่อตัวแปร icon ตามไฟล์ใหม่, helper ไม่รู้ layout, hook ส่ง `watermarks`, test ASS ผ่าน render แทน `captions` ตรง
+
+**Decided:**
+- D65 — ทางเลือกเล็กตอน build ลายน้ำเปิดปิดและงานค้างจาก review
+
+**For the next ticket:**
+- Figma Script review ยังไม่มีสวิตช์และคำเตือนลายน้ำ — วาดเพิ่มใน Figma ถ้าอยากให้แบบตรงโค้ด (D65)
+- คำเตือนลายน้ำทับยังไม่เคยเห็นบนจอจริง (draft จริงเป็น layout B): เช็คด้วยตาตอน feature review
+- `_clean_shots` อยู่ใน `app.py` เพราะ `spoil.clips` import `shots` (วนกลับไม่ได้) — ย้ายได้ถ้าแยก import นั้นออก
+
+**Checks:** `uv run pytest` — 483 passed; `npm --prefix frontend test` — 180 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### Feature review — 2026-11-03
 
@@ -193,7 +215,7 @@
 | 5 | 03 | design: ตัวเลือก Shot | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186)) |
 | 6 | 04 | design: ผล render | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8055-16850)) |
 | 7 | 00 | design: แถบ 3 tab, ตัวบอกขั้นของ tab สปอย และ Transcript ที่แก้ได้ใน tab คลิป (D53, D54) | `/warroom spoil-maker` พร้อมลิงก์แบบ | done (Figma 8071-18633) |
-| 8 | review | test ของ render ผูกกับ internals: `paused_ffmpeg` patch `compose.run`; test "render ระหว่าง `rendering` → `POST /describes` 202" ผ่าน `voicing` ก่อน ไม่ตรงที่ spec เขียน | `/warroom tickets spoil-maker` | → ticket 05 |
-| 9 | review | ลำดับเช็คของ Describe job: โค้ดเช็ค gate ก่อน `in_draft` (D60) แต่ spec › Describe job ข้อ 1 วาง `in_draft` ก่อน — แก้ spec หรือโค้ดให้ตรงกัน | `/warroom tickets spoil-maker` | → ticket 05 |
-| 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | → ticket 05 |
-| 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | → ticket 05 |
+| 8 | review | test ของ render ผูกกับ internals: `paused_ffmpeg` patch `compose.run`; test "render ระหว่าง `rendering` → `POST /describes` 202" ผ่าน `voicing` ก่อน ไม่ตรงที่ spec เขียน | `/warroom tickets spoil-maker` | done (ticket 05) |
+| 9 | review | ลำดับเช็คของ Describe job: โค้ดเช็ค gate ก่อน `in_draft` (D60) แต่ spec › Describe job ข้อ 1 วาง `in_draft` ก่อน — แก้ spec หรือโค้ดให้ตรงกัน | `/warroom tickets spoil-maker` | done (ticket 05) |
+| 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | done (ticket 05) |
+| 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | done (ticket 05) |

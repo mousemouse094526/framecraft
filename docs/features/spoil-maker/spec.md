@@ -47,7 +47,7 @@
 | แถว Temp clip ใน tab คลิป | 1, 3 | ปุ่ม "บรรยายฉาก" ของคลิป กับบรรทัดใต้ปุ่ม "ให้ AI เขียนว่าแต่ละฉากมีภาพอะไร ใช้ตอนร่างบทสปอย" (D58); ระหว่างงาน: "กำลังแบ่งฉาก" แล้ว "กำลังบรรยายฉาก", % กับปุ่มยกเลิก; เสร็จ: "บรรยายฉากแล้ว" (D16); ปุ่มกดไม่ได้พร้อมเหตุผลเมื่อมีงาน GPU อื่น (D45); คลิปที่อยู่ใน Spoil draft: คำเตือนก่อนลบ ถอดใหม่ หรือบรรยายฉากใหม่ (D29, D49); บรรยายฉากคลิปที่บรรยายแล้ว: ยืนยันก่อนทำใหม่ | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275) — Clip row states |
 | Saved voice | 2, 4 | เพศ วัย ระดับเสียง, speed 0.8–1.2, ปุ่มสุ่มและฟัง (D32, D35); บันทึกพร้อมชื่อ; รายการ: ชื่อ, ฟัง, เปลี่ยนชื่อ, ลบพร้อมยืนยัน (D43); ว่าง: "ยังไม่มีเสียง กดสุ่มเพื่อออกแบบเสียงแรก"; error: ลบเสียงที่ Spoil draft ใช้ (D43) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8034-3220) — Saved voice |
 | ตั้งค่าคลิปสปอย | 5, 6 | เลือก Temp clip หลายคลิปพร้อมเรียงลำดับ (D5); คลิปที่เลือกไม่ได้บอกเหตุผล "ยังไม่ถอด" หรือ "ยังไม่บรรยายฉาก" พร้อมปุ่มไปทำ (D16); ไม่มีคลิปพร้อม: "ยังไม่มีคลิปที่ถอดและบรรยายฉากแล้ว" พร้อมลิงก์ไปรายการคลิป; สไตล์ 3 แบบ, layout 3 แบบ ตั้งต้นตามสไตล์ (D7, D8); ความยาว 30–180 วินาที ตั้งต้น 60 (D39); Saved voice ตั้งต้นที่ใช้ล่าสุด; ไม่มี Saved voice: ลิงก์ไปสร้าง; token รวม / 32,000 และปุ่มร่างกดไม่ได้เมื่อเกิน (D46); ยืนยันก่อนทับ Spoil draft เดิม (D28); ระหว่างร่าง: "กำลังเขียนบท" แล้ว "กำลังเลือกภาพ x/y" กับปุ่มยกเลิก | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8038-4681) — Spoiler setup; ใน 3 tab: ขั้น 1 ของ tab สปอย |
-| หน้าตรวจแก้ | 7, 8, 9, 10, 11 | hook หรือชื่อตอน (D19); ความยาวประมาณ / เป้าหมาย และจำนวนประโยค (D30) พร้อมคำเตือนเมื่อนอก ±25%; แต่ละประโยค: 2 ภาพ Shot, ข้อความแก้ได้, บรรทัดที่อ้าง, สถานะ 4 แบบ (D30), ฟัง, สร้างเสียงใหม่, ให้ AI เลือก Shot ใหม่, ลบพร้อมยืนยัน, แทรกใต้ (D25, D27); ระดับเสียงต้นฉบับ (D40); ลายน้ำ: เพิ่ม ลบ ข้อความ ตำแหน่ง 6 จุด ขนาด (D41); ปุ่มสร้างเสียงทั้งหมดและ render; render กดไม่ได้เมื่อมีประโยค "ไม่มี Shot"; ระหว่าง Draft job `pick`, Voice job หรือ Render job: "สร้างเสียง x/y" หรือ "render %" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้ (D51); ไม่มี Spoil draft: ลิงก์ไปหน้าตั้งค่า | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390) — Script review; ใน 3 tab: ขั้น 2 ของ tab สปอย |
+| หน้าตรวจแก้ | 7, 8, 9, 10, 11 | hook หรือชื่อตอน (D19); ความยาวประมาณ / เป้าหมาย และจำนวนประโยค (D30) พร้อมคำเตือนเมื่อนอก ±25%; แต่ละประโยค: 2 ภาพ Shot, ข้อความแก้ได้, บรรทัดที่อ้าง, สถานะ 4 แบบ (D30), ฟัง, สร้างเสียงใหม่, ให้ AI เลือก Shot ใหม่, ลบพร้อมยืนยัน, แทรกใต้ (D25, D27); ระดับเสียงต้นฉบับ (D40); ลายน้ำ: เพิ่ม ลบ เปิดปิด ข้อความ ตำแหน่ง 6 จุด ขนาด (D41, D64); คำเตือนเมื่อลายน้ำบนกลางที่เปิดอยู่ทับ hook หรือชื่อตอน (D64); ปุ่มสร้างเสียงทั้งหมดและ render; render กดไม่ได้เมื่อมีประโยค "ไม่มี Shot"; ระหว่าง Draft job `pick`, Voice job หรือ Render job: "สร้างเสียง x/y" หรือ "render %" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้ (D51); ไม่มี Spoil draft: ลิงก์ไปหน้าตั้งค่า | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390) — Script review; ใน 3 tab: ขั้น 2 ของ tab สปอย |
 | ตัวเลือก Shot | 8 | ภาพเล็กของ Shot ในช่วง ±30 วินาที, "ดูทั้งคลิป" เลือก EP, ชี้แล้วเห็น Shot description, เล่นช่วงนั้น (D26); ประโยคไม่มีบรรทัดที่อ้างเปิดที่ทั้งคลิปของ EP แรก (D26, D27) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186) — Shot picker |
 | Transcript ที่แก้ได้ใน tab คลิป | 13 | ชี้บรรทัดแล้วมีปุ่ม "แก้"; กำลังแก้: ช่องพิมพ์กับ "บันทึก" และ "ยกเลิก"; บรรทัดที่แก้แล้วมีป้าย "แก้แล้ว" (D54) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — frames คลิป และ คลิป — แก้ประโยค; component `Transcript line` state hover, editing, edited |
 | ตัวบอกขั้นของ tab สปอย | 5, 7, 11 | 1 เลือกคลิป → 2 ตรวจแก้บท → 3 ผล render, ขั้นปัจจุบันเด่น ขั้นที่ผ่านมีเครื่องหมายถูก, กดเพื่อย้ายขั้น; มือถือแสดงชื่อเฉพาะขั้นปัจจุบัน (D53) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — component `Spoil steps` |
@@ -174,8 +174,8 @@
 
 เริ่มเมื่อผู้ใช้กด (D16). ขั้นตอน:
 
-1. เช็คคำขอ: คลิปมีอยู่ → ไม่ `404` `not_found`; คลิปอยู่ใน Spoil draft และไม่มี `confirm_draft_loss: true` → `409` `in_draft` (D49)
-2. เช็คแถว Status check แล้วจองช่อง GPU
+1. เช็คตามลำดับ (D60): คลิปมีอยู่ → ไม่ `404` `not_found`; แถว Status check → ไม่ผ่าน `503` `not_ready`; มี Describe job ยังไม่จบ → `409` `busy`
+2. คลิปอยู่ใน Spoil draft และไม่มี `confirm_draft_loss: true` → `409` `in_draft` (D49); ช่อง GPU ไม่ว่าง → `409` `gpu_busy`; ผ่านแล้วจองช่อง GPU
 3. state `cutting`: ffmpeg หาจุดตัดภาพด้วย scene filter 0.3 (D17) ใน thread ของ backend; `percent` จากเวลาของเฟรมล่าสุดเทียบความยาวคลิป
 4. สร้างรายการ Shot จากจุดตัด (D17):
    1. ช่วงระหว่างจุดตัดสองจุดเป็นหนึ่ง Shot
@@ -413,11 +413,12 @@
 
 | ฟิลด์ | ค่า | ค่าตั้งต้น |
 |---|---|---|
-| `watermarks` | รายการ `{text, position, size}`; `position` หนึ่งใน `top_left`, `top_center`, `top_right`, `bottom_left`, `bottom_center`, `bottom_right`; `size` `small` หรือ `medium`; `text` 1–40 ตัวอักษร; สูงสุด 6 อัน | `[]` (D41) |
+| `watermarks` | รายการ `{text, position, size, enabled}`; `enabled` boolean ไม่มีอ่านเป็น `true`, ปิดแล้วจำไว้แต่ render ไม่วาด และยังนับในสูงสุด (D64); `position` หนึ่งใน `top_left`, `top_center`, `top_right`, `bottom_left`, `bottom_center`, `bottom_right`; `size` `small` หรือ `medium`; `text` 1–40 ตัวอักษร; สูงสุด 6 อัน | `[]` (D41) |
 | `original_volume` | 0–100 ทีละ 5 | 20 (D40) |
 | `last_voice_id` | id ของ Saved voice ที่ใช้ร่างล่าสุด | `null` |
 
 - ลายน้ำเป็นของทุกคลิป ไม่เก็บใน Spoil draft: แก้ลายน้ำแล้ว render ครั้งถัดไปใช้ค่าใหม่
+- ลายน้ำ `top_center` ที่เปิดอยู่ทับ hook (A) หรือชื่อตอน (C) ที่ไม่ว่างได้: แอปไม่กัน แต่หน้าตรวจแก้เตือน (D41, D64)
 - `PATCH /draft` ที่แก้ `original_volume` เขียนลง settings ด้วย (D40)
 - ค่าไม่ตรงตาราง → `400` `invalid_settings`
 
@@ -452,7 +453,7 @@
 | `GET` | `/draft-jobs/current` | งานล่าสุดหรือ `null` | `200` |
 | `DELETE` | `/draft-jobs/current` | ยกเลิก | `202` job; `404` `not_found` |
 | `GET` | `/settings` | ค่าที่จำไว้ | `200` |
-| `PATCH` | `/settings` | `{watermarks?, original_volume?}` | `200`; `400` `invalid_settings` |
+| `PATCH` | `/settings` | `{watermarks?, original_volume?}`; ลายน้ำแต่ละอัน `{text, position, size, enabled?}` (ไม่มี `enabled` = `true`, D64) | `200`; `400` `invalid_settings` |
 | `POST` | `/renders` | `{}` เริ่ม Render job | `202` job; `400` `missing_shots`; `404` `no_draft`; `507` `disk_full`; `409` `busy`, `gpu_busy`; `503` `not_ready` |
 | `GET` | `/renders/current` | งานล่าสุดหรือ `null` | `200` |
 | `DELETE` | `/renders/current` | ยกเลิก | `202` job; `404` `not_found` |
@@ -584,6 +585,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
      - มีประโยค `no_shot` → `400` `missing_shots`; ที่ว่างปลอม 0.5 GiB → `507` `disk_full`
      - draft 2 ประโยค (เสียงปลอม 2.0 และ 1.5 วินาที) layout A, B, C → mp4 1080×1920 ยาว 3.5 ±0.2 วินาที มีเสียง, `.srt` 2 cue ที่ `00:00:00,000 --> 00:00:02,000` และ `00:00:02,000 --> 00:00:03,500`
      - ประโยค layout A ยาว 3.0 วินาที → ไฟล์ ASS มีซับท่อนละ 2–4 คำ ไม่เกิน 15 ตัวอักษรที่กินที่ และเวลารวม 3.0
+     - ลายน้ำเปิด 1 อันและปิด 1 อัน → ไฟล์ ASS มีข้อความของอันที่เปิดเท่านั้น; `PATCH /settings` ลายน้ำ `enabled: false` → `GET /settings` ยังมีข้อความ ตำแหน่ง ขนาดเดิม; `enabled` ไม่ใช่ boolean → `400` `invalid_settings` (D64)
      - ประโยคและลายน้ำที่มี `{\b1}` และขึ้นบรรทัดใหม่ → ไฟล์ ASS มี `\{\\b1\}` และไม่มีขึ้นบรรทัดใหม่ในข้อความ
      - Shot ท้ายคลิปที่เสียงยาวกว่าที่เหลือ → ยาวครบ ไม่ error
      - ประโยคขาดเสียง → state ผ่าน `voicing` แล้ว `rendering`; TTS ปลอมถูกเรียกเฉพาะประโยคนั้น
@@ -594,7 +596,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
      - ลบ mp4 ไม่ได้ → `409` `in_use` และ Spoil draft ยังอยู่
      - start app ขณะมี `draft.json.tmp`, `renders/x.partial`, `voices/.pending/`, `media/temp/shots/.new-a/` → หายทั้งหมด
    - Status check และความปลอดภัย:
-     - marker ของ Qwen หาย → `POST /describes` และ `POST /draft-jobs` → `503` `not_ready` มี `model_qwen`; `POST /voice-jobs` → `202`
+     - marker ของ Qwen หาย → `POST /describes` และ `POST /draft-jobs` → `503` `not_ready` มี `model_qwen`; `POST /voice-jobs` → `202`; คลิปใน Spoil draft ไม่มี `confirm_draft_loss` → ยังเป็น `503` `not_ready` ไม่ใช่ `in_draft` (D60)
      - `GET /api/setup/status` มีแถว `model_qwen`, `mlx_vlm`, `pythainlp`, `font_kanit`; `run_checks` กับ `sys_platform` `win32` → `model_qwen` และ `mlx_vlm` `missing`
      - ทุก POST และ PATCH ที่ `Content-Type: text/plain` → `415`; `Host: evil.example` → `400`
 2. **ทุกหน้าใต้ tab สปอย** `frontend` ด้วย Vitest และ fetch ปลอม (project ไม่มีเครื่องมือ e2e)
@@ -612,7 +614,8 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
    - `GET /draft` มี `locked: true` และ current ของ Voice job `sentences` 1/3 → เห็น "สร้างเสียง 1/3" ปุ่มยกเลิก และช่องข้อความกดไม่ได้
    - กดลบประโยค → เห็นคำยืนยันก่อนส่ง `DELETE`
    - กดภาพ Shot → ตัวเลือกแสดงภาพของ Shot ใน `window`; กด "ดูทั้งคลิป" → แสดงทุก Shot ของ EP; ประโยคที่แทรกเปิดที่ทั้งคลิปของ EP แรก
-   - เพิ่มลายน้ำ 2 อันแล้ว reload → ยังอยู่ (จาก `GET /settings`)
+   - เพิ่มลายน้ำ 2 อันแล้ว reload → ยังอยู่ (จาก `GET /settings`); กดสวิตช์ลายน้ำแล้ว reload → สวิตช์ยังอยู่ที่ค่าที่ตั้ง
+   - ลายน้ำ `top_center` ที่เปิดอยู่กับ layout A ที่มี hook หรือ C ที่มีชื่อตอน → เห็นคำเตือน ปุ่ม render ยังกดได้; ปิด ย้าย ลบ hook จนว่าง หรือ layout B → ไม่เตือน (D64)
    - render current คืน `voicing` 1/3 แล้ว `rendering` 50 แล้ว `done` → เห็น "สร้างเสียง 1/3", "render 50%" แล้วรายการใหม่ที่มีลิงก์ mp4 และ `.srt` และ "ต้นฉบับ: {ชื่อคลิป}" พร้อมปุ่ม copy
    - render current `failed` `ffmpeg_failed` → เห็น "render ไม่สำเร็จ"
    - หน้า Saved voice: กดสุ่ม current `done` → มีปุ่มฟังและช่องชื่อ; บันทึก → อยู่ในรายการ; เปลี่ยนชื่อ → ส่ง `PATCH`; ลบเสียงที่ใช้อยู่ได้ `409` `voice_in_use` → เห็นข้อความ

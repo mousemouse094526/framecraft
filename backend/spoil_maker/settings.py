@@ -33,6 +33,7 @@ class Watermark(BaseModel):
     text: str
     position: Position
     size: Size
+    enabled: bool = True  # off: remembered, not drawn; a file from before D64 has none
 
 
 class Settings(BaseModel):
@@ -83,6 +84,7 @@ def change(project: ProjectPaths, body: dict) -> Settings:
 
 
 def _watermarks(value: object) -> list[Watermark]:
+    # Switched-off ones count too (D64).
     if not isinstance(value, list) or len(value) > WATERMARKS_MAX:
         raise _invalid(f"ลายน้ำมีได้ไม่เกิน {WATERMARKS_MAX} อัน")
     checked = []
@@ -92,7 +94,12 @@ def _watermarks(value: object) -> list[Watermark]:
         text = " ".join(mark["text"].split()) if isinstance(mark.get("text"), str) else ""
         if not 1 <= thai.width(text) <= WATERMARK_TEXT_MAX:
             raise _invalid(f"ข้อความลายน้ำต้องยาว 1–{WATERMARK_TEXT_MAX} ตัวอักษร")
-        checked.append(Watermark(text=text, position=mark["position"], size=mark["size"]))
+        fields = {"text": text, "position": mark["position"], "size": mark["size"]}
+        if "enabled" in mark:  # left out: the model's default, as in a file from before D64
+            if not isinstance(mark["enabled"], bool):
+                raise _invalid("สวิตช์ลายน้ำต้องเป็นเปิดหรือปิด")
+            fields["enabled"] = mark["enabled"]
+        checked.append(Watermark(**fields))
     return checked
 
 

@@ -10,6 +10,7 @@ import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
 import { SETUP_HASH, type Draft, type Layout } from "../lib/draft";
+import { markNumbersOverTopText, type Watermark } from "../lib/render";
 import type { RefusalLine } from "../../../lib/refusal";
 import { ReviewBanner } from "./ReviewBanner";
 import { ReviewFooter } from "./ReviewFooter";
@@ -66,7 +67,12 @@ export function ScriptReview() {
       {jobs.refused && <RefusedAlert refused={jobs.refused} />}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-col gap-4 lg:w-[744px] lg:shrink-0">
-          <TopCard draft={draft} locked={locked} onSave={async (top_text) => (await review.changeDraft({ top_text })).kind === "saved"} />
+          <TopCard
+            draft={draft}
+            watermarks={video.watermarks}
+            locked={locked}
+            onSave={async (top_text) => (await review.changeDraft({ top_text })).kind === "saved"}
+          />
           {state.error && <Alert tone="error">{state.error}</Alert>}
           {/* A pick this page didn't start (it ran before the page opened): which sentence isn't known. */}
           {job && !draft.sentences.some((s) => s.id === pickingId) && (
@@ -154,10 +160,17 @@ function RefusedAlert({ refused }: { refused: RefusalLine }) {
   );
 }
 
-/** The text on top (layouts A and C) and the length: estimate / target and the number of sentences (D19, D30). */
-function TopCard({ draft, locked, onSave }: { draft: Draft; locked: boolean; onSave: (text: string) => Promise<boolean> }) {
+type TopCardProps = { draft: Draft; watermarks: Watermark[]; locked: boolean; onSave: (text: string) => Promise<boolean> };
+
+/**
+ * The text on top (layouts A and C) with a warning when a watermark covers it, and the
+ * length: estimate / target and the number of sentences (D19, D30, D64).
+ */
+function TopCard({ draft, watermarks, locked, onSave }: TopCardProps) {
   const label = TOP_TEXT_LABELS[draft.layout];
   const top = useAutoSave(draft.top_text, onSave);
+  // As typed, not as saved: clearing the text clears the warning at once. Layout B has none.
+  const covering = label ? markNumbersOverTopText(watermarks, top.value) : [];
   const id = useId();
   const estimate = Math.round(draft.estimated_total_s);
   const off = Math.abs(draft.estimated_total_s - draft.target_s) > TOLERANCE * draft.target_s;
@@ -180,6 +193,11 @@ function TopCard({ draft, locked, onSave }: { draft: Draft; locked: boolean; onS
           />
           <p className="text-xs text-muted-foreground">ข้อความบนสุดของวิดีโอ</p>
         </div>
+      )}
+      {covering.length > 0 && (
+        <Alert tone="warning">
+          ลายน้ำ {covering.join(", ")} อยู่บนกลาง จะทับ {label} ในวิดีโอ: ปิดหรือย้ายลายน้ำถ้าไม่ต้องการ
+        </Alert>
       )}
       {off ? (
         <p className="flex w-fit items-center gap-1.5 rounded-lg border border-warning-border bg-warning-surface py-1.5 pr-3 pl-2.5 text-sm font-medium text-warning">

@@ -3,10 +3,10 @@ import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
 import { DescribeControls, type DescribeProps } from "./DescribeControls";
 import { DraftWarning } from "./DraftWarning";
 import { formatDuration } from "../../../lib/format";
-import deleteErrorIcon from "../assets/delete-error.svg";
+import circleAlertIcon from "../../../components/ui/assets/circle-alert.svg";
 import playActiveIcon from "../assets/thumb-play-active.svg";
-import playIcon from "../assets/thumb-play.svg";
-import trashIcon from "../assets/trash.svg";
+import playIcon from "../../../components/ui/assets/play.svg";
+import trashIcon from "../../../components/ui/assets/trash.svg";
 
 type Props = {
   clips: TempClip[];
@@ -163,7 +163,7 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete,
       )}
       {deleteError && (
         <p className="flex items-center gap-1.5 pl-[108px] text-[13px] leading-[1.5] text-destructive">
-          <img src={deleteErrorIcon} alt="" width={14} height={14} className="shrink-0" />
+          <img src={circleAlertIcon} alt="" width={14} height={14} className="shrink-0" />
           {deleteError}
         </p>
       )}

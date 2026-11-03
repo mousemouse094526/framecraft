@@ -2,7 +2,7 @@ import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonSty
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import refreshIcon from "../assets/refresh-cw.svg";
 import triangleAlertIcon from "../assets/triangle-alert-24.svg";
-import xIcon from "../assets/x.svg";
+import xIcon from "../../../components/ui/assets/x.svg";
 import { progressPercent, progressText, type RenderJob, type SentencesJob } from "../lib/render";
 
 type Props = {

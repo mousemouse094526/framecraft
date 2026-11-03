@@ -5,7 +5,7 @@ import { formatClock } from "../../../lib/format";
 import checkLinkIcon from "../assets/check-link.svg";
 import checkWhiteIcon from "../assets/check-white.svg";
 import chevronDownIcon from "../assets/chevron-down.svg";
-import xIcon from "../assets/x.svg";
+import xIcon from "../../../components/ui/assets/x.svg";
 import { episodeOf, shotImageUrl, type Sentence, type Shot, type ShotRef } from "../lib/draft";
 
 type Props = {

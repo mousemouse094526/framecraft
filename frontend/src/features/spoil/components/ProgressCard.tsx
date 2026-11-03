@@ -1,5 +1,5 @@
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import cancelIcon from "../assets/cancel-x.svg";
+import xIcon from "../../../components/ui/assets/x.svg";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 
 type Props = {
@@ -33,7 +33,7 @@ export function ProgressCard({ headline, percent, bar, cancelling, onCancel, noC
           <p className="text-[13px] leading-[1.5] text-muted-foreground">{noCancelReason}</p>
         ) : (
           <button type="button" onClick={onCancel} disabled={cancelling} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
-            <img src={cancelIcon} alt="" width={16} height={16} />
+            <img src={xIcon} alt="" width={16} height={16} />
             ยกเลิก
           </button>
         )}

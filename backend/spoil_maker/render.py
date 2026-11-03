@@ -27,7 +27,7 @@ from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.spoil_maker import captions, compose, draft, draft_file, settings, shots, voices
 from backend.spoil_maker.captions import Timed
-from backend.spoil_maker.compose import Piece
+from backend.spoil_maker.compose import Piece, Runner
 from backend.spoil_maker.draft_file import Draft
 from backend.spoil_maker.ffmpeg import FfmpegFailed, probe
 from backend.spoil_maker.voices import SentenceVoicer, SentencesPlan
@@ -84,6 +84,11 @@ class RenderJobs(SentenceVoicer[RenderJob]):
     gpu_kind = "render"
     error_type = RenderJobError
     nothing_to_cancel = "ไม่มีงาน render ที่ยังไม่จบ"
+
+    def __init__(self, run_ffmpeg: Runner = compose.run):
+        """`run_ffmpeg` runs each ffmpeg command; a test passes one that pauses (`fastapi-api` › testing)."""
+        super().__init__()
+        self._run_ffmpeg = run_ffmpeg
 
     def start(self) -> RenderJob:
         """Checks in spec order (Render job step 1), then `busy` and, when sentences need
@@ -165,7 +170,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             command = compose.piece_command(
                 piece, mp4, media[piece.clip_id], drawn.layout, drawn.original_volume, f"{index}.mkv"
             )
-            compose.run(command, work, self._cancel)
+            self._run_ffmpeg(command, work, self._cancel)
             self._update(percent=PIECES_SHARE * (index + 1) // len(pieces))
         (work / PIECES_LIST).write_text("".join(f"file '{i}.mkv'\n" for i in range(len(pieces))), encoding="utf-8")
         total = timed[-1].end
@@ -180,7 +185,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             share = 100 - PIECES_SHARE
             self._update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
 
-        compose.run(command, work, self._cancel, on_progress)
+        self._run_ffmpeg(command, work, self._cancel, on_progress)
         info = {
             "created_at": checks.now_iso(),
             "duration_s": round(probe(mp4_partial).duration_s, 2),

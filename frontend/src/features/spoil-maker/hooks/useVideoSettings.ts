@@ -11,8 +11,10 @@ export type SettingsState =
   /** `error`: the last refusal of a change, to show under the watermarks. */
   | { kind: "loaded"; watermarks: Watermark[]; error: string | null };
 
+const NO_WATERMARKS: Watermark[] = [];
+
 /** What เพิ่มลายน้ำ starts with: the API keeps no empty text, so the user types over it (D41). */
-export const NEW_WATERMARK: Watermark = { text: "ลายน้ำ", position: "bottom_right", size: "small" };
+export const NEW_WATERMARK: Watermark = { text: "ลายน้ำ", position: "bottom_right", size: "small", enabled: true };
 
 /**
  * The watermarks every render draws (spoil-maker D41, spec › ค่าที่จำไว้): read from
@@ -66,5 +68,8 @@ export function useVideoSettings() {
   );
   const remove = useCallback((index: number) => save(marks.current.filter((_, i) => i !== index)), [save]);
 
-  return { state, add, change, remove };
+  /** The list as loaded, empty until then. */
+  const watermarks = state.kind === "loaded" ? state.watermarks : NO_WATERMARKS;
+
+  return { state, watermarks, add, change, remove };
 }

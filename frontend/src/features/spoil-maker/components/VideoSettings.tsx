@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import plusIcon from "../assets/plus.svg";
-import trashIcon from "../assets/trash.svg";
+import trashIcon from "../../../components/ui/assets/trash.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import type { SettingsState } from "../hooks/useVideoSettings";
 import { WATERMARK_TEXT_MAX, WATERMARKS_MAX, type MarkSize, type Position, type Watermark } from "../lib/render";
@@ -139,7 +139,12 @@ function WatermarkRow({ number, mark, locked, focus, onChange, onRemove }: RowPr
   return (
     <fieldset aria-label={title} disabled={locked} className="flex flex-col gap-3 rounded-xl border border-border bg-card pt-2 pr-1 pb-3 pl-3">
       <div className="flex items-center">
-        <p className="flex-1 text-sm font-semibold text-foreground">{title}</p>
+        <p className={`flex-1 text-sm font-semibold ${mark.enabled ? "text-foreground" : "text-muted-foreground"}`}>{title}</p>
+        <Switch
+          label={`แสดง${title}`}
+          on={mark.enabled}
+          onToggle={() => void onChange({ ...mark, text: text.value, enabled: !mark.enabled })}
+        />
         <button type="button" aria-label={`ลบ${title}`} onClick={onRemove} className={`size-11 ${GHOST_BUTTON}`}>
           <img src={trashIcon} alt="" width={16} height={16} />
         </button>
@@ -203,6 +208,17 @@ function WatermarkRow({ number, mark, locked, focus, onChange, onRemove }: RowPr
         </div>
       </div>
     </fieldset>
+  );
+}
+
+/** On or off for one watermark (D64): the brand-accent track of the selected Position cell, 44 px to tap. */
+function Switch({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onToggle} className="flex size-11 items-center justify-center">
+      <span className={`flex h-5 w-9 items-center rounded-full p-0.5 transition-colors ${on ? "bg-brand-accent" : "bg-border-strong"}`}>
+        <span className={`size-4 rounded-full bg-card shadow-sm transition-transform ${on ? "translate-x-4" : ""}`} />
+      </span>
+    </button>
   );
 }
 

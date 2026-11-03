@@ -5,8 +5,8 @@ import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import checkWhiteIcon from "../assets/check-white.svg";
 import chevronDownIcon from "../assets/chevron-down-dark.svg";
 import chevronUpIcon from "../assets/chevron-up-dark.svg";
-import fileTextIcon from "../assets/file-text-24.svg";
-import playIcon from "../assets/play.svg";
+import fileTextIcon from "../../../components/ui/assets/file-text-24.svg";
+import playIcon from "../../../components/ui/assets/play.svg";
 
 type Props = {
   clips: TempClip[];

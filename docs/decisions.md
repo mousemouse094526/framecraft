@@ -122,6 +122,7 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กตอน build เสียงต่อประโยคและ render: `backend.fonts` และ marker `font_kanit`, ลำดับการเช็คของ Voice job `sentences` และ Render job, `SentenceVoicer`, ไฟล์กลาง mkv และจุดตัดตามเฟรม, `spoil_maker.ffmpeg`, style ของ ASS, ซับ A คำเดียวได้, render เสร็จเปิดผล render, ภาพเล็กจาก mp4, player panel ≥ 1024 | [spoil-maker](features/spoil-maker/decisions.md) | D62 | — | [0005](adr/0005-ffmpeg-from-imageio.md), [0015](adr/0015-one-gpu-slot.md) | active |
 | แก้จาก feature review: `10:30 น.` อ่านเป็นนาฬิกา, `audio.wav` `no-store`, พื้นเบลอ A ย่อ-เบลอ-ขยาย, error ของ framework เป็น `{code, message}`, `ModelJobSlot._run_job`, `backend.gate_rows`, `RefusalLine` | [spoil-maker](features/spoil-maker/decisions.md) | D63 | — | [0013](adr/0013-post-requires-json.md) | active |
 | ลายน้ำเปิดปิดได้ทีละอัน (`enabled`, ปิดแล้วจำไว้); หน้าตรวจแก้เตือนเมื่อลายน้ำ `top_center` ที่เปิดอยู่ทับ hook (A) หรือชื่อตอน (C) | [spoil-maker](features/spoil-maker/decisions.md) | D64 | — | — | active |
+| ทางเลือกเล็กตอน build ลายน้ำเปิดปิดและงานค้างจาก review: `PATCH` ไม่มี `enabled` = เปิด, สวิตช์ `role="switch"`, คำเตือนใต้ช่อง hook ตามที่พิมพ์, `RenderJobs(run_ffmpeg=...)`, `JOB_HOLDERS`, icon ใช้ร่วมใน `components/ui/assets/` | [spoil-maker](features/spoil-maker/decisions.md) | D65 | — | — | active |
 
 ## สร้างคลิปสปอย
 
