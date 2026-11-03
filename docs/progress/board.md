@@ -7,4 +7,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [setup-status](setup-status/progress.md) | false | done | 🎨 1/1 | ✅ a027e8f | — | — |
 | [spoil](spoil/progress.md) | false | done | 🎨 5/5 | ✅ 49ee6de | — | — |
 | [windows-check](windows-check/progress.md) | false | blocked | — | 0/2 | รอเครื่อง Windows NVIDIA | `/warroom-build windows-check 01` |
-| [spoil-maker](spoil-maker/progress.md) | false | review | 🎨 8/8 | ✅ c1520e3 | เปิด PR | `/pr-open` |
+| [spoil-maker](spoil-maker/progress.md) | false | review | 🎨 8/8 | ✅ c1520e3 | [PR #3](https://github.com/mousemouse094526/framecraft/pull/3) | — |
