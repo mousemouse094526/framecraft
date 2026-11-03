@@ -82,7 +82,7 @@ class Downloads(JobSlot[DownloadJob]):
         video_id = links.video_id(url)
         if video_id is None:
             raise ApiError(400, "invalid_url", "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube")
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         with self._lock:
             if clips.has_clip(project, video_id):
                 raise ApiError(409, "duplicate", "คลิปนี้โหลดไว้แล้ว", clip_id=video_id)

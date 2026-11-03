@@ -1,7 +1,6 @@
 """Saved voices and the Voice job `design_preview`, under /api/spoil-maker, with a fake
 OmniVoice worker (spoil-maker seam 1 › เสียงและตัวเลข)."""
 
-import time
 import wave
 
 import pytest
@@ -13,7 +12,7 @@ from backend.models import OMNIVOICE, QWEN
 from backend.paths import ProjectPaths
 from backend.spoil_maker import voices
 
-from .fakes import FakeTts, cuda_device
+from .fakes import FakeTts, cuda_device, poll_until
 
 FINISHED = {"done", "failed", "cancelled"}
 JOBS = "/api/spoil-maker/voice-jobs"
@@ -45,13 +44,7 @@ def client(fake_root, tts, monkeypatch):
 
 
 def wait_for(client, condition) -> dict:
-    deadline = time.monotonic() + 10
-    while time.monotonic() < deadline:
-        job = client.get(CURRENT).json()
-        if condition(job):
-            return job
-        time.sleep(0.01)
-    raise AssertionError(f"job never got there: {job}")
+    return poll_until(client, CURRENT, condition)
 
 
 def wait_for_end(client) -> dict:

@@ -4,7 +4,7 @@ import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { formatClock } from "../../../lib/format";
 import pencilIcon from "../assets/pencil.svg";
 import plusIcon from "../assets/plus.svg";
-import refreshIcon from "../assets/refresh-cw.svg";
+import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import scanLineIcon from "../assets/scan-line.svg";
 import trashRedIcon from "../assets/trash-red.svg";
 import trashWhiteIcon from "../assets/trash-white.svg";

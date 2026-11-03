@@ -5,7 +5,6 @@ counter (spoil-maker seam 1)."""
 import json
 import re
 import shutil
-import time
 from pathlib import Path
 
 import pytest
@@ -16,9 +15,10 @@ from backend.app import app
 from backend.models import QWEN
 from backend.paths import ProjectPaths
 from backend.spoil import transcribe
-from backend.spoil_maker import describe, draft, voices
+from backend.spoil_maker import describe, draft
 
 from .fakes import (
+    poll_until,
     FakeLlm,
     FakeWorker,
     cuda_device,
@@ -163,13 +163,7 @@ def start(client, **overrides):
 
 
 def wait_for(client, condition, path: str = CURRENT) -> dict:
-    deadline = time.monotonic() + 10
-    while time.monotonic() < deadline:
-        job = client.get(path).json()
-        if condition(job):
-            return job
-        time.sleep(0.01)
-    raise AssertionError(f"job never got there: {job}")
+    return poll_until(client, path, condition)
 
 
 def wait_for_end(client, path: str = CURRENT) -> dict:

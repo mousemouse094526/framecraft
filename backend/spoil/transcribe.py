@@ -83,7 +83,7 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
         A clip with edited lines needs `confirm_edit_loss`: the new Transcript replaces them (spoil-maker D54).
         A clip in the Spoil draft needs `confirm_draft_loss`: a `done` job removes the draft (spoil-maker D49).
         """
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         require_rows(_needed_rows(project))
         # The gate just found a GPU and DeviceProbe caches it, so this is that same device.
         device = checks.probe_device()
@@ -110,7 +110,7 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
         with self._lock:
             if self._taken() and self._job.clip_id == clip_id:
                 raise ApiError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ")
-            project = ProjectPaths(paths.ROOT)
+            project = paths.project()
             with gpu.slot.clip_untouched(clip_id):
                 clips.delete_clip(project, clip_id)
             # After the slot's lock (its lock comes after the draft's), and only once the clip is gone (D29).
@@ -124,7 +124,7 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
         text = " ".join(text.split())
         if not text:
             raise ApiError(400, "invalid_request", "บรรทัดต้องมีข้อความ")
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         with self._lock:
             transcript = read_transcript(project, clip_id)
             # `n` comes as text so `x` and `-1` are 404, not a validation error; ASCII digits only.

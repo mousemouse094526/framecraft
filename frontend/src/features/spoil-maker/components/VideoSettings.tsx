@@ -31,6 +31,8 @@ type Props = {
   volume: number;
   onVolume: (volume: number) => Promise<boolean>;
   settings: SettingsState;
+  /** `useVideoSettings().watermarks`: the list as loaded, empty until then. */
+  watermarks: Watermark[];
   /** A job changes the draft or renders: every field waits (D51). */
   locked: boolean;
   onAdd: () => Promise<boolean>;
@@ -40,12 +42,11 @@ type Props = {
 
 /** Figma `Settings card` of ตรวจแก้บท: the original sound's level and the watermarks (D40, D41). */
 export function VideoSettings(props: Props) {
-  const { settings, locked } = props;
+  const { settings, watermarks: marks, locked } = props;
   // The slider saves itself like a text field: 800 ms after the last move, or on release.
   const volume = useAutoSave(String(props.volume), (value) => props.onVolume(Number(value)));
   const volumeId = useId();
   const added = useRef(false);
-  const marks = settings.kind === "loaded" ? settings.watermarks : [];
 
   return (
     <section aria-label="ตั้งค่าวิดีโอ" className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-4">
@@ -143,6 +144,8 @@ function WatermarkRow({ number, mark, locked, focus, onChange, onRemove }: RowPr
         <Switch
           label={`แสดง${title}`}
           on={mark.enabled}
+          // With the text as typed: a pending text save could otherwise land before this answer,
+          // carrying the old `enabled`; once the server has this text that save has nothing to send.
           onToggle={() => void onChange({ ...mark, text: text.value, enabled: !mark.enabled })}
         />
         <button type="button" aria-label={`ลบ${title}`} onClick={onRemove} className={`size-11 ${GHOST_BUTTON}`}>

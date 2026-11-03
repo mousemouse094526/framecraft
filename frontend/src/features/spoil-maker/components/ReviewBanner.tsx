@@ -1,6 +1,6 @@
 import { Alert } from "../../../components/ui/Alert";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import refreshIcon from "../assets/refresh-cw.svg";
+import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import type { Banner } from "../lib/render";
 
 /** Figma `Review banner`: two lines in its tone, and ลองอีกครั้ง when the job can start again. */

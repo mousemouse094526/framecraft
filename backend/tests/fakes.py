@@ -3,6 +3,8 @@
 import dataclasses
 import json
 import threading
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 from backend.checks import FfmpegInfo, Probes
@@ -10,6 +12,19 @@ from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.spoil.whisper import Done, Segment
+
+
+
+def poll_until(client, path: str, condition: Callable[[dict], bool], timeout_s: float = 10) -> dict:
+    """GETs `path` until its JSON meets `condition`; how a test waits for a job (rules › testing)."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        job = client.get(path).json()
+        if condition(job):
+            return job
+        time.sleep(0.01)
+    raise AssertionError(f"job never got there: {job}")
+
 
 MODEL_FILES = {"config.json": 120, "model.safetensors": 4096}
 

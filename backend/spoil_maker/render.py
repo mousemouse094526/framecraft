@@ -94,7 +94,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         """Checks in spec order (Render job step 1), then `busy` and, when sentences need
         their voice, `gpu_busy`. The draft's lock covers the checks and the start, so no
         edit slips between them (D51)."""
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         with self._lock, gpu.slot.draft_lock:
             found = draft_file.read(project)
             if found is None:
@@ -111,7 +111,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
                 raise ApiError(409, "busy", "กำลัง render อยู่")
             plan = voices.plan_sentences(project, found, unvoiced) if unvoiced else None
             if plan:
-                gpu.slot.take("render", plan.clip_ids, draft=True)
+                gpu.slot.take("render", plan.clip_ids, locks_draft=True)
                 self._job = RenderJob(state="voicing", done=0, total=len(unvoiced), started_at=checks.now_iso())
             else:
                 self._job = RenderJob(state="rendering", percent=0, started_at=checks.now_iso())

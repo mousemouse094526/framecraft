@@ -2,7 +2,6 @@
 
 import json
 import os
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +16,7 @@ from backend.spoil import clips, downloads, transcribe
 from backend.spoil.whisper import Done, WorkerError
 
 from .fakes import (
+    poll_until,
     FakeAdapter,
     FakeWorker,
     cuda_device,
@@ -68,13 +68,7 @@ def current(client) -> dict | None:
 
 
 def wait_for(client, condition, path: str = "/api/spoil/transcriptions/current") -> dict:
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
-        job = client.get(path).json()
-        if condition(job):
-            return job
-        time.sleep(0.01)
-    raise AssertionError(f"job never got there: {job}")
+    return poll_until(client, path, condition)
 
 
 def wait_for_end(client, path: str = "/api/spoil/transcriptions/current") -> dict:

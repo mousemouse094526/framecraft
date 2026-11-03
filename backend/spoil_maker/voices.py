@@ -156,7 +156,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
     def _start_design(self, body: dict) -> VoiceJob:
         """Checks the body, then the gate, `busy`, `gpu_busy`, and starts the job's thread."""
         instruct, speed = _design_choices(body)
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         require_rows(needed_rows(project))
         with self._lock:
             if self._taken():
@@ -172,7 +172,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
     def _start_sentences(self, sentence_ids: object) -> VoiceJob:
         """`busy`, then the ids, the gate and the GPU under the draft's lock, so no edit
         slips in before the draft is locked (D51)."""
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         with self._lock:
             if self._taken():
                 raise ApiError(409, "busy", "กำลังสร้างเสียงอยู่")
@@ -190,7 +190,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
                     raise ApiError(400, "invalid_request", "เลือกประโยคที่มีใน Spoil draft โดยไม่ซ้ำ")
                 plan = plan_sentences(project, draft, sentence_ids)
                 require_rows(needed_rows(project))
-                gpu.slot.take("voice", plan.clip_ids, draft=True)
+                gpu.slot.take("voice", plan.clip_ids, locks_draft=True)
             self._job = VoiceJob(
                 kind="sentences", state="voicing", done=0, total=len(plan.sentences), started_at=checks.now_iso()
             )

@@ -18,6 +18,8 @@ THUMBNAIL_WIDTH = 320  # the Shot picker loads dozens at once (D45)
 THUMBNAIL_QSCALE = 5
 LLM_FRAME_WIDTH = 448  # what Qwen describes (spec › Describe job step 5, D57)
 LLM_FRAME_QSCALE = 2
+# What finds the cuts: `find_cuts`, or a test's stand-in (`fastapi-api` › testing).
+CutFinder = Callable[[Path, Callable[[float], None], threading.Event], tuple[list[float], float]]
 _PTS_TIME = re.compile(r"\bn:\s*\d+\s+pts:\s*\S+\s+pts_time:\s*(\d+(?:\.\d+)?)")
 
 

@@ -69,13 +69,18 @@ class Describes(ModelJobSlot[DescribeJob]):
     failure = "บรรยายฉากไม่สำเร็จ"
     error_type = DescribeJobError
 
+    def __init__(self, find_cuts: frames.CutFinder = frames.find_cuts):
+        """`find_cuts` reads the scene cuts; a test passes one that pauses or makes up cuts."""
+        super().__init__()
+        self._find_cuts = find_cuts
+
     def start(self, clip_id: str, confirm_draft_loss: bool = False) -> DescribeJob:
         """Checks in spec order (404, the gate, `busy`, `in_draft`, `gpu_busy`), then starts the job's thread.
 
         A clip in the Spoil draft needs `confirm_draft_loss`: new Shots make the draft's
         Shot numbers point at other pictures, so a `done` job removes it (D49).
         """
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         clips.video_file(project, clip_id)
         require_rows(gate_rows.qwen_jobs(project))
         with self._lock:
@@ -147,7 +152,7 @@ class Describes(ModelJobSlot[DescribeJob]):
             if duration_s:
                 self._update(percent=min(99, int(at_s * 100 / duration_s)))
 
-        cuts, duration = spoil_maker.find_cuts(mp4, on_progress, self._cancel)
+        cuts, duration = self._find_cuts(mp4, on_progress, self._cancel)
         if self._cancel.is_set():
             raise Cancelled()
         return shots.plan_shots(cuts, duration)

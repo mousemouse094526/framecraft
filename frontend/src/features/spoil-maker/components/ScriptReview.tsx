@@ -107,6 +107,7 @@ export function ScriptReview() {
             volume={draft.original_volume}
             onVolume={async (original_volume) => (await review.changeDraft({ original_volume })).kind === "saved"}
             settings={video.state}
+            watermarks={video.watermarks}
             locked={locked}
             onAdd={video.add}
             onChange={video.change}

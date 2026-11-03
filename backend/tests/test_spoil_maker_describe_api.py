@@ -2,7 +2,7 @@
 fake LLM worker and real ffmpeg on clips made with `lavfi` (spoil-maker seam 1)."""
 
 import shutil
-import time
+import threading
 from pathlib import Path
 
 import pytest
@@ -16,6 +16,7 @@ from backend.spoil import downloads, transcribe
 from backend.spoil_maker import describe
 
 from .fakes import (
+    poll_until,
     FakeAdapter,
     FakeLlm,
     FakeWorker,
@@ -92,13 +93,7 @@ def start(client, clip_id: str = VIDEO_ID):
 
 
 def wait_for(client, condition, path: str = CURRENT) -> dict:
-    deadline = time.monotonic() + 10
-    while time.monotonic() < deadline:
-        job = client.get(path).json()
-        if condition(job):
-            return job
-        time.sleep(0.01)
-    raise AssertionError(f"job never got there: {job}")
+    return poll_until(client, path, condition)
 
 
 def wait_for_end(client, path: str = CURRENT) -> dict:
@@ -175,7 +170,7 @@ def test_the_llm_gets_a_448_frame_the_pinned_snapshot_and_the_generation_setting
 
 def test_a_25_second_range_becomes_three_equal_shots(client, project, monkeypatch, thirty_seconds):
     add_clip(project, thirty_seconds, duration_s=30)
-    monkeypatch.setattr(spoil_maker, "find_cuts", fake_cuts([25.0], 30.0))
+    monkeypatch.setattr(describe, "describes", describe.Describes(find_cuts=fake_cuts([25.0], 30.0)))
 
     start(client)
     assert wait_for_end(client)["state"] == "done"
@@ -192,7 +187,7 @@ def test_a_25_second_range_becomes_three_equal_shots(client, project, monkeypatc
 
 def test_a_half_second_range_joins_the_shot_before_it(client, project, monkeypatch, thirty_seconds):
     add_clip(project, thirty_seconds, duration_s=30)
-    monkeypatch.setattr(spoil_maker, "find_cuts", fake_cuts([5.0, 5.5], 10.0))
+    monkeypatch.setattr(describe, "describes", describe.Describes(find_cuts=fake_cuts([5.0, 5.5], 10.0)))
 
     start(client)
     assert wait_for_end(client)["state"] == "done"
@@ -203,7 +198,7 @@ def test_a_half_second_range_joins_the_shot_before_it(client, project, monkeypat
 
 def test_a_short_first_range_joins_the_shot_after_it(client, project, monkeypatch, thirty_seconds):
     add_clip(project, thirty_seconds, duration_s=30)
-    monkeypatch.setattr(spoil_maker, "find_cuts", fake_cuts([0.4, 6.0], 10.0))
+    monkeypatch.setattr(describe, "describes", describe.Describes(find_cuts=fake_cuts([0.4, 6.0], 10.0)))
 
     start(client)
     assert wait_for_end(client)["state"] == "done"
@@ -214,7 +209,7 @@ def test_a_short_first_range_joins_the_shot_after_it(client, project, monkeypatc
 
 def test_cutting_reports_how_far_into_the_clip_ffmpeg_has_read(client, project, monkeypatch, thirty_seconds):
     add_clip(project, thirty_seconds, duration_s=30)
-    halfway = __import__("threading").Event()
+    halfway = threading.Event()
 
     def slow_cuts(mp4, on_progress, cancel):
         on_progress(15.0)
@@ -222,7 +217,7 @@ def test_cutting_reports_how_far_into_the_clip_ffmpeg_has_read(client, project, 
         cancel.wait(5)
         return [], 30.0
 
-    monkeypatch.setattr(spoil_maker, "find_cuts", slow_cuts)
+    monkeypatch.setattr(describe, "describes", describe.Describes(find_cuts=slow_cuts))
     start(client)
     assert halfway.wait(5)
 
@@ -281,14 +276,14 @@ def test_cancelling_a_redo_keeps_the_old_shots_and_leaves_no_new_folder(client, 
 
 def test_cancelling_while_cutting_ends_cancelled(client, project, monkeypatch, three_colours):
     add_clip(project, three_colours)
-    reached = __import__("threading").Event()
+    reached = threading.Event()
 
     def slow_cuts(mp4, on_progress, cancel):
         reached.set()
         cancel.wait(5)
         return [], 3.0
 
-    monkeypatch.setattr(spoil_maker, "find_cuts", slow_cuts)
+    monkeypatch.setattr(describe, "describes", describe.Describes(find_cuts=slow_cuts))
 
     start(client)
     assert reached.wait(5)

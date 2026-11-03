@@ -140,7 +140,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
     def _start_draft(self, body: dict) -> DraftJob:
         """Checks in spec order (Draft job step 1), then starts the thread. The draft's
         lock covers `draft_exists` and taking the GPU, so no edit slips between them (D51)."""
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         clip_ids = _ready_clips(project, body.get("clip_ids"))
         style, layout, target_s = body.get("style"), body.get("layout"), body.get("target_s")
         if style not in script.STYLES or layout not in LAYOUTS:
@@ -176,7 +176,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 if body.get("replace") is not True and draft_file.read(project) is not None:
                     raise ApiError(409, "draft_exists", "มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม")
                 require_rows(gate_rows.qwen_jobs(project))
-                gpu.slot.take("draft", clip_ids, draft=True)
+                gpu.slot.take("draft", clip_ids, locks_draft=True)
             self._job = DraftJob(kind="draft", state="writing", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -185,7 +185,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
 
     def _start_pick(self, sentence_id: object) -> DraftJob:
         """New Shots for one sentence from its text now (spec › Draft job, D25, D27)."""
-        project = ProjectPaths(paths.ROOT)
+        project = paths.project()
         with self._lock:
             if self._taken():
                 raise ApiError(409, "busy", "กำลังร่างบทอยู่")
@@ -195,7 +195,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 if not sentence.refs:
                     raise ApiError(400, "no_refs", "ประโยคนี้ไม่ได้อ้างบรรทัดไหน: เลือกภาพเองจากทั้งคลิป")
                 require_rows(gate_rows.qwen_jobs(project))
-                gpu.slot.take("draft", draft.clip_ids, draft=True)
+                gpu.slot.take("draft", draft.clip_ids, locks_draft=True)
             self._job = DraftJob(kind="pick", state="matching", done=0, total=1, started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -551,7 +551,7 @@ def status_of(draft: Draft, sentence: Sentence) -> Status:
 
 
 def _window(refs: list[Ref], transcripts: dict[str, Transcript | None]) -> Window | None:
-    """±30 s around the cited lines of the first ref's clip only (D51); None without refs."""
+    """±30 s around the cited lines of the first ref's clip only (D26, D60); None without refs."""
     if not refs or transcripts.get(refs[0].clip_id) is None:
         return None
     clip_id = refs[0].clip_id

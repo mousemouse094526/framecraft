@@ -56,7 +56,7 @@ JOB_HOLDERS = (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Jobs don't survive a restart, so their leftovers go (spoil D15, D29).
-    project = ProjectPaths(paths.ROOT)
+    project = paths.project()
     for job in JOB_HOLDERS:
         if job.clean_on_start:
             job.clean_on_start(project)

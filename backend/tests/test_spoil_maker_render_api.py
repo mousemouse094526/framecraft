@@ -449,10 +449,11 @@ def paused_ffmpeg(monkeypatch):
     return reached, release
 
 
-def test_a_describe_starts_while_a_render_with_every_voice_runs_ffmpeg(
+def test_a_describe_of_a_clip_outside_the_draft_starts_while_a_render_with_every_voice_runs_ffmpeg(
     client, project, renderable, paused_ffmpeg, monkeypatch, three_colours
 ):
-    """spec › Seams 1: no sentence lacks its voice, so the render never takes the GPU."""
+    """spec › Seams 1: no sentence lacks its voice, so the render never takes the GPU.
+    EP2 is not in the draft (which reads EP1), so the render's clips don't make it `clip_busy`."""
     from backend.spoil_maker import describe
 
     from .fakes import FakeLlm
@@ -492,6 +493,7 @@ def test_a_render_draws_only_the_switched_on_watermarks(client, project, rendera
 def test_a_render_frees_the_gpu_once_its_sentences_are_voiced(
     client, project, renderable, paused_ffmpeg, monkeypatch, three_colours
 ):
+    """The describe is of EP2, outside the draft (which reads EP1): only the GPU could refuse it."""
     from backend.spoil_maker import describe
 
     from .fakes import FakeLlm

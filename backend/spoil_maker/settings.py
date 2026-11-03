@@ -94,12 +94,12 @@ def _watermarks(value: object) -> list[Watermark]:
         text = " ".join(mark["text"].split()) if isinstance(mark.get("text"), str) else ""
         if not 1 <= thai.width(text) <= WATERMARK_TEXT_MAX:
             raise _invalid(f"ข้อความลายน้ำต้องยาว 1–{WATERMARK_TEXT_MAX} ตัวอักษร")
-        fields = {"text": text, "position": mark["position"], "size": mark["size"]}
+        mark_fields = {"text": text, "position": mark["position"], "size": mark["size"]}
         if "enabled" in mark:  # left out: the model's default, as in a file from before D64
             if not isinstance(mark["enabled"], bool):
                 raise _invalid("สวิตช์ลายน้ำต้องเป็นเปิดหรือปิด")
-            fields["enabled"] = mark["enabled"]
-        checked.append(Watermark(**fields))
+            mark_fields["enabled"] = mark["enabled"]
+        checked.append(Watermark(**mark_fields))
     return checked
 
 

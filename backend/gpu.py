@@ -13,7 +13,6 @@ from typing import Literal
 
 from backend.errors import ApiError
 
-# A Render job holds it while it voices sentences only (spoil-maker spec › ช่อง GPU).
 Kind = Literal["transcribe", "describe", "draft", "voice", "render"]
 
 # How `gpu_busy` names the running job (spoil-maker spec › Frontend).
@@ -46,14 +45,16 @@ class GpuSlot:
         `draft_locked` check with the start of a job that changes the draft (D51).
         Lock order: a job slot's lock, then this one, then the slot's own lock."""
 
-    def take(self, kind: Kind, clip_ids: Iterable[str] = (), draft: bool = False) -> None:
+    def take(self, kind: Kind, clip_ids: Iterable[str] = (), locks_draft: bool = False) -> None:
         """Raises `ApiError` 409 `gpu_busy` with `running` when another job holds it.
-        `draft`: the job changes the Spoil draft, so edits are `draft_locked` until it ends."""
+        `locks_draft`: the job changes the Spoil draft (a Draft, sentence Voice or Render job),
+        so edits are `draft_locked` until it ends. A Render job holds the slot while it voices
+        sentences only (spoil-maker spec › ช่อง GPU)."""
         with self._lock:
             if self._kind is not None:
                 running = self._kind
                 raise ApiError(409, "gpu_busy", f"รอให้งาน{RUNNING_NAMES[running]}เสร็จก่อน", running=running)
-            self._kind, self._clip_ids, self._holds_draft = kind, frozenset(clip_ids), draft
+            self._kind, self._clip_ids, self._holds_draft = kind, frozenset(clip_ids), locks_draft
 
     def release(self, kind: Kind) -> None:
         """Frees the slot if `kind` holds it; every ending of a job calls it (done, failed, cancelled)."""
