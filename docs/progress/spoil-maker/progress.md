@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** feature review รอบสองเสร็จ (`c1520e3`); เหลือ Blocked 12 — แบบ Figma ของสวิตช์และคำเตือนลายน้ำ
+**Now:** ทุก ticket และ Blocked เสร็จ; แบบ Figma สวิตช์และคำเตือนลายน้ำทำแล้ว (Blocked 12) — เหลือเปิด PR
 
-**Next:** วาดตาม `docs/features/spoil-maker/ui-prompt.md` ใน Figma แล้วนำลิงก์กลับมา
+**Next:** เปิด PR เข้า `develop`
 
 ```
-/warroom spoil-maker
+/pr-open
 ```
 
 ## Tickets
@@ -20,6 +20,20 @@
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
 
 ## Log
+
+### แบบ Figma สวิตช์และคำเตือนลายน้ำ — 2026-11-03
+
+**Built:** (Figma, ไม่มีโค้ด)
+- component `Watermark row` เพิ่ม variant `enabled` (true/false): ใช้ `Switch` ของ design system ในกรอบกด 44 px ระหว่างชื่อกับปุ่มลบ; `enabled=false` ชื่อเป็น `text/subtle`; Switch expose ไว้ตั้ง `disabled` ตอนล็อก
+- section Script review เพิ่ม 12 frame (desktop, mobile): `Watermark default`, `Watermark off`, `Overlap warning — layout A`, `Overlap warning — layout C`, `Overlap resolved`, `Watermark locked`; คำเตือนใช้ `Alert` tone warning ใต้ช่อง Hook หรือชื่อตอน
+- prototype: สวิตช์ลายน้ำ 1 ใน `Overlap warning — layout A` ↔ `Overlap resolved`
+- `ui-prompt.md` ลบ; spec › Design ไม่มีจอ `pending`
+
+**Decided:**
+- ใช้ `Switch` ที่มีอยู่ใน design system แทนสร้าง component ใหม่; ไม่มี variant focus (โค้ดใช้ focus ring ของ Tailwind)
+- frame `3 tab / สปอย 2 ตรวจแก้บท` เดิมมีลายน้ำ 2 อยู่บนกลางกับ Hook ที่ไม่ว่าง — ไม่แก้ frame นั้น, frame ใหม่ย้ายลายน้ำ 2 ไปล่างซ้าย
+
+**Checks:** ข้อความคำเตือนและ aria-label "แสดงลายน้ำ {n}" ใน Figma ตรงกับ `ScriptReview.tsx` และ `ScriptReview.test.tsx`
 
 ### Feature review รอบสอง — 2026-11-03
 
@@ -238,4 +252,4 @@
 | 9 | review | ลำดับเช็คของ Describe job: โค้ดเช็ค gate ก่อน `in_draft` (D60) แต่ spec › Describe job ข้อ 1 วาง `in_draft` ก่อน — แก้ spec หรือโค้ดให้ตรงกัน | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | done (ticket 05) |
-| 12 | review | design: สวิตช์ลายน้ำและคำเตือนลายน้ำทับใน Figma Script review (D64, D65) — prompt ใน `docs/features/spoil-maker/ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
+| 12 | review | design: สวิตช์ลายน้ำและคำเตือนลายน้ำทับใน Figma Script review (D64, D65) | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390)) |
