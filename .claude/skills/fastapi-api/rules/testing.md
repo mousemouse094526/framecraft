@@ -31,6 +31,9 @@ def test_missing_marker(tmp_path):
   named point (`pause_at`, `wait_until`, `release`) and the test polls the API
   until the job's state is final. Swap the job holder for a fresh one per test
   (`monkeypatch.setattr(downloads, "downloads", downloads.Downloads())`).
+  A job that runs ffmpeg takes its runner as an argument of the holder, so a
+  test pauses ffmpeg by swapping in a holder with a pausing runner, never by
+  patching a module function the job calls.
 - A lifespan only runs inside `with TestClient(app, ...)`.
 - ffmpeg is real in tests: `make_test_clip` builds clips with `lavfi` in a
   session fixture, never a media file in git (spoil-maker seam 1). The scene

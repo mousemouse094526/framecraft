@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** feature review เสร็จ (`12becfe`) — CI เขียวทั้ง 4 ข้อ; เหลือ 4 Blocked row จาก review (8–11) ที่ต้องตัดเป็น ticket ก่อน merge
+**Now:** feature review เสร็จ (`12becfe`); Blocked 8–11 ตัดเป็น ticket 05 — 05 ต่อไป
 
 **Next:**
 
 ```
-/warroom tickets spoil-maker
+/warroom-build spoil-maker 05
 ```
 
 ## Tickets
@@ -17,6 +17,7 @@
 | 02 | Saved voice | done |
 | 03 | ร่างบทและหน้าตรวจแก้ | done |
 | 04 | เสียงต่อประโยคและ render | done |
+| 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | ready |
 
 ## Log
 
@@ -192,7 +193,7 @@
 | 5 | 03 | design: ตัวเลือก Shot | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186)) |
 | 6 | 04 | design: ผล render | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8055-16850)) |
 | 7 | 00 | design: แถบ 3 tab, ตัวบอกขั้นของ tab สปอย และ Transcript ที่แก้ได้ใน tab คลิป (D53, D54) | `/warroom spoil-maker` พร้อมลิงก์แบบ | done (Figma 8071-18633) |
-| 8 | review | test ของ render ผูกกับ internals: `paused_ffmpeg` patch `compose.run`; test "render ระหว่าง `rendering` → `POST /describes` 202" ผ่าน `voicing` ก่อน ไม่ตรงที่ spec เขียน | `/warroom tickets spoil-maker` | open |
-| 9 | review | ลำดับเช็คของ Describe job: โค้ดเช็ค gate ก่อน `in_draft` (D60) แต่ spec › Describe job ข้อ 1 วาง `in_draft` ก่อน — แก้ spec หรือโค้ดให้ตรงกัน | `/warroom tickets spoil-maker` | open |
-| 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | open |
-| 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | open |
+| 8 | review | test ของ render ผูกกับ internals: `paused_ffmpeg` patch `compose.run`; test "render ระหว่าง `rendering` → `POST /describes` 202" ผ่าน `voicing` ก่อน ไม่ตรงที่ spec เขียน | `/warroom tickets spoil-maker` | → ticket 05 |
+| 9 | review | ลำดับเช็คของ Describe job: โค้ดเช็ค gate ก่อน `in_draft` (D60) แต่ spec › Describe job ข้อ 1 วาง `in_draft` ก่อน — แก้ spec หรือโค้ดให้ตรงกัน | `/warroom tickets spoil-maker` | → ticket 05 |
+| 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | → ticket 05 |
+| 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | → ticket 05 |

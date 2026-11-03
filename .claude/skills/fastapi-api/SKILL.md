@@ -15,7 +15,9 @@ setup entry point that installs everything (ADR 0002).
 
 ```
 backend/
-├── app.py        ← FastAPI app; mounts every router under /api
+├── app.py        ← FastAPI app; mounts every router under /api; `JOB_HOLDERS`
+│                    lists every job holder once, and the lifespan runs each
+│                    one's start-up clean and `stop_on_shutdown` from it
 ├── paths.py      ← project root, models/ and media/ paths (ADR 0003);
 │                    `paths.project()` is the one routes read per request
 ├── models.py     ← the model registry, pinned commits (ADR 0004)

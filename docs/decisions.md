@@ -85,7 +85,7 @@ question; the full entry is in the feature's decisions.md.
 | ข้อความบนวิดีโอใช้ font Kanit (OFL) ตัวเดียว ไฟล์ ttf ใน project โหลดผ่าน Setup script มีแถว Status check | [spoil-maker](features/spoil-maker/decisions.md) | D21 | — | [0003](adr/0003-everything-inside-project.md), [0009](adr/0009-status-check-single-place.md) | active |
 | สี ขนาด และตำแหน่งของข้อความตายตัวต่อ layout ตามคลิปตัวอย่าง ไม่มีตัวเลือกในรอบแรก | [spoil-maker](features/spoil-maker/decisions.md) | D22 | — | — | active |
 | watermark เป็นข้อความชื่อช่องพิมพ์ครั้งเดียว แอปจำไว้ ว่าง = ไม่แสดง | [spoil-maker](features/spoil-maker/decisions.md) | D23 | — | — | superseded by spoil-maker D41 |
-| ลายน้ำข้อความหลายอัน เลือก 6 ตำแหน่งและขนาดเล็กหรือกลาง แอปจำไว้; ไม่บังคับเครดิตโมเดล (Accepted risk) | [spoil-maker](features/spoil-maker/decisions.md) | D41 | — | [0017](adr/0017-non-commercial-no-forced-credit.md) | changed by spoil-maker D51 |
+| ลายน้ำข้อความหลายอัน เลือก 6 ตำแหน่งและขนาดเล็กหรือกลาง แอปจำไว้; ไม่บังคับเครดิตโมเดล (Accepted risk) | [spoil-maker](features/spoil-maker/decisions.md) | D41 | — | [0017](adr/0017-non-commercial-no-forced-credit.md) | changed by spoil-maker D51, D64 |
 | ภาพเปลี่ยนแบบตัดตรงทุก layout ไม่มี transition หรือภาพเลื่อน ซ้อน เอียง | [spoil-maker](features/spoil-maker/decisions.md) | D24 | — | — | active |
 | ทางเลือกเล็กของรายการ Temp clip: คลิปมีอยู่ = มี json, ลบ json ที่ mp4 หาย, เรียงตามเวลาจริง, ลบได้ 404 = แถวหาย, highlight มาจากข้อความ, `useMountedState`, `autoPlay` | [spoil](features/spoil/decisions.md) | D20 | — | — | active |
 | ลิงก์ซ้ำ (video id เดิม) ไม่โหลดใหม่ ชี้แถวเดิม | [spoil](features/spoil/decisions.md) | D12 | — | — | active |
@@ -121,6 +121,7 @@ question; the full entry is in the feature's decisions.md.
 | เลือก Shot ส่งให้ AI ไม่เกิน 40 Shot ที่ใกล้ ref แรก; temperature ร่างบท 0.3; คำสั่งร่างบทบอกกฎซ้ำหลัง Transcript พร้อมตัวอักษรต่อประโยค, ครั้งที่ 2–3 บอกว่าครั้งก่อนพลาดตรงไหน, ประโยคเก็บ ref 3 ตัวแรก | [spoil-maker](features/spoil-maker/decisions.md) | D61 | — | — | active |
 | ทางเลือกเล็กตอน build เสียงต่อประโยคและ render: `backend.fonts` และ marker `font_kanit`, ลำดับการเช็คของ Voice job `sentences` และ Render job, `SentenceVoicer`, ไฟล์กลาง mkv และจุดตัดตามเฟรม, `spoil_maker.ffmpeg`, style ของ ASS, ซับ A คำเดียวได้, render เสร็จเปิดผล render, ภาพเล็กจาก mp4, player panel ≥ 1024 | [spoil-maker](features/spoil-maker/decisions.md) | D62 | — | [0005](adr/0005-ffmpeg-from-imageio.md), [0015](adr/0015-one-gpu-slot.md) | active |
 | แก้จาก feature review: `10:30 น.` อ่านเป็นนาฬิกา, `audio.wav` `no-store`, พื้นเบลอ A ย่อ-เบลอ-ขยาย, error ของ framework เป็น `{code, message}`, `ModelJobSlot._run_job`, `backend.gate_rows`, `RefusalLine` | [spoil-maker](features/spoil-maker/decisions.md) | D63 | — | [0013](adr/0013-post-requires-json.md) | active |
+| ลายน้ำเปิดปิดได้ทีละอัน (`enabled`, ปิดแล้วจำไว้); หน้าตรวจแก้เตือนเมื่อลายน้ำ `top_center` ที่เปิดอยู่ทับ hook (A) หรือชื่อตอน (C) | [spoil-maker](features/spoil-maker/decisions.md) | D64 | — | — | active |
 
 ## สร้างคลิปสปอย
 
