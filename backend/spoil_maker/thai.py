@@ -17,7 +17,8 @@ PLACES = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แ�
 
 THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 GROUPED = re.compile(r"(?<=\d),(?=\d{3})")
-TIME = re.compile(r"(\d{1,2}):(\d{2})")
+# `10:30`, or `10.30` only when `น.` follows; the `น.` itself is dropped, since นาฬิกา already says it.
+TIME = re.compile(r"(\d{1,2})(?::(\d{2})(?:\s*น\.)?|\.(\d{2})\s*น\.)")
 PERCENT = re.compile(r"(?<=\d)%")
 DECIMAL = re.compile(r"(\d+)\.(\d+)")
 NUMBER = re.compile(r"\d+")
@@ -75,7 +76,7 @@ def words(project: ProjectPaths, text: str) -> list[str]:
 
 
 def _time(match: re.Match) -> str:
-    hours, minutes = int(match.group(1)), int(match.group(2))
+    hours, minutes = int(match.group(1)), int(match.group(2) or match.group(3))
     said = f"{_whole(hours)}นาฬิกา"
     return said if minutes == 0 else f"{said}{_whole(minutes)}นาที"
 

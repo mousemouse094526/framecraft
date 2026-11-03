@@ -9,20 +9,19 @@ job (D4, D5, D7, D8, D18, D19, D25–D28, D39, D46, D51).
 import logging
 import re
 import threading
-import time
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, gpu, paths, spoil_maker
+from backend import checks, gate_rows, gpu, paths, spoil_maker
 from backend.errors import ApiError, JobFailed, require_rows
-from backend.jobs import Cancelled, ModelJobSlot, short, stop_process
+from backend.jobs import ModelJobSlot, stop_process
 from backend.models import QWEN
 from backend.paths import ProjectPaths
 from backend.spoil import transcribe
 from backend.spoil.transcribe import Transcript
-from backend.spoil_maker import describe, draft_file, script, settings, shots, thai, voices
+from backend.spoil_maker import draft_file, script, settings, shots, thai, voices
 from backend.spoil_maker.draft_file import Draft, Layout, Ref, Sentence, ShotRef
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
 from backend.spoil_maker.script import Brief
@@ -99,7 +98,7 @@ class DraftJob(BaseModel):
 
     kind: Literal["draft", "pick"]
     state: State
-    clip_id: None = None
+    clip_id: None = None  # every job reads the same shape; this one is of no single clip
     percent: None = None
     done: int | None = None
     total: int | None = None
@@ -125,6 +124,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
     worker_error = WorkerError
     child_name = "ตัวร่างบท"
     failure = "ร่างบทไม่สำเร็จ"
+    error_type = DraftJobError
 
     def __init__(self):
         super().__init__()
@@ -175,12 +175,12 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             with gpu.slot.draft_lock:
                 if body.get("replace") is not True and draft_file.read(project) is not None:
                     raise ApiError(409, "draft_exists", "มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม")
-                require_rows(describe.needed_rows(project))
+                require_rows(gate_rows.qwen_jobs(project))
                 gpu.slot.take("draft", clip_ids, draft=True)
             self._job = DraftJob(kind="draft", state="writing", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
-        threading.Thread(target=self._run, args=(project, lambda: self._draft(project, order)), daemon=True).start()
+        threading.Thread(target=self._run, args=(lambda: self._draft(project, order),), daemon=True).start()
         return job
 
     def _start_pick(self, sentence_id: object) -> DraftJob:
@@ -194,38 +194,23 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 sentence = _sentence(draft, sentence_id)
                 if not sentence.refs:
                     raise ApiError(400, "no_refs", "ประโยคนี้ไม่ได้อ้างบรรทัดไหน: เลือกภาพเองจากทั้งคลิป")
-                require_rows(describe.needed_rows(project))
+                require_rows(gate_rows.qwen_jobs(project))
                 gpu.slot.take("draft", draft.clip_ids, draft=True)
             self._job = DraftJob(kind="pick", state="matching", done=0, total=1, started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
         sentence_id = sentence.id
-        threading.Thread(target=self._run, args=(project, lambda: self._pick(project, sentence_id)), daemon=True).start()
+        threading.Thread(target=self._run, args=(lambda: self._pick(project, sentence_id),), daemon=True).start()
         return job
 
-    def _run(self, project: ProjectPaths, steps) -> None:
-        # Stays `failed` only if something escapes every handler below.
-        ending: dict = {"state": "failed"}
-        started = time.monotonic()
-        kind = self.current().kind
-        log.info("%s started", kind)
-        try:
-            steps()
-            ending = {"state": "done"}
-        except Cancelled:
-            ending = {"state": "cancelled"}  # the draft is as it was: it is written only at the end
-        except JobFailed as failure:
-            ending = _failed(failure.code, failure.message)
-        except Exception as error:
-            log.exception("%s failed", kind)  # the full error, for [api]
-            ending = _failed("internal", f"ร่างบทไม่สำเร็จ: {short(error)}")
-        finally:
-            process = self._model[0] if self._model else None
-            self._model = None
-            self._finish(process, ending)
-            # No script in the log: only what happened and how long (spec › Ops).
-            code = ending["error"].code if ending.get("error") else None
-            log.info("%s ended %s %s after %.0f s", kind, ending["state"], code or "", time.monotonic() - started)
+    def _run(self, steps) -> None:
+        """A cancelled or failed job leaves the draft as it was: it is written only at the end.
+        No script in the log (spec › Ops)."""
+
+        def clean_up(state: str) -> None:
+            self._model = None  # `_finish` stops its process
+
+        self._run_job(self.current().kind, steps, clean_up)
 
     def _draft(self, project: ProjectPaths, order: _CheckedOrder) -> None:
         """Steps 2–6: write the script, pick two Shots per sentence, replace the draft."""
@@ -252,7 +237,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             if script.near_target(parsed[1], brief.target_letters):
                 break
             log.warning(
-                "script attempt %d is %d letters, not about %d", attempt, script.letters(parsed[1]), brief.target_letters
+                "script attempt %d is %d letters, not about %d", attempt, script.spoken_letters(parsed[1]), brief.target_letters
             )
         if written is None:
             raise JobFailed("draft_failed", f"AI ร่างบทไม่สำเร็จ {ATTEMPTS} ครั้ง")
@@ -299,7 +284,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         if not candidates:
             return [None, None]
         if len(candidates) == 1:
-            picked = [candidates[0].n] * 2
+            picked = [candidates[0].n] * 2  # a sentence shows two Shots: the only one fills both
         else:
             transcript = transcripts[window.clip_id]
             first = transcript.lines[sentence.refs[0].line]
@@ -333,12 +318,12 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         stop_process(process)
 
 
-def uses_clip(clip_id: str) -> bool:
+def job_reads_clip(clip_id: str) -> bool:
     """Whether a Draft job reads that clip's Transcript: its lines can't be edited (D54)."""
     return gpu.slot.reads_clip("draft", clip_id)
 
 
-transcribe.clip_users.append(uses_clip)
+transcribe.clip_users.append(job_reads_clip)
 
 
 # --- The token count (D46) ---
@@ -358,7 +343,7 @@ def tokens(project: ProjectPaths, clip_ids: str) -> TokenCount:
 
 def _count(project: ProjectPaths, clip_ids: list[str], transcripts: dict[str, Transcript]) -> TokenCount:
     """Needs Qwen's tokenizer: `503` `not_ready` without it (D60)."""
-    require_rows({QWEN.check_id: describe.needed_rows(project)[QWEN.check_id]})
+    require_rows(gate_rows.qwen_model(project))
     snapshot = project.snapshot_dir(QWEN, QWEN.revision)
     try:
         per_clip = {
@@ -610,10 +595,6 @@ def _transcribed(project: ProjectPaths, clip_id: str) -> bool:
     except ApiError:
         return False
     return True
-
-
-def _failed(code: ErrorCode, message: str) -> dict:
-    return {"state": "failed", "error": DraftJobError(code=code, message=message)}
 
 
 draft_jobs = DraftJobs()

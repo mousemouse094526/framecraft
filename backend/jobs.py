@@ -5,6 +5,7 @@ model runs in, reporting through a queue (ADR 0012)."""
 import logging
 import threading
 import time
+from collections.abc import Callable
 from queue import Empty
 from typing import Generic, TypeVar
 
@@ -49,15 +50,18 @@ class JobSlot(Generic[Job]):
 class ModelJobSlot(JobSlot[Job]):
     """A job slot whose job runs a model in a child process and holds the GPU slot
     as `gpu_kind` (ADR 0012, ADR 0015). Subclasses also set `nothing_to_cancel`, the
-    message of a cancel with no running job, and for `_reply`: the child's
-    `worker_error` message type, `child_name` ("ตัวบรรยายฉาก") and `failure`
-    ("บรรยายฉากไม่สำเร็จ"), the words a failed job's message is made of."""
+    message of a cancel with no running job, `error_type`, the job's `{code, message}`
+    error, and for `_reply`: the child's `worker_error` message type, `child_name`
+    ("ตัวบรรยายฉาก") and `failure` ("บรรยายฉากไม่สำเร็จ"), the words a failed job's
+    message is made of."""
 
     gpu_kind: gpu.Kind
     nothing_to_cancel: str
+    error_type: type[BaseModel]
     worker_error: type
     child_name: str
     failure: str
+    ending_fields: dict = {}  # set by every ending, whatever the state
 
     def __init__(self):
         super().__init__()
@@ -82,6 +86,44 @@ class ModelJobSlot(JobSlot[Job]):
         if process is not None:
             stop_process(process)
 
+    def _run_job(
+        self,
+        what: str,
+        steps: Callable[[], dict | None],
+        clean_up: Callable[[str], None] | None = None,
+        failure: str | None = None,
+    ) -> None:
+        """The body of every job's thread. Runs `steps`, then ends the job however they went:
+        `done` with the fields `steps` returns, `cancelled`, `failed` with a `JobFailed`'s
+        error, or `internal` for anything else (`failure`, default the class's, starts its
+        message). `clean_up` gets the end state before the child stops and the GPU frees.
+        The log says `what` started and how it ended, never what the model wrote (spec › Ops)."""
+        # Stays `failed` only if something escapes every handler below.
+        ending: dict = {"state": "failed"}
+        started = time.monotonic()
+        log.info("%s started", what)
+        try:
+            ending = {"state": "done", **(steps() or {})}
+        except Cancelled:
+            ending = {"state": "cancelled"}
+        except JobFailed as failed:
+            ending = self._failed(failed.code, failed.message)
+        except Exception as error:
+            log.exception("%s failed", what)  # the full error, for [api]
+            ending = self._failed("internal", f"{failure or self.failure}: {short(error)}")
+        finally:
+            if clean_up is not None:
+                try:
+                    clean_up(ending["state"])
+                except Exception:
+                    log.exception("%s: clean-up failed", what)
+            self._finish({**self.ending_fields, **ending})
+            code = ending["error"].code if ending.get("error") else ""
+            log.info("%s ended %s %s after %.0f s", what, ending["state"], code, time.monotonic() - started)
+
+    def _failed(self, code: str, message: str) -> dict:
+        return {"state": "failed", "error": self.error_type(code=code, message=message)}
+
     def _reply(self, process, replies, expected: tuple[type, ...], timeout: float | None = None):
         """The child's next message, one of `expected`. Raises `Cancelled`, `TimeoutError`
         after `timeout` seconds (None: no limit), or `JobFailed` when the child errs or dies."""
@@ -97,14 +139,20 @@ class ModelJobSlot(JobSlot[Job]):
         return message
 
     def _track(self, process) -> None:
-        """Remembers the running child, so shutdown can stop it."""
+        """Remembers the running child, so shutdown can stop it and the job's end does."""
         with self._lock:
             self._process = process
 
-    def _finish(self, process, ending: dict) -> None:
+    def _child(self):
+        """The running child `_track` remembers, or None."""
+        with self._lock:
+            return self._process
+
+    def _finish(self, ending: dict) -> None:
         """Every ending of the job's thread: stops the child, frees the GPU before the
         job reads as finished (so a job started after that never meets `gpu_busy`), and
         sets the ending's fields. Never raises: the job must end, or every later POST is refused."""
+        process = self._child()
         if process is not None:
             try:
                 stop_process(process)

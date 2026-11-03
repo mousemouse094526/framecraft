@@ -3,7 +3,6 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend import paths
-from backend.paths import ProjectPaths
 from backend.spoil import clips, downloads, transcribe
 from backend.spoil.clips import ListedClip
 from backend.spoil.downloads import DownloadJob
@@ -31,25 +30,20 @@ class ClipList(BaseModel):
     clips: list[ListedClip]
 
 
-def _project() -> ProjectPaths:
-    # Read per request: tests point `paths.ROOT` at a fake root.
-    return ProjectPaths(paths.ROOT)
-
-
 @router.get("/clips")
 def list_clips() -> ClipList:
-    return ClipList(clips=clips.list_clips(_project()))
+    return ClipList(clips=clips.list_clips(paths.project()))
 
 
 @router.get("/clips/{clip_id}/video")
 def get_video(clip_id: str) -> FileResponse:
     """FileResponse answers `Range` with 206, so the player can seek."""
-    return FileResponse(clips.video_file(_project(), clip_id), media_type="video/mp4")
+    return FileResponse(clips.video_file(paths.project(), clip_id), media_type="video/mp4")
 
 
 @router.get("/clips/{clip_id}/thumbnail")
 def get_thumbnail(clip_id: str) -> FileResponse:
-    return FileResponse(clips.thumbnail_file(_project(), clip_id))
+    return FileResponse(clips.thumbnail_file(paths.project(), clip_id))
 
 
 @router.delete("/clips/{clip_id}", status_code=204)
@@ -60,7 +54,7 @@ def delete_clip(clip_id: str) -> Response:
 
 @router.get("/clips/{clip_id}/transcript")
 def get_transcript(clip_id: str) -> Transcript:
-    return transcribe.read_transcript(_project(), clip_id)
+    return transcribe.read_transcript(paths.project(), clip_id)
 
 
 @router.patch("/clips/{clip_id}/transcript/lines/{n}")
@@ -70,13 +64,13 @@ def edit_transcript_line(clip_id: str, n: str, body: LineEdit) -> TranscriptLine
 
 @router.get("/clips/{clip_id}/transcript.txt")
 def get_transcript_txt(clip_id: str) -> Response:
-    text = transcribe.transcript_txt(_project(), clip_id)
+    text = transcribe.transcript_txt(paths.project(), clip_id)
     return _download(text, "text/plain; charset=utf-8", f"{clip_id}.txt")
 
 
 @router.get("/clips/{clip_id}/transcript.srt")
 def get_transcript_srt(clip_id: str) -> Response:
-    text = transcribe.transcript_srt(_project(), clip_id)
+    text = transcribe.transcript_srt(paths.project(), clip_id)
     return _download(text, "application/x-subrip", f"{clip_id}.srt")
 
 

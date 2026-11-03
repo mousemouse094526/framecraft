@@ -2,8 +2,7 @@
 // remembers (backend.spoil_maker.voices, .render, .settings; spoil-maker spec › API).
 
 import { sendJson } from "../../../lib/api";
-import { busyText } from "../../../lib/gpu";
-import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { refusalLine, refusalOf, type Refusal, type RefusalLine } from "../../../lib/refusal";
 
 export type Position = "top_left" | "top_center" | "top_right" | "bottom_left" | "bottom_center" | "bottom_right";
 export type MarkSize = "small" | "medium";
@@ -83,15 +82,12 @@ export function failureOf(job: { error: { code: string; message: string } | null
   return { tone: "error", title: "ไม่สำเร็จ", text: job.error?.message ?? "ลองอีกครั้ง", retry: true };
 }
 
-/** A refusal to show as a line: `gpu_busy` names the running job; `not_ready` links to ติดตั้ง (spec › Frontend). */
-export type Refused = { text: string; setupLink: boolean };
-
 export type StartReply<Job> =
   | { kind: "started"; job: Job }
   /** Such a job runs already: follow it. */
   | { kind: "busy" }
   | { kind: "banner"; banner: Banner }
-  | { kind: "refused"; refused: Refused }
+  | { kind: "refused"; refused: RefusalLine }
   | { kind: "offline" };
 
 /** `POST` that starts a job, as the answer a hook acts on. */
@@ -103,13 +99,13 @@ export async function startJob<Job>(path: string, body: unknown): Promise<StartR
     if (!refusal) return { kind: "offline" };
     if (refusal.code === "busy") return { kind: "busy" };
     if (refusal.code === "disk_full") return { kind: "banner", banner: LOW_DISK };
-    return { kind: "refused", refused: { text: busyText(refusal) ?? refusal.message, setupLink: refusal.code === "not_ready" } };
+    return { kind: "refused", refused: refusalLine(refusal) };
   } catch {
     return { kind: "offline" };
   }
 }
 
-/** A sentence's wav; `v` changes with each new voice so the browser doesn't play an old one (spec › Frontend). */
+/** A sentence's wav; `v` changes with most new voices, and the API sends `no-store` for the rest (spec › Frontend). */
 export function sentenceAudioUrl(sentenceId: string, durationS: number): string {
   return `/api/spoil-maker/draft/sentences/${sentenceId}/audio.wav?v=${durationS}`;
 }

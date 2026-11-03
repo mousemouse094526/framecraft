@@ -102,9 +102,9 @@ def script_prompt(brief: Brief, last: list[Sentence] | None = None, asked_before
 def _retry_note(brief: Brief, last: list[Sentence] | None) -> str:
     if last is None:
         return "Your last answer was not complete JSON: write each sentence once, and stop when the story ends.\n"
-    side = "long" if letters(last) > brief.target_letters else "short"
+    side = "long" if spoken_letters(last) > brief.target_letters else "short"
     return (
-        f"Your last script was {letters(last)} letters in {len(last)} sentences: too {side}. "
+        f"Your last script was {spoken_letters(last)} letters in {len(last)} sentences: too {side}. "
         f"Write about {brief.target_letters} letters this time.\n"
     )
 
@@ -178,10 +178,10 @@ def closest(candidates: list[Shot], at: float, count: int) -> list[Shot]:
 
 
 def near_target(sentences: list[Sentence], target_letters: int) -> bool:
-    return abs(letters(sentences) - target_letters) <= TOLERANCE * target_letters
+    return abs(spoken_letters(sentences) - target_letters) <= TOLERANCE * target_letters
 
 
-def letters(sentences: list[Sentence]) -> int:
+def spoken_letters(sentences: list[Sentence]) -> int:
     """After numbers become words, the way speaking speed was measured (D35, D36)."""
     return sum(thai.letters(thai.spoken(sentence.text)) for sentence in sentences)
 

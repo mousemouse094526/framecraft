@@ -1,8 +1,8 @@
 import { useCallback, useEffect } from "react";
 import { getJson, headStatus, sendJson } from "../../../lib/api";
-import { GPU_JOB_PATHS, gpuBusyText } from "../../../lib/gpu";
+import { GPU_JOB_PATHS } from "../../../lib/gpu";
 import { isRunning, isUnfinishedIn, onlyWhen } from "../../../lib/job";
-import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { refusalLine, refusalOf, type Refusal, type RefusalLine } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 
@@ -29,9 +29,6 @@ export type VoiceJob = {
 /** What the user picks before สุ่ม (spoil-maker spec › Saved voice step 1). */
 export type Choices = { gender: string; age: string; pitch: string; speed: number };
 
-/** `setupLink` when the install is missing a row the job needs (`not_ready`, spec › Frontend). */
-export type DesignError = { text: string; setupLink: boolean };
-
 /** The GPU job that keeps สุ่ม disabled, and the `…/current` that says when it ends. */
 export type GpuHolder = { running: string; path: string };
 
@@ -47,7 +44,7 @@ export type VoicesState =
        * one preview from the next (the audio URL's `?v=`, a fresh name field). */
       previewVersion: string | null;
       gpu: GpuHolder | null;
-      error: DesignError | null;
+      error: RefusalLine | null;
     };
 
 type Loaded = Extract<VoicesState, { kind: "loaded" }>;
@@ -183,17 +180,13 @@ export function useVoices() {
             whenLoaded((s) =>
               path
                 ? { ...s, gpu: { running, path } }
-                : { ...s, error: { text: gpuBusyText(running), setupLink: false } },
+                : { ...s, error: refusalLine(refusal) },
             ),
           );
           return;
         }
-        if (reply.status === 503 && refusal?.code === "not_ready") {
-          setIfMounted(whenLoaded((s) => ({ ...s, error: { text: refusal.message, setupLink: true } })));
-          return;
-        }
         if (refusal) {
-          setIfMounted(whenLoaded((s) => ({ ...s, error: { text: refusal.message, setupLink: false } })));
+          setIfMounted(whenLoaded((s) => ({ ...s, error: refusalLine(refusal) })));
           return;
         }
       } catch {

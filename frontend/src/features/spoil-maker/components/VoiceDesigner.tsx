@@ -2,10 +2,11 @@ import { useId, useState } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { gpuBusyText } from "../../../lib/gpu";
+import type { RefusalLine } from "../../../lib/refusal";
 import chevronDownIcon from "../assets/chevron-down.svg";
 import refreshIcon from "../assets/refresh-cw.svg";
 import refreshWhiteIcon from "../assets/refresh-cw-white.svg";
-import { previewUrl, type Choices, type DesignError, type GpuHolder, type RefusalText } from "../hooks/useVoices";
+import { previewUrl, type Choices, type GpuHolder, type RefusalText } from "../hooks/useVoices";
 import { playAudio } from "../lib/audio";
 import { NameForm } from "./NameForm";
 
@@ -37,7 +38,7 @@ type Props = {
   /** Tells one preview from the next (`previewVersion` of the hook), or null when there is none. */
   previewVersion: string | null;
   gpu: GpuHolder | null;
-  error: DesignError | null;
+  error: RefusalLine | null;
   onDesign: (choices: Choices) => void;
   onSave: (name: string) => Promise<RefusalText>;
 };

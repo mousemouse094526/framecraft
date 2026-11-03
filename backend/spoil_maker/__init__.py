@@ -1,5 +1,5 @@
 """The สปอย tab's backend: Shots of Temp clips (Describe job), Saved voices (Voice
-job), and the Spoil draft (Draft job), more in later tickets.
+job), the Spoil draft (Draft job), and its render (Render job).
 
 `start_worker`, `start_tts_worker`, `find_cuts` and `count_tokens` are looked up at
 call time, so tests swap them for fakes (the same way as `backend.spoil`'s adapter

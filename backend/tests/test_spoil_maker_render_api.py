@@ -117,6 +117,16 @@ def test_a_voiced_sentence_has_its_wav_its_length_and_reads_ready(client, projec
     assert wav_seconds(audio.content) == 2.0
 
 
+def test_a_sentence_wav_is_never_cached_so_a_new_voice_of_the_same_length_plays(client, project, ready, tts):
+    write_draft(project)
+    speak(client, "s_00000001")
+    wait_for_end(client, VOICE_CURRENT)
+
+    audio = client.get(f"{DRAFT}/sentences/s_00000001/audio.wav")
+
+    assert audio.headers["cache-control"] == "no-store"
+
+
 def test_cancelling_after_the_first_sentence_keeps_its_voice(client, project, ready, tts):
     write_draft(project)
     tts.pause_at(1)

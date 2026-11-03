@@ -97,7 +97,7 @@
   - `transcribe` ของคลิปใน Spoil draft: ต้องมี `confirm_draft_loss: true` ไม่งั้น `409` `in_draft`; งาน `done` แล้วลบ Spoil draft (D49)
   - ลบ Temp clip: คลิปที่งาน spoil-maker ใช้อยู่ `409` `clip_busy` (D49); ลบสำเร็จแล้วลบ Shot ของคลิปและ Spoil draft ที่ใช้คลิปนั้น (D29, D45)
   - `GET /clips` เพิ่มฟิลด์ `described` และ `in_draft`
-  - `SpoilError.extra` รับค่าที่ไม่ใช่ string (list, int) สำหรับ `clip_ids`, `sentence_ids`, `tokens`
+  - `ApiError.extra` (เดิม `SpoilError`) รับค่าที่ไม่ใช่ string (list, int) สำหรับ `clip_ids`, `sentence_ids`, `tokens`
 - **`backend.spoil_maker`** (ใหม่)
   - `shots`: Describe job, ไฟล์ Shot, ภาพเล็ก
   - `llm`: interface ของ LLM กับ backend mlx-vlm และ worker ใน process ลูก (D14, ADR-0012)
@@ -111,7 +111,7 @@
   - เพิ่ม router `/api/spoil-maker`
 - **`NOTICE.md`**
   - ประโยค "should credit the model" เปลี่ยนเป็นแนะนำให้ใส่เครดิต ไม่บังคับ (D41)
-- **`frontend` › `lib/useHashTab`**
+- **`frontend` › `lib/useHash`** (เดิม `useHashTab`)
   - hash ที่ขึ้นต้นด้วย `#/spoil/` เปิด tab สปอย (spoil D10)
 - **`frontend` › `features/spoil`**
   - แถว Temp clip มีปุ่มบรรยายฉาก, ป้าย "บรรยายฉากแล้ว" และคำเตือนของคลิปใน Spoil draft (D29, D49)
@@ -359,7 +359,7 @@
 
 1. เลขไทย `๐–๙` เป็น `0–9` (D44)
 2. ตัดจุลภาคระหว่างหลัก: `114,000` → `114000` (D44)
-3. `{h}:{mm}` → `{h}นาฬิกา{mm}นาที`; `mm` เป็น `00` → `{h}นาฬิกา` (D44)
+3. `{h}:{mm}` → `{h}นาฬิกา{mm}นาที`; `mm` เป็น `00` → `{h}นาฬิกา` (D44); `น.` ที่ตามหลังเวลาถูกตัด และ `{h}.{mm} น.` เป็นเวลาเช่นกัน: `10.30 น.` → `สิบนาฬิกาสามสิบนาที` (D63)
 4. `{n}%` → `{n}เปอร์เซ็นต์` (D44)
 5. `{a}.{b}` → `{a}จุด` แล้วอ่าน `b` ทีละหลัก: `3.25` → `สามจุดสองห้า` (D44)
 6. กลุ่มตัวเลขที่เหลือแต่ละกลุ่มอ่านเป็นจำนวนเต็ม: `1968` → `หนึ่งพันเก้าร้อยหกสิบแปด`, `1/2` → `หนึ่ง/สอง` (D36, D44)
@@ -395,7 +395,7 @@
 
 | layout | ภาพต้นฉบับ | ข้อความค้างด้านบน | ซับ |
 |---|---|---|---|
-| A | พื้น: ต้นฉบับขยายเต็ม 1080×1920 ครอปกลาง `gblur` sigma 30; บน: ต้นฉบับสูง 1350 ครอปกลางกว้าง 1080 ที่ y 285 | hook: 76 px ขาว `#FFFFFF` ขอบดำ `#000000` 6 px กึ่งกลาง บนสุดที่ y 70 | ท่อนสั้น: 92 px ขาว ขอบดำ 8 px กึ่งกลางที่ y 1300 (D20) |
+| A | พื้น: ต้นฉบับขยายเต็ม 1080×1920 ครอปกลาง เบลอเท่า `gblur` sigma 30 (ทำที่ 270×480 sigma 7.5 แล้วขยาย, D63); บน: ต้นฉบับสูง 1350 ครอปกลางกว้าง 1080 ที่ y 285 | hook: 76 px ขาว `#FFFFFF` ขอบดำ `#000000` 6 px กึ่งกลาง บนสุดที่ y 70 | ท่อนสั้น: 92 px ขาว ขอบดำ 8 px กึ่งกลางที่ y 1300 (D20) |
 | B | พื้นดำ `#000000`; ต้นฉบับ 1080×608 ที่ y 656 | — (D19) | ประโยค: 56 px ขาว ไม่มีขอบ กึ่งกลาง บนสุดที่ y 1300 สูงสุด 2 บรรทัด |
 | C | พื้นดำ; ต้นฉบับ 1080×608 ที่ y 420 | ชื่อตอน: 80 px เหลือง `#FFD400` ขอบแดง `#D7262E` 6 px กึ่งกลาง บนสุดที่ y 160 | — |
 
@@ -423,7 +423,7 @@
 
 ### API
 
-ทุก route อยู่ใต้ `/api/spoil-maker`. POST และ PATCH ต้องเป็น JSON (ADR-0013); ทุก request ผ่าน `TrustedHostMiddleware` (ADR-0011). Error เป็นรูปแบนเดียวกับ `SpoilError` ของ spoil: `{"code", "message", ...extra}`.
+ทุก route อยู่ใต้ `/api/spoil-maker`. POST และ PATCH ต้องเป็น JSON (ADR-0013); ทุก request ผ่าน `TrustedHostMiddleware` (ADR-0011). Error เป็นรูปแบนเดียวกับ `ApiError` ของ spoil: `{"code", "message", ...extra}`; ที่ framework ตอบเองก็เช่นกัน — path ไม่มี route `404` `not_found`, method ผิด `405` `method_not_allowed`, body ไม่ใช่ object `400` `invalid_request` (D56, D63).
 
 | Method | Path | ทำอะไร | ตอบ |
 |---|---|---|---|
@@ -447,7 +447,7 @@
 | `POST` | `/draft/sentences` | `{after_id: string \| null, text}` แทรกใต้ `after_id` หรือบนสุดเมื่อ `null` ไม่มี `refs` และ Shot (D27) | `201` draft; `400` `invalid_request`; `409` `draft_locked`; `404` `no_draft` |
 | `PATCH` | `/draft/sentences/{sid}` | `{text?, shots?}` | `200` draft; `400` `invalid_shot`, `invalid_request`; `409` `draft_locked`; `404` `not_found` |
 | `DELETE` | `/draft/sentences/{sid}` | ลบประโยค | `200` draft; `409` `draft_locked`; `404` `not_found` |
-| `GET` | `/draft/sentences/{sid}/audio.wav` | เสียงของประโยค | `200`; `404` `not_found` |
+| `GET` | `/draft/sentences/{sid}/audio.wav` | เสียงของประโยค | `200` (`Cache-Control: no-store`, D63); `404` `not_found` |
 | `POST` | `/draft-jobs` | `{kind: "draft", clip_ids, style, layout, target_s, voice_id, replace}` หรือ `{kind: "pick", sentence_id}` | `202` job; `400` ตาม Draft job ข้อ 1, `no_refs`; `409` `draft_exists`, `busy`, `gpu_busy`, `draft_locked`; `503` `not_ready` |
 | `GET` | `/draft-jobs/current` | งานล่าสุดหรือ `null` | `200` |
 | `DELETE` | `/draft-jobs/current` | ยกเลิก | `202` job; `404` `not_found` |
@@ -499,12 +499,12 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 
 ### Frontend
 
-- 3 tab: ติดตั้ง `#/setup`, คลิป `#/clips`, สปอย `#/spoil` (D53); tab สปอยมีขั้น `#/spoil` (เลือกคลิป), `#/spoil/review`, `#/spoil/renders` และหน้า `#/spoil/voices`; `useHashTab` จับ `#/spoil/` เป็น tab สปอย
+- 3 tab: ติดตั้ง `#/setup`, คลิป `#/clips`, สปอย `#/spoil` (D53); tab สปอยมีขั้น `#/spoil` (เลือกคลิป), `#/spoil/review`, `#/spoil/renders` และหน้า `#/spoil/voices`; `useHash` (`tabOf`) จับ `#/spoil/` เป็น tab สปอย
 - poll งานด้วย `usePollWhile` ของ spoil ทุก 1 วินาทีระหว่างงานค้าง
 - เปิดหน้าตอนมีงานค้าง (`*/current` ไม่จบ) → แสดงความคืบหน้าของงานนั้น
 - ระหว่าง `locked: true` ทุกช่องแก้ของหน้าตรวจแก้กดไม่ได้ (D51)
 - ตัวเลือก Shot เล่นช่วงด้วย `/api/spoil/clips/{id}/video` เดิมโดยตั้ง `currentTime` เป็น `start` แล้วหยุดที่ `end`
-- ฟังเสียงของประโยคจาก `audio.wav` พร้อม query `?v={duration_s}` กัน cache ของ browser หลังสร้างใหม่
+- ฟังเสียงของประโยคจาก `audio.wav` พร้อม query `?v={duration_s}` กัน cache ของ browser หลังสร้างใหม่; เสียงใหม่ที่ยาวเท่าเดิมได้ URL เดิม จึงตอบ `no-store` ด้วย (D63)
 - ช่องข้อความของประโยคบันทึกเมื่อ blur หรือหยุดพิมพ์ 800 ms; ส่งทีละ request ต่อประโยค
 
 ข้อความ error (ภาษาที่แอปแสดง):
@@ -633,7 +633,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 - **Copy:** `backend/tests/fakes.py` — เพิ่ม `start_worker` ปลอมของ LLM และ TTS แบบเดียวกับของ Whisper; TTS ปลอมเขียน wav เงียบตามความยาวที่ test กำหนดและจดข้อความที่ได้รับ
 - **Copy:** `backend/tests/test_spoil_api.py` — root ปลอมและการลบคลิป; เพิ่มกรณีคลิปใน Spoil draft
 - **Copy:** `backend/tests/test_checks.py` — 4 แถวใหม่ และจำนวนแถวรวม
-- **Copy:** `frontend/src/features/spoil/components/SpoilPage.test.tsx` — fake backend ตาม route; เพิ่ม route ของ `/api/spoil-maker`
+- **Copy:** `frontend/src/features/spoil/components/ClipsPage.test.tsx` (เดิม `SpoilPage.test.tsx`) — fake backend ตาม route; เพิ่ม route ของ `/api/spoil-maker`
 - คลิปทดสอบสร้างใน fixture ด้วย ffmpeg `lavfi` (`color` สามสีต่อกันกับ `sine`) ไม่เก็บไฟล์สื่อใน git; เป็น test แรกของ project ที่รัน ffmpeg จริง
 - test ของ render อ่านความยาวและขนาดผลลัพธ์จาก `ffmpeg -i` เพราะไม่มี ffprobe (ADR-0005)
 - การตัด Shot จากจุดตัดปลอมผ่าน API โดยแทนตัวหาจุดตัด (ไม่แทน ffmpeg ส่วนอื่น)

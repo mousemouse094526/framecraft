@@ -30,11 +30,12 @@ END_MARGIN_SECONDS = 0.5
 STDERR_LINES = 20  # the tail of ffmpeg's errors that goes to the log (spec › Render job)
 
 # The picture of each layout (D22): `{tail}` makes every piece the same format and
-# holds its last frame when the source runs out.
+# holds its last frame when the source runs out. A's background blurs at a quarter of
+# the size (sigma 30 / 4) and scales back up: the same look, several times faster (D63).
 LAYOUT_GRAPHS = {
     "A": (
         "[0:v]split=2[bg][fg];"
-        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=30[blur];"
+        "[bg]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,gblur=sigma=7.5,scale=1080:1920[blur];"
         "[fg]scale=1080:1350:force_original_aspect_ratio=increase,crop=1080:1350[top];"
         "[blur][top]overlay=0:285,{tail}[v]"
     ),

@@ -1,9 +1,8 @@
 import { useCallback, useEffect } from "react";
 import { getJson, getReply, sendJson } from "../../../lib/api";
 import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
-import { gpuBusyText } from "../../../lib/gpu";
 import { cancelCurrent, onlyWhen } from "../../../lib/job";
-import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import {
@@ -60,7 +59,7 @@ const whenLoaded = (change: (state: Loaded) => SetupState) => onlyWhen<SetupStat
 /** The refusals of `POST /draft-jobs` the page shows as a banner; null for one it handles otherwise. */
 function bannerOf(status: number, refusal: Refusal | null): Banner | null {
   if (refusal === null) return null;
-  if (status === 409 && refusal.code === "gpu_busy") return { kind: "gpu_busy", text: gpuBusyText(refusal.running ?? "") };
+  if (status === 409 && refusal.code === "gpu_busy") return { kind: "gpu_busy", text: refusalLine(refusal).text };
   if (status === 503 && refusal.code === "not_ready") return { kind: "not_ready", text: refusal.message };
   return { kind: "refused", text: refusal.message };
 }

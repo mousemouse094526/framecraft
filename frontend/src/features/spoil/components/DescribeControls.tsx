@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
-import type { DescribeError, DescribeJob } from "../hooks/useDescribe";
+import type { RefusalLine } from "../../../lib/refusal";
+import type { DescribeJob } from "../hooks/useDescribe";
 import type { TempClip } from "../../../lib/clips";
 import deleteErrorIcon from "../assets/delete-error.svg";
 import eyeIcon from "../assets/eye.svg";
@@ -12,7 +13,7 @@ export type DescribeProps = {
   /** The unfinished job, of any clip. */
   job: DescribeJob | null;
   /** A row's last refusal or failure, by clip id. */
-  errors: Record<string, DescribeError>;
+  errors: Record<string, RefusalLine>;
   /** Why no clip can start one now: another GPU job runs. */
   busyReason: string | null;
   /** `confirmDraftLoss`: the user went on past the Spoil draft warning (spoil-maker D49). */
@@ -111,7 +112,7 @@ export function DescribeControls({ clip, describe }: Props) {
   );
 }
 
-function ErrorLine({ error }: { error: DescribeError }) {
+function ErrorLine({ error }: { error: RefusalLine }) {
   return (
     <p className="flex items-center gap-1.5 text-[13px] leading-[1.5] text-destructive">
       <img src={deleteErrorIcon} alt="" width={14} height={14} className="shrink-0" />

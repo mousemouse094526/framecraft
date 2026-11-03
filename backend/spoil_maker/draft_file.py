@@ -112,7 +112,8 @@ def clip_ids(project: ProjectPaths) -> set[str]:
     return set(draft.clip_ids) if draft else set()
 
 
-def uses_clip(project: ProjectPaths, clip_id: str) -> bool:
+def made_from_clip(project: ProjectPaths, clip_id: str) -> bool:
+    """Whether the Spoil draft is made from that clip (D49)."""
     return clip_id in clip_ids(project)
 
 
@@ -138,6 +139,6 @@ def take_gpu_to_redo(project: ProjectPaths, clip_id: str, kind: gpu.Kind, confir
     user hasn't confirmed losing it (D49); under the draft's lock, so no draft appears
     between the check and the start."""
     with gpu.slot.draft_lock:
-        if not confirm_draft_loss and uses_clip(project, clip_id):
+        if not confirm_draft_loss and made_from_clip(project, clip_id):
             raise ApiError(409, "in_draft", "คลิปนี้อยู่ใน Spoil draft: ทำต่อจะลบ Spoil draft")
         gpu.slot.take(kind, [clip_id])

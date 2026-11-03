@@ -13,7 +13,6 @@ import os
 import re
 import shutil
 import threading
-import time
 import wave
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -21,9 +20,9 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, disk, fonts, gpu, paths
+from backend import checks, disk, fonts, gate_rows, gpu, paths
 from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, short, stop_process
+from backend.jobs import short, stop_process
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.spoil_maker import captions, compose, draft, draft_file, settings, shots, voices
@@ -59,7 +58,7 @@ class RenderJob(BaseModel):
 
     kind: Literal["render"] = "render"
     state: State
-    clip_id: None = None
+    clip_id: None = None  # every job reads the same shape; this one is of no single clip
     percent: int | None = None
     done: int | None = None
     total: int | None = None
@@ -83,6 +82,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
 
     unfinished = UNFINISHED
     gpu_kind = "render"
+    error_type = RenderJobError
     nothing_to_cancel = "ไม่มีงาน render ที่ยังไม่จบ"
 
     def start(self) -> RenderJob:
@@ -116,62 +116,54 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         return job
 
     def _run(self, project: ProjectPaths, plan: SentencesPlan | None) -> None:
-        # Stays `failed` only if something escapes every handler below.
-        ending: dict = {"state": "failed"}
-        started = time.monotonic()
-        log.info("render started")
-        name = None
+        """A cancel keeps the sentences already voiced in the draft (spec › Render job)."""
+
+        def clean_up(state: str) -> None:
+            shutil.rmtree(project.render_work_dir, ignore_errors=True)
+            _remove_partials(project)
+
+        self._run_job("render", lambda: self._voice_and_render(project, plan), clean_up, failure="render ไม่สำเร็จ")
+
+    def _voice_and_render(self, project: ProjectPaths, plan: SentencesPlan | None) -> dict:
+        if plan:
+            self._voice_sentences(project, plan)
         try:
-            if plan:
-                self._voice_sentences(project, plan)
             with gpu.slot.draft_lock:
                 # What this render draws (spec › Render job), its voice copied while
                 # the draft is still locked: edits after this don't reach the file.
-                snapshot = draft_file.read(project)
-                timed, pieces = _timeline(project, snapshot)
+                drawn = draft_file.read(project)
+                timed, pieces = _timeline(project, drawn)
                 _start_work_folder(project)
-                _write_narration(project, snapshot, project.render_work_dir / NARRATION)
+                _write_narration(project, drawn, project.render_work_dir / NARRATION)
             self._free_gpu()
             self._update(state="rendering", percent=0, done=None, total=None)
-            name = self._render(project, snapshot, timed, pieces)
-            ending = {"state": "done", "percent": 100}
-        except Cancelled:
-            ending = {"state": "cancelled"}  # voiced sentences stay in the draft
+            name = self._render(project, drawn, timed, pieces)
         except FfmpegFailed as error:
-            ending = _failed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}")
-        except JobFailed as failure:
-            ending = _failed(failure.code, failure.message)
-        except Exception as error:
-            log.exception("render failed")  # the full error, for [api]
-            ending = _failed("internal", f"render ไม่สำเร็จ: {short(error)}")
-        finally:
-            shutil.rmtree(project.render_work_dir, ignore_errors=True)
-            _remove_partials(project)
-            self._finish(self._running_child(), ending)
-            code = ending["error"].code if ending.get("error") else None
-            log.info("render %s ended %s %s after %.0f s", name or "", ending["state"], code or "", time.monotonic() - started)
+            raise JobFailed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}") from None
+        log.info("render wrote %s", name)
+        return {"percent": 100}
 
     def _free_gpu(self) -> None:
         """Voicing is over: the TTS child goes and the GPU is free for the next job while
         ffmpeg runs (D51). A render that voiced nothing never took it: `release` then does nothing."""
-        process = self._running_child()
+        process = self._child()
         if process is not None:
             stop_process(process)
             self._track(None)
         gpu.slot.release("render")
 
-    def _render(self, project: ProjectPaths, snapshot: Draft, timed: list[Timed], pieces: list[Piece]) -> str:
+    def _render(self, project: ProjectPaths, drawn: Draft, timed: list[Timed], pieces: list[Piece]) -> str:
         """Step 3–4: cut the pieces, join them under the voice and the text, write the result."""
         work = project.render_work_dir
         marks = settings.read(project).watermarks  # every render's, the latest (spec › ค่าที่จำไว้)
         (work / CAPTIONS).write_text(
-            captions.ass_file(project, snapshot.layout, snapshot.top_text, timed, marks), encoding="utf-8"
+            captions.ass_file(project, drawn.layout, drawn.top_text, timed, marks), encoding="utf-8"
         )
-        media = {clip_id: probe(clips.video_file(project, clip_id)) for clip_id in snapshot.clip_ids}
+        media = {clip_id: probe(clips.video_file(project, clip_id)) for clip_id in drawn.clip_ids}
         for index, piece in enumerate(pieces):
             mp4 = clips.video_file(project, piece.clip_id)
             command = compose.piece_command(
-                piece, mp4, media[piece.clip_id], snapshot.layout, snapshot.original_volume, f"{index}.mkv"
+                piece, mp4, media[piece.clip_id], drawn.layout, drawn.original_volume, f"{index}.mkv"
             )
             compose.run(command, work, self._cancel)
             self._update(percent=PIECES_SHARE * (index + 1) // len(pieces))
@@ -192,7 +184,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         info = {
             "created_at": checks.now_iso(),
             "duration_s": round(probe(mp4_partial).duration_s, 2),
-            "sources": [clips.read_clip(project, clip_id).title for clip_id in snapshot.clip_ids],
+            "sources": [clips.read_clip(project, clip_id).title for clip_id in drawn.clip_ids],
         }
         srt_partial = project.renders_dir / f"{name}.srt.partial"
         srt_partial.write_text(captions.srt_file(timed), encoding="utf-8")
@@ -204,16 +196,16 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         return name
 
 
-def _timeline(project: ProjectPaths, snapshot: Draft) -> tuple[list[Timed], list[Piece]]:
+def _timeline(project: ProjectPaths, drawn: Draft) -> tuple[list[Timed], list[Piece]]:
     """Sentences end to end with no added silence; each Shot plays half its sentence
     from the Shot's start (D31). Cuts land on frames of the 30 fps output counted from
     the start, so the pieces add up to the voice's length."""
-    shot_files = {clip_id: shots.read_shots(project, clip_id) for clip_id in snapshot.clip_ids}
+    shot_files = {clip_id: shots.read_shots(project, clip_id) for clip_id in drawn.clip_ids}
     timed: list[Timed] = []
     pieces: list[Piece] = []
     at = 0.0
-    for sentence in snapshot.sentences:
-        if draft.status_of(snapshot, sentence) != "ready":
+    for sentence in drawn.sentences:
+        if draft.status_of(drawn, sentence) != "ready":
             raise JobFailed("internal", "มีประโยคที่ยังไม่มีเสียงหรือภาพ: กด render ใหม่")
         end = at + sentence.audio.duration_s
         timed.append(Timed(sentence.text, at, end))
@@ -236,11 +228,11 @@ def _frame(seconds: float) -> int:
     return round(seconds * compose.FPS)
 
 
-def _write_narration(project: ProjectPaths, snapshot: Draft, target: Path) -> None:
+def _write_narration(project: ProjectPaths, drawn: Draft, target: Path) -> None:
     """Every sentence's wav end to end, as one wav: OmniVoice speaks every one at the
     same sample rate, so their frames join as they are."""
     with wave.open(str(target), "wb") as out:
-        for index, sentence in enumerate(snapshot.sentences):
+        for index, sentence in enumerate(drawn.sentences):
             with wave.open(str(project.draft_audio_dir / f"{sentence.id}.wav"), "rb") as part:
                 if index == 0:
                     out.setparams(part.getparams())
@@ -320,18 +312,11 @@ def _remove_partials(project: ProjectPaths) -> None:
             leftover.unlink(missing_ok=True)
 
 
-def _failed(code: ErrorCode, message: str) -> dict:
-    return {"state": "failed", "error": RenderJobError(code=code, message=message)}
-
-
 def _needed_rows(project: ProjectPaths, voicing: bool) -> dict[str, Row]:
     """The Status check rows a Render job needs, by id; voicing first adds the Voice job's
     (spec › Status check)."""
-    rows: dict[str, Row] = {
-        "ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg)),
-        fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project)),
-        "pythainlp": ("pythainlp", lambda: checks.check_pinned(checks.probe_pythainlp, checks.PYTHAINLP_VERSION)),
-    }
+    kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
+    rows = gate_rows.FFMPEG | kanit | gate_rows.PYTHAINLP
     return rows | voices.needed_rows(project) if voicing else rows
 
 

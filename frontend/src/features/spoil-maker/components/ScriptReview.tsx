@@ -10,7 +10,7 @@ import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
 import { SETUP_HASH, type Draft, type Layout } from "../lib/draft";
-import type { Refused } from "../lib/render";
+import type { RefusalLine } from "../../../lib/refusal";
 import { ReviewBanner } from "./ReviewBanner";
 import { ReviewFooter } from "./ReviewFooter";
 import { PickProgress, SentenceCard } from "./SentenceCard";
@@ -138,7 +138,7 @@ export function ScriptReview() {
 }
 
 /** A refusal of a start; `not_ready` links to ติดตั้ง (spec › Frontend). */
-function RefusedAlert({ refused }: { refused: Refused }) {
+function RefusedAlert({ refused }: { refused: RefusalLine }) {
   return (
     <Alert tone="error">
       {refused.text}

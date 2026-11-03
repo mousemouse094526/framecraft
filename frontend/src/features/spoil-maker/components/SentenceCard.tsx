@@ -10,6 +10,7 @@ import trashRedIcon from "../assets/trash-red.svg";
 import trashWhiteIcon from "../assets/trash-white.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { episodeOf, shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
+import { playAudio } from "../lib/audio";
 import { sentenceAudioUrl } from "../lib/render";
 
 // Figma component `Status badge` (spoil-maker D30).
@@ -181,11 +182,8 @@ export function SentenceCard(props: Props) {
   );
 }
 
-/** Plays the sentence's wav; `?v=` changes with each new voice, so the browser never plays an old one. */
 function listen(sentence: Sentence) {
-  if (sentence.audio === null) return;
-  // A browser that refuses to play (no user gesture, no device) just stays quiet.
-  void new Audio(sentenceAudioUrl(sentence.id, sentence.audio.duration_s)).play().catch(() => {});
+  if (sentence.audio !== null) playAudio(sentenceAudioUrl(sentence.id, sentence.audio.duration_s));
 }
 
 /** "AI กำลังเลือก Shot ใหม่" with ยกเลิก (spec › Design, หน้าตรวจแก้). */

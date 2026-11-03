@@ -48,3 +48,19 @@ def test_status_api_rows_have_fix_null_when_ok_and_license_only_on_models(client
         "author": "OpenAI",
         "model_url": "https://huggingface.co/openai/whisper-large-v3-turbo",
     }
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body", "status", "code"),
+    [
+        ("GET", "/api/no-such-thing", None, 404, "not_found"),
+        ("DELETE", "/api/setup/status", None, 405, "method_not_allowed"),
+        ("POST", "/api/spoil-maker/voices", [], 400, "invalid_request"),
+    ],
+)
+def test_every_refusal_has_the_one_flat_shape(client, method, path, body, status, code):
+    response = client.request(method, path, json=body)
+
+    assert response.status_code == status
+    assert response.json()["code"] == code
+    assert isinstance(response.json()["message"], str)

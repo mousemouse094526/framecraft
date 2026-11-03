@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson } from "../../../lib/api";
 import { cancelCurrent, isRunning } from "../../../lib/job";
+import type { RefusalLine } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { RENDERS_HASH } from "../lib/draft";
@@ -12,7 +13,6 @@ import {
   VOICE_JOB_PATH,
   VOICE_JOBS_PATH,
   type Banner,
-  type Refused,
   type RenderJob,
   type SentencesJob,
   type StartReply,
@@ -28,7 +28,7 @@ export type JobsState = {
   /** A job that ended badly, or too little disk (Figma `Review banner`); `kind` is what ลองอีกครั้ง starts. */
   banner: (Banner & { kind: Kind }) | null;
   /** Any other refusal of a start, to show the user. */
-  refused: Refused | null;
+  refused: RefusalLine | null;
 };
 
 const START: JobsState = { voice: null, render: null, banner: null, refused: null };

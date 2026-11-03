@@ -121,3 +121,8 @@ class ProjectPaths:
     def snapshot_dir(self, model: ModelSpec, revision: str) -> Path:
         """The folder snapshot_download fills for one revision of a model."""
         return self.hub_dir / f"models--{model.cache_name}" / "snapshots" / revision
+
+
+def project() -> ProjectPaths:
+    """The project at `ROOT`, read per call: tests point `ROOT` at a fake root."""
+    return ProjectPaths(ROOT)

@@ -886,7 +886,7 @@
 
 **From:** build ticket 00 · **Status:** active
 
-## D56: ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และดูภาพ
+## D56: ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และบรรยายฉาก
 
 **Chosen:** รายละเอียดที่ build ticket 01 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
 
@@ -963,7 +963,7 @@
 **Chosen:** รายละเอียดที่ build ticket 03 ตัดสินเองจาก spec, conventions, Figma และโค้ดเดิม.
 
 **Details:**
-- **module:** ไฟล์ Spoil draft อยู่ใน `spoil_maker.draft_file` (อ่าน เขียน ลบ `uses_clip` `drop_if_uses` `take_gpu_to_redo`) แยกจาก `spoil_maker.draft` (การแสดง การแก้ Draft job ตัวนับ token) และ `spoil_maker.script` (คำสั่งที่ส่ง Qwen กับการอ่านคำตอบ); `backend.clock` (`hh:mm:ss`) ใช้ร่วมกับ Transcript; `files.remove_unfinished` ล้าง `.tmp` ทั้ง `media/spoil-maker/` ตอน start — `backend.spoil` (ถอดใหม่ ลบคลิป `in_draft` ของรายการ) import `draft_file` ได้โดยไม่วนกลับมา `transcribe`; ตัวนับ token เป็น `spoil_maker.tokens` (import transformers ในฟังก์ชัน, โหลด tokenizer ครั้งแรกแล้วเก็บไว้, `local_files_only`, snapshot ไม่มี → error ไม่ใช้ network); `spoil_maker.settings` ticket นี้มีแค่อ่านกับเขียน `original_volume` และ `last_voice_id`; `PATCH /settings` และการเช็คลายน้ำมากับ ticket 04
+- **module:** ไฟล์ Spoil draft อยู่ใน `spoil_maker.draft_file` (อ่าน เขียน ลบ `made_from_clip` `drop_if_uses` `take_gpu_to_redo`) แยกจาก `spoil_maker.draft` (การแสดง การแก้ Draft job ตัวนับ token) และ `spoil_maker.script` (คำสั่งที่ส่ง Qwen กับการอ่านคำตอบ); `backend.clock` (`hh:mm:ss`) ใช้ร่วมกับ Transcript; `files.remove_unfinished` ล้าง `.tmp` ทั้ง `media/spoil-maker/` ตอน start — `backend.spoil` (ถอดใหม่ ลบคลิป `in_draft` ของรายการ) import `draft_file` ได้โดยไม่วนกลับมา `transcribe`; ตัวนับ token เป็น `spoil_maker.tokens` (import transformers ในฟังก์ชัน, โหลด tokenizer ครั้งแรกแล้วเก็บไว้, `local_files_only`, snapshot ไม่มี → error ไม่ใช้ network); `spoil_maker.settings` ticket นี้มีแค่อ่านกับเขียน `original_volume` และ `last_voice_id`; `PATCH /settings` และการเช็คลายน้ำมากับ ticket 04
 - **lock:** `gpu.slot.draft_lock` (RLock ใน `GpuSlot` จึงเปลี่ยนต่อ test ได้) ลำดับ lock ของ job slot → draft → ช่อง GPU; `GpuSlot.take(..., draft=True)` บอกว่างานนั้นแก้ draft (`holds_draft` → `draft_locked`, `locked`); Draft job ทั้ง `draft` และ `pick` จองช่องเป็น `draft` ("ร่างบท") พร้อมคลิปทุกคลิปของงาน; `clip_users` ของ `transcribe` ถาม `gpu.slot.reads_clip("draft", id)`; ลบคลิปแล้วลบ draft นอก lock ของช่อง GPU (ลำดับ lock) แต่ใน lock ของงานถอด
 - **refactor:** `jobs.ModelJobSlot` รวม `cancel`, `stop_on_shutdown`, `_track`, `_finish` ของงานลูก 4 งาน (Transcribe, Describe, Voice, Draft) และ `_reply` ของ 3 งานที่ถามโมเดลทีละข้อความ (Describe, Voice, Draft) ตามที่ review ticket 01 และ 02 ทิ้งไว้
 - **ลำดับการเช็ค:** Draft job `draft`: `clip_not_ready` (ว่าง ซ้ำ ไม่ถอด ไม่บรรยายฉาก; id ที่ไม่รู้จักนับเป็นไม่พร้อม) → `invalid_request` → `invalid_target` → `voice_not_found` → `transcript_too_long` → `busy` → `draft_exists` → `not_ready` → `gpu_busy`; `pick`: `busy` → `no_draft` → `not_found` → `no_refs` → `not_ready` → `gpu_busy`; `kind` อื่น `invalid_request`; `GET /tokens` gate แถว `model_qwen` อย่างเดียว (ตัวนับใช้แค่ tokenizer) และ snapshot หายก็ `503` `not_ready` (spec › API แก้แล้ว), id ว่างหรือซ้ำ `clip_not_ready` ตามข้อ 1.1; Describe job: 404 → gate → `busy` → `in_draft` → `gpu_busy`; Transcribe job: gate → 404 → `busy` → `has_edits` → `in_draft` → `gpu_busy`
@@ -1003,6 +1003,23 @@
 **Why:** อยู่ในขอบของ spec และ D9, D10, D20–D22, D30, D31, D36, D40–D42, D45, D49, D51 ไม่เปลี่ยนสิ่งที่ spec สัญญา; ทำตามรูปแบบงานลูกเดิม (thread + process ลูก + queue), conventions, docs/library-notes/ffmpeg.md และ Figma Script review, Render results.
 
 **From:** build ticket 04 · **Status:** active
+
+## D63: แก้จาก feature review
+
+**Chosen:** สิ่งที่ feature review พบและผู้ใช้เลือกแก้ก่อน merge.
+
+**Details:**
+- **เวลาที่ตามด้วย `น.`:** `10:30 น.` และ `10.30 น.` → `สิบนาฬิกาสามสิบนาที` (ตัด `น.` เพราะ "นาฬิกา" บอกแล้ว); `{h}.{mm}` ไม่มี `น.` ยังเป็นทศนิยมตามข้อ 5 — OmniVoice อ่าน `น.` เป็น "น" (เช็คมือ ticket 04); ผู้ใช้เลือก
+- **เสียงประโยค:** `GET /draft/sentences/{sid}/audio.wav` ส่ง `Cache-Control: no-store` — `?v={duration_s}` ซ้ำได้เมื่อเสียงใหม่ยาวเท่าเดิม
+- **พื้นเบลอของ layout A:** ย่อเป็น 270×480 ครอปกลาง `gblur` sigma 7.5 แล้วขยายกลับ 1080×1920 แทน `gblur` sigma 30 ที่เต็มจอ: filter เร็วขึ้น ~6 เท่า (ffmpeg 7.1 บน M2, 10 วินาที testsrc2: 3.07 → 0.46 วินาที) SSIM เทียบของเดิม 0.991
+- **รูป error ของ framework:** path ไม่มี route `404` `not_found`, method ผิด `405` `method_not_allowed`, body ที่ไม่ใช่ object ที่ route รับ `400` `invalid_request` (เดิม `422` `{"detail"}`) — ทุก refusal เป็น `{"code", "message"}` ตาม spec › API
+- **โค้ดใช้ร่วม:** `jobs.ModelJobSlot._run_job` เป็นท้ายงานของทั้ง 5 งานลูก (Transcribe, Describe, Draft, Voice, Render) — `done`/`cancelled`/`failed`/`internal`, log เริ่มและจบ, `clean_up`; แต่ละงานตั้ง `error_type`; `backend.gate_rows` ตั้งชื่อแถว `ffmpeg`, `device`, `pythainlp`, `model_qwen` ครั้งเดียว (`qwen_jobs` ของ Describe job และ Draft job); `paths.project()` แทน `_project()` สองที่; หน้าเว็บ `lib/refusal.ts` `RefusalLine`/`refusalLine` แทน `DesignError`, `DescribeError`, `Refused`
+- **ชื่อ:** `draft_file.made_from_clip` (draft ทำจากคลิปนี้) กับ `draft.job_reads_clip` (Draft job อ่านคลิปนี้อยู่) แทน `uses_clip` สองตัว; `script.spoken_letters`; สำเนา draft ที่ render วาดชื่อ `drawn` ไม่ใช่ `snapshot` (คำนั้นคือ folder ของโมเดล)
+- **ADR-0013:** ขยายเป็น POST และ PATCH ตามที่ D55 ทำแล้ว
+
+**Why:** feature review สามแกน (Standards, Spec, Newcomer) ก่อน merge; ไม่เปลี่ยนสิ่งที่ spec สัญญานอกจากข้อ `น.` ที่ผู้ใช้เลือก และรูป error ที่ spec › API สัญญาไว้แล้ว.
+
+**From:** feature review · **Status:** active
 
 ## Sources
 

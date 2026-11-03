@@ -3,7 +3,7 @@ import { getJson, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
 import { busyText } from "../../../lib/gpu";
 import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
-import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { refusalLine, refusalOf, type Refusal, type RefusalLine } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
 
 // The shape of a Describe job (backend.spoil_maker.describe.DescribeJob, spoil-maker spec › API).
@@ -31,11 +31,8 @@ export type DescribeState =
       /** Only ever an unfinished job; a failed one becomes its row's error. */
       job: DescribeJob | null;
       /** Why a row's last try didn't describe it (a refusal or a failed job), by clip id. */
-      errors: Record<string, DescribeError>;
+      errors: Record<string, RefusalLine>;
     };
-
-/** `setupLink` when the install is missing a row the job needs (`not_ready`, spec › Frontend). */
-export type DescribeError = { text: string; setupLink: boolean };
 
 type Loaded = Extract<DescribeState, { kind: "loaded" }>;
 
@@ -53,7 +50,7 @@ function failureText(job: DescribeJob): string {
 
 const whenLoaded = (change: (state: Loaded) => DescribeState) => onlyWhen<DescribeState, "loaded">("loaded", change);
 
-const withError = (clipId: string, error: DescribeError | null) =>
+const withError = (clipId: string, error: RefusalLine | null) =>
   whenLoaded((s) => {
     const errors = { ...s.errors };
     if (error === null) delete errors[clipId];
@@ -122,9 +119,8 @@ export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) 
           if (job !== null && isUnfinished(job)) setIfMounted(whenLoaded((s) => ({ ...s, job })));
           return;
         }
-        const busy = busyText(refusal);
-        if (reply.status === 409 && busy) {
-          setIfMounted(withError(clipId, { text: busy, setupLink: false }));
+        if (reply.status === 409 && refusal && busyText(refusal)) {
+          setIfMounted(withError(clipId, refusalLine(refusal)));
           return;
         }
         if (reply.status === 404 && refusal?.code === "not_found") {
@@ -133,13 +129,13 @@ export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) 
         }
         if (reply.status === 409 && refusal?.code === "in_draft") {
           // A draft made since the list loaded: the new list marks the clip, so the next try warns.
-          setIfMounted(withError(clipId, { text: refusal.message, setupLink: false }));
+          setIfMounted(withError(clipId, refusalLine(refusal)));
           onClipsChanged();
           return;
         }
         if (reply.status === 503 && refusal?.code === "not_ready") {
           // "ยังติดตั้งไม่ครบ: {rows}" with a link to ติดตั้ง (spec › Frontend), and the status is checked again.
-          setIfMounted(withError(clipId, { text: refusal.message, setupLink: true }));
+          setIfMounted(withError(clipId, refusalLine(refusal)));
           onNotReady();
           return;
         }

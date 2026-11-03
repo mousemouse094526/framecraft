@@ -9,18 +9,17 @@ import logging
 import re
 import shutil
 import threading
-import time
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, gpu, paths, spoil_maker
+from backend import checks, gate_rows, gpu, paths, spoil_maker
 from backend.models import QWEN
 from backend.paths import ProjectPaths
 from backend.spoil import clips
-from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, ModelJobSlot, short
+from backend.errors import ApiError, JobFailed, require_rows
+from backend.jobs import Cancelled, ModelJobSlot
 from backend.spoil_maker import draft_file, frames, shots
 from backend.spoil_maker.ffmpeg import FfmpegFailed
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
@@ -68,6 +67,7 @@ class Describes(ModelJobSlot[DescribeJob]):
     worker_error = WorkerError
     child_name = "ตัวบรรยายฉาก"
     failure = "บรรยายฉากไม่สำเร็จ"
+    error_type = DescribeJobError
 
     def start(self, clip_id: str, confirm_draft_loss: bool = False) -> DescribeJob:
         """Checks in spec order (404, the gate, `busy`, `in_draft`, `gpu_busy`), then starts the job's thread.
@@ -77,7 +77,7 @@ class Describes(ModelJobSlot[DescribeJob]):
         """
         project = ProjectPaths(paths.ROOT)
         clips.video_file(project, clip_id)
-        require_rows(needed_rows(project))
+        require_rows(gate_rows.qwen_jobs(project))
         with self._lock:
             if self._taken():
                 raise ApiError(409, "busy", "กำลังบรรยายฉากคลิปอื่นอยู่")
@@ -97,56 +97,47 @@ class Describes(ModelJobSlot[DescribeJob]):
         return job
 
     def _run(self, project: ProjectPaths, clip: clips.TempClip, mp4: Path) -> None:
-        # Stays `failed` only if something escapes every handler below.
-        ending: dict = {"state": "failed"}
-        started = time.monotonic()
-        log.info("describing %s started", clip.id)
         new = project.new_shots_dir(clip.id)
-        process = None
-        try:
-            shutil.rmtree(new, ignore_errors=True)
-            (new / "frames").mkdir(parents=True)
-            spans = self._cut(mp4, clip.duration_s)
-            self._update(state="describing", percent=None, done=0, total=len(spans))
-            process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(QWEN, QWEN.revision))
-            self._track(process)
-            self._reply(process, replies, (Ready,))  # loading has no timeout
-            described = []
-            for n, (start, end) in enumerate(spans):
-                frame = new / "frames" / f"{n}.jpg"
-                # The middle frame: the start and end of a Shot blur into its neighbours (D17).
-                frames.extract_frame(mp4, (start + end) / 2, thumbnail=new / f"{n}.jpg", llm_frame=frame)
-                requests.put(Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE))
-                try:
-                    reply = self._reply(process, replies, (Generated,), DESCRIBE_TIMEOUT_SECONDS)
-                except TimeoutError:
-                    raise JobFailed("model_failed", f"บรรยายภาพเกิน {DESCRIBE_TIMEOUT_SECONDS:g} วินาที. {gpu.ADVICE}") from None
-                described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
-                self._update(done=n + 1)
-            requests.put(None)
-            result = shots.ShotsFile(clip_id=clip.id, shots=described)
-            (new / shots.SHOTS_FILE).write_text(result.model_dump_json(indent=2), encoding="utf-8")
-            shutil.rmtree(new / "frames")
-            _swap(project, clip.id)
-            draft_file.drop_if_uses(project, clip.id)  # the user confirmed (D49)
-            ending = {"state": "done"}
-        except Cancelled:
-            ending = {"state": "cancelled"}
-        except FfmpegFailed as error:
-            log.error("ffmpeg failed on %s: %s", clip.id, error)
-            ending = _failed("ffmpeg_failed", "อ่านภาพจากคลิปไม่ได้")
-        except JobFailed as failure:
-            ending = _failed(failure.code, failure.message)
-        except Exception as error:
-            log.exception("describing %s failed", clip.id)  # the full error, for [api]
-            ending = _failed("internal", f"บรรยายฉากไม่สำเร็จ: {short(error)}")
-        finally:
-            if ending["state"] != "done":
+
+        def clean_up(state: str) -> None:
+            if state != "done":
                 shutil.rmtree(new, ignore_errors=True)  # the old Shots stay (D51)
-            self._finish(process, ending)
-            # No Shot description in the log: only what happened and how long (spec › Ops).
-            code = ending["error"].code if ending.get("error") else None
-            log.info("describing %s ended %s %s after %.0f s", clip.id, ending["state"], code or "", time.monotonic() - started)
+
+        def steps() -> None:
+            try:
+                self._describe(project, clip, mp4, new)
+            except FfmpegFailed as error:
+                log.error("ffmpeg failed on %s: %s", clip.id, error)
+                raise JobFailed("ffmpeg_failed", "อ่านภาพจากคลิปไม่ได้") from None
+
+        self._run_job(f"describing {clip.id}", steps, clean_up)
+
+    def _describe(self, project: ProjectPaths, clip: clips.TempClip, mp4: Path, new: Path) -> None:
+        shutil.rmtree(new, ignore_errors=True)
+        (new / "frames").mkdir(parents=True)
+        spans = self._cut(mp4, clip.duration_s)
+        self._update(state="describing", percent=None, done=0, total=len(spans))
+        process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(QWEN, QWEN.revision))
+        self._track(process)
+        self._reply(process, replies, (Ready,))  # loading has no timeout
+        described = []
+        for n, (start, end) in enumerate(spans):
+            frame = new / "frames" / f"{n}.jpg"
+            # The middle frame: the start and end of a Shot blur into its neighbours (D17).
+            frames.extract_frame(mp4, (start + end) / 2, thumbnail=new / f"{n}.jpg", llm_frame=frame)
+            requests.put(Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE))
+            try:
+                reply = self._reply(process, replies, (Generated,), DESCRIBE_TIMEOUT_SECONDS)
+            except TimeoutError:
+                raise JobFailed("model_failed", f"บรรยายภาพเกิน {DESCRIBE_TIMEOUT_SECONDS:g} วินาที. {gpu.ADVICE}") from None
+            described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
+            self._update(done=n + 1)
+        requests.put(None)
+        result = shots.ShotsFile(clip_id=clip.id, shots=described)
+        (new / shots.SHOTS_FILE).write_text(result.model_dump_json(indent=2), encoding="utf-8")
+        shutil.rmtree(new / "frames")
+        _swap(project, clip.id)
+        draft_file.drop_if_uses(project, clip.id)  # the user confirmed (D49)
 
     def _cut(self, mp4: Path, duration_s: int | None) -> list[tuple[float, float]]:
         """`cutting`: the scene filter's cut times, as Shot spans. Raises `Cancelled`."""
@@ -166,23 +157,6 @@ def _swap(project: ProjectPaths, video_id: str) -> None:
     target = project.clip_shots_dir(video_id)
     shutil.rmtree(target, ignore_errors=True)
     project.new_shots_dir(video_id).rename(target)
-
-
-def _failed(code: ErrorCode, message: str) -> dict:
-    return {"state": "failed", "error": DescribeJobError(code=code, message=message)}
-
-
-def needed_rows(project: ProjectPaths) -> dict[str, Row]:
-    """The Status check rows a Describe job and a Draft job need, by id (spec › Status check).
-
-    Off a Mac the two LLM rows are never ok (D50).
-    """
-    return {
-        "ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg)),
-        "device": ("Device", lambda: checks.check_device(checks.probe_device)),
-        QWEN.check_id: (QWEN.label, lambda: checks.check_model_on_platform(project, QWEN, checks.this_platform())),
-        "mlx_vlm": ("mlx-vlm", lambda: checks.check_mlx_vlm(checks.probe_mlx_vlm, checks.this_platform())),
-    }
 
 
 def clip_shots(project: ProjectPaths, video_id: str) -> shots.ShotsFile:

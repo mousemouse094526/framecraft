@@ -505,7 +505,8 @@ def test_a_script_far_from_the_target_is_asked_again_and_the_last_readable_is_ke
     assert [s["text"] for s in a_draft(client)["sentences"]] == ["สั้นที่สุด"]
 
 
-def test_han_and_lines_that_do_not_exist_are_cleaned_out(client, project, ready, llm):
+def test_chinese_characters_and_lines_that_do_not_exist_are_cleaned_out(client, project, ready, llm):
+    # Refs are "{episode}-{line}": EP 9 line 999 is in no Transcript.
     llm.scripts = [script(("ไป現場กัน", ["9-999"]), *[(THIRTY, ["1-0"])] * (PASSING - 1))]
 
     start(client)

@@ -13,16 +13,15 @@ import re
 import secrets
 import shutil
 import threading
-import time
 import wave
 from pathlib import Path
 from typing import Literal, NamedTuple
 
 from pydantic import BaseModel
 
-from backend import checks, files, gpu, paths, spoil_maker
-from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, Job, ModelJobSlot, short
+from backend import checks, files, gate_rows, gpu, paths, spoil_maker
+from backend.errors import ApiError, Row, require_rows
+from backend.jobs import Job, ModelJobSlot
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil_maker import draft_file, thai
@@ -60,7 +59,7 @@ class VoiceJob(BaseModel):
 
     kind: Literal["design_preview", "sentences"]
     state: State
-    clip_id: None = None
+    clip_id: None = None  # every job reads the same shape; this one is of no single clip
     percent: int | None = None
     done: int | None = None
     total: int | None = None
@@ -137,16 +136,13 @@ class SentenceVoicer(ModelJobSlot[Job]):
             self._update(done=done)
         requests.put(None)
 
-    def _running_child(self):
-        with self._lock:
-            return self._process
-
 
 class VoiceJobs(SentenceVoicer[VoiceJob]):
     """Holds the latest Voice job."""
 
     unfinished = UNFINISHED
     gpu_kind = "voice"
+    error_type = VoiceJobError
     nothing_to_cancel = "ไม่มีงานสร้างเสียงที่ยังไม่จบ"
 
     def start(self, body: dict) -> VoiceJob:
@@ -211,25 +207,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
         _write_preview(project, request, designed)
 
     def _run(self, steps) -> None:
-        # Stays `failed` only if something escapes every handler below.
-        ending: dict = {"state": "failed"}
-        started = time.monotonic()
-        kind = self.current().kind
-        log.info("voice job %s started", kind)
-        try:
-            steps()
-            ending = {"state": "done"}
-        except Cancelled:
-            ending = {"state": "cancelled"}
-        except JobFailed as failure:
-            ending = _failed(failure.code, failure.message)
-        except Exception as error:
-            log.exception("voice job %s failed", kind)  # the full error, for [api]
-            ending = _failed("internal", f"สร้างเสียงไม่สำเร็จ: {short(error)}")
-        finally:
-            self._finish(self._running_child(), ending)
-            code = ending["error"].code if ending.get("error") else None
-            log.info("voice job %s ended %s %s after %.0f s", kind, ending["state"], code or "", time.monotonic() - started)
+        self._run_job(f"voice job {self.current().kind}", steps)
 
 
 def _write_sentence_audio(project: ProjectPaths, voice_id: str, sentence_id: str, tts_text: str, spoken: Spoken) -> None:
@@ -427,17 +405,10 @@ def _wav_seconds(path: Path) -> float:
         return audio.getnframes() / audio.getframerate()
 
 
-def _failed(code: ErrorCode, message: str) -> dict:
-    return {"state": "failed", "error": VoiceJobError(code=code, message=message)}
-
-
 def needed_rows(project: ProjectPaths) -> dict[str, Row]:
     """The Status check rows a Voice job needs, by id (spec › Status check)."""
-    return {
-        "device": ("Device", lambda: checks.check_device(checks.probe_device)),
-        OMNIVOICE.check_id: (OMNIVOICE.label, lambda: checks.check_model(project, OMNIVOICE)),
-        "pythainlp": ("pythainlp", lambda: checks.check_pinned(checks.probe_pythainlp, checks.PYTHAINLP_VERSION)),
-    }
+    omnivoice: dict[str, Row] = {OMNIVOICE.check_id: (OMNIVOICE.label, lambda: checks.check_model(project, OMNIVOICE))}
+    return gate_rows.DEVICE | omnivoice | gate_rows.PYTHAINLP
 
 
 voice_jobs = VoiceJobs()

@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, paths, spoil
+from backend import checks, gate_rows, paths, spoil
 from backend.paths import ProjectPaths
 from backend.spoil import clips, links
 from backend.spoil.adapter import DownloadCancelled, ErrorCode, error_code
@@ -194,11 +194,11 @@ def estimate_bytes(info: dict) -> int:
 def _needed_rows() -> dict[str, Row]:
     """The Status check rows a download needs (D9), by id; the frontend's
     `DOWNLOAD_ITEMS` gates on the same rows."""
-    return {
+    tools: dict[str, Row] = {
         "yt_dlp": ("yt-dlp", lambda: checks.check_version(checks.probe_yt_dlp)),
         "deno": ("Deno", lambda: checks.check_version(checks.probe_deno)),
-        "ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg)),
     }
+    return tools | gate_rows.FFMPEG
 
 
 def _yt_dlp_version() -> str:

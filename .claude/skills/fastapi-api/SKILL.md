@@ -16,7 +16,8 @@ setup entry point that installs everything (ADR 0002).
 ```
 backend/
 ├── app.py        ← FastAPI app; mounts every router under /api
-├── paths.py      ← project root, models/ and media/ paths (ADR 0003)
+├── paths.py      ← project root, models/ and media/ paths (ADR 0003);
+│                    `paths.project()` is the one routes read per request
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
 ├── disk.py       ← free disk space, shared by setup, spoil and the Render job
@@ -26,10 +27,13 @@ backend/
 ├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
 │                    JobFailed, `require_rows` (the gate of every job)
+├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
+│                    `PYTHAINLP`, `qwen_jobs`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010), ModelJobSlot (a job
-│                    whose model runs in a child: cancel, shutdown, the
-│                    ending that frees the GPU) and the child process helpers
-│                    every GPU job uses (ADR 0012)
+│                    whose model runs in a child: cancel, shutdown,
+│                    `_run_job`, the one ending of every job's thread that
+│                    frees the GPU) and the child process helpers every GPU
+│                    job uses (ADR 0012)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), and the
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51)
 ├── setup.py      ← entry point: python -m backend.setup

@@ -13,12 +13,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from backend import checks, clock, files, gpu, paths, spoil
+from backend import checks, clock, files, gate_rows, gpu, paths, spoil
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import Cancelled, ChildGone, ModelJobSlot, next_message, short
+from backend.jobs import ChildGone, ModelJobSlot, next_message, short
 from backend.spoil.whisper import Done, Segment, WorkerError
 from backend.spoil_maker import draft_file
 
@@ -73,6 +73,9 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
     unfinished = UNFINISHED
     gpu_kind = "transcribe"
     nothing_to_cancel = "ไม่มีงานถอดที่ยังไม่จบ"
+    error_type = TranscribeJobError
+    failure = "ถอดไม่สำเร็จ"
+    ending_fields = {"percent": None}  # `percent` is only for `transcribing` (spec › API)
 
     def start(self, clip_id: str, confirm_edit_loss: bool = False, confirm_draft_loss: bool = False) -> TranscribeJob:
         """Checks in spec order, then starts the job's thread. Raises `ApiError`.
@@ -138,29 +141,15 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
             return line
 
     def _run(self, project: ProjectPaths, clip: clips.TempClip, mp4: Path, device: str) -> None:
-        # Stays `failed` only if something escapes every handler below.
-        ending: dict = {"state": "failed"}
-        process = None
-        try:
+        def steps() -> None:
             snapshot = project.snapshot_dir(WHISPER, WHISPER.revision)
             process, queue = spoil.start_worker(mp4, clip.duration_s, snapshot, device)
             self._track(process)
             segments = self._read_segments(process, queue)
             write_transcript(project, _build_transcript(clip, segments))
             draft_file.drop_if_uses(project, clip.id)  # the user confirmed (spoil-maker D49)
-            ending = {"state": "done"}
-        except Cancelled:
-            ending = {"state": "cancelled"}
-        except JobFailed as failure:
-            error = TranscribeJobError(code=failure.code, message=failure.message)
-            ending = {"state": "failed", "error": error}
-        except Exception as error:
-            log.exception("transcribing %s failed", clip.id)  # the full error, for [api]
-            message = f"ถอดไม่สำเร็จ: {short(error)}"
-            ending = {"state": "failed", "error": TranscribeJobError(code="internal", message=message)}
-        finally:
-            # `percent` is only for `transcribing` (spec › API), so a finished job has none.
-            self._finish(process, {"percent": None, **ending})
+
+        self._run_job(f"transcribing {clip.id}", steps)
 
     def _read_segments(self, process, queue) -> list[Segment]:
         """Reads the child's messages until `Done`. Raises `Cancelled` or `JobFailed`."""
@@ -189,17 +178,13 @@ def _worker_error(error: WorkerError) -> JobFailed:
 
 def _needed_rows(project: ProjectPaths) -> dict[str, Row]:
     """The Status check rows a transcription needs (D27), by id; the frontend's
-    `TRANSCRIBE_ITEMS` gates on the same rows.
-
-    `device` is a warning on `cpu`, which doesn't pass here (ADR 0006).
-    """
-    return {
+    `TRANSCRIBE_ITEMS` gates on the same rows."""
+    packages: dict[str, Row] = {
         "torch": ("torch", lambda: checks.check_package("torch")),
         "transformers": ("transformers", lambda: checks.check_package("transformers")),
-        "ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg)),
-        WHISPER.check_id: (WHISPER.label, lambda: checks.check_model(project, WHISPER)),
-        "device": ("Device", lambda: checks.check_device(checks.probe_device)),
     }
+    whisper: dict[str, Row] = {WHISPER.check_id: (WHISPER.label, lambda: checks.check_model(project, WHISPER))}
+    return packages | gate_rows.FFMPEG | whisper | gate_rows.DEVICE
 
 
 def _has_edits(project: ProjectPaths, clip_id: str) -> bool:

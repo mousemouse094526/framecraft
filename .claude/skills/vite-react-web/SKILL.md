@@ -32,7 +32,8 @@ frontend/src/
     ├── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
     ├── usePollWhile.ts ← polls a job's `…/current` every second while it runs
     ├── job.ts        ← `isUnfinishedIn`, `onlyWhen`, `cancelCurrent` for every job hook
-    ├── refusal.ts    ← the API's `{code, message}` refusal
+    ├── refusal.ts    ← the API's `{code, message}` refusal, and `refusalLine`
+    │                   (the one line a refused button shows)
     ├── gpu.ts        ← "รอให้งาน{running}เสร็จก่อน" for `gpu_busy` (spoil-maker D45)
     ├── clips.ts      ← the Temp clip type and `/api/spoil/clips`: both tabs read it
     └── format.ts     ← a clip's length and `hh:mm:ss` of a line or a Shot

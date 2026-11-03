@@ -3,8 +3,8 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.exception_handlers import http_exception_handler
 from starlette.exceptions import HTTPException
 
 from backend import errors, files, paths
@@ -49,18 +49,29 @@ def require_json(request: Request) -> None:
         raise ApiError(415, "unsupported_media_type", "ต้องส่งเป็น JSON")
 
 
-async def unknown_path_response(request: Request, error: HTTPException):
-    """A path no route matches (`..%2F` decodes to `../` before routing) answers in the
-    API's one refusal shape too, `404` `not_found` (spoil-maker spec › API)."""
-    if error.status_code == 404:
-        return errors.error_response(request, ApiError(404, "not_found", "ไม่พบ"))
-    return await http_exception_handler(request, error)
+# What the framework refuses before a route runs, in the API's one refusal shape too
+# (spoil-maker spec › API). `..%2F` decodes to `../` before routing, so it is a 404 here.
+FRAMEWORK_REFUSALS = {
+    404: ("not_found", "ไม่พบ"),
+    405: ("method_not_allowed", "ใช้ method นี้กับ path นี้ไม่ได้"),
+}
+
+
+async def framework_refusal_response(request: Request, error: HTTPException):
+    code, message = FRAMEWORK_REFUSALS.get(error.status_code, ("http_error", str(error.detail)))
+    return errors.error_response(request, ApiError(error.status_code, code, message))
+
+
+async def invalid_body_response(request: Request, error: RequestValidationError):
+    """A body that isn't the JSON object a route takes, the same `400` as any other bad field."""
+    return errors.error_response(request, ApiError(400, "invalid_request", "ข้อมูลที่ส่งมาไม่ถูกต้อง"))
 
 
 app = FastAPI(title="framecraft", lifespan=lifespan, dependencies=[Depends(require_json)])
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 app.add_exception_handler(ApiError, errors.error_response)
-app.add_exception_handler(HTTPException, unknown_path_response)
+app.add_exception_handler(HTTPException, framework_refusal_response)
+app.add_exception_handler(RequestValidationError, invalid_body_response)
 app.include_router(setup_status.router, prefix="/api")
 app.include_router(spoil.router, prefix="/api")
 app.include_router(spoil_maker.router, prefix="/api")
