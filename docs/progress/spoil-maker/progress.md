@@ -1,11 +1,11 @@
 # Progress: spoil-maker
 
-**Now:** 04 done — ทุก ticket เสร็จ: เสียงต่อประโยค (Voice job `sentences`), ลายน้ำและเสียงต้นฉบับ, Render job (mp4 1080×1920 + `.srt`) และหน้าผล render; ต่อไป feature review ก่อน merge
+**Now:** feature review เสร็จ (`12becfe`) — CI เขียวทั้ง 4 ข้อ; เหลือ 4 Blocked row จาก review (8–11) ที่ต้องตัดเป็น ticket ก่อน merge
 
 **Next:**
 
 ```
-/warroom-build spoil-maker --review-feature
+/warroom tickets spoil-maker
 ```
 
 ## Tickets
@@ -19,6 +19,25 @@
 | 04 | เสียงต่อประโยคและ render | done |
 
 ## Log
+
+### Feature review — 2026-11-03
+
+**Built:** (`refactor(spoil-maker): feature review fixes`, `12becfe`)
+- `audio.wav` ของประโยคส่ง `Cache-Control: no-store` (`?v={duration_s}` ซ้ำเมื่อเสียงใหม่ยาวเท่าเดิม)
+- `thai.spoken`: `10:30 น.` และ `10.30 น.` → `สิบนาฬิกาสามสิบนาที` (ตัด `น.`)
+- พื้นเบลอ layout A ย่อ 270×480 → `gblur` 7.5 → ขยาย: filter 3.07 → 0.46 วินาทีต่อ 10 วินาที, SSIM 0.991
+- 404/405/422 ของ framework ตอบ `{code, message}` (422 → `400` `invalid_request`)
+- `ModelJobSlot._run_job` รวมท้าย `_run` และ `_failed` ของ 5 งาน; `backend.gate_rows`; `paths.project()`; หน้าเว็บ `RefusalLine`/`refusalLine` แทนสาม type, `SentenceCard` ใช้ `playAudio`
+- ชื่อ: `made_from_clip` / `job_reads_clip`, `script.spoken_letters`, `drawn` ใน render; comment ของ `clip_id: None`, `_shots_for`, test `"9-999"`
+- Docs: ADR-0013 รวม PATCH; spec (ตัวเลขเป็นคำ, layout A, API, Frontend, ชื่อเก่า `useHashTab` `SpoilError` `SpoilPage.test`); ticket 01 และ D56 ใช้ "บรรยายฉาก"; skills `fastapi-api`, `vite-react-web`
+
+**Decided:**
+- D63 — แก้จาก feature review (ข้อ `น.` ผู้ใช้เลือก)
+
+**For the next ticket:**
+- ทุกข้อที่ไม่ได้แก้อยู่ใน Blocked 8–11
+
+**Checks:** `uv run pytest` — 474 passed; `npm --prefix frontend test` — 174 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 04: เสียงต่อประโยคและ render — done 2026-11-03
 
@@ -173,3 +192,7 @@
 | 5 | 03 | design: ตัวเลือก Shot | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186)) |
 | 6 | 04 | design: ผล render | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8055-16850)) |
 | 7 | 00 | design: แถบ 3 tab, ตัวบอกขั้นของ tab สปอย และ Transcript ที่แก้ได้ใน tab คลิป (D53, D54) | `/warroom spoil-maker` พร้อมลิงก์แบบ | done (Figma 8071-18633) |
+| 8 | review | test ของ render ผูกกับ internals: `paused_ffmpeg` patch `compose.run`; test "render ระหว่าง `rendering` → `POST /describes` 202" ผ่าน `voicing` ก่อน ไม่ตรงที่ spec เขียน | `/warroom tickets spoil-maker` | open |
+| 9 | review | ลำดับเช็คของ Describe job: โค้ดเช็ค gate ก่อน `in_draft` (D60) แต่ spec › Describe job ข้อ 1 วาง `in_draft` ก่อน — แก้ spec หรือโค้ดให้ตรงกัน | `/warroom tickets spoil-maker` | open |
+| 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | open |
+| 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | open |
