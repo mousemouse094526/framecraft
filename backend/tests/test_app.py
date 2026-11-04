@@ -75,6 +75,8 @@ def test_start_up_removes_what_every_job_left_unfinished(fake_root, monkeypatch)
         project.renders_dir / "x.partial",
         project.new_shots_dir("a") / "0.jpg",
         project.pending_voice_dir / "preview.wav",
+        project.episodes_dir / "a.json.0123abcd.tmp",
+        project.episodes_file("dQw4w9WgXcQ"),  # a clip that isn't there
     ]
     for path in leftovers:
         path.parent.mkdir(parents=True, exist_ok=True)

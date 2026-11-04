@@ -9,7 +9,7 @@ import scanLineIcon from "../assets/scan-line.svg";
 import trashRedIcon from "../assets/trash-red.svg";
 import trashWhiteIcon from "../assets/trash-white.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
-import { episodeOf, shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
+import { shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
 import { playAudio } from "../lib/audio";
 import { sentenceAudioUrl } from "../lib/render";
 
@@ -24,7 +24,8 @@ const STATUS_LOOK: Record<SentenceStatus, { label: string; className: string }> 
 type Props = {
   sentence: Sentence;
   number: number;
-  clipIds: string[];
+  /** "EP 2": the draft's EP, which every Shot and cited line is of. */
+  episode: string;
   shots: Record<string, Shot[]>;
   /** A job changes the draft: every field and button waits (D51). */
   locked: boolean;
@@ -48,7 +49,7 @@ type Props = {
  * (spoil-maker D19, D25, D26, D27, D30).
  */
 export function SentenceCard(props: Props) {
-  const { sentence, number, clipIds, shots, locked, picking, focus } = props;
+  const { sentence, number, episode, shots, locked, picking, focus } = props;
   const text = useAutoSave(sentence.text, props.onText);
   const [confirming, setConfirming] = useState(false);
   const textId = useId();
@@ -81,7 +82,7 @@ export function SentenceCard(props: Props) {
               label={`เปลี่ยน Shot ${index + 1}`}
               shot={slot ? (shots[slot.clip_id]?.[slot.n] ?? null) : null}
               clipId={slot?.clip_id ?? null}
-              episode={slot ? episodeOf(clipIds, slot.clip_id) : null}
+              episode={slot ? episode : null}
               loading={picking !== null}
               disabled={locked}
               onOpen={() => props.onOpenPicker(index)}
@@ -104,7 +105,7 @@ export function SentenceCard(props: Props) {
               {sentence.ref_lines.map((line) => (
                 <span key={`${line.clip_id}-${line.line}`} className="flex min-w-0 items-center gap-1.5">
                   <span className="font-mono whitespace-nowrap text-link">
-                    {episodeOf(clipIds, line.clip_id)} {formatClock(line.start)}
+                    {episode} {formatClock(line.start)}
                   </span>
                   <span className="min-w-0 truncate text-mid">"{line.text}"</span>
                 </span>

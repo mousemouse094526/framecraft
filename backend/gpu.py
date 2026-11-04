@@ -73,13 +73,22 @@ class GpuSlot:
             return self._kind == kind and clip_id in self._clip_ids
 
     @contextmanager
-    def clip_untouched(self, clip_id: str) -> Iterator[None]:
-        """Runs the block (deleting the clip's files) under the slot's lock: refuses with
-        `ApiError` 409 `clip_busy` while the holder reads the clip, and no job can take
-        the slot until the block ends."""
+    def clip_untouched(self, clip_id: str, by: Iterable[Kind] | None = None) -> Iterator[None]:
+        """Runs the block (deleting or changing the clip's files) under the slot's lock:
+        refuses with `ApiError` 409 `clip_busy` while the holder reads the clip — only a
+        holder of a kind in `by`, when given — and no job can take the slot until the block ends."""
         with self._lock:
-            if clip_id in self._clip_ids:
+            if clip_id in self._clip_ids and (by is None or self._kind in by):
                 raise ApiError(409, "clip_busy", "คลิปนี้กำลังถูกใช้ในงานอื่น")
+            yield
+
+    @contextmanager
+    def clip_files(self) -> Iterator[None]:
+        """Runs the block under the slot's lock, refusing nothing. A clip's EP cuts are read
+        and written under it: the cuts sit on the clip's Shot edges, and a Describe job swaps
+        in new Shots and removes the cuts under this same lock, so neither sees half of the
+        other (spoil-maker spec › EP, D71)."""
+        with self._lock:
             yield
 
 

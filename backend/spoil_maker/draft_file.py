@@ -51,11 +51,33 @@ class Sentence(BaseModel):
     audio: Audio | None = None
 
 
-class Draft(BaseModel):
-    """The file's shape is part of the decision (spec › Spoil draft)."""
+SAME_SECONDS = 0.01  # an EP named by its range matches a cut this close (D71)
 
-    version: Literal[1] = 1
-    clip_ids: list[str]
+
+class Ep(BaseModel):
+    """An EP of a Temp clip by its number and range [start_s, end_s). In the draft: the EP it
+    was written from, as the clip was cut then; a later cut leaves it be (D70)."""
+
+    n: int
+    start_s: float
+    end_s: float
+
+    def matches(self, start_s: float, end_s: float) -> bool:
+        """The same range, give or take `SAME_SECONDS` (D71)."""
+        return abs(self.start_s - start_s) <= SAME_SECONDS and abs(self.end_s - end_s) <= SAME_SECONDS
+
+    def overlaps(self, start: float, end: float) -> bool:
+        """Whether [start, end) shows part of the EP: a Shot of the EP (D71)."""
+        return start < self.end_s and end > self.start_s
+
+
+class Draft(BaseModel):
+    """The file's shape is part of the decision (spec › Spoil draft). A `version` 1 file,
+    of several clips as EPs (D5), reads as no draft (D70)."""
+
+    version: Literal[2] = 2
+    clip_id: str
+    ep: Ep
     style: Style
     layout: Layout
     target_s: int
@@ -71,9 +93,8 @@ def read(project: ProjectPaths) -> Draft | None:
     draft = _stored(project)
     if draft is None:
         return None
-    missing = [clip_id for clip_id in draft.clip_ids if not project.clip_json(clip_id).is_file()]
-    if missing:
-        log.warning("no Spoil draft: its clips %s are gone", ", ".join(missing))
+    if not project.clip_json(draft.clip_id).is_file():
+        log.warning("no Spoil draft: its clip %s is gone", draft.clip_id)
         return None
     return draft
 
@@ -106,15 +127,15 @@ def remove_audio(project: ProjectPaths) -> None:
     shutil.rmtree(project.draft_audio_dir, ignore_errors=True)
 
 
-def clip_ids(project: ProjectPaths) -> set[str]:
-    """The Temp clips the Spoil draft is made from; none without a draft."""
+def draft_clip_id(project: ProjectPaths) -> str | None:
+    """The Temp clip the Spoil draft is made from; None without a draft."""
     draft = read(project)
-    return set(draft.clip_ids) if draft else set()
+    return draft.clip_id if draft else None
 
 
 def made_from_clip(project: ProjectPaths, clip_id: str) -> bool:
     """Whether the Spoil draft is made from that clip (D49)."""
-    return clip_id in clip_ids(project)
+    return draft_clip_id(project) == clip_id
 
 
 def uses_voice(project: ProjectPaths, voice_id: str) -> bool:
@@ -128,7 +149,7 @@ def drop_if_uses(project: ProjectPaths, clip_id: str) -> None:
     elsewhere (D29, D49)."""
     with gpu.slot.draft_lock:
         stored = _stored(project)  # a deleted clip is gone already, so `read` would find no draft
-        if stored is not None and clip_id in stored.clip_ids:
+        if stored is not None and stored.clip_id == clip_id:
             remove(project)
             log.info("removed the Spoil draft: its clip %s changed", clip_id)
 

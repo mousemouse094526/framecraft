@@ -6,11 +6,12 @@ D11, D18, D19). Plain functions, no job and no file.
 import json
 import re
 import secrets
+from collections.abc import Sequence
 
 from pydantic import BaseModel
 
 from backend import clock
-from backend.spoil.transcribe import Transcript
+from backend.spoil.transcribe import Transcript, TranscriptLine
 from backend.spoil_maker import thai
 from backend.spoil_maker.draft_file import Layout, Ref, Sentence, Style
 from backend.spoil_maker.shots import Shot
@@ -29,7 +30,7 @@ SECONDS_PER_SENTENCE = 4
 TOLERANCE = 0.25  # a script's letters within ±25% of the target pass (D18)
 TOP_TEXT_MAX = 40  # letters that take space (spec › ข้อความบนวิดีโอ)
 
-LINE_ID = re.compile(r"(\d+)-(\d+)")
+LINE_ID = re.compile(r"\d+")
 # Han, Hiragana, Katakana and Hangul slip into Qwen's Thai (llm-trial › รอบ 2).
 CJK = re.compile(
     "[ᄀ-ᇿ぀-ヿ㄰-㆏ㇰ-ㇿ㐀-䶿一-鿿"
@@ -37,12 +38,16 @@ CJK = re.compile(
 )
 
 
-class Brief(BaseModel):
-    """What a script is written from: the episodes in the user's order, their
-    Transcripts (edited text included, D54), and how to tell it."""
+NumberedLine = tuple[int, TranscriptLine]
+"""A Transcript line with its index in the whole Transcript: what a ref cites (D70)."""
 
-    clip_ids: list[str]
-    transcripts: dict[str, Transcript]
+
+class Brief(BaseModel):
+    """What a script is written from: the EP's lines (edited text included, D54) with
+    their index in the clip's whole Transcript, and how to tell it."""
+
+    clip_id: str
+    lines: list[NumberedLine]
     style: Style
     layout: Layout
     target_s: int
@@ -54,9 +59,10 @@ class Brief(BaseModel):
         return 2 * self.target_letters + 1000
 
 
-def transcript_block(ep: int, transcript: Transcript) -> str:
-    """`[{ep}-{line} {hh:mm:ss}] {text}` per line (spec › Draft job step 2)."""
-    return "".join(f"[{ep}-{n} {clock.hms(line.start_s)}] {line.text}\n" for n, line in enumerate(transcript.lines))
+def transcript_block(lines: Sequence[NumberedLine]) -> str:
+    """`[{line} {hh:mm:ss}] {text}` per line, `line` its index in the whole Transcript
+    (spec › Draft job step 2)."""
+    return "".join(f"[{n} {clock.hms(line.start_s)}] {line.text}\n" for n, line in lines)
 
 
 MAX_REFS = 3  # cited lines a sentence keeps (spec › Draft job step 2)
@@ -74,26 +80,22 @@ def script_prompt(brief: Brief, last: list[Sentence] | None = None, asked_before
     top_rule = (
         f'"top_text" is {top}, in Thai, at most {TOP_TEXT_MAX} letters.' if top else '"top_text" is an empty string.'
     )
-    transcript = "".join(transcript_block(ep, brief.transcripts[c]) for ep, c in enumerate(brief.clip_ids, start=1))
-    episodes = len(brief.clip_ids)
     rules = (
         f"How to tell it: {telling}\n"
         f"Write in Thai only: about {brief.target_letters} Thai letters in about {sentences} sentences, "
         f"each sentence at most {round(SENTENCE_ROOM * brief.target_letters / sentences)} Thai letters.\n"
-        'Each sentence cites the 1 to 3 transcript lines it tells about by their ids, like "1-12"; '
+        'Each sentence cites the 1 to 3 transcript lines it tells about by their ids, like "412"; '
         "never more than 3, never a run of lines.\n"
         f"{top_rule}\n"
-        'Answer with JSON only: {"top_text": "...", "sentences": [{"text": "...", "refs": ["1-12"]}]}\n'
+        'Answer with JSON only: {"top_text": "...", "sentences": [{"text": "...", "refs": ["412"]}]}\n'
     )
     # The rules again after the Transcript: a whole film is ~30k tokens, and the model
     # follows best what it read last.
     return (
-        "Write the narration script of a short vertical video that spoils the story in the transcript below"
-        + (f", told across all {episodes} episodes in order" if episodes > 1 else "")
-        + ".\n"
+        "Write the narration script of a short vertical video that spoils the story in the transcript below.\n"
         f"{rules}\n"
-        "Transcript, one line each as [episode-line hh:mm:ss] text:\n"
-        f"{transcript}\n"
+        "Transcript, one line each as [line hh:mm:ss] text:\n"
+        f"{transcript_block(brief.lines)}\n"
         f"Now write the script.\n{rules}"
         + (_retry_note(brief, last) if asked_before else "")
     )
@@ -211,20 +213,18 @@ def _json_object(reply: str) -> dict | None:
 
 
 def _refs(value: object, brief: Brief) -> list[Ref]:
-    """`"{ep}-{line}"` ids of lines that exist, in order, once each, the first `MAX_REFS`."""
+    """Ids of the EP's lines, in order, once each, the first `MAX_REFS`: a line outside
+    the EP or not in the Transcript goes (D61, D70)."""
+    in_ep = {n for n, _ in brief.lines}
     refs: list[Ref] = []
     for item in value if isinstance(value, list) else []:
         if len(refs) == MAX_REFS:
             break
-        match = LINE_ID.fullmatch(item.strip()) if isinstance(item, str) else None
-        if match is None:
+        text = item.strip() if isinstance(item, str) else ""
+        if not LINE_ID.fullmatch(text) or int(text) not in in_ep:
             continue
-        ep, line = int(match.group(1)), int(match.group(2))
-        if not 1 <= ep <= len(brief.clip_ids):
-            continue
-        clip_id = brief.clip_ids[ep - 1]
-        ref = Ref(clip_id=clip_id, line=line)
-        if line < len(brief.transcripts[clip_id].lines) and ref not in refs:
+        ref = Ref(clip_id=brief.clip_id, line=int(text))
+        if ref not in refs:
             refs.append(ref)
     return refs
 

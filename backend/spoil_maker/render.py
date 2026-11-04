@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend import checks, disk, fonts, gate_rows, gpu, paths
 from backend.errors import ApiError, JobFailed, Row, require_rows
@@ -74,7 +74,12 @@ class RenderResult(BaseModel):
     created_at: str
     duration_s: float
     size_bytes: int
-    sources: list[str]  # the Temp clips' titles in EP order, for the clip's description (legal 1)
+    sources: list[str]  # the Temp clip's title, for the clip's description (legal 1)
+    # The draft's EP (D70); a render from before EPs has none.
+    clip_id: str | None = None
+    ep: int | None = None
+    start_s: float | None = Field(default=None, exclude=True)  # what `GET /clips/{id}/episodes` matches by
+    end_s: float | None = Field(default=None, exclude=True)
 
 
 class RenderJobs(SentenceVoicer[RenderJob]):
@@ -111,7 +116,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
                 raise ApiError(409, "busy", "กำลัง render อยู่")
             plan = voices.plan_sentences(project, found, unvoiced) if unvoiced else None
             if plan:
-                gpu.slot.take("render", plan.clip_ids, locks_draft=True)
+                gpu.slot.take("render", [plan.clip_id], locks_draft=True)
                 self._job = RenderJob(state="voicing", done=0, total=len(unvoiced), started_at=checks.now_iso())
             else:
                 self._job = RenderJob(state="rendering", percent=0, started_at=checks.now_iso())
@@ -164,7 +169,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         (work / CAPTIONS).write_text(
             captions.ass_file(project, drawn.layout, drawn.top_text, timed, marks), encoding="utf-8"
         )
-        media = {clip_id: probe(clips.video_file(project, clip_id)) for clip_id in drawn.clip_ids}
+        media = {drawn.clip_id: probe(clips.video_file(project, drawn.clip_id))}
         for index, piece in enumerate(pieces):
             mp4 = clips.video_file(project, piece.clip_id)
             command = compose.piece_command(
@@ -189,7 +194,11 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         info = {
             "created_at": checks.now_iso(),
             "duration_s": round(probe(mp4_partial).duration_s, 2),
-            "sources": [clips.read_clip(project, clip_id).title for clip_id in drawn.clip_ids],
+            "sources": [clips.read_clip(project, drawn.clip_id).title],
+            "clip_id": drawn.clip_id,
+            "ep": drawn.ep.n,
+            "start_s": drawn.ep.start_s,
+            "end_s": drawn.ep.end_s,
         }
         srt_partial = project.renders_dir / f"{name}.srt.partial"
         srt_partial.write_text(captions.srt_file(timed), encoding="utf-8")
@@ -205,7 +214,7 @@ def _timeline(project: ProjectPaths, drawn: Draft) -> tuple[list[Timed], list[Pi
     """Sentences end to end with no added silence; each Shot plays half its sentence
     from the Shot's start (D31). Cuts land on frames of the 30 fps output counted from
     the start, so the pieces add up to the voice's length."""
-    shot_files = {clip_id: shots.read_shots(project, clip_id) for clip_id in drawn.clip_ids}
+    shot_files = {drawn.clip_id: shots.read_shots(project, drawn.clip_id)}
     timed: list[Timed] = []
     pieces: list[Piece] = []
     at = 0.0

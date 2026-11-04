@@ -1,9 +1,9 @@
-"""The Spoil draft as the API shows and changes it, the token count of the chosen
-Transcripts, and the Draft job: one at a time, a backend thread that owns the state
-and the file, and a child process that runs Qwen (ADR 0010, ADR 0012, ADR 0015).
+"""The Spoil draft as the API shows and changes it, and the Draft job: one at a time,
+a backend thread that owns the state and the file, and a child process that runs Qwen
+(ADR 0010, ADR 0012, ADR 0015). A draft is of one EP of one Temp clip (D66, D67).
 
 Steps and rules are in docs/features/spoil-maker/spec.md › Spoil draft and › Draft
-job (D4, D5, D7, D8, D18, D19, D25–D28, D39, D46, D51).
+job (D4, D7, D8, D18, D19, D25–D28, D39, D46, D51, D70, D71).
 """
 
 import logging
@@ -19,10 +19,10 @@ from backend.errors import ApiError, JobFailed, require_rows
 from backend.jobs import ModelJobSlot, stop_process
 from backend.models import QWEN
 from backend.paths import ProjectPaths
-from backend.spoil import transcribe
+from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
-from backend.spoil_maker import draft_file, script, settings, shots, thai, voices
-from backend.spoil_maker.draft_file import Draft, Layout, Ref, Sentence, ShotRef
+from backend.spoil_maker import draft_file, episodes, script, settings, shots, thai, voices
+from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
 from backend.spoil_maker.script import Brief
 from backend.spoil_maker.shots import ShotsFile
@@ -36,7 +36,6 @@ Status = Literal["no_shot", "no_audio", "stale_audio", "ready"]
 
 LAYOUTS: tuple[Layout, ...] = ("A", "B", "C")
 TARGET_MIN, TARGET_MAX = 30, 180  # D39
-TOKEN_LIMIT = 32_000  # D46
 ATTEMPTS = 3
 WINDOW_SECONDS = 30  # Shots this far around the lines a sentence cites (D18, D26)
 
@@ -51,11 +50,6 @@ PICK_MAX_SHOTS = 40
 
 SENTENCE_ID = re.compile(r"s_[0-9a-f]{8}")
 
-class TokenCount(BaseModel):
-    per_clip: dict[str, int]
-    total: int
-    limit: int = TOKEN_LIMIT
-
 
 class RefLine(BaseModel):
     clip_id: str
@@ -66,7 +60,7 @@ class RefLine(BaseModel):
 
 
 class Window(BaseModel):
-    """Where a sentence's Shots come from: ±30 s around the lines it cites in one clip."""
+    """Where a sentence's Shots come from: ±30 s around the lines it cites, inside the EP (D70)."""
 
     clip_id: str
     start: float
@@ -84,6 +78,7 @@ class DraftView(Draft):
     """`GET /draft`: the file plus what is worked out on reading (spec › API)."""
 
     sentences: list[SentenceView]
+    clip_title: str  # for the step bar (D68)
     estimated_total_s: float
     locked: bool
 
@@ -111,8 +106,10 @@ class _CheckedOrder(BaseModel):
     """A `kind: "draft"` request that passed every check, with the files its thread reads."""
 
     brief: Brief
+    ep: Ep
     voice_id: str
-    shots: dict[str, ShotsFile]
+    transcript: Transcript
+    shots: ShotsFile
 
 
 class DraftJobs(ModelJobSlot[DraftJob]):
@@ -141,7 +138,10 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         """Checks in spec order (Draft job step 1), then starts the thread. The draft's
         lock covers `draft_exists` and taking the GPU, so no edit slips between them (D51)."""
         project = paths.project()
-        clip_ids = _ready_clips(project, body.get("clip_ids"))
+        clip_id, transcript, ep = _ready_ep(project, body.get("clip_id"), body.get("ep"))
+        lines = episodes.lines_of(transcript, ep)
+        if not lines:
+            raise ApiError(400, "ep_empty", "EP นี้ไม่มีบทพูด")
         style, layout, target_s = body.get("style"), body.get("layout"), body.get("target_s")
         if style not in script.STYLES or layout not in LAYOUTS:
             raise ApiError(400, "invalid_request", "เลือกสไตล์และ layout จากรายการ")
@@ -151,23 +151,27 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         chars_per_s = voices.chars_per_s(project, voice_id) if isinstance(voice_id, str) else None
         if chars_per_s is None:
             raise ApiError(400, "voice_not_found", "ไม่พบเสียงที่เลือก")
-        transcripts = {clip_id: transcribe.read_transcript(project, clip_id) for clip_id in clip_ids}
-        count = _count(project, clip_ids, transcripts)
-        if count.total > TOKEN_LIMIT:
+        counted = episodes.tokens(project, lines)
+        if counted > episodes.TOKEN_LIMIT:
             raise ApiError(
-                400, "transcript_too_long", f"Transcript รวม {count.total:,} token เกิน {TOKEN_LIMIT:,}", tokens=count.total
+                400,
+                "transcript_too_long",
+                f"Transcript ของ EP นี้ {counted:,} token เกิน {episodes.TOKEN_LIMIT:,}",
+                tokens=counted,
             )
         order = _CheckedOrder(
             brief=Brief(
-                clip_ids=clip_ids,
-                transcripts=transcripts,
+                clip_id=clip_id,
+                lines=lines,
                 style=style,
                 layout=layout,
                 target_s=target_s,
                 target_letters=round(target_s * chars_per_s),
             ),
+            ep=Ep(n=ep.n, start_s=ep.start_s, end_s=ep.end_s),
             voice_id=voice_id,
-            shots={clip_id: shots.read_shots(project, clip_id) for clip_id in clip_ids},
+            transcript=transcript,
+            shots=shots.read_shots(project, clip_id),
         )
         with self._lock:
             if self._taken():
@@ -176,7 +180,12 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 if body.get("replace") is not True and draft_file.read(project) is not None:
                     raise ApiError(409, "draft_exists", "มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม")
                 require_rows(gate_rows.qwen_jobs(project))
-                gpu.slot.take("draft", clip_ids, locks_draft=True)
+                gpu.slot.take("draft", [clip_id], locks_draft=True)
+                # Holding the GPU for the clip, no `PUT` can change its cut now; one may have
+                # between the check above and here (D71).
+                if not order.ep.matches(*_span_now(project, clip_id, order.ep.n)):
+                    gpu.slot.release("draft")
+                    raise _episodes_changed()
             self._job = DraftJob(kind="draft", state="writing", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -195,7 +204,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 if not sentence.refs:
                     raise ApiError(400, "no_refs", "ประโยคนี้ไม่ได้อ้างบรรทัดไหน: เลือกภาพเองจากทั้งคลิป")
                 require_rows(gate_rows.qwen_jobs(project))
-                gpu.slot.take("draft", draft.clip_ids, locks_draft=True)
+                gpu.slot.take("draft", [draft.clip_id], locks_draft=True)
             self._job = DraftJob(kind="pick", state="matching", done=0, total=1, started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -213,7 +222,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         self._run_job(self.current().kind, steps, clean_up)
 
     def _draft(self, project: ProjectPaths, order: _CheckedOrder) -> None:
-        """Steps 2–6: write the script, pick two Shots per sentence, replace the draft."""
+        """Steps 2–7: write the script, pick two Shots per sentence, replace the draft."""
         brief = order.brief
         written = None
         last: list[Sentence] | None = None  # the previous try's sentences, None when it gave no JSON
@@ -245,10 +254,11 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         cited = [sentence for sentence in sentences if sentence.refs]
         self._update(state="matching", done=0, total=len(cited))
         for done, sentence in enumerate(cited, start=1):
-            sentence.shots = self._shots_for(project, sentence, brief.transcripts, order.shots)
+            sentence.shots = self._shots_for(project, sentence, order.ep, order.transcript, order.shots)
             self._update(done=done)
         draft = Draft(
-            clip_ids=brief.clip_ids,
+            clip_id=brief.clip_id,
+            ep=order.ep,
             style=brief.style,
             layout=brief.layout,
             target_s=brief.target_s,
@@ -268,25 +278,25 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         with gpu.slot.draft_lock:
             draft = draft_file.read(project)
         sentence = _sentence(draft, sentence_id)
-        transcripts, shot_files = _clip_files(project, draft.clip_ids)
-        picked = self._shots_for(project, sentence, transcripts, shot_files)
+        transcript = _transcript(project, draft.clip_id)
+        picked = self._shots_for(project, sentence, draft.ep, transcript, shots.read_shots(project, draft.clip_id))
         self._update(done=1)
         with gpu.slot.draft_lock:
             draft = draft_file.read(project)
             _sentence(draft, sentence_id).shots = picked
             draft_file.write(project, draft)
 
-    def _shots_for(self, project, sentence: Sentence, transcripts, shot_files) -> list[ShotRef | None]:
-        """Two Shots from the window around the lines the sentence cites (Draft job step 5)."""
-        window = _window(sentence.refs, transcripts)
-        found = shot_files.get(window.clip_id) if window else None
-        candidates = [shot for shot in found.shots if shot.end > window.start and shot.start < window.end] if found else []
+    def _shots_for(
+        self, project, sentence: Sentence, ep: Ep, transcript: Transcript | None, found: ShotsFile | None
+    ) -> list[ShotRef | None]:
+        """Two Shots from the window around the lines the sentence cites (Draft job step 6)."""
+        window = _window(sentence.refs, transcript, ep)
+        candidates = [shot for shot in found.shots if shot.end > window.start and shot.start < window.end] if window and found else []
         if not candidates:
             return [None, None]
         if len(candidates) == 1:
             picked = [candidates[0].n] * 2  # a sentence shows two Shots: the only one fills both
         else:
-            transcript = transcripts[window.clip_id]
             first = transcript.lines[sentence.refs[0].line]
             # Lines far apart make a window of most of the film: ask about the Shots nearest the first.
             asked = script.closest(candidates, first.start_s, PICK_MAX_SHOTS)
@@ -326,36 +336,6 @@ def job_reads_clip(clip_id: str) -> bool:
 transcribe.clip_users.append(job_reads_clip)
 
 
-# --- The token count (D46) ---
-
-
-def tokens(project: ProjectPaths, clip_ids: str) -> TokenCount:
-    """`GET /tokens?clip_ids=a,b`: each Transcript as the Draft job sends it, in this order."""
-    ordered = [clip_id.strip() for clip_id in clip_ids.split(",") if clip_id.strip()]
-    if not ordered or len(set(ordered)) < len(ordered):
-        raise ApiError(400, "clip_not_ready", "เลือกคลิปที่ไม่ซ้ำกันอย่างน้อยหนึ่งคลิป", clip_ids=ordered)
-    not_ready = [clip_id for clip_id in ordered if not _transcribed(project, clip_id)]
-    if not_ready:
-        raise ApiError(400, "clip_not_ready", "คลิปนี้ยังไม่ได้ถอดบทพูด", clip_ids=not_ready)
-    transcripts = {clip_id: transcribe.read_transcript(project, clip_id) for clip_id in ordered}
-    return _count(project, ordered, transcripts)
-
-
-def _count(project: ProjectPaths, clip_ids: list[str], transcripts: dict[str, Transcript]) -> TokenCount:
-    """Needs Qwen's tokenizer: `503` `not_ready` without it (D60)."""
-    require_rows(gate_rows.qwen_model(project))
-    snapshot = project.snapshot_dir(QWEN, QWEN.revision)
-    try:
-        per_clip = {
-            clip_id: spoil_maker.count_tokens(snapshot, script.transcript_block(ep, transcripts[clip_id]))
-            for ep, clip_id in enumerate(clip_ids, start=1)
-        }
-    except FileNotFoundError:
-        # A marker without its snapshot: the install is broken the same way.
-        raise ApiError(503, "not_ready", f"ยังติดตั้งไม่ครบ: {QWEN.label}", rows=[QWEN.check_id]) from None
-    return TokenCount(per_clip=per_clip, total=sum(per_clip.values()))
-
-
 # --- Reading and changing the draft ---
 
 
@@ -365,12 +345,13 @@ def view(project: ProjectPaths) -> DraftView | None:
         draft = draft_file.read(project)
     if draft is None:
         return None
-    transcripts, _ = _clip_files(project, draft.clip_ids, with_shots=False)
+    transcript = _transcript(project, draft.clip_id)
     chars_per_s = voices.chars_per_s(project, draft.voice_id)
-    sentences = [_sentence_view(draft, sentence, transcripts, chars_per_s) for sentence in draft.sentences]
+    sentences = [_sentence_view(draft, sentence, transcript, chars_per_s) for sentence in draft.sentences]
     return DraftView(
         **draft.model_dump(exclude={"sentences"}),
         sentences=sentences,
+        clip_title=clips.read_clip(project, draft.clip_id).title,
         estimated_total_s=round(sum(sentence.estimated_s or 0 for sentence in sentences), 2),
         locked=gpu.slot.holds_draft(),
     )
@@ -497,26 +478,29 @@ def _top_text(text: object) -> str:
 
 
 def _checked_shots(project: ProjectPaths, draft: Draft, value: object) -> list[ShotRef | None]:
-    """Two slots, each null or a Shot of a clip in the draft. Raises `ApiError` 400 `invalid_shot`."""
-    invalid = ApiError(400, "invalid_shot", "เลือกภาพจาก Shot ของคลิปใน Spoil draft")
+    """Two slots, each null or a Shot of the draft's clip inside its EP (D70). Raises
+    `ApiError` 400 `invalid_shot`."""
+    invalid = ApiError(400, "invalid_shot", "เลือกภาพจาก Shot ใน EP ของ Spoil draft")
     if not isinstance(value, list) or len(value) != 2:
         raise invalid
+    found = shots.read_shots(project, draft.clip_id)
     checked: list[ShotRef | None] = []
     for slot in value:
         if slot is None:
             checked.append(None)
             continue
-        if not isinstance(slot, dict) or slot.get("clip_id") not in draft.clip_ids:
+        if not isinstance(slot, dict) or slot.get("clip_id") != draft.clip_id:
             raise invalid
         n = slot.get("n")
-        found = shots.read_shots(project, slot["clip_id"])
         if isinstance(n, bool) or not isinstance(n, int) or found is None or not 0 <= n < len(found.shots):
             raise invalid
-        checked.append(ShotRef(clip_id=slot["clip_id"], n=n))
+        if not draft.ep.overlaps(found.shots[n].start, found.shots[n].end):
+            raise invalid
+        checked.append(ShotRef(clip_id=draft.clip_id, n=n))
     return checked
 
 
-def _sentence_view(draft: Draft, sentence: Sentence, transcripts, chars_per_s: float | None) -> SentenceView:
+def _sentence_view(draft: Draft, sentence: Sentence, transcript: Transcript | None, chars_per_s: float | None) -> SentenceView:
     status = status_of(draft, sentence)
     if status == "ready":
         estimated = sentence.audio.duration_s
@@ -526,7 +510,6 @@ def _sentence_view(draft: Draft, sentence: Sentence, transcripts, chars_per_s: f
         estimated = None
     ref_lines = []
     for ref in sentence.refs:
-        transcript = transcripts.get(ref.clip_id)
         if transcript and 0 <= ref.line < len(transcript.lines):
             line = transcript.lines[ref.line]
             ref_lines.append(RefLine(clip_id=ref.clip_id, line=ref.line, start=line.start_s, end=line.end_s, text=line.text))
@@ -535,7 +518,7 @@ def _sentence_view(draft: Draft, sentence: Sentence, transcripts, chars_per_s: f
         status=status,
         estimated_s=estimated,
         ref_lines=ref_lines,
-        window=_window(sentence.refs, transcripts),
+        window=_window(sentence.refs, transcript, draft.ep),
     )
 
 
@@ -550,51 +533,50 @@ def status_of(draft: Draft, sentence: Sentence) -> Status:
     return "ready"
 
 
-def _window(refs: list[Ref], transcripts: dict[str, Transcript | None]) -> Window | None:
-    """±30 s around the cited lines of the first ref's clip only (D26, D60); None without refs."""
-    if not refs or transcripts.get(refs[0].clip_id) is None:
-        return None
-    clip_id = refs[0].clip_id
-    lines = transcripts[clip_id].lines
-    cited = [lines[ref.line] for ref in refs if ref.clip_id == clip_id and 0 <= ref.line < len(lines)]
+def _window(refs: list[Ref], transcript: Transcript | None, ep: Ep) -> Window | None:
+    """±30 s around the cited lines, cut to the EP (D26, D70); None without refs."""
+    lines = transcript.lines if transcript else []
+    cited = [lines[ref.line] for ref in refs if 0 <= ref.line < len(lines)]
     if not cited:
         return None
-    start = max(0.0, min(line.start_s for line in cited) - WINDOW_SECONDS)
-    return Window(clip_id=clip_id, start=start, end=max(line.end_s for line in cited) + WINDOW_SECONDS)
+    start = max(ep.start_s, min(line.start_s for line in cited) - WINDOW_SECONDS)
+    end = min(ep.end_s, max(line.end_s for line in cited) + WINDOW_SECONDS)
+    return Window(clip_id=transcript.clip_id, start=start, end=end)
 
 
-def _clip_files(project: ProjectPaths, clip_ids: list[str], with_shots: bool = True):
-    """Each clip's Transcript and Shots; one that can't be read is None."""
-    transcripts: dict[str, Transcript | None] = {}
-    for clip_id in clip_ids:
-        try:
-            transcripts[clip_id] = transcribe.read_transcript(project, clip_id)
-        except ApiError:
-            transcripts[clip_id] = None
-    shot_files = {clip_id: shots.read_shots(project, clip_id) for clip_id in clip_ids} if with_shots else {}
-    return transcripts, shot_files
+def _episodes_changed() -> ApiError:
+    return ApiError(409, "episodes_changed", "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง")
 
 
-def _ready_clips(project: ProjectPaths, value: object) -> list[str]:
-    """Step 1.1: not empty, no repeats, each transcribed and described. Raises
-    `ApiError` 400 `clip_not_ready` with the ids that aren't (D5, D16)."""
-    if not isinstance(value, list) or not value or not all(isinstance(clip_id, str) for clip_id in value):
-        raise ApiError(400, "clip_not_ready", "เลือกคลิปอย่างน้อยหนึ่งคลิป", clip_ids=[])
-    repeated = sorted({clip_id for clip_id in value if value.count(clip_id) > 1})
-    if repeated:
-        raise ApiError(400, "clip_not_ready", "เลือกคลิปซ้ำกัน", clip_ids=repeated)
-    not_ready = [c for c in value if not _transcribed(project, c) or not shots.is_described(project, c)]
-    if not_ready:
-        raise ApiError(400, "clip_not_ready", "คลิปนี้ยังไม่ได้ถอดบทพูดหรือบรรยายฉาก", clip_ids=not_ready)
-    return list(value)
+def _span_now(project: ProjectPaths, clip_id: str, n: int) -> tuple[float, float]:
+    """EP `n`'s range in the clip's cut now; a missing EP matches nothing."""
+    now = episodes.span(project, clip_id, n)
+    return (now.start_s, now.end_s) if now else (-1.0, -1.0)
 
 
-def _transcribed(project: ProjectPaths, clip_id: str) -> bool:
+def _transcript(project: ProjectPaths, clip_id: str) -> Transcript | None:
+    """None when it can't be read."""
     try:
-        transcribe.read_transcript(project, clip_id)
+        return transcribe.read_transcript(project, clip_id)
     except ApiError:
-        return False
-    return True
+        return None
+
+
+def _ready_ep(project: ProjectPaths, clip_id: object, ep: object) -> tuple[str, Transcript, episodes.Span]:
+    """Step 1.1: the clip is transcribed and described, and `ep` names an EP of its cut now
+    by number and range (D71). Raises `ApiError` 400 `clip_not_ready` or `invalid_episodes`,
+    or 409 `episodes_changed`."""
+    transcript = _transcript(project, clip_id) if isinstance(clip_id, str) else None
+    if transcript is None or not shots.is_described(project, clip_id):
+        raise episodes.not_ready(clip_id)
+    asked = ep if isinstance(ep, dict) else {}
+    now = episodes.span(project, clip_id, asked.get("n"))
+    if now is None:
+        raise episodes.invalid()
+    start_s, end_s = asked.get("start_s"), asked.get("end_s")
+    if not (episodes.is_number(start_s) and episodes.is_number(end_s) and now.matches(start_s, end_s)):
+        raise _episodes_changed()
+    return clip_id, transcript, now
 
 
 draft_jobs = DraftJobs()

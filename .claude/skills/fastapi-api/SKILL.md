@@ -36,8 +36,11 @@ backend/
 │                    `_run_job`, the one ending of every job's thread that
 │                    frees the GPU) and the child process helpers every GPU
 │                    job uses (ADR 0012)
-├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), and the
-│                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51)
+├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
+│                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
+│                    its own lock also guards a clip's files: `clip_untouched`
+│                    (delete or change, refusing a job that reads the clip)
+│                    and `clip_files` (a clip's EP cuts, spoil-maker D71)
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips,
@@ -52,9 +55,10 @@ backend/
 │                    (numbers as words, letter count, the only pythainlp
 │                    import), draft_file (the Spoil draft on disk; spoil
 │                    imports it), draft (the draft's view and edits, the
-│                    Draft job, the token count), script (the prompts and
-│                    the reading of Qwen's answers), tokens (the only
-│                    transformers import of the backend process: Qwen's
+│                    Draft job), episodes (a clip's EP cuts on disk, the
+│                    EP list and its token count, D66), script (the
+│                    prompts and the reading of Qwen's answers), tokens
+│                    (the only transformers import of the backend process: Qwen's
 │                    tokenizer), settings (what the tab remembers),
 │                    ffmpeg (the binary, killing on cancel, `ffmpeg -i`
 │                    reading; frames and compose share it), render (the

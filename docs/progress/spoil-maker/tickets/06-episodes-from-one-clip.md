@@ -10,7 +10,7 @@
 - Seams: 1 (EP, Draft, Render, ลบคลิปและ start), 2 (หน้าตั้งค่า, ตัวเลือก Shot)
 - User stories: 5, 6, 14
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

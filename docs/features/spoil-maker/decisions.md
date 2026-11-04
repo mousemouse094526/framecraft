@@ -1220,6 +1220,25 @@
 
 **From:** red team · **Status:** active
 
+## D77: ทางเลือกเล็กตอน build ตัด EP
+
+**Chosen:** ทางเลือกที่ ticket 06 ตัดสินเองภายใน D66–D71 และ conventions.
+
+**Details:**
+- **module:** `spoil_maker.episodes` ถือไฟล์การตัด กฎการตัด รายการ EP และการนับ token ของ EP (ย้ายจาก `draft`); `GET /tokens` ลบ; `_view` import `render` ในฟังก์ชันเพราะ `render` → `draft` → `episodes` วนกัน
+- **lock:** `GpuSlot.clip_files()` (lock ของช่อง GPU ไม่ปฏิเสธอะไร) ครอบอ่าน-เขียนไฟล์การตัด และ Describe job ใช้ตอนสลับ folder Shot แล้วลบไฟล์การตัด; `PUT` ใช้ `clip_untouched(by=…)` ปฏิเสธเฉพาะ Describe, Transcribe, Draft job ของคลิปนั้น — Voice และ Render job อ่าน EP ที่ draft เก็บไว้ จึงไม่กัน
+- **`PUT` ระหว่างลบคลิป:** lock ทำให้รอจนลบเสร็จแล้วตอบ `404` `not_found` แทน `409` `clip_busy` — ไม่มีช่วงที่เห็นการลบครึ่งทาง
+- **tmp ชื่อไม่ซ้ำ:** `files.write_atomic(unique=True)` → `{id}.json.{uuid}.tmp`
+- **Draft job:** เช็ค `clip_not_ready` → `invalid_episodes` (ข้อความเดียวกับ `PUT`) → `episodes_changed` (รวม `start_s`/`end_s` ที่ไม่ใช่ตัวเลข) → `ep_empty` แล้วตามข้อ 1.2–1.7; หลังจองช่อง GPU เช็คช่วงอีกครั้ง เพราะ `PUT` อาจเปลี่ยนการตัดระหว่างเช็คกับการจอง; ref ในคำตอบของ Qwen เป็น index บรรทัดล้วน (`"412"`)
+- **ไม่มี tokenizer:** ทุก `OSError` ตอนโหลด tokenizer (ไม่ใช่แค่ไม่มี snapshot) นับเป็น `not_ready`; `ep_minutes` ใน settings ที่แก้มือนอก 5–60 ทีละ 5 อ่านเป็น 30
+- **ผล render:** `.json` เก็บ `start_s`, `end_s` ไว้เทียบแถว EP แต่ `GET /renders` ไม่ส่งสองฟิลด์นี้
+- **หน้าเว็บขั้น 1:** แบบใหม่ยัง `pending` (Blocked 13) จึงใช้ card และแถวเดิมของ Spoiler setup: `ClipPicker` เป็น radio, card "เลือก EP" ใต้ card คลิป (ความยาวต่อ EP แบบ select, "ตัดใหม่ตามความยาว" เมื่อ `custom`, จุดตัดเป็นช่อง `h:mm:ss` ระหว่างแถว รับ `m:ss` และวินาทีด้วย); EP ที่เลือกตั้งต้น = EP ใน Spoil draft ไม่งั้น EP 1; ยืนยันเปลี่ยนความยาวด้วย `window.confirm` แบบ tab คลิป; `tokens: null` → "ยังติดตั้งไม่ครบ: Qwen3.5 9B model" พร้อมลิงก์ Setup status ใต้ปุ่มร่าง
+- **ป้าย EP:** "EP {n}" (`epLabel`) ในการ์ดประโยค ตัวเลือก Shot และแถวผล render; ตัวเลือก Shot ปุ่ม "ดูทั้ง EP" ไม่มีตัวเลือกตอน
+
+**Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; เลือกตามโค้ดเดิม (`clip_untouched`, `write_atomic`, `RefusalLine`, `window.confirm`) และ review สามแกน.
+
+**From:** build ticket 06 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)

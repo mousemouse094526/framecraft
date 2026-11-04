@@ -57,11 +57,9 @@ export function useScriptReview() {
         setIfMounted({ kind: "empty" });
         return;
       }
-      // A clip whose Shots can't be read shows no pictures; the rest of the draft still opens.
-      const lists = await Promise.all(
-        draft.clip_ids.map((id) => getJson<{ shots: Shot[] }>(shotsPath(id)).then((file) => file.shots, () => [])),
-      );
-      const shots = Object.fromEntries(draft.clip_ids.map((id, index) => [id, lists[index]]));
+      // Shots that can't be read show no pictures; the rest of the draft still opens.
+      const list = await getJson<{ shots: Shot[] }>(shotsPath(draft.clip_id)).then((file) => file.shots, () => []);
+      const shots = { [draft.clip_id]: list };
       setIfMounted((previous) => ({
         kind: "loaded",
         draft,

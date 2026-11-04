@@ -12,6 +12,7 @@ import trashConfirmIcon from "../assets/trash-confirm.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { useRenders } from "../hooks/useRenders";
+import { epLabel } from "../lib/draft";
 import { renderFileUrl, renderTime, type RenderResult } from "../lib/render";
 import { JobProgress } from "./ReviewFooter";
 import { ReviewBanner } from "./ReviewBanner";
@@ -112,6 +113,11 @@ function RenderRow({ render, playing, inlinePlayer, onPlay, onDelete }: RowProps
           <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-normal">
             <p className="flex items-center gap-2">
               <span className="text-[15px] font-medium text-foreground">{time}</span>
+              {render.ep !== null && (
+                <span className="rounded-full bg-muted px-2 py-0.5 font-button text-xs leading-4 font-medium text-mid">
+                  {epLabel(render.ep)}
+                </span>
+              )}
               {playing && <span className="rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">กำลังเล่น</span>}
             </p>
             <p className="font-mono text-xs text-muted-foreground">ความยาว {formatDuration(Math.round(render.duration_s))}</p>

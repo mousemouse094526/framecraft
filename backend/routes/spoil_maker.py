@@ -5,9 +5,10 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend import paths
-from backend.spoil_maker import describe, draft, render, settings, voices
+from backend.spoil_maker import describe, draft, episodes, render, settings, voices
 from backend.spoil_maker.describe import DescribeJob
-from backend.spoil_maker.draft import DraftJob, DraftView, TokenCount
+from backend.spoil_maker.draft import DraftJob, DraftView
+from backend.spoil_maker.episodes import Episodes
 from backend.spoil_maker.render import RenderJob, RenderResult
 from backend.spoil_maker.settings import Settings
 from backend.spoil_maker.shots import ShotsFile
@@ -102,10 +103,16 @@ def get_voice_preview() -> FileResponse:
     return FileResponse(voices.preview_audio(paths.project()), media_type="audio/wav")
 
 
-@router.get("/tokens")
-def get_tokens(clip_ids: str = "") -> TokenCount:
-    """`clip_ids=a,b` in the order the user put them."""
-    return draft.tokens(paths.project(), clip_ids)
+@router.get("/clips/{clip_id}/episodes")
+def get_episodes(clip_id: str) -> Episodes:
+    """The clip's EP cut; the first read cuts it by `ep_minutes` (spec › EP)."""
+    return episodes.view(paths.project(), clip_id)
+
+
+@router.put("/clips/{clip_id}/episodes")
+def change_episodes(clip_id: str, body: dict[str, Any]) -> Episodes:
+    """`{minutes, cuts?}`, checked by the module (spec › EP)."""
+    return episodes.change(paths.project(), clip_id, body)
 
 
 @router.get("/draft")

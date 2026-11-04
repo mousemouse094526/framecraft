@@ -13,6 +13,8 @@ const RESULT: RenderResult = {
   duration_s: 58.2,
   size_bytes: 1234,
   sources: ["Night of the Living Dead (1968)"],
+  clip_id: "aaaaaaaaaaa",
+  ep: 2,
 };
 const OLDER: RenderResult = { ...RESULT, name: "20261101-110500", created_at: "2026-11-01T11:05:00+07:00" };
 const VOICING: RenderJob = {
@@ -108,6 +110,15 @@ describe("ผล render", () => {
     expect(within(row).getByText("ต้นฉบับ: Night of the Living Dead (1968)")).toBeInTheDocument();
     expect(within(row).getByText("ความยาว 0:58")).toBeInTheDocument();
     expect(screen.queryByText("render 50%")).not.toBeInTheDocument();
+  });
+
+  it("a render of an EP says which; one from before EPs says none", async () => {
+    backend([get(RENDERS, [RESULT, { ...OLDER, clip_id: null, ep: null }]), get(CURRENT, null)]);
+    await openRenders();
+
+    const [newer, older] = await screen.findAllByRole("listitem", { name: /^render / });
+    expect(within(newer).getByText("EP 2")).toBeInTheDocument();
+    expect(within(older).queryByText(/^EP /)).not.toBeInTheDocument();
   });
 
   it("copy puts the source line on the clipboard", async () => {

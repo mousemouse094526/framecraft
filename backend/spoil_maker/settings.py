@@ -1,8 +1,8 @@
 """What the สปอย tab remembers between drafts: `media/spoil-maker/settings.json`
 (spoil-maker spec › ค่าที่จำไว้, D40, D45).
 
-`PATCH /settings` changes `watermarks` and `original_volume`; a draft's volume and a
-finished Draft job's voice are written here too.
+`PATCH /settings` changes `watermarks` and `original_volume`; a draft's volume, a
+finished Draft job's voice and the minutes of the latest EP cut are written here too.
 """
 
 import logging
@@ -40,9 +40,10 @@ class Settings(BaseModel):
     watermarks: list[Watermark] = []  # every render's, not the draft's (spec › ค่าที่จำไว้)
     original_volume: int = 20  # D40
     last_voice_id: str | None = None
+    ep_minutes: int = 30  # how long an EP is when a clip is first cut (D69)
 
 
-# One read-change-write at a time: a draft's `original_volume` and a finished Draft job both write.
+# One read-change-write at a time: a draft's `original_volume`, a finished Draft job and an EP cut all write (D71).
 _lock = threading.Lock()
 
 

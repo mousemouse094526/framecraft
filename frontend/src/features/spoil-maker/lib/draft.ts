@@ -17,12 +17,18 @@ export type Sentence = {
   /** Null only when the draft's voice is gone. */
   estimated_s: number | null;
   ref_lines: { clip_id: string; line: number; start: number; end: number; text: string }[];
-  /** ±30 s around the cited lines of one clip; null without refs (D26). */
+  /** ±30 s around the cited lines, inside the EP; null without refs (D26, D70). */
   window: { clip_id: string; start: number; end: number } | null;
 };
 
+/** An EP of a Temp clip by its number and range: [start_s, end_s) (spoil-maker spec › EP). */
+export type EpRange = { n: number; start_s: number; end_s: number };
+
 export type Draft = {
-  clip_ids: string[];
+  clip_id: string;
+  /** The EP as the clip was cut when the draft was written (D70). */
+  ep: EpRange;
+  clip_title: string;
   style: Style;
   layout: Layout;
   target_s: number;
@@ -56,10 +62,6 @@ export const DRAFT_JOB_PATH = "/api/spoil-maker/draft-jobs/current";
 export const SETTINGS_PATH = "/api/spoil-maker/settings";
 export const VOICES_PATH = "/api/spoil-maker/voices";
 
-/** The token count of these clips' Transcripts, in this order (D46). */
-export function tokensPath(clipIds: string[]): string {
-  return `/api/spoil-maker/tokens?clip_ids=${clipIds.map(encodeURIComponent).join(",")}`;
-}
 // The สปอย tab's hashes: its steps and the Saved voice page (spoil-maker D53, D59).
 export const SETUP_HASH = "#/spoil";
 export const REVIEW_HASH = "#/spoil/review";
@@ -85,7 +87,12 @@ export function shotImageUrl(clipId: string, n: number): string {
   return `/api/spoil-maker/clips/${clipId}/shots/${n}.jpg`;
 }
 
-/** "EP2": a clip by its place in the draft. */
-export function episodeOf(clipIds: string[], clipId: string): string {
-  return `EP${clipIds.indexOf(clipId) + 1}`;
+/** "EP 2" (D70). */
+export function epLabel(n: number): string {
+  return `EP ${n}`;
+}
+
+/** Whether a Shot shows part of the EP: it starts before the EP ends and ends after it starts (D71). */
+export function inEp(shot: Shot, ep: EpRange): boolean {
+  return shot.start < ep.end_s && shot.end > ep.start_s;
 }

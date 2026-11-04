@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** change request ตัด EP (D66–D71) และเรียบเรียงบท (D72–D76) อนุมัติแล้ว; ticket 06–08 พร้อม build
+**Now:** ticket 06 ตัด EP จากคลิปเดียว done (หน้าตาขั้น 1 ใช้ component เดิมจน Blocked 13 มีแบบ); ticket 07–08 พร้อม build
 
-**Next:** `/warroom-build spoil-maker 06`
+**Next:** `/warroom-build spoil-maker 07`
 
 ## Tickets
 
@@ -14,11 +14,36 @@
 | 03 | ร่างบทและหน้าตรวจแก้ | done |
 | 04 | เสียงต่อประโยคและ render | done |
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
-| 06 | ตัด EP จากคลิปเดียว | ready |
+| 06 | ตัด EP จากคลิปเดียว | done |
 | 07 | ตัวบอกขั้นบอกสถานะจริง | ready |
 | 08 | เรียบเรียงบท | ready |
 
 ## Log
+
+### 06: ตัด EP จากคลิปเดียว — done 2026-11-04
+
+**Built:**
+- `backend.spoil_maker.episodes`: `GET /clips/{id}/episodes` ตัดตาม `ep_minutes` ที่ขอบ Shot แล้วเขียน `media/temp/episodes/{id}.json` ตอนอ่านแรก; `PUT` `{minutes}` ตัดใหม่ (`custom: false`, จำ `ep_minutes`) หรือ `{minutes, cuts}` ขยับไปเวลาเริ่ม Shot ที่ใกล้สุด (`custom: true`); กฎ ≥ 60 วินาที / EP เดียวสั้นได้, `invalid_episodes`, ไฟล์เสียตัดใหม่; แต่ละ EP มี `thumb_shot`, `lines`, `tokens` (`null` ไม่มี tokenizer), `renders`, `in_draft` เทียบด้วยช่วง ±0.01
+- lock: `GpuSlot.clip_files()` ครอบไฟล์การตัดและการสลับ Shot ของ Describe job (ลบไฟล์การตัด); `PUT` ระหว่าง Describe, Transcribe, Draft job ของคลิป → `409` `clip_busy`; ลบคลิปลบไฟล์การตัด; start ลบ `*.tmp` และไฟล์ของคลิปที่ไม่มีหรือไม่ได้บรรยายฉาก; `write_atomic(unique=True)`
+- Spoil draft `version` 2 (`clip_id`, `ep`, `GET /draft` มี `clip_title`; `version` 1 = ไม่มี draft); Draft job รับ `{clip_id, ep: {n, start_s, end_s}}` (`invalid_episodes`, `episodes_changed` รวมเช็คซ้ำหลังจอง GPU, `ep_empty`, `transcript_too_long` ต่อ EP); Qwen ได้เฉพาะบรรทัดของ EP เป็น `[{line} {hh:mm:ss}]`, ref นอก EP ถูกตัด, `window` ตัดให้อยู่ใน EP; `PATCH` `shots` นอก EP → `invalid_shot`; `GET /tokens` ลบ
+- ผล render `.json` มี `clip_id`, `ep`, `start_s`, `end_s`; `GET /renders` คืน `clip_id`, `ep` (ไฟล์เก่า `null`)
+- หน้าเว็บ: ขั้น 1 เลือกคลิปเดียว (`ClipPicker` radio) → `EpisodePicker` (ความยาวต่อ EP 5–60, ยืนยันเมื่อ `custom`, จุดตัด `h:mm:ss` บันทึกเมื่อ blur, "ตัดใหม่ตามความยาว", แถว EP เลข ช่วง ภาพเล็ก token "render แล้ว {k}" ป้าย "อยู่ใน Spoil draft"); `useEpisodes` ส่ง `PUT` ทีละครั้ง, กดร่างรอ `PUT` ค้างแล้วส่งช่วงล่าสุด, `episodes_changed` อ่าน EP ใหม่; EP ไม่มีบรรทัดหรือ `tokens: null` ปุ่มร่างกดไม่ได้พร้อมเหตุผล; มี draft → เลือกคลิปและ EP ของ draft; ตัวเลือก Shot "ดูทั้ง EP" ไม่มีตัวเลือกตอน; การ์ดประโยคและผล render แสดง "EP {n}"
+- เช็คใน dev server กับคลิปจริง (14:53): 30 นาที → 1 EP, 5 นาที → 3 EP จุดตัด 4:59 และ 10:02, แก้จุดตัดเป็น 6:00 แล้ว blur → EP 1 0:00–6:00 และปุ่ม "ตัดใหม่ตามความยาว"; 1440 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; ไฟล์การตัดและ `ep_minutes` ที่ลองคืนแล้ว
+- Docs: README (ขั้น 1, `media/temp/episodes/`), skill `fastapi-api` (tree: `episodes`, `gpu`)
+- Review สามแกนแก้แล้ว: `Ep.matches`/`overlaps` ใช้ร่วม (`Span`, `Episode` สืบจาก `Ep`), `NumberedLine`, `episodes.not_ready`/`invalid`/`is_number`, ชื่อ `clip_files`, ข้อความ `invalid_episodes` ของ Draft job ตาม spec, `ep_minutes` นอกช่วงอ่านเป็น 30, เช็คช่วงซ้ำหลังจอง GPU, ภาพเล็ก EP ไม่ `KeyError`, `tokens: null` แสดงแถวที่ขาดพร้อมลิงก์, comment ของ `READERS`/tmp/`useEpisodes`
+
+**Decided:**
+- D77 — ทางเลือกเล็กตอน build ตัด EP
+
+**For the next ticket:**
+- เมื่อ Blocked 13 มีแบบ: ปรับหน้าตาขั้น 1 (card เลือก EP) ให้ตรง Figma ที่ 1440 และ 375
+- `require_json` ตรวจเฉพาะ POST และ PATCH (ADR-0013) — `PUT /clips/{id}/episodes` ไม่ถูกตรวจ (browser preflight PUT อยู่แล้ว); feature review: เพิ่ม PUT และแก้ข้อความ ADR ถ้าผู้ใช้ตกลง
+- `SpoilerSetup.tsx` มี `TOKEN_LIMIT` 32,000 ซ้ำกับ `limit` ของ backend (ใช้แสดงก่อนอ่าน EP เท่านั้น)
+- test `clip_busy` ของ `PUT` จอง GPU ด้วย `gpu.slot.take` ตรง (แบบ test `gpu_busy` เดิม) แทนเริ่มงานผ่าน API
+- draft `version` 1 ของผู้ใช้ (`media/spoil-maker/draft.json`) อ่านเป็นไม่มี draft แล้ว — ร่างใหม่จาก EP (D70)
+- ไม่ได้เช็คด้วยตา: ตัวเลือก Shot และการ์ดประโยคกับ draft จริง (ยังไม่มี draft `version` 2) และ render จริงที่มี "EP {n}"
+
+**Checks:** `uv run pytest` — 517 passed; `npm --prefix frontend test` — 188 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### change request เรียบเรียงบท — 2026-11-04
 

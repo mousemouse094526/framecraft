@@ -20,7 +20,7 @@ from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.jobs import Cancelled, ModelJobSlot
-from backend.spoil_maker import draft_file, frames, shots
+from backend.spoil_maker import draft_file, episodes, frames, shots
 from backend.spoil_maker.ffmpeg import FfmpegFailed
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
 
@@ -158,10 +158,13 @@ class Describes(ModelJobSlot[DescribeJob]):
         return shots.plan_shots(cuts, duration)
 
 def _swap(project: ProjectPaths, video_id: str) -> None:
-    """The new Shots replace the old ones only now, at the end (D51)."""
+    """The new Shots replace the old ones only now, at the end (D51). The clip's EP cuts sit
+    on the old Shots' edges, so they go under the same lock (spec › EP, D71)."""
     target = project.clip_shots_dir(video_id)
-    shutil.rmtree(target, ignore_errors=True)
-    project.new_shots_dir(video_id).rename(target)
+    with gpu.slot.clip_files():
+        shutil.rmtree(target, ignore_errors=True)
+        project.new_shots_dir(video_id).rename(target)
+        episodes.remove(project, video_id)
 
 
 def clip_shots(project: ProjectPaths, video_id: str) -> shots.ShotsFile:

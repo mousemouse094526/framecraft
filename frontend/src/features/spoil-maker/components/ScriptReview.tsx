@@ -9,7 +9,7 @@ import { useAutoSave } from "../hooks/useAutoSave";
 import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
-import { SETUP_HASH, type Draft, type Layout } from "../lib/draft";
+import { epLabel, SETUP_HASH, type Draft, type Layout } from "../lib/draft";
 import { markNumbersOverTopText, type Watermark } from "../lib/render";
 import type { RefusalLine } from "../../../lib/refusal";
 import { ReviewBanner } from "./ReviewBanner";
@@ -86,7 +86,7 @@ export function ScriptReview() {
                 key={sentence.id}
                 sentence={sentence}
                 number={index + 1}
-                clipIds={draft.clip_ids}
+                episode={epLabel(draft.ep.n)}
                 shots={shots}
                 locked={locked}
                 picking={pickingId === sentence.id ? job : null}
@@ -129,7 +129,8 @@ export function ScriptReview() {
           sentence={draft.sentences[pickerIndex]}
           number={pickerIndex + 1}
           slot={picker.slot}
-          clipIds={draft.clip_ids}
+          clipId={draft.clip_id}
+          ep={draft.ep}
           shots={shots}
           onClose={() => setPicker(null)}
           onPick={(shot) => {

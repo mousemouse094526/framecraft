@@ -61,6 +61,14 @@ class ProjectPaths:
         return self.shots_dir / f".new-{video_id}"
 
     @property
+    def episodes_dir(self) -> Path:
+        """Each described Temp clip's EP cuts, `{id}.json` (spoil-maker spec › EP, ADR 0018)."""
+        return self.media_temp_dir / "episodes"
+
+    def episodes_file(self, video_id: str) -> Path:
+        return self.episodes_dir / f"{video_id}.json"
+
+    @property
     def pythainlp_dir(self) -> Path:
         """pythainlp's data folder, instead of `~/pythainlp-data` (spoil-maker spec › Library assumptions)."""
         return self.models_dir / "pythainlp"

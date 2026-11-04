@@ -12,8 +12,7 @@ const VOICE_CURRENT = "/api/spoil-maker/voice-jobs/current";
 const RENDERS = "/api/spoil-maker/renders";
 const RENDER_CURRENT = "/api/spoil-maker/renders/current";
 const SETTINGS_PATH = "/api/spoil-maker/settings";
-const EP1 = "aaaaaaaaaaa";
-const EP2 = "bbbbbbbbbbb";
+const EP1 = "aaaaaaaaaaa"; // the draft is of its EP 2, 50–250 s
 
 /** A Shot every 5 s: Shot n is n × 5 s. */
 function shotsOf(count: number): Shot[] {
@@ -40,7 +39,9 @@ function sentenceOf(id: string, change: Partial<Sentence> = {}): Sentence {
 
 function draftOf(change: Partial<Draft> = {}): Draft {
   return {
-    clip_ids: [EP1, EP2],
+    clip_id: EP1,
+    ep: { n: 2, start_s: 50, end_s: 250 },
+    clip_title: "Night of the Living Dead",
     style: "fast",
     layout: "A",
     target_s: 30,
@@ -76,7 +77,6 @@ function backend(routes: Route[]) {
     [DRAFT_PATH, draftOf()],
     [CURRENT_PATH, null],
     [`/api/spoil-maker/clips/${EP1}/shots`, { clip_id: EP1, shots: shotsOf(60) }],
-    [`/api/spoil-maker/clips/${EP2}/shots`, { clip_id: EP2, shots: shotsOf(8) }],
     [VOICE_CURRENT, null],
     [RENDER_CURRENT, null],
     [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null }],
@@ -151,8 +151,8 @@ describe("ตรวจแก้บท", () => {
     const first = card(1);
     expect(within(first).getByText("ยังไม่มีเสียง")).toBeInTheDocument();
     expect(within(first).getByText("4.8 วิ")).toBeInTheDocument();
-    expect(within(first).getByText("EP1 · 00:01:40")).toBeInTheDocument();
-    expect(within(first).getByText("EP1 00:01:40")).toBeInTheDocument();
+    expect(within(first).getByText("EP 2 · 00:01:40")).toBeInTheDocument();
+    expect(within(first).getByText("EP 2 00:01:40")).toBeInTheDocument();
     expect(within(first).getByText('"Where am I?"')).toBeInTheDocument();
     expect(shotImages(first)).toContain(`/api/spoil-maker/clips/${EP1}/shots/20.jpg`);
   });
@@ -231,7 +231,7 @@ describe("ตรวจแก้บท", () => {
     expect(await within(card(2)).findByRole("textbox")).toHaveValue("ประโยคใหม่");
   });
 
-  it("a Shot opens the picker on the Shots in the window, and ดูทั้งคลิป shows the whole episode", async () => {
+  it("a Shot opens the picker on the Shots in the window, and ดูทั้ง EP shows the whole EP", async () => {
     backend([]);
     const user = await openReview();
 
@@ -240,11 +240,12 @@ describe("ตรวจแก้บท", () => {
 
     // 70–134 s: Shots 14 (70–75) to 26 (130–135).
     expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(13);
-    expect(within(dialog).getByText("Shot ภายใน ±30 วินาทีจาก EP1 00:01:40 · 13 Shot")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "ดูทั้งคลิป" }));
-    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(60);
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: "ตอน" }), EP2);
-    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(8);
+    expect(within(dialog).getByText("Shot ภายใน ±30 วินาทีจาก EP 2 00:01:40 · 13 Shot")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "ดูทั้ง EP" }));
+    // 50–250 s: Shots 10 (50–55) to 49 (245–250).
+    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(40);
+    expect(within(dialog).getByText("ทุก Shot ของ EP 2 · 40 Shot")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
   });
 
   it("picking a Shot sends both slots and closes the picker", async () => {
@@ -270,10 +271,10 @@ describe("ตรวจแก้บท", () => {
 
     expect(within(dialog).getByRole("tooltip")).toHaveTextContent("Shot 15 picture.");
     expect(dialog.querySelector("video")?.currentTime).toBe(75);
-    expect(within(dialog).getByText("EP1 · 00:01:15 – 00:01:20")).toBeInTheDocument();
+    expect(within(dialog).getByText("EP 2 · 00:01:15 – 00:01:20")).toBeInTheDocument();
   });
 
-  it("a sentence citing no line opens the picker on the whole first episode", async () => {
+  it("a sentence citing no line opens the picker on the whole EP", async () => {
     const inserted = sentenceOf("s_00000001", { refs: [], ref_lines: [], window: null, shots: [null, null], status: "no_shot" });
     backend([get(DRAFT_PATH, draftOf({ sentences: [inserted] }))]);
     const user = await openReview();
@@ -281,9 +282,8 @@ describe("ตรวจแก้บท", () => {
     await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 1" }));
     const dialog = screen.getByRole("dialog");
 
-    expect(within(dialog).getByRole("button", { name: "ดูทั้งคลิป" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(dialog).getByRole("combobox", { name: "ตอน" })).toHaveValue(EP1);
-    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(60);
+    expect(within(dialog).getByRole("button", { name: "ดูทั้ง EP" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog).getAllByRole("button", { name: /^Shot / })).toHaveLength(40);
   });
 
   it("Esc closes the picker", async () => {

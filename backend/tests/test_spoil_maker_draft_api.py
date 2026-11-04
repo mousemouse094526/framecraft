@@ -43,6 +43,8 @@ SHOT_COUNT = 40
 # 15 letters a second and 60 s: 900 letters; each script sentence below is 30 (spoken, no spaces).
 THIRTY = "ก" * 30
 PASSING = 30  # sentences of THIRTY: 900 letters, the target
+# The Shots end at 200 s, shorter than any EP length: the clip is one EP.
+WHOLE = {"n": 1, "start_s": 0.0, "end_s": 200.0}
 
 
 @pytest.fixture
@@ -142,14 +144,15 @@ def script(*sentences, top_text: str = "") -> str:
     return json.dumps(body, ensure_ascii=False)
 
 
-def passing_script(refs=("1-0",)) -> str:
+def passing_script(refs=("0",)) -> str:
     return script(*[(THIRTY, list(refs))] * PASSING)
 
 
 def order(**overrides) -> dict:
     return {
         "kind": "draft",
-        "clip_ids": [EP1],
+        "clip_id": EP1,
+        "ep": WHOLE,
         "style": "drama",
         "layout": "B",
         "target_s": 60,
@@ -170,11 +173,12 @@ def wait_for_end(client, path: str = CURRENT) -> dict:
     return wait_for(client, lambda job: job is not None and job["state"] in FINISHED, path)
 
 
-def write_draft(project: ProjectPaths, clip_ids=(EP1,), sentences=None, voice_id: str = VOICE, **fields) -> dict:
+def write_draft(project: ProjectPaths, clip_id=EP1, sentences=None, voice_id: str = VOICE, ep=WHOLE, **fields) -> dict:
     """A `draft.json` as a finished Draft job leaves it; returns its content."""
     content = {
-        "version": 1,
-        "clip_ids": list(clip_ids),
+        "version": 2,
+        "clip_id": clip_id,
+        "ep": ep,
         "style": "drama",
         "layout": "B",
         "target_s": 60,
@@ -184,8 +188,8 @@ def write_draft(project: ProjectPaths, clip_ids=(EP1,), sentences=None, voice_id
         "sentences": sentences
         if sentences is not None
         else [
-            sentence("s_00000001", "ประโยคแรก", refs=[{"clip_id": clip_ids[0], "line": 1}]),
-            sentence("s_00000002", "ประโยคสอง", refs=[{"clip_id": clip_ids[0], "line": 2}]),
+            sentence("s_00000001", "ประโยคแรก", refs=[{"clip_id": clip_id, "line": 1}]),
+            sentence("s_00000002", "ประโยคสอง", refs=[{"clip_id": clip_id, "line": 2}]),
         ],
     } | fields
     project.spoil_maker_dir.mkdir(parents=True, exist_ok=True)
@@ -226,17 +230,11 @@ def ready(project) -> None:
 def test_a_clip_transcribed_but_not_described_is_clip_not_ready(client, project, ready):
     ready_clip(project, "bbbbbbbbbbb", described=False)
 
-    response = start(client, clip_ids=[EP1, "bbbbbbbbbbb"])
+    response = start(client, clip_id="bbbbbbbbbbb")
 
     assert response.status_code == 400
     assert response.json()["code"] == "clip_not_ready"
     assert response.json()["clip_ids"] == ["bbbbbbbbbbb"]
-
-
-def test_the_same_clip_twice_is_clip_not_ready(client, ready):
-    response = start(client, clip_ids=[EP1, EP1])
-
-    assert (response.status_code, response.json()["code"], response.json()["clip_ids"]) == (400, "clip_not_ready", [EP1])
 
 
 @pytest.mark.parametrize("target_s", [29, 181, 60.5])
@@ -259,47 +257,49 @@ def test_an_unknown_voice_is_voice_not_found(client, ready):
     assert (response.status_code, response.json()["code"]) == (400, "voice_not_found")
 
 
-def test_transcripts_over_32000_tokens_are_too_long(client, ready, monkeypatch):
-    monkeypatch.setattr(spoil_maker, "count_tokens", lambda snapshot, text: 16_001 if "[1-" in text else 16_000)
+def test_an_ep_over_32000_tokens_is_too_long(client, ready, monkeypatch):
+    monkeypatch.setattr(spoil_maker, "count_tokens", lambda snapshot, text: 32_001)
 
-    response = start(client, clip_ids=[EP1, EP2])
-    counted = client.get(f"/api/spoil-maker/tokens?clip_ids={EP1},{EP2}")
+    response = start(client)
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes")
 
     assert response.status_code == 400
     assert response.json() == {
         "code": "transcript_too_long",
-        "message": "Transcript รวม 32,001 token เกิน 32,000",
+        "message": "Transcript ของ EP นี้ 32,001 token เกิน 32,000",
         "tokens": 32_001,
     }
-    assert counted.status_code == 200
-    assert counted.json() == {"per_clip": {EP1: 16_001, EP2: 16_000}, "total": 32_001, "limit": 32_000}
+    assert [ep["tokens"] for ep in listed.json()["episodes"]] == [32_001]
+    assert listed.json()["limit"] == 32_000
 
 
-def test_tokens_count_each_transcript_as_the_llm_gets_it_numbered_by_order(client, project, ready, counted):
-    client.get(f"/api/spoil-maker/tokens?clip_ids={EP2},{EP1}")
+def test_tokens_count_the_eps_lines_as_the_llm_gets_them(client, project, ready, counted):
+    client.get(f"/api/spoil-maker/clips/{EP1}/episodes")
 
-    assert counted[0].startswith("[1-0 00:00:00] Line 0.\n[1-1 00:00:10] Line 1.\n")
-    assert counted[1].startswith("[2-0 00:00:00] Line 0.\n")
+    assert counted[0].startswith("[0 00:00:00] Line 0.\n[1 00:00:10] Line 1.\n")
 
 
-def test_tokens_with_qwens_snapshot_gone_are_not_ready(client, project, ready, monkeypatch):
+def test_with_qwens_snapshot_gone_tokens_are_null_and_a_draft_is_not_ready(client, project, ready, monkeypatch):
     def gone(snapshot_dir, text):
         raise FileNotFoundError(snapshot_dir)
 
     monkeypatch.setattr(spoil_maker, "count_tokens", gone)
 
-    response = client.get(f"/api/spoil-maker/tokens?clip_ids={EP1}")
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes")
+    response = start(client)
 
+    assert listed.status_code == 200
+    assert [ep["tokens"] for ep in listed.json()["episodes"]] == [None]
     assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["model_qwen"])
 
 
-def test_tokens_of_a_clip_not_transcribed_are_clip_not_ready(client, project, ready):
+def test_episodes_of_a_clip_not_transcribed_are_clip_not_ready(client, project, ready):
     write_temp_clip(project, "bbbbbbbbbbb")
+    write_shots(project, "bbbbbbbbbbb")
 
-    response = client.get(f"/api/spoil-maker/tokens?clip_ids={EP1},bbbbbbbbbbb")
+    response = client.get("/api/spoil-maker/clips/bbbbbbbbbbb/episodes")
 
     assert (response.status_code, response.json()["code"]) == (400, "clip_not_ready")
-    assert response.json()["clip_ids"] == ["bbbbbbbbbbb"]
 
 
 def test_an_edited_line_is_what_the_counter_and_the_llm_get(client, project, ready, llm, counted):
@@ -309,8 +309,8 @@ def test_an_edited_line_is_what_the_counter_and_the_llm_get(client, project, rea
     start(client)
     wait_for_end(client)
 
-    assert "[1-0 00:00:00] บรรทัดที่แก้\n" in counted[-1]
-    assert "[1-0 00:00:00] บรรทัดที่แก้\n" in llm.requests[0].prompt
+    assert "[0 00:00:00] บรรทัดที่แก้\n" in counted[-1]
+    assert "[0 00:00:00] บรรทัดที่แก้\n" in llm.requests[0].prompt
     assert "Line 0." not in llm.requests[0].prompt
 
 
@@ -354,41 +354,6 @@ def test_an_unknown_kind_is_invalid_request(client, ready):
 # --- A Draft job from start to end ---
 
 
-def test_a_two_episode_script_cites_each_episode_and_picks_shots_in_the_window(client, project, ready, llm):
-    llm.scripts = [script(*[(THIRTY, ["1-0"])] * 15, *[(THIRTY, ["2-1"])] * 15)]
-
-    response = start(client, clip_ids=[EP1, EP2])
-
-    assert response.status_code == 202
-    assert response.json()["kind"] == "draft"
-    assert response.json()["state"] == "writing"
-    assert wait_for_end(client)["state"] == "done"
-    found = a_draft(client)
-    assert found["clip_ids"] == [EP1, EP2]
-    assert found["sentences"][0]["refs"] == [{"clip_id": EP1, "line": 0}]
-    assert found["sentences"][-1]["refs"] == [{"clip_id": EP2, "line": 1}]
-    last = found["sentences"][-1]
-    assert last["window"] == {"clip_id": EP2, "start": 0.0, "end": 44.0}
-    for slot in last["shots"]:
-        assert slot["clip_id"] == EP2
-        shot_start = 5.0 * slot["n"]
-        assert last["window"]["start"] <= shot_start < last["window"]["end"]
-
-
-def test_a_sentence_citing_two_episodes_takes_its_window_from_the_first(client, project, ready, llm):
-    llm.scripts = [script(*[(THIRTY, ["1-0", "2-1"])] * PASSING)]
-
-    start(client, clip_ids=[EP1, EP2])
-    wait_for_end(client)
-
-    first = a_draft(client)["sentences"][0]
-    assert first["refs"] == [{"clip_id": EP1, "line": 0}, {"clip_id": EP2, "line": 1}]
-    assert first["window"] == {"clip_id": EP1, "start": 0.0, "end": 34.0}
-    assert {slot["clip_id"] for slot in first["shots"]} == {EP1}
-    pick = next(r for r in llm.requests if is_pick(r))
-    assert "Line 1." not in pick.prompt  # EP 2's line isn't sent
-
-
 def test_the_draft_has_the_order_the_remembered_volume_and_becomes_the_last_voice(client, project, ready, llm):
     llm.scripts = [passing_script()]
 
@@ -413,15 +378,15 @@ def test_the_llm_gets_the_target_letters_and_sentences_and_the_generation_settin
     assert (request.max_tokens, request.temperature) == (2 * 900 + 1000, 0.3)
     assert "900" in request.prompt
     assert "15" in request.prompt
-    assert "[1-0 00:00:00] Line 0." in request.prompt
+    assert "[0 00:00:00] Line 0." in request.prompt
     # The rules come again after a long Transcript, where the model reads last.
-    assert request.prompt.rindex("900") > request.prompt.index("[1-19 ")
+    assert request.prompt.rindex("900") > request.prompt.index("[19 ")
     pick = next(r for r in llm.requests if is_pick(r))
     assert (pick.temperature, pick.image) == (0.0, None)
 
 
 def test_writing_then_matching_reports_done_and_total_sentences(client, project, ready, llm):
-    llm.scripts = [script(*[(THIRTY, ["1-0"])] * 29, (THIRTY, []))]
+    llm.scripts = [script(*[(THIRTY, ["0"])] * 29, (THIRTY, []))]
     llm.pause_at(2)  # the second pick
 
     start(client)
@@ -466,7 +431,7 @@ def test_two_broken_replies_then_a_good_one_is_done_after_three_asks(client, pro
 
 def test_asking_again_says_what_was_wrong_with_the_last_reply(client, project, ready, llm):
     # Real replies ran long or looped until max_tokens cut the JSON (D61).
-    llm.scripts = [script(*[(THIRTY, ["1-0"])] * 60), "{cut", passing_script()]
+    llm.scripts = [script(*[(THIRTY, ["0"])] * 60), "{cut", passing_script()]
 
     start(client)
     wait_for_end(client)
@@ -490,8 +455,8 @@ def test_a_reply_slower_than_the_timeout_counts_as_a_failed_try(client, project,
 
 
 def test_a_script_far_from_the_target_is_asked_again_and_the_last_readable_is_kept(client, project, ready, llm):
-    short = script(("สั้น", ["1-0"]))
-    llm.scripts = [short, short, script(("สั้นที่สุด", ["1-0"]))]
+    short = script(("สั้น", ["0"]))
+    llm.scripts = [short, short, script(("สั้นที่สุด", ["0"]))]
 
     start(client)
 
@@ -501,7 +466,7 @@ def test_a_script_far_from_the_target_is_asked_again_and_the_last_readable_is_ke
 
 def test_chinese_characters_and_lines_that_do_not_exist_are_cleaned_out(client, project, ready, llm):
     # Refs are "{episode}-{line}": EP 9 line 999 is in no Transcript.
-    llm.scripts = [script(("ไป現場กัน", ["9-999"]), *[(THIRTY, ["1-0"])] * (PASSING - 1))]
+    llm.scripts = [script(("ไป現場กัน", ["9-999"]), *[(THIRTY, ["0"])] * (PASSING - 1))]
 
     start(client)
     wait_for_end(client)
@@ -514,7 +479,7 @@ def test_chinese_characters_and_lines_that_do_not_exist_are_cleaned_out(client, 
 
 
 def test_a_sentence_empty_after_cleaning_is_dropped(client, project, ready, llm):
-    llm.scripts = [script(("現場", ["1-0"]), *[(THIRTY, ["1-0"])] * PASSING)]
+    llm.scripts = [script(("現場", ["0"]), *[(THIRTY, ["0"])] * PASSING)]
 
     start(client)
     wait_for_end(client)
@@ -523,7 +488,7 @@ def test_a_sentence_empty_after_cleaning_is_dropped(client, project, ready, llm)
 
 
 def test_shots_picked_outside_the_window_fall_back_to_the_two_nearest_the_first_line(client, project, ready, llm):
-    llm.scripts = [passing_script(refs=("1-10",))]  # line 10 starts at 100 s: Shot 20
+    llm.scripts = [passing_script(refs=("10",))]  # line 10 starts at 100 s: Shot 20
     llm.picks = lambda request: '{"shots": [0, 39]}'
 
     start(client)
@@ -534,7 +499,7 @@ def test_shots_picked_outside_the_window_fall_back_to_the_two_nearest_the_first_
 
 def test_a_sentence_keeps_only_its_first_three_cited_lines(client, project, ready, llm):
     # A real reply listed a run of 60 ids for one sentence (spec › Draft job step 2: 1 to 3).
-    llm.scripts = [passing_script(refs=("1-5", "1-6", "1-7", "1-8", "1-9"))]
+    llm.scripts = [passing_script(refs=("5", "6", "7", "8", "9"))]
 
     start(client)
     wait_for_end(client)
@@ -544,7 +509,7 @@ def test_a_sentence_keeps_only_its_first_three_cited_lines(client, project, read
 
 def test_a_wide_window_asks_about_only_the_shots_nearest_the_first_line(client, project, ready, llm, monkeypatch):
     monkeypatch.setattr(draft, "PICK_MAX_SHOTS", 6)
-    llm.scripts = [passing_script(refs=("1-19", "1-10"))]  # window 70–224 s: Shots 14–39
+    llm.scripts = [passing_script(refs=("19", "10"))]  # window 70–224 s: Shots 14–39
     llm.picks = lambda request: '{"shots": [15, 36]}'  # 15 is in the window but wasn't asked about
 
     start(client)
@@ -560,7 +525,7 @@ def test_a_window_with_one_shot_uses_it_twice_without_asking(client, project, re
     write_shots(project, EP1, count=1)  # 0–5 s; line 0's window holds only it
     llm.scripts = [passing_script()]
 
-    start(client)
+    start(client, ep={"n": 1, "start_s": 0.0, "end_s": 5.0})
     wait_for_end(client)
 
     assert a_draft(client)["sentences"][0]["shots"] == [{"clip_id": EP1, "n": 0}, {"clip_id": EP1, "n": 0}]
@@ -702,7 +667,7 @@ def test_a_draft_file_that_cannot_be_read_is_no_draft(client, project, ready, co
 
 
 def test_a_draft_naming_a_clip_that_is_gone_is_no_draft(client, project, ready):
-    write_draft(project, clip_ids=(EP1, "bbbbbbbbbbb"))
+    write_draft(project, clip_id="bbbbbbbbbbb")
 
     assert client.get(DRAFT).json() is None
 
@@ -823,6 +788,7 @@ def test_settings_start_at_their_defaults(client):
         "watermarks": [],
         "original_volume": 20,
         "last_voice_id": None,
+        "ep_minutes": 30,
     }
 
 
