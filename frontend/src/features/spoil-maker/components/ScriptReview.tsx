@@ -9,7 +9,7 @@ import { useAutoSave } from "../hooks/useAutoSave";
 import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
-import { epLabel, REVIEW_JOB_TEXT, SETUP_HASH, type Draft, type Layout } from "../lib/draft";
+import { epLabel, reviewJobText, SETUP_HASH, type Draft, type Layout } from "../lib/draft";
 import { markNumbersOverTopText, type Watermark } from "../lib/render";
 import type { RefusalLine } from "../../../lib/refusal";
 import { PolishDialog } from "./PolishDialog";
@@ -124,7 +124,7 @@ export function ScriptReview() {
       </div>
       <ReviewFooter
         job={running}
-        waitingFor={job ? REVIEW_JOB_TEXT[job.kind === "polish" ? "polish" : "pick"].waitingFor : null}
+        waitingFor={job ? reviewJobText(job).waitingFor : null}
         noShot={draft.sentences.filter((s) => s.status === "no_shot").length}
         unvoiced={unvoiced.length}
         onVoiceAll={() => void run.voice(unvoiced)}

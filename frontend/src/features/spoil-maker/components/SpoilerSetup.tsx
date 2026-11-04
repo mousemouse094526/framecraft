@@ -3,7 +3,7 @@ import { Alert } from "../../../components/ui/Alert";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import type { RefusalLine } from "../../../lib/refusal";
-import { useEpisodes, type Episode } from "../hooks/useEpisodes";
+import { useEpisodes, type Episode, type Episodes } from "../hooks/useEpisodes";
 import { useSpoilerSetup, type Banner, type Order, type SetupState } from "../hooks/useSpoilerSetup";
 import type { Voice } from "../hooks/useVoices";
 import { ClipPicker, isReady } from "./ClipPicker";
@@ -11,7 +11,6 @@ import { EpisodePicker } from "./EpisodePicker";
 import { SetupSettings, type Settings } from "./SetupSettings";
 
 const DEFAULT_TARGET_S = 60; // D39
-const TOKEN_LIMIT = 32_000; // D46: what the meter shows before the EPs are read
 
 /** The voice ร่างบท starts with: the one of the last draft while it is still saved, else the newest (spec › ค่าที่จำไว้). */
 function startingVoice(voices: Voice[], lastVoiceId: string | null): string | null {
@@ -34,10 +33,9 @@ export function SpoilerSetup() {
 }
 
 /** Why an EP can't be drafted (spec › Frontend, D71); null when it can. */
-function epBlocked(ep: Episode): RefusalLine | null {
+function epBlocked(ep: Episode, cut: Episodes): RefusalLine | null {
   if (ep.lines === 0) return { text: "EP นี้ไม่มีบทพูด", setupLink: false };
-  // `not_ready`: the token count needs only Qwen's files (backend `gate_rows.qwen_model`).
-  if (ep.tokens === null) return { text: "ยังติดตั้งไม่ครบ: Qwen3.5 9B model", setupLink: true };
+  if (ep.tokens === null) return { text: cut.tokens_not_ready ?? "", setupLink: true };
   return null;
 }
 
@@ -67,10 +65,10 @@ function SetupForm({ state, onDraft, onAskReplace, onCancel }: FormProps) {
   const cut = episodes.state.kind === "loaded" ? episodes.state.cut : null;
   // Until one is picked: the EP of the Spoil draft, else the first.
   const ep = cut?.episodes.find((one) => one.n === pickedEp) ?? cut?.episodes.find((one) => one.in_draft) ?? cut?.episodes[0] ?? null;
-  const limit = cut?.limit ?? TOKEN_LIMIT;
-  const blocked = ep ? epBlocked(ep) : null;
+  const limit = cut?.limit ?? null;
+  const blocked = ep && cut ? epBlocked(ep, cut) : null;
   const canDraft =
-    ep !== null && blocked === null && ep.tokens !== null && ep.tokens <= limit && settings.voiceId !== null && state.job === null;
+    ep !== null && blocked === null && ep.tokens !== null && limit !== null && ep.tokens <= limit && settings.voiceId !== null && state.job === null;
 
   const pickClip = (id: string) => {
     setClipId(id);

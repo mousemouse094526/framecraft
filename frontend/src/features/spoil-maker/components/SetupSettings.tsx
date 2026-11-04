@@ -25,9 +25,9 @@ export type Settings = { style: Style; layout: Layout; targetS: number; voiceId:
 type Props = {
   settings: Settings;
   voices: Voice[];
-  /** The picked EP, or null; `limit` is the token count the backend checks (D46). */
+  /** The picked EP, or null; `limit` is the token count the backend checks (D46), null until the EPs are read. */
   ep: Episode | null;
-  limit: number;
+  limit: number | null;
   /** Why ร่างบท is off for the picked EP: no lines, or no token count (D71); null when it isn't. */
   epBlocked: RefusalLine | null;
   /** An EP to draft from, a voice, and its lines within 32,000 tokens (D46). */
@@ -228,16 +228,16 @@ function LayoutDrawing({ layout }: { layout: Layout }) {
 }
 
 /** Figma component `Token meter`: the picked EP's "{tokens} / 32,000"; over the limit it turns red with an alert (D46). */
-function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number }) {
+function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number | null }) {
   const total = tokens ?? 0;
-  const over = total > limit;
-  const percent = Math.min(100, Math.round((total * 100) / limit));
+  const over = limit !== null && total > limit;
+  const percent = limit === null ? 0 : Math.min(100, Math.round((total * 100) / limit));
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2 text-sm leading-[21px] text-foreground">
         <span className="flex-1 font-button font-medium">Transcript</span>
         <span className={`font-mono font-medium whitespace-nowrap ${over ? "text-destructive" : ""}`}>
-          {tokens === null ? "—" : total.toLocaleString("en-US")} / {limit.toLocaleString("en-US")}
+          {tokens === null ? "—" : total.toLocaleString("en-US")} / {limit?.toLocaleString("en-US") ?? "—"}
         </span>
       </div>
       <div className="relative h-2 overflow-hidden rounded-full bg-muted">
@@ -249,7 +249,7 @@ function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number })
       {over && (
         <Alert tone="error">
           <span className="block text-destructive">
-            Transcript ของ EP นี้ {total.toLocaleString("en-US")} token เกิน {limit.toLocaleString("en-US")}
+            Transcript ของ EP นี้ {total.toLocaleString("en-US")} token เกิน {limit?.toLocaleString("en-US")}
           </span>
           <span className="block">ลดความยาวต่อ EP หรือเลื่อนจุดตัด</span>
         </Alert>

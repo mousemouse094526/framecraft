@@ -24,12 +24,12 @@ export type Sentence = {
 };
 
 /** An EP of a Temp clip by its number and range: [start_s, end_s) (spoil-maker spec › EP). */
-export type EpRange = { n: number; start_s: number; end_s: number };
+export type Ep = { n: number; start_s: number; end_s: number };
 
 export type Draft = {
   clip_id: string;
   /** The EP as the clip was cut when the draft was written (D70). */
-  ep: EpRange;
+  ep: Ep;
   clip_title: string;
   style: Style;
   layout: Layout;
@@ -58,10 +58,15 @@ export type DraftJob = {
 };
 
 /** What ตรวจแก้บท says of the Draft jobs it starts, which change the draft it shows (D25, D72). */
-export const REVIEW_JOB_TEXT: Record<"pick" | "polish", { doing: string; label: string; waitingFor: string }> = {
+const REVIEW_JOB_TEXT: Record<"pick" | "polish", { doing: string; label: string; waitingFor: string }> = {
   pick: { doing: "AI กำลังเลือก Shot ใหม่", label: "ความคืบหน้าการเลือก Shot", waitingFor: "รอให้ AI เลือก Shot เสร็จก่อน" },
   polish: { doing: "กำลังเรียบเรียง", label: "ความคืบหน้าการเรียบเรียง", waitingFor: "รอให้ AI เรียบเรียงเสร็จก่อน" },
 };
+
+/** The text of a Draft job ตรวจแก้บท started; only `pick` and `polish` run while it is open. */
+export function reviewJobText(job: DraftJob) {
+  return REVIEW_JOB_TEXT[job.kind === "polish" ? "polish" : "pick"];
+}
 
 export type Shot = { n: number; start: number; end: number; description: string };
 
@@ -102,6 +107,6 @@ export function epLabel(n: number): string {
 }
 
 /** Whether a Shot shows part of the EP: it starts before the EP ends and ends after it starts (D71). */
-export function inEp(shot: Shot, ep: EpRange): boolean {
+export function inEp(shot: Shot, ep: Ep): boolean {
   return shot.start < ep.end_s && shot.end > ep.start_s;
 }

@@ -6,6 +6,7 @@ import type { TempClip } from "../../../lib/clips";
 import type { DraftJob } from "../lib/draft";
 import type { Episode, Episodes } from "../hooks/useEpisodes";
 import type { Voice } from "../hooks/useVoices";
+import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "./testBackend";
 
 const CLIPS_PATH = "/api/spoil/clips";
 const VOICES_PATH = "/api/spoil-maker/voices";
@@ -74,21 +75,15 @@ function cutOf(change: Partial<Episodes> = {}): Episodes {
     custom: false,
     episodes: [epOf(1, 0, 1799), epOf(2, 1799, 3600, { renders: 2 })],
     limit: 32_000,
+    tokens_not_ready: null,
     ...change,
   };
 }
 
 const EPISODES = `/api/spoil-maker/clips/${FILM.id}/episodes`;
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-type Route = { method?: string; path: string; reply: () => Response | Promise<Response> };
-
 /** Fake backend: the first matching route answers; one of several for a path answers once, the last keeps answering. */
 function backend(routes: Route[]) {
-  const has = (path: string) => routes.some((r) => r.path === path && (r.method ?? "GET") === "GET");
   const defaults: [string, unknown][] = [
     [CLIPS_PATH, { clips: [FILM, OTHER] }],
     [VOICES_PATH, [UNCLE]],
@@ -98,36 +93,7 @@ function backend(routes: Route[]) {
     [EPISODES, cutOf()],
     [`/api/spoil-maker/clips/${OTHER.id}/episodes`, cutOf({ clip_id: OTHER.id, episodes: [epOf(1, 0, 1420)] })],
   ];
-  for (const [path, body] of defaults) if (!has(path)) routes.push(get(path, body));
-  fetchMock.mockImplementation(async (input, init) => {
-    const method = init?.method ?? "GET";
-    const url = String(input);
-    const matches = routes.filter((r) => r.path === url && (r.method ?? "GET") === method);
-    if (matches.length === 0) throw new Error(`unexpected ${method} ${url}`);
-    const route = matches[0];
-    if (matches.length > 1) routes.splice(routes.indexOf(route), 1);
-    return route.reply();
-  });
-}
-
-const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
-
-/** One answer per poll, however many hooks poll the path: the test moves `phases.at` on (the steps poll too, D68). */
-function phased(path: string, ...bodies: unknown[]) {
-  const phases = { at: 0 };
-  const route: Route = { path, reply: () => jsonResponse(bodies[Math.min(phases.at, bodies.length - 1)]) };
-  return { route, phases };
-}
-const send = (method: string, path: string, body: unknown, code: number): Route => ({
-  method,
-  path,
-  reply: () => jsonResponse(body, code),
-});
-
-function sent(method: string, path: string): unknown[] {
-  return fetchMock.mock.calls
-    .filter(([input, init]) => String(input) === path && init?.method === method)
-    .map(([, init]) => (init?.body ? JSON.parse(String(init.body)) : null));
+  serve(fetchMock, routes, defaults);
 }
 
 const reads = (path: string) =>
@@ -158,6 +124,7 @@ const draftButton = () => screen.getByRole("button", { name: "ร่างบท
 const epRow = (n: number) => screen.getByRole("radio", { name: `เลือก EP ${n}` }).closest("label") as HTMLElement;
 
 const fetchMock = vi.fn<typeof fetch>();
+const sent = (method: string, path: string) => sentTo(fetchMock, method, path);
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -210,7 +177,8 @@ describe("ตั้งค่าคลิปสปอย", () => {
   });
 
   it("an EP without lines, or without a token count, can't be drafted and says why", async () => {
-    backend([get(EPISODES, cutOf({ episodes: [epOf(1, 0, 1799, { lines: 0 }), epOf(2, 1799, 3600, { tokens: null })] }))]);
+    const episodes = [epOf(1, 0, 1799, { lines: 0 }), epOf(2, 1799, 3600, { tokens: null })];
+    backend([get(EPISODES, cutOf({ episodes, tokens_not_ready: "ยังติดตั้งไม่ครบ: Qwen3.5 9B model" }))]);
     const user = await pickFilm();
 
     expect(screen.getByText("EP นี้ไม่มีบทพูด")).toBeInTheDocument();

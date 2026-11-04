@@ -161,7 +161,7 @@ def _swap(project: ProjectPaths, video_id: str) -> None:
     """The new Shots replace the old ones only now, at the end (D51). The clip's EP cuts sit
     on the old Shots' edges, so they go under the same lock (spec › EP, D71)."""
     target = project.clip_shots_dir(video_id)
-    with gpu.slot.clip_files():
+    with gpu.slot.clip_files_lock():
         shutil.rmtree(target, ignore_errors=True)
         project.new_shots_dir(video_id).rename(target)
         episodes.remove(project, video_id)

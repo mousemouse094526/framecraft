@@ -40,7 +40,7 @@ backend/
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
 │                    (delete or change, refusing a job that reads the clip)
-│                    and `clip_files` (a clip's EP cuts, spoil-maker D71)
+│                    and `clip_files_lock` (a clip's EP cuts, spoil-maker D71)
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips,
@@ -53,7 +53,8 @@ backend/
 │                    llm (the only mlx-vlm import), tts (the only omnivoice
 │                    import), voices (Saved voices, Voice job), thai
 │                    (numbers as words, letter count, the only pythainlp
-│                    import), draft_file (the Spoil draft on disk; spoil
+│                    import), json_values (int and number checks of a JSON
+│                    value), draft_file (the Spoil draft on disk; spoil
 │                    imports it), draft (the draft's view and edits, the
 │                    Draft job), episodes (a clip's EP cuts on disk, the
 │                    EP list and its token count, D66), script (the
@@ -110,7 +111,7 @@ through a queue; the thread writes the result file (ADR 0012).
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases
   it on every ending, before its state reads as finished (ADR 0015).
-- Every `POST` and `PATCH` must be `application/json`, else `415` (ADR 0013);
+- Every `POST`, `PUT` and `PATCH` must be `application/json`, else `415` (ADR 0013);
   `app.py` enforces it with an app-wide dependency, `require_json`.
 - A path no route matches answers `404` `not_found` in the same shape
   (`app.py`): `%2F` decodes before routing.

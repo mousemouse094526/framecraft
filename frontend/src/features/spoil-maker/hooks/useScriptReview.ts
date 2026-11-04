@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendJson } from "../../../lib/api";
-import { cancelCurrent, onlyWhen } from "../../../lib/job";
+import { onlyWhen } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -16,7 +16,7 @@ import {
   type Shot,
   type ShotRef,
 } from "../lib/draft";
-import { useStepsRefresh } from "./useStepStatus";
+import { useJobCalls } from "./useStepStatus";
 
 export type ReviewState =
   | { kind: "loading" }
@@ -60,7 +60,7 @@ function endMessage(job: DraftJob | null): ReviewMessage | null {
  */
 export function useScriptReview() {
   const [state, setState, setIfMounted] = useMountedState<ReviewState>({ kind: "loading" });
-  const refreshSteps = useStepsRefresh();
+  const { refreshSteps, cancelCurrent } = useJobCalls();
   const saving = useRef(new Set<Promise<ChangeResult>>()); // changes not answered yet
 
   const load = useCallback(async () => {
@@ -232,11 +232,10 @@ export function useScriptReview() {
     const reply = await cancelCurrent<DraftJob>(DRAFT_JOB_PATH);
     if (reply.kind === "cancelling") {
       setIfMounted(whenLoaded((s) => (s.job ? { ...s, job: reply.job } : s)));
-      refreshSteps();
     } else if (reply.kind !== "ended") {
       setIfMounted({ kind: "offline" });
     }
-  }, [refreshSteps, setIfMounted]);
+  }, [cancelCurrent, setIfMounted]);
 
   const reload = useCallback(() => {
     setState({ kind: "loading" });

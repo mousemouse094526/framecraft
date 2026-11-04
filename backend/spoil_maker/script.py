@@ -14,6 +14,7 @@ from backend import clock
 from backend.spoil.transcribe import Transcript, TranscriptLine
 from backend.spoil_maker import thai
 from backend.spoil_maker.draft_file import Layout, Ref, Sentence, Style
+from backend.spoil_maker.json_values import is_int
 from backend.spoil_maker.shots import Shot
 
 # How each style tells the story, and the layout it starts with (D7, D8).
@@ -161,7 +162,7 @@ def parse_pick(reply: str, candidates: list[Shot]) -> list[int] | None:
     allowed = {shot.n for shot in candidates}
     if not isinstance(numbers, list) or len(numbers) != 2:
         return None
-    if not all(isinstance(n, int) and not isinstance(n, bool) and n in allowed for n in numbers):
+    if not all(is_int(n) and n in allowed for n in numbers):
         return None
     return numbers
 
@@ -222,7 +223,7 @@ def parse_polish(reply: str, sentences: list[Sentence], asked: set[int]) -> dict
     given: dict[int, list[str]] = {}
     for item in items:
         i = item.get("i") if isinstance(item, dict) else None
-        if isinstance(i, int) and not isinstance(i, bool) and i in asked and isinstance(item.get("text"), str):
+        if is_int(i) and i in asked and isinstance(item.get("text"), str):
             given.setdefault(i, []).append(item["text"])
     usable = {i: texts[0] for i, texts in given.items() if len(texts) == 1}
     if 2 * len(usable) < len(asked):

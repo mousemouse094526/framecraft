@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
+import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "./testBackend";
 
 const DRAFT_PATH = "/api/spoil-maker/draft";
 const JOBS_PATH = "/api/spoil-maker/draft-jobs";
@@ -66,14 +67,7 @@ const PICK: DraftJob = {
   started_at: "2026-11-02T11:00:00+07:00",
 };
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-type Route = { method?: string; path: string; reply: () => Response };
-
 function backend(routes: Route[]) {
-  const has = (path: string) => routes.some((r) => r.path === path && (r.method ?? "GET") === "GET");
   const defaults: [string, unknown][] = [
     [DRAFT_PATH, draftOf()],
     [CURRENT_PATH, null],
@@ -82,35 +76,7 @@ function backend(routes: Route[]) {
     [RENDER_CURRENT, null],
     [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null }],
   ];
-  for (const [path, body] of defaults) if (!has(path)) routes.push(get(path, body));
-  fetchMock.mockImplementation(async (input, init) => {
-    const method = init?.method ?? "GET";
-    const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
-    if (matches.length === 0) throw new Error(`unexpected ${method} ${String(input)}`);
-    const route = matches[0];
-    if (matches.length > 1) routes.splice(routes.indexOf(route), 1);
-    return route.reply();
-  });
-}
-
-const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
-
-/** One answer per poll, however many hooks poll the path: the test moves `phases.at` on (the steps poll too, D68). */
-function phased(path: string, ...bodies: unknown[]) {
-  const phases = { at: 0 };
-  const route: Route = { path, reply: () => jsonResponse(bodies[Math.min(phases.at, bodies.length - 1)]) };
-  return { route, phases };
-}
-const send = (method: string, path: string, body: unknown, code: number): Route => ({
-  method,
-  path,
-  reply: () => jsonResponse(body, code),
-});
-
-function sent(method: string, path: string): unknown[] {
-  return fetchMock.mock.calls
-    .filter(([input, init]) => String(input) === path && init?.method === method)
-    .map(([, init]) => (init?.body ? JSON.parse(String(init.body)) : null));
+  serve(fetchMock, routes, defaults);
 }
 
 async function openReview() {
@@ -124,6 +90,7 @@ const card = (number: number) => screen.getByRole("listitem", { name: `ประ
 const shotImages = (element: HTMLElement) => [...element.querySelectorAll("img")].map((img) => img.getAttribute("src"));
 
 const fetchMock = vi.fn<typeof fetch>();
+const sent = (method: string, path: string) => sentTo(fetchMock, method, path);
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });

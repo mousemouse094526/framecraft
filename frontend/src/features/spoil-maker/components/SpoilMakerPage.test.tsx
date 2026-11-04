@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Draft, DraftJob, Sentence } from "../lib/draft";
 import type { RenderJob, RenderResult, SentencesJob } from "../lib/render";
+import { jsonResponse } from "./testBackend";
 
 const API = "/api/spoil-maker";
 const DRAFT = `${API}/draft`;
@@ -90,10 +91,6 @@ const draftJob = (change: Partial<DraftJob>): DraftJob => ({
   ...change,
 });
 const FAILED = { code: "model_failed", message: "x" };
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
 
 /** What each GET answers now; a test changes it and lets the next poll read it. */
 let answers: Record<string, unknown>;

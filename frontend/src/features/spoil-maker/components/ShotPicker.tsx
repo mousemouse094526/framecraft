@@ -5,8 +5,8 @@ import { formatClock } from "../../../lib/format";
 import checkLinkIcon from "../assets/check-link.svg";
 import checkWhiteIcon from "../assets/check-white.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
-import { useDialogKeys } from "../hooks/useDialogKeys";
-import { epLabel, inEp, shotImageUrl, type EpRange, type Sentence, type Shot, type ShotRef } from "../lib/draft";
+import { epLabel, inEp, shotImageUrl, type Ep, type Sentence, type Shot, type ShotRef } from "../lib/draft";
+import { ModalDialog } from "./ModalDialog";
 
 type Props = {
   sentence: Sentence;
@@ -15,7 +15,7 @@ type Props = {
   slot: number;
   /** The draft's clip and EP: every Shot to pick from is of them (D70). */
   clipId: string;
-  ep: EpRange;
+  ep: Ep;
   shots: Record<string, Shot[]>;
   onPick: (shot: ShotRef) => void;
   onClose: () => void;
@@ -39,7 +39,6 @@ export function ShotPicker({ sentence, number, slot, clipId, ep, shots, onPick, 
     (current && current.clip_id === clipId ? shots[clipId]?.[current.n] : null) ?? listed[0] ?? null,
   );
   const titleId = useId();
-  const dialog = useDialogKeys(onClose);
 
   const episode = epLabel(ep.n);
   const firstCited = sentence.ref_lines[0];
@@ -48,57 +47,49 @@ export function ShotPicker({ sentence, number, slot, clipId, ep, shots, onPick, 
     : `Shot ภายใน ±30 วินาทีจาก ${episode} ${formatClock(firstCited?.start ?? 0)} · ${listed.length} Shot`;
 
   return (
-    <div className="fixed inset-0 z-10 flex items-start justify-center overflow-y-auto bg-surface-inverse/50 sm:items-center sm:p-8">
-      <div
-        ref={dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="flex w-full flex-col gap-3 bg-card px-4 pt-3 pb-4 sm:max-w-[886px] sm:gap-5 sm:rounded-3xl sm:border sm:border-border sm:px-6 sm:pt-5 sm:pb-6 sm:shadow-[0_16px_48px_0_rgba(0,0,0,0.18)]"
-      >
-        <div className="flex h-11 items-center gap-2">
-          <h3 id={titleId} className="min-w-0 flex-1 text-lg font-semibold text-foreground">
-            เลือกภาพให้ประโยค {number}
-          </h3>
-          <button type="button" autoFocus onClick={onClose} aria-label="ปิด" className="flex size-11 items-center justify-center rounded-lg hover:bg-muted">
-            <img src={xIcon} alt="" width={16} height={16} />
-          </button>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
-          <ShotPlayer clipId={clipId} shot={shown} episode={episode} />
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-end gap-2">
-                <button
-                  type="button"
-                  aria-pressed={whole}
-                  // A sentence citing no line has no ±30 s to go back to (D26, D27).
-                  disabled={near === null}
-                  onClick={() => setWhole(!whole)}
-                  className={`h-11 px-6 ${OUTLINE_BUTTON} ${whole ? "border-brand-accent bg-accent-subtle text-link hover:bg-accent-subtle" : ""} disabled:opacity-100`}
-                >
-                  {whole && <img src={checkLinkIcon} alt="" width={16} height={16} />}
-                  ดูทั้ง EP
-                </button>
-              </div>
-              <p className="text-[13px] text-mid">{info}</p>
+    <ModalDialog titleId={titleId} onClose={onClose} size="gap-3 sm:max-w-[886px] sm:gap-5">
+      <div className="flex h-11 items-center gap-2">
+        <h3 id={titleId} className="min-w-0 flex-1 text-lg font-semibold text-foreground">
+          เลือกภาพให้ประโยค {number}
+        </h3>
+        <button type="button" autoFocus onClick={onClose} aria-label="ปิด" className="flex size-11 items-center justify-center rounded-lg hover:bg-muted">
+          <img src={xIcon} alt="" width={16} height={16} />
+        </button>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
+        <ShotPlayer clipId={clipId} shot={shown} episode={episode} />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                aria-pressed={whole}
+                // A sentence citing no line has no ±30 s to go back to (D26, D27).
+                disabled={near === null}
+                onClick={() => setWhole(!whole)}
+                className={`h-11 px-6 ${OUTLINE_BUTTON} ${whole ? "border-brand-accent bg-accent-subtle text-link hover:bg-accent-subtle" : ""} disabled:opacity-100`}
+              >
+                {whole && <img src={checkLinkIcon} alt="" width={16} height={16} />}
+                ดูทั้ง EP
+              </button>
             </div>
-            <ul aria-label="Shot" className="grid h-[330px] grid-cols-3 content-start gap-x-2 gap-y-3 overflow-y-auto p-[3px] sm:grid-cols-4">
-              {listed.map((shot) => (
-                <PickThumb
-                  key={shot.n}
-                  clipId={clipId}
-                  shot={shot}
-                  current={current?.clip_id === clipId && current.n === shot.n}
-                  onShow={() => setShown(shot)}
-                  onPick={() => onPick({ clip_id: clipId, n: shot.n })}
-                />
-              ))}
-            </ul>
+            <p className="text-[13px] text-mid">{info}</p>
           </div>
+          <ul aria-label="Shot" className="grid h-[330px] grid-cols-3 content-start gap-x-2 gap-y-3 overflow-y-auto p-[3px] sm:grid-cols-4">
+            {listed.map((shot) => (
+              <PickThumb
+                key={shot.n}
+                clipId={clipId}
+                shot={shot}
+                current={current?.clip_id === clipId && current.n === shot.n}
+                onShow={() => setShown(shot)}
+                onPick={() => onPick({ clip_id: clipId, n: shot.n })}
+              />
+            ))}
+          </ul>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 

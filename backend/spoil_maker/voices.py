@@ -26,6 +26,7 @@ from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil_maker import draft_file, thai
 from backend.spoil_maker.draft_file import Audio, Draft
+from backend.spoil_maker.json_values import is_number
 from backend.spoil_maker.tts import Design, Designed, Ready, Speak, Spoken, WorkerError
 
 log = logging.getLogger(__name__)
@@ -348,7 +349,7 @@ def _design_choices(body: dict) -> tuple[str, float]:
 
 def _on_speed_scale(speed: object) -> bool:
     """0.8–1.2 in steps of 0.05, allowing for how floats add up (0.8 + 3 × 0.05)."""
-    if isinstance(speed, bool) or not isinstance(speed, (int, float)):
+    if not is_number(speed):
         return False
     steps = (speed - SPEED_MIN) / SPEED_STEP
     return -1e-6 <= steps <= (SPEED_MAX - SPEED_MIN) / SPEED_STEP + 1e-6 and abs(steps - round(steps)) < 1e-6

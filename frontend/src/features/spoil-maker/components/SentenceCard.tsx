@@ -9,7 +9,7 @@ import scanLineIcon from "../assets/scan-line.svg";
 import trashRedIcon from "../assets/trash-red.svg";
 import trashWhiteIcon from "../assets/trash-white.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
-import { REVIEW_JOB_TEXT, shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
+import { reviewJobText, shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
 import { playAudio } from "../lib/audio";
 import { sentenceAudioUrl } from "../lib/render";
 
@@ -195,7 +195,7 @@ function listen(sentence: Sentence) {
 
 /** A `pick` or `polish` running: "AI กำลังเลือก Shot ใหม่" or "กำลังเรียบเรียง", with ยกเลิก (spec › Design, หน้าตรวจแก้). */
 export function ReviewJobProgress({ job, onCancel }: { job: DraftJob; onCancel: () => void }) {
-  const text = REVIEW_JOB_TEXT[job.kind === "polish" ? "polish" : "pick"];
+  const text = reviewJobText(job);
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

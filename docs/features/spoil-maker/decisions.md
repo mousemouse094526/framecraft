@@ -1273,6 +1273,23 @@
 
 **From:** build ticket 08 · **Status:** active
 
+## D80: แก้จาก feature review รอบสาม
+
+**Chosen:** แก้ทุกข้อที่ผู้ใช้เลือกจาก review สามแกนของ ticket 06–08 (backend, frontend, test ผ่าน API, docs).
+
+**Details:**
+- **ADR-0013 รวม `PUT`:** `require_json` ตรวจ `POST`, `PUT`, `PATCH`; `PUT /clips/{id}/episodes` ที่ไม่ใช่ JSON → `415` (เดิม `400` `invalid_request` จาก framework, ไม่มีช่องโหว่เพราะ `PUT` ต้อง preflight อยู่แล้ว)
+- **`tokens_not_ready`:** `GET /clips/{id}/episodes` ส่งข้อความ `not_ready` เมื่อ `tokens` เป็น `null`; หน้าเว็บไม่เขียนชื่อโมเดลเอง; ไม่มีค่า `limit` สำรองในหน้าเว็บ ตัวนับเป็น "— / —" จนอ่านรายการ EP
+- **ลำดับลบคลิปใน spec ตามโค้ด:** mp4 → Shot → ไฟล์การตัด → json → Spoil draft (json สุดท้ายแบบ spoil D15, D23); `PUT` ระหว่างลบ → `404` ตาม D77 (ticket 06 และ spec แก้แล้ว)
+- **ชื่อ:** `GpuSlot.clip_files_lock`, `episodes.CutEp` (EP ของการตัดตอนนี้) คู่กับ `draft_file.Ep` (EP ของ draft), หน้าเว็บ `Ep` แทน `EpRange`, `episodes.invalid_episodes`, `episodes.episodes_changed`, `episodes.asked_ep` (ย้ายจาก `draft._ready_ep`), `spoil_maker.json_values` (`is_int`, `is_number`)
+- **หน้าเว็บ:** `ModalDialog` แทนกรอบซ้ำของ ShotPicker กับ PolishDialog (และ `useDialogKeys`), `reviewJobText`, `useJobCalls` (`startJob`/`cancelCurrent` ที่ refresh ตัวบอกขั้นเอง), `parseClock` ย้ายเข้า feature, `useEpisodes` ทางเดียวของคำตอบ; test ใช้ `components/testBackend.ts`
+- **test:** `clip_busy`, `gpu_busy`, `draft_locked` เริ่ม Transcribe/Voice job จริงผ่าน API แทน `gpu.slot.take`
+- **ไม่แก้:** `write_atomic(unique=)` (มีผู้ใช้แล้ว: `episodes`); state ของขั้นยัง poll สองที่ (D78 ยอมรับ); test มือถือของตัวบอกขั้นเช็ค class (D78, jsdom ไม่มี CSS)
+
+**Why:** ผู้ใช้เลือกแก้ทั้งสี่กลุ่ม; ไม่เปลี่ยนสิ่งที่ spec สัญญาต่อผู้ใช้ นอกจากตัวนับก่อนอ่าน EP และ `415` ของ `PUT`.
+
+**From:** feature review 2026-11-04 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)

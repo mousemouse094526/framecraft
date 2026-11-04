@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
-import { cancelCurrent, onlyWhen } from "../../../lib/job";
+import { onlyWhen } from "../../../lib/job";
 import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -16,15 +16,15 @@ import {
   VOICES_PATH,
   type Draft,
   type DraftJob,
-  type EpRange,
+  type Ep,
   type Layout,
   type Style,
 } from "../lib/draft";
 import type { Voice } from "./useVoices";
-import { useStepsRefresh } from "./useStepStatus";
+import { useJobCalls } from "./useStepStatus";
 
 /** What ร่างบท sends with `kind: "draft"`: one EP of one clip, by its number and range (spoil-maker D66, D71). */
-export type Order = { clip_id: string; ep: EpRange; style: Style; layout: Layout; target_s: number; voice_id: string };
+export type Order = { clip_id: string; ep: Ep; style: Style; layout: Layout; target_s: number; voice_id: string };
 
 /**
  * A page-level message (Figma `Setup banner`): a failed draft with ลองอีกครั้ง, the GPU
@@ -76,7 +76,7 @@ function bannerOf(status: number, refusal: Refusal | null): Banner | null {
  */
 export function useSpoilerSetup() {
   const [state, setState, setIfMounted] = useMountedState<SetupState>({ kind: "loading" });
-  const refreshSteps = useStepsRefresh();
+  const { refreshSteps, cancelCurrent } = useJobCalls();
 
   const load = useCallback(async () => {
     try {
@@ -180,11 +180,10 @@ export function useSpoilerSetup() {
     const reply = await cancelCurrent<DraftJob>(DRAFT_JOB_PATH);
     if (reply.kind === "cancelling") {
       setIfMounted(whenLoaded((s) => (s.job ? { ...s, job: reply.job } : s)));
-      refreshSteps();
     } else if (reply.kind !== "ended") {
       setIfMounted({ kind: "offline" });
     }
-  }, [refreshSteps, setIfMounted]);
+  }, [cancelCurrent, setIfMounted]);
 
   const reload = useCallback(() => {
     setState({ kind: "loading" });

@@ -4,6 +4,7 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Voice, VoiceJob } from "../hooks/useVoices";
+import { get, type Route, send, sent as sentTo, serve } from "./testBackend";
 
 const VOICES_PATH = "/api/spoil-maker/voices";
 const JOBS_PATH = "/api/spoil-maker/voice-jobs";
@@ -39,15 +40,6 @@ function jobOf(change: Partial<VoiceJob>): VoiceJob {
 const UNCLE = voiceOf({});
 const SISTER = voiceOf({ id: "v_1111abcd", name: "พี่สาวเล่าหนัง", speed: 0.95 });
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(status === 204 ? null : JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-type Route = { method?: string; path: string; reply: () => Response | Promise<Response> };
-
 /**
  * Fake backend: each request takes the first route that matches it. A route
  * answers once, so routes for the same path play out in order; the last one
@@ -55,33 +47,14 @@ type Route = { method?: string; path: string; reply: () => Response | Promise<Re
  * a job's `…/current` there is no such job.
  */
 function backend(routes: Route[]) {
-  const has = (path: string) => routes.some((r) => r.path === path && (r.method ?? "GET") === "GET");
-  for (const path of [CURRENT_PATH, TRANSCRIBE_PATH, DESCRIBE_PATH, DRAFT_JOB_PATH]) if (!has(path)) routes.push(get(path, null));
-  if (!has(VOICES_PATH)) routes.push(get(VOICES_PATH, []));
-  fetchMock.mockImplementation(async (input, init) => {
-    const method = init?.method ?? "GET";
-    const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
-    if (matches.length === 0) throw new Error(`unexpected ${method} ${String(input)}`);
-    const route = matches[0];
-    if (matches.length > 1) routes.splice(routes.indexOf(route), 1);
-    return route.reply();
-  });
+  const defaults: [string, unknown][] = [
+    ...[CURRENT_PATH, TRANSCRIBE_PATH, DESCRIBE_PATH, DRAFT_JOB_PATH].map((path): [string, unknown] => [path, null]),
+    [VOICES_PATH, []],
+  ];
+  serve(fetchMock, routes, defaults);
 }
-
-const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
-const send = (method: string, path: string, body: unknown, code: number): Route => ({
-  method,
-  path,
-  reply: () => jsonResponse(body, code),
-});
 
 const previewThere = (): Route => ({ method: "HEAD", path: PREVIEW_PATH, reply: () => new Response(null) });
-
-function sent(method: string, path: string): unknown[] {
-  return fetchMock.mock.calls
-    .filter(([input, init]) => String(input) === path && init?.method === method)
-    .map(([, init]) => (init?.body ? JSON.parse(String(init.body)) : null));
-}
 
 async function nextPoll() {
   await act(async () => {
@@ -105,6 +78,7 @@ async function openPage() {
 }
 
 const fetchMock = vi.fn<typeof fetch>();
+const sent = (method: string, path: string) => sentTo(fetchMock, method, path);
 const played: string[] = [];
 
 beforeEach(() => {

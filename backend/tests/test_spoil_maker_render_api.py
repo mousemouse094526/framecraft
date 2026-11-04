@@ -23,6 +23,7 @@ from .test_spoil_maker_draft_api import (
     VOICE,
     ready_clip,
     sentence,
+    tts,  # noqa: F401 (fixture)
     voiced,
     wait_for,
     wait_for_end,
@@ -43,13 +44,6 @@ NUMBERS_SPOKEN = (
 @pytest.fixture
 def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
-
-
-@pytest.fixture
-def tts(monkeypatch) -> FakeTts:
-    fake = FakeTts()
-    monkeypatch.setattr(spoil_maker, "start_tts_worker", fake)
-    return fake
 
 
 @pytest.fixture

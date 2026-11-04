@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getReply, sendJson } from "../../../lib/api";
+import { getReply, sendJson, type JsonReply } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
-import type { EpRange } from "../lib/draft";
+import type { Ep } from "../lib/draft";
 
 /** One EP of the clip's cut (spoil-maker spec › API, `GET /clips/{id}/episodes`). */
-export type Episode = EpRange & {
+export type Episode = Ep & {
   /** The Shot that starts the EP: its thumbnail stands for the EP. */
   thumb_shot: number;
   lines: number;
@@ -15,7 +15,15 @@ export type Episode = EpRange & {
   in_draft: boolean;
 };
 
-export type Episodes = { clip_id: string; minutes: number; custom: boolean; episodes: Episode[]; limit: number };
+export type Episodes = {
+  clip_id: string;
+  minutes: number;
+  custom: boolean;
+  episodes: Episode[];
+  limit: number;
+  /** The `not_ready` message when the EPs' `tokens` are null. */
+  tokens_not_ready: string | null;
+};
 
 export type EpisodesState =
   | { kind: "none" }
@@ -42,23 +50,31 @@ export function useEpisodes(clipId: string | null) {
   const pending = useRef<Promise<void>>(Promise.resolve());
   const latest = useRef<Episodes | null>(null);
 
+  /** Shows a cut the backend answered with and returns null; else the refusal's message, or "offline". */
+  const answered = useCallback(
+    (reply: JsonReply<Episodes>): string | "offline" | null => {
+      if (reply.status === 200 && reply.body) {
+        latest.current = reply.body;
+        setIfMounted({ kind: "loaded", cut: reply.body, error: null });
+        return null;
+      }
+      return refusalOf(reply.body)?.message ?? "offline";
+    },
+    [setIfMounted],
+  );
+
   const read = useCallback(
     async (id: string) => {
       try {
         const reply = await getReply<Episodes>(episodesPath(id));
         if (picked.current !== id) return;
-        if (reply.status === 200 && reply.body) {
-          latest.current = reply.body;
-          setIfMounted({ kind: "loaded", cut: reply.body, error: null });
-          return;
-        }
-        const refusal = refusalOf(reply.body);
-        setIfMounted(refusal ? { kind: "refused", error: refusal.message } : { kind: "offline" });
+        const refusal = answered(reply);
+        if (refusal !== null) setIfMounted(refusal === "offline" ? { kind: "offline" } : { kind: "refused", error: refusal });
       } catch {
         if (picked.current === id) setIfMounted({ kind: "offline" });
       }
     },
-    [setIfMounted],
+    [answered, setIfMounted],
   );
 
   // No ignore flag: `read` drops any answer about a clip no longer picked (the `picked` ref),
@@ -81,25 +97,17 @@ export function useEpisodes(clipId: string | null) {
         try {
           const reply = await sendJson<Episodes>("PUT", episodesPath(id), body);
           if (picked.current !== id) return;
-          if (reply.status === 200 && reply.body) {
-            latest.current = reply.body;
-            setIfMounted({ kind: "loaded", cut: reply.body, error: null });
-            return;
-          }
-          const refusal = refusalOf(reply.body);
-          if (refusal === null) {
-            setIfMounted({ kind: "offline" });
-            return;
-          }
+          const refusal = answered(reply);
+          if (refusal === "offline") setIfMounted({ kind: "offline" });
           // The list stays as the backend has it; the field the user typed in shows it again.
-          setIfMounted((s) => (s.kind === "loaded" ? { ...s, error: refusal.message } : s));
+          else if (refusal !== null) setIfMounted((s) => (s.kind === "loaded" ? { ...s, error: refusal } : s));
         } catch {
           if (picked.current === id) setIfMounted({ kind: "offline" });
         }
       };
       pending.current = pending.current.then(send);
     },
-    [setIfMounted],
+    [answered, setIfMounted],
   );
 
   /** The cut once every change sent so far is answered; null when there is none to draft from. */

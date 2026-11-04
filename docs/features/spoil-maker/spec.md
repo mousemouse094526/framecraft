@@ -258,9 +258,9 @@ Temp clip หนึ่งคลิปตัดเป็น EP ตามเวล
 - **ช่วง:** EP `n` (เริ่ม 1) = [`cuts[n-2]` หรือ 0, `cuts[n-1]` หรือความยาวคลิป) — ปลายเปิด
 - **บรรทัดของ EP** = บรรทัด Transcript ที่ `start_s ≤ line.start < end_s`; บรรทัดที่เริ่มหลังความยาวคลิปอยู่ใน EP สุดท้าย
 - **Shot ของ EP** = Shot ที่ `shot.start < end_s` และ `shot.end > start_s`; ภาพเล็กของ EP = Shot ที่ `start == start_s`
-- **lock:** ทุกการอ่าน-แก้-เขียนไฟล์นี้อยู่ใต้ lock เดียวของ `backend.gpu` พร้อมเช็คว่าคลิปยังมีและบรรยายฉากแล้ว; `PUT` ระหว่าง Describe job, Transcribe job หรือ Draft job ของคลิปนั้น หรือระหว่างลบคลิป → `409` `clip_busy` (D71)
+- **lock:** ทุกการอ่าน-แก้-เขียนไฟล์นี้อยู่ใต้ lock เดียวของ `backend.gpu` พร้อมเช็คว่าคลิปยังมีและบรรยายฉากแล้ว; `PUT` ระหว่าง Describe job, Transcribe job หรือ Draft job ของคลิปนั้น → `409` `clip_busy`; ระหว่างลบคลิป รอจนลบเสร็จแล้ว `404` `not_found` (D71, D77)
 - **ไฟล์เสีย:** อ่านไม่ได้ หรือไม่ผ่านกฎเดียวกับ `PUT` (รวม `cuts` ที่ไม่ใช่เวลาเริ่มของ Shot แล้ว) → log เหตุผล ถือว่าไม่มีไฟล์ และตัดใหม่ตาม `ep_minutes` (D71)
-- **ลบ:** Describe job ลบไฟล์ในข้อ 7 ใต้ lock เดียวกับการสลับ folder Shot; ลบ Temp clip ลบตามลำดับ mp4 → json → Shot → ไฟล์การตัด → Spoil draft; start backend ลบไฟล์การตัดของ id ที่ไม่มี Temp clip หรือไม่มี `shots.json` (D71)
+- **ลบ:** Describe job ลบไฟล์ในข้อ 7 ใต้ lock เดียวกับการสลับ folder Shot; ลบ Temp clip ลบตามลำดับ mp4 → Shot → ไฟล์การตัด → json → Spoil draft (json ไปหลังสุดของคลิป: ลบค้างกลางทาง start ครั้งหน้าลบที่เหลือ — spoil D15, D23, D80); start backend ลบไฟล์การตัดของ id ที่ไม่มี Temp clip หรือไม่มี `shots.json` (D71)
 
 ### Spoil draft
 
@@ -471,7 +471,7 @@ Temp clip หนึ่งคลิปตัดเป็น EP ตามเวล
 
 ### API
 
-ทุก route อยู่ใต้ `/api/spoil-maker`. POST และ PATCH ต้องเป็น JSON (ADR-0013); ทุก request ผ่าน `TrustedHostMiddleware` (ADR-0011). Error เป็นรูปแบนเดียวกับ `ApiError` ของ spoil: `{"code", "message", ...extra}`; ที่ framework ตอบเองก็เช่นกัน — path ไม่มี route `404` `not_found`, method ผิด `405` `method_not_allowed`, body ไม่ใช่ object `400` `invalid_request` (D56, D63).
+ทุก route อยู่ใต้ `/api/spoil-maker`. POST, PUT และ PATCH ต้องเป็น JSON (ADR-0013); ทุก request ผ่าน `TrustedHostMiddleware` (ADR-0011). Error เป็นรูปแบนเดียวกับ `ApiError` ของ spoil: `{"code", "message", ...extra}`; ที่ framework ตอบเองก็เช่นกัน — path ไม่มี route `404` `not_found`, method ผิด `405` `method_not_allowed`, body ไม่ใช่ object `400` `invalid_request` (D56, D63).
 
 | Method | Path | ทำอะไร | ตอบ |
 |---|---|---|---|
@@ -480,7 +480,7 @@ Temp clip หนึ่งคลิปตัดเป็น EP ตามเวล
 | `POST` | `/describes` | `{clip_id, confirm_draft_loss?}` เริ่ม Describe job | `202` job; `409` `busy`, `gpu_busy`, `in_draft`, `clip_busy`; `503` `not_ready`; `404` `not_found` |
 | `GET` | `/describes/current` | งานล่าสุดหรือ `null` | `200` |
 | `DELETE` | `/describes/current` | ยกเลิก | `202` job; ไม่มีงานค้าง `404` `not_found` |
-| `GET` | `/clips/{id}/episodes` | การตัด EP ของคลิป (EP) | `200` `{clip_id, minutes, custom, episodes: [{n, start_s, end_s, thumb_shot, lines, tokens, renders, in_draft}], limit: 32000}` โดย `thumb_shot` = ภาพเล็กของ EP, `lines` จำนวนบรรทัดใน EP, `tokens` ของบรรทัดใน EP (D46, D54) หรือ `null` เมื่อไม่มี tokenizer ของ Qwen (D60, D71), `renders` = จำนวนผล render ที่ `clip_id` ตรงและ `start_s` `end_s` ต่างไม่เกิน 0.01 วินาที, `in_draft` = Spoil draft ใช้คลิปนี้และช่วงตรงแบบเดียวกัน (D71); ยังไม่ถอดหรือบรรยายฉาก `400` `clip_not_ready` |
+| `GET` | `/clips/{id}/episodes` | การตัด EP ของคลิป (EP) | `200` `{clip_id, minutes, custom, episodes: [{n, start_s, end_s, thumb_shot, lines, tokens, renders, in_draft}], limit: 32000, tokens_not_ready}` โดย `thumb_shot` = ภาพเล็กของ EP, `lines` จำนวนบรรทัดใน EP, `tokens` ของบรรทัดใน EP (D46, D54) หรือ `null` เมื่อไม่มี tokenizer ของ Qwen (D60, D71) แล้ว `tokens_not_ready` เป็นข้อความ `not_ready` (ไม่งั้น `null`, D80), `renders` = จำนวนผล render ที่ `clip_id` ตรงและ `start_s` `end_s` ต่างไม่เกิน 0.01 วินาที, `in_draft` = Spoil draft ใช้คลิปนี้และช่วงตรงแบบเดียวกัน (D71); ยังไม่ถอดหรือบรรยายฉาก `400` `clip_not_ready` |
 | `PUT` | `/clips/{id}/episodes` | `{minutes, cuts?}` ตั้งการตัด; ไม่มี `cuts` = ตัดตาม `minutes` (D66, D69) | `200` แบบ `GET`; `400` `invalid_episodes`, `clip_not_ready`; `409` `clip_busy` (EP › lock) |
 | `GET` | `/voices` | `[{id, name, speed, chars_per_s, created_at, in_use}]` ใหม่สุดก่อน | `200` |
 | `POST` | `/voices` | `{name}` บันทึก preview ล่าสุด | `201` voice; ไม่มี preview `409` `no_preview`; `400` `invalid_voice` |
@@ -555,7 +555,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 - ตัวบอกขั้น (D68, D71): `SpoilMakerPage` เก็บ state ของ `GET /draft`, `GET /renders` และ `/draft-jobs/current`, `/voice-jobs/current` (`kind` `sentences`), `/renders/current` ร่วมกับทุกขั้น; poll ทุก 1 วินาทีขณะมีงานที่ state ไม่ใช่ `done`, `failed`, `cancelled`; หน้าใดเริ่มหรือยกเลิกงานแจ้ง `SpoilMakerPage` ให้อ่านใหม่และเริ่ม poll; งานเปลี่ยนจากรันเป็นจบ → อ่าน `/draft` และ `/renders` ใหม่
   - จุดหมุนเฉพาะงานที่ยังไม่จบ; `percent` เป็น `null` แสดง "render…"; Render job ช่วง `voicing` แสดง "render: สร้างเสียง x/y" ที่ขั้น 3; งาน `kind: "pick"` ไม่ทำให้ขั้น 2 เป็น "กำลังร่าง" แต่มีจุดหมุน; state `polishing` ของ `kind: "draft"` แสดง "กำลังเรียบเรียง" ที่ขั้น 2; `kind: "polish"` แสดง "กำลังเรียบเรียง" พร้อมจุดหมุนที่ขั้น 2 และเมื่อ `failed` แสดง "เรียบเรียงไม่สำเร็จ" (ไม่ใช่ "ร่างบทไม่สำเร็จ") (D76)
   - งานล่าสุด `failed`: ขั้นของงานนั้นแสดง "ร่างบทไม่สำเร็จ", "สร้างเสียงไม่สำเร็จ" หรือ "render ไม่สำเร็จ" จนเริ่มงานใหม่
-- ขั้น 1: กดร่างรอ `PUT` การตัดที่ค้างอยู่ให้จบก่อนส่ง `POST /draft-jobs`; `409` `episodes_changed` → อ่านรายการ EP ใหม่และบอก "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง"; เปลี่ยนความยาวต่อ EP ตอน `custom: true` → ยืนยันก่อนเพราะจุดตัดที่เลื่อนเองจะหาย; `tokens: null` → ปุ่มร่างกดไม่ได้พร้อมข้อความ `not_ready`; EP ที่ `lines` 0 เลือกได้แต่ปุ่มร่างกดไม่ได้พร้อม "EP นี้ไม่มีบทพูด" (D71)
+- ขั้น 1: กดร่างรอ `PUT` การตัดที่ค้างอยู่ให้จบก่อนส่ง `POST /draft-jobs`; `409` `episodes_changed` → อ่านรายการ EP ใหม่และบอก "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง"; เปลี่ยนความยาวต่อ EP ตอน `custom: true` → ยืนยันก่อนเพราะจุดตัดที่เลื่อนเองจะหาย; `tokens: null` → ปุ่มร่างกดไม่ได้พร้อม `tokens_not_ready`; ก่อนอ่านรายการ EP ตัวนับ token เป็น "— / —" (D80); EP ที่ `lines` 0 เลือกได้แต่ปุ่มร่างกดไม่ได้พร้อม "EP นี้ไม่มีบทพูด" (D71)
 - ขั้น 1 จำคลิปที่เลือกตาม `clip_id` ของ Spoil draft เมื่อมี; เลื่อนจุดตัดบันทึกเมื่อ blur (`PUT /clips/{id}/episodes`)
 - ระหว่าง `locked: true` ทุกช่องแก้ของหน้าตรวจแก้กดไม่ได้ (D51)
 - ปุ่ม "เรียบเรียงใหม่" (D72, D75): เปิดกล่องเลือกก่อนส่ง — ช่องติ๊ก "เรียบเรียงประโยคที่แก้เองด้วย" (ตั้งต้นไม่ติ๊ก, แสดงเมื่อมีประโยค `edited`), "ประโยคที่เปลี่ยนต้องสร้างเสียงใหม่" เมื่อมีประโยคที่มีเสียง; ทุกประโยค `edited` และไม่ติ๊ก → ปุ่ม "เรียบเรียง" กดไม่ได้พร้อม "ทุกประโยคแก้เองแล้ว: ติ๊กเพื่อเรียบเรียงทับ"; ติ๊กแล้วเห็น "ข้อความที่แก้เอง {n} ประโยคจะถูกเขียนทับ ย้อนกลับไม่ได้"; กด "เรียบเรียง" รอการบันทึกประโยคที่ค้างให้จบ แล้วอ่าน `/draft` ใหม่ก่อนส่ง; ระหว่างงาน "กำลังเรียบเรียง" กับปุ่มยกเลิก; จบแล้วบอก "เรียบเรียง {done} ประโยค" หรือ "ไม่มีประโยคที่เปลี่ยน" เมื่อ 0; ประโยค `edited` มีป้าย "แก้เอง" (D74, D76)
@@ -686,7 +686,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
    - Status check และความปลอดภัย:
      - marker ของ Qwen หาย → `POST /describes` และ `POST /draft-jobs` → `503` `not_ready` มี `model_qwen`; `POST /voice-jobs` → `202`; คลิปใน Spoil draft ไม่มี `confirm_draft_loss` → ยังเป็น `503` `not_ready` ไม่ใช่ `in_draft` (D60)
      - `GET /api/setup/status` มีแถว `model_qwen`, `mlx_vlm`, `pythainlp`, `font_kanit`; `run_checks` กับ `sys_platform` `win32` → `model_qwen` และ `mlx_vlm` `missing`
-     - ทุก POST และ PATCH ที่ `Content-Type: text/plain` → `415`; `Host: evil.example` → `400`
+     - ทุก POST, PUT และ PATCH ที่ `Content-Type: text/plain` → `415`; `Host: evil.example` → `400`
 2. **ทุกหน้าใต้ tab สปอย** `frontend` ด้วย Vitest และ fetch ปลอม (project ไม่มีเครื่องมือ e2e)
    - `#/spoil` เปิด tab สปอยที่ขั้น 1 เลือกคลิป (D53)
    - ตัวบอกขั้น (D68): ทุกขั้นเป็นลิงก์ที่มีเลข ไม่มีภาพเครื่องหมายถูก; มี draft ของ EP 2 6 ประโยคและผล render 3 รายการ → เห็น "{ชื่อคลิป} · EP 2", "6 ประโยค", "3 คลิป"; ไม่มีเลย → "ยังไม่เลือก", "ยังไม่มีบท", "ยังไม่มี"

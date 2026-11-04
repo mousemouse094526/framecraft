@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { RenderJob, RenderResult } from "../lib/render";
+import { get, phased, type Route, send, serve } from "./testBackend";
 
 const RENDERS = "/api/spoil-maker/renders";
 const CURRENT = "/api/spoil-maker/renders/current";
@@ -28,36 +29,10 @@ const VOICING: RenderJob = {
   started_at: "2026-11-03T14:30:00+07:00",
 };
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-type Route = { method?: string; path: string; reply: () => Response };
-
 /** Answers each route once in order when it repeats; the last of a path keeps answering. */
 function backend(routes: Route[]) {
-  fetchMock.mockImplementation(async (input, init) => {
-    const method = init?.method ?? "GET";
-    const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
-    if (matches.length === 0) throw new Error(`unexpected ${method} ${String(input)}`);
-    if (matches.length > 1) routes.splice(routes.indexOf(matches[0]), 1);
-    return matches[0].reply();
-  });
+  serve(fetchMock, routes);
 }
-
-const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
-
-/** One answer per poll, however many hooks poll the path: the test moves `phases.at` on (the steps poll too, D68). */
-function phased(path: string, ...bodies: unknown[]) {
-  const phases = { at: 0 };
-  const route: Route = { path, reply: () => jsonResponse(bodies[Math.min(phases.at, bodies.length - 1)]) };
-  return { route, phases };
-}
-const send = (method: string, path: string, body: unknown, code: number): Route => ({
-  method,
-  path,
-  reply: () => jsonResponse(body, code),
-});
 
 async function openRenders() {
   window.location.hash = "#/spoil/renders";

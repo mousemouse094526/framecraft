@@ -5,6 +5,8 @@ counter (spoil-maker seam 1)."""
 import json
 import re
 import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -15,11 +17,12 @@ from backend.app import app
 from backend.models import QWEN
 from backend.paths import ProjectPaths
 from backend.spoil import transcribe
-from backend.spoil_maker import describe, draft
+from backend.spoil_maker import describe, draft, voices
 
 from .fakes import (
     poll_until,
     FakeLlm,
+    FakeTts,
     FakeWorker,
     cuda_device,
     make_test_clip,
@@ -129,6 +132,13 @@ def whisper(monkeypatch) -> FakeWorker:
 
 
 @pytest.fixture
+def tts(monkeypatch) -> FakeTts:
+    fake = FakeTts()
+    monkeypatch.setattr(spoil_maker, "start_tts_worker", fake)
+    return fake
+
+
+@pytest.fixture
 def client(fake_root, llm, counted, whisper, monkeypatch):
     """Everything the gates check passes, with fresh job slots and a free GPU slot."""
     monkeypatch.setattr(paths, "ROOT", fake_root)
@@ -138,7 +148,38 @@ def client(fake_root, llm, counted, whisper, monkeypatch):
     monkeypatch.setattr(draft, "draft_jobs", draft.DraftJobs())
     monkeypatch.setattr(describe, "describes", describe.Describes())
     monkeypatch.setattr(transcribe, "transcriptions", transcribe.Transcriptions())
+    monkeypatch.setattr(voices, "voice_jobs", voices.VoiceJobs())
     return TestClient(app, base_url="http://127.0.0.1")
+
+
+@contextmanager
+def transcribing(client, whisper: FakeWorker, clip_id: str) -> Iterator[None]:
+    """A Transcribe job of the clip started through the API, paused before its first segment:
+    it holds the GPU slot and reads the clip until the block ends, then finishes."""
+    whisper.pause_at(0)
+    response = client.post("/api/spoil/transcriptions", json={"clip_id": clip_id})
+    assert response.status_code == 202, response.json()
+    whisper.wait_until(0)
+    try:
+        yield
+    finally:
+        whisper.release(0)
+        poll_until(client, "/api/spoil/transcriptions/current", lambda job: job["state"] not in transcribe.UNFINISHED)
+
+
+@contextmanager
+def voicing(client, tts: FakeTts, sentence_id: str) -> Iterator[None]:
+    """A Voice job of one draft sentence started through the API, paused before it speaks:
+    it holds the GPU slot and locks the draft until the block ends, then finishes."""
+    tts.pause_at(0)
+    response = client.post("/api/spoil-maker/voice-jobs", json={"kind": "sentences", "sentence_ids": [sentence_id]})
+    assert response.status_code == 202, response.json()
+    tts.wait_until(0)
+    try:
+        yield
+    finally:
+        tts.release(0)
+        poll_until(client, "/api/spoil-maker/voice-jobs/current", lambda job: job["state"] not in voices.UNFINISHED)
 
 
 def ready_clip(project: ProjectPaths, video_id: str = EP1, described: bool = True, lines=LINES) -> None:
@@ -323,6 +364,7 @@ def test_with_qwens_snapshot_gone_tokens_are_null_and_a_draft_is_not_ready(clien
 
     assert listed.status_code == 200
     assert [ep["tokens"] for ep in listed.json()["episodes"]] == [None]
+    assert listed.json()["tokens_not_ready"] == response.json()["message"]
     assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["model_qwen"])
 
 
@@ -369,13 +411,12 @@ def test_a_missing_qwen_marker_is_not_ready(client, project, ready):
     assert "model_qwen" in response.json()["rows"]
 
 
-def test_a_draft_while_a_describe_job_runs_is_gpu_busy(client, ready):
-    gpu.slot.take("describe", [EP2])
-
-    response = start(client)
+def test_a_draft_while_a_transcribe_job_runs_is_gpu_busy(client, ready, whisper):
+    with transcribing(client, whisper, EP2):
+        response = start(client)
 
     assert response.status_code == 409
-    assert response.json() == {"code": "gpu_busy", "message": "รอให้งานบรรยายฉากเสร็จก่อน", "running": "describe"}
+    assert (response.json()["code"], response.json()["running"]) == ("gpu_busy", "transcribe")
 
 
 def test_an_unknown_kind_is_invalid_request(client, ready):
@@ -931,20 +972,20 @@ def test_polish_without_qwen_is_not_ready(client, project, ready):
     assert (response.status_code, response.json()["code"]) == (503, "not_ready")
 
 
-def test_polish_while_the_draft_is_voiced_is_draft_locked(client, project, ready):
+def test_polish_while_the_draft_is_voiced_is_draft_locked(client, project, ready, tts):
     three_sentences(project)
-    gpu.slot.take("voice", [EP1], locks_draft=True)
 
-    response = polish(client)
+    with voicing(client, tts, "s_00000001"):
+        response = polish(client)
 
     assert (response.status_code, response.json()["code"]) == (409, "draft_locked")
 
 
-def test_polish_while_another_gpu_job_runs_is_gpu_busy(client, project, ready):
+def test_polish_while_another_gpu_job_runs_is_gpu_busy(client, project, ready, whisper):
     three_sentences(project)
-    gpu.slot.take("describe", [EP2])
 
-    response = polish(client)
+    with transcribing(client, whisper, EP2):
+        response = polish(client)
 
     assert (response.status_code, response.json()["code"]) == (409, "gpu_busy")
 

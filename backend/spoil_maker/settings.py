@@ -16,6 +16,7 @@ from backend import files
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.spoil_maker import thai
+from backend.spoil_maker.json_values import is_int
 
 log = logging.getLogger(__name__)
 
@@ -109,4 +110,4 @@ def _invalid(message: str) -> ApiError:
 
 
 def is_volume(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 100 and value % VOLUME_STEP == 0
+    return is_int(value) and 0 <= value <= 100 and value % VOLUME_STEP == 0

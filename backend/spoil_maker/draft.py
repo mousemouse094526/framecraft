@@ -24,6 +24,7 @@ from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, episodes, script, settings, shots, thai, voices
 from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef, Style
+from backend.spoil_maker.json_values import is_int
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
 from backend.spoil_maker.script import Brief
 from backend.spoil_maker.shots import ShotsFile
@@ -99,6 +100,8 @@ class DraftJob(BaseModel):
     state: State
     clip_id: None = None  # every job reads the same shape; this one is of no single clip
     percent: None = None
+    # While `matching`: sentences whose Shots are picked of those to pick. A finished `polish`:
+    # sentences whose text changed of those asked to polish (spec › API).
     done: int | None = None
     total: int | None = None
     error: DraftJobError | None = None
@@ -145,14 +148,14 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         """Checks in spec order (Draft job step 1), then starts the thread. The draft's
         lock covers `draft_exists` and taking the GPU, so no edit slips between them (D51)."""
         project = paths.project()
-        clip_id, transcript, ep = _ready_ep(project, body.get("clip_id"), body.get("ep"))
+        clip_id, transcript, ep = episodes.asked_ep(project, body.get("clip_id"), body.get("ep"))
         lines = episodes.lines_of(transcript, ep)
         if not lines:
             raise ApiError(400, "ep_empty", "EP นี้ไม่มีบทพูด")
         style, layout, target_s = body.get("style"), body.get("layout"), body.get("target_s")
         if style not in script.STYLES or layout not in LAYOUTS:
             raise ApiError(400, "invalid_request", "เลือกสไตล์และ layout จากรายการ")
-        if isinstance(target_s, bool) or not isinstance(target_s, int) or not TARGET_MIN <= target_s <= TARGET_MAX:
+        if not is_int(target_s) or not TARGET_MIN <= target_s <= TARGET_MAX:
             raise ApiError(400, "invalid_target", f"ความยาวต้องเป็นวินาทีเต็ม {TARGET_MIN}–{TARGET_MAX}")
         voice_id = body.get("voice_id")
         chars_per_s = voices.chars_per_s(project, voice_id) if isinstance(voice_id, str) else None
@@ -190,9 +193,10 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 gpu.slot.take("draft", [clip_id], locks_draft=True)
                 # Holding the GPU for the clip, no `PUT` can change its cut now; one may have
                 # between the check above and here (D71).
-                if not order.ep.matches(*_span_now(project, clip_id, order.ep.n)):
+                now = episodes.span(project, clip_id, order.ep.n)
+                if now is None or not order.ep.matches(now.start_s, now.end_s):
                     gpu.slot.release("draft")
-                    raise _episodes_changed()
+                    raise episodes.episodes_changed()
             self._job = DraftJob(kind="draft", state="writing", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -348,9 +352,11 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             draft.sentences,
             _transcript(project, draft.clip_id),
             asked,
+            # Not `near_target`: the draft may have been edited far from its target since (spec › เรียบเรียง).
             lambda after: script.grew_little(after, draft.sentences),
         )
         if polished is None:
+            # The user asked for this polish, so here it is the job's failure; inside `kind: "draft"` it is not.
             raise JobFailed("polish_failed", "AI เรียบเรียงไม่สำเร็จ บทเดิมไม่เปลี่ยน")
         changed = 0
         with gpu.slot.draft_lock:
@@ -609,7 +615,7 @@ def _checked_shots(project: ProjectPaths, draft: Draft, value: object) -> list[S
         if not isinstance(slot, dict) or slot.get("clip_id") != draft.clip_id:
             raise invalid
         n = slot.get("n")
-        if isinstance(n, bool) or not isinstance(n, int) or found is None or not 0 <= n < len(found.shots):
+        if not is_int(n) or found is None or not 0 <= n < len(found.shots):
             raise invalid
         if not draft.ep.overlaps(found.shots[n].start, found.shots[n].end):
             raise invalid
@@ -661,39 +667,12 @@ def _window(refs: list[Ref], transcript: Transcript | None, ep: Ep) -> Window | 
     return Window(clip_id=transcript.clip_id, start=start, end=end)
 
 
-def _episodes_changed() -> ApiError:
-    return ApiError(409, "episodes_changed", "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง")
-
-
-def _span_now(project: ProjectPaths, clip_id: str, n: int) -> tuple[float, float]:
-    """EP `n`'s range in the clip's cut now; a missing EP matches nothing."""
-    now = episodes.span(project, clip_id, n)
-    return (now.start_s, now.end_s) if now else (-1.0, -1.0)
-
-
 def _transcript(project: ProjectPaths, clip_id: str) -> Transcript | None:
     """None when it can't be read."""
     try:
         return transcribe.read_transcript(project, clip_id)
     except ApiError:
         return None
-
-
-def _ready_ep(project: ProjectPaths, clip_id: object, ep: object) -> tuple[str, Transcript, episodes.Span]:
-    """Step 1.1: the clip is transcribed and described, and `ep` names an EP of its cut now
-    by number and range (D71). Raises `ApiError` 400 `clip_not_ready` or `invalid_episodes`,
-    or 409 `episodes_changed`."""
-    transcript = _transcript(project, clip_id) if isinstance(clip_id, str) else None
-    if transcript is None or not shots.is_described(project, clip_id):
-        raise episodes.not_ready(clip_id)
-    asked = ep if isinstance(ep, dict) else {}
-    now = episodes.span(project, clip_id, asked.get("n"))
-    if now is None:
-        raise episodes.invalid()
-    start_s, end_s = asked.get("start_s"), asked.get("end_s")
-    if not (episodes.is_number(start_s) and episodes.is_number(end_s) and now.matches(start_s, end_s)):
-        raise _episodes_changed()
-    return clip_id, transcript, now
 
 
 draft_jobs = DraftJobs()

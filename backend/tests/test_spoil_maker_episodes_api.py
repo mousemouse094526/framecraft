@@ -6,7 +6,6 @@ import json
 
 import pytest
 
-from backend import gpu
 from backend.paths import ProjectPaths
 
 from .fakes import write_temp_clip, write_transcript
@@ -24,6 +23,9 @@ from .test_spoil_maker_draft_api import (  # noqa: F401 (fixtures)
     script,
     sentence,
     start,
+    transcribing,
+    tts,
+    voicing,
     wait_for_end,
     whisper,
     write_draft,
@@ -123,7 +125,8 @@ def test_a_cut_halfway_between_two_shots_goes_to_the_earlier(client, film):
         {"minutes": 7},
         {"minutes": 65},
         {"minutes": True},
-        '{"minutes": 30, "cuts": [NaN]}',  # JSON as Python writes it; the test client refuses NaN
+        # Python's json reads NaN, so a cut must be checked finite; the test client won't send it.
+        '{"minutes": 30, "cuts": [NaN]}',
         {"minutes": 30, "cuts": [True]},
         {"minutes": 30, "cuts": ["10"]},
         {"minutes": 30, "cuts": [2000, 1000]},
@@ -177,18 +180,28 @@ def test_a_broken_cut_file_is_cut_again_by_ep_minutes(client, project, film, con
     assert (cuts_of(response), response.json()["custom"]) == ([1799.0], False)
 
 
-def test_putting_a_cut_while_a_describe_job_reads_the_clip_is_clip_busy(client, film):
-    gpu.slot.take("describe", [FILM])
-
-    response = client.put(episodes_path(), json={"minutes": 25})
+def test_putting_a_cut_while_a_transcribe_job_reads_the_clip_is_clip_busy(client, film, whisper):
+    with transcribing(client, whisper, FILM):
+        response = client.put(episodes_path(), json={"minutes": 25})
 
     assert (response.status_code, response.json()["code"]) == (409, "clip_busy")
 
 
-def test_putting_a_cut_while_a_voice_job_reads_the_clip_is_allowed(client, film):
-    gpu.slot.take("voice", [FILM], locks_draft=True)
+def test_putting_a_cut_while_a_voice_job_reads_the_clip_is_allowed(client, project, film, tts):
+    """A Voice job reads the draft's own copy of its EP, not the clip's cut (D71)."""
+    write_voice(project)
+    write_draft(project, clip_id=FILM, sentences=[sentence("s_00000001", "ประโยค", refs=[{"clip_id": FILM, "line": 1}])])
 
-    assert client.put(episodes_path(), json={"minutes": 25}).status_code == 200
+    with voicing(client, tts, "s_00000001"):
+        response = client.put(episodes_path(), json={"minutes": 25})
+
+    assert response.status_code == 200
+
+
+def test_a_cut_that_is_not_json_is_415(client, film):
+    response = client.put(episodes_path(), content=b'{"minutes": 25}', headers={"Content-Type": "text/plain"})
+
+    assert (response.status_code, response.json()["code"]) == (415, "unsupported_media_type")
 
 
 def test_episodes_of_a_clip_not_described_are_clip_not_ready(client, project):

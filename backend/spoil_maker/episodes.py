@@ -20,6 +20,7 @@ from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, script, settings, shots
 from backend.spoil_maker.draft_file import Ep
+from backend.spoil_maker.json_values import is_int, is_number
 from backend.spoil_maker.script import NumberedLine
 from backend.spoil_maker.shots import ShotsFile
 
@@ -57,20 +58,24 @@ class Episodes(BaseModel):
     custom: bool
     episodes: list[Episode]
     limit: int = TOKEN_LIMIT
+    # The `not_ready` message when the EPs' tokens are null, for the draft button (D71).
+    tokens_not_ready: str | None = None
 
 
-class Span(Ep):
-    """One EP of the cut as it is now."""
+class CutEp(Ep):
+    """One EP of the clip's cut as it is now (a draft's `Ep` is the EP as it was cut then)."""
 
-    # A Transcript line may start after the last Shot ends (the clip's length): it is the last EP's.
+    # Whether it is the clip's last EP. A Transcript line may start after the last Shot ends (the
+    # clip's length, `end_s` here), so the last EP also takes the lines from its `end_s` on.
     last: bool
 
 
 def view(project: ProjectPaths, clip_id: str) -> Episodes:
     """The clip's cut with each EP's lines, tokens, renders and whether the Spoil draft is of it.
-    Cuts the clip by `ep_minutes` the first time and keeps that (D71)."""
+    A clip with no cut yet is cut by `ep_minutes` and the file written, so the next read and the
+    Draft job see the same EPs (D71): this `GET` may write."""
     minutes = _remembered_minutes(project)
-    with gpu.slot.clip_files():
+    with gpu.slot.clip_files_lock():
         shot_file, cuts = _current(project, clip_id, minutes)
     return _view(project, clip_id, shot_file, cuts)
 
@@ -81,33 +86,54 @@ def change(project: ProjectPaths, clip_id: str, body: dict) -> Episodes:
     `invalid_episodes`, or 409 `clip_busy` while a job reads the clip (D71)."""
     minutes = body.get("minutes")
     if not _is_minutes(minutes):
-        raise invalid()
+        raise invalid_episodes()
     with gpu.slot.clip_untouched(clip_id, by=READERS):
         found = _ready_shots(project, clip_id)
         if "cuts" in body:
             cuts = Cuts(minutes=minutes, cuts=_users_cuts(body["cuts"], found), custom=True)
         else:
-            cuts = Cuts(minutes=minutes, cuts=cut_by_minutes(found, minutes), custom=False)
+            cuts = _by_minutes(found, minutes)
         old = _stored(project, clip_id, found)
         _write(project, clip_id, cuts)
-    # After the slot's lock, which is always the innermost (`backend.gpu`).
+    # `settings` has a lock of its own: take it only after leaving the slot's, because the slot's
+    # lock is always the innermost one (`backend.gpu`, fastapi-api SKILL › Never break).
     if old is None or old.minutes != minutes:
         settings.remember(project, ep_minutes=minutes)
     return _view(project, clip_id, found, cuts)
 
 
-def span(project: ProjectPaths, clip_id: str, n: object) -> Span | None:
+def span(project: ProjectPaths, clip_id: str, n: object) -> CutEp | None:
     """EP `n` of the clip's cut now, or None when there is no such EP. The clip must be described."""
     minutes = _remembered_minutes(project)
-    with gpu.slot.clip_files():
+    with gpu.slot.clip_files_lock():
         shot_file, cuts = _current(project, clip_id, minutes)
     spans = _spans(cuts.cuts, _length(shot_file))
-    if isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= len(spans):
+    if not is_int(n) or not 1 <= n <= len(spans):
         return None
     return spans[n - 1]
 
 
-def lines_of(transcript: Transcript, ep: Span) -> list[NumberedLine]:
+def asked_ep(project: ProjectPaths, clip_id: object, ep: object) -> tuple[str, Transcript, CutEp]:
+    """Draft job step 1.1: the clip is transcribed and described, and `ep` names an EP of its
+    cut now by number and range (D71). Raises `ApiError` 400 `clip_not_ready` or
+    `invalid_episodes`, or 409 `episodes_changed`."""
+    try:
+        transcript = transcribe.read_transcript(project, clip_id) if isinstance(clip_id, str) else None
+    except ApiError:
+        transcript = None
+    if transcript is None or not shots.is_described(project, clip_id):
+        raise not_ready(clip_id)
+    asked = ep if isinstance(ep, dict) else {}
+    now = span(project, clip_id, asked.get("n"))
+    if now is None:
+        raise invalid_episodes()
+    start_s, end_s = asked.get("start_s"), asked.get("end_s")
+    if not (is_number(start_s) and is_number(end_s) and now.matches(start_s, end_s)):
+        raise episodes_changed()
+    return clip_id, transcript, now
+
+
+def lines_of(transcript: Transcript, ep: CutEp) -> list[NumberedLine]:
     """The EP's lines with their index in the whole Transcript: those that start in its range."""
     return [
         (index, line)
@@ -162,7 +188,7 @@ def _current(project: ProjectPaths, clip_id: str, minutes: int) -> tuple[ShotsFi
     found = _ready_shots(project, clip_id)
     cuts = _stored(project, clip_id, found)
     if cuts is None:
-        cuts = Cuts(minutes=minutes, cuts=cut_by_minutes(found, minutes), custom=False)
+        cuts = _by_minutes(found, minutes)
         _write(project, clip_id, cuts)
     return found, cuts
 
@@ -180,11 +206,6 @@ def _ready_shots(project: ProjectPaths, clip_id: str) -> ShotsFile:
 def not_ready(clip_id: object) -> ApiError:
     """`clip_not_ready`: the clip must be transcribed and described to cut or draft from (D16)."""
     return ApiError(400, "clip_not_ready", "คลิปนี้ยังไม่ได้ถอดบทพูดหรือบรรยายฉาก", clip_ids=[clip_id])
-
-
-def is_number(value: object) -> bool:
-    """An int or float that is not a boolean: JSON `true` is an int to Python."""
-    return isinstance(value, int | float) and not isinstance(value, bool)
 
 
 def _stored(project: ProjectPaths, clip_id: str, found: ShotsFile) -> Cuts | None:
@@ -215,12 +236,12 @@ def _users_cuts(value: object, found: ShotsFile) -> list[float]:
     then they must go up, inside the clip, and leave every EP a minute or more."""
     length = _length(found)
     if not isinstance(value, list) or len(value) > math.floor(length / MIN_EP_SECONDS):
-        raise invalid()
+        raise invalid_episodes()
     if not all(is_number(at) and math.isfinite(at) for at in value):
-        raise invalid()
+        raise invalid_episodes()
     cuts = [_snap(at, found) for at in value]
     if not _allowed(cuts, found):
-        raise invalid()
+        raise invalid_episodes()
     return cuts
 
 
@@ -232,6 +253,10 @@ def _allowed(cuts: list[float], found: ShotsFile) -> bool:
     return not cuts or all(later - earlier >= MIN_EP_SECONDS for earlier, later in zip(edges, edges[1:]))
 
 
+def _by_minutes(found: ShotsFile, minutes: int) -> Cuts:
+    return Cuts(minutes=minutes, cuts=cut_by_minutes(found, minutes), custom=False)
+
+
 def _snap(at: float, found: ShotsFile) -> float:
     """The start of the Shot nearest `at`; a tie goes to the earlier Shot."""
     return min((shot.start for shot in found.shots), key=lambda start: (abs(start - at), start))
@@ -241,11 +266,11 @@ def _length(found: ShotsFile) -> float:
     return found.shots[-1].end  # D71
 
 
-def _spans(cuts: list[float], length: float) -> list[Span]:
+def _spans(cuts: list[float], length: float) -> list[CutEp]:
     """EP `n` is [`cuts[n-2]` or 0, `cuts[n-1]` or the length): open at the end."""
     edges = [0.0, *cuts, length]
     last = len(edges) - 1
-    return [Span(n=n, start_s=edges[n - 1], end_s=edges[n], last=n == last) for n in range(1, last + 1)]
+    return [CutEp(n=n, start_s=edges[n - 1], end_s=edges[n], last=n == last) for n in range(1, last + 1)]
 
 
 def _view(project: ProjectPaths, clip_id: str, found: ShotsFile, cuts: Cuts) -> Episodes:
@@ -257,17 +282,21 @@ def _view(project: ProjectPaths, clip_id: str, found: ShotsFile, cuts: Cuts) -> 
     drafted = draft_file.read(project)
     shot_at = {shot.start: shot.n for shot in found.shots}
     episodes = []
+    refused: str | None = None
     for ep in _spans(cuts.cuts, _length(found)):
         lines = lines_of(transcript, ep)
         try:
             counted = tokens(project, lines)
-        except ApiError:
+        except ApiError as error:
             counted = None  # the page shows `not_ready` on the draft button, not on the whole list (D71)
+            refused = error.message
         episodes.append(
             Episode(
                 n=ep.n,
                 start_s=ep.start_s,
                 end_s=ep.end_s,
+                # Every EP after the first starts at a Shot (`_stored` checks it); the first starts
+                # at 0, which a clip's first Shot may not (D71).
                 thumb_shot=shot_at.get(ep.start_s, found.shots[0].n),
                 lines=len(lines),
                 tokens=counted,
@@ -277,7 +306,9 @@ def _view(project: ProjectPaths, clip_id: str, found: ShotsFile, cuts: Cuts) -> 
                 and ep.matches(drafted.ep.start_s, drafted.ep.end_s),
             )
         )
-    return Episodes(clip_id=clip_id, minutes=cuts.minutes, custom=cuts.custom, episodes=episodes)
+    return Episodes(
+        clip_id=clip_id, minutes=cuts.minutes, custom=cuts.custom, episodes=episodes, tokens_not_ready=refused
+    )
 
 
 def _remembered_minutes(project: ProjectPaths) -> int:
@@ -288,12 +319,16 @@ def _remembered_minutes(project: ProjectPaths) -> int:
 
 def _is_minutes(value: object) -> bool:
     return (
-        isinstance(value, int)
-        and not isinstance(value, bool)
+        is_int(value)
         and MINUTES_MIN <= value <= MINUTES_MAX
         and value % MINUTES_STEP == 0
     )
 
 
-def invalid() -> ApiError:
+def invalid_episodes() -> ApiError:
     return ApiError(400, "invalid_episodes", "ตัด EP แบบนี้ไม่ได้: ทุก EP ต้องยาวอย่างน้อย 1 นาทีและเรียงตามเวลา")
+
+
+def episodes_changed() -> ApiError:
+    """The EP a Draft job was asked for is not in the clip's cut any more (D71)."""
+    return ApiError(409, "episodes_changed", "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง")

@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import { formatDuration, parseClock } from "../../../lib/format";
+import { formatDuration } from "../../../lib/format";
+import { parseClock } from "../lib/clock";
 import chevronDownIcon from "../assets/chevron-down.svg";
 import radioSelectedIcon from "../assets/radio-selected.svg";
 import radioIcon from "../assets/radio.svg";

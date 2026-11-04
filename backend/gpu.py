@@ -83,7 +83,7 @@ class GpuSlot:
             yield
 
     @contextmanager
-    def clip_files(self) -> Iterator[None]:
+    def clip_files_lock(self) -> Iterator[None]:
         """Runs the block under the slot's lock, refusing nothing. A clip's EP cuts are read
         and written under it: the cuts sit on the clip's Shot edges, and a Describe job swaps
         in new Shots and removes the cuts under this same lock, so neither sees half of the

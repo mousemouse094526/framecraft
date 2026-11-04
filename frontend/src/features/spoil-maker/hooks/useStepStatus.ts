@@ -1,10 +1,18 @@
 import { createContext, useCallback, useContext, useEffect } from "react";
 import { getJson } from "../../../lib/api";
-import { isRunning } from "../../../lib/job";
+import { cancelCurrent, isRunning } from "../../../lib/job";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { DRAFT_JOB_PATH, DRAFT_PATH, type Draft, type DraftJob } from "../lib/draft";
-import { RENDER_JOB_PATH, RENDERS_PATH, VOICE_JOB_PATH, type RenderJob, type RenderResult, type SentencesJob } from "../lib/render";
+import {
+  RENDER_JOB_PATH,
+  RENDERS_PATH,
+  startJob,
+  VOICE_JOB_PATH,
+  type RenderJob,
+  type RenderResult,
+  type SentencesJob,
+} from "../lib/render";
 import type { StepStatus } from "../lib/steps";
 
 const START: StepStatus = { draft: undefined, renders: undefined, draftJob: null, voiceJob: null, renderJob: null };
@@ -23,6 +31,31 @@ const readResults = () => Promise.all([getJson<Draft | null>(DRAFT_PATH), getJso
 export const StepsRefreshContext = createContext<() => void>(() => {});
 
 export const useStepsRefresh = () => useContext(StepsRefreshContext);
+
+/**
+ * `startJob` and `cancelCurrent` for a step's hook: each tells the steps once a job is started
+ * or found running (`busy`), or is cancelling, so no caller has to remember to.
+ */
+export function useJobCalls() {
+  const refreshSteps = useStepsRefresh();
+  const start = useCallback(
+    async <Job>(path: string, body: unknown) => {
+      const reply = await startJob<Job>(path, body);
+      if (reply.kind === "started" || reply.kind === "busy") refreshSteps();
+      return reply;
+    },
+    [refreshSteps],
+  );
+  const cancel = useCallback(
+    async <Job>(path: string) => {
+      const reply = await cancelCurrent<Job>(path);
+      if (reply.kind === "cancelling") refreshSteps();
+      return reply;
+    },
+    [refreshSteps],
+  );
+  return { refreshSteps, startJob: start, cancelCurrent: cancel };
+}
 
 /**
  * What the steps of the สปอย tab show (spoil-maker D68, D71): the Spoil draft, the renders and
