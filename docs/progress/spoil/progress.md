@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** ticket 06 (Backend Trim job) done; ticket 07 (ส่วนตัดช่วงใน tab คลิป) รอแบบ Figma (Blocked 6); 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** ticket 06 (Backend Trim job) done; ticket 07 (ส่วนตัดช่วงใน tab คลิป) พร้อม build — แบบ Figma เสร็จ (D44); 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom spoil` พร้อมลิงก์ Figma frame ส่วนตัดช่วง (Blocked 6, ทำจาก `docs/features/spoil/ui-prompt.md`), แล้ว `/warroom-build spoil 07`
+**Next:** `/warroom-build spoil 07`
 
 ## Tickets
 
@@ -175,4 +175,4 @@
 | 3 | 03 | design: หน้าต่างรายการ Temp clip | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
 | 4 | 05 | design: layout สองคอลัมน์ | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
 | 5 | 05 | design: กล่องถอดบทพูด | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
-| 6 | 07 | design: ส่วนตัดช่วง | `/warroom spoil` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/spoil/ui-prompt.md`) | open |
+| 6 | 07 | design: ส่วนตัดช่วง | `/warroom spoil` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/spoil/ui-prompt.md`) | done ([Figma 8094-49867](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8094-49867), D44) |

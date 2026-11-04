@@ -662,3 +662,16 @@
 **Rejected:** module attribute ตาม spec › Trim เดิม — ขัดกับ `rules/testing.md`.
 
 **From:** build ticket 06 · **Status:** active
+
+## D44: แบบส่วนตัดช่วงใน Figma
+
+**Chosen:**
+- แบบอยู่ใน [Figma: Components — ตัดช่วง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8094-49867) และ frame "คลิป — ตัดช่วง" 13 state ของ desktop กับ 3, 6, 9 ของ mobile ([start](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8098-50405)).
+- ปุ่ม "เริ่ม = ตอนนี้" และ "จบ = ตอนนี้" อยู่ใต้ช่องเวลาของมัน: แถวกว้างพอทั้ง 502px และ 343px โดยไม่ต้องแยกบรรทัดปุ่ม.
+- "ตัดแล้ว" เป็น Badge accent ก่อน "ถอดแล้ว"; Alert ผลหลังงานจบอยู่ใต้ชื่อคลิปเหมือน Alert ของงานถอด (D33); ระหว่างแทนไฟล์ใช้แถบไม่มีตัวเลขกับ "ยกเลิกไม่ได้ระหว่างแทนไฟล์".
+- คำยืนยันเป็น `confirm()` ของ browser ตาม D37.
+
+**Why:** ทำตาม ui-prompt.md; ช่องเวลาสองช่องกับปุ่มสามปุ่มในบรรทัดเดียวไม่พอที่ 502px.
+
+**From:** design (`/warroom ui spoil`, ทำใน Figma ผ่าน MCP) · **Status:** active
+
