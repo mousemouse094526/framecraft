@@ -104,7 +104,7 @@
   - ลบ Temp clip: คลิปที่งาน spoil-maker ใช้อยู่ `409` `clip_busy` (D49); ลบสำเร็จแล้วลบ Shot ของคลิปและ Spoil draft ที่ใช้คลิปนั้น (D29, D45)
   - `GET /clips` เพิ่มฟิลด์ `described` และ `in_draft`
   - `ApiError.extra` (เดิม `SpoilError`) รับค่าที่ไม่ใช่ string (list, int) สำหรับ `sentence_ids`, `tokens`
-  - ลบ Temp clip ลบ `media/temp/episodes/{id}.json` ด้วย (EP, ADR-0018)
+  - ลบ Temp clip ลบ `media/temp/episodes/{id}.json` ด้วย (EP, ADR-0021)
 - **`backend.spoil_maker`** (ใหม่)
   - `shots`: Describe job, ไฟล์ Shot, ภาพเล็ก
   - `llm`: interface ของ LLM กับ backend mlx-vlm และ worker ใน process ลูก (D14, ADR-0012)
@@ -249,7 +249,7 @@
 Temp clip หนึ่งคลิปตัดเป็น EP ตามเวลา; 1 EP = 1 คลิปสปอย (D66, D67). ต้องบรรยายฉากแล้ว เพราะจุดตัดอยู่ที่ขอบ Shot.
 
 - **ความยาวคลิป** = `shots[-1].end` ของ `shots.json` (D71)
-- **ไฟล์:** `media/temp/episodes/{id}.json` `{"minutes": 30, "cuts": [1799.0], "custom": false}` เขียนผ่าน `{id}.json.{uuid}.tmp` แล้ว rename; เป็นของ Temp clip (ADR-0018) (D70, D71)
+- **ไฟล์:** `media/temp/episodes/{id}.json` `{"minutes": 30, "cuts": [1799.0], "custom": false}` เขียนผ่าน `{id}.json.{uuid}.tmp` แล้ว rename; เป็นของ Temp clip (ADR-0021) (D70, D71)
 - **ไฟล์แรก:** `GET` ครั้งแรกของคลิปที่ไม่มีไฟล์ ตัดตาม `ep_minutes` ของค่าที่จำไว้ (D69) แล้วเขียนไฟล์ทันที — การตัดของคลิปไม่เปลี่ยนตาม `ep_minutes` ที่คลิปอื่นตั้งภายหลัง (D71)
 - **ตัดตาม `minutes`:** จุดที่ `k × minutes × 60` (k = 1, 2, …) ที่น้อยกว่าความยาวคลิป ขยับไปเวลาเริ่มของ Shot ที่ใกล้สุด (เท่ากันเลือก Shot ก่อน); จุดที่ขยับแล้วซ้ำหรือเป็น 0 ทิ้ง; EP สุดท้ายสั้นกว่า 60 วินาที → ลบจุดตัดสุดท้าย (รวมเข้า EP ก่อนหน้า) (D66, D70)
 - **`cuts` ที่ผู้ใช้ส่ง:** แต่ละจุดขยับไปเวลาเริ่มของ Shot ที่ใกล้สุด (เท่ากันเลือก Shot ก่อน); หลังขยับต้องเรียงจากน้อยไปมาก ไม่ซ้ำ อยู่ใน (0, ความยาวคลิป) และเมื่อมี 2 EP ขึ้นไปทุก EP ยาว ≥ 60 วินาที → ไม่ใช่ `400` `invalid_episodes`. EP เดียวทั้งคลิปใช้ได้เสมอแม้สั้นกว่า 60 วินาที (D71)

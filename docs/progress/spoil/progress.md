@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** change request ตัดช่วงคลิป (D36–D42) วางแผนแล้ว ticket 06–07 พร้อม build; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** —
+**Next:** `/warroom-build spoil 06`
 
 ## Tickets
 
@@ -13,6 +13,8 @@
 | 03 | รายการ Temp clip | done |
 | 04 | Backend งานถอดบทพูดและ API | done |
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
+| 06 | Backend Trim job และ API | ready |
+| 07 | ส่วนตัดช่วงใน tab คลิป | ready |
 
 ## Log
 
@@ -152,3 +154,4 @@
 | 3 | 03 | design: หน้าต่างรายการ Temp clip | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281) |
 | 4 | 05 | design: layout สองคอลัมน์ | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
 | 5 | 05 | design: กล่องถอดบทพูด | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
+| 6 | 07 | design: ส่วนตัดช่วง | `/warroom spoil` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/spoil/ui-prompt.md`) | open |
