@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** ทุก ticket done (08 เรียบเรียงบท หน้าตาใช้ component เดิมจน Blocked 15 มีแบบ); รอ feature review
+**Now:** feature review รอบสามเสร็จ (โค้ดพร้อม merge); เหลือ Blocked 13–15 แบบ Figma ของขั้น 1, ตัวบอกขั้น, หน้าตรวจแก้
 
-**Next:** `/warroom-build spoil-maker --review-feature`
+**Next:** `/warroom spoil-maker` พร้อมลิงก์แบบของ Blocked 13–15
 
 ## Tickets
 
@@ -19,6 +19,29 @@
 | 08 | เรียบเรียงบท | done |
 
 ## Log
+
+### Feature review รอบสาม — 2026-11-04
+
+**Built:** (`refactor(spoil-maker): feature review fixes`, `2b419aa`)
+- `require_json` ตรวจ `PUT` ด้วย (ADR-0013): `PUT /clips/{id}/episodes` ที่ไม่ใช่ JSON → `415`
+- `GET /clips/{id}/episodes` มี `tokens_not_ready`; หน้าเว็บไม่เขียนชื่อ Qwen เอง ไม่มี `TOKEN_LIMIT` สำรอง (ตัวนับ "— / —" จนอ่าน EP)
+- backend: `episodes.asked_ep` (ย้ายจาก `draft._ready_ep`), `episodes_changed`, `invalid_episodes`, `_by_minutes`, `CutEp` (เดิม `Span`), `GpuSlot.clip_files_lock`, `spoil_maker.json_values` แทนเช็ค int/number 5 แบบ, `_span_now` ลบ; comment ของ `done`/`total`, `polish_failed` สองแบบ, `thumb_shot`, `GET` ที่เขียนไฟล์, ลำดับ lock
+- หน้าเว็บ: `ModalDialog` (แทนกรอบซ้ำและ `useDialogKeys`), `reviewJobText`, `useJobCalls` (refresh ตัวบอกขั้นเองเมื่อเริ่ม/busy/ยกเลิก), `parseClock` ย้ายไป `features/spoil-maker/lib/clock.ts`, `useEpisodes` ทางเดียว, `Ep` แทน `EpRange`
+- test: `clip_busy`/`gpu_busy`/`draft_locked` เริ่ม Transcribe และ Voice job จริงผ่าน API (`transcribing`, `voicing`) แทน `gpu.slot.take`; test `PUT` 415; `testBackend.ts` ใช้ร่วม 5 ไฟล์ test; `tts` fixture เดียวใน draft test
+- Docs: ADR-0013, spec (ลบคลิประหว่าง `PUT` → `404`, ลำดับลบตามโค้ด, API, Frontend, Seam 1), ticket 06, skills `fastapi-api`, `vite-react-web/rules/testing.md`
+- เช็คมือ Seam 3 (เรียบเรียง) บน M2 กับ Qwen จริง: คลิปในเครื่องยาวสุด 14:53 จึงใช้ EP เดียว 15 นาที (6,674 token) ไม่ใช่ 30 นาที — 60 วินาที `drama` จบ 318 วินาที (writing 104, polishing 46, matching 162) ภายใน 8 นาที; 14 ประโยค ประมาณ 73.7 วินาที (+23%, ใน ±25%); 10 คู่ประโยคติดกัน (1–11) เล่าต่อกัน 8 คู่ (คู่ 5–6 และ 6–7 กระโดด); draft และ settings คืนตรง backup ทุกไบต์
+- เช็คใน dev server: ขั้น 1 ระหว่างร่างแสดง "กำลังร่าง" ที่ตัวบอกขั้นและ "— / —" ที่ตัวนับ ไม่มี console error
+
+**Decided:**
+- D80 — แก้จาก feature review รอบสาม
+
+**For the next ticket:**
+- Seam 3 กับ EP 30 นาทีจริง: ยังไม่มีคลิปยาวพอในเครื่อง — วัดเวลาอีกครั้งเมื่อมี
+- state ของขั้นยัง poll สองที่ (`useStepStatus` กับ hook ของแต่ละขั้น, D78 ยอมรับ)
+- `style`, `top_text`, `sentences`, `transcript` เดินด้วยกันใน `_ask_to_polish`/`polish_prompt`; kind/state ของ Draft job แยกใน `steps.ts`, `SetupSettings` — รวมเมื่อเพิ่ม kind
+- Blocked 13–15: ปรับหน้าตาตาม Figma ที่ 1440 และ 375 เมื่อแบบมา
+
+**Checks:** `uv run pytest` — 546 passed; `npm --prefix frontend test` — 222 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 08: เรียบเรียงบท — done 2026-11-04
 
