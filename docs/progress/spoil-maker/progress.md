@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** แบบ Figma ของขั้น 1, ตัวบอกขั้น และเรียบเรียงใหม่เสร็จ (Blocked 13–15); โค้ดพร้อม merge
+**Now:** merged ([PR #5](https://github.com/mousemouse094526/framecraft/pull/5), `c104fea`)
 
-**Next:** รอ merge [PR #5](https://github.com/mousemouse094526/framecraft/pull/5)
+**Next:** —
 
 ## Tickets
 
