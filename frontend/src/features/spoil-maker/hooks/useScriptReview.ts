@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendJson } from "../../../lib/api";
-import { cancelCurrent, onlyWhen } from "../../../lib/job";
+import { onlyWhen } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -16,6 +16,7 @@ import {
   type Shot,
   type ShotRef,
 } from "../lib/draft";
+import { useJobCalls } from "./useStepStatus";
 
 export type ReviewState =
   | { kind: "loading" }
@@ -27,13 +28,15 @@ export type ReviewState =
       draft: Draft;
       /** Each draft clip's Shots, for the thumbnails' times and the Shot picker. */
       shots: Record<string, Shot[]>;
-      /** The unfinished `pick`, followed until it ends. */
+      /** The unfinished `pick` or `polish`, followed until it ends. */
       job: DraftJob | null;
       /** The sentence that job picks for, when this page started it. */
       pickingId: string | null;
-      /** The last refusal or failed pick, to show the user. */
-      error: string | null;
+      /** The last refusal or failed job, or how the last `polish` went: "เรียบเรียง {n} ประโยค" (D76). */
+      message: ReviewMessage | null;
     };
+
+export type ReviewMessage = { tone: "error" | "success"; text: string };
 
 type Loaded = Extract<ReviewState, { kind: "loaded" }>;
 
@@ -42,13 +45,23 @@ const whenLoaded = (change: (state: Loaded) => ReviewState) => onlyWhen<ReviewSt
 /** What a change answers: `saved` with the draft it made, or the refusal's message to show. */
 export type ChangeResult = { kind: "saved"; draft: Draft } | { kind: "refused"; message: string };
 
+/** What a followed job says once it ends: why it failed, or how many sentences a `polish` changed (spec › Frontend, D76). */
+function endMessage(job: DraftJob | null): ReviewMessage | null {
+  if (job?.state === "failed") return { tone: "error", text: jobFailureText(job) };
+  if (job?.kind !== "polish" || job.state !== "done") return null;
+  return { tone: "success", text: job.done ? `เรียบเรียง ${job.done} ประโยค` : "ไม่มีประโยคที่เปลี่ยน" };
+}
+
 /**
  * Step 2 of the สปอย tab, ตรวจแก้บท: the Spoil draft with each clip's Shots, every change
- * to it (D19, D25, D26, D27), and the Draft job `pick` (AI เลือก Shot ใหม่), polled every
- * second while it runs. Any failure on load or poll is offline.
+ * to it (D19, D25, D26, D27), and the Draft jobs `pick` (AI เลือก Shot ใหม่) and `polish`
+ * (เรียบเรียงใหม่, D72–D76), polled every second while they run. Any failure on load or
+ * poll is offline.
  */
 export function useScriptReview() {
   const [state, setState, setIfMounted] = useMountedState<ReviewState>({ kind: "loading" });
+  const { refreshSteps, cancelCurrent } = useJobCalls();
+  const saving = useRef(new Set<Promise<ChangeResult>>()); // changes not answered yet
 
   const load = useCallback(async () => {
     try {
@@ -57,18 +70,17 @@ export function useScriptReview() {
         setIfMounted({ kind: "empty" });
         return;
       }
-      // A clip whose Shots can't be read shows no pictures; the rest of the draft still opens.
-      const lists = await Promise.all(
-        draft.clip_ids.map((id) => getJson<{ shots: Shot[] }>(shotsPath(id)).then((file) => file.shots, () => [])),
-      );
-      const shots = Object.fromEntries(draft.clip_ids.map((id, index) => [id, lists[index]]));
+      // Shots that can't be read show no pictures; the rest of the draft still opens.
+      const list = await getJson<{ shots: Shot[] }>(shotsPath(draft.clip_id)).then((file) => file.shots, () => []);
+      const shots = { [draft.clip_id]: list };
       setIfMounted((previous) => ({
         kind: "loaded",
         draft,
         shots,
-        job: isDrafting(job) && job?.kind === "pick" ? job : null,
+        // A whole new draft is step 1's; this page follows the jobs that change the draft it shows.
+        job: isDrafting(job) && job?.kind !== "draft" ? job : null,
         pickingId: previous.kind === "loaded" ? previous.pickingId : null,
-        error: previous.kind === "loaded" ? previous.error : null,
+        message: previous.kind === "loaded" ? previous.message : null,
       }));
     } catch {
       setIfMounted({ kind: "offline" });
@@ -87,13 +99,13 @@ export function useScriptReview() {
         setIfMounted(whenLoaded((s) => ({ ...s, job })));
         return;
       }
-      // Polls run only while a job is followed, so any other answer is its end: the draft has the new Shots.
+      // Polls run only while a job is followed, so any other answer is its end: the draft has the new Shots or text.
       setIfMounted(
         whenLoaded((s) => ({
           ...s,
           job: null,
           pickingId: null,
-          error: job?.state === "failed" ? jobFailureText(job) : null,
+          message: endMessage(job),
         })),
       );
       void load();
@@ -101,21 +113,21 @@ export function useScriptReview() {
     () => setIfMounted({ kind: "offline" }),
   );
 
-  /** One change to the draft; the answer is the whole draft again. */
-  const change = useCallback(
+  /** One change to the draft, untracked; the answer is the whole draft again. */
+  const sendChange = useCallback(
     async (method: string, path: string, body?: unknown): Promise<ChangeResult> => {
       try {
         const reply = await sendJson<Draft | Refusal>(method, path, body);
         if (reply.status === 200 || reply.status === 201) {
           const draft = reply.body as Draft;
-          setIfMounted(whenLoaded((s) => ({ ...s, draft, error: null })));
+          setIfMounted(whenLoaded((s) => ({ ...s, draft, message: null })));
           return { kind: "saved", draft };
         }
         const refusal = refusalOf(reply.body);
         if (refusal) {
           // `draft_locked`, `no_draft`, a sentence gone: what the page shows is old, so read it again.
           if (reply.status !== 400) void load();
-          setIfMounted(whenLoaded((s) => ({ ...s, error: refusal.message })));
+          setIfMounted(whenLoaded((s) => ({ ...s, message: { tone: "error", text: refusal.message } })));
           return { kind: "refused", message: refusal.message };
         }
       } catch {
@@ -125,6 +137,17 @@ export function useScriptReview() {
       return { kind: "refused", message: "ติดต่อ backend ไม่ได้" };
     },
     [load, setIfMounted],
+  );
+
+  /** Every change goes through here: it is remembered until answered, so เรียบเรียงใหม่ can wait for it (D76). */
+  const change = useCallback(
+    (method: string, path: string, body?: unknown) => {
+      const sending = sendChange(method, path, body);
+      saving.current.add(sending);
+      void sending.finally(() => saving.current.delete(sending));
+      return sending;
+    },
+    [sendChange],
   );
 
   const changeDraft = useCallback(
@@ -142,27 +165,38 @@ export function useScriptReview() {
     [change],
   );
 
-  const insertAfter = useCallback(
-    (afterId: string | null, text: string) => change("POST", `${DRAFT_PATH}/sentences`, { after_id: afterId, text }),
-    [change],
+  /** A change to how many sentences there are: the steps count them (D68). */
+  const changeSentenceCount = useCallback(
+    async (method: string, path: string, body?: unknown) => {
+      const result = await change(method, path, body);
+      if (result.kind === "saved") refreshSteps();
+      return result;
+    },
+    [change, refreshSteps],
   );
 
-  const remove = useCallback((sentenceId: string) => change("DELETE", `${DRAFT_PATH}/sentences/${sentenceId}`), [change]);
+  const insertAfter = useCallback(
+    (afterId: string | null, text: string) => changeSentenceCount("POST", `${DRAFT_PATH}/sentences`, { after_id: afterId, text }),
+    [changeSentenceCount],
+  );
 
-  /** เลือก Shot ใหม่: the Draft job `pick` for one sentence (D25). */
-  const pick = useCallback(
-    async (sentenceId: string) => {
+  const remove = useCallback((sentenceId: string) => changeSentenceCount("DELETE", `${DRAFT_PATH}/sentences/${sentenceId}`), [changeSentenceCount]);
+
+  /** Starts a Draft job that changes the draft: it reads locked until the job ends (D51). */
+  const startJob = useCallback(
+    async (body: object, pickingId: string | null) => {
       try {
-        const reply = await sendJson<DraftJob | Refusal>("POST", DRAFT_JOBS_PATH, { kind: "pick", sentence_id: sentenceId });
+        const reply = await sendJson<DraftJob | Refusal>("POST", DRAFT_JOBS_PATH, body);
         if (reply.status === 202) {
           const job = reply.body as DraftJob;
-          setIfMounted(whenLoaded((s) => ({ ...s, job, pickingId: sentenceId, error: null, draft: { ...s.draft, locked: true } })));
+          setIfMounted(whenLoaded((s) => ({ ...s, job, pickingId, message: null, draft: { ...s.draft, locked: true } })));
+          refreshSteps();
           return;
         }
         const refusal = refusalOf(reply.body);
         if (refusal) {
-          // `gpu_busy` says which job holds the GPU (spec › Frontend); `no_refs` and the rest say why.
-          setIfMounted(whenLoaded((s) => ({ ...s, error: refusal.message })));
+          // `gpu_busy` says which job holds the GPU (spec › Frontend); `no_refs`, `nothing_to_polish` and the rest say why.
+          setIfMounted(whenLoaded((s) => ({ ...s, message: { tone: "error", text: refusal.message } })));
           return;
         }
       } catch {
@@ -170,10 +204,30 @@ export function useScriptReview() {
       }
       setIfMounted({ kind: "offline" });
     },
-    [setIfMounted],
+    [refreshSteps, setIfMounted],
   );
 
-  /** ยกเลิก of a running pick: the draft keeps its Shots. */
+  /** เลือก Shot ใหม่: the Draft job `pick` for one sentence (D25). */
+  const pick = useCallback(
+    (sentenceId: string) => startJob({ kind: "pick", sentence_id: sentenceId }, sentenceId),
+    [startJob],
+  );
+
+  /**
+   * เรียบเรียงใหม่ (D72, D75): once every change still out is answered, the draft is read
+   * again, so the job polishes the text the user sees (D76).
+   */
+  const polish = useCallback(
+    async (includeEdited: boolean) => {
+      // Loop, not one wait: a save's answer starts the next save when text was typed while it was out (useAutoSave).
+      while (saving.current.size > 0) await Promise.all(saving.current);
+      await load();
+      await startJob({ kind: "polish", include_edited: includeEdited }, null);
+    },
+    [load, startJob],
+  );
+
+  /** ยกเลิก of a running pick or polish: the draft stays as it was. */
   const cancel = useCallback(async () => {
     const reply = await cancelCurrent<DraftJob>(DRAFT_JOB_PATH);
     if (reply.kind === "cancelling") {
@@ -181,7 +235,7 @@ export function useScriptReview() {
     } else if (reply.kind !== "ended") {
       setIfMounted({ kind: "offline" });
     }
-  }, [setIfMounted]);
+  }, [cancelCurrent, setIfMounted]);
 
   const reload = useCallback(() => {
     setState({ kind: "loading" });
@@ -192,5 +246,5 @@ export function useScriptReview() {
   const refresh = useCallback(() => void load(), [load]);
   const goOffline = useCallback(() => setIfMounted({ kind: "offline" }), [setIfMounted]);
 
-  return { state, changeDraft, changeText, changeShots, insertAfter, remove, pick, cancel, reload, refresh, goOffline };
+  return { state, changeDraft, changeText, changeShots, insertAfter, remove, pick, polish, cancel, reload, refresh, goOffline };
 }

@@ -13,6 +13,8 @@
 - List every reactive value the Effect reads; never omit the dependency array for a fetch that sets state — [useEffect](https://react.dev/reference/react/useEffect)
 - In development Strict Mode runs setup → cleanup → setup, so a fetch Effect fires twice; the cleanup keeps it correct — [useEffect](https://react.dev/reference/react/useEffect)
 - Use TypeScript props with default parameters; `defaultProps`/`propTypes` on function components are ignored — [React 19 Upgrade Guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide)
+- In React 19 a context renders as its own provider: `<ThemeContext value={theme}>`; `<Context.Provider>` still works but is on its way out — [createContext](https://react.dev/reference/react/createContext)
+- `useContext` outside any provider returns the `createContext` default, so a safe default keeps a component usable alone — [useContext](https://react.dev/reference/react/useContext)
 - **Avoid:** suppressing the dependency linter — [useEffect](https://react.dev/reference/react/useEffect)
 
 ## Pattern
@@ -53,3 +55,4 @@ Follows [useEffect: fetching data](https://react.dev/reference/react/useEffect).
 - [useEffect](https://react.dev/reference/react/useEffect) — fetch pattern, cleanup, dependencies, Strict Mode (accessed 2026-10-29)
 - [React 19 Upgrade Guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide) — removed APIs, `act`, error handling, type changes (accessed 2026-10-29)
 - [React 19.3](https://react.dev/blog/2026/09/09/react-19-3) — features and behaviour changes in 19.3 (accessed 2026-10-29)
+- [createContext](https://react.dev/reference/react/createContext), [useContext](https://react.dev/reference/react/useContext) — context as provider, default value (accessed 2026-11-04)

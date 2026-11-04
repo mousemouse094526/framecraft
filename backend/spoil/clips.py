@@ -71,7 +71,7 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
     `{id}.transcript.json` is not a clip, and `transcribed` only asks whether it exists (D29).
     """
     found: list[tuple[datetime, ListedClip]] = []
-    in_draft = draft_file.clip_ids(project)
+    in_draft = draft_file.draft_clip_id(project)
     for path in project.media_temp_dir.glob("*.json"):
         if path.name.endswith(TRANSCRIPT_SUFFIX):
             continue
@@ -85,7 +85,7 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
             transcribed = transcript_path(project, clip.id).is_file()
             described = shots.is_described(project, clip.id)
             listed = ListedClip(
-                **clip.model_dump(), transcribed=transcribed, described=described, in_draft=clip.id in in_draft
+                **clip.model_dump(), transcribed=transcribed, described=described, in_draft=clip.id == in_draft
             )
             found.append((downloaded, listed))
     found.sort(key=lambda pair: pair[0], reverse=True)
@@ -139,8 +139,9 @@ def delete_clip(project: ProjectPaths, video_id: str) -> None:
             path.unlink(missing_ok=True)
         except OSError:
             log.exception("could not remove %s; it goes at the next start", path.name)
-    # Shots belong to the clip, whichever feature made them (ADR 0018); left ones go at the next start.
+    # Shots and EP cuts belong to the clip, whichever feature made them (ADR 0018); left ones go at the next start.
     shutil.rmtree(project.clip_shots_dir(video_id), ignore_errors=True)
+    project.episodes_file(video_id).unlink(missing_ok=True)
     json_path(project, video_id).unlink(missing_ok=True)
 
 

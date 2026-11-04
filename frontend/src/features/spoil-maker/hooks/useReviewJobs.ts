@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { getJson } from "../../../lib/api";
-import { cancelCurrent, isRunning } from "../../../lib/job";
+import { isRunning } from "../../../lib/job";
 import type { RefusalLine } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -9,7 +9,6 @@ import {
   failureOf,
   RENDER_JOB_PATH,
   RENDERS_PATH,
-  startJob,
   VOICE_JOB_PATH,
   VOICE_JOBS_PATH,
   type Banner,
@@ -17,6 +16,7 @@ import {
   type SentencesJob,
   type StartReply,
 } from "../lib/render";
+import { useJobCalls } from "./useStepStatus";
 
 type Kind = "voice" | "render";
 
@@ -43,6 +43,7 @@ const CURRENT: Record<Kind, string> = { voice: VOICE_JOB_PATH, render: RENDER_JO
  */
 export function useReviewJobs(onChange: () => void, onOffline: () => void) {
   const [state, , setIfMounted] = useMountedState<JobsState>(START);
+  const { startJob, cancelCurrent } = useJobCalls();
 
   useEffect(() => {
     void (async () => {
@@ -102,18 +103,19 @@ export function useReviewJobs(onChange: () => void, onOffline: () => void) {
   const voice = useCallback(
     async (sentenceIds: string[]) =>
       start("voice", await startJob<SentencesJob>(VOICE_JOBS_PATH, { kind: "sentences", sentence_ids: sentenceIds })),
-    [start],
+    [start, startJob],
   );
 
-  const render = useCallback(async () => start("render", await startJob<RenderJob>(RENDERS_PATH, {})), [start]);
+  const render = useCallback(async () => start("render", await startJob<RenderJob>(RENDERS_PATH, {})), [start, startJob]);
 
   /** ยกเลิก of whichever runs: sentences already voiced stay (spec › Voice job). */
   const cancel = useCallback(async () => {
     const kind: Kind = state.render ? "render" : "voice";
     const reply = await cancelCurrent<SentencesJob & RenderJob>(CURRENT[kind]);
-    if (reply.kind === "cancelling") setIfMounted((s) => (s[kind] ? { ...s, [kind]: reply.job } : s));
-    else if (reply.kind === "offline") onOffline();
-  }, [onOffline, setIfMounted, state.render]);
+    if (reply.kind === "cancelling") {
+      setIfMounted((s) => (s[kind] ? { ...s, [kind]: reply.job } : s));
+    } else if (reply.kind === "offline") onOffline();
+  }, [cancelCurrent, onOffline, setIfMounted, state.render]);
 
   return { jobs: state, voice, render, cancel };
 }

@@ -8,7 +8,13 @@ export type Position = "top_left" | "top_center" | "top_right" | "bottom_left" |
 export type MarkSize = "small" | "medium";
 /** `enabled: false`: remembered but not drawn (D64). */
 export type Watermark = { text: string; position: Position; size: MarkSize; enabled: boolean };
-export type VideoSettings = { watermarks: Watermark[]; original_volume: number; last_voice_id: string | null };
+export type VideoSettings = {
+  watermarks: Watermark[];
+  original_volume: number;
+  last_voice_id: string | null;
+  /** How long an EP is when a clip is first cut, in minutes (D69). */
+  ep_minutes: number;
+};
 
 /**
  * Which watermarks, by their number from 1 ("ลายน้ำ 1"), are switched on at บนกลาง, where the
@@ -47,8 +53,11 @@ export type RenderResult = {
   created_at: string;
   duration_s: number;
   size_bytes: number;
-  /** The Temp clips' titles in EP order (legal 1). */
+  /** The Temp clip's title (legal 1). */
   sources: string[];
+  /** The draft's clip and EP; null on a render from before EPs (D70). */
+  clip_id: string | null;
+  ep: number | null;
 };
 
 export const VOICE_JOBS_PATH = "/api/spoil-maker/voice-jobs";

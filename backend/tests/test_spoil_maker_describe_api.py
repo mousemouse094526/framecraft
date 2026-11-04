@@ -445,6 +445,18 @@ def test_deleting_a_described_clip_deletes_its_shots(client, project, llm, three
     assert not project.clip_shots_dir(VIDEO_ID).exists()
 
 
+def test_new_shots_remove_the_clips_ep_cut(client, project, llm, three_colours):
+    """The cut sits on the old Shots' edges (spoil-maker spec › EP)."""
+    add_clip(project, three_colours)
+    project.episodes_dir.mkdir(parents=True)
+    project.episodes_file(VIDEO_ID).write_text('{"minutes": 30, "cuts": [], "custom": false}', encoding="utf-8")
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"
+    assert not project.episodes_file(VIDEO_ID).exists()
+
+
 def test_start_up_removes_unfinished_shot_folders_and_shots_of_clips_it_cleans(fake_root, project, monkeypatch):
     monkeypatch.setattr(paths, "ROOT", fake_root)
     write_temp_clip(project, VIDEO_ID)

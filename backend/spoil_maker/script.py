@@ -1,18 +1,20 @@
 """What the Draft job asks Qwen and how it reads the answers: the prompts, the JSON
-in a reply, and the cleaning of a script (spoil-maker spec › Draft job steps 2–5,
-D11, D18, D19). Plain functions, no job and no file.
+in a reply, and the cleaning of a script (spoil-maker spec › Draft job steps 2–6 and
+› เรียบเรียง, D11, D18, D19, D72–D76). Plain functions, no job and no file.
 """
 
 import json
 import re
 import secrets
+from collections.abc import Sequence
 
 from pydantic import BaseModel
 
 from backend import clock
-from backend.spoil.transcribe import Transcript
+from backend.spoil.transcribe import Transcript, TranscriptLine
 from backend.spoil_maker import thai
 from backend.spoil_maker.draft_file import Layout, Ref, Sentence, Style
+from backend.spoil_maker.json_values import is_int
 from backend.spoil_maker.shots import Shot
 
 # How each style tells the story, and the layout it starts with (D7, D8).
@@ -29,7 +31,7 @@ SECONDS_PER_SENTENCE = 4
 TOLERANCE = 0.25  # a script's letters within ±25% of the target pass (D18)
 TOP_TEXT_MAX = 40  # letters that take space (spec › ข้อความบนวิดีโอ)
 
-LINE_ID = re.compile(r"(\d+)-(\d+)")
+LINE_ID = re.compile(r"\d+")
 # Han, Hiragana, Katakana and Hangul slip into Qwen's Thai (llm-trial › รอบ 2).
 CJK = re.compile(
     "[ᄀ-ᇿ぀-ヿ㄰-㆏ㇰ-ㇿ㐀-䶿一-鿿"
@@ -37,12 +39,16 @@ CJK = re.compile(
 )
 
 
-class Brief(BaseModel):
-    """What a script is written from: the episodes in the user's order, their
-    Transcripts (edited text included, D54), and how to tell it."""
+NumberedLine = tuple[int, TranscriptLine]
+"""A Transcript line with its index in the whole Transcript: what a ref cites (D70)."""
 
-    clip_ids: list[str]
-    transcripts: dict[str, Transcript]
+
+class Brief(BaseModel):
+    """What a script is written from: the EP's lines (edited text included, D54) with
+    their index in the clip's whole Transcript, and how to tell it."""
+
+    clip_id: str
+    lines: list[NumberedLine]
     style: Style
     layout: Layout
     target_s: int
@@ -54,9 +60,10 @@ class Brief(BaseModel):
         return 2 * self.target_letters + 1000
 
 
-def transcript_block(ep: int, transcript: Transcript) -> str:
-    """`[{ep}-{line} {hh:mm:ss}] {text}` per line (spec › Draft job step 2)."""
-    return "".join(f"[{ep}-{n} {clock.hms(line.start_s)}] {line.text}\n" for n, line in enumerate(transcript.lines))
+def transcript_block(lines: Sequence[NumberedLine]) -> str:
+    """`[{line} {hh:mm:ss}] {text}` per line, `line` its index in the whole Transcript
+    (spec › Draft job step 2)."""
+    return "".join(f"[{n} {clock.hms(line.start_s)}] {line.text}\n" for n, line in lines)
 
 
 MAX_REFS = 3  # cited lines a sentence keeps (spec › Draft job step 2)
@@ -74,26 +81,24 @@ def script_prompt(brief: Brief, last: list[Sentence] | None = None, asked_before
     top_rule = (
         f'"top_text" is {top}, in Thai, at most {TOP_TEXT_MAX} letters.' if top else '"top_text" is an empty string.'
     )
-    transcript = "".join(transcript_block(ep, brief.transcripts[c]) for ep, c in enumerate(brief.clip_ids, start=1))
-    episodes = len(brief.clip_ids)
     rules = (
         f"How to tell it: {telling}\n"
+        # Without it each sentence told its own cited lines, going nowhere together (D72).
+        "Every sentence carries on from the one before: together they tell one story, not a line each.\n"
         f"Write in Thai only: about {brief.target_letters} Thai letters in about {sentences} sentences, "
         f"each sentence at most {round(SENTENCE_ROOM * brief.target_letters / sentences)} Thai letters.\n"
-        'Each sentence cites the 1 to 3 transcript lines it tells about by their ids, like "1-12"; '
+        'Each sentence cites the 1 to 3 transcript lines it tells about by their ids, like "412"; '
         "never more than 3, never a run of lines.\n"
         f"{top_rule}\n"
-        'Answer with JSON only: {"top_text": "...", "sentences": [{"text": "...", "refs": ["1-12"]}]}\n'
+        'Answer with JSON only: {"top_text": "...", "sentences": [{"text": "...", "refs": ["412"]}]}\n'
     )
     # The rules again after the Transcript: a whole film is ~30k tokens, and the model
     # follows best what it read last.
     return (
-        "Write the narration script of a short vertical video that spoils the story in the transcript below"
-        + (f", told across all {episodes} episodes in order" if episodes > 1 else "")
-        + ".\n"
+        "Write the narration script of a short vertical video that spoils the story in the transcript below.\n"
         f"{rules}\n"
-        "Transcript, one line each as [episode-line hh:mm:ss] text:\n"
-        f"{transcript}\n"
+        "Transcript, one line each as [line hh:mm:ss] text:\n"
+        f"{transcript_block(brief.lines)}\n"
         f"Now write the script.\n{rules}"
         + (_retry_note(brief, last) if asked_before else "")
     )
@@ -157,9 +162,78 @@ def parse_pick(reply: str, candidates: list[Shot]) -> list[int] | None:
     allowed = {shot.n for shot in candidates}
     if not isinstance(numbers, list) or len(numbers) != 2:
         return None
-    if not all(isinstance(n, int) and not isinstance(n, bool) and n in allowed for n in numbers):
+    if not all(is_int(n) and n in allowed for n in numbers):
         return None
     return numbers
+
+
+POLISH_SENTENCE_TOLERANCE = 0.5  # a polished sentence within ±50% of its letters passes (D76)
+POLISH_GROWTH = 0.15  # a `polish` may add this much to the script's letters (D76)
+
+
+def polish_prompt(
+    style: Style, top_text: str, sentences: list[Sentence], transcript: Transcript | None, fixed: set[int]
+) -> str:
+    """The style, Thai only, `top_text` to open after, and the whole script as `[i] text`,
+    each sentence followed by the lines it cites (edited text, D54); a fixed one is
+    marked `(fixed)` (spec › Draft job › เรียบเรียง)."""
+    telling, _ = STYLES[style]
+    lines = transcript.lines if transcript else []
+    listed = ""
+    for i, sentence in enumerate(sentences):
+        listed += f"[{i}] {'(fixed) ' if i in fixed else ''}{sentence.text}\n"
+        listed += "".join(
+            f"    [{ref.line} {clock.hms(lines[ref.line].start_s)}] {lines[ref.line].text}\n"
+            for ref in sentence.refs
+            if 0 <= ref.line < len(lines)
+        )
+    top = f'The text on top of the video, which the script opens after and you leave as it is: "{top_text}"\n' if top_text else ""
+    return (
+        "Polish the narration script of a short vertical video that spoils a story, so its sentences tell one story.\n"
+        f"How to tell it: {telling}\n"
+        "Write in Thai only.\n"
+        f"{top}"
+        "The script, one sentence each as [i] text, then the transcript lines it tells about:\n"
+        f"{listed}\n"
+        "Rules:\n"
+        "- Rewrite only the sentences not marked (fixed); fit the others around the fixed ones.\n"
+        "- Each sentence carries on from the one before and leads into the next; add linking words only where needed.\n"
+        "- Add nothing that is not in the lines a sentence tells about. "
+        "A sentence with no lines keeps its meaning: change only how it joins the others.\n"
+        "- Never merge, split or reorder sentences.\n"
+        "- Keep each sentence about as long as it is.\n"
+        'Answer with JSON only: {"sentences": [{"i": 0, "text": "..."}]}, one item for each i not marked (fixed).\n'
+    )
+
+
+def polish_max_tokens(sentences: list[Sentence]) -> int:
+    """Room for the script's letters twice over, plus the JSON (spec › ค่าการสร้างข้อความ)."""
+    return 2 * spoken_letters(sentences) + 1000
+
+
+def parse_polish(reply: str, sentences: list[Sentence], asked: set[int]) -> dict[int, str] | None:
+    """The new text of each sentence in `asked`, by `i`; None when the reply isn't the
+    JSON asked for or under half of `asked` came back. An `i` not asked for, or given
+    twice, is dropped: its text can't be told to belong there (D76). A text empty once
+    cleaned, or ±50% off its sentence's letters, leaves that sentence as it was."""
+    found = _json_object(reply)
+    items = found.get("sentences") if found else None
+    if not isinstance(items, list):
+        return None
+    given: dict[int, list[str]] = {}
+    for item in items:
+        i = item.get("i") if isinstance(item, dict) else None
+        if is_int(i) and i in asked and isinstance(item.get("text"), str):
+            given.setdefault(i, []).append(item["text"])
+    usable = {i: texts[0] for i, texts in given.items() if len(texts) == 1}
+    if 2 * len(usable) < len(asked):
+        return None
+    texts = {}
+    for i, text in usable.items():
+        text, was = _clean(text), sentences[i].text
+        before = _spoken_letters(was)
+        texts[i] = text if text and abs(_spoken_letters(text) - before) <= POLISH_SENTENCE_TOLERANCE * before else was
+    return texts
 
 
 def nearest(candidates: list[Shot], at: float) -> list[int]:
@@ -181,9 +255,18 @@ def near_target(sentences: list[Sentence], target_letters: int) -> bool:
     return abs(spoken_letters(sentences) - target_letters) <= TOLERANCE * target_letters
 
 
+def grew_little(after: list[Sentence], before: list[Sentence]) -> bool:
+    """A `polish` passes adding at most `POLISH_GROWTH` to the letters; it may shorten (D76)."""
+    return spoken_letters(after) <= (1 + POLISH_GROWTH) * spoken_letters(before)
+
+
 def spoken_letters(sentences: list[Sentence]) -> int:
     """After numbers become words, the way speaking speed was measured (D35, D36)."""
-    return sum(thai.letters(thai.spoken(sentence.text)) for sentence in sentences)
+    return sum(_spoken_letters(sentence.text) for sentence in sentences)
+
+
+def _spoken_letters(text: str) -> int:
+    return thai.letters(thai.spoken(text))
 
 
 def new_sentence_id(taken: set[str]) -> str:
@@ -211,20 +294,18 @@ def _json_object(reply: str) -> dict | None:
 
 
 def _refs(value: object, brief: Brief) -> list[Ref]:
-    """`"{ep}-{line}"` ids of lines that exist, in order, once each, the first `MAX_REFS`."""
+    """Ids of the EP's lines, in order, once each, the first `MAX_REFS`: a line outside
+    the EP or not in the Transcript goes (D61, D70)."""
+    in_ep = {n for n, _ in brief.lines}
     refs: list[Ref] = []
     for item in value if isinstance(value, list) else []:
         if len(refs) == MAX_REFS:
             break
-        match = LINE_ID.fullmatch(item.strip()) if isinstance(item, str) else None
-        if match is None:
+        text = item.strip() if isinstance(item, str) else ""
+        if not LINE_ID.fullmatch(text) or int(text) not in in_ep:
             continue
-        ep, line = int(match.group(1)), int(match.group(2))
-        if not 1 <= ep <= len(brief.clip_ids):
-            continue
-        clip_id = brief.clip_ids[ep - 1]
-        ref = Ref(clip_id=clip_id, line=line)
-        if line < len(brief.transcripts[clip_id].lines) and ref not in refs:
+        ref = Ref(clip_id=brief.clip_id, line=int(text))
+        if ref not in refs:
             refs.append(ref)
     return refs
 

@@ -5,6 +5,8 @@ counter (spoil-maker seam 1)."""
 import json
 import re
 import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -15,11 +17,12 @@ from backend.app import app
 from backend.models import QWEN
 from backend.paths import ProjectPaths
 from backend.spoil import transcribe
-from backend.spoil_maker import describe, draft
+from backend.spoil_maker import describe, draft, voices
 
 from .fakes import (
     poll_until,
     FakeLlm,
+    FakeTts,
     FakeWorker,
     cuda_device,
     make_test_clip,
@@ -43,6 +46,8 @@ SHOT_COUNT = 40
 # 15 letters a second and 60 s: 900 letters; each script sentence below is 30 (spoken, no spaces).
 THIRTY = "ก" * 30
 PASSING = 30  # sentences of THIRTY: 900 letters, the target
+# The Shots end at 200 s, shorter than any EP length: the clip is one EP.
+WHOLE = {"n": 1, "start_s": 0.0, "end_s": 200.0}
 
 
 @pytest.fixture
@@ -55,6 +60,7 @@ def llm(monkeypatch) -> FakeLlm:
     fake = FakeLlm()
     fake.scripts = []  # replies to script prompts, in order; the last one repeats
     fake.picks = lambda request: '{"shots": [0, 1]}'
+    fake.polishes = unchanged  # replies to polish prompts
     fake.respond = lambda request: _respond(fake, request)
     monkeypatch.setattr(spoil_maker, "start_worker", fake)
     return fake
@@ -65,10 +71,42 @@ def is_pick(request) -> bool:
     return request.max_tokens == draft.PICK_MAX_TOKENS
 
 
+def is_polish(request) -> bool:
+    return request.prompt.startswith("Polish")
+
+
+def is_script(request) -> bool:
+    return not is_pick(request) and not is_polish(request)
+
+
+# A sentence of a polish prompt: `[i] text`, or `[i] (fixed) text`.
+POLISH_ITEM = re.compile(r"^\[(\d+)\] (\(fixed\) )?(.*)$", re.MULTILINE)
+
+
+def asked_to_polish(request) -> dict[int, str]:
+    """The sentences a polish prompt asks to rewrite, by `i`."""
+    return {int(i): text for i, fixed, text in POLISH_ITEM.findall(request.prompt) if not fixed}
+
+
+def fixed_in(request) -> dict[int, str]:
+    return {int(i): text for i, fixed, text in POLISH_ITEM.findall(request.prompt) if fixed}
+
+
+def polished(texts: dict[int, str]) -> str:
+    return json.dumps({"sentences": [{"i": i, "text": text} for i, text in texts.items()]}, ensure_ascii=False)
+
+
+def unchanged(request) -> str:
+    """Every sentence asked for, as it was."""
+    return polished(asked_to_polish(request))
+
+
 def _respond(fake: FakeLlm, request) -> str:
     if is_pick(request):
         return fake.picks(request)
-    scripts = [r for r in fake.requests if not is_pick(r)]
+    if is_polish(request):
+        return fake.polishes(request)
+    scripts = [r for r in fake.requests if is_script(r)]
     reply = fake.scripts[min(len(scripts) - 1, len(fake.scripts) - 1)]
     return reply(request) if callable(reply) else reply
 
@@ -94,6 +132,13 @@ def whisper(monkeypatch) -> FakeWorker:
 
 
 @pytest.fixture
+def tts(monkeypatch) -> FakeTts:
+    fake = FakeTts()
+    monkeypatch.setattr(spoil_maker, "start_tts_worker", fake)
+    return fake
+
+
+@pytest.fixture
 def client(fake_root, llm, counted, whisper, monkeypatch):
     """Everything the gates check passes, with fresh job slots and a free GPU slot."""
     monkeypatch.setattr(paths, "ROOT", fake_root)
@@ -103,7 +148,38 @@ def client(fake_root, llm, counted, whisper, monkeypatch):
     monkeypatch.setattr(draft, "draft_jobs", draft.DraftJobs())
     monkeypatch.setattr(describe, "describes", describe.Describes())
     monkeypatch.setattr(transcribe, "transcriptions", transcribe.Transcriptions())
+    monkeypatch.setattr(voices, "voice_jobs", voices.VoiceJobs())
     return TestClient(app, base_url="http://127.0.0.1")
+
+
+@contextmanager
+def transcribing(client, whisper: FakeWorker, clip_id: str) -> Iterator[None]:
+    """A Transcribe job of the clip started through the API, paused before its first segment:
+    it holds the GPU slot and reads the clip until the block ends, then finishes."""
+    whisper.pause_at(0)
+    response = client.post("/api/spoil/transcriptions", json={"clip_id": clip_id})
+    assert response.status_code == 202, response.json()
+    whisper.wait_until(0)
+    try:
+        yield
+    finally:
+        whisper.release(0)
+        poll_until(client, "/api/spoil/transcriptions/current", lambda job: job["state"] not in transcribe.UNFINISHED)
+
+
+@contextmanager
+def voicing(client, tts: FakeTts, sentence_id: str) -> Iterator[None]:
+    """A Voice job of one draft sentence started through the API, paused before it speaks:
+    it holds the GPU slot and locks the draft until the block ends, then finishes."""
+    tts.pause_at(0)
+    response = client.post("/api/spoil-maker/voice-jobs", json={"kind": "sentences", "sentence_ids": [sentence_id]})
+    assert response.status_code == 202, response.json()
+    tts.wait_until(0)
+    try:
+        yield
+    finally:
+        tts.release(0)
+        poll_until(client, "/api/spoil-maker/voice-jobs/current", lambda job: job["state"] not in voices.UNFINISHED)
 
 
 def ready_clip(project: ProjectPaths, video_id: str = EP1, described: bool = True, lines=LINES) -> None:
@@ -142,14 +218,15 @@ def script(*sentences, top_text: str = "") -> str:
     return json.dumps(body, ensure_ascii=False)
 
 
-def passing_script(refs=("1-0",)) -> str:
+def passing_script(refs=("0",)) -> str:
     return script(*[(THIRTY, list(refs))] * PASSING)
 
 
 def order(**overrides) -> dict:
     return {
         "kind": "draft",
-        "clip_ids": [EP1],
+        "clip_id": EP1,
+        "ep": WHOLE,
         "style": "drama",
         "layout": "B",
         "target_s": 60,
@@ -170,11 +247,12 @@ def wait_for_end(client, path: str = CURRENT) -> dict:
     return wait_for(client, lambda job: job is not None and job["state"] in FINISHED, path)
 
 
-def write_draft(project: ProjectPaths, clip_ids=(EP1,), sentences=None, voice_id: str = VOICE, **fields) -> dict:
+def write_draft(project: ProjectPaths, clip_id=EP1, sentences=None, voice_id: str = VOICE, ep=WHOLE, **fields) -> dict:
     """A `draft.json` as a finished Draft job leaves it; returns its content."""
     content = {
-        "version": 1,
-        "clip_ids": list(clip_ids),
+        "version": 2,
+        "clip_id": clip_id,
+        "ep": ep,
         "style": "drama",
         "layout": "B",
         "target_s": 60,
@@ -184,8 +262,8 @@ def write_draft(project: ProjectPaths, clip_ids=(EP1,), sentences=None, voice_id
         "sentences": sentences
         if sentences is not None
         else [
-            sentence("s_00000001", "ประโยคแรก", refs=[{"clip_id": clip_ids[0], "line": 1}]),
-            sentence("s_00000002", "ประโยคสอง", refs=[{"clip_id": clip_ids[0], "line": 2}]),
+            sentence("s_00000001", "ประโยคแรก", refs=[{"clip_id": clip_id, "line": 1}]),
+            sentence("s_00000002", "ประโยคสอง", refs=[{"clip_id": clip_id, "line": 2}]),
         ],
     } | fields
     project.spoil_maker_dir.mkdir(parents=True, exist_ok=True)
@@ -226,17 +304,11 @@ def ready(project) -> None:
 def test_a_clip_transcribed_but_not_described_is_clip_not_ready(client, project, ready):
     ready_clip(project, "bbbbbbbbbbb", described=False)
 
-    response = start(client, clip_ids=[EP1, "bbbbbbbbbbb"])
+    response = start(client, clip_id="bbbbbbbbbbb")
 
     assert response.status_code == 400
     assert response.json()["code"] == "clip_not_ready"
     assert response.json()["clip_ids"] == ["bbbbbbbbbbb"]
-
-
-def test_the_same_clip_twice_is_clip_not_ready(client, ready):
-    response = start(client, clip_ids=[EP1, EP1])
-
-    assert (response.status_code, response.json()["code"], response.json()["clip_ids"]) == (400, "clip_not_ready", [EP1])
 
 
 @pytest.mark.parametrize("target_s", [29, 181, 60.5])
@@ -259,47 +331,50 @@ def test_an_unknown_voice_is_voice_not_found(client, ready):
     assert (response.status_code, response.json()["code"]) == (400, "voice_not_found")
 
 
-def test_transcripts_over_32000_tokens_are_too_long(client, ready, monkeypatch):
-    monkeypatch.setattr(spoil_maker, "count_tokens", lambda snapshot, text: 16_001 if "[1-" in text else 16_000)
+def test_an_ep_over_32000_tokens_is_too_long(client, ready, monkeypatch):
+    monkeypatch.setattr(spoil_maker, "count_tokens", lambda snapshot, text: 32_001)
 
-    response = start(client, clip_ids=[EP1, EP2])
-    counted = client.get(f"/api/spoil-maker/tokens?clip_ids={EP1},{EP2}")
+    response = start(client)
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes")
 
     assert response.status_code == 400
     assert response.json() == {
         "code": "transcript_too_long",
-        "message": "Transcript รวม 32,001 token เกิน 32,000",
+        "message": "Transcript ของ EP นี้ 32,001 token เกิน 32,000",
         "tokens": 32_001,
     }
-    assert counted.status_code == 200
-    assert counted.json() == {"per_clip": {EP1: 16_001, EP2: 16_000}, "total": 32_001, "limit": 32_000}
+    assert [ep["tokens"] for ep in listed.json()["episodes"]] == [32_001]
+    assert listed.json()["limit"] == 32_000
 
 
-def test_tokens_count_each_transcript_as_the_llm_gets_it_numbered_by_order(client, project, ready, counted):
-    client.get(f"/api/spoil-maker/tokens?clip_ids={EP2},{EP1}")
+def test_tokens_count_the_eps_lines_as_the_llm_gets_them(client, project, ready, counted):
+    client.get(f"/api/spoil-maker/clips/{EP1}/episodes")
 
-    assert counted[0].startswith("[1-0 00:00:00] Line 0.\n[1-1 00:00:10] Line 1.\n")
-    assert counted[1].startswith("[2-0 00:00:00] Line 0.\n")
+    assert counted[0].startswith("[0 00:00:00] Line 0.\n[1 00:00:10] Line 1.\n")
 
 
-def test_tokens_with_qwens_snapshot_gone_are_not_ready(client, project, ready, monkeypatch):
+def test_with_qwens_snapshot_gone_tokens_are_null_and_a_draft_is_not_ready(client, project, ready, monkeypatch):
     def gone(snapshot_dir, text):
         raise FileNotFoundError(snapshot_dir)
 
     monkeypatch.setattr(spoil_maker, "count_tokens", gone)
 
-    response = client.get(f"/api/spoil-maker/tokens?clip_ids={EP1}")
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes")
+    response = start(client)
 
+    assert listed.status_code == 200
+    assert [ep["tokens"] for ep in listed.json()["episodes"]] == [None]
+    assert listed.json()["tokens_not_ready"] == response.json()["message"]
     assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["model_qwen"])
 
 
-def test_tokens_of_a_clip_not_transcribed_are_clip_not_ready(client, project, ready):
+def test_episodes_of_a_clip_not_transcribed_are_clip_not_ready(client, project, ready):
     write_temp_clip(project, "bbbbbbbbbbb")
+    write_shots(project, "bbbbbbbbbbb")
 
-    response = client.get(f"/api/spoil-maker/tokens?clip_ids={EP1},bbbbbbbbbbb")
+    response = client.get("/api/spoil-maker/clips/bbbbbbbbbbb/episodes")
 
     assert (response.status_code, response.json()["code"]) == (400, "clip_not_ready")
-    assert response.json()["clip_ids"] == ["bbbbbbbbbbb"]
 
 
 def test_an_edited_line_is_what_the_counter_and_the_llm_get(client, project, ready, llm, counted):
@@ -309,8 +384,8 @@ def test_an_edited_line_is_what_the_counter_and_the_llm_get(client, project, rea
     start(client)
     wait_for_end(client)
 
-    assert "[1-0 00:00:00] บรรทัดที่แก้\n" in counted[-1]
-    assert "[1-0 00:00:00] บรรทัดที่แก้\n" in llm.requests[0].prompt
+    assert "[0 00:00:00] บรรทัดที่แก้\n" in counted[-1]
+    assert "[0 00:00:00] บรรทัดที่แก้\n" in llm.requests[0].prompt
     assert "Line 0." not in llm.requests[0].prompt
 
 
@@ -336,13 +411,12 @@ def test_a_missing_qwen_marker_is_not_ready(client, project, ready):
     assert "model_qwen" in response.json()["rows"]
 
 
-def test_a_draft_while_a_describe_job_runs_is_gpu_busy(client, ready):
-    gpu.slot.take("describe", [EP2])
-
-    response = start(client)
+def test_a_draft_while_a_transcribe_job_runs_is_gpu_busy(client, ready, whisper):
+    with transcribing(client, whisper, EP2):
+        response = start(client)
 
     assert response.status_code == 409
-    assert response.json() == {"code": "gpu_busy", "message": "รอให้งานบรรยายฉากเสร็จก่อน", "running": "describe"}
+    assert (response.json()["code"], response.json()["running"]) == ("gpu_busy", "transcribe")
 
 
 def test_an_unknown_kind_is_invalid_request(client, ready):
@@ -352,41 +426,6 @@ def test_an_unknown_kind_is_invalid_request(client, ready):
 
 
 # --- A Draft job from start to end ---
-
-
-def test_a_two_episode_script_cites_each_episode_and_picks_shots_in_the_window(client, project, ready, llm):
-    llm.scripts = [script(*[(THIRTY, ["1-0"])] * 15, *[(THIRTY, ["2-1"])] * 15)]
-
-    response = start(client, clip_ids=[EP1, EP2])
-
-    assert response.status_code == 202
-    assert response.json()["kind"] == "draft"
-    assert response.json()["state"] == "writing"
-    assert wait_for_end(client)["state"] == "done"
-    found = a_draft(client)
-    assert found["clip_ids"] == [EP1, EP2]
-    assert found["sentences"][0]["refs"] == [{"clip_id": EP1, "line": 0}]
-    assert found["sentences"][-1]["refs"] == [{"clip_id": EP2, "line": 1}]
-    last = found["sentences"][-1]
-    assert last["window"] == {"clip_id": EP2, "start": 0.0, "end": 44.0}
-    for slot in last["shots"]:
-        assert slot["clip_id"] == EP2
-        shot_start = 5.0 * slot["n"]
-        assert last["window"]["start"] <= shot_start < last["window"]["end"]
-
-
-def test_a_sentence_citing_two_episodes_takes_its_window_from_the_first(client, project, ready, llm):
-    llm.scripts = [script(*[(THIRTY, ["1-0", "2-1"])] * PASSING)]
-
-    start(client, clip_ids=[EP1, EP2])
-    wait_for_end(client)
-
-    first = a_draft(client)["sentences"][0]
-    assert first["refs"] == [{"clip_id": EP1, "line": 0}, {"clip_id": EP2, "line": 1}]
-    assert first["window"] == {"clip_id": EP1, "start": 0.0, "end": 34.0}
-    assert {slot["clip_id"] for slot in first["shots"]} == {EP1}
-    pick = next(r for r in llm.requests if is_pick(r))
-    assert "Line 1." not in pick.prompt  # EP 2's line isn't sent
 
 
 def test_the_draft_has_the_order_the_remembered_volume_and_becomes_the_last_voice(client, project, ready, llm):
@@ -413,23 +452,28 @@ def test_the_llm_gets_the_target_letters_and_sentences_and_the_generation_settin
     assert (request.max_tokens, request.temperature) == (2 * 900 + 1000, 0.3)
     assert "900" in request.prompt
     assert "15" in request.prompt
-    assert "[1-0 00:00:00] Line 0." in request.prompt
+    assert "[0 00:00:00] Line 0." in request.prompt
     # The rules come again after a long Transcript, where the model reads last.
-    assert request.prompt.rindex("900") > request.prompt.index("[1-19 ")
+    assert request.prompt.rindex("900") > request.prompt.index("[19 ")
     pick = next(r for r in llm.requests if is_pick(r))
     assert (pick.temperature, pick.image) == (0.0, None)
 
 
-def test_writing_then_matching_reports_done_and_total_sentences(client, project, ready, llm):
-    llm.scripts = [script(*[(THIRTY, ["1-0"])] * 29, (THIRTY, []))]
-    llm.pause_at(2)  # the second pick
+def test_writing_then_polishing_then_matching_reports_done_and_total_sentences(client, project, ready, llm):
+    llm.scripts = [script(*[(THIRTY, ["0"])] * 29, (THIRTY, []))]
+    llm.pause_at(1)  # the polish
+    llm.pause_at(3)  # the second pick
 
     start(client)
-    llm.wait_until(2)
-    job = wait_for(client, lambda job: job["state"] == "matching")
+    llm.wait_until(1)
+    polishing = wait_for(client, lambda job: job["state"] == "polishing")
+    llm.release(1)
+    llm.wait_until(3)
+    matching = wait_for(client, lambda job: job["state"] == "matching")
 
-    assert (job["done"], job["total"]) == (1, 29)
-    llm.release(2)
+    assert (polishing["done"], polishing["total"], polishing["percent"]) == (None, None, None)
+    assert (matching["done"], matching["total"]) == (1, 29)
+    llm.release(3)
     assert wait_for_end(client)["state"] == "done"
 
 
@@ -452,7 +496,7 @@ def test_a_script_missing_only_its_last_brace_is_read(client, project, ready, ll
     start(client)
 
     assert wait_for_end(client)["state"] == "done"
-    assert len([r for r in llm.requests if not is_pick(r)]) == 1
+    assert len([r for r in llm.requests if is_script(r)]) == 1
 
 
 def test_two_broken_replies_then_a_good_one_is_done_after_three_asks(client, project, ready, llm):
@@ -461,17 +505,17 @@ def test_two_broken_replies_then_a_good_one_is_done_after_three_asks(client, pro
     start(client)
 
     assert wait_for_end(client)["state"] == "done"
-    assert len([r for r in llm.requests if not is_pick(r)]) == 3
+    assert len([r for r in llm.requests if is_script(r)]) == 3
 
 
 def test_asking_again_says_what_was_wrong_with_the_last_reply(client, project, ready, llm):
     # Real replies ran long or looped until max_tokens cut the JSON (D61).
-    llm.scripts = [script(*[(THIRTY, ["1-0"])] * 60), "{cut", passing_script()]
+    llm.scripts = [script(*[(THIRTY, ["0"])] * 60), "{cut", passing_script()]
 
     start(client)
     wait_for_end(client)
 
-    first, second, third = [r.prompt for r in llm.requests if not is_pick(r)]
+    first, second, third = [r.prompt for r in llm.requests if is_script(r)]
     assert "each sentence at most 72 Thai letters" in first  # 900 letters in 15 sentences, with room
     assert "Your last script" not in first
     assert "1800 letters in 60 sentences" in second
@@ -490,8 +534,8 @@ def test_a_reply_slower_than_the_timeout_counts_as_a_failed_try(client, project,
 
 
 def test_a_script_far_from_the_target_is_asked_again_and_the_last_readable_is_kept(client, project, ready, llm):
-    short = script(("สั้น", ["1-0"]))
-    llm.scripts = [short, short, script(("สั้นที่สุด", ["1-0"]))]
+    short = script(("สั้น", ["0"]))
+    llm.scripts = [short, short, script(("สั้นที่สุด", ["0"]))]
 
     start(client)
 
@@ -501,7 +545,7 @@ def test_a_script_far_from_the_target_is_asked_again_and_the_last_readable_is_ke
 
 def test_chinese_characters_and_lines_that_do_not_exist_are_cleaned_out(client, project, ready, llm):
     # Refs are "{episode}-{line}": EP 9 line 999 is in no Transcript.
-    llm.scripts = [script(("ไป現場กัน", ["9-999"]), *[(THIRTY, ["1-0"])] * (PASSING - 1))]
+    llm.scripts = [script(("ไป現場กัน", ["9-999"]), *[(THIRTY, ["0"])] * (PASSING - 1))]
 
     start(client)
     wait_for_end(client)
@@ -514,7 +558,7 @@ def test_chinese_characters_and_lines_that_do_not_exist_are_cleaned_out(client, 
 
 
 def test_a_sentence_empty_after_cleaning_is_dropped(client, project, ready, llm):
-    llm.scripts = [script(("現場", ["1-0"]), *[(THIRTY, ["1-0"])] * PASSING)]
+    llm.scripts = [script(("現場", ["0"]), *[(THIRTY, ["0"])] * PASSING)]
 
     start(client)
     wait_for_end(client)
@@ -523,7 +567,7 @@ def test_a_sentence_empty_after_cleaning_is_dropped(client, project, ready, llm)
 
 
 def test_shots_picked_outside_the_window_fall_back_to_the_two_nearest_the_first_line(client, project, ready, llm):
-    llm.scripts = [passing_script(refs=("1-10",))]  # line 10 starts at 100 s: Shot 20
+    llm.scripts = [passing_script(refs=("10",))]  # line 10 starts at 100 s: Shot 20
     llm.picks = lambda request: '{"shots": [0, 39]}'
 
     start(client)
@@ -534,7 +578,7 @@ def test_shots_picked_outside_the_window_fall_back_to_the_two_nearest_the_first_
 
 def test_a_sentence_keeps_only_its_first_three_cited_lines(client, project, ready, llm):
     # A real reply listed a run of 60 ids for one sentence (spec › Draft job step 2: 1 to 3).
-    llm.scripts = [passing_script(refs=("1-5", "1-6", "1-7", "1-8", "1-9"))]
+    llm.scripts = [passing_script(refs=("5", "6", "7", "8", "9"))]
 
     start(client)
     wait_for_end(client)
@@ -544,7 +588,7 @@ def test_a_sentence_keeps_only_its_first_three_cited_lines(client, project, read
 
 def test_a_wide_window_asks_about_only_the_shots_nearest_the_first_line(client, project, ready, llm, monkeypatch):
     monkeypatch.setattr(draft, "PICK_MAX_SHOTS", 6)
-    llm.scripts = [passing_script(refs=("1-19", "1-10"))]  # window 70–224 s: Shots 14–39
+    llm.scripts = [passing_script(refs=("19", "10"))]  # window 70–224 s: Shots 14–39
     llm.picks = lambda request: '{"shots": [15, 36]}'  # 15 is in the window but wasn't asked about
 
     start(client)
@@ -560,7 +604,7 @@ def test_a_window_with_one_shot_uses_it_twice_without_asking(client, project, re
     write_shots(project, EP1, count=1)  # 0–5 s; line 0's window holds only it
     llm.scripts = [passing_script()]
 
-    start(client)
+    start(client, ep={"n": 1, "start_s": 0.0, "end_s": 5.0})
     wait_for_end(client)
 
     assert a_draft(client)["sentences"][0]["shots"] == [{"clip_id": EP1, "n": 0}, {"clip_id": EP1, "n": 0}]
@@ -674,6 +718,336 @@ def test_pick_without_a_draft_is_no_draft(client, ready):
     assert (response.status_code, response.json()["code"]) == (404, "no_draft")
 
 
+# --- Polishing: after the script is written (kind "draft") ---
+
+
+def test_the_script_prompt_asks_for_one_story(client, project, ready, llm):
+    llm.scripts = [passing_script()]
+
+    start(client)
+    wait_for_end(client)
+
+    assert "carries on from the one before" in next(r for r in llm.requests if is_script(r)).prompt
+
+
+def test_a_draft_is_polished_after_writing_and_before_picking(client, project, ready, llm):
+    rest = [(THIRTY, ["0"])] * (PASSING - 2)
+    llm.scripts = [script((THIRTY, ["1"]), (THIRTY, ["2", "3"]), *rest, top_text="หัวเรื่อง")]
+    llm.polishes = lambda request: polished({i: "ข" * 30 for i in asked_to_polish(request)} | {0: "ค" * 30})
+
+    start(client, layout="A")
+    wait_for_end(client)
+
+    kinds = ["pick" if is_pick(r) else "polish" if is_polish(r) else "script" for r in llm.requests]
+    assert kinds == ["script", "polish"] + ["pick"] * PASSING
+    polish = llm.requests[1]
+    assert asked_to_polish(polish) == {i: THIRTY for i in range(PASSING)}
+    assert fixed_in(polish) == {}
+    assert "[1 00:00:10] Line 1." in polish.prompt
+    assert "[3 00:00:30] Line 3." in polish.prompt
+    assert "หัวเรื่อง" in polish.prompt
+    # The pick reads the sentence as polished.
+    assert f"Sentence: {'ค' * 30}" in llm.requests[2].prompt
+    found = a_draft(client)
+    assert [s["text"] for s in found["sentences"][:2]] == ["ค" * 30, "ข" * 30]
+    assert len(found["sentences"]) == PASSING
+    assert [[r["line"] for r in s["refs"]] for s in found["sentences"][:2]] == [[1], [2, 3]]
+    assert {s["edited"] for s in found["sentences"]} == {False}
+    assert found["top_text"] == "หัวเรื่อง"
+
+
+def test_polishing_uses_its_generation_settings(client, project, ready, llm):
+    llm.scripts = [passing_script()]
+
+    start(client)
+    wait_for_end(client)
+
+    polish = next(r for r in llm.requests if is_polish(r))
+    # The script is 900 letters: twice that, plus room for the JSON (spec › ค่าการสร้างข้อความ).
+    assert (polish.max_tokens, polish.temperature, polish.image) == (2 * 900 + 1000, 0.3, None)
+
+
+def test_a_draft_polish_that_answers_under_half_twice_keeps_the_written_text(client, project, ready, llm, caplog):
+    llm.scripts = [passing_script()]
+    llm.polishes = lambda request: polished({0: "ใหม่"})  # 1 of 30
+
+    start(client)
+    job = wait_for_end(client)
+
+    assert job["state"] == "done"
+    assert len([r for r in llm.requests if is_polish(r)]) == 2
+    assert a_draft(client)["sentences"][0]["text"] == THIRTY
+    assert THIRTY not in caplog.text
+
+
+def test_a_polish_longer_than_the_target_allows_twice_keeps_the_written_text(client, project, ready, llm):
+    llm.scripts = [passing_script()]
+    # 40 letters a sentence: 1,200 letters, over 900 + 25%, though each is within ±50%.
+    llm.polishes = lambda request: polished({i: "ข" * 40 for i in asked_to_polish(request)})
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"
+    assert len([r for r in llm.requests if is_polish(r)]) == 2
+    assert {s["text"] for s in a_draft(client)["sentences"]} == {THIRTY}
+
+
+def test_a_polish_slower_than_the_timeout_counts_as_a_failed_try(client, project, ready, llm, monkeypatch):
+    monkeypatch.setattr(draft, "POLISH_TIMEOUT_SECONDS", 0.2)
+    llm.scripts = [passing_script()]
+    replies = iter([FakeLlm.HANG])
+    llm.polishes = lambda request: next(replies, None) or polished({i: "ข" * 30 for i in asked_to_polish(request)})
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"
+    assert llm.processes[0].terminated is True  # the stuck child is ended, a new one starts
+    assert len(llm.processes) == 2
+    assert a_draft(client)["sentences"][0]["text"] == "ข" * 30
+
+
+# --- Polishing again (kind "polish") ---
+
+
+def polish(client, **body):
+    return client.post(JOBS, json={"kind": "polish", **body})
+
+
+# Ten letters each, so a polished sentence of 5 to 15 passes on its own (±50%).
+ONE, EDITED, THREE = "ก" * 10, "ข" * 10, "ค" * 10
+
+
+def three_sentences(project, second_edited: bool = True, voiced_first: bool = False) -> None:
+    """Sentence 2 edited by the user; sentence 1 voiced, if asked."""
+    sentences = [
+        sentence("s_00000001", ONE, refs=[{"clip_id": EP1, "line": 1}], audio=voiced(ONE) if voiced_first else None),
+        sentence("s_00000002", EDITED, refs=[{"clip_id": EP1, "line": 2}]) | {"edited": second_edited},
+        sentence("s_00000003", THREE, refs=[{"clip_id": EP1, "line": 3}]),
+    ]
+    write_draft(project, sentences=sentences)
+
+
+def test_polish_keeps_the_edited_sentence_and_rewrites_the_others(client, project, ready, llm):
+    three_sentences(project, voiced_first=True)
+    before = a_draft(client)
+    llm.polishes = lambda request: polished({0: "ง" * 12, 1: "จ" * 10, 2: "ฉ" * 12})
+
+    response = polish(client)
+
+    assert response.status_code == 202
+    assert (response.json()["kind"], response.json()["state"]) == ("polish", "polishing")
+    job = wait_for_end(client)
+    assert (job["state"], job["done"], job["total"]) == ("done", 2, 2)
+    request = llm.requests[0]
+    assert fixed_in(request) == {1: EDITED}
+    assert asked_to_polish(request) == {0: ONE, 2: THREE}
+    after = a_draft(client)
+    assert [s["text"] for s in after["sentences"]] == ["ง" * 12, EDITED, "ฉ" * 12]
+    assert [s["edited"] for s in after["sentences"]] == [False, True, False]
+    assert after["sentences"][0]["status"] == "stale_audio"
+    assert [s["shots"] for s in after["sentences"]] == [s["shots"] for s in before["sentences"]]
+    assert [s["refs"] for s in after["sentences"]] == [s["refs"] for s in before["sentences"]]
+    assert [s["id"] for s in after["sentences"]] == [s["id"] for s in before["sentences"]]
+
+
+def test_polish_with_include_edited_rewrites_every_sentence_and_clears_edited(client, project, ready, llm):
+    three_sentences(project)
+    llm.polishes = lambda request: polished({0: ONE, 1: "จ" * 10, 2: THREE})
+
+    polish(client, include_edited=True)
+    job = wait_for_end(client)
+
+    assert (job["done"], job["total"]) == (1, 3)
+    assert fixed_in(llm.requests[0]) == {}
+    second = a_draft(client)["sentences"][1]
+    assert (second["text"], second["edited"]) == ("จ" * 10, False)
+
+
+def test_a_finished_polish_counts_the_sentences_whose_text_changed(client, project, ready, llm):
+    three_sentences(project, second_edited=False)
+    llm.polishes = lambda request: polished({0: "ง" * 10, 1: "จ" * 10, 2: "ฉ" * 10})
+
+    polish(client)
+
+    assert wait_for_end(client)["done"] == 3
+
+
+def test_answers_for_an_unknown_a_repeated_or_a_fixed_i_are_dropped(client, project, ready, llm):
+    three_sentences(project)
+    llm.polishes = lambda request: json.dumps(
+        {
+            "sentences": [
+                {"i": 0, "text": "ง" * 10},
+                {"i": 1, "text": "จ" * 10},  # fixed
+                {"i": 2, "text": "ฉ" * 10},
+                {"i": 2, "text": "ช" * 10},
+                {"i": 7, "text": "เจ็ด"},
+                {"i": True, "text": "จริง"},
+            ]
+        },
+        ensure_ascii=False,
+    )
+
+    polish(client)
+    wait_for_end(client)
+
+    assert [s["text"] for s in a_draft(client)["sentences"]] == ["ง" * 10, EDITED, THREE]
+
+
+@pytest.mark.parametrize("reply", ["   ", "ง" * 20])
+def test_a_sentence_polished_empty_or_far_longer_keeps_its_text(client, project, ready, llm, reply):
+    three_sentences(project, second_edited=False)
+    llm.polishes = lambda request: polished({0: reply, 1: "จ" * 10, 2: "ฉ" * 10})
+
+    polish(client)
+    wait_for_end(client)
+
+    assert [s["text"] for s in a_draft(client)["sentences"]] == [ONE, "จ" * 10, "ฉ" * 10]
+
+
+def test_polish_that_fails_twice_is_polish_failed_and_keeps_the_draft(client, project, ready, llm):
+    three_sentences(project, second_edited=False)
+    before = project.draft_file.read_text(encoding="utf-8")
+    llm.polishes = lambda request: polished({0: "ง" * 10})  # 1 of 3
+
+    polish(client)
+    job = wait_for_end(client)
+
+    assert job["state"] == "failed"
+    assert job["error"] == {"code": "polish_failed", "message": "AI เรียบเรียงไม่สำเร็จ บทเดิมไม่เปลี่ยน"}
+    assert len(llm.requests) == 2
+    assert project.draft_file.read_text(encoding="utf-8") == before
+
+
+def test_polish_that_grows_the_script_over_15_percent_fails(client, project, ready, llm):
+    three_sentences(project, second_edited=False)
+    # 30 letters become 36: 20% more, though each sentence passes on its own.
+    llm.polishes = lambda request: polished({0: "ง" * 12, 1: "จ" * 12, 2: "ฉ" * 12})
+
+    polish(client)
+
+    assert wait_for_end(client)["error"]["code"] == "polish_failed"
+
+
+def test_polish_when_every_sentence_is_edited_is_nothing_to_polish_unless_included(client, project, ready, llm):
+    write_draft(project, sentences=[sentence("s_00000001", "หนึ่ง", refs=[{"clip_id": EP1, "line": 1}]) | {"edited": True}])
+
+    refused = polish(client)
+    included = polish(client, include_edited=True)
+
+    assert (refused.status_code, refused.json()["code"]) == (400, "nothing_to_polish")
+    assert included.status_code == 202
+    wait_for_end(client)
+
+
+def test_polish_of_an_empty_draft_is_nothing_to_polish(client, project, ready):
+    write_draft(project, sentences=[])
+
+    response = polish(client)
+
+    assert (response.status_code, response.json()["code"]) == (400, "nothing_to_polish")
+
+
+@pytest.mark.parametrize("value", ["yes", None, 1])
+def test_include_edited_that_is_not_a_boolean_is_invalid_request(client, project, ready, value):
+    three_sentences(project)
+
+    response = polish(client, include_edited=value)
+
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
+
+
+def test_polish_without_a_draft_is_no_draft_before_any_other_check(client, ready):
+    response = polish(client, include_edited="yes")  # would be invalid_request with a draft
+
+    assert (response.status_code, response.json()["code"]) == (404, "no_draft")
+
+
+def test_polish_without_qwen_is_not_ready(client, project, ready):
+    three_sentences(project)
+    project.marker(QWEN).unlink()
+
+    response = polish(client)
+
+    assert (response.status_code, response.json()["code"]) == (503, "not_ready")
+
+
+def test_polish_while_the_draft_is_voiced_is_draft_locked(client, project, ready, tts):
+    three_sentences(project)
+
+    with voicing(client, tts, "s_00000001"):
+        response = polish(client)
+
+    assert (response.status_code, response.json()["code"]) == (409, "draft_locked")
+
+
+def test_polish_while_another_gpu_job_runs_is_gpu_busy(client, project, ready, whisper):
+    three_sentences(project)
+
+    with transcribing(client, whisper, EP2):
+        response = polish(client)
+
+    assert (response.status_code, response.json()["code"]) == (409, "gpu_busy")
+
+
+def test_cancelling_a_polish_keeps_the_draft_and_edits_meanwhile_are_draft_locked(client, project, ready, llm):
+    three_sentences(project)
+    before = project.draft_file.read_text(encoding="utf-8")
+    llm.pause_at(0)
+
+    polish(client)
+    llm.wait_until(0)
+    refused = client.patch(f"{DRAFT}/sentences/s_00000001", json={"text": "ใหม่"})
+    line = client.patch(f"/api/spoil/clips/{EP1}/transcript/lines/1", json={"text": "แก้"})
+    client.delete(CURRENT)
+
+    assert (refused.status_code, refused.json()["code"]) == (409, "draft_locked")
+    assert (line.status_code, line.json()["code"]) == (409, "clip_busy")
+    assert wait_for_end(client)["state"] == "cancelled"
+    assert project.draft_file.read_text(encoding="utf-8") == before
+
+
+def test_include_edited_in_another_kind_is_ignored(client, project, ready, llm):
+    """Only `polish` reads it, so a stray one never refuses a `pick` (spec › เรียบเรียงใหม่)."""
+    write_draft(project)
+
+    response = client.post(JOBS, json={"kind": "pick", "sentence_id": "s_00000001", "include_edited": "yes"})
+
+    assert response.status_code == 202
+    wait_for_end(client)
+
+
+# --- `edited` ---
+
+
+def test_new_text_makes_a_sentence_edited_and_the_same_text_or_shots_do_not(client, project, ready):
+    write_draft(project)
+
+    same = client.patch(f"{DRAFT}/sentences/s_00000001", json={"text": "  ประโยคแรก "})
+    shots = client.patch(f"{DRAFT}/sentences/s_00000001", json={"shots": [{"clip_id": EP1, "n": 4}, None]})
+    changed = client.patch(f"{DRAFT}/sentences/s_00000002", json={"text": "ประโยคสองใหม่"})
+    back = client.patch(f"{DRAFT}/sentences/s_00000002", json={"text": "ประโยคสอง"})
+
+    assert same.json()["sentences"][0]["edited"] is False
+    assert shots.json()["sentences"][0]["edited"] is False
+    assert changed.json()["sentences"][1]["edited"] is True
+    assert back.json()["sentences"][1]["edited"] is True  # typed back, still the user's
+
+
+def test_an_inserted_sentence_is_edited(client, project, ready):
+    write_draft(project)
+
+    response = client.post(f"{DRAFT}/sentences", json={"after_id": None, "text": "ใหม่"})
+
+    assert response.json()["sentences"][0]["edited"] is True
+
+
+def test_a_draft_without_edited_reads_false(client, project, ready):
+    write_draft(project)  # `sentence()` writes no `edited`
+
+    assert [s["edited"] for s in a_draft(client)["sentences"]] == [False, False]
+
+
 # --- Reading the draft ---
 
 
@@ -702,7 +1076,7 @@ def test_a_draft_file_that_cannot_be_read_is_no_draft(client, project, ready, co
 
 
 def test_a_draft_naming_a_clip_that_is_gone_is_no_draft(client, project, ready):
-    write_draft(project, clip_ids=(EP1, "bbbbbbbbbbb"))
+    write_draft(project, clip_id="bbbbbbbbbbb")
 
     assert client.get(DRAFT).json() is None
 
@@ -823,6 +1197,7 @@ def test_settings_start_at_their_defaults(client):
         "watermarks": [],
         "original_volume": 20,
         "last_voice_id": None,
+        "ep_minutes": 30,
     }
 
 

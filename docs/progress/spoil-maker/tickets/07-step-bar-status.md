@@ -10,7 +10,7 @@
 - Seams: 2 (ตัวบอกขั้น)
 - User stories: 15
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** change request ตัด EP (D66–D71) และเรียบเรียงบท (D72–D76) อนุมัติแล้ว; ticket 06–08 พร้อม build
+**Now:** แบบ Figma ของขั้น 1, ตัวบอกขั้น และเรียบเรียงใหม่เสร็จ (Blocked 13–15); โค้ดพร้อม merge
 
-**Next:** `/warroom-build spoil-maker 06`
+**Next:** รอ merge [PR #5](https://github.com/mousemouse094526/framecraft/pull/5)
 
 ## Tickets
 
@@ -14,11 +14,128 @@
 | 03 | ร่างบทและหน้าตรวจแก้ | done |
 | 04 | เสียงต่อประโยคและ render | done |
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
-| 06 | ตัด EP จากคลิปเดียว | ready |
-| 07 | ตัวบอกขั้นบอกสถานะจริง | ready |
-| 08 | เรียบเรียงบท | ready |
+| 06 | ตัด EP จากคลิปเดียว | done |
+| 07 | ตัวบอกขั้นบอกสถานะจริง | done |
+| 08 | เรียบเรียงบท | done |
 
 ## Log
+
+### แบบ Figma ตัด EP ตัวบอกขั้น และเรียบเรียงใหม่ — 2026-11-04
+
+**Built:** (Figma, ไม่มีโค้ด) section [`EP & เรียบเรียง (D66–D76)`](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)
+- component `Spoil steps` ทำใหม่: ไม่มีเครื่องหมายถูก ทุกขั้นเป็นเลขในวง; ใช้ component ใหม่ `Spoil step` (state `default`/`hover`/`open`, tone `default`/`failed`, property `Number`, `Label`, `Status`, `Running` จุดหมุน, `Show text`); เพิ่ม variant `breakpoint=mobile` — ขั้นที่ไม่เปิดซ่อนชื่อและสถานะ จุดหมุนยังแสดง; instance ใน frame mobile เดิมทุก frame สลับเป็น mobile
+- component ใหม่: `Source clip row` (เลือกคลิปเดียว radio, "ยังไม่ถอด"/"ยังไม่บรรยายฉาก" พร้อมปุ่ม), `Episode row` (`default`/`selected`/`in draft`/`no speech`/`no speech selected`, ป้าย "render แล้ว {k}" และ "อยู่ใน Spoil draft"), `Cut point` (`default`/`editing`/`error`), `Polish dialog` (`unticked`/`ticked`/`all edited` × desktop/mobile), `icon/wand-sparkles`
+- component เดิมที่แก้: `Sentence card` property `Edited` (ป้าย "แก้เอง" ข้างเลขประโยค); `Review footer` ปุ่ม "เรียบเรียงใหม่" ใน `ready`/`render blocked` และ state ใหม่ `polishing` (แถบไม่มี %); `Draft action` property `Reason` ใต้ปุ่มใน `disabled`
+- frame: `Step bar / …` 7 frame (5 สถานะ + mobile 2), `Spoiler setup / …` 22 frame (สถานะ 1–9, 10a เขียนบท, 10b เลือกภาพ × 1440, 375), `Script review / Polish …` 14 frame (สถานะ 1–7 × 1440, 375)
+- section `3 tab`: frame `สปอย 1 เลือกคลิป` desktop และ mobile ใช้การ์ดคลิปต้นฉบับกับรายการ EP ใหม่; frame ในย้ายลง 142 px ไม่ให้ทับ component
+- prototype: เรียบเรียงใหม่ → กล่อง → ติ๊ก → เรียบเรียง → กำลังเรียบเรียง → เสร็จ; เลือกคลิป → 2 EP; กดเวลาจุดตัด → แก้จุดตัด; ร่างบท → เขียนบท → เลือกภาพ → `3 tab / สปอย 2 ตรวจแก้บท`; ทุกขั้นใน step bar ไปที่ frame ของขั้นนั้นใน `3 tab`
+- `ui-prompt.md` ลบ; spec › Design ไม่มีจอ `pending`
+
+**Decided:**
+- ยืนยันก่อนเปลี่ยนความยาว EP เป็น Alert warning ในการ์ด (ใต้ select) แบบ "ร่างทับ" ของ `Draft action` ไม่ใช่ modal; ปุ่มร่างบทกดไม่ได้ตอนจุดตัด error ใช้เหตุผล "แก้จุดตัดก่อน" (prompt ไม่ได้ให้ข้อความ)
+- ขั้น 2 ใน step bar ตามโค้ด ticket 08: ระหว่างเรียบเรียง "กำลังเรียบเรียง" พร้อมจุดหมุน, ล้ม "เรียบเรียงไม่สำเร็จ" (tone failed)
+
+**For the next ticket:**
+- เทียบหน้าเว็บที่ 1440 และ 375 กับ frame ใหม่ (ขั้น 1, step bar, เรียบเรียงใหม่) แล้วปรับโค้ดถ้าต่าง — โค้ดสร้างก่อนมีแบบ
+
+### Feature review รอบสาม — 2026-11-04
+
+**Built:** (`refactor(spoil-maker): feature review fixes`, `2b419aa`)
+- `require_json` ตรวจ `PUT` ด้วย (ADR-0013): `PUT /clips/{id}/episodes` ที่ไม่ใช่ JSON → `415`
+- `GET /clips/{id}/episodes` มี `tokens_not_ready`; หน้าเว็บไม่เขียนชื่อ Qwen เอง ไม่มี `TOKEN_LIMIT` สำรอง (ตัวนับ "— / —" จนอ่าน EP)
+- backend: `episodes.asked_ep` (ย้ายจาก `draft._ready_ep`), `episodes_changed`, `invalid_episodes`, `_by_minutes`, `CutEp` (เดิม `Span`), `GpuSlot.clip_files_lock`, `spoil_maker.json_values` แทนเช็ค int/number 5 แบบ, `_span_now` ลบ; comment ของ `done`/`total`, `polish_failed` สองแบบ, `thumb_shot`, `GET` ที่เขียนไฟล์, ลำดับ lock
+- หน้าเว็บ: `ModalDialog` (แทนกรอบซ้ำและ `useDialogKeys`), `reviewJobText`, `useJobCalls` (refresh ตัวบอกขั้นเองเมื่อเริ่ม/busy/ยกเลิก), `parseClock` ย้ายไป `features/spoil-maker/lib/clock.ts`, `useEpisodes` ทางเดียว, `Ep` แทน `EpRange`
+- test: `clip_busy`/`gpu_busy`/`draft_locked` เริ่ม Transcribe และ Voice job จริงผ่าน API (`transcribing`, `voicing`) แทน `gpu.slot.take`; test `PUT` 415; `testBackend.ts` ใช้ร่วม 5 ไฟล์ test; `tts` fixture เดียวใน draft test
+- Docs: ADR-0013, spec (ลบคลิประหว่าง `PUT` → `404`, ลำดับลบตามโค้ด, API, Frontend, Seam 1), ticket 06, skills `fastapi-api`, `vite-react-web/rules/testing.md`
+- เช็คมือ Seam 3 (เรียบเรียง) บน M2 กับ Qwen จริง: คลิปในเครื่องยาวสุด 14:53 จึงใช้ EP เดียว 15 นาที (6,674 token) ไม่ใช่ 30 นาที — 60 วินาที `drama` จบ 318 วินาที (writing 104, polishing 46, matching 162) ภายใน 8 นาที; 14 ประโยค ประมาณ 73.7 วินาที (+23%, ใน ±25%); 10 คู่ประโยคติดกัน (1–11) เล่าต่อกัน 8 คู่ (คู่ 5–6 และ 6–7 กระโดด); draft และ settings คืนตรง backup ทุกไบต์
+- เช็คใน dev server: ขั้น 1 ระหว่างร่างแสดง "กำลังร่าง" ที่ตัวบอกขั้นและ "— / —" ที่ตัวนับ ไม่มี console error
+
+**Decided:**
+- D80 — แก้จาก feature review รอบสาม
+
+**For the next ticket:**
+- Seam 3 กับ EP 30 นาทีจริง: ยังไม่มีคลิปยาวพอในเครื่อง — วัดเวลาอีกครั้งเมื่อมี
+- state ของขั้นยัง poll สองที่ (`useStepStatus` กับ hook ของแต่ละขั้น, D78 ยอมรับ)
+- `style`, `top_text`, `sentences`, `transcript` เดินด้วยกันใน `_ask_to_polish`/`polish_prompt`; kind/state ของ Draft job แยกใน `steps.ts`, `SetupSettings` — รวมเมื่อเพิ่ม kind
+- Blocked 13–15: ปรับหน้าตาตาม Figma ที่ 1440 และ 375 เมื่อแบบมา
+
+**Checks:** `uv run pytest` — 546 passed; `npm --prefix frontend test` — 222 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 08: เรียบเรียงบท — done 2026-11-04
+
+**Built:**
+- คำสั่งร่างบทบอกว่าทุกประโยคเล่าต่อจากประโยคก่อนเป็นเรื่องเดียว
+- Draft job `kind: "draft"`: `writing` → `polishing` → `matching`; ขั้นเรียบเรียง (`script.polish_prompt`, `parse_polish`) ส่งสไตล์ `top_text` ทุกประโยค `[i]` พร้อมบรรทัดที่อ้าง; จับคู่ด้วย `i` (ไม่รู้จัก ซ้ำ fixed ทิ้ง), ต่อประโยค ±50%/ว่าง ใช้ข้อความเดิม, ทั้งบท ไม่ถึงครึ่ง / ±25% ของเป้าหมาย; 2 ครั้ง, timeout terminate แล้วเริ่มใหม่; ไม่ผ่านใช้ข้อความเดิม log ไม่มีข้อความบท; 0.3 / `2 × ตัวอักษรของบท + 1,000` / 5 นาที
+- `Sentence.edited`: `PATCH` ข้อความต่างจากที่เก็บ หรือแทรก → `true`; ไฟล์เก่าอ่าน `false`
+- `POST /draft-jobs` `{kind: "polish", include_edited?}`: `busy` → `no_draft` → `invalid_request` → `nothing_to_polish` → `not_ready` → `draft_locked` → `gpu_busy`; จองช่อง GPU ด้วย `locks_draft` และคลิปของ draft (`clip_busy`); เขียนเฉพาะ `text` ที่เปลี่ยน (`edited` → `false`); ไม่ผ่าน → `failed` `polish_failed` draft ไม่เปลี่ยน; `done` = ประโยคที่เปลี่ยน, `total` = ที่ขอ; ไม่เกินรวมเดิม +15%
+- หน้าตรวจแก้: ปุ่ม "เรียบเรียงใหม่" → `PolishDialog` (ช่องติ๊ก, คำเตือนเขียนทับ, คำเตือนเสียงใหม่, ปุ่มกดไม่ได้เมื่อทุกประโยคแก้เอง); รอ change ที่ยังไม่ตอบ แล้วอ่าน `/draft` ก่อนส่ง; "กำลังเรียบเรียง" กับยกเลิก ช่องแก้กดไม่ได้; จบ "เรียบเรียง {n} ประโยค" / "ไม่มีประโยคที่เปลี่ยน" / ข้อความ `polish_failed`; ป้าย "แก้เอง"
+- ตัวบอกขั้น: "กำลังเรียบเรียง" พร้อมจุดหมุน (ทั้ง `polishing` ของ draft และ `polish`), "เรียบเรียงไม่สำเร็จ"; ขั้น 1 ปุ่มร่างแสดง "กำลังเรียบเรียง"
+- โค้ดใช้ร่วม: `useDialogKeys` (Esc + focus trap, ShotPicker ใช้ด้วย), `ReviewJobProgress` และ `REVIEW_JOB_TEXT` แทน `PickProgress`
+- test: backend +28 (Seam 1 › เรียบเรียง ทุกข้อ + timeout, generation settings, gpu_busy, not_ready, clip_busy); `ScriptReview.test.tsx` +12, `SpoilMakerPage.test.tsx` +3 (Seam 2)
+- เช็คใน dev server (draft ปลอมด้วย patch fetch, draft ในเครื่องเป็น `version` 1): 1440 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; กล่องเลือก ติ๊กแล้วเห็นคำเตือน, ป้าย "แก้เอง"
+- Review สามแกนแก้แล้ว: `error`/`notice` รวมเป็น `message`, overlay เป็น union เดียว, `PolishProgress` ซ้ำ `PickProgress` → `ReviewJobProgress`, ชื่อ `_ask_to_polish`/`fits`/`sendChange`, `POLISH_GROWTH` และ `grew_little` ย้ายไป `script`, log ใส่ code, test gpu_busy, ชื่อและคำอธิบาย test
+
+**Decided:**
+- D79 — ทางเลือกเล็กตอน build เรียบเรียงบท
+
+**For the next ticket:**
+- เช็คมือ Seam 3 ยังไม่ทำ: ร่างบท 60 วินาที `drama` จาก EP 30 นาทีบน M2 → รวมเรียบเรียงภายใน 8 นาที, 10 คู่ประโยค ≥ 8 คู่เล่าต่อกัน, ความยาว ±25% (ทำตอน feature review)
+- เมื่อ Blocked 15 มีแบบ: ปรับปุ่ม กล่องเลือก ป้าย "แก้เอง" ให้ตรง Figma ที่ 1440 และ 375
+- `sm:shadow-[0_16px_48px_0_rgba(0,0,0,0.18)]` และกรอบ modal ซ้ำใน `ShotPicker` กับ `PolishDialog` — ทำเป็น token หรือ component `Modal`
+- `style`, `top_text`, `sentences`, `transcript` เดินด้วยกันใน `_ask_to_polish` และ `polish_prompt` — รวมเป็น type ได้ถ้าเพิ่มอีก
+- การแยกตาม kind/state ของ Draft job ยังอยู่หลายที่ (`steps.ts`, `SetupSettings`, `REVIEW_JOB_TEXT`) — ถ้าเพิ่ม kind อีกควรรวมเป็น map เดียว
+- ยกมาจาก 07: test helper `phased`/`jsonResponse`/`backend` ซ้ำใน 4 ไฟล์ test; `refreshSteps()` ซ้ำใน 4 hook
+
+**Checks:** `uv run pytest` — 545 passed; `npm --prefix frontend test` — 222 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 07: ตัวบอกขั้นบอกสถานะจริง — done 2026-11-04
+
+**Built:**
+- `useStepStatus` (state ร่วมใน `SpoilMakerPage`): อ่าน `/draft`, `/renders`, `/draft-jobs/current`, `/voice-jobs/current` (`sentences` เท่านั้น), `/renders/current`; poll งานที่ยังไม่จบทุก 1 วินาที แม้เปิดขั้นอื่น; งานจบ → อ่าน `/draft` และ `/renders` ใหม่; poll ล้ม → เลิกตามจน refresh
+- `StepsRefreshContext`: `useSpoilerSetup`, `useScriptReview`, `useReviewJobs`, `useRenders` เรียก refresh เมื่อเริ่มงาน (รวม `busy`), ยกเลิก, แทรก/ลบประโยค, ลบผล render
+- `lib/steps.ts` `stepLines`: ขั้น 1 "{ชื่อคลิป} · EP {n}" / "ยังไม่เลือก"; ขั้น 2 "กำลังร่าง" / "กำลังเลือกภาพ x/y" / "สร้างเสียง x/y" / "{n} ประโยค" / "ยังไม่มีบท" / "ร่างบทไม่สำเร็จ" / "สร้างเสียงไม่สำเร็จ" (งานที่เริ่มล่าสุดเป็นตัวบอก, `pick` คงจำนวนประโยคพร้อมจุดหมุน); ขั้น 3 "render {p}%" / "render…" / "render: สร้างเสียง x/y" / "{n} คลิป" / "ยังไม่มี" / "render ไม่สำเร็จ"
+- `SpoilSteps`: ทุกขั้นเป็นลิงก์ที่มีเลข, ที่เปิดอยู่ `aria-current="step"`, ไม่มีเครื่องหมายถูก (`check.svg` ลบ), จุดหมุน `motion-safe:animate-spin`, มือถือซ่อนชื่อและบรรทัดสถานะของขั้นที่ไม่ได้เปิดแต่จุดหมุนอยู่
+- test: `SpoilMakerPage.test.tsx` 25 test ตาม Seams 2 › ตัวบอกขั้น (รวม render ตอนเปิดขั้น 1, กด render ในขั้น 2, failed จนเริ่มใหม่, ยกเลิก, Draft job จบอ่าน draft ใหม่, poll ล้มแล้วตามได้อีก, reduced motion, มือถือ); 3 test เดิมที่ตอบ `*/current` เป็นลำดับใช้ `phased`
+- เช็คใน dev server กับ backend จริง: 1440 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; render ปลอม (patch fetch ในหน้า) เห็น "render 45%" และจุดหมุนที่ขั้น 3 ทั้งสองขนาด
+- Library notes: `react.md` (context เป็น provider, ค่าตั้งต้น), `tailwindcss.md` (`motion-safe:`)
+- Review สามแกนแก้แล้ว: poll ล้มค้างถาวร → เลิกตามจน refresh, test ที่ขาด (failed ล้างเมื่อเริ่มใหม่, ยกเลิก, Draft job จบ), test มือถือ query ด้วยข้อความไม่ใช่ selector, `countOf`, `readResults` ใช้ร่วม, `StepLines` tuple, ชื่อ `StepsRefreshContext`/`JobKey`/`changeSentenceCount`, comment `pick` อ้าง spec
+
+**Decided:**
+- D78 — ทางเลือกเล็กตอน build ตัวบอกขั้น
+
+**For the next ticket:**
+- ticket 08: `reviewLine` ใน `lib/steps.ts` ต้องเพิ่ม `kind: "polish"` และ state `polishing` → "กำลังเรียบเรียง" พร้อมจุดหมุน, `failed` → "เรียบเรียงไม่สำเร็จ" (ตอนนี้ polish ที่ล้มจะขึ้น "ร่างบทไม่สำเร็จ")
+- เมื่อ Blocked 14 มีแบบ: ปรับ `SpoilSteps` ให้ตรง Figma ที่ 1440 และ 375 (test มือถือเช็คด้วย class จะต้องตาม)
+- test helper: `phased`, `jsonResponse`, `backend` ซ้ำกันใน `RenderResults`, `ScriptReview`, `SpoilerSetup`, `SpoilMakerPage` test — รวมเป็น helper เดียวได้
+- `refreshSteps()` ซ้ำใน 4 hook (เริ่ม/ยกเลิก) — ถ้าเพิ่มงานอีก อาจรวมเป็น wrapper ของ `cancelCurrent`/`startJob`
+- ไม่ได้เช็คด้วยตา: ตัวบอกขั้นกับงานจริงที่รัน (ไม่มี draft `version` 2 ในเครื่อง)
+
+**Checks:** `uv run pytest` — 517 passed; `npm --prefix frontend test` — 207 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 06: ตัด EP จากคลิปเดียว — done 2026-11-04
+
+**Built:**
+- `backend.spoil_maker.episodes`: `GET /clips/{id}/episodes` ตัดตาม `ep_minutes` ที่ขอบ Shot แล้วเขียน `media/temp/episodes/{id}.json` ตอนอ่านแรก; `PUT` `{minutes}` ตัดใหม่ (`custom: false`, จำ `ep_minutes`) หรือ `{minutes, cuts}` ขยับไปเวลาเริ่ม Shot ที่ใกล้สุด (`custom: true`); กฎ ≥ 60 วินาที / EP เดียวสั้นได้, `invalid_episodes`, ไฟล์เสียตัดใหม่; แต่ละ EP มี `thumb_shot`, `lines`, `tokens` (`null` ไม่มี tokenizer), `renders`, `in_draft` เทียบด้วยช่วง ±0.01
+- lock: `GpuSlot.clip_files()` ครอบไฟล์การตัดและการสลับ Shot ของ Describe job (ลบไฟล์การตัด); `PUT` ระหว่าง Describe, Transcribe, Draft job ของคลิป → `409` `clip_busy`; ลบคลิปลบไฟล์การตัด; start ลบ `*.tmp` และไฟล์ของคลิปที่ไม่มีหรือไม่ได้บรรยายฉาก; `write_atomic(unique=True)`
+- Spoil draft `version` 2 (`clip_id`, `ep`, `GET /draft` มี `clip_title`; `version` 1 = ไม่มี draft); Draft job รับ `{clip_id, ep: {n, start_s, end_s}}` (`invalid_episodes`, `episodes_changed` รวมเช็คซ้ำหลังจอง GPU, `ep_empty`, `transcript_too_long` ต่อ EP); Qwen ได้เฉพาะบรรทัดของ EP เป็น `[{line} {hh:mm:ss}]`, ref นอก EP ถูกตัด, `window` ตัดให้อยู่ใน EP; `PATCH` `shots` นอก EP → `invalid_shot`; `GET /tokens` ลบ
+- ผล render `.json` มี `clip_id`, `ep`, `start_s`, `end_s`; `GET /renders` คืน `clip_id`, `ep` (ไฟล์เก่า `null`)
+- หน้าเว็บ: ขั้น 1 เลือกคลิปเดียว (`ClipPicker` radio) → `EpisodePicker` (ความยาวต่อ EP 5–60, ยืนยันเมื่อ `custom`, จุดตัด `h:mm:ss` บันทึกเมื่อ blur, "ตัดใหม่ตามความยาว", แถว EP เลข ช่วง ภาพเล็ก token "render แล้ว {k}" ป้าย "อยู่ใน Spoil draft"); `useEpisodes` ส่ง `PUT` ทีละครั้ง, กดร่างรอ `PUT` ค้างแล้วส่งช่วงล่าสุด, `episodes_changed` อ่าน EP ใหม่; EP ไม่มีบรรทัดหรือ `tokens: null` ปุ่มร่างกดไม่ได้พร้อมเหตุผล; มี draft → เลือกคลิปและ EP ของ draft; ตัวเลือก Shot "ดูทั้ง EP" ไม่มีตัวเลือกตอน; การ์ดประโยคและผล render แสดง "EP {n}"
+- เช็คใน dev server กับคลิปจริง (14:53): 30 นาที → 1 EP, 5 นาที → 3 EP จุดตัด 4:59 และ 10:02, แก้จุดตัดเป็น 6:00 แล้ว blur → EP 1 0:00–6:00 และปุ่ม "ตัดใหม่ตามความยาว"; 1440 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; ไฟล์การตัดและ `ep_minutes` ที่ลองคืนแล้ว
+- Docs: README (ขั้น 1, `media/temp/episodes/`), skill `fastapi-api` (tree: `episodes`, `gpu`)
+- Review สามแกนแก้แล้ว: `Ep.matches`/`overlaps` ใช้ร่วม (`Span`, `Episode` สืบจาก `Ep`), `NumberedLine`, `episodes.not_ready`/`invalid`/`is_number`, ชื่อ `clip_files`, ข้อความ `invalid_episodes` ของ Draft job ตาม spec, `ep_minutes` นอกช่วงอ่านเป็น 30, เช็คช่วงซ้ำหลังจอง GPU, ภาพเล็ก EP ไม่ `KeyError`, `tokens: null` แสดงแถวที่ขาดพร้อมลิงก์, comment ของ `READERS`/tmp/`useEpisodes`
+
+**Decided:**
+- D77 — ทางเลือกเล็กตอน build ตัด EP
+
+**For the next ticket:**
+- เมื่อ Blocked 13 มีแบบ: ปรับหน้าตาขั้น 1 (card เลือก EP) ให้ตรง Figma ที่ 1440 และ 375
+- `require_json` ตรวจเฉพาะ POST และ PATCH (ADR-0013) — `PUT /clips/{id}/episodes` ไม่ถูกตรวจ (browser preflight PUT อยู่แล้ว); feature review: เพิ่ม PUT และแก้ข้อความ ADR ถ้าผู้ใช้ตกลง
+- `SpoilerSetup.tsx` มี `TOKEN_LIMIT` 32,000 ซ้ำกับ `limit` ของ backend (ใช้แสดงก่อนอ่าน EP เท่านั้น)
+- test `clip_busy` ของ `PUT` จอง GPU ด้วย `gpu.slot.take` ตรง (แบบ test `gpu_busy` เดิม) แทนเริ่มงานผ่าน API
+- draft `version` 1 ของผู้ใช้ (`media/spoil-maker/draft.json`) อ่านเป็นไม่มี draft แล้ว — ร่างใหม่จาก EP (D70)
+- ไม่ได้เช็คด้วยตา: ตัวเลือก Shot และการ์ดประโยคกับ draft จริง (ยังไม่มี draft `version` 2) และ render จริงที่มี "EP {n}"
+
+**Checks:** `uv run pytest` — 517 passed; `npm --prefix frontend test` — 188 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### change request เรียบเรียงบท — 2026-11-04
 
@@ -268,6 +385,6 @@
 | 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 12 | review | design: สวิตช์ลายน้ำและคำเตือนลายน้ำทับใน Figma Script review (D64, D65) | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390)) |
-| 13 | 06 | design: ตั้งค่าคลิปสปอย — เลือกคลิปเดียว รายการ EP เลื่อนจุดตัด (D66, D67, D69) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
-| 14 | 07 | design: ตัวบอกขั้นของ tab สปอย — บรรทัดสถานะและจุดหมุน (D68) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
-| 15 | 08 | design: หน้าตรวจแก้ — ปุ่มเรียบเรียงใหม่ กล่องเลือก ป้ายแก้เอง (D72, D74, D75) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
+| 13 | 06 | design: ตั้งค่าคลิปสปอย — เลือกคลิปเดียว รายการ EP เลื่อนจุดตัด (D66, D67, D69) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
+| 14 | 07 | design: ตัวบอกขั้นของ tab สปอย — บรรทัดสถานะและจุดหมุน (D68) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
+| 15 | 08 | design: หน้าตรวจแก้ — ปุ่มเรียบเรียงใหม่ กล่องเลือก ป้ายแก้เอง (D72, D74, D75) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |

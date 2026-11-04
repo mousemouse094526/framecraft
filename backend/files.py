@@ -1,13 +1,16 @@
 """Writing files so a crash never leaves half of one: shared by every feature that keeps JSON."""
 
 import os
+import uuid
 from pathlib import Path
 
 
-def write_atomic(target: Path, text: str) -> None:
+def write_atomic(target: Path, text: str, unique: bool = False) -> None:
     """Writes through `{target}.tmp` then renames it, removing the `.tmp` if the
-    rename fails; a crash in between leaves a `.tmp` that start-up removes."""
-    temporary = target.with_name(target.name + ".tmp")
+    rename fails; a crash in between leaves a `.tmp` that start-up removes.
+    `unique`: `{target}.{uuid}.tmp`, so two writers never share one."""
+    suffix = f".{uuid.uuid4().hex}.tmp" if unique else ".tmp"
+    temporary = target.with_name(target.name + suffix)
     temporary.write_text(text, encoding="utf-8")
     try:
         os.replace(temporary, target)

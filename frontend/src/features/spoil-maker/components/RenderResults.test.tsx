@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { RenderJob, RenderResult } from "../lib/render";
+import { get, phased, type Route, send, serve } from "./testBackend";
 
 const RENDERS = "/api/spoil-maker/renders";
 const CURRENT = "/api/spoil-maker/renders/current";
@@ -13,6 +14,8 @@ const RESULT: RenderResult = {
   duration_s: 58.2,
   size_bytes: 1234,
   sources: ["Night of the Living Dead (1968)"],
+  clip_id: "aaaaaaaaaaa",
+  ep: 2,
 };
 const OLDER: RenderResult = { ...RESULT, name: "20261101-110500", created_at: "2026-11-01T11:05:00+07:00" };
 const VOICING: RenderJob = {
@@ -26,29 +29,10 @@ const VOICING: RenderJob = {
   started_at: "2026-11-03T14:30:00+07:00",
 };
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-type Route = { method?: string; path: string; reply: () => Response };
-
 /** Answers each route once in order when it repeats; the last of a path keeps answering. */
 function backend(routes: Route[]) {
-  fetchMock.mockImplementation(async (input, init) => {
-    const method = init?.method ?? "GET";
-    const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
-    if (matches.length === 0) throw new Error(`unexpected ${method} ${String(input)}`);
-    if (matches.length > 1) routes.splice(routes.indexOf(matches[0]), 1);
-    return matches[0].reply();
-  });
+  serve(fetchMock, routes);
 }
-
-const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
-const send = (method: string, path: string, body: unknown, code: number): Route => ({
-  method,
-  path,
-  reply: () => jsonResponse(body, code),
-});
 
 async function openRenders() {
   window.location.hash = "#/spoil/renders";
@@ -88,18 +72,22 @@ describe("ผล render", () => {
   });
 
   it("a render running shows สร้างเสียง then render % then the new render with its files and source", async () => {
-    backend([
-      get(RENDERS, []),
-      get(CURRENT, VOICING),
-      get(CURRENT, { ...VOICING, state: "rendering", percent: 50, done: null, total: null }),
-      get(CURRENT, { ...VOICING, state: "done", percent: 100 }),
-      get(RENDERS, [RESULT]),
-    ]);
+    const current = phased(
+      CURRENT,
+      VOICING,
+      { ...VOICING, state: "rendering", percent: 50, done: null, total: null },
+      { ...VOICING, state: "done", percent: 100 },
+    );
+    const renders = phased(RENDERS, [], [], [RESULT]);
+    backend([renders.route, current.route]);
     await openRenders();
 
-    expect(await screen.findByText("สร้างเสียง 1/3")).toBeInTheDocument();
+    const running = await screen.findByRole("region", { name: "กำลัง render" });
+    expect(within(running).getByText("สร้างเสียง 1/3")).toBeInTheDocument();
+    current.phases.at = renders.phases.at = 1;
     await tick();
-    expect(screen.getByText("render 50%")).toBeInTheDocument();
+    expect(within(running).getByText("render 50%")).toBeInTheDocument();
+    current.phases.at = renders.phases.at = 2;
     await tick();
 
     const row = await screen.findByRole("listitem", { name: /^render / });
@@ -108,6 +96,15 @@ describe("ผล render", () => {
     expect(within(row).getByText("ต้นฉบับ: Night of the Living Dead (1968)")).toBeInTheDocument();
     expect(within(row).getByText("ความยาว 0:58")).toBeInTheDocument();
     expect(screen.queryByText("render 50%")).not.toBeInTheDocument();
+  });
+
+  it("a render of an EP says which; one from before EPs says none", async () => {
+    backend([get(RENDERS, [RESULT, { ...OLDER, clip_id: null, ep: null }]), get(CURRENT, null)]);
+    await openRenders();
+
+    const [newer, older] = await screen.findAllByRole("listitem", { name: /^render / });
+    expect(within(newer).getByText("EP 2")).toBeInTheDocument();
+    expect(within(older).queryByText(/^EP /)).not.toBeInTheDocument();
   });
 
   it("copy puts the source line on the clipboard", async () => {

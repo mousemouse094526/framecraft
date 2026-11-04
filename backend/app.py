@@ -15,7 +15,7 @@ from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil, spoil_maker
 from backend.spoil import clips, downloads, transcribe
-from backend.spoil_maker import describe, draft, render, shots, voices
+from backend.spoil_maker import describe, draft, episodes, render, shots, voices
 
 # Binding 127.0.0.1 doesn't stop DNS rebinding from another site (ADR 0011).
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
@@ -37,9 +37,12 @@ class JobEntry:
 
 
 def _clean_shots(project: ProjectPaths) -> None:
-    """Shots of a clip that start-up removed go too (spoil-maker spec › Ops). Here, not in
-    `shots`: `spoil.clips` imports `shots`, so `shots` can't list the clips."""
-    shots.clean_on_start(project, {clip.id for clip in clips.list_clips(project)})
+    """Shots of a clip that start-up removed go too, and EP cuts of a clip with no Shots
+    (spoil-maker spec › Ops). Here, not in `shots`: `spoil.clips` imports `shots`, so
+    `shots` can't list the clips."""
+    listed = clips.list_clips(project)
+    shots.clean_on_start(project, {clip.id for clip in listed})
+    episodes.clean_on_start(project, {clip.id for clip in listed if clip.described})
 
 
 # Every job, once. Start-up cleans in this order: the clips (a Download job's) before their Shots.
@@ -68,9 +71,9 @@ async def lifespan(app: FastAPI):
 
 
 def require_json(request: Request) -> None:
-    """Every POST and PATCH must be JSON: that forces a CORS preflight, which the
+    """Every POST, PUT and PATCH must be JSON: that forces a CORS preflight, which the
     backend never answers, so no other site can start a job or change a file (ADR 0013)."""
-    if request.method not in ("POST", "PATCH"):
+    if request.method not in ("POST", "PUT", "PATCH"):
         return
     media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if media_type != "application/json":

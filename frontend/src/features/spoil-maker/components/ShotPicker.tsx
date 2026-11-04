@@ -4,130 +4,92 @@ import { CLIPS_PATH } from "../../../lib/clips";
 import { formatClock } from "../../../lib/format";
 import checkLinkIcon from "../assets/check-link.svg";
 import checkWhiteIcon from "../assets/check-white.svg";
-import chevronDownIcon from "../assets/chevron-down.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
-import { episodeOf, shotImageUrl, type Sentence, type Shot, type ShotRef } from "../lib/draft";
+import { epLabel, inEp, shotImageUrl, type Ep, type Sentence, type Shot, type ShotRef } from "../lib/draft";
+import { ModalDialog } from "./ModalDialog";
 
 type Props = {
   sentence: Sentence;
   number: number;
   /** Which of the sentence's two Shots this picks. */
   slot: number;
-  clipIds: string[];
+  /** The draft's clip and EP: every Shot to pick from is of them (D70). */
+  clipId: string;
+  ep: Ep;
   shots: Record<string, Shot[]>;
   onPick: (shot: ShotRef) => void;
   onClose: () => void;
 };
 
 /**
- * Figma `Shot picker`: the Shots within ±30 s of the cited lines, or every Shot of one
- * episode with ดูทั้งคลิป; a sentence citing no line opens on the whole first episode
- * (spoil-maker D26, D27). Pointing at a Shot shows its description and plays its stretch;
+ * Figma `Shot picker`: the Shots within ±30 s of the cited lines, or every Shot of the
+ * draft's EP with ดูทั้ง EP; a sentence citing no line opens on the whole EP (spoil-maker
+ * D26, D27, D70). Pointing at a Shot shows its description and plays its stretch;
  * clicking it picks it and closes. Esc closes; focus starts on the close button.
  */
-export function ShotPicker({ sentence, number, slot, clipIds, shots, onPick, onClose }: Props) {
+export function ShotPicker({ sentence, number, slot, clipId, ep, shots, onPick, onClose }: Props) {
   /** ±30 s around the cited lines, or null for a sentence citing none (D26). */
   const near = sentence.window;
   const [whole, setWhole] = useState(near === null);
-  const [clipId, setClipId] = useState(near?.clip_id ?? clipIds[0]);
   const current = sentence.shots[slot];
-  const listed = (shots[clipId] ?? []).filter(
-    (shot) => whole || near === null || (shot.end > near.start && shot.start < near.end),
+  const listed = (shots[clipId] ?? []).filter((shot) =>
+    whole || near === null ? inEp(shot, ep) : shot.end > near.start && shot.start < near.end,
   );
   const [shown, setShown] = useState<Shot | null>(
     (current && current.clip_id === clipId ? shots[clipId]?.[current.n] : null) ?? listed[0] ?? null,
   );
   const titleId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key === "Tab") trapFocus(event, dialog.current);
-    };
-    document.addEventListener("keydown", keydown);
-    return () => document.removeEventListener("keydown", keydown);
-  }, [onClose]);
-
-  const firstCited = sentence.ref_lines.find((line) => line.clip_id === near?.clip_id);
+  const episode = epLabel(ep.n);
+  const firstCited = sentence.ref_lines[0];
   const info = whole
-    ? `ทุก Shot ของ ${episodeOf(clipIds, clipId)} · ${listed.length} Shot`
-    : `Shot ภายใน ±30 วินาทีจาก ${episodeOf(clipIds, clipId)} ${formatClock(firstCited?.start ?? 0)} · ${listed.length} Shot`;
+    ? `ทุก Shot ของ ${episode} · ${listed.length} Shot`
+    : `Shot ภายใน ±30 วินาทีจาก ${episode} ${formatClock(firstCited?.start ?? 0)} · ${listed.length} Shot`;
 
   return (
-    <div className="fixed inset-0 z-10 flex items-start justify-center overflow-y-auto bg-surface-inverse/50 sm:items-center sm:p-8">
-      <div
-        ref={dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="flex w-full flex-col gap-3 bg-card px-4 pt-3 pb-4 sm:max-w-[886px] sm:gap-5 sm:rounded-3xl sm:border sm:border-border sm:px-6 sm:pt-5 sm:pb-6 sm:shadow-[0_16px_48px_0_rgba(0,0,0,0.18)]"
-      >
-        <div className="flex h-11 items-center gap-2">
-          <h3 id={titleId} className="min-w-0 flex-1 text-lg font-semibold text-foreground">
-            เลือกภาพให้ประโยค {number}
-          </h3>
-          <button type="button" autoFocus onClick={onClose} aria-label="ปิด" className="flex size-11 items-center justify-center rounded-lg hover:bg-muted">
-            <img src={xIcon} alt="" width={16} height={16} />
-          </button>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
-          <ShotPlayer clipId={clipId} shot={shown} episode={episodeOf(clipIds, clipId)} />
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-end gap-2">
-                <button
-                  type="button"
-                  aria-pressed={whole}
-                  // A sentence citing no line has no ±30 s to go back to (D26, D27).
-                  disabled={near === null}
-                  onClick={() => {
-                    setWhole(!whole);
-                    if (whole && near) setClipId(near.clip_id);
-                  }}
-                  className={`h-11 px-6 ${OUTLINE_BUTTON} ${whole ? "border-brand-accent bg-accent-subtle text-link hover:bg-accent-subtle" : ""} disabled:opacity-100`}
-                >
-                  {whole && <img src={checkLinkIcon} alt="" width={16} height={16} />}
-                  ดูทั้งคลิป
-                </button>
-                {whole && (
-                  <label className="flex min-w-0 flex-1 flex-col gap-2">
-                    <span className="text-sm leading-5 font-medium text-foreground">ตอน</span>
-                    <span className="relative">
-                      <select
-                        value={clipId}
-                        onChange={(event) => setClipId(event.target.value)}
-                        className="h-10 w-full appearance-none rounded-lg border border-border bg-card px-3 pr-9 font-button text-sm leading-5 text-foreground"
-                      >
-                        {clipIds.map((id) => (
-                          <option key={id} value={id}>
-                            {episodeOf(clipIds, id)}
-                          </option>
-                        ))}
-                      </select>
-                      <img src={chevronDownIcon} alt="" width={16} height={16} className="pointer-events-none absolute top-3 right-3" />
-                    </span>
-                  </label>
-                )}
-              </div>
-              <p className="text-[13px] text-mid">{info}</p>
+    <ModalDialog titleId={titleId} onClose={onClose} size="gap-3 sm:max-w-[886px] sm:gap-5">
+      <div className="flex h-11 items-center gap-2">
+        <h3 id={titleId} className="min-w-0 flex-1 text-lg font-semibold text-foreground">
+          เลือกภาพให้ประโยค {number}
+        </h3>
+        <button type="button" autoFocus onClick={onClose} aria-label="ปิด" className="flex size-11 items-center justify-center rounded-lg hover:bg-muted">
+          <img src={xIcon} alt="" width={16} height={16} />
+        </button>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
+        <ShotPlayer clipId={clipId} shot={shown} episode={episode} />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                aria-pressed={whole}
+                // A sentence citing no line has no ±30 s to go back to (D26, D27).
+                disabled={near === null}
+                onClick={() => setWhole(!whole)}
+                className={`h-11 px-6 ${OUTLINE_BUTTON} ${whole ? "border-brand-accent bg-accent-subtle text-link hover:bg-accent-subtle" : ""} disabled:opacity-100`}
+              >
+                {whole && <img src={checkLinkIcon} alt="" width={16} height={16} />}
+                ดูทั้ง EP
+              </button>
             </div>
-            <ul aria-label="Shot" className="grid h-[330px] grid-cols-3 content-start gap-x-2 gap-y-3 overflow-y-auto p-[3px] sm:grid-cols-4">
-              {listed.map((shot) => (
-                <PickThumb
-                  key={shot.n}
-                  clipId={clipId}
-                  shot={shot}
-                  current={current?.clip_id === clipId && current.n === shot.n}
-                  onShow={() => setShown(shot)}
-                  onPick={() => onPick({ clip_id: clipId, n: shot.n })}
-                />
-              ))}
-            </ul>
+            <p className="text-[13px] text-mid">{info}</p>
           </div>
+          <ul aria-label="Shot" className="grid h-[330px] grid-cols-3 content-start gap-x-2 gap-y-3 overflow-y-auto p-[3px] sm:grid-cols-4">
+            {listed.map((shot) => (
+              <PickThumb
+                key={shot.n}
+                clipId={clipId}
+                shot={shot}
+                current={current?.clip_id === clipId && current.n === shot.n}
+                onShow={() => setShown(shot)}
+                onPick={() => onPick({ clip_id: clipId, n: shot.n })}
+              />
+            ))}
+          </ul>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 
@@ -206,20 +168,4 @@ function ShotPlayer({ clipId, shot, episode }: { clipId: string; shot: Shot | nu
       </p>
     </div>
   );
-}
-
-/** Keeps Tab inside the dialog (Figma `Picker header`: focus is trapped while it is open). */
-function trapFocus(event: KeyboardEvent, dialog: HTMLElement | null) {
-  if (!dialog) return;
-  const focusable = dialog.querySelectorAll<HTMLElement>("button:not(:disabled), select, video, [tabindex]");
-  if (focusable.length === 0) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }

@@ -12,17 +12,25 @@ export type Sentence = {
   refs: { clip_id: string; line: number }[];
   /** Always two slots; an empty one is null. */
   shots: (ShotRef | null)[];
+  /** The user changed its text or inserted it: เรียบเรียงใหม่ keeps it unless told (D74, D75). */
+  edited: boolean;
   audio: { tts_text: string; voice_id: string; duration_s: number } | null;
   status: SentenceStatus;
   /** Null only when the draft's voice is gone. */
   estimated_s: number | null;
   ref_lines: { clip_id: string; line: number; start: number; end: number; text: string }[];
-  /** ±30 s around the cited lines of one clip; null without refs (D26). */
+  /** ±30 s around the cited lines, inside the EP; null without refs (D26, D70). */
   window: { clip_id: string; start: number; end: number } | null;
 };
 
+/** An EP of a Temp clip by its number and range: [start_s, end_s) (spoil-maker spec › EP). */
+export type Ep = { n: number; start_s: number; end_s: number };
+
 export type Draft = {
-  clip_ids: string[];
+  clip_id: string;
+  /** The EP as the clip was cut when the draft was written (D70). */
+  ep: Ep;
+  clip_title: string;
   style: Style;
   layout: Layout;
   target_s: number;
@@ -35,18 +43,30 @@ export type Draft = {
   locked: boolean;
 };
 
-export type DraftJobState = "writing" | "matching" | "done" | "failed" | "cancelled";
+export type DraftJobState = "writing" | "polishing" | "matching" | "done" | "failed" | "cancelled";
 
 export type DraftJob = {
-  kind: "draft" | "pick";
+  kind: "draft" | "pick" | "polish";
   state: DraftJobState;
-  /** Sentences matched so far, and of how many: `matching` only. */
+  /** Sentences matched so far, and of how many: `matching` only. A `polish` that is `done`:
+   * the sentences whose text changed, of those asked (D76). */
   done: number | null;
   total: number | null;
   error: { code: string; message: string } | null;
   cancel_requested: boolean;
   started_at: string;
 };
+
+/** What ตรวจแก้บท says of the Draft jobs it starts, which change the draft it shows (D25, D72). */
+const REVIEW_JOB_TEXT: Record<"pick" | "polish", { doing: string; label: string; waitingFor: string }> = {
+  pick: { doing: "AI กำลังเลือก Shot ใหม่", label: "ความคืบหน้าการเลือก Shot", waitingFor: "รอให้ AI เลือก Shot เสร็จก่อน" },
+  polish: { doing: "กำลังเรียบเรียง", label: "ความคืบหน้าการเรียบเรียง", waitingFor: "รอให้ AI เรียบเรียงเสร็จก่อน" },
+};
+
+/** The text of a Draft job ตรวจแก้บท started; only `pick` and `polish` run while it is open. */
+export function reviewJobText(job: DraftJob) {
+  return REVIEW_JOB_TEXT[job.kind === "polish" ? "polish" : "pick"];
+}
 
 export type Shot = { n: number; start: number; end: number; description: string };
 
@@ -56,10 +76,6 @@ export const DRAFT_JOB_PATH = "/api/spoil-maker/draft-jobs/current";
 export const SETTINGS_PATH = "/api/spoil-maker/settings";
 export const VOICES_PATH = "/api/spoil-maker/voices";
 
-/** The token count of these clips' Transcripts, in this order (D46). */
-export function tokensPath(clipIds: string[]): string {
-  return `/api/spoil-maker/tokens?clip_ids=${clipIds.map(encodeURIComponent).join(",")}`;
-}
 // The สปอย tab's hashes: its steps and the Saved voice page (spoil-maker D53, D59).
 export const SETUP_HASH = "#/spoil";
 export const REVIEW_HASH = "#/spoil/review";
@@ -68,7 +84,7 @@ export const VOICES_HASH = "#/spoil/voices";
 
 /** Whether the job still runs; null is no job. */
 export const isDrafting = (job: DraftJob | null): boolean =>
-  job !== null && (job.state === "writing" || job.state === "matching");
+  job !== null && (job.state === "writing" || job.state === "polishing" || job.state === "matching");
 
 /** A model or a child that stopped says the same thing (spec › Frontend); the rest say the API's message. */
 export function jobFailureText(job: DraftJob): string {
@@ -85,7 +101,12 @@ export function shotImageUrl(clipId: string, n: number): string {
   return `/api/spoil-maker/clips/${clipId}/shots/${n}.jpg`;
 }
 
-/** "EP2": a clip by its place in the draft. */
-export function episodeOf(clipIds: string[], clipId: string): string {
-  return `EP${clipIds.indexOf(clipId) + 1}`;
+/** "EP 2" (D70). */
+export function epLabel(n: number): string {
+  return `EP ${n}`;
+}
+
+/** Whether a Shot shows part of the EP: it starts before the EP ends and ends after it starts (D71). */
+export function inEp(shot: Shot, ep: Ep): boolean {
+  return shot.start < ep.end_s && shot.end > ep.start_s;
 }

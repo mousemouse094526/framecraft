@@ -26,6 +26,7 @@ from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil_maker import draft_file, thai
 from backend.spoil_maker.draft_file import Audio, Draft
+from backend.spoil_maker.json_values import is_number
 from backend.spoil_maker.tts import Design, Designed, Ready, Speak, Spoken, WorkerError
 
 log = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ class SentencesPlan(NamedTuple):
     voice_id: str
     speed: float
     prompt: bytes  # the Saved voice's clone prompt (`{voice_id}.pt`)
-    clip_ids: list[str]  # the draft's clips: deleting one is `clip_busy` meanwhile (D49)
+    clip_id: str  # the draft's clip: deleting it is `clip_busy` meanwhile (D49)
     sentences: list[tuple[str, str]]  # (id, text as written), in the draft's order
 
 
@@ -101,7 +102,7 @@ def plan_sentences(project: ProjectPaths, draft: Draft, sentence_ids: list[str])
         voice_id=draft.voice_id,
         speed=json.loads(voice.read_text(encoding="utf-8"))["speed"],
         prompt=prompt.read_bytes(),
-        clip_ids=list(draft.clip_ids),
+        clip_id=draft.clip_id,
         sentences=[(sentence.id, sentence.text) for sentence in draft.sentences if sentence.id in wanted],
     )
 
@@ -190,7 +191,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
                     raise ApiError(400, "invalid_request", "เลือกประโยคที่มีใน Spoil draft โดยไม่ซ้ำ")
                 plan = plan_sentences(project, draft, sentence_ids)
                 require_rows(needed_rows(project))
-                gpu.slot.take("voice", plan.clip_ids, locks_draft=True)
+                gpu.slot.take("voice", [plan.clip_id], locks_draft=True)
             self._job = VoiceJob(
                 kind="sentences", state="voicing", done=0, total=len(plan.sentences), started_at=checks.now_iso()
             )
@@ -348,7 +349,7 @@ def _design_choices(body: dict) -> tuple[str, float]:
 
 def _on_speed_scale(speed: object) -> bool:
     """0.8–1.2 in steps of 0.05, allowing for how floats add up (0.8 + 3 × 0.05)."""
-    if isinstance(speed, bool) or not isinstance(speed, (int, float)):
+    if not is_number(speed):
         return False
     steps = (speed - SPEED_MIN) / SPEED_STEP
     return -1e-6 <= steps <= (SPEED_MAX - SPEED_MIN) / SPEED_STEP + 1e-6 and abs(steps - round(steps)) < 1e-6

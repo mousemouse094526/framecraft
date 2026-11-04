@@ -10,7 +10,7 @@
 - Seams: 1 (EP, Draft, Render, ลบคลิปและ start), 2 (หน้าตั้งค่า, ตัวเลือก Shot)
 - User stories: 5, 6, 14
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 
@@ -19,7 +19,7 @@
 - `GET /clips/{id}/episodes` ของคลิปที่ไม่มีไฟล์การตัด → ตัดตาม `ep_minutes` ที่ขอบ Shot แล้วเขียน `media/temp/episodes/{id}.json` ทันที; `PUT` คลิปอื่นภายหลังไม่เปลี่ยนการตัดของคลิปนี้
 - `PUT` `{minutes}` ตัดใหม่ `custom: false` และเขียน `ep_minutes`; `PUT` พร้อม `cuts` → จุดตัดขยับไปเวลาเริ่มของ Shot ที่ใกล้สุด (เท่ากันเลือกก่อน) `custom: true`
 - กฎและรูป request ตาม spec › EP → ไม่ผ่าน `400` `invalid_episodes`; EP เดียวทั้งคลิปใช้ได้แม้สั้นกว่า 60 วินาที
-- ไฟล์การตัดอยู่ใต้ lock ของ `backend.gpu`; `PUT` ระหว่าง Describe, Transcribe, Draft job ของคลิปหรือระหว่างลบคลิป → `409` `clip_busy`; tmp ชื่อไม่ซ้ำ
+- ไฟล์การตัดอยู่ใต้ lock ของ `backend.gpu`; `PUT` ระหว่าง Describe, Transcribe, Draft job ของคลิป → `409` `clip_busy`, ระหว่างลบคลิป → `404` (D77); tmp ชื่อไม่ซ้ำ
 - ไฟล์การตัดเสีย → `GET` `200` ตัดตาม `ep_minutes` และ log เหตุผล
 - Describe job ลบไฟล์การตัดตอนสลับ folder Shot; ลบ Temp clip ลบไฟล์การตัด; start ลบ `*.tmp` และไฟล์ของคลิปที่ไม่มีแล้ว
 - `GET` คืน `lines`, `tokens` (ไม่มี tokenizer → `null` ไม่ใช่ `503`), `renders`, `in_draft` ต่อ EP ที่เทียบด้วยช่วง

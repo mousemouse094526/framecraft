@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
-import { getJson, getReply, sendJson } from "../../../lib/api";
+import { getJson, sendJson } from "../../../lib/api";
 import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
-import { cancelCurrent, onlyWhen } from "../../../lib/job";
+import { onlyWhen } from "../../../lib/job";
 import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -13,16 +13,18 @@ import {
   jobFailureText,
   REVIEW_HASH,
   SETTINGS_PATH,
-  tokensPath,
   VOICES_PATH,
+  type Draft,
   type DraftJob,
+  type Ep,
   type Layout,
   type Style,
 } from "../lib/draft";
 import type { Voice } from "./useVoices";
+import { useJobCalls } from "./useStepStatus";
 
-/** What ร่างบท sends with `kind: "draft"` (spoil-maker spec › Draft job). */
-export type Order = { clip_ids: string[]; style: Style; layout: Layout; target_s: number; voice_id: string };
+/** What ร่างบท sends with `kind: "draft"`: one EP of one clip, by its number and range (spoil-maker D66, D71). */
+export type Order = { clip_id: string; ep: Ep; style: Style; layout: Layout; target_s: number; voice_id: string };
 
 /**
  * A page-level message (Figma `Setup banner`): a failed draft with ลองอีกครั้ง, the GPU
@@ -45,6 +47,8 @@ export type SetupState =
       lastVoiceId: string | null;
       /** ร่างบท asks before replacing it (D28). */
       draftExists: boolean;
+      /** The clip of the Spoil draft: picked when the page opens (spec › Frontend). */
+      draftClipId: string | null;
       /** An unfinished Draft job, followed until it ends. */
       job: DraftJob | null;
       banner: Banner | null;
@@ -66,12 +70,13 @@ function bannerOf(status: number, refusal: Refusal | null): Banner | null {
 
 /**
  * Step 1 of the สปอย tab, ตั้งค่าคลิปสปอย: the clips to pick from, the Saved voices, the
- * remembered voice, whether a Spoil draft is there, and the one Draft job behind ร่างบท
- * (spoil-maker D5, D25, D28). Polls the job every second while it runs and opens
+ * remembered voice, whether a Spoil draft is there and of which clip, and the one Draft
+ * job behind ร่างบท (spoil-maker D25, D28, D66). Polls the job every second while it runs and opens
  * ตรวจแก้บท when it is done. Any failure on load or poll is offline.
  */
 export function useSpoilerSetup() {
   const [state, setState, setIfMounted] = useMountedState<SetupState>({ kind: "loading" });
+  const { refreshSteps, cancelCurrent } = useJobCalls();
 
   const load = useCallback(async () => {
     try {
@@ -79,7 +84,7 @@ export function useSpoilerSetup() {
         getJson<{ clips: TempClip[] }>(CLIPS_PATH),
         getJson<Voice[]>(VOICES_PATH),
         getJson<{ last_voice_id: string | null }>(SETTINGS_PATH),
-        getJson<unknown>(DRAFT_PATH),
+        getJson<Draft | null>(DRAFT_PATH),
         getJson<DraftJob | null>(DRAFT_JOB_PATH),
       ]);
       setIfMounted({
@@ -88,6 +93,7 @@ export function useSpoilerSetup() {
         voices,
         lastVoiceId: settings.last_voice_id,
         draftExists: draft !== null,
+        draftClipId: draft?.clip_id ?? null,
         // A `pick` belongs to ตรวจแก้บท; this page follows a whole draft only.
         job: isDrafting(job) && job?.kind === "draft" ? job : null,
         banner: null,
@@ -123,38 +129,45 @@ export function useSpoilerSetup() {
     () => setIfMounted({ kind: "offline" }),
   );
 
-  /** ร่างบท, or ร่างทับ with `replace` once the user agreed to lose the draft there (D28). */
+  /**
+   * ร่างบท, or ร่างทับ with `replace` once the user agreed to lose the draft there (D28).
+   * Resolves to the refusal's code when the API refused, so the page can read the EPs again.
+   */
   const draft = useCallback(
-    async (order: Order, replace: boolean) => {
+    async (order: Order, replace: boolean): Promise<string | null> => {
       setIfMounted(whenLoaded((s) => ({ ...s, banner: null, confirmingReplace: false })));
       try {
         const reply = await sendJson<DraftJob | Refusal>("POST", DRAFT_JOBS_PATH, { kind: "draft", ...order, replace });
         if (reply.status === 202) {
           const job = reply.body as DraftJob;
           setIfMounted(whenLoaded((s) => ({ ...s, job })));
-          return;
+          refreshSteps();
+          return null;
         }
         const refusal = refusalOf(reply.body);
         if (reply.status === 409 && refusal?.code === "draft_exists") {
           setIfMounted(whenLoaded((s) => ({ ...s, draftExists: true, confirmingReplace: true })));
-          return;
+          return refusal.code;
         }
         if (reply.status === 409 && refusal?.code === "busy") {
           const job = await getJson<DraftJob | null>(DRAFT_JOB_PATH);
           if (job !== null && isDrafting(job)) setIfMounted(whenLoaded((s) => ({ ...s, job })));
-          return;
+          refreshSteps();
+          return refusal.code;
         }
+        // `episodes_changed`, `ep_empty`, `transcript_too_long` and the rest say the API's message (spec › Frontend).
         const banner = bannerOf(reply.status, refusal);
-        if (banner) {
+        if (banner && refusal) {
           setIfMounted(whenLoaded((s) => ({ ...s, banner })));
-          return;
+          return refusal.code;
         }
       } catch {
         // offline, below
       }
       setIfMounted({ kind: "offline" });
+      return null;
     },
-    [setIfMounted],
+    [refreshSteps, setIfMounted],
   );
 
   /** ร่างบท with a Spoil draft there asks first (Figma Draft action › replace confirm). */
@@ -170,7 +183,7 @@ export function useSpoilerSetup() {
     } else if (reply.kind !== "ended") {
       setIfMounted({ kind: "offline" });
     }
-  }, [setIfMounted]);
+  }, [cancelCurrent, setIfMounted]);
 
   const reload = useCallback(() => {
     setState({ kind: "loading" });
@@ -178,52 +191,4 @@ export function useSpoilerSetup() {
   }, [load, setState]);
 
   return { state, draft, askReplace, cancel, reload };
-}
-
-/** Shown before any count; each count answers with the limit the backend checks (D46). */
-export const TOKEN_LIMIT = 32_000;
-
-export type TokensState =
-  | { kind: "none" }
-  | { kind: "counting" }
-  | { kind: "counted"; total: number; limit: number }
-  /** The count was refused (Qwen not installed, a clip not transcribed any more): the reason, as a banner. */
-  | { kind: "refused"; banner: Banner };
-
-/**
- * The token count of the picked clips' Transcripts, in their order (D46), asked again
- * whenever the pick changes; an answer about an older pick is dropped.
- */
-export function useTokens(clipIds: string[]): TokensState {
-  const key = clipIds.join(",");
-  const [state, , setIfMounted] = useMountedState<TokensState>({ kind: "none" });
-
-  useEffect(() => {
-    if (key === "") {
-      setIfMounted({ kind: "none" });
-      return;
-    }
-    let current = true;
-    setIfMounted({ kind: "counting" });
-    void (async () => {
-      try {
-        const reply = await getReply<{ total: number; limit: number } | Refusal>(tokensPath(key.split(",")));
-        if (!current) return;
-        if (reply.status === 200) {
-          const { total, limit } = reply.body as { total: number; limit: number };
-          setIfMounted({ kind: "counted", total, limit });
-          return;
-        }
-        const banner = bannerOf(reply.status, refusalOf(reply.body));
-        setIfMounted(banner ? { kind: "refused", banner } : { kind: "none" });
-      } catch {
-        if (current) setIfMounted({ kind: "none" });
-      }
-    })();
-    return () => {
-      current = false;
-    };
-  }, [key, setIfMounted]);
-
-  return state;
 }

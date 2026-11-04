@@ -6,7 +6,8 @@ import chevronDownIcon from "../assets/chevron-down.svg";
 import radioSelectedIcon from "../assets/radio-selected.svg";
 import radioIcon from "../assets/radio.svg";
 import { VOICES_HASH, type DraftJob, type Layout, type Style } from "../lib/draft";
-import { TOKEN_LIMIT, type TokensState } from "../hooks/useSpoilerSetup";
+import type { Episode } from "../hooks/useEpisodes";
+import type { RefusalLine } from "../../../lib/refusal";
 import type { Voice } from "../hooks/useVoices";
 
 // The styles and the layout each starts with (spoil-maker D7, D8).
@@ -24,8 +25,12 @@ export type Settings = { style: Style; layout: Layout; targetS: number; voiceId:
 type Props = {
   settings: Settings;
   voices: Voice[];
-  tokens: TokensState;
-  /** Something to draft from, a voice, and Transcripts within 32,000 tokens (D46). */
+  /** The picked EP, or null; `limit` is the token count the backend checks (D46), null until the EPs are read. */
+  ep: Episode | null;
+  limit: number | null;
+  /** Why ร่างบท is off for the picked EP: no lines, or no token count (D71); null when it isn't. */
+  epBlocked: RefusalLine | null;
+  /** An EP to draft from, a voice, and its lines within 32,000 tokens (D46). */
   canDraft: boolean;
   job: DraftJob | null;
   confirmingReplace: boolean;
@@ -40,7 +45,7 @@ const LABEL = "text-sm leading-[21px] font-medium text-foreground";
 
 /** Figma `Settings card` of ตั้งค่าคลิปสปอย: style, layout, length, voice, the token meter and ร่างบท. */
 export function SetupSettings(props: Props) {
-  const { settings, voices, tokens, canDraft, job, onChange } = props;
+  const { settings, voices, ep, limit, epBlocked, canDraft, job, onChange } = props;
   const drafting = job !== null;
   const lengthId = useId();
   const voiceId = useId();
@@ -137,9 +142,19 @@ export function SetupSettings(props: Props) {
           </div>
         )}
       </div>
-      <TokenMeter tokens={tokens} />
+      <TokenMeter tokens={ep?.tokens ?? null} limit={limit} />
       <div className="h-px bg-border" />
       <DraftAction {...props} canDraft={canDraft} />
+      {epBlocked && job === null && (
+        <p className="flex flex-wrap items-center gap-x-3 text-[13px] leading-5 text-mid">
+          {epBlocked.text}
+          {epBlocked.setupLink && (
+            <a href="#/setup" className="flex h-11 items-center font-button font-medium text-brand hover:underline">
+              ไปที่ Setup status
+            </a>
+          )}
+        </p>
+      )}
     </section>
   );
 }
@@ -212,18 +227,17 @@ function LayoutDrawing({ layout }: { layout: Layout }) {
   );
 }
 
-/** Figma component `Token meter`: "{total} / 32,000"; over the limit it turns red with an alert (D46). */
-function TokenMeter({ tokens }: { tokens: TokensState }) {
-  const total = tokens.kind === "counted" ? tokens.total : 0;
-  const limit = tokens.kind === "counted" ? tokens.limit : TOKEN_LIMIT;
-  const over = total > limit;
-  const percent = Math.min(100, Math.round((total * 100) / limit));
+/** Figma component `Token meter`: the picked EP's "{tokens} / 32,000"; over the limit it turns red with an alert (D46). */
+function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number | null }) {
+  const total = tokens ?? 0;
+  const over = limit !== null && total > limit;
+  const percent = limit === null ? 0 : Math.min(100, Math.round((total * 100) / limit));
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2 text-sm leading-[21px] text-foreground">
         <span className="flex-1 font-button font-medium">Transcript</span>
         <span className={`font-mono font-medium whitespace-nowrap ${over ? "text-destructive" : ""}`}>
-          {tokens.kind === "counting" ? "…" : total.toLocaleString("en-US")} / {limit.toLocaleString("en-US")}
+          {tokens === null ? "—" : total.toLocaleString("en-US")} / {limit?.toLocaleString("en-US") ?? "—"}
         </span>
       </div>
       <div className="relative h-2 overflow-hidden rounded-full bg-muted">
@@ -235,31 +249,33 @@ function TokenMeter({ tokens }: { tokens: TokensState }) {
       {over && (
         <Alert tone="error">
           <span className="block text-destructive">
-            Transcript รวม {total.toLocaleString("en-US")} token เกิน {limit.toLocaleString("en-US")}
+            Transcript ของ EP นี้ {total.toLocaleString("en-US")} token เกิน {limit?.toLocaleString("en-US")}
           </span>
-          <span className="block">เอาตอนออกให้รวมไม่เกิน {limit.toLocaleString("en-US")}</span>
+          <span className="block">ลดความยาวต่อ EP หรือเลื่อนจุดตัด</span>
         </Alert>
       )}
     </div>
   );
 }
 
-/** Figma component `Draft action`: ร่างบท, the ask before replacing a draft, and the two drafting steps. */
+/** Figma component `Draft action`: ร่างบท, the ask before replacing a draft, and the drafting steps (D72). */
 function DraftAction({ canDraft, job, confirmingReplace, onDraft, onReplace, onKeep, onCancel }: Props) {
   if (job) {
-    const writing = job.state === "writing";
+    // Only picking counts; writing and polishing don't (spec › Draft job).
+    const counting = job.state === "matching";
     const done = job.done ?? 0;
     const total = job.total ?? 0;
-    const headline = job.cancel_requested ? "กำลังยกเลิก…" : writing ? "กำลังเขียนบท" : "กำลังเลือกภาพ";
+    const step = counting ? "กำลังเลือกภาพ" : job.state === "polishing" ? "กำลังเรียบเรียง" : "กำลังเขียนบท";
+    const headline = job.cancel_requested ? "กำลังยกเลิก…" : step;
     return (
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex items-center gap-2 text-sm leading-[21px] text-foreground">
             <span className="flex-1 font-medium">{headline}</span>
-            {!writing && <span className="font-mono font-medium">{`${done}/${total}`}</span>}
+            {counting && <span className="font-mono font-medium">{`${done}/${total}`}</span>}
           </div>
           <ProgressBar
-            percent={writing ? "unknown" : total ? Math.floor((done * 100) / total) : 0}
+            percent={counting ? (total ? Math.floor((done * 100) / total) : 0) : "unknown"}
             label="ความคืบหน้าการร่างบท"
             cancelling={job.cancel_requested}
           />

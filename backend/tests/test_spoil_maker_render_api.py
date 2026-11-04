@@ -23,6 +23,7 @@ from .test_spoil_maker_draft_api import (
     VOICE,
     ready_clip,
     sentence,
+    tts,  # noqa: F401 (fixture)
     voiced,
     wait_for,
     wait_for_end,
@@ -43,13 +44,6 @@ NUMBERS_SPOKEN = (
 @pytest.fixture
 def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
-
-
-@pytest.fixture
-def tts(monkeypatch) -> FakeTts:
-    fake = FakeTts()
-    monkeypatch.setattr(spoil_maker, "start_tts_worker", fake)
-    return fake
 
 
 @pytest.fixture
@@ -211,7 +205,7 @@ def test_watermarks_are_remembered(client):
 
     assert response.status_code == 200
     assert response.json()["watermarks"] == marks
-    assert client.get(SETTINGS).json() == {"watermarks": marks, "original_volume": 20, "last_voice_id": None}
+    assert client.get(SETTINGS).json() == {"watermarks": marks, "original_volume": 20, "last_voice_id": None, "ep_minutes": 30}
 
 
 def test_a_switched_off_watermark_keeps_its_text_position_and_size(client):
@@ -576,6 +570,32 @@ def test_two_renders_are_listed_newest_first_with_their_source_titles(client, pr
     assert listed[0]["sources"] == ["ชื่อคลิป"]
     assert listed[0]["duration_s"] == pytest.approx(3.5, abs=0.2)
     assert listed[0]["size_bytes"] == (project.renders_dir / f"{listed[0]['name']}.mp4").stat().st_size
+
+
+def test_a_render_names_the_drafts_ep_and_counts_on_that_ep(client, project, renderable, monkeypatch):
+    monkeypatch.setattr(spoil_maker, "count_tokens", lambda snapshot, text: 1)  # the EP list counts tokens; no tokenizer here
+    two_sentence_draft(project, ep={"n": 1, "start_s": 0.0, "end_s": 3.0})  # the clip's one EP
+    render(client)
+    render(client)
+
+    listed = client.get(RENDERS).json()
+    episodes = client.get(f"/api/spoil-maker/clips/{EP1}/episodes").json()["episodes"]
+
+    assert [(result["clip_id"], result["ep"]) for result in listed] == [(EP1, 1), (EP1, 1)]
+    assert "start_s" not in listed[0]
+    assert [ep["renders"] for ep in episodes] == [2]
+
+
+def test_a_render_from_before_eps_lists_without_an_ep(client, project, renderable):
+    two_sentence_draft(project)
+    render(client)
+    meta = project.renders_dir / f"{only_render(project)}.json"
+    info = json.loads(meta.read_text(encoding="utf-8"))
+    meta.write_text(json.dumps({key: info[key] for key in ("created_at", "duration_s", "sources")}), encoding="utf-8")
+
+    listed = client.get(RENDERS).json()
+
+    assert [(result["clip_id"], result["ep"]) for result in listed] == [(None, None)]
 
 
 def test_a_render_is_served_and_deleted(client, project, renderable):
