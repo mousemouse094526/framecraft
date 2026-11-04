@@ -646,3 +646,19 @@
 - **Windows:** `os.replace` ลองใหม่ทุก 0.5 วินาทีนาน 10 วินาทีก่อน `in_use` — Range response ที่ยังส่ง หรือ Defender ล็อกไฟล์ชั่วครู่ ไม่ควรทิ้งงาน encode หลายสิบนาที
 
 **From:** red team · **Status:** active
+
+## D43: จุด inject ของ Trim job เป็นอาร์กิวเมนต์ของ `Trims` และ ffmpeg ย้ายขึ้นระดับบน
+
+**Chosen:**
+- ตัวปลอมของ test ส่งเข้า `Trims(run_ffmpeg=…, probe=…, free_bytes=…, sleep=…, replace_mp4=…)` แทน module attribute ของ `backend.spoil.trim`.
+- `spoil_maker/ffmpeg.py` ย้ายเป็น `backend/ffmpeg.py` พร้อม `run` และ `Runner` ที่ย้ายออกจาก `compose`.
+- การลอง `os.replace` ซ้ำ (D42) ปล่อย lock ระหว่างรอ.
+
+**Why:**
+- `rules/testing.md` ให้งานที่รัน ffmpeg รับ runner เป็นอาร์กิวเมนต์ของ holder แบบ `RenderJobs(run_ffmpeg=…)` ไม่ patch ฟังก์ชันของ module.
+- SKILL.md บอกว่าโค้ดที่มีผู้ใช้คนที่สองต้องย้ายไป module ระดับบนใน change เดียวกัน: Trim job ของ spoil เป็นผู้ใช้คนที่สองนอก spoil_maker.
+- ถือ lock ของงานถอดกับ GPU slot ไว้ 10 วินาทีจะทำให้ poll และการเริ่มงานอื่นค้างไปด้วย.
+
+**Rejected:** module attribute ตาม spec › Trim เดิม — ขัดกับ `rules/testing.md`.
+
+**From:** build ticket 06 · **Status:** active

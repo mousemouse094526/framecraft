@@ -518,3 +518,37 @@ def jpeg_width(path: Path) -> int:
             return int.from_bytes(data[index + 7 : index + 9], "big")
         index += 2 + length
     raise ValueError(f"no frame header in {path}")
+
+
+class FakeFfmpeg:
+    """A Trim job's `run_ffmpeg` (spoil spec › Testing decisions): writes the output file,
+    reports `progress` seconds, and holds until the test calls `release` when `pause`
+    is set; a set cancel flag raises `Cancelled`, and `fail` raises `FfmpegFailed`."""
+
+    def __init__(self, progress: tuple[float, ...] = (37.0,), output: bytes = b"new mp4"):
+        self.commands: list[list[str]] = []
+        self.progress, self.output = progress, output
+        self.pause, self.fail = False, False
+        self.reached, self._release = threading.Event(), threading.Event()
+        self.killed = False
+
+    def release(self) -> None:
+        self._release.set()
+
+    def __call__(self, command, cwd, cancel, on_progress=None) -> None:
+        from backend.jobs import Cancelled
+        from backend.ffmpeg import FfmpegFailed
+
+        self.commands.append(command)
+        for seconds in self.progress:
+            if on_progress:
+                on_progress(seconds)
+        self.reached.set()
+        while self.pause and not (self._release.is_set() or cancel.is_set()):
+            cancel.wait(0.01)
+        if cancel.is_set():
+            self.killed = True
+            raise Cancelled()
+        if self.fail:
+            raise FfmpegFailed("ffmpeg exited with 1: Invalid data found when processing input")
+        Path(command[-1]).write_bytes(self.output)

@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** change request ตัดช่วงคลิป (D36–D42) วางแผนแล้ว ticket 06–07 พร้อม build; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** ticket 06 (Backend Trim job) done; ticket 07 (ส่วนตัดช่วงใน tab คลิป) รอแบบ Figma (Blocked 6); 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom-build spoil 06`
+**Next:** `/warroom spoil` พร้อมลิงก์ Figma frame ส่วนตัดช่วง (Blocked 6, ทำจาก `docs/features/spoil/ui-prompt.md`), แล้ว `/warroom-build spoil 07`
 
 ## Tickets
 
@@ -13,10 +13,31 @@
 | 03 | รายการ Temp clip | done |
 | 04 | Backend งานถอดบทพูดและ API | done |
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
-| 06 | Backend Trim job และ API | ready |
+| 06 | Backend Trim job และ API | done |
 | 07 | ส่วนตัดช่วงใน tab คลิป | ready |
 
 ## Log
+
+### 06: Backend Trim job และ API — done 2026-11-05
+
+**Built:**
+- `backend/spoil/trim.py`: `POST /api/spoil/trims`, `GET`/`DELETE /trims/current`; ตรวจตามลำดับ spec › Trim ข้อ 1 (gate ffmpeg, รูปร่าง body, `404`, ความยาวจริงจาก `probe`, `invalid_ranges`, `transcribing`, `busy`, `clip_busy`, `has_derived` พร้อม `derived`) แล้ว encode ช่วงที่เหลือเข้า `.partial/`, ตรวจความยาวกับเสียงของไฟล์ผล, เขียน marker `{id}.trimming.json`, แทน mp4 (ลองซ้ำ 0.5 วินาที × 20 โดยไม่ถือ lock ระหว่างรอ), ลบ Transcript, Shot, การตัด EP แล้ว Spoil draft นอก lock ของ slot; argv, การรวมช่วงและสูตร bitrate เป็น pure function
+- `gpu.slot.begin_trim`/`end_trim`: `take()` ทุกชนิดและ `clip_untouched` ไม่ว่า `by` ได้ `clip_busy` ของคลิปที่กำลังตัด; Transcribe start, แก้บรรทัด และลบคลิปได้ `409` `trimming`; start ใหม่อ่าน marker แล้วทำต่อหรือย้อน (`recover_on_start` ก่อนล้าง `.partial/`); shutdown ระหว่าง `replacing` รอให้แทนเสร็จ
+- `TempClip` มี `trimmed` และ `trimmed_at` (json เก่าอ่านเป็น `[]`/`null`); `list_clips` ข้าม marker
+- prefactor: `spoil_maker/ffmpeg.py` → `backend/ffmpeg.py` พร้อม `run`/`Runner` ที่ย้ายจาก `compose` (render ใช้ตัวเดียวกัน)
+- bug ที่ test เจอ: `begin_trim` ถือ lock ของ slot ซ้ำใน `clip_untouched` → ค้าง; `.partial/` ไม่ถูกสร้างก่อน ffmpeg เขียน
+- เช็คจริงบน Mac (seam 3a, สำเนาคลิปใน root ชั่วคราว): หนัง 69:10 ตัดสองช่วง → 64:20 ภาพ 3860.13 วินาที เสียง 3860.21 วินาที, encode 450 วินาที (`h264_videotoolbox`; หนัง 2 ชั่วโมงประมาณ 13 นาที), ขนาดต่อนาที 1.08 เท่า; คลิป 14:53 ที่ถอดแล้ว → `has_derived` แล้ว confirm → `done` 109 วินาที, ความยาวต่าง 0.04 วินาที, `transcribed: false` และ `trimmed` สองช่วง; ยกเลิกที่ 30% → `cancelled` 0.5 วินาที ไม่มี ffmpeg ค้าง Transcript อยู่ครบ; คลิปไม่มีเสียง → `done`; ถอดใหม่ → ไม่มีบรรทัดของช่วงที่ตัด; บรรยายฉาก → Shot 10 เริ่ม 60.03 และ Shot 105 เริ่ม 540.37 ตรงรอยตัด
+
+**Decided:**
+- D43 — ตัวปลอมของ test ผ่าน `Trims(…)` ตาม `rules/testing.md`, ffmpeg ขึ้นเป็น `backend/ffmpeg.py`, ลอง `os.replace` ซ้ำโดยไม่ถือ lock
+
+**For the next ticket:**
+- 07: `POST` ซ้ำขณะตัดคลิปเดียวกันได้ `busy` (ไม่ใช่ `clip_busy`); `GET /trims/current` มี `kept_s` ให้หน้าเว็บแสดง
+- คลิป bitrate ต่ำกว่า 1 Mbps (คลิป 14:53 ที่ 0.9 Mbps) ได้ไฟล์ต่อนาที 1.34 เท่าเพราะพื้น `MIN_VIDEO_BPS` (D41); หนังยาวกว่า 1 ชั่วโมงตาม seam 3a ได้ 1.08 เท่า — ถ้าผู้ใช้ว่าไฟล์โตเกิน ให้ใช้ bitrate เดิมเมื่อต่ำกว่าพื้น
+- review ที่ไม่ได้แก้: Describe job ระหว่างตัดทดสอบที่ `gpu.slot.take` ไม่ผ่าน `POST /describes` (gate ของ Qwen หนัก) — ทุก GPU job เริ่มผ่าน `take`; `clip_untouched(trimming=True)` เป็น flag argument; `(project, clip, mp4, media, cut, spans)` ส่งต่อกันสามชั้น
+- ข้อ Windows ของ seam 3a อยู่ใน `windows-check` 02 แล้ว
+
+**Checks:** `uv run pytest` — 594 passed; `npm --prefix frontend test` — 239 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### Feature review — done 2026-10-30
 

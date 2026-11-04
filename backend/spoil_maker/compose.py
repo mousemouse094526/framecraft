@@ -7,20 +7,11 @@ Every command runs with `cwd` at the render's work folder and names files there
 bare, so no path goes through ffmpeg's filter escaping (docs/library-notes/ffmpeg.md).
 """
 
-import logging
-import subprocess
-import threading
-from collections import deque
-from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
 
 from pydantic import BaseModel
 
-from backend.jobs import Cancelled
-from backend.spoil_maker.ffmpeg import FfmpegFailed, Media, exe, kill_on_cancel
-
-log = logging.getLogger(__name__)
+from backend.ffmpeg import Media, exe
 
 FPS = 30
 WIDTH, HEIGHT = 1080, 1920
@@ -28,7 +19,6 @@ AUDIO_RATE = 48_000
 # Seeking this close to a clip's end may find no frame; a Shot past it shows the last
 # frame held (spec › Render job step 3.2).
 END_MARGIN_SECONDS = 0.5
-STDERR_LINES = 20  # the tail of ffmpeg's errors that goes to the log (spec › Render job)
 
 # The picture of each layout (D22): `{tail}` makes every piece the same format and
 # holds its last frame when the source runs out. A's background blurs at a quarter of
@@ -92,41 +82,3 @@ def final_command(pieces_list: str, narration: str, captions: str, fonts_dir: st
         "-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE),
         "-movflags", "+faststart", "-f", "mp4", out,
     ]  # fmt: skip
-
-
-class Runner(Protocol):
-    """What runs an ffmpeg command: `run`, or a test's stand-in that pauses it."""
-
-    def __call__(
-        self, command: list[str], cwd: Path, cancel: threading.Event, on_progress: Callable[[float], None] | None = None
-    ) -> None: ...
-
-
-def run(command: list[str], cwd: Path, cancel: threading.Event, on_progress: Callable[[float], None] | None = None) -> None:
-    """Runs ffmpeg in `cwd`. `on_progress` gets the output's seconds so far from
-    `-progress pipe:1`. Raises `Cancelled` once `cancel` is set (ffmpeg is killed), or
-    `FfmpegFailed` with the last line it printed; the last 20 go to the log."""
-    if cancel.is_set():
-        raise Cancelled()
-    stderr: deque[str] = deque(maxlen=STDERR_LINES)
-    process = subprocess.Popen(
-        command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors="replace"
-    )
-    finished = threading.Event()
-    threading.Thread(target=kill_on_cancel, args=(process, cancel, finished), daemon=True).start()
-    reader = threading.Thread(target=lambda: stderr.extend(line.rstrip() for line in process.stderr), daemon=True)
-    reader.start()
-    try:
-        for line in process.stdout:
-            key, _, value = line.strip().partition("=")
-            if key == "out_time_us" and on_progress and value.isdigit():
-                on_progress(int(value) / 1_000_000)
-        process.wait()
-        reader.join()
-    finally:
-        finished.set()
-    if cancel.is_set():
-        raise Cancelled()
-    if process.returncode != 0:
-        log.error("ffmpeg exited with %s:\n%s", process.returncode, "\n".join(stderr))
-        raise FfmpegFailed(f"ffmpeg exited with {process.returncode}: {stderr[-1] if stderr else 'no output'}")

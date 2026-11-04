@@ -185,6 +185,8 @@ def test_done_job_leaves_mp4_thumbnail_and_complete_json(client, project):
         "file_bytes": 1234,
         "thumbnail": f"{VIDEO_ID}.webp",
         "yt_dlp_version": "2026.10.26",
+        "trimmed": [],
+        "trimmed_at": None,
     }
     assert downloaded_at[:2] == "20" and downloaded_at[-6] in "+-"
     assert files_named(project.partial_dir) == []
@@ -572,6 +574,8 @@ def test_a_done_job_is_in_the_list_with_every_field(client):
         "file_bytes": 1234,
         "thumbnail": f"{VIDEO_ID}.webp",
         "yt_dlp_version": "2026.10.26",
+        "trimmed": [],
+        "trimmed_at": None,
         "transcribed": False,
         "described": False,
         "in_draft": False,

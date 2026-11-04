@@ -135,6 +135,7 @@ question; the full entry is in the feature's decisions.md.
 | ส่วนตัดช่วงออกแบบใน Figma หลังแผน (`pending`) | [spoil](features/spoil/decisions.md) | D40 | — | — | active |
 | กติกาของ Trim job: ทีละงาน, `clip_busy` สองทาง, 1–20 ช่วง เหลือ ≥ 10 วินาที, bitrate จากไฟล์เดิม, marker `{id}.trimming.json`, `in_use` บน Windows, `?v=` ของ player, เช็คดิสก์ | [spoil](features/spoil/decisions.md) | D41 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
 | ข้อแก้ Breaker ตัดช่วง: ความยาวจาก `probe`, ลบ draft หลัง lock ของ slot, `GpuSlot.trimming_clip`, ตรวจไฟล์ผลก่อนแทน, `os.replace` ลองซ้ำ 10 วินาที | [spoil](features/spoil/decisions.md) | D42 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
+| Trim job รับตัวปลอมผ่าน `Trims(…)`; ffmpeg เป็น `backend/ffmpeg.py`; ลอง `os.replace` ซ้ำโดยไม่ถือ lock | [spoil](features/spoil/decisions.md) | D43 | — | — | active |
 
 ## สร้างคลิปสปอย
 

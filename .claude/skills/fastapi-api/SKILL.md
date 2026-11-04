@@ -40,12 +40,18 @@ backend/
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
 │                    (delete or change, refusing a job that reads the clip)
-│                    and `clip_files_lock` (a clip's EP cuts, spoil-maker D71)
+│                    and `clip_files_lock` (a clip's EP cuts, spoil-maker D71);
+│                    `begin_trim` marks the clip a Trim job cuts, which every
+│                    job that reads it is refused until `end_trim` (spoil D42)
+├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel)
+│                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
+│                    frames and compose share it
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips,
 │                    downloads (Download job),
 │                    transcribe (Transcribe job, Transcript files),
+│                    trim (Trim job: cut ranges out of a clip's mp4, D41),
 │                    whisper (the only torch/transformers import for
 │                    transcribing; its `worker` runs in a child process)
 ├── spoil_maker/  ← the สปอย tab (spoil-maker D56, D59): shots (Shot files),
@@ -60,9 +66,7 @@ backend/
 │                    EP list and its token count, D66), script (the
 │                    prompts and the reading of Qwen's answers), tokens
 │                    (the only transformers import of the backend process: Qwen's
-│                    tokenizer), settings (what the tab remembers),
-│                    ffmpeg (the binary, killing on cancel, `ffmpeg -i`
-│                    reading; frames and compose share it), render (the
+│                    tokenizer), settings (what the tab remembers), render (the
 │                    Render job and the render files), compose (the ffmpeg
 │                    commands of a render), captions (the ASS file and the
 │                    `.srt`); llm's and tts's `worker` run in a child process

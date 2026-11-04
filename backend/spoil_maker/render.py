@@ -20,16 +20,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from backend import checks, disk, fonts, gate_rows, gpu, paths
+from backend import checks, disk, ffmpeg, fonts, gate_rows, gpu, paths
 from backend.errors import ApiError, JobFailed, Row, require_rows
+from backend.ffmpeg import FfmpegFailed, Runner, probe
 from backend.jobs import short, stop_process
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.spoil_maker import captions, compose, draft, draft_file, settings, shots, voices
 from backend.spoil_maker.captions import Timed
-from backend.spoil_maker.compose import Piece, Runner
+from backend.spoil_maker.compose import Piece
 from backend.spoil_maker.draft_file import Draft
-from backend.spoil_maker.ffmpeg import FfmpegFailed, probe
 from backend.spoil_maker.voices import SentenceVoicer, SentencesPlan
 
 log = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
     error_type = RenderJobError
     nothing_to_cancel = "ไม่มีงาน render ที่ยังไม่จบ"
 
-    def __init__(self, run_ffmpeg: Runner = compose.run):
+    def __init__(self, run_ffmpeg: Runner = ffmpeg.run):
         """`run_ffmpeg` runs each ffmpeg command; a test passes one that pauses (`fastapi-api` › testing)."""
         super().__init__()
         self._run_ffmpeg = run_ffmpeg

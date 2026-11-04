@@ -18,6 +18,13 @@ from backend.spoil_maker import draft_file, shots
 log = logging.getLogger(__name__)
 
 
+class Range(BaseModel):
+    """A span of a clip's time in seconds: `[start_s, end_s)`."""
+
+    start_s: float
+    end_s: float
+
+
 class TempClip(BaseModel):
     id: str
     title: str
@@ -31,6 +38,9 @@ class TempClip(BaseModel):
     thumbnail: str | None
     downloaded_at: str
     yt_dlp_version: str
+    # The ranges cut out, each in the time of the file before that cut; none before any (D36, D41).
+    trimmed: list[Range] = []
+    trimmed_at: str | None = None
 
 
 class ListedClip(TempClip):
@@ -43,6 +53,7 @@ class ListedClip(TempClip):
 
 
 TRANSCRIPT_SUFFIX = ".transcript.json"
+TRIMMING_SUFFIX = ".trimming.json"  # the new json of a clip whose mp4 is being replaced (D41)
 
 
 def _not_found() -> ApiError:
@@ -68,12 +79,13 @@ def find_thumbnail(project: ProjectPaths, video_id: str) -> str | None:
 def list_clips(project: ProjectPaths) -> list[ListedClip]:
     """Every clip with both json and mp4, newest first; a json that can't be read is skipped.
 
-    `{id}.transcript.json` is not a clip, and `transcribed` only asks whether it exists (D29).
+    `{id}.transcript.json` and `{id}.trimming.json` are not clips, and `transcribed` only
+    asks whether the Transcript exists (D29, D41).
     """
     found: list[tuple[datetime, ListedClip]] = []
     in_draft = draft_file.draft_clip_id(project)
     for path in project.media_temp_dir.glob("*.json"):
-        if path.name.endswith(TRANSCRIPT_SUFFIX):
+        if path.name.endswith((TRANSCRIPT_SUFFIX, TRIMMING_SUFFIX)):
             continue
         try:
             clip = TempClip.model_validate_json(path.read_bytes())
@@ -81,7 +93,7 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
         except (OSError, ValidationError, ValueError):
             log.warning("skipping unreadable %s", path)
             continue
-        if clip.id == path.stem and _mp4_path(project, clip.id).is_file():
+        if clip.id == path.stem and video_path(project, clip.id).is_file():
             transcribed = transcript_path(project, clip.id).is_file()
             described = shots.is_described(project, clip.id)
             listed = ListedClip(
@@ -104,7 +116,7 @@ def read_clip(project: ProjectPaths, video_id: str) -> TempClip:
 def video_file(project: ProjectPaths, video_id: str) -> Path:
     """The clip's mp4. Raises `ApiError` 404 when it isn't a listed clip."""
     check_known(project, video_id)
-    mp4 = _mp4_path(project, video_id)
+    mp4 = video_path(project, video_id)
     if not mp4.is_file():
         raise _not_found()
     return mp4
@@ -129,20 +141,30 @@ def delete_clip(project: ProjectPaths, video_id: str) -> None:
     """
     check_known(project, video_id)
     try:
-        _mp4_path(project, video_id).unlink(missing_ok=True)
+        video_path(project, video_id).unlink(missing_ok=True)
     except PermissionError:
         raise ApiError(409, "in_use", "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง") from None
     thumbnail = find_thumbnail(project, video_id)
-    leftovers = [project.media_temp_dir / thumbnail] if thumbnail else []
-    for path in leftovers + [transcript_path(project, video_id)]:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError:
-            log.exception("could not remove %s; it goes at the next start", path.name)
-    # Shots and EP cuts belong to the clip, whichever feature made them (ADR 0018); left ones go at the next start.
+    if thumbnail:
+        _remove(project.media_temp_dir / thumbnail)
+    delete_derived(project, video_id)
+    json_path(project, video_id).unlink(missing_ok=True)
+
+
+def delete_derived(project: ProjectPaths, video_id: str) -> None:
+    """What was made from the clip's mp4: its Transcript, Shots and EP cuts, whichever
+    feature made them (ADR 0018, ADR 0021). A delete and a Trim job share it (D37);
+    the Spoil draft goes apart, after the slot's lock (spoil-maker D49)."""
+    _remove(transcript_path(project, video_id))
     shutil.rmtree(project.clip_shots_dir(video_id), ignore_errors=True)
     project.episodes_file(video_id).unlink(missing_ok=True)
-    json_path(project, video_id).unlink(missing_ok=True)
+
+
+def _remove(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        log.exception("could not remove %s; it goes at the next start", path.name)
 
 
 def check_known(project: ProjectPaths, video_id: str) -> None:
@@ -151,7 +173,8 @@ def check_known(project: ProjectPaths, video_id: str) -> None:
         raise _not_found()
 
 
-def _mp4_path(project: ProjectPaths, video_id: str) -> Path:
+def video_path(project: ProjectPaths, video_id: str) -> Path:
+    """Where the clip's mp4 is, whether or not it is there; `video_file` checks."""
     return project.media_temp_dir / f"{video_id}.mp4"
 
 

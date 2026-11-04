@@ -10,7 +10,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from backend.spoil_maker.ffmpeg import DURATION, FfmpegFailed, exe, kill_on_cancel, seconds_of
+from backend.ffmpeg import DURATION, FfmpegFailed, exe, kill_on_cancel, seconds_of
 
 SCENE_THRESHOLD = 0.3  # D17
 THUMBNAIL_WIDTH = 320  # the Shot picker loads dozens at once (D45)

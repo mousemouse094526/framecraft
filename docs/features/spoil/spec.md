@@ -268,7 +268,7 @@ Adapter `backend.spoil.whisper` (ตัวเดียวที่ import `trans
    1. แถว `ffmpeg` เป็น `ok` (ผ่าน `require_rows`, D35) → ไม่ใช่ `503` `not_ready`
    2. body ถูกรูป: `clip_id` string, `ranges` list 1–20 ตัวของ `{start_s, end_s}` ที่เป็นตัวเลขจำกัด (ไม่ใช่ boolean, NaN, Infinity), `confirm_derived_loss` boolean ถ้ามี → ไม่ใช่ `400` `invalid_request`
    3. ภายใต้ lock ของงานถอด (lock เดียวกับ `DELETE /clips/{id}`, D29) แล้ว `gpu.slot.clip_untouched(clip_id)` ข้างใน (lock ของ slot อยู่ในสุดเสมอ, spoil-maker D49): มี Temp clip ของ `clip_id` → ไม่ใช่ `404` `not_found`
-   4. ความยาวจริงของ mp4 จาก `spoil_maker.ffmpeg.probe` (ไม่ใช้ `duration_s` ของ json ที่เป็นจำนวนเต็มหรือ `null`); probe ล้ม → `500` `internal`; ช่วงผ่านกฎของ D41 เทียบความยาวนี้ → ไม่ใช่ `400` `invalid_ranges` (D42)
+   4. ความยาวจริงของ mp4 จาก `backend.ffmpeg.probe` (ไม่ใช้ `duration_s` ของ json ที่เป็นจำนวนเต็มหรือ `null`); probe ล้ม → `500` `internal`; ช่วงผ่านกฎของ D41 เทียบความยาวนี้ → ไม่ใช่ `400` `invalid_ranges` (D42)
    5. Transcribe job ของคลิปนี้ยังไม่จบ → `409` `transcribing`; งานใดก็ตามใช้คลิปนี้อยู่ใน `backend.gpu` (Describe, Draft, Voice, Render, `PUT` การตัด EP) → `409` `clip_busy`; มี Trim job ที่ thread ยังไม่ออก → `409` `busy`
    6. คลิปมี `{id}.transcript.json`, Shot, ไฟล์การตัด EP หรือ Spoil draft ที่ใช้คลิปนี้ และไม่มี `confirm_derived_loss: true` → `409` `has_derived` พร้อม `derived` (D37)
    7. สร้างงาน แล้วตั้ง `gpu.slot.trimming_clip` = `clip_id` (D42): `take()` ของงานทุกชนิดที่ `clip_ids` มีคลิปนี้ได้ `409` `clip_busy` และ `clip_untouched(clip_id)` ปฏิเสธไม่ว่า `by` เป็นอะไร — Trim job ไม่จองช่อง GPU แต่งานอื่นต้องเห็นมัน
@@ -296,7 +296,7 @@ backend start ก่อนล้าง `.partial/` (D15): ทุก `{id}.trimmi
 
 Encoder ตาม `sys.platform`: `darwin` → `h264_videotoolbox`; อื่น → `libx264` `-preset veryfast` (D36). คำสั่ง ffmpeg ทั้งหมดอยู่ในฟังก์ชันเดียวของ `backend.spoil.trim` ที่คืน argv ให้ test ตรวจได้โดยไม่รัน ffmpeg.
 
-จุด inject สำหรับ test: `backend.spoil.trim` มี module attribute `probe` (ตัวเดียวกับ `spoil_maker.ffmpeg.probe`) และ `run_ffmpeg` (เริ่ม process, อ่าน progress, kill) ที่ test แทนด้วยตัวปลอมที่เขียนไฟล์ผลและรอสัญญาณได้ แบบเดียวกับ adapter ปลอมของ yt-dlp; `free_bytes` ใช้ตัวเดียวกับงานโหลด.
+จุด inject สำหรับ test: `Trims(run_ffmpeg=…, probe=…, free_bytes=…, sleep=…, replace_mp4=…)` — ค่าเริ่มต้นคือ `backend.ffmpeg.run` (เริ่ม process, อ่าน progress, kill), `backend.ffmpeg.probe`, `disk.free_bytes` ตัวเดียวกับงานโหลด, `time.sleep` และ `os.replace`; test ส่งตัวปลอมที่เขียนไฟล์ผลและรอสัญญาณได้ (D43).
 
 Trim job:
 

@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import checks, gpu, paths, spoil_maker
+from backend import checks, ffmpeg, gpu, paths, spoil_maker
 from backend.app import app
 from backend.paths import ProjectPaths
 from backend.spoil_maker import render as render_module
@@ -429,15 +429,13 @@ def paused_ffmpeg(monkeypatch):
     `release` (or cancels), as `fastapi-api` › testing pauses a job that runs ffmpeg."""
     import threading
 
-    from backend.spoil_maker import compose
-
     reached, release = threading.Event(), threading.Event()
 
     def run(command, cwd, cancel, on_progress=None):
         reached.set()
         while not (release.is_set() or cancel.is_set()):
             cancel.wait(0.01)
-        return compose.run(command, cwd, cancel, on_progress)
+        return ffmpeg.run(command, cwd, cancel, on_progress)
 
     monkeypatch.setattr(render_module, "render_jobs", render_module.RenderJobs(run_ffmpeg=run))
     return reached, release
