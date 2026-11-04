@@ -2,7 +2,7 @@
 
 **Now:** feature review รอบสี่เสร็จ; พร้อม merge
 
-**Next:** เปิด PR เข้า `develop`
+**Next:** รอ merge [PR #6](https://github.com/mousemouse094526/framecraft/pull/6)
 
 ## Tickets
 
