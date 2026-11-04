@@ -10,7 +10,7 @@
 - Seams: 4 (ข้อของส่วนตัดช่วง)
 - User stories: 12, 13
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

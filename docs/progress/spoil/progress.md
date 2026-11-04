@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** ticket 06 (Backend Trim job) done; ticket 07 (ส่วนตัดช่วงใน tab คลิป) พร้อม build — แบบ Figma เสร็จ (D44); 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** ticket 06–07 (ตัดช่วง: backend และหน้าเว็บ) done บน `feat/spoil` — รอ feature review ของสองตัวนี้; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom-build spoil 07`
+**Next:** `/warroom-build spoil --review-feature`
 
 ## Tickets
 
@@ -14,9 +14,30 @@
 | 04 | Backend งานถอดบทพูดและ API | done |
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
 | 06 | Backend Trim job และ API | done |
-| 07 | ส่วนตัดช่วงใน tab คลิป | ready |
+| 07 | ส่วนตัดช่วงใน tab คลิป | done |
 
 ## Log
+
+### 07: ส่วนตัดช่วงใน tab คลิป — done 2026-11-05
+
+**Built:**
+- `TrimSection` และ `TrimTimeline` ในกล่องถอดบทพูดตาม Figma D44: ปุ่ม "ตัดช่วง", timeline ที่หัวลากเป็น `role="slider"` (เป้า 44px, ลูกศร ±1 วินาที, Shift ±10, ไม่ข้ามหัวอีกข้างหรือช่วงข้างเคียง, ลากด้วย pointer แล้วเห็นเวลา), รายการช่วงที่พิมพ์ `h:mm:ss.s`/`m:ss`/`ss` ได้ พร้อม "= ตอนนี้" และ ✕, "เพิ่มช่วง", "ตัดออก · เหลือ", "ตัดคลิป"/"ยกเลิก"; กำลังตัด (%), กำลังยกเลิก…, กำลังแทนไฟล์… (ไม่มียกเลิก), คลิปอื่นกำลังตัด
+- `useTrim`: ช่วงเก็บใน memory แยกตามคลิป, `GET /trims/current` ตอนเปิด tab (งานยังไม่จบ → เลือกคลิปนั้น), poll ทุก 1 วินาที, `confirm()` จาก `transcribed`/`described`/`in_draft` แล้วจาก `derived` ของ `409 has_derived`, ปลด player ก่อนทุก `POST` และระหว่างงาน, error ของ `POST` เป็น Alert แล้วคืน player, Alert ผลหลังงานจบ
+- `?v={trimmed_at ?? downloaded_at}` ใน `src` ของ player ทุกที่ (`videoUrl` ใน `lib/clips.ts`) รวม Shot picker ของ spoil-maker; Badge "ตัดแล้ว" ก่อน "ถอดแล้ว"; `409 trimming` ของลบคลิปและของถอดบทพูด
+- ของร่วมใหม่: `SECONDARY_BUTTON`, `plus.svg` ย้ายไป `components/ui/assets/`; test ของ seam 4 ข้อตัดช่วงครบ (25 test ใหม่ใน `ClipsPage.test.tsx`, 1 ใน `ScriptReview.test.tsx`)
+- bug ที่เจอตอนเช็คมือ: ความยาวคลิป 893.178 วินาทีปัดเป็น 0.1 ได้ 893.2 เกินไฟล์ → backend จะตอบ `invalid_ranges`; แก้ให้ปัดลง (test แดงก่อนแก้). bug จาก review: หลังงาน `done` player โหลด `?v=` เดิมก่อนรายการใหม่มา (ไฟล์เก่าจาก cache) และลบคลิปที่กำลังตัดขณะคลิปอื่นถอดอยู่ทำให้กล่องว่าง (test แดงก่อนแก้ทั้งสอง)
+- เช็คมือบน Mac ผ่าน Vite proxy (backend :8010 บน root ชั่วคราวที่สำเนาสองคลิป ไม่แตะ `media/temp/` ของผู้ใช้): โคนัน 14:53 ที่ถอดและบรรยายฉากแล้ว ตัด 0:00–0:30 และ 14:23.1–14:53.1 → คำยืนยัน "ตัดคลิปจะลบ Transcript (รวมบรรทัดที่แก้ไว้), ภาพฉากและการตัด EP ของคลิปนี้ ตัดต่อไหม?", % เดิน 0→99 ใน 122 วินาที, "ตัดคลิปเสร็จ", player เล่นไฟล์ใหม่ 833.18 วินาทีที่ฉากแรกหลังโฆษณา, แถวมี "ตัดแล้ว" ไม่มี "ถอดแล้ว"/"บรรยายฉากแล้ว"; โทริโกะ 23:03 ตัดแล้วกดยกเลิกที่ 2% → "ยกเลิกแล้ว" ใน 0.4 วินาที, ช่วงยังอยู่, player เล่นไฟล์เดิม (readyState 4), Transcript ยังอยู่, `.partial/` ว่าง ไม่มี ffmpeg ค้าง; 375px หัวลาก 44×44 ไม่มี scroll แนวนอน, ลากหัวจบด้วย pointer และกด track แล้ว seek ได้; หน้าตาตรง frame desktop และ mobile
+
+**Decided:**
+- D45 — ความยาวจาก `video.duration` ปัดลง 0.1 วินาที, ช่วง < 0.5 วินาทีเป็น error, `busy` ติดตามงาน, player ว่างจนรายการใหม่มา, `?v=` ของ Shot picker, `SECONDARY_BUTTON`
+
+**For the next ticket:**
+- feature review: ไฟล์คลิป bitrate ต่ำโตขึ้นหลังตัด (โคนัน 100.1 → 125.4 MB ทั้งที่สั้นลง 1 นาที) ตามพื้น `MIN_VIDEO_BPS` ของ D41 — ข้อเดิมจาก 06
+- review ที่ไม่ได้แก้: การเช็ค offline/loading ของห้า hook ใน `ClipsPage` เขียนทีละตัว (loop ทำให้ TypeScript ไม่ narrow state); `startTrim` กับ `startTranscribe` ถามยืนยันแล้วส่งซ้ำคล้ายกันแต่รูปต่าง; Shot picker อ่าน `/api/spoil/clips` ทั้งรายการเพื่อใช้ `trimmed_at` คลิปเดียว
+- ตอนเช็คมือไม่เห็น state "กำลังแทนไฟล์…" กับ "กำลังยกเลิก…" ในหน้าจริง (สั้นกว่า poll) — test ครอบไว้
+- backend เก่าที่เปิดค้างบน :8000 (เริ่ม 2026-11-04 18:44) ยังเป็นโค้ดก่อน 06 — เปิด `npm run dev` ใหม่ก่อนลองตัดจริง
+
+**Checks:** `uv run pytest` — 594 passed; `npm --prefix frontend test` — 265 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 06: Backend Trim job และ API — done 2026-11-05
 

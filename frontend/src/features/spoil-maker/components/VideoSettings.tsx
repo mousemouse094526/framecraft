@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import plusIcon from "../assets/plus.svg";
+import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import type { SettingsState } from "../hooks/useVideoSettings";

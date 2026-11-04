@@ -176,6 +176,7 @@ function ScriptReviewBody() {
           clipId={draft.clip_id}
           ep={draft.ep}
           shots={shots}
+          videoSrc={state.videoSrc}
           onClose={() => setOverlay(null)}
           onPick={(shot) => {
             const slots = [...draft.sentences[pickerIndex].shots];

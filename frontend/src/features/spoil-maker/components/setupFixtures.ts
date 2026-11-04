@@ -30,6 +30,8 @@ export function clipOf(id: string, title: string, change: Partial<TempClip> = {}
     transcribed: true,
     described: true,
     in_draft: false,
+    trimmed: [],
+    trimmed_at: null,
     ...change,
   };
 }

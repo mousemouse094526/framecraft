@@ -137,6 +137,7 @@ question; the full entry is in the feature's decisions.md.
 | ข้อแก้ Breaker ตัดช่วง: ความยาวจาก `probe`, ลบ draft หลัง lock ของ slot, `GpuSlot.trimming_clip`, ตรวจไฟล์ผลก่อนแทน, `os.replace` ลองซ้ำ 10 วินาที | [spoil](features/spoil/decisions.md) | D42 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | Trim job รับตัวปลอมผ่าน `Trims(…)`; ffmpeg เป็น `backend/ffmpeg.py`; ลอง `os.replace` ซ้ำโดยไม่ถือ lock | [spoil](features/spoil/decisions.md) | D43 | — | — | active |
 | แบบส่วนตัดช่วงใน Figma: ปุ่ม "= ตอนนี้" ใต้ช่องเวลา, Badge "ตัดแล้ว", Alert ใต้ชื่อคลิป, `confirm()` ของ browser | [spoil](features/spoil/decisions.md) | D44 | — | — | active |
+| ส่วนตัดช่วงในหน้าเว็บ: ความยาวจาก `video.duration` ปัดลง 0.1 วินาที, ช่วงสั้นกว่า 0.5 วินาทีเป็น error, `busy` ติดตามงาน, `?v=` ของ Shot picker, `SECONDARY_BUTTON` | [spoil](features/spoil/decisions.md) | D45 | — | — | active |
 
 ## สร้างคลิปสปอย
 

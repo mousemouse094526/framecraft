@@ -4,6 +4,8 @@ import type { StatusResponse } from "../../../lib/statusTypes";
 export const DOWNLOAD_ITEMS = ["ffmpeg", "yt_dlp", "deno"];
 // `device` is a warning on `cpu`, so it isn't ok there (ADR 0006).
 export const TRANSCRIBE_ITEMS = ["torch", "transformers", "ffmpeg", "model_whisper", "device"];
+// A trim only runs ffmpeg (D36).
+export const TRIM_ITEMS = ["ffmpeg"];
 
 /** The labels of the items in `ids` that aren't ok, in Status check order. */
 export function missingLabels(status: StatusResponse, ids: string[]): string[] {

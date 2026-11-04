@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import { CLIPS_PATH } from "../../../lib/clips";
 import { formatClock } from "../../../lib/format";
 import checkLinkIcon from "../assets/check-link.svg";
 import checkWhiteIcon from "../assets/check-white.svg";
@@ -17,6 +16,8 @@ type Props = {
   clipId: string;
   ep: Ep;
   shots: Record<string, Shot[]>;
+  /** The clip's mp4 with its `?v=` (spoil D41). */
+  videoSrc: string;
   onPick: (shot: ShotRef) => void;
   onClose: () => void;
 };
@@ -27,7 +28,7 @@ type Props = {
  * D26, D27, D70). Pointing at a Shot shows its description and plays its stretch;
  * clicking it picks it and closes. Esc closes; focus starts on the close button.
  */
-export function ShotPicker({ sentence, number, slot, clipId, ep, shots, onPick, onClose }: Props) {
+export function ShotPicker({ sentence, number, slot, clipId, ep, shots, videoSrc, onPick, onClose }: Props) {
   /** ±30 s around the cited lines, or null for a sentence citing none (D26). */
   const near = sentence.window;
   const [whole, setWhole] = useState(near === null);
@@ -57,7 +58,7 @@ export function ShotPicker({ sentence, number, slot, clipId, ep, shots, onPick, 
         </button>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
-        <ShotPlayer clipId={clipId} shot={shown} episode={episode} />
+        <ShotPlayer videoSrc={videoSrc} shot={shown} episode={episode} />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-end gap-2">
@@ -144,7 +145,7 @@ function PickThumb({ clipId, shot, current, onShow, onPick }: ThumbProps) {
 }
 
 /** Figma component `Shot player`: the clip's own video, playing only the Shot's stretch (spec › Frontend). */
-function ShotPlayer({ clipId, shot, episode }: { clipId: string; shot: Shot | null; episode: string }) {
+function ShotPlayer({ videoSrc, shot, episode }: { videoSrc: string; shot: Shot | null; episode: string }) {
   const video = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -155,7 +156,7 @@ function ShotPlayer({ clipId, shot, episode }: { clipId: string; shot: Shot | nu
     <div className="flex flex-col gap-2 sm:w-[400px] sm:shrink-0">
       <video
         ref={video}
-        src={`${CLIPS_PATH}/${clipId}/video`}
+        src={videoSrc}
         controls
         preload="metadata"
         onTimeUpdate={(event) => {

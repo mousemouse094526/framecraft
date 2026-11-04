@@ -12,8 +12,8 @@ type Props = {
   clips: TempClip[];
   /** The clip in the transcript panel's player (D25). */
   selectedId: string | null;
-  /** The clip the Transcribe job is on, while it is unfinished. */
-  transcribingId: string | null;
+  /** The clips an unfinished Transcribe or Trim job is on: the API refuses their delete. */
+  busyIds: string[];
   deleteErrors: Record<string, string>;
   /** The row the message above is about: a new clip or a duplicate link (D12). */
   highlightId: string | null;
@@ -26,13 +26,13 @@ type Props = {
 
 /** The Temp clip list, newest first; a row puts its clip in the transcript panel (D7, D18, D25). */
 export function TempClipList(props: Props) {
-  const { clips, selectedId, transcribingId, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete, describe } = props;
+  const { clips, selectedId, busyIds, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete, describe } = props;
   /** After the row's confirm: the browser's for most clips, the draft warning for one in the Spoil draft. */
   const remove = (clip: TempClip) => {
     // Windows can't delete a file the player still holds open (D15). The panel
     // stays empty even when the delete is refused, except for the clip being
-    // transcribed: the API refuses that one, so its progress stays (D34).
-    if (clip.id === selectedId && clip.id !== transcribingId) onClosePlayer();
+    // transcribed or trimmed: the API refuses that one, so its progress stays (D34, D41).
+    if (clip.id === selectedId && !busyIds.includes(clip.id)) onClosePlayer();
     onDelete(clip.id);
   };
 
@@ -78,7 +78,7 @@ type RowProps = {
 };
 
 /**
- * Figma component `Clip row`: default, highlight, playing, ถอดแล้ว (D23), บรรยายฉาก
+ * Figma component `Clip row`: default, highlight, playing, ตัดแล้ว (D44), ถอดแล้ว (D23), บรรยายฉาก
  * under a transcribed clip and บรรยายฉากแล้ว (spoil-maker D16), and a delete error under it.
  */
 function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete, describe }: RowProps) {
@@ -126,11 +126,8 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete,
               <span className="min-w-[160px] flex-1 truncate text-sm leading-[1.5] font-medium text-foreground">
                 {clip.title}
               </span>
-              {selected && (
-                <span className="shrink-0 rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
-                  กำลังเล่น
-                </span>
-              )}
+              {selected && <AccentBadge>กำลังเล่น</AccentBadge>}
+              {clip.trimmed.length > 0 && <AccentBadge>ตัดแล้ว</AccentBadge>}
               {clip.transcribed && <DoneBadge>ถอดแล้ว</DoneBadge>}
               {clip.described && <DoneBadge>บรรยายฉากแล้ว</DoneBadge>}
             </span>
@@ -168,6 +165,15 @@ function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete,
         </p>
       )}
     </li>
+  );
+}
+
+/** Figma `Badge` accent: กำลังเล่น (D18) and ตัดแล้ว (D44). */
+function AccentBadge({ children }: { children: string }) {
+  return (
+    <span className="shrink-0 rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
+      {children}
+    </span>
   );
 }
 

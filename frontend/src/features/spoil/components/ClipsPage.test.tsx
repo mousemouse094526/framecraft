@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import type { DescribeJob } from "../hooks/useDescribe";
 import type { DownloadJob } from "../hooks/useSpoilDownload";
 import type { TempClip } from "../../../lib/clips";
 import type { TranscribeJob, Transcript } from "../hooks/useTranscribe";
+import type { TrimJob } from "../hooks/useTrim";
 import { ClipsPage } from "./ClipsPage";
 
 const SHORTS_URL = "https://www.youtube.com/shorts/f7jkZXvaB4g";
@@ -84,6 +85,8 @@ function clipOf(change: Partial<TempClip>): TempClip {
     transcribed: false,
     described: false,
     in_draft: false,
+    trimmed: [],
+    trimmed_at: null,
     ...change,
   };
 }
@@ -122,7 +125,7 @@ type Route = { method?: string; path: string; reply: () => Response | Promise<Re
  * answers once, so a list of routes for the same path plays out in order;
  * the last one for a path keeps answering. With no `/api/spoil/clips` route
  * the list is empty; with no `/api/spoil/transcriptions/current` or
- * `/api/spoil-maker/describes/current` route there is no such job; a clip's `/transcript` with no route is `404`, as for
+ * `/api/spoil-maker/describes/current` or `/api/spoil/trims/current` route there is no such job; a clip's `/transcript` with no route is `404`, as for
  * a clip not yet transcribed.
  */
 function backend(routes: Route[]) {
@@ -130,6 +133,7 @@ function backend(routes: Route[]) {
   if (!has(CLIPS_PATH)) routes.push(clips([]));
   if (!has(TRANSCRIPTION_PATH)) routes.push(transcription(null));
   if (!has(DESCRIBE_PATH)) routes.push(describing(null));
+  if (!has(TRIM_PATH)) routes.push(trimming(null));
   fetchMock.mockImplementation(async (input, init) => {
     const method = init?.method ?? "GET";
     const matches = routes.filter((r) => r.path === String(input) && (r.method ?? "GET") === method);
@@ -165,6 +169,9 @@ const postDescribe = (body: unknown, code = 202): Route => ({
   path: "/api/spoil-maker/describes",
   reply: () => jsonResponse(body, code),
 });
+const TRIM_PATH = "/api/spoil/trims/current";
+const trimming = (job: TrimJob | null): Route => ({ path: TRIM_PATH, reply: () => jsonResponse(job) });
+const postTrim = (body: unknown, code = 202): Route => ({ method: "POST", path: "/api/spoil/trims", reply: () => jsonResponse(body, code) });
 const transcript = (value: Transcript): Route => ({
   path: `${CLIPS_PATH}/${value.clip_id}/transcript`,
   reply: () => jsonResponse(value),
@@ -554,7 +561,8 @@ describe("Temp clip list", () => {
     await user.click(await screen.findByRole("button", { name: /^From the Moon/ }));
 
     const video = panel().querySelector("video");
-    expect(video).toHaveAttribute("src", "/api/spoil/clips/f7jkZXvaB4g/video");
+    // `?v=` keeps the browser off a cached file from before a trim (D41).
+    expect(video).toHaveAttribute("src", `/api/spoil/clips/f7jkZXvaB4g/video?v=${encodeURIComponent(MOON.downloaded_at)}`);
     // The player moved into the panel: none above the list any more (D25).
     expect(container.querySelectorAll("video")).toHaveLength(1);
     expect(video).toHaveAttribute("controls");
@@ -1485,5 +1493,476 @@ describe("a clip in the Spoil draft (spoil-maker D29, D49)", () => {
 
     expect(sentWith("POST")).toHaveLength(0);
     expect(within(panel()).getByRole("button", { name: "ถอดใหม่" })).toBeInTheDocument();
+  });
+});
+
+describe("ตัดช่วง (D36–D41)", () => {
+  const TRANSCRIBED_RICK = { ...RICK, transcribed: true };
+  const TRIMMED_AT = "2026-11-05T10:00:00+07:00";
+  const TRIMMED_RICK = { ...RICK, duration_s: 183, trimmed: [{ start_s: 0, end_s: 30 }], trimmed_at: TRIMMED_AT };
+
+  function trimJobOf(change: Partial<TrimJob>): TrimJob {
+    return { clip_id: RICK.id, state: "trimming", percent: 0, kept_s: 183, cancel_requested: false, error: null, ...change };
+  }
+
+  beforeEach(() => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  });
+
+  const video = () => panel().querySelector("video")!;
+  /** Moves the player as a seek would: jsdom fires no `timeupdate` of its own. */
+  const seekTo = (seconds: number) => {
+    video().currentTime = seconds;
+    fireEvent(video(), new Event("timeupdate"));
+  };
+  const range = (n: number) => within(panel()).getByRole("group", { name: `ช่วง ${n}` });
+  const slider = (name: string) => within(panel()).getByRole("slider", { name });
+
+  /** Selects Rick, opens ตัดช่วง and adds a range at `at` seconds. */
+  async function openWithRange(at = 0) {
+    const user = await selectRow(/^Rick Astley/);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดช่วง" }));
+    seekTo(at);
+    await user.click(within(panel()).getByRole("button", { name: "เพิ่มช่วง" }));
+    return user;
+  }
+
+  it("adds 30 s at the playhead, takes it off what is left, and disables ถอดบทพูด", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK])]);
+    render(<ClipsPage />);
+    const user = await selectRow(/^Rick Astley/);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดช่วง" }));
+    expect(within(panel()).getByText("ตัดออก 0:00 · เหลือ 3:33")).toBeInTheDocument();
+    expect(within(panel()).getByRole("button", { name: "ตัดคลิป" })).toBeDisabled();
+
+    seekTo(0);
+    await user.click(within(panel()).getByRole("button", { name: "เพิ่มช่วง" }));
+
+    expect(within(range(1)).getByLabelText("เริ่ม")).toHaveValue("0:00:00.0");
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
+    expect(within(panel()).getByText("ตัดออก 0:30 · เหลือ 3:03")).toBeInTheDocument();
+    expect(within(panel()).getByRole("button", { name: "ตัดคลิป" })).toBeEnabled();
+    expect(within(panel()).getByRole("button", { name: "ถอดบทพูด" })).toBeDisabled();
+    expect(within(panel()).getByText("กดตัดคลิปหรือยกเลิกก่อน")).toBeInTheDocument();
+  });
+
+  it("reads a typed end of 1:30 as 90 s, and marks abc as an error that disables ตัดคลิป", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK])]);
+    render(<ClipsPage />);
+    const user = await openWithRange();
+    const end = within(range(1)).getByLabelText("จบ");
+
+    await user.clear(end);
+    await user.type(end, "1:30");
+    expect(within(panel()).getByText("ตัดออก 1:30 · เหลือ 2:03")).toBeInTheDocument();
+    expect(slider("จุดจบช่วง 1")).toHaveAttribute("aria-valuenow", "90");
+
+    await user.clear(end);
+    await user.type(end, "abc");
+    expect(end).toHaveAttribute("aria-invalid", "true");
+    expect(within(range(1)).getByText("เวลาไม่ถูกต้อง")).toBeInTheDocument();
+    expect(within(panel()).getByRole("button", { name: "ตัดคลิป" })).toBeDisabled();
+  });
+
+  it("moves an end handle 1 s per arrow, 10 s with Shift, never past the next range's start", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK])]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    seekTo(45);
+    await user.click(within(panel()).getByRole("button", { name: "เพิ่มช่วง" }));
+    const handle = slider("จุดจบช่วง 1");
+    expect(handle).toHaveAttribute("aria-valuetext", "0:00:30.0");
+
+    handle.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(handle).toHaveAttribute("aria-valuenow", "31");
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(handle).toHaveAttribute("aria-valuenow", "41");
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(handle).toHaveAttribute("aria-valuenow", "45");
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:45.0");
+  });
+
+  it("ends a range near the end at the file's length floored to a tenth (213.47 → 213.4), not past it", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK])]);
+    render(<ClipsPage />);
+    const user = await selectRow(/^Rick Astley/);
+    // The list's 213 is rounded; the file is 213.47 s, which a tenth would round up past.
+    Object.defineProperty(video(), "duration", { value: 213.47, configurable: true });
+    fireEvent(video(), new Event("durationchange"));
+    await user.click(within(panel()).getByRole("button", { name: "ตัดช่วง" }));
+    seekTo(200);
+
+    await user.click(within(panel()).getByRole("button", { name: "เพิ่มช่วง" }));
+
+    expect(within(range(1)).getByLabelText("เริ่ม")).toHaveValue("0:03:20.0");
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:03:33.4");
+  });
+
+  it("sets จบ from the player's time on จบ = ตอนนี้, to a tenth of a second", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK])]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    seekTo(95.34);
+
+    await user.click(within(range(1)).getByRole("button", { name: "จบ = ตอนนี้" }));
+
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:01:35.3");
+  });
+
+  it("removes a range on ✕, and ยกเลิก closes the section and forgets its ranges", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK])]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+
+    await user.click(within(range(1)).getByRole("button", { name: "ลบช่วง 1" }));
+    expect(within(panel()).queryByRole("group", { name: "ช่วง 1" })).not.toBeInTheDocument();
+
+    await user.click(within(panel()).getByRole("button", { name: "เพิ่มช่วง" }));
+    await user.click(within(panel()).getByRole("button", { name: "ยกเลิก" }));
+    expect(within(panel()).queryByRole("button", { name: "ตัดคลิป" })).not.toBeInTheDocument();
+    await user.click(within(panel()).getByRole("button", { name: "ตัดช่วง" }));
+    expect(within(panel()).queryByRole("group", { name: "ช่วง 1" })).not.toBeInTheDocument();
+  });
+
+  it("keeps each clip's ranges while another clip is selected", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK, MOON])]);
+    render(<ClipsPage />);
+    await openWithRange(0);
+
+    await selectRow(/^From the Moon/);
+    expect(within(panel()).queryByRole("group", { name: "ช่วง 1" })).not.toBeInTheDocument();
+    await selectRow(/^Rick Astley/);
+
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
+  });
+
+  it("asks before trimming a transcribed clip, lets go of the player, then posts confirm_derived_loss", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    let srcAtPost: string | null = "unset";
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([TRANSCRIBED_RICK]),
+      {
+        method: "POST",
+        path: "/api/spoil/trims",
+        reply: () => {
+          srcAtPost = video().getAttribute("src");
+          return jsonResponse(trimJobOf({}), 202);
+        },
+      },
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Transcript"));
+    expect(srcAtPost).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/spoil/trims",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ clip_id: RICK.id, ranges: [{ start_s: 0, end_s: 30 }], confirm_derived_loss: true }),
+      }),
+    );
+    expect(await within(panel()).findByText("กำลังตัดคลิป")).toBeInTheDocument();
+  });
+
+  it("sends nothing when that confirm is cancelled", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => false));
+    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED_RICK])]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "/api/spoil/trims")).toHaveLength(0);
+    expect(video()).toHaveAttribute("src");
+  });
+
+  it("shows กำลังตัดคลิป 37%, then ตัดคลิปเสร็จ, the new ?v= and ตัดแล้ว on the row", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      clips([TRIMMED_RICK]),
+      trimming(null),
+      trimming(trimJobOf({ percent: 37 })),
+      trimming(trimJobOf({ state: "done", percent: null })),
+      postTrim(trimJobOf({})),
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+    expect(video()).not.toHaveAttribute("src");
+
+    await nextPoll();
+    expect(within(panel()).getByText("กำลังตัดคลิป")).toBeInTheDocument();
+    expect(within(panel()).getByText("37%")).toBeInTheDocument();
+    expect(within(panel()).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "37");
+
+    await nextPoll();
+    expect(await within(panel()).findByText("ตัดคลิปเสร็จ: เหลือ 0:03:03")).toBeInTheDocument();
+    expect(video()).toHaveAttribute("src", `/api/spoil/clips/${RICK.id}/video?v=${encodeURIComponent(TRIMMED_AT)}`);
+    expect(within(screen.getByRole("listitem", { name: RICK.title })).getByText("ตัดแล้ว")).toBeInTheDocument();
+    // done closes the section and drops its ranges.
+    expect(within(panel()).queryByRole("group", { name: "ช่วง 1" })).not.toBeInTheDocument();
+    expect(within(panel()).getByRole("button", { name: "ตัดช่วง" })).toBeEnabled();
+  });
+
+  it("keeps the player empty after done until the list brings the new ?v=", async () => {
+    let listed: (response: Response) => void = () => {};
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      { path: CLIPS_PATH, reply: () => new Promise<Response>((resolve) => (listed = resolve)) },
+      trimming(null),
+      trimming(trimJobOf({ state: "done", percent: null })),
+      postTrim(trimJobOf({})),
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    await nextPoll();
+    expect(await within(panel()).findByText("ตัดคลิปเสร็จ: เหลือ 0:03:03")).toBeInTheDocument();
+    // The old `?v=` would play the cached file from before the trim (D41).
+    expect(video()).not.toHaveAttribute("src");
+
+    await act(async () => listed(jsonResponse({ clips: [TRIMMED_RICK] })));
+    expect(video()).toHaveAttribute("src", `/api/spoil/clips/${RICK.id}/video?v=${encodeURIComponent(TRIMMED_AT)}`);
+  });
+
+  it("says another clip is being trimmed on 409 busy, and names it on ตัดช่วง", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK, MOON]),
+      trimming(null),
+      trimming(trimJobOf({ clip_id: MOON.id, percent: 5 })),
+      postTrim({ code: "busy", message: "กำลังตัดคลิปอื่นอยู่" }, 409),
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    expect(await within(panel()).findByText("กำลังตัดคลิปอื่นอยู่")).toBeInTheDocument();
+    expect(within(panel()).getByText(`กำลังตัด ${MOON.title}`)).toBeInTheDocument();
+    expect(video()).toHaveAttribute("src");
+  });
+
+  it("says the file is being replaced when ยกเลิก meets 409 replacing", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      trimming(trimJobOf({ percent: 99 })),
+      { method: "DELETE", path: TRIM_PATH, reply: () => jsonResponse({ code: "replacing", message: "x" }, 409) },
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByRole("button", { name: "ยกเลิก" }));
+
+    expect(await within(panel()).findByText("กำลังแทนไฟล์ ยกเลิกไม่ได้แล้ว")).toBeInTheDocument();
+  });
+
+  it("keeps the clip being trimmed in the panel when its delete is refused, though another clip is transcribed", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([MOON, RICK]),
+      transcription(transcribeJobOf({ clip_id: MOON.id, state: "transcribing", percent: 10 })),
+      trimming(trimJobOf({ percent: 37 })),
+      deleteClip(RICK.id, () => jsonResponse({ code: "trimming", message: "กำลังตัดคลิปนี้อยู่ รอให้จบหรือยกเลิกก่อน" }, 409)),
+    ]);
+    render(<ClipsPage />);
+    await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByText("37%");
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(screen.getByRole("button", { name: `ลบ ${RICK.title}` }));
+
+    expect(await within(screen.getByRole("listitem", { name: RICK.title })).findByText(/กำลังตัดคลิปนี้อยู่/)).toBeInTheDocument();
+    expect(within(panel()).getByText("37%")).toBeInTheDocument();
+  });
+
+  it("asks again on 409 has_derived, naming what the API found, then posts confirm_derived_loss", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      postTrim({ code: "has_derived", message: "ตัดคลิปจะลบ Transcript ของคลิปนี้", derived: ["transcript", "draft"] }, 409),
+      postTrim(trimJobOf({})),
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    expect(confirm).toHaveBeenCalledWith("ตัดคลิปจะลบ Transcript (รวมบรรทัดที่แก้ไว้), Spoil draft ของคลิปนี้ ตัดต่อไหม?");
+    const bodies = fetchMock.mock.calls.filter(([input]) => String(input) === "/api/spoil/trims").map(([, init]) => init?.body);
+    expect(bodies[1]).toBe(JSON.stringify({ clip_id: RICK.id, ranges: [{ start_s: 0, end_s: 30 }], confirm_derived_loss: true }));
+    expect(await within(panel()).findByText("กำลังตัดคลิป")).toBeInTheDocument();
+  });
+
+  it("shows a refused POST's message and loads the player back", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      postTrim({ code: "invalid_ranges", message: "ช่วงที่ตัดไม่ถูกต้อง: ต้องเหลือคลิปอย่างน้อย 10 วินาที" }, 400),
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    expect(await within(panel()).findByText("ช่วงที่ตัดไม่ถูกต้อง: ต้องเหลือคลิปอย่างน้อย 10 วินาที")).toBeInTheDocument();
+    expect(video()).toHaveAttribute("src");
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
+  });
+
+  it("shows a failed job's message and keeps the ranges; replacing offers no ยกเลิก", async () => {
+    const inUse = "แทนไฟล์ไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง";
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      trimming(null),
+      trimming(trimJobOf({ state: "replacing", percent: null })),
+      trimming(trimJobOf({ state: "failed", percent: null, error: { code: "in_use", message: inUse } })),
+      postTrim(trimJobOf({})),
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    await nextPoll();
+    expect(within(panel()).getByText("กำลังแทนไฟล์…")).toBeInTheDocument();
+    expect(within(panel()).getByText("ยกเลิกไม่ได้ระหว่างแทนไฟล์")).toBeInTheDocument();
+    expect(within(panel()).queryByRole("button", { name: "ยกเลิก" })).not.toBeInTheDocument();
+
+    await nextPoll();
+    expect(await within(panel()).findByText(inUse)).toBeInTheDocument();
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
+    expect(video()).toHaveAttribute("src");
+  });
+
+  it("cancels: กำลังยกเลิก…, then ยกเลิกแล้ว with the ranges still there and the old file back", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      trimming(null),
+      trimming(trimJobOf({ percent: 20, cancel_requested: true })),
+      trimming(trimJobOf({ state: "cancelled", percent: null })),
+      postTrim(trimJobOf({ percent: 10 })),
+      { method: "DELETE", path: TRIM_PATH, reply: () => jsonResponse(trimJobOf({ percent: 10, cancel_requested: true }), 202) },
+    ]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    await user.click(await within(panel()).findByRole("button", { name: "ยกเลิก" }));
+    expect(fetchMock).toHaveBeenCalledWith(TRIM_PATH, expect.objectContaining({ method: "DELETE" }));
+    expect(await within(panel()).findByText("กำลังยกเลิก…")).toBeInTheDocument();
+
+    await nextPoll();
+    await nextPoll();
+    expect(await within(panel()).findByText("ยกเลิกแล้ว")).toBeInTheDocument();
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
+    expect(video()).toHaveAttribute("src", `/api/spoil/clips/${RICK.id}/video?v=${encodeURIComponent(RICK.downloaded_at)}`);
+  });
+
+  it("says the job was lost when the poll answers null", async () => {
+    backend([status(READY_ITEMS), current(null), clips([RICK]), trimming(null), trimming(null), postTrim(trimJobOf({}))]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+
+    await nextPoll();
+
+    expect(await within(panel()).findByText("งานตัดหายเพราะ backend เริ่มใหม่ ลองตัดอีกครั้ง")).toBeInTheDocument();
+  });
+
+  it("selects the clip being trimmed when the tab opens, and shows its percent", async () => {
+    backend([status(READY_ITEMS), current(null), clips([MOON, RICK]), trimming(trimJobOf({ percent: 37 }))]);
+    render(<ClipsPage />);
+
+    expect(await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByText("37%")).toBeInTheDocument();
+    expect(within(panel()).getByText(RICK.title)).toBeInTheDocument();
+    expect(within(panel()).getByText("กำลังตัดคลิป")).toBeInTheDocument();
+    expect(video()).not.toHaveAttribute("src");
+  });
+
+  it("disables ตัดช่วง on other clips while one is trimmed, naming it", async () => {
+    backend([status(READY_ITEMS), current(null), clips([MOON, RICK]), trimming(trimJobOf({ percent: 37 })), trimming(trimJobOf({ percent: 40 }))]);
+    render(<ClipsPage />);
+    await within(await screen.findByRole("region", { name: "กล่องถอดบทพูด" })).findByText("37%");
+
+    await selectRow(/^From the Moon/);
+
+    expect(within(panel()).getByRole("button", { name: "ตัดช่วง" })).toBeDisabled();
+    expect(within(panel()).getByText(`กำลังตัด ${RICK.title}`)).toBeInTheDocument();
+  });
+
+  it("disables ตัดช่วง while ffmpeg is missing", async () => {
+    const noFfmpeg = READY_ITEMS.map((item) => (item.id === "ffmpeg" ? { ...item, status: "missing" as const } : item));
+    backend([status(noFfmpeg), current(null), clips([RICK])]);
+    render(<ClipsPage />);
+
+    await selectRow(/^Rick Astley/);
+
+    expect(within(panel()).getByRole("button", { name: "ตัดช่วง" })).toBeDisabled();
+  });
+
+  it("shows ตัดแล้ว before ถอดแล้ว on a trimmed row", async () => {
+    backend([status(READY_ITEMS), current(null), clips([{ ...TRIMMED_RICK, transcribed: true }])]);
+    render(<ClipsPage />);
+
+    const row = await screen.findByRole("listitem", { name: RICK.title });
+    const badges = within(row).getAllByText(/^(ตัดแล้ว|ถอดแล้ว)$/).map((badge) => badge.textContent);
+    expect(badges).toEqual(["ตัดแล้ว", "ถอดแล้ว"]);
+  });
+
+  it("says กำลังตัดคลิปนี้อยู่ when ถอดบทพูด meets 409 trimming", async () => {
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      postTranscription({ code: "trimming", message: "กำลังตัดคลิปนี้อยู่" }, 409),
+    ]);
+    render(<ClipsPage />);
+    const user = await selectRow(/^Rick Astley/);
+
+    await user.click(within(panel()).getByRole("button", { name: "ถอดบทพูด" }));
+
+    expect(await within(panel()).findByText("กำลังตัดคลิปนี้อยู่")).toBeInTheDocument();
+  });
+
+  it("shows the API message under the row when the clip being trimmed is deleted", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    const message = "กำลังตัดคลิปนี้อยู่ รอให้จบหรือยกเลิกก่อน";
+    backend([
+      status(READY_ITEMS),
+      current(null),
+      clips([RICK]),
+      trimming(trimJobOf({ percent: 37 })),
+      deleteClip(RICK.id, () => jsonResponse({ code: "trimming", message }, 409)),
+    ]);
+    render(<ClipsPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
+
+    expect(await within(screen.getByRole("listitem", { name: RICK.title })).findByText(message)).toBeInTheDocument();
   });
 });

@@ -1,14 +1,16 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
-import { missingLabels, TRANSCRIBE_ITEMS } from "../lib/gate";
+import { missingLabels, TRANSCRIBE_ITEMS, TRIM_ITEMS } from "../lib/gate";
 import { gpuBusyText } from "../../../lib/gpu";
 import { useDescribe } from "../hooks/useDescribe";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";
 import { useTranscribe, type Confirmed } from "../hooks/useTranscribe";
-import type { TempClip } from "../../../lib/clips";
+import { playerReleasedFor, trimViewOf, useTrim } from "../hooks/useTrim";
+import { derivedOf, derivedQuestion, type DerivedKind } from "../lib/trim";
+import type { Range, TempClip } from "../../../lib/clips";
 import arrowDownIcon from "../assets/arrow-down.svg";
 import arrowRightIcon from "../assets/arrow-right.svg";
 import { DownloadProgress } from "./DownloadProgress";
@@ -26,6 +28,7 @@ export function ClipsPage() {
   // A 503 to ถอดบทพูด means the install changed: check the status again.
   const transcribe = useTranscribe(list.refetch, recheckStatus);
   const describe = useDescribe(list.refetch, recheckStatus);
+  const trim = useTrim(list.refetch, recheckStatus);
   const video = useRef<HTMLVideoElement>(null);
 
   const refresh = () => {
@@ -33,13 +36,29 @@ export function ClipsPage() {
     list.reload();
     transcribe.reload();
     describe.reload();
+    trim.reload();
   };
 
+  // Opening the tab on an unfinished Trim job selects its clip once the list is in, with
+  // the player waiting, as for a Transcribe job (spec › Frontend).
+  const clipToSelect = trim.state.kind === "loaded" ? trim.state.clipToSelect : null;
+  const loadedClips = list.state.kind === "loaded" ? list.state.clips : null;
+  const { select } = transcribe;
+  const { clipSelected } = trim;
+  useEffect(() => {
+    if (clipToSelect === null || loadedClips === null) return;
+    const clip = loadedClips.find((one) => one.id === clipToSelect);
+    if (clip) select(clip, false);
+    clipSelected();
+  }, [clipToSelect, loadedClips, select, clipSelected]);
+
+  // Each check is spelled out, not a loop, so the code below sees every state narrowed to loaded.
   if (
     state.kind === "offline" ||
     list.state.kind === "offline" ||
     transcribe.state.kind === "offline" ||
-    describe.state.kind === "offline"
+    describe.state.kind === "offline" ||
+    trim.state.kind === "offline"
   ) {
     return (
       <PageLayout tab="clips" action={<RefreshButton onClick={refresh} />}>
@@ -52,7 +71,8 @@ export function ClipsPage() {
     state.kind === "loading" ||
     list.state.kind === "loading" ||
     transcribe.state.kind === "loading" ||
-    describe.state.kind === "loading"
+    describe.state.kind === "loading" ||
+    trim.state.kind === "loading"
   ) {
     return (
       <PageLayout tab="clips">
@@ -69,6 +89,8 @@ export function ClipsPage() {
   const describing = describe.state.job;
   // One GPU job at a time (spoil-maker D45): while one runs, บรรยายฉาก waits, saying for what.
   const gpuBusyReason = panel.job ? gpuBusyText("transcribe") : describing ? gpuBusyText("describe") : null;
+  const trimState = trim.state;
+  const titleOf = (clipId: string) => clips.find((clip) => clip.id === clipId)?.title ?? clipId;
 
   /**
    * Transcribing again replaces the lines the user edited and removes the Spoil draft made
@@ -85,13 +107,40 @@ export function ClipsPage() {
     }
   };
 
-  /** Lets go of the file (Windows can't delete one the player holds open, D15), then empties the panel. */
-  const closePlayer = () => {
+  /** Lets go of the file: Windows can't delete or replace one the player holds open (D15, D41). */
+  const releasePlayer = () => {
     if (video.current) {
       video.current.removeAttribute("src");
       video.current.load();
     }
+  };
+
+  /** Lets go of the file, then empties the panel. */
+  const closePlayer = () => {
+    releasePlayer();
     transcribe.select(null);
+  };
+
+  /**
+   * A trim removes the Transcript, Shots, EP cuts and Spoil draft made from the clip, so it
+   * asks first when the list shows any (D37); a loss only the API knows of is asked on its
+   * `has_derived`. The player lets go of the file before each POST (D41).
+   */
+  const startTrim = async (clip: TempClip, ranges: Range[]) => {
+    /** Asks about losing `kinds`; true when there is nothing to lose or the user goes on. */
+    const agrees = (kinds: DerivedKind[]) => {
+      const question = derivedQuestion(kinds);
+      return question === null || window.confirm(question);
+    };
+    const post = (confirmed: boolean) => {
+      releasePlayer();
+      return trim.start(clip.id, ranges, confirmed);
+    };
+    const known = derivedOf(clip);
+    if (!agrees(known)) return;
+    const result = await post(known.length > 0);
+    // Data made since the list loaded: asked once more, then sent with the loss confirmed.
+    if (result.kind === "has_derived" && result.derived.length > 0 && agrees(result.derived)) await post(true);
   };
 
   return (
@@ -110,7 +159,7 @@ export function ClipsPage() {
           <TempClipList
             clips={clips}
             selectedId={selected?.id ?? null}
-            transcribingId={panel.job?.clip_id ?? null}
+            busyIds={[panel.job?.clip_id, trimState.job?.clip_id].filter((id): id is string => id !== undefined)}
             deleteErrors={list.state.deleteErrors}
             highlightId={notice?.clipId ?? null}
             onSelect={transcribe.select}
@@ -141,6 +190,17 @@ export function ClipsPage() {
           onStart={(draftConfirmed = false) => selected && void startTranscribe(selected, draftConfirmed)}
           onCancel={() => void transcribe.cancel()}
           onEditLine={transcribe.editLine}
+          playerReleased={selected !== null && playerReleasedFor(trimState, selected.id)}
+          trimNotice={selected !== null && trimState.notice?.clipId === selected.id ? trimState.notice : null}
+          trim={{
+            view: selected ? trimViewOf(trimState, selected.id, titleOf) : { kind: "closed" },
+            blocked: missingLabels(state.status, TRIM_ITEMS).length > 0 || (selected !== null && panel.job?.clip_id === selected.id),
+            onOpen: trim.open,
+            onEdit: trim.edit,
+            onClose: trim.close,
+            onTrim: (clip, ranges) => void startTrim(clip, ranges),
+            onCancel: () => void trim.cancel(),
+          }}
         />
       </div>
     </PageLayout>

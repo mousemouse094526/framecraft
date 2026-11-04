@@ -7,6 +7,7 @@ import { notice, type Notice } from "../lib/notice";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
+import { TRIMMING_THIS_CLIP } from "../lib/trim";
 
 // The shape of a Transcribe job (backend.spoil.transcribe.TranscribeJob, spec › API).
 export type TranscribeJobState = "preparing" | "transcribing" | "done" | "failed" | "cancelled";
@@ -173,10 +174,13 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
     () => setIfMounted({ kind: "offline" }),
   );
 
-  /** Puts a clip in the panel (`null` empties it); a clip ถอดแล้ว loads its Transcript. */
+  /**
+   * Puts a clip in the panel (`null` empties it); a clip ถอดแล้ว loads its Transcript.
+   * `autoPlay` false for a clip selected for its running job rather than by a click.
+   */
   const select = useCallback(
-    (clip: TempClip | null) => {
-      setState(whenLoaded((s) => ({ ...s, selectedId: clip?.id ?? null, autoPlay: true, notice: null, transcript: null })));
+    (clip: TempClip | null, autoPlay = true) => {
+      setState(whenLoaded((s) => ({ ...s, selectedId: clip?.id ?? null, autoPlay, notice: null, transcript: null })));
       if (clip?.transcribed) void loadTranscript(clip.id, true);
     },
     [loadTranscript, setState],
@@ -209,6 +213,10 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
           // Whichever clip it is, follow it: this clip shows its progress, another names it.
           const job = await getJson<TranscribeJob | null>(CURRENT_PATH);
           if (job !== null && isUnfinished(job)) setIfMounted(whenLoaded((s) => ({ ...s, job })));
+          return HANDLED;
+        }
+        if (reply.status === 409 && code === "trimming") {
+          setIfMounted(whenLoaded((s) => ({ ...s, notice: notice("error", TRIMMING_THIS_CLIP, clipId) })));
           return HANDLED;
         }
         if (reply.status === 409 && (code === "has_edits" || code === "in_draft")) {

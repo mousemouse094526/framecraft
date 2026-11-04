@@ -54,7 +54,7 @@ export function useTempClips() {
               deleteErrors,
             };
           });
-        } else if (reply.status === 409 && refusal && ["in_use", "transcribing", "clip_busy"].includes(refusal.code)) {
+        } else if (reply.status === 409 && refusal && ["in_use", "transcribing", "trimming", "clip_busy"].includes(refusal.code)) {
           const message = refusal.message;
           setIfMounted((previous) =>
             previous.kind === "loaded" ? { ...previous, deleteErrors: { ...previous.deleteErrors, [id]: message } } : previous,

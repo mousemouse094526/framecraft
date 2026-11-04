@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendJson } from "../../../lib/api";
+import { CLIPS_PATH, videoPath, videoUrl, type TempClip } from "../../../lib/clips";
 import { isRunning, onlyWhen } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
@@ -27,6 +28,8 @@ export type ReviewState =
       draft: Draft;
       /** Each draft clip's Shots, for the thumbnails' times and the Shot picker. */
       shots: Record<string, Shot[]>;
+      /** The Shot picker's player: the clip's mp4 with its `?v=` (spoil D41). */
+      videoSrc: string;
       /** The unfinished `pick` or `polish`, followed until it ends. */
       job: DraftJob | null;
       /** The sentence that job picks for, when this page started it. */
@@ -70,12 +73,18 @@ export function useScriptReview() {
         return;
       }
       // Shots that can't be read show no pictures; the rest of the draft still opens.
-      const list = await getJson<{ shots: Shot[] }>(shotsPath(draft.clip_id)).then((file) => file.shots, () => []);
+      const [list, clip] = await Promise.all([
+        getJson<{ shots: Shot[] }>(shotsPath(draft.clip_id)).then((file) => file.shots, () => []),
+        // The clip's `trimmed_at` gives the player's `?v=`; an unreadable list plays the bare path.
+        getJson<{ clips: TempClip[] }>(CLIPS_PATH).then((file) => file.clips.find((one) => one.id === draft.clip_id), () => undefined),
+      ]);
       const shots = { [draft.clip_id]: list };
+      const videoSrc = clip ? videoUrl(clip) : videoPath(draft.clip_id);
       setIfMounted((previous) => ({
         kind: "loaded",
         draft,
         shots,
+        videoSrc,
         // A whole new draft is step 1's; this page follows the jobs that change the draft it shows.
         job: isRunning(job) && job?.kind !== "draft" ? job : null,
         pickingId: previous.kind === "loaded" ? previous.pickingId : null,
