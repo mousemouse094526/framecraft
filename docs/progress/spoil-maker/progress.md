@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** ticket 07 ตัวบอกขั้นบอกสถานะจริง done (หน้าตาต่อจาก `Spoil steps` เดิมจน Blocked 14 มีแบบ); ticket 08 พร้อม build
+**Now:** ทุก ticket done (08 เรียบเรียงบท หน้าตาใช้ component เดิมจน Blocked 15 มีแบบ); รอ feature review
 
-**Next:** `/warroom-build spoil-maker 08`
+**Next:** `/warroom-build spoil-maker --review-feature`
 
 ## Tickets
 
@@ -16,9 +16,36 @@
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
 | 06 | ตัด EP จากคลิปเดียว | done |
 | 07 | ตัวบอกขั้นบอกสถานะจริง | done |
-| 08 | เรียบเรียงบท | ready |
+| 08 | เรียบเรียงบท | done |
 
 ## Log
+
+### 08: เรียบเรียงบท — done 2026-11-04
+
+**Built:**
+- คำสั่งร่างบทบอกว่าทุกประโยคเล่าต่อจากประโยคก่อนเป็นเรื่องเดียว
+- Draft job `kind: "draft"`: `writing` → `polishing` → `matching`; ขั้นเรียบเรียง (`script.polish_prompt`, `parse_polish`) ส่งสไตล์ `top_text` ทุกประโยค `[i]` พร้อมบรรทัดที่อ้าง; จับคู่ด้วย `i` (ไม่รู้จัก ซ้ำ fixed ทิ้ง), ต่อประโยค ±50%/ว่าง ใช้ข้อความเดิม, ทั้งบท ไม่ถึงครึ่ง / ±25% ของเป้าหมาย; 2 ครั้ง, timeout terminate แล้วเริ่มใหม่; ไม่ผ่านใช้ข้อความเดิม log ไม่มีข้อความบท; 0.3 / `2 × ตัวอักษรของบท + 1,000` / 5 นาที
+- `Sentence.edited`: `PATCH` ข้อความต่างจากที่เก็บ หรือแทรก → `true`; ไฟล์เก่าอ่าน `false`
+- `POST /draft-jobs` `{kind: "polish", include_edited?}`: `busy` → `no_draft` → `invalid_request` → `nothing_to_polish` → `not_ready` → `draft_locked` → `gpu_busy`; จองช่อง GPU ด้วย `locks_draft` และคลิปของ draft (`clip_busy`); เขียนเฉพาะ `text` ที่เปลี่ยน (`edited` → `false`); ไม่ผ่าน → `failed` `polish_failed` draft ไม่เปลี่ยน; `done` = ประโยคที่เปลี่ยน, `total` = ที่ขอ; ไม่เกินรวมเดิม +15%
+- หน้าตรวจแก้: ปุ่ม "เรียบเรียงใหม่" → `PolishDialog` (ช่องติ๊ก, คำเตือนเขียนทับ, คำเตือนเสียงใหม่, ปุ่มกดไม่ได้เมื่อทุกประโยคแก้เอง); รอ change ที่ยังไม่ตอบ แล้วอ่าน `/draft` ก่อนส่ง; "กำลังเรียบเรียง" กับยกเลิก ช่องแก้กดไม่ได้; จบ "เรียบเรียง {n} ประโยค" / "ไม่มีประโยคที่เปลี่ยน" / ข้อความ `polish_failed`; ป้าย "แก้เอง"
+- ตัวบอกขั้น: "กำลังเรียบเรียง" พร้อมจุดหมุน (ทั้ง `polishing` ของ draft และ `polish`), "เรียบเรียงไม่สำเร็จ"; ขั้น 1 ปุ่มร่างแสดง "กำลังเรียบเรียง"
+- โค้ดใช้ร่วม: `useDialogKeys` (Esc + focus trap, ShotPicker ใช้ด้วย), `ReviewJobProgress` และ `REVIEW_JOB_TEXT` แทน `PickProgress`
+- test: backend +28 (Seam 1 › เรียบเรียง ทุกข้อ + timeout, generation settings, gpu_busy, not_ready, clip_busy); `ScriptReview.test.tsx` +12, `SpoilMakerPage.test.tsx` +3 (Seam 2)
+- เช็คใน dev server (draft ปลอมด้วย patch fetch, draft ในเครื่องเป็น `version` 1): 1440 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; กล่องเลือก ติ๊กแล้วเห็นคำเตือน, ป้าย "แก้เอง"
+- Review สามแกนแก้แล้ว: `error`/`notice` รวมเป็น `message`, overlay เป็น union เดียว, `PolishProgress` ซ้ำ `PickProgress` → `ReviewJobProgress`, ชื่อ `_ask_to_polish`/`fits`/`sendChange`, `POLISH_GROWTH` และ `grew_little` ย้ายไป `script`, log ใส่ code, test gpu_busy, ชื่อและคำอธิบาย test
+
+**Decided:**
+- D79 — ทางเลือกเล็กตอน build เรียบเรียงบท
+
+**For the next ticket:**
+- เช็คมือ Seam 3 ยังไม่ทำ: ร่างบท 60 วินาที `drama` จาก EP 30 นาทีบน M2 → รวมเรียบเรียงภายใน 8 นาที, 10 คู่ประโยค ≥ 8 คู่เล่าต่อกัน, ความยาว ±25% (ทำตอน feature review)
+- เมื่อ Blocked 15 มีแบบ: ปรับปุ่ม กล่องเลือก ป้าย "แก้เอง" ให้ตรง Figma ที่ 1440 และ 375
+- `sm:shadow-[0_16px_48px_0_rgba(0,0,0,0.18)]` และกรอบ modal ซ้ำใน `ShotPicker` กับ `PolishDialog` — ทำเป็น token หรือ component `Modal`
+- `style`, `top_text`, `sentences`, `transcript` เดินด้วยกันใน `_ask_to_polish` และ `polish_prompt` — รวมเป็น type ได้ถ้าเพิ่มอีก
+- การแยกตาม kind/state ของ Draft job ยังอยู่หลายที่ (`steps.ts`, `SetupSettings`, `REVIEW_JOB_TEXT`) — ถ้าเพิ่ม kind อีกควรรวมเป็น map เดียว
+- ยกมาจาก 07: test helper `phased`/`jsonResponse`/`backend` ซ้ำใน 4 ไฟล์ test; `refreshSteps()` ซ้ำใน 4 hook
+
+**Checks:** `uv run pytest` — 545 passed; `npm --prefix frontend test` — 222 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 07: ตัวบอกขั้นบอกสถานะจริง — done 2026-11-04
 

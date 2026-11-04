@@ -3,12 +3,13 @@ a backend thread that owns the state and the file, and a child process that runs
 (ADR 0010, ADR 0012, ADR 0015). A draft is of one EP of one Temp clip (D66, D67).
 
 Steps and rules are in docs/features/spoil-maker/spec.md › Spoil draft and › Draft
-job (D4, D7, D8, D18, D19, D25–D28, D39, D46, D51, D70, D71).
+job (D4, D7, D8, D18, D19, D25–D28, D39, D46, D51, D70–D76).
 """
 
 import logging
 import re
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
@@ -22,16 +23,16 @@ from backend.paths import ProjectPaths
 from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, episodes, script, settings, shots, thai, voices
-from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef
+from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef, Style
 from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
 from backend.spoil_maker.script import Brief
 from backend.spoil_maker.shots import ShotsFile
 
 log = logging.getLogger(__name__)
 
-State = Literal["writing", "matching", "done", "failed", "cancelled"]
-UNFINISHED: frozenset[State] = frozenset({"writing", "matching"})
-ErrorCode = Literal["draft_failed", "crashed", "model_failed", "internal"]
+State = Literal["writing", "polishing", "matching", "done", "failed", "cancelled"]
+UNFINISHED: frozenset[State] = frozenset({"writing", "polishing", "matching"})
+ErrorCode = Literal["draft_failed", "polish_failed", "crashed", "model_failed", "internal"]
 Status = Literal["no_shot", "no_audio", "stale_audio", "ready"]
 
 LAYOUTS: tuple[Layout, ...] = ("A", "B", "C")
@@ -42,6 +43,9 @@ WINDOW_SECONDS = 30  # Shots this far around the lines a sentence cites (D18, D2
 # spec › ค่าการสร้างข้อความ; thinking is off for every step (llm.generate).
 WRITE_TEMPERATURE = 0.3  # D61: 0.5 and 0.7 swing ±40% in length, 0.1 can run on
 WRITE_TIMEOUT_SECONDS = 600
+POLISH_ATTEMPTS = 2
+POLISH_TEMPERATURE = 0.3
+POLISH_TIMEOUT_SECONDS = 300
 PICK_TEMPERATURE = 0.0
 PICK_MAX_TOKENS = 64
 PICK_TIMEOUT_SECONDS = 60
@@ -91,7 +95,7 @@ class DraftJobError(BaseModel):
 class DraftJob(BaseModel):
     """Every spoil-maker job has these fields; the ones a kind doesn't use stay null (spec › API)."""
 
-    kind: Literal["draft", "pick"]
+    kind: Literal["draft", "pick", "polish"]
     state: State
     clip_id: None = None  # every job reads the same shape; this one is of no single clip
     percent: None = None
@@ -113,7 +117,8 @@ class _CheckedOrder(BaseModel):
 
 
 class DraftJobs(ModelJobSlot[DraftJob]):
-    """Holds the latest Draft job: a whole new draft (`draft`), or new Shots for one sentence (`pick`)."""
+    """Holds the latest Draft job: a whole new draft (`draft`), new Shots for one sentence
+    (`pick`), or the draft's text polished again (`polish`)."""
 
     unfinished = UNFINISHED
     gpu_kind = "draft"
@@ -132,6 +137,8 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             return self._start_draft(body)
         if body.get("kind") == "pick":
             return self._start_pick(body.get("sentence_id"))
+        if body.get("kind") == "polish":
+            return self._start_polish(body)
         raise ApiError(400, "invalid_request", "ไม่รู้จักงานร่างบทแบบนี้")
 
     def _start_draft(self, body: dict) -> DraftJob:
@@ -212,6 +219,32 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         threading.Thread(target=self._run, args=(lambda: self._pick(project, sentence_id),), daemon=True).start()
         return job
 
+    def _start_polish(self, body: dict) -> DraftJob:
+        """Checks in spec order under the draft's lock (spec › เรียบเรียงใหม่, D75), then
+        takes the GPU for the draft's clip: its lines can't be edited meanwhile (D54)."""
+        project = paths.project()
+        with self._lock:
+            if self._taken():
+                raise ApiError(409, "busy", "กำลังร่างบทอยู่")
+            with gpu.slot.draft_lock:
+                draft = draft_file.read(project)
+                if draft is None:
+                    raise ApiError(404, "no_draft", "ยังไม่มี Spoil draft")
+                include_edited = body.get("include_edited", False)
+                if not isinstance(include_edited, bool):
+                    raise ApiError(400, "invalid_request", "include_edited ต้องเป็น true หรือ false")
+                asked = _to_polish(draft, include_edited)
+                if not asked:
+                    raise ApiError(400, "nothing_to_polish", "ทุกประโยคแก้เองแล้ว ไม่มีอะไรให้เรียบเรียง")
+                require_rows(gate_rows.qwen_jobs(project))
+                _editable(project)  # `draft_locked`
+                gpu.slot.take("draft", [draft.clip_id], locks_draft=True)
+            self._job = DraftJob(kind="polish", state="polishing", started_at=checks.now_iso())
+            self._cancel.clear()
+            job = self._job.model_copy(deep=True)
+        threading.Thread(target=self._run, args=(lambda: self._polish_draft(project, include_edited),), daemon=True).start()
+        return job
+
     def _run(self, steps) -> None:
         """A cancelled or failed job leaves the draft as it was: it is written only at the end.
         No script in the log (spec › Ops)."""
@@ -251,6 +284,21 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         if written is None:
             raise JobFailed("draft_failed", f"AI ร่างบทไม่สำเร็จ {ATTEMPTS} ครั้ง")
         top_text, sentences = written
+        self._update(state="polishing")
+        polished = self._ask_to_polish(
+            project,
+            brief.style,
+            top_text,
+            sentences,
+            order.transcript,
+            set(range(len(sentences))),
+            lambda after: script.near_target(after, brief.target_letters),
+        )
+        if polished is None:
+            # Not the job's failure: a draft that reads less smoothly is still a draft (spec › เรียบเรียง).
+            log.warning("polish_failed after %d attempts: the script stays as written", POLISH_ATTEMPTS)
+        else:
+            sentences = polished
         cited = [sentence for sentence in sentences if sentence.refs]
         self._update(state="matching", done=0, total=len(cited))
         for done, sentence in enumerate(cited, start=1):
@@ -285,6 +333,67 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             draft = draft_file.read(project)
             _sentence(draft, sentence_id).shots = picked
             draft_file.write(project, draft)
+
+    def _polish_draft(self, project: ProjectPaths, include_edited: bool) -> dict:
+        """`kind: "polish"`: asks Qwen, then writes the draft. Only the text of the sentences that change is written, and a
+        sentence `include_edited` let change is no longer `edited` (D75). The draft is locked
+        meanwhile, so it is the one the checks read."""
+        with gpu.slot.draft_lock:
+            draft = draft_file.read(project)
+        asked = _to_polish(draft, include_edited)
+        polished = self._ask_to_polish(
+            project,
+            draft.style,
+            draft.top_text,
+            draft.sentences,
+            _transcript(project, draft.clip_id),
+            asked,
+            lambda after: script.grew_little(after, draft.sentences),
+        )
+        if polished is None:
+            raise JobFailed("polish_failed", "AI เรียบเรียงไม่สำเร็จ บทเดิมไม่เปลี่ยน")
+        changed = 0
+        with gpu.slot.draft_lock:
+            draft = draft_file.read(project)
+            for sentence, after in zip(draft.sentences, polished, strict=True):
+                if after.text != sentence.text:
+                    sentence.text, sentence.edited = after.text, False
+                    changed += 1
+            draft_file.write(project, draft)
+        return {"done": changed, "total": len(asked)}
+
+    def _ask_to_polish(
+        self,
+        project: ProjectPaths,
+        style: Style,
+        top_text: str,
+        sentences: list[Sentence],
+        transcript: Transcript | None,
+        asked: set[int],
+        fits: Callable[[list[Sentence]], bool],
+    ) -> list[Sentence] | None:
+        """Asks Qwen; returns the sentences with the text it rewrote for those in `asked`
+        (spec › เรียบเรียง), or None after `POLISH_ATTEMPTS` tries that `fits`, the check of
+        the whole script's length, refused. Writes nothing. A timeout is a failed try: its process is stopped and the next ask starts one."""
+        fixed = set(range(len(sentences))) - asked
+        prompt = script.polish_prompt(style, top_text, sentences, transcript, fixed)
+        max_tokens = script.polish_max_tokens(sentences)
+        for attempt in range(1, POLISH_ATTEMPTS + 1):
+            try:
+                reply = self._ask(project, prompt, max_tokens, POLISH_TEMPERATURE, POLISH_TIMEOUT_SECONDS)
+            except TimeoutError:
+                log.warning("polish attempt %d took longer than %d s", attempt, POLISH_TIMEOUT_SECONDS)
+                self._stop_model()
+                continue
+            texts = script.parse_polish(reply, sentences, asked)
+            if texts is None:
+                log.warning("polish attempt %d is not the JSON asked for, or answers under half", attempt)
+                continue
+            after = [sentence.model_copy(update={"text": texts.get(i, sentence.text)}) for i, sentence in enumerate(sentences)]
+            if fits(after):
+                return after
+            log.warning("polish attempt %d is %d letters, out of bounds", attempt, script.spoken_letters(after))
+        return None
 
     def _shots_for(
         self, project, sentence: Sentence, ep: Ep, transcript: Transcript | None, found: ShotsFile | None
@@ -397,7 +506,7 @@ def insert_sentence(project: ProjectPaths, body: dict) -> DraftView:
             if index is None:
                 raise ApiError(400, "invalid_request", "ไม่พบประโยคที่จะแทรกต่อ")
         taken = {sentence.id for sentence in draft.sentences}
-        new = Sentence(id=script.new_sentence_id(taken), text=text, refs=[], shots=[None, None])
+        new = Sentence(id=script.new_sentence_id(taken), text=text, refs=[], shots=[None, None], edited=True)
         draft.sentences.insert(index, new)
         draft_file.write(project, draft)
     return view(project)
@@ -405,12 +514,15 @@ def insert_sentence(project: ProjectPaths, body: dict) -> DraftView:
 
 def change_sentence(project: ProjectPaths, sentence_id: str, body: dict) -> DraftView:
     """`PATCH /draft/sentences/{sid}`: `text` and `shots`, each optional. New text keeps
-    the wav, so the sentence reads `stale_audio` until it is voiced again (D30)."""
+    the wav, so the sentence reads `stale_audio` until it is voiced again (D30), and
+    makes it `edited`; the same text again does not (D74, D76)."""
     with gpu.slot.draft_lock:
         draft = _editable(project)
         sentence = _sentence(draft, sentence_id)
         if "text" in body:
-            sentence.text = _sentence_text(body["text"])
+            text = _sentence_text(body["text"])
+            if text != sentence.text:
+                sentence.text, sentence.edited = text, True
         if "shots" in body:
             sentence.shots = _checked_shots(project, draft, body["shots"])
         draft_file.write(project, draft)
@@ -437,6 +549,11 @@ def sentence_audio(project: ProjectPaths, sentence_id: str) -> Path:
         if sentence is None or sentence.audio is None or not path.is_file():
             raise ApiError(404, "not_found", "ประโยคนี้ยังไม่มีเสียง")
         return path
+
+
+def _to_polish(draft: Draft, include_edited: bool) -> set[int]:
+    """The sentences to polish, by index: `edited` ones are fixed unless included (D74, D75)."""
+    return {i for i, sentence in enumerate(draft.sentences) if include_edited or not sentence.edited}
 
 
 def _editable(project: ProjectPaths) -> Draft:

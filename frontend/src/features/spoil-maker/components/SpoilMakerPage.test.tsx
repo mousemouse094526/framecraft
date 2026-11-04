@@ -22,6 +22,7 @@ function sentenceOf(id: string): Sentence {
       { clip_id: CLIP, n: 20 },
       { clip_id: CLIP, n: 21 },
     ],
+    edited: false,
     audio: { tts_text: "x", voice_id: "v_0000abcd", duration_s: 2.5 },
     status: "ready",
     estimated_s: 2.5,
@@ -279,6 +280,26 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
     await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("6 ประโยค"));
     expect(step("เลือกคลิป")).toHaveTextContent("Night of the Living Dead · EP 2");
+  });
+
+  it.each([
+    ["a draft's polishing", draftJob({ state: "polishing" })],
+    ["a polish", draftJob({ kind: "polish", state: "polishing" })],
+  ])("%s says กำลังเรียบเรียง with a spinner on step 2", async (_, job) => {
+    backend({ [DRAFT]: DRAFT_EP2, [DRAFT_JOB]: job });
+    open("#/spoil");
+
+    await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("กำลังเรียบเรียง"));
+    expect(spinners(step("ตรวจแก้บท"))).toHaveLength(1);
+  });
+
+  it("a polish that failed says เรียบเรียงไม่สำเร็จ on step 2, not ร่างบทไม่สำเร็จ", async () => {
+    const failed = { code: "polish_failed", message: "AI เรียบเรียงไม่สำเร็จ บทเดิมไม่เปลี่ยน" };
+    backend({ [DRAFT]: DRAFT_EP2, [DRAFT_JOB]: draftJob({ kind: "polish", state: "failed", error: failed }) });
+    open("#/spoil");
+
+    await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("เรียบเรียงไม่สำเร็จ"));
+    expect(step("ตรวจแก้บท")).not.toHaveTextContent("ร่างบทไม่สำเร็จ");
   });
 
   it("a poll that failed lets the next refresh follow the job again", async () => {

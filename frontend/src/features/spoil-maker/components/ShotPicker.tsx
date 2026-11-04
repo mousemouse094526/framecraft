@@ -5,6 +5,7 @@ import { formatClock } from "../../../lib/format";
 import checkLinkIcon from "../assets/check-link.svg";
 import checkWhiteIcon from "../assets/check-white.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
+import { useDialogKeys } from "../hooks/useDialogKeys";
 import { epLabel, inEp, shotImageUrl, type EpRange, type Sentence, type Shot, type ShotRef } from "../lib/draft";
 
 type Props = {
@@ -38,16 +39,7 @@ export function ShotPicker({ sentence, number, slot, clipId, ep, shots, onPick, 
     (current && current.clip_id === clipId ? shots[clipId]?.[current.n] : null) ?? listed[0] ?? null,
   );
   const titleId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key === "Tab") trapFocus(event, dialog.current);
-    };
-    document.addEventListener("keydown", keydown);
-    return () => document.removeEventListener("keydown", keydown);
-  }, [onClose]);
+  const dialog = useDialogKeys(onClose);
 
   const episode = epLabel(ep.n);
   const firstCited = sentence.ref_lines[0];
@@ -185,20 +177,4 @@ function ShotPlayer({ clipId, shot, episode }: { clipId: string; shot: Shot | nu
       </p>
     </div>
   );
-}
-
-/** Keeps Tab inside the dialog (Figma `Picker header`: focus is trapped while it is open). */
-function trapFocus(event: KeyboardEvent, dialog: HTMLElement | null) {
-  if (!dialog) return;
-  const focusable = dialog.querySelectorAll<HTMLElement>("button:not(:disabled), select, video, [tabindex]");
-  if (focusable.length === 0) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }

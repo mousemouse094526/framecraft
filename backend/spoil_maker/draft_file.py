@@ -48,6 +48,9 @@ class Sentence(BaseModel):
     text: str
     refs: list[Ref]
     shots: list[ShotRef | None] = Field(min_length=2, max_length=2)  # an empty one is null
+    # The user changed its text or inserted it; polishing keeps it unless told (D74, D75).
+    # A file written before the field reads `false` (D76).
+    edited: bool = False
     audio: Audio | None = None
 
 

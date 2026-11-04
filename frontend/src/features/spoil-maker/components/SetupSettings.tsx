@@ -258,22 +258,24 @@ function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number })
   );
 }
 
-/** Figma component `Draft action`: ร่างบท, the ask before replacing a draft, and the two drafting steps. */
+/** Figma component `Draft action`: ร่างบท, the ask before replacing a draft, and the drafting steps (D72). */
 function DraftAction({ canDraft, job, confirmingReplace, onDraft, onReplace, onKeep, onCancel }: Props) {
   if (job) {
-    const writing = job.state === "writing";
+    // Only picking counts; writing and polishing don't (spec › Draft job).
+    const counting = job.state === "matching";
     const done = job.done ?? 0;
     const total = job.total ?? 0;
-    const headline = job.cancel_requested ? "กำลังยกเลิก…" : writing ? "กำลังเขียนบท" : "กำลังเลือกภาพ";
+    const step = counting ? "กำลังเลือกภาพ" : job.state === "polishing" ? "กำลังเรียบเรียง" : "กำลังเขียนบท";
+    const headline = job.cancel_requested ? "กำลังยกเลิก…" : step;
     return (
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex items-center gap-2 text-sm leading-[21px] text-foreground">
             <span className="flex-1 font-medium">{headline}</span>
-            {!writing && <span className="font-mono font-medium">{`${done}/${total}`}</span>}
+            {counting && <span className="font-mono font-medium">{`${done}/${total}`}</span>}
           </div>
           <ProgressBar
-            percent={writing ? "unknown" : total ? Math.floor((done * 100) / total) : 0}
+            percent={counting ? (total ? Math.floor((done * 100) / total) : 0) : "unknown"}
             label="ความคืบหน้าการร่างบท"
             cancelling={job.cancel_requested}
           />

@@ -40,6 +40,8 @@ function reviewLine({ draft, draftJob, voiceJob }: StepStatus): StepLine {
   }
   // A `pick` is one sentence's Shots: the count stays, with the spinner (spec › Frontend).
   if (job.kind === "pick") return { text: count, busy };
+  if (job.state === "polishing") return { text: "กำลังเรียบเรียง", busy };
+  if (job.kind === "polish") return { text: job.state === "failed" ? "เรียบเรียงไม่สำเร็จ" : count, busy };
   if (job.state === "writing") return { text: "กำลังร่าง", busy };
   if (job.state === "matching") return { text: `กำลังเลือกภาพ ${countOf(job)}`, busy };
   return { text: job.state === "failed" ? "ร่างบทไม่สำเร็จ" : count, busy };

@@ -12,6 +12,8 @@ export type Sentence = {
   refs: { clip_id: string; line: number }[];
   /** Always two slots; an empty one is null. */
   shots: (ShotRef | null)[];
+  /** The user changed its text or inserted it: เรียบเรียงใหม่ keeps it unless told (D74, D75). */
+  edited: boolean;
   audio: { tts_text: string; voice_id: string; duration_s: number } | null;
   status: SentenceStatus;
   /** Null only when the draft's voice is gone. */
@@ -41,17 +43,24 @@ export type Draft = {
   locked: boolean;
 };
 
-export type DraftJobState = "writing" | "matching" | "done" | "failed" | "cancelled";
+export type DraftJobState = "writing" | "polishing" | "matching" | "done" | "failed" | "cancelled";
 
 export type DraftJob = {
-  kind: "draft" | "pick";
+  kind: "draft" | "pick" | "polish";
   state: DraftJobState;
-  /** Sentences matched so far, and of how many: `matching` only. */
+  /** Sentences matched so far, and of how many: `matching` only. A `polish` that is `done`:
+   * the sentences whose text changed, of those asked (D76). */
   done: number | null;
   total: number | null;
   error: { code: string; message: string } | null;
   cancel_requested: boolean;
   started_at: string;
+};
+
+/** What ตรวจแก้บท says of the Draft jobs it starts, which change the draft it shows (D25, D72). */
+export const REVIEW_JOB_TEXT: Record<"pick" | "polish", { doing: string; label: string; waitingFor: string }> = {
+  pick: { doing: "AI กำลังเลือก Shot ใหม่", label: "ความคืบหน้าการเลือก Shot", waitingFor: "รอให้ AI เลือก Shot เสร็จก่อน" },
+  polish: { doing: "กำลังเรียบเรียง", label: "ความคืบหน้าการเรียบเรียง", waitingFor: "รอให้ AI เรียบเรียงเสร็จก่อน" },
 };
 
 export type Shot = { n: number; start: number; end: number; description: string };
@@ -70,7 +79,7 @@ export const VOICES_HASH = "#/spoil/voices";
 
 /** Whether the job still runs; null is no job. */
 export const isDrafting = (job: DraftJob | null): boolean =>
-  job !== null && (job.state === "writing" || job.state === "matching");
+  job !== null && (job.state === "writing" || job.state === "polishing" || job.state === "matching");
 
 /** A model or a child that stopped says the same thing (spec › Frontend); the rest say the API's message. */
 export function jobFailureText(job: DraftJob): string {

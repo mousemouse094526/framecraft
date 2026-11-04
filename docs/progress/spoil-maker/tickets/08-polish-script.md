@@ -10,7 +10,7 @@
 - Seams: 1 (เรียบเรียง), 2 (หน้าตรวจแก้ข้อเรียบเรียง), 3 (ร่างบทจริง: ประโยคเล่าต่อกัน)
 - User stories: 16
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

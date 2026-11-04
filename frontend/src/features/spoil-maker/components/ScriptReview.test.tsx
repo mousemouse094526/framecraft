@@ -28,6 +28,7 @@ function sentenceOf(id: string, change: Partial<Sentence> = {}): Sentence {
       { clip_id: EP1, n: 20 },
       { clip_id: EP1, n: 21 },
     ],
+    edited: false,
     audio: null,
     status: "no_audio",
     estimated_s: 4.8,
@@ -657,5 +658,164 @@ describe("ตรวจแก้บท: ลายน้ำเปิดปิด �
     await user.clear(screen.getByRole("textbox", { name: "Hook" }));
 
     expect(covers("Hook")).not.toBeInTheDocument();
+  });
+});
+
+const POLISH: DraftJob = { ...PICK, kind: "polish", state: "polishing", done: null, total: null };
+const edited = (id: string, change: Partial<Sentence> = {}) => sentenceOf(id, { edited: true, text: "ที่แก้เอง", ...change });
+
+/** The calls made, in order, as "METHOD path". */
+const calls = () => fetchMock.mock.calls.map(([input, init]) => `${init?.method ?? "GET"} ${String(input)}`);
+
+async function openPolish(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "เรียบเรียงใหม่" }));
+  return screen.getByRole("dialog", { name: "เรียบเรียงใหม่" });
+}
+
+describe("ตรวจแก้บท: เรียบเรียงใหม่ (D72–D76)", () => {
+  it("a sentence the user edited shows แก้เอง, the others don't", async () => {
+    backend([get(DRAFT_PATH, draftOf({ sentences: [sentenceOf("s_00000001"), edited("s_00000002")] }))]);
+    await openReview();
+
+    expect(within(card(1)).queryByText("แก้เอง")).not.toBeInTheDocument();
+    expect(within(card(2)).getByText("แก้เอง")).toBeInTheDocument();
+  });
+
+  it("เรียบเรียงใหม่ asks first; เรียบเรียง without the tick reads the draft again and sends include_edited false", async () => {
+    const sentences = [readyOf("s_00000001"), edited("s_00000002")];
+    backend([get(DRAFT_PATH, draftOf({ sentences })), send("POST", JOBS_PATH, POLISH, 202)]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+    const tick = within(dialog).getByRole("checkbox", { name: "เรียบเรียงประโยคที่แก้เองด้วย" });
+    expect(tick).not.toBeChecked();
+    expect(within(dialog).getByText("ประโยคที่เปลี่ยนต้องสร้างเสียงใหม่")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/จะถูกเขียนทับ/)).not.toBeInTheDocument();
+    const before = calls().length;
+    await user.click(within(dialog).getByRole("button", { name: "เรียบเรียง" }));
+
+    await waitFor(() => expect(sent("POST", JOBS_PATH)).toEqual([{ kind: "polish", include_edited: false }]));
+    expect(calls().slice(before)).toContain(`GET ${DRAFT_PATH}`);
+    expect(calls().indexOf(`GET ${DRAFT_PATH}`, before)).toBeLessThan(calls().indexOf(`POST ${JOBS_PATH}`));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("ticked, it warns the edited text goes and sends include_edited true", async () => {
+    backend([get(DRAFT_PATH, draftOf({ sentences: [sentenceOf("s_00000001"), edited("s_00000002")] })), send("POST", JOBS_PATH, POLISH, 202)]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+    await user.click(within(dialog).getByRole("checkbox", { name: "เรียบเรียงประโยคที่แก้เองด้วย" }));
+
+    expect(within(dialog).getByText("ข้อความที่แก้เอง 1 ประโยคจะถูกเขียนทับ ย้อนกลับไม่ได้")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "เรียบเรียง" }));
+    await waitFor(() => expect(sent("POST", JOBS_PATH)).toEqual([{ kind: "polish", include_edited: true }]));
+  });
+
+  it("with no edited and no voiced sentence there is no tick and no voice warning", async () => {
+    backend([]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("ประโยคที่เปลี่ยนต้องสร้างเสียงใหม่")).not.toBeInTheDocument();
+  });
+
+  it("every sentence edited and no tick: เรียบเรียง waits for the tick and says why", async () => {
+    backend([get(DRAFT_PATH, draftOf({ sentences: [edited("s_00000001"), edited("s_00000002")] }))]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+
+    expect(within(dialog).getByRole("button", { name: "เรียบเรียง" })).toBeDisabled();
+    expect(within(dialog).getByText("ทุกประโยคแก้เองแล้ว: ติ๊กเพื่อเรียบเรียงทับ")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("checkbox", { name: "เรียบเรียงประโยคที่แก้เองด้วย" }));
+    expect(within(dialog).getByRole("button", { name: "เรียบเรียง" })).toBeEnabled();
+  });
+
+  it("ยกเลิก closes the choice and sends nothing", async () => {
+    backend([]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+    await user.click(within(dialog).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(sent("POST", JOBS_PATH)).toEqual([]);
+  });
+
+  it("waits for a sentence's save that is still out before it sends", async () => {
+    let answer: (response: Response) => void = () => {};
+    const saving = new Promise<Response>((resolve) => (answer = resolve));
+    backend([
+      { method: "PATCH", path: `${DRAFT_PATH}/sentences/s_00000001`, reply: () => saving as unknown as Response },
+      send("POST", JOBS_PATH, POLISH, 202),
+    ]);
+    const user = await openReview();
+
+    await user.type(within(card(1)).getByRole("textbox"), "ใหม่");
+    const dialog = await openPolish(user); // the click blurs the text: it saves now
+    await user.click(within(dialog).getByRole("button", { name: "เรียบเรียง" }));
+    expect(sent("PATCH", `${DRAFT_PATH}/sentences/s_00000001`)).toHaveLength(1);
+    expect(sent("POST", JOBS_PATH)).toEqual([]);
+
+    answer(jsonResponse(draftOf()));
+    await waitFor(() => expect(sent("POST", JOBS_PATH)).toHaveLength(1));
+  });
+
+  it("a polish running when the page opens says กำลังเรียบเรียง with ยกเลิก, and every text waits", async () => {
+    backend([
+      get(DRAFT_PATH, draftOf({ locked: true })),
+      get(CURRENT_PATH, POLISH),
+      send("DELETE", CURRENT_PATH, { ...POLISH, cancel_requested: true }, 202),
+    ]);
+    const user = await openReview();
+
+    const progress = screen.getByRole("region", { name: "งานที่กำลังทำ" });
+    expect(within(progress).getByText("กำลังเรียบเรียง")).toBeInTheDocument();
+    expect(within(card(1)).getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "เรียบเรียงใหม่" })).toBeDisabled();
+    await user.click(within(progress).getByRole("button", { name: "ยกเลิก" }));
+
+    expect(sent("DELETE", CURRENT_PATH)).toHaveLength(1);
+    expect(within(progress).getByText("กำลังยกเลิก…")).toBeInTheDocument();
+  });
+
+  it.each([
+    [{ ...POLISH, state: "done", done: 2, total: 2 }, "เรียบเรียง 2 ประโยค"],
+    [{ ...POLISH, state: "done", done: 0, total: 2 }, "ไม่มีประโยคที่เปลี่ยน"],
+    [
+      { ...POLISH, state: "failed", error: { code: "polish_failed", message: "AI เรียบเรียงไม่สำเร็จ บทเดิมไม่เปลี่ยน" } },
+      "AI เรียบเรียงไม่สำเร็จ บทเดิมไม่เปลี่ยน",
+    ],
+  ])("a polish that ends says how it went: %#", async (ended, text) => {
+    const current = phased(CURRENT_PATH, null, ended);
+    backend([send("POST", JOBS_PATH, POLISH, 202), current.route]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+    await user.click(within(dialog).getByRole("button", { name: "เรียบเรียง" }));
+    const progress = await screen.findByRole("region", { name: "งานที่กำลังทำ" });
+    expect(within(progress).getByText("กำลังเรียบเรียง")).toBeInTheDocument();
+    expect(within(card(1)).getByRole("textbox")).toBeDisabled();
+    current.phases.at = 1;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(await screen.findByText(text)).toBeInTheDocument();
+    expect(within(card(1)).getByRole("textbox")).not.toBeDisabled();
+  });
+
+  it("a refused polish shows its reason", async () => {
+    const refusal = { code: "nothing_to_polish", message: "ทุกประโยคแก้เองแล้ว ไม่มีอะไรให้เรียบเรียง" };
+    backend([send("POST", JOBS_PATH, refusal, 400)]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+    await user.click(within(dialog).getByRole("button", { name: "เรียบเรียง" }));
+
+    expect(await screen.findByText(refusal.message)).toBeInTheDocument();
   });
 });
