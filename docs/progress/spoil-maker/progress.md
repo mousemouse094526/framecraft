@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** feature review รอบสี่เสร็จ; พร้อม merge
+**Now:** merged ([PR #6](https://github.com/mousemouse094526/framecraft/pull/6), `83821a9`)
 
-**Next:** รอ merge [PR #6](https://github.com/mousemouse094526/framecraft/pull/6)
+**Next:** —
 
 ## Tickets
 
