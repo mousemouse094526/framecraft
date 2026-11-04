@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
-import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
+import { isRunning } from "../../../lib/job";
 import type { RefusalLine } from "../../../lib/refusal";
+import { epLabel, REVIEW_HASH, wholeDraft, type DraftAsk, type DraftOrder, type WholeDraftJob } from "../lib/draft";
 import { useEpisodes, type Episode, type Episodes } from "../hooks/useEpisodes";
-import { useSpoilerSetup, type Banner, type Order, type SetupState } from "../hooks/useSpoilerSetup";
+import { useSpoilerSetup, type Banner, type SetupState } from "../hooks/useSpoilerSetup";
+import { useDraftRun } from "../hooks/useStepStatus";
 import type { Voice } from "../hooks/useVoices";
 import { ClipPicker, isReady } from "./ClipPicker";
 import { EpisodePicker } from "./EpisodePicker";
@@ -19,17 +21,12 @@ function startingVoice(voices: Voice[], lastVoiceId: string | null): string | nu
 
 /** Step 1 of the สปอย tab, ตั้งค่าคลิปสปอย (Figma `Spoiler setup`, spoil-maker D7, D8, D25, D28, D39, D46, D66–D71). */
 export function SpoilerSetup() {
-  const { state, draft, askReplace, cancel } = useSpoilerSetup();
+  const { state, draft, askReplace } = useSpoilerSetup();
+  const run = useDraftRun();
   if (state.kind === "offline") return <OfflinePanel />;
-  if (state.kind === "loading") return <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>;
-  return (
-    <SetupForm
-      state={state}
-      onDraft={draft}
-      onAskReplace={askReplace}
-      onCancel={() => void cancel()}
-    />
-  );
+  // The form starts from the latest whole draft's order, so it waits for the steps too (D87).
+  if (state.kind === "loading" || !run.loaded) return <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>;
+  return <SetupForm state={state} job={wholeDraft(run.job)} onDraft={draft} onAskReplace={askReplace} />;
 }
 
 /** Why an EP can't be drafted (spec › Frontend, D71); null when it can. */
@@ -43,32 +40,71 @@ type Loaded = Extract<SetupState, { kind: "loaded" }>;
 
 type FormProps = {
   state: Loaded;
+  /** The latest whole new draft: running, it locks the form; ended, its order is what the form starts from (D82, D87). */
+  job: WholeDraftJob | null;
   /** Resolves to the refusal's code when the API refused. */
-  onDraft: (order: Order, replace: boolean) => Promise<string | null>;
+  onDraft: (order: DraftAsk, replace: boolean) => Promise<string | null>;
   onAskReplace: (asking: boolean) => void;
-  onCancel: () => void;
 };
 
-function SetupForm({ state, onDraft, onAskReplace, onCancel }: FormProps) {
-  // The Spoil draft's clip is picked when the page opens (spec › Frontend).
-  const [clipId, setClipId] = useState<string | null>(
-    state.clips.some((clip) => clip.id === state.draftClipId && isReady(clip)) ? state.draftClipId : null,
-  );
-  const [pickedEp, setPickedEp] = useState<number | null>(null);
-  const [settings, setSettings] = useState<Settings>({
-    style: "drama",
-    layout: "B",
-    targetS: DEFAULT_TARGET_S,
-    voiceId: startingVoice(state.voices, state.lastVoiceId),
+/**
+ * The order the form starts from: a whole draft's that runs, failed or was cancelled (D87).
+ * A `done` one wrote the Spoil draft, so the draft's clip is picked instead.
+ */
+function orderOf(job: WholeDraftJob | null): DraftOrder | null {
+  return job && job.state !== "done" ? job.order : null;
+}
+
+/** The fields of an order; a voice no longer saved is kept only while it locks the form (D87). */
+function settingsOf(order: DraftOrder, voices: Voice[], fallbackVoice: string | null, locked: boolean): Settings {
+  const saved = voices.some((voice) => voice.id === order.voice_id);
+  return {
+    style: order.style,
+    layout: order.layout,
+    targetS: order.target_s,
+    voiceId: saved || locked ? order.voice_id : fallbackVoice,
+  };
+}
+
+/** The order's EP in the cut now: the same number and range, else the first (spec › Frontend). */
+function orderEp(cut: Episodes, order: DraftOrder): Episode | null {
+  const same = cut.episodes.find((one) => one.n === order.ep.n && Math.abs(one.start_s - order.ep.start_s) <= 0.01 && Math.abs(one.end_s - order.ep.end_s) <= 0.01);
+  return same ?? cut.episodes[0] ?? null;
+}
+
+function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
+  const order = orderOf(job);
+  const locked = job !== null && isRunning(job);
+  // While it runs, every field shows its order, even one started in another tab (D82).
+  const lockedOrder = locked ? order : null;
+  const pickable = (id: string | null) => state.clips.some((clip) => clip.id === id && isReady(clip));
+  const lastVoice = startingVoice(state.voices, state.lastVoiceId);
+  // The order's clip, else the Spoil draft's, is picked when the page opens (spec › Frontend).
+  const [clipId, setClipId] = useState<string | null>(() => {
+    const id = order?.clip_id ?? state.draftClipId;
+    return pickable(id) ? id : null;
   });
-  const episodes = useEpisodes(clipId);
+  const [pickedEp, setPickedEp] = useState<number | null>(null);
+  const [settings, setSettings] = useState<Settings>(() =>
+    order
+      ? settingsOf(order, state.voices, lastVoice, false)
+      : { style: "drama", layout: "B", targetS: DEFAULT_TARGET_S, voiceId: lastVoice },
+  );
+  const shown = lockedOrder ? settingsOf(lockedOrder, state.voices, lastVoice, true) : settings;
+  const shownClipId = lockedOrder ? (pickable(lockedOrder.clip_id) ? lockedOrder.clip_id : null) : clipId;
+  const episodes = useEpisodes(shownClipId);
   const cut = episodes.state.kind === "loaded" ? episodes.state.cut : null;
-  // Until one is picked: the EP of the Spoil draft, else the first.
-  const ep = cut?.episodes.find((one) => one.n === pickedEp) ?? cut?.episodes.find((one) => one.in_draft) ?? cut?.episodes[0] ?? null;
+  // Until one is picked: the order's EP while the order's clip is open, else the Spoil draft's, else the first.
+  const fromOrder = order && order.clip_id === shownClipId && (lockedOrder || pickedEp === null) ? order : null;
+  const ep = !cut
+    ? null
+    : fromOrder
+      ? orderEp(cut, fromOrder)
+      : (cut.episodes.find((one) => one.n === pickedEp) ?? cut.episodes.find((one) => one.in_draft) ?? cut.episodes[0] ?? null);
   const limit = cut?.limit ?? null;
   const blocked = ep && cut ? epBlocked(ep, cut) : null;
   const canDraft =
-    ep !== null && blocked === null && ep.tokens !== null && limit !== null && ep.tokens <= limit && settings.voiceId !== null && state.job === null;
+    ep !== null && blocked === null && ep.tokens !== null && limit !== null && ep.tokens <= limit && settings.voiceId !== null && !locked;
 
   const pickClip = (id: string) => {
     setClipId(id);
@@ -97,16 +133,34 @@ function SetupForm({ state, onDraft, onAskReplace, onCancel }: FormProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* ลองอีกครั้ง sends the same draft again; a draft there was already agreed to be replaced. */}
-      {state.banner && <SetupBanner banner={state.banner} onRetry={() => void send(state.draftExists)} />}
+      {state.banner && <SetupBanner banner={state.banner} />}
+      {locked && order && (
+        <Alert
+          tone="info"
+          action={
+            <a href={REVIEW_HASH} className="flex h-11 items-center font-button text-sm leading-5 font-medium text-brand sm:h-9 sm:px-4">
+              ไปที่ตรวจแก้บท
+            </a>
+          }
+        >
+          กำลังร่างบท {order.clip_title} · {epLabel(order.ep.n)}: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้
+        </Alert>
+      )}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-col gap-4 lg:w-[560px] lg:shrink-0">
-          <ClipPicker clips={state.clips} picked={clipId} disabled={state.job !== null} onChange={pickClip} />
-          {clipId !== null && (
+          <ClipPicker clips={state.clips} picked={shownClipId} disabled={locked} onChange={pickClip} />
+          {locked && order && shownClipId === null && (
+            // The order's clip is no longer in the list: its title only, no EPs (spec › Frontend).
+            <p className="rounded-2xl border border-border bg-card px-4 py-3.5 text-sm leading-[21px] font-medium text-foreground">
+              {order.clip_title} · {epLabel(order.ep.n)}
+            </p>
+          )}
+          {shownClipId !== null && (
             <EpisodePicker
-              clipId={clipId}
+              clipId={shownClipId}
               state={episodes.state}
               picked={ep?.n ?? null}
-              disabled={state.job !== null}
+              disabled={locked}
               onPick={setPickedEp}
               onMinutes={(minutes) => episodes.put({ minutes })}
               onCuts={(cuts) => cut && episodes.put({ minutes: cut.minutes, cuts })}
@@ -114,19 +168,18 @@ function SetupForm({ state, onDraft, onAskReplace, onCancel }: FormProps) {
           )}
         </div>
         <SetupSettings
-          settings={settings}
+          settings={shown}
           voices={state.voices}
           ep={ep}
           limit={limit}
           epBlocked={blocked}
           canDraft={canDraft}
-          job={state.job}
+          locked={locked}
           confirmingReplace={state.confirmingReplace}
           onChange={setSettings}
           onDraft={() => (state.draftExists ? onAskReplace(true) : void send(false))}
           onReplace={() => void send(true)}
           onKeep={() => onAskReplace(false)}
-          onCancel={onCancel}
         />
       </div>
     </div>
@@ -134,21 +187,7 @@ function SetupForm({ state, onDraft, onAskReplace, onCancel }: FormProps) {
 }
 
 /** Figma component `Setup banner`: built from Alert. */
-function SetupBanner({ banner, onRetry }: { banner: Banner; onRetry: () => void }) {
-  if (banner.kind === "failed") {
-    return (
-      <Alert
-        tone="error"
-        action={
-          <button type="button" onClick={onRetry} className={`h-11 self-start px-3 sm:h-8 sm:self-auto ${OUTLINE_BUTTON}`}>
-            ลองอีกครั้ง
-          </button>
-        }
-      >
-        {banner.text}
-      </Alert>
-    );
-  }
+function SetupBanner({ banner }: { banner: Banner }) {
   if (banner.kind === "not_ready") {
     return (
       <Alert

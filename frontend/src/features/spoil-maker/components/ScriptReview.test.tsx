@@ -65,6 +65,7 @@ const PICK: DraftJob = {
   error: null,
   cancel_requested: false,
   started_at: "2026-11-02T11:00:00+07:00",
+  order: null,
 };
 
 function backend(routes: Route[]) {

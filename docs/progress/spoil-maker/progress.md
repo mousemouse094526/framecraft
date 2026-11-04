@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** แบบ Figma ของร่างบทไปขั้น 2 เสร็จ (Blocked 16–17); ticket 09 พร้อมทำ
+**Now:** ticket 09 เสร็จ; ทุก ticket done รอ feature review
 
-**Next:** `/warroom-build spoil-maker 09`
+**Next:** `/warroom-build spoil-maker --review-feature`
 
 ## Tickets
 
@@ -17,9 +17,28 @@
 | 06 | ตัด EP จากคลิปเดียว | done |
 | 07 | ตัวบอกขั้นบอกสถานะจริง | done |
 | 08 | เรียบเรียงบท | done |
-| 09 | ร่างบทแล้วรอที่ขั้นตรวจแก้ | ready-for-agent |
+| 09 | ร่างบทแล้วรอที่ขั้นตรวจแก้ | done |
 
 ## Log
+
+### 09: ร่างบทแล้วรอที่ขั้นตรวจแก้ — done 2026-11-04
+
+**Built:**
+- backend: Draft job มี `order` (`DraftOrder`: `clip_id`, `clip_title`, `ep`, `style`, `layout`, `target_s`, `voice_id`) เฉพาะ `kind: "draft"` คงอยู่หลังจบ; `voices.voice_users` (แบบ `transcribe.clip_users`) — `voice_in_use` และ `in_use` รวมเสียงของงานร่างที่ยังไม่จบ, ข้อความ "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท"
+- หน้าเว็บ: `DraftRunContext` ใน `useStepStatus` (job ร่วม, `show` ก่อนเปลี่ยน hash, offline ของงานร่างแล้วอ่านใหม่ทุก 1 วินาที); `useDraftProgress` + `DraftProgressCard`/`DraftNotice` ที่ขั้น 2 (3 ขั้น, ยกเลิกรอหยุดจริง, ยกเลิกไม่ทัน, ร่างล้มพร้อมลองอีกครั้งที่ถามร่างทับ, งานหยุดกลางทาง); ขั้น 1 อ่านอย่างเดียวจาก `order` พร้อม Alert, หลังล้มหรือยกเลิกเริ่มจาก `order` (EP ตามเลขและช่วง ไม่ตรงเป็น EP แรก, เสียงที่ลบแล้วเป็นเสียงล่าสุด); ตัวบอกขั้นขั้น 1 ระหว่างร่างใช้ `order`; การ์ดสไตล์มี hint (`aria-describedby`)
+- โค้ดใช้ร่วม: `lib/draft.ts` › `STYLES`, `DraftAsk`, `askOf`, `sendDraft`, `BUSY_TEXT`, `wholeDraft`; ความคืบหน้าร่างบทและ banner ร่างล้มออกจากขั้น 1 (`Draft action` เหลือร่างบทกับร่างทับ)
+- test: backend +4 (order ระหว่างงาน/ล้ม/ยกเลิก, pick และ polish ไม่มี order, `voice_in_use` ของงาน); `SpoilerSetup.test.tsx` +15 (Seam 2 ข้อ D81–D87); test เดิมที่ขั้น 1 ติดตามงานร่างเขียนใหม่ตาม D81
+- เช็คใน dev server (patch fetch ให้ current เป็นงานร่างที่มี `order` เพราะ backend ที่รันอยู่เป็นโค้ดเก่า): ขั้น 2 การ์ด 3 ขั้นและขั้น 1 ล็อกที่ 1024 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; ร่างล้มแสดง Alert กับลองอีกครั้งเหนือ "ยังไม่มีบท"
+- Review สามแกนแก้แล้ว: deadlock ระหว่างลบเสียงกับเริ่มร่าง (ลำดับ lock), งานหยุดกลางทางเมื่อมีงานชนิดอื่นแทน, EP ตามช่วงของ order, เสียงที่ลบหลังยกเลิก, offline เฉพาะงานร่างทั้งบท, test ที่ขาด (offline แล้วกลับมา, จบขณะเปิดขั้น 1, order หลังยกเลิก), query `listitem` แทน `.closest`, ไม่ใช้ `waitFor` ใต้ fake timer, `sendDraft` ใช้ร่วม, `STYLES` ย้ายเข้า `lib/draft.ts`, ชื่อ (`cancelledFor`, `cardShownFor`, `scriptKey`, `cancelledTooLate`, `RetryStep`), map ของ phase
+
+**Decided:**
+- D88 — ทางเลือกเล็กตอน build ร่างบทไปขั้น 2
+
+**For the next ticket:**
+- ยังไม่ได้เช็คด้วยตากับ backend ใหม่ (dev server ที่เปิดอยู่รันโค้ด backend เก่า): restart แล้วกดร่างบทจริงหนึ่งครั้ง ดูการ์ดจนจบ และยกเลิกหนึ่งครั้ง
+- `isDrafting` (ของเดิม) กับ `isRunning` ซ้อนกันสำหรับ Draft job — รวมเป็นตัวเดียวได้ตอน feature review
+
+**Checks:** `uv run pytest` — 550 passed; `npm --prefix frontend test` — 236 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### แบบ Figma ร่างบทไปขั้น 2 — 2026-11-04
 

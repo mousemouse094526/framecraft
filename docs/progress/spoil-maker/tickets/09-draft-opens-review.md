@@ -11,7 +11,7 @@
 - Seams: 1 (Draft: `order`; Saved voice: `voice_in_use` ของงาน), 2 (ข้อ D81–D87)
 - User stories: 5, 7, 14
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

@@ -93,6 +93,18 @@ class DraftJobError(BaseModel):
     message: str
 
 
+class DraftOrder(BaseModel):
+    """What a `kind: "draft"` job was asked for, so a page opened later shows it (D82)."""
+
+    clip_id: str
+    clip_title: str
+    ep: Ep
+    style: Style
+    layout: Layout
+    target_s: int
+    voice_id: str
+
+
 class DraftJob(BaseModel):
     """Every spoil-maker job has these fields; the ones a kind doesn't use stay null (spec › API)."""
 
@@ -107,6 +119,7 @@ class DraftJob(BaseModel):
     error: DraftJobError | None = None
     cancel_requested: bool = False
     started_at: str
+    order: DraftOrder | None = None  # `kind: "draft"` only, kept after it ends (D82)
 
 
 class _CheckedOrder(BaseModel):
@@ -197,7 +210,20 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 if now is None or not order.ep.matches(now.start_s, now.end_s):
                     gpu.slot.release("draft")
                     raise episodes.episodes_changed()
-            self._job = DraftJob(kind="draft", state="writing", started_at=checks.now_iso())
+            self._job = DraftJob(
+                kind="draft",
+                state="writing",
+                started_at=checks.now_iso(),
+                order=DraftOrder(
+                    clip_id=clip_id,
+                    clip_title=clips.read_clip(project, clip_id).title,
+                    ep=order.ep,
+                    style=style,
+                    layout=layout,
+                    target_s=target_s,
+                    voice_id=voice_id,
+                ),
+            )
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
         threading.Thread(target=self._run, args=(lambda: self._draft(project, order),), daemon=True).start()
@@ -449,6 +475,15 @@ def job_reads_clip(clip_id: str) -> bool:
 
 
 transcribe.clip_users.append(job_reads_clip)
+
+
+def job_uses_voice(voice_id: str) -> bool:
+    """Whether an unfinished Draft job will write a draft with that voice (D87)."""
+    job = draft_jobs.current()
+    return job is not None and job.state in UNFINISHED and job.order is not None and job.order.voice_id == voice_id
+
+
+voices.voice_users.append(job_uses_voice)
 
 
 # --- Reading and changing the draft ---

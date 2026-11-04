@@ -1399,6 +1399,24 @@
 
 **From:** red team (The Breaker) · **Status:** active
 
+## D88: ทางเลือกเล็กตอน build ร่างบทไปขั้น 2
+
+**Chosen:** ทางเลือกที่ ticket 09 ตัดสินเองภายใน D81–D87 และ conventions.
+
+**Details:**
+- **ขั้น 2 ระหว่างร่าง:** การ์ดความคืบหน้าแทนทั้งขั้น (บทเดิมไม่แสดงใต้การ์ด); งานจบแล้วบทอ่านใหม่ด้วยการ mount ใหม่ (`key` ตามงานที่จบ)
+- **ลองอีกครั้งที่ถูกปฏิเสธด้วยรหัสที่ต้องแก้ตั้งค่า** (`episodes_changed`, `clip_not_ready`, `voice_not_found`, `ep_empty`, `transcript_too_long`): ซ่อน "ลองอีกครั้ง" เหลือ "กลับไปแก้ตั้งค่า" — ส่ง order เดิมซ้ำไม่มีทางผ่าน
+- **offline ของงาน:** เฉพาะ Draft job `kind: "draft"` ที่ poll ล้มเป็น offline แล้วอ่านใหม่ทุก 1 วินาที; งาน `pick` และ `polish` ทำแบบเดิม (เลิกตามจน refresh, D78)
+- **ขั้น 1 รอ state ของตัวบอกขั้น** อ่านครั้งแรก (สำเร็จหรือล้ม) ก่อนแสดงฟอร์ม เพราะค่าตั้งต้นมาจาก `order`
+- **`voice_in_use` ของงาน:** ถามงานก่อนจับ lock ของ draft (lock ของ job slot มาก่อน, fastapi-api › Never break); งานร่างที่เริ่มในช่วงนั้นเช็คว่าเสียงยังอยู่เองตอนเริ่ม
+- **การ์ดสไตล์:** สามใบเรียงแถวที่ sm และตั้งแต่ xl; ช่วง lg (สองคอลัมน์ การ์ดแคบ) เรียงตั้ง
+- **ข้อความ:** ใต้การ์ด "กำลังร่างบท ใช้เวลาหลายนาที"; ลองอีกครั้งที่ backend ไม่ตอบ "เชื่อมต่อ backend ไม่ได้"
+- **ไม่แก้:** test ที่นับ `GET /draft` ว่ามากกว่าก่อนจบงาน (Seam 2 ขอ "ถูกเรียกใหม่"); `loaded` และ `offline` ใน state ร่วมเป็น flag ของการอ่าน ไม่ใช่สถานะจอ (สถานะจอคือ `DraftProgressView` union)
+
+**Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; เลือกตามโค้ดเดิม (`useStepStatus`, `useJobCalls`, `transcribe.clip_users`) และ review สามแกน.
+
+**From:** build ticket 09 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)
