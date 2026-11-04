@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** merged ([PR #5](https://github.com/mousemouse094526/framecraft/pull/5), `c104fea`)
+**Now:** change request ร่างบทไปขั้น 2 ผ่าน gate (D81–D87); ticket 09 พร้อมทำ
 
-**Next:** —
+**Next:** `/warroom-build spoil-maker 09`
 
 ## Tickets
 
@@ -17,8 +17,17 @@
 | 06 | ตัด EP จากคลิปเดียว | done |
 | 07 | ตัวบอกขั้นบอกสถานะจริง | done |
 | 08 | เรียบเรียงบท | done |
+| 09 | ร่างบทแล้วรอที่ขั้นตรวจแก้ | ready-for-agent |
 
 ## Log
+
+### change request ร่างบทไปขั้น 2 — 2026-11-04
+
+**Decided:**
+- D81–D84: ร่างบทแล้วเปิดขั้น 2 ที่มีการ์ดความคืบหน้า 3 ขั้น; ขั้น 1 อ่านอย่างเดียวระหว่างร่างด้วย `order` ของ Draft job; ร่างล้มลองอีกครั้งที่ขั้น 2, ยกเลิกกลับขั้น 1; บรรทัดอธิบายใต้ชื่อสไตล์ — D79 changed (ขั้น 1 ไม่แสดงความคืบหน้าแล้ว)
+- D85–D87: ข้อแก้ The Breaker 11 ข้อ (ไม่มี BLOCKER): ยกเลิกรอหยุดจริง, ลองอีกครั้งถามร่างทับทุกครั้ง (D83 changed), error ของลองอีกครั้ง, restart, `voice_in_use` ของงาน, `busy`
+- legal: verdict เดิม (เปลี่ยนแค่การแสดงผล)
+- re-cut: ticket 09; จอตั้งค่าคลิปสปอยและหน้าตรวจแก้กลับเป็น `pending` (Blocked 16, 17); `ui-prompt.md` เขียนใหม่
 
 ### แบบ Figma ตัด EP ตัวบอกขั้น และเรียบเรียงใหม่ — 2026-11-04
 
@@ -388,3 +397,5 @@
 | 13 | 06 | design: ตั้งค่าคลิปสปอย — เลือกคลิปเดียว รายการ EP เลื่อนจุดตัด (D66, D67, D69) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
 | 14 | 07 | design: ตัวบอกขั้นของ tab สปอย — บรรทัดสถานะและจุดหมุน (D68) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
 | 15 | 08 | design: หน้าตรวจแก้ — ปุ่มเรียบเรียงใหม่ กล่องเลือก ป้ายแก้เอง (D72, D74, D75) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
+| 16 | 09 | design: ตั้งค่าคลิปสปอย — บรรทัดอธิบายสไตล์ ขั้น 1 อ่านอย่างเดียวระหว่างร่าง (D82, D84, D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
+| 17 | 09 | design: หน้าตรวจแก้ — การ์ดความคืบหน้าร่างบท ยกเลิก ร่างล้ม ลองอีกครั้ง (D81, D83, D85–D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |

@@ -44,15 +44,15 @@
 
 ## Design
 
-แบบหน้าจอทำหลังจบ plan (D38); ทุกจอมีแบบใน Figma แล้ว (ลิงก์ในตาราง); จอของ change request ตัด EP (D66–D68) และเรียบเรียงบท (D72, D74) อยู่ใน section `EP & เรียบเรียง`. ทุกหน้าที่มีงานแสดง error ตามตาราง Frontend › ข้อความ error.
+แบบหน้าจอทำหลังจบ plan (D38); จอของ change request ตัด EP (D66–D68) และเรียบเรียงบท (D72, D74) อยู่ใน section `EP & เรียบเรียง`; จอที่ change request ร่างบทไปขั้น 2 (D81–D84) แตะเป็น `pending` รอแบบใหม่ ([ui-prompt.md](ui-prompt.md)) จออื่นมีแบบใน Figma แล้ว (ลิงก์ในตาราง). ทุกหน้าที่มีงานแสดง error ตามตาราง Frontend › ข้อความ error.
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
 | แถบ tab | — | 3 tab ตามลำดับ ติดตั้ง · คลิป · สปอย, tab ที่เปิดอยู่เด่นกว่า (D53) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — header ของทุก frame |
 | แถว Temp clip ใน tab คลิป | 1, 3 | ปุ่ม "บรรยายฉาก" ของคลิป กับบรรทัดใต้ปุ่ม "ให้ AI เขียนว่าแต่ละฉากมีภาพอะไร ใช้ตอนร่างบทสปอย" (D58); ระหว่างงาน: "กำลังแบ่งฉาก" แล้ว "กำลังบรรยายฉาก", % กับปุ่มยกเลิก; เสร็จ: "บรรยายฉากแล้ว" (D16); ปุ่มกดไม่ได้พร้อมเหตุผลเมื่อมีงาน GPU อื่น (D45); คลิปที่อยู่ใน Spoil draft: คำเตือนก่อนลบ ถอดใหม่ หรือบรรยายฉากใหม่ (D29, D49); บรรยายฉากคลิปที่บรรยายแล้ว: ยืนยันก่อนทำใหม่ | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8032-2275) — Clip row states |
 | Saved voice | 2, 4 | เพศ วัย ระดับเสียง, speed 0.8–1.2, ปุ่มสุ่มและฟัง (D32, D35); บันทึกพร้อมชื่อ; รายการ: ชื่อ, ฟัง, เปลี่ยนชื่อ, ลบพร้อมยืนยัน (D43); ว่าง: "ยังไม่มีเสียง กดสุ่มเพื่อออกแบบเสียงแรก"; error: ลบเสียงที่ Spoil draft ใช้ (D43) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8034-3220) — Saved voice |
-| ตั้งค่าคลิปสปอย | 5, 6, 14 | เลือก Temp clip ได้คลิปเดียว (D66); คลิปที่เลือกไม่ได้บอกเหตุผล "ยังไม่ถอด" หรือ "ยังไม่บรรยายฉาก" พร้อมปุ่มไปทำ (D16); ไม่มีคลิปพร้อม: "ยังไม่มีคลิปที่ถอดและบรรยายฉากแล้ว" พร้อมลิงก์ไปรายการคลิป; ความยาวต่อ EP 5–60 นาที ตั้งต้น 30 (D69); รายการ EP: เลข, ช่วงเวลา, ภาพเล็ก, token, "render แล้ว {k}", EP ที่อยู่ใน Spoil draft; เลือกได้ทีละ EP (D67); เวลาจุดตัดระหว่าง EP แก้ได้ และ "ตัดใหม่ตามความยาว" (D66, D70); สไตล์ 3 แบบ, layout 3 แบบ ตั้งต้นตามสไตล์ (D7, D8); ความยาวคลิปสปอย 30–180 วินาที ตั้งต้น 60 (D39); Saved voice ตั้งต้นที่ใช้ล่าสุด; ไม่มี Saved voice: ลิงก์ไปสร้าง; token ของ EP / 32,000 และปุ่มร่างกดไม่ได้เมื่อเกิน (D46); ยืนยันก่อนทับ Spoil draft เดิม (D28); ระหว่างร่าง: "กำลังเขียนบท" แล้ว "กำลังเลือกภาพ x/y" กับปุ่มยกเลิก | [Figma: EP & เรียบเรียง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833) — frames `Spoiler setup / 1 No clip chosen` ถึง `10b Drafting — picking shots`; components `Source clip row`, `Episode row`, `Cut point`; `Draft action` มี `Reason`; แบบเดิม [Spoiler setup](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8038-4681) ยังใช้กับขวามือ |
-| หน้าตรวจแก้ | 7, 8, 9, 10, 11, 16 | hook หรือชื่อตอน (D19); ความยาวประมาณ / เป้าหมาย และจำนวนประโยค (D30) พร้อมคำเตือนเมื่อนอก ±25%; แต่ละประโยค: 2 ภาพ Shot, ข้อความแก้ได้, บรรทัดที่อ้าง, สถานะ 4 แบบ (D30), ฟัง, สร้างเสียงใหม่, ให้ AI เลือก Shot ใหม่, ลบพร้อมยืนยัน, แทรกใต้ (D25, D27); ระดับเสียงต้นฉบับ (D40); ลายน้ำ: เพิ่ม ลบ เปิดปิด ข้อความ ตำแหน่ง 6 จุด ขนาด (D41, D64); คำเตือนเมื่อลายน้ำบนกลางที่เปิดอยู่ทับ hook หรือชื่อตอน (D64); ปุ่มสร้างเสียงทั้งหมดและ render; render กดไม่ได้เมื่อมีประโยค "ไม่มี Shot"; ระหว่าง Draft job `pick`, Voice job หรือ Render job: "สร้างเสียง x/y" หรือ "render %" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้ (D51); ไม่มี Spoil draft: ลิงก์ไปหน้าตั้งค่า; ปุ่ม "เรียบเรียงใหม่" เปิดกล่องเลือกก่อนเริ่ม: ช่องติ๊ก "เรียบเรียงประโยคที่แก้เองด้วย" (ตั้งต้นไม่ติ๊ก, ซ่อนเมื่อไม่มีประโยคแก้เอง), บรรทัด "ประโยคที่เปลี่ยนต้องสร้างเสียงใหม่" เมื่อมีประโยคที่มีเสียงแล้ว, ปุ่ม "เรียบเรียง" และ "ยกเลิก" (D75), ระหว่างงาน "กำลังเรียบเรียง" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้, ป้าย "แก้เอง" ของประโยคที่ผู้ใช้แก้หรือแทรก (D72, D74, D75) | [Figma: Script review](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390); ใน 3 tab: ขั้น 2 ของ tab สปอย; สวิตช์ลายน้ำและคำเตือนลายน้ำทับ (D64): frames `Script review / Watermark …` และ `Overlap …` ใน section เดียวกัน, component `Watermark row` variant `enabled`; เรียบเรียงใหม่ (D72, D74, D75): [Figma: EP & เรียบเรียง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833) — frames `Script review / Polish …`, component `Polish dialog`, `Sentence card` property `Edited`, `Review footer` state `polishing` |
+| ตั้งค่าคลิปสปอย | 5, 6, 14 | เลือก Temp clip ได้คลิปเดียว (D66); คลิปที่เลือกไม่ได้บอกเหตุผล "ยังไม่ถอด" หรือ "ยังไม่บรรยายฉาก" พร้อมปุ่มไปทำ (D16); ไม่มีคลิปพร้อม: "ยังไม่มีคลิปที่ถอดและบรรยายฉากแล้ว" พร้อมลิงก์ไปรายการคลิป; ความยาวต่อ EP 5–60 นาที ตั้งต้น 30 (D69); รายการ EP: เลข, ช่วงเวลา, ภาพเล็ก, token, "render แล้ว {k}", EP ที่อยู่ใน Spoil draft; เลือกได้ทีละ EP (D67); เวลาจุดตัดระหว่าง EP แก้ได้ และ "ตัดใหม่ตามความยาว" (D66, D70); สไตล์ 3 แบบ, layout 3 แบบ ตั้งต้นตามสไตล์ (D7, D8); ความยาวคลิปสปอย 30–180 วินาที ตั้งต้น 60 (D39); Saved voice ตั้งต้นที่ใช้ล่าสุด; ไม่มี Saved voice: ลิงก์ไปสร้าง; token ของ EP / 32,000 และปุ่มร่างกดไม่ได้เมื่อเกิน (D46); ยืนยันก่อนทับ Spoil draft เดิม (D28); การ์ดสไตล์มีบรรทัดอธิบายใต้ชื่อ (D84); ระหว่างร่าง: ทุกช่องแสดงค่าของงานและกดไม่ได้ ไม่มีปุ่มร่าง Alert info "กำลังร่างบท {ชื่อคลิป} · EP {n}: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้" พร้อมลิงก์ "ไปที่ตรวจแก้บท" (D82); current: [Figma: EP & เรียบเรียง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833) — frames `Spoiler setup / 1 No clip chosen` ถึง `10b Drafting — picking shots`; components `Source clip row`, `Episode row`, `Cut point`; `Draft action` มี `Reason`; แบบเดิม [Spoiler setup](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8038-4681) ยังใช้กับขวามือ | `pending` |
+| หน้าตรวจแก้ | 7, 8, 9, 10, 11, 16 | hook หรือชื่อตอน (D19); ความยาวประมาณ / เป้าหมาย และจำนวนประโยค (D30) พร้อมคำเตือนเมื่อนอก ±25%; แต่ละประโยค: 2 ภาพ Shot, ข้อความแก้ได้, บรรทัดที่อ้าง, สถานะ 4 แบบ (D30), ฟัง, สร้างเสียงใหม่, ให้ AI เลือก Shot ใหม่, ลบพร้อมยืนยัน, แทรกใต้ (D25, D27); ระดับเสียงต้นฉบับ (D40); ลายน้ำ: เพิ่ม ลบ เปิดปิด ข้อความ ตำแหน่ง 6 จุด ขนาด (D41, D64); คำเตือนเมื่อลายน้ำบนกลางที่เปิดอยู่ทับ hook หรือชื่อตอน (D64); ปุ่มสร้างเสียงทั้งหมดและ render; render กดไม่ได้เมื่อมีประโยค "ไม่มี Shot"; ระหว่าง Draft job `pick`, Voice job หรือ Render job: "สร้างเสียง x/y" หรือ "render %" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้ (D51); ไม่มี Spoil draft: ลิงก์ไปหน้าตั้งค่า; ปุ่ม "เรียบเรียงใหม่" เปิดกล่องเลือกก่อนเริ่ม: ช่องติ๊ก "เรียบเรียงประโยคที่แก้เองด้วย" (ตั้งต้นไม่ติ๊ก, ซ่อนเมื่อไม่มีประโยคแก้เอง), บรรทัด "ประโยคที่เปลี่ยนต้องสร้างเสียงใหม่" เมื่อมีประโยคที่มีเสียงแล้ว, ปุ่ม "เรียบเรียง" และ "ยกเลิก" (D75), ระหว่างงาน "กำลังเรียบเรียง" กับปุ่มยกเลิก และช่องแก้ทุกช่องกดไม่ได้, ป้าย "แก้เอง" ของประโยคที่ผู้ใช้แก้หรือแทรก (D72, D74, D75); ระหว่าง Draft job `kind: "draft"`: การ์ดความคืบหน้าแทนบท — "{ชื่อคลิป} · EP {n}" สไตล์ ความยาวเป้าหมาย, 3 ขั้น "เขียนบท" → "เรียบเรียง" → "เลือกภาพ {x}/{y}" (เสร็จ / กำลังทำ / รอ), แถบความคืบหน้า, ปุ่มยกเลิก (D81); ร่างล้ม: Alert error พร้อม "ลองอีกครั้ง" และ "กลับไปแก้ตั้งค่า" เหนือบทเดิมหรือ "ยังไม่มีบท" (D83); current: [Figma: Script review](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390); ใน 3 tab: ขั้น 2 ของ tab สปอย; สวิตช์ลายน้ำและคำเตือนลายน้ำทับ (D64): frames `Script review / Watermark …` และ `Overlap …` ใน section เดียวกัน, component `Watermark row` variant `enabled`; เรียบเรียงใหม่ (D72, D74, D75): [Figma: EP & เรียบเรียง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833) — frames `Script review / Polish …`, component `Polish dialog`, `Sentence card` property `Edited`, `Review footer` state `polishing` | `pending` |
 | ตัวเลือก Shot | 8 | ภาพเล็กของ Shot ในช่วง ±30 วินาที, "ดูทั้ง EP" แสดงทุก Shot ในช่วง EP, ชี้แล้วเห็น Shot description, เล่นช่วงนั้น (D26, D70); ประโยคไม่มีบรรทัดที่อ้างเปิดที่ทั้ง EP (D26, D27) — แบบเดิมมีตัวเลือก EP: build ตัดออกและเปลี่ยนป้ายเป็น "ดูทั้ง EP" | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8050-16186) — Shot picker |
 | Transcript ที่แก้ได้ใน tab คลิป | 13 | ชี้บรรทัดแล้วมีปุ่ม "แก้"; กำลังแก้: ช่องพิมพ์กับ "บันทึก" และ "ยกเลิก"; บรรทัดที่แก้แล้วมีป้าย "แก้แล้ว" (D54) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — frames คลิป และ คลิป — แก้ประโยค; component `Transcript line` state hover, editing, edited |
 | ตัวบอกขั้นของ tab สปอย | 5, 7, 11, 15 | 1 เลือกคลิป → 2 ตรวจแก้บท → 3 ผล render; ขั้นที่เปิดอยู่เด่น; ทุกขั้นแสดงเลขและดูกดได้ (ไม่มีเครื่องหมายถูกตามตำแหน่ง); บรรทัดสถานะใต้ชื่อ: "{ชื่อคลิป} · EP {n}" / "ยังไม่เลือก", "กำลังร่าง" / "กำลังเลือกภาพ x/y" / "สร้างเสียง x/y" / "{n} ประโยค" / "ยังไม่มีบท", "render {p}%" / "{n} คลิป" / "ยังไม่มี"; จุดหมุนข้างเลขของขั้นที่มีงานรัน (D68); มือถือแสดงชื่อเฉพาะขั้นที่เปิด แต่จุดหมุนแสดงทุกขั้น | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — component `Spoil steps` (variant `breakpoint`) และ `Spoil step`; สถานะต่างๆ: [Figma: EP & เรียบเรียง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833) — frames `Step bar / …` |
@@ -241,7 +241,7 @@
 - `chars_per_s` = ตัวอักษรของข้อความหลังแปลงตัวเลข ไม่นับช่องว่างและวรรคตอน หารความยาวเสียงตัวอย่าง (D35, D36)
 - preview ที่ยังไม่บันทึกอยู่ใน `media/spoil-maker/voices/.pending/` มีชุดเดียว ล้างตอน start
 - ชื่อ 1–40 ตัวอักษร ไม่ว่างหลังตัดช่องว่าง; ชื่อซ้ำได้
-- เปลี่ยนชื่อได้; ลบ Saved voice ที่ Spoil draft ใช้ → `409` `voice_in_use` (D43)
+- เปลี่ยนชื่อได้; ลบ Saved voice ที่ Spoil draft ใช้ หรือที่ `order.voice_id` ของ Draft job `kind: "draft"` ที่ยังไม่จบใช้ → `409` `voice_in_use` (D43, D87)
 - speed แก้ไม่ได้หลังบันทึก (D43)
 
 ### EP
@@ -527,12 +527,14 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
   "total": 3,
   "error": null,
   "cancel_requested": false,
-  "started_at": "2026-10-31T10:00:00+07:00"
+  "started_at": "2026-10-31T10:00:00+07:00",
+  "order": null
 }
 ```
 
 - `done` และ `total` นับ Shot (`describing`) หรือประโยค (`matching`, `voicing`, Voice job `sentences`)
 - `error` เป็น `{code, message}` เมื่อ `failed`
+- `order` (D82): Draft job `kind: "draft"` เป็น `{clip_id, clip_title, ep: {n, start_s, end_s}, style, layout, target_s, voice_id}` ตามคำขอที่ผ่านข้อ 1 ของ Draft job (`clip_title` อ่านจาก Temp clip ตอนเริ่ม) ทั้งใน `202` และ `GET /draft-jobs/current` จนมีงานใหม่; งานอื่นเป็น `null`
 - `kind` ของ Describe job เป็น `describe`; ของ Draft job เป็น `draft`, `pick` หรือ `polish` (state `writing`, `polishing`, `matching`); ของ Voice job เป็น `design_preview` หรือ `sentences`; ของ Render job เป็น `render`
 
 `GET /draft` คืน `draft.json` พร้อมฟิลด์ที่คำนวณ:
@@ -556,7 +558,17 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
   - จุดหมุนเฉพาะงานที่ยังไม่จบ; `percent` เป็น `null` แสดง "render…"; Render job ช่วง `voicing` แสดง "render: สร้างเสียง x/y" ที่ขั้น 3; งาน `kind: "pick"` ไม่ทำให้ขั้น 2 เป็น "กำลังร่าง" แต่มีจุดหมุน; state `polishing` ของ `kind: "draft"` แสดง "กำลังเรียบเรียง" ที่ขั้น 2; `kind: "polish"` แสดง "กำลังเรียบเรียง" พร้อมจุดหมุนที่ขั้น 2 และเมื่อ `failed` แสดง "เรียบเรียงไม่สำเร็จ" (ไม่ใช่ "ร่างบทไม่สำเร็จ") (D76)
   - งานล่าสุด `failed`: ขั้นของงานนั้นแสดง "ร่างบทไม่สำเร็จ", "สร้างเสียงไม่สำเร็จ" หรือ "render ไม่สำเร็จ" จนเริ่มงานใหม่
 - ขั้น 1: กดร่างรอ `PUT` การตัดที่ค้างอยู่ให้จบก่อนส่ง `POST /draft-jobs`; `409` `episodes_changed` → อ่านรายการ EP ใหม่และบอก "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง"; เปลี่ยนความยาวต่อ EP ตอน `custom: true` → ยืนยันก่อนเพราะจุดตัดที่เลื่อนเองจะหาย; `tokens: null` → ปุ่มร่างกดไม่ได้พร้อม `tokens_not_ready`; ก่อนอ่านรายการ EP ตัวนับ token เป็น "— / —" (D80); EP ที่ `lines` 0 เลือกได้แต่ปุ่มร่างกดไม่ได้พร้อม "EP นี้ไม่มีบทพูด" (D71)
-- ขั้น 1 จำคลิปที่เลือกตาม `clip_id` ของ Spoil draft เมื่อมี; เลื่อนจุดตัดบันทึกเมื่อ blur (`PUT /clips/{id}/episodes`)
+- ร่างบท (D81–D87): `POST /draft-jobs` `kind: "draft"` ตอบ `202` → เก็บ job ลง state ร่วมของ `SpoilMakerPage` ก่อน แล้วเปิด `#/spoil/review`; `409` `busy` → "มีงานร่างบทอยู่แล้ว" และอ่าน state ร่วมใหม่
+  - ระหว่างงานยังไม่จบ ขั้น 2 แสดงการ์ดความคืบหน้าจาก current: `writing` = ขั้นเขียนบทกำลังทำ, `polishing` = เขียนบทเสร็จ เรียบเรียงกำลังทำ, `matching` = สองขั้นแรกเสร็จ "เลือกภาพ {done}/{total}"; แถบไม่มี % จนถึง `matching` แล้วเป็น `done`/`total` (`total` 0 → เต็ม)
+  - ยกเลิก (D85): ส่ง `DELETE /draft-jobs/current`; ระหว่าง `cancel_requested: true` การ์ดแสดง "กำลังยกเลิก" ปุ่มกดไม่ได้; `404` → อ่าน current ใหม่; `cancelled` → เปิด `#/spoil`; จบ `done` → บทใหม่พร้อม Alert info "ยกเลิกไม่ทัน บทร่างเสร็จแล้ว"
+  - ตัวบอกขั้นระหว่างงานยังไม่จบ: ขั้น 1 เป็น "{order.clip_title} · EP {order.ep.n}"
+  - poll ล้มระหว่างการ์ดแสดง → ขั้น 2 แสดง offline แล้ว poll ใหม่เมื่อกลับมา; current เป็น `null` หรือไม่ใช่ `kind: "draft"` ขณะการ์ดแสดง (backend restart, ADR-0010) → "งานหยุดกลางทาง" กับ "กลับไปแก้ตั้งค่า"; `order` และ "ลองอีกครั้ง" ไม่รอด restart
+  - ขั้น 1 ระหว่างงานยังไม่จบ: ค่าทุกช่องมาจาก `order` กดไม่ได้ ไม่มีปุ่มร่าง มี Alert info พร้อมลิงก์ `#/spoil/review`; คลิปของ `order` ที่ไม่อยู่ใน `GET /api/spoil/clips` แล้ว → แสดง `clip_title` ไม่มีรายการ EP; Saved voice ที่ไม่มีแล้ว → "เสียงถูกลบแล้ว"
+  - `done` ขณะเปิดขั้น 2 → อ่าน `GET /draft` ใหม่แล้วแสดงบท; ขณะเปิดขั้นอื่น → ไม่ย้ายหน้า
+  - `failed` → ขั้น 2 แสดง Alert error ตามตาราง error พร้อม "ลองอีกครั้ง" และ "กลับไปแก้ตั้งค่า" (`#/spoil`) เหนือบทเดิม (แก้ได้) หรือ "ยังไม่มีบท"; Alert หายเมื่อเริ่ม Draft job ใหม่เท่านั้น
+  - "ลองอีกครั้ง" (D86, D87): `GET /draft` ไม่ใช่ `null` → คำยืนยันร่างทับแบบ D28 ก่อนทุกครั้ง แล้วส่ง `order` เดิมพร้อม `replace: true`; ไม่มี draft → ส่งเลย; ปุ่มกดไม่ได้ระหว่างรอคำตอบ; ถูกปฏิเสธ → ข้อความใน Alert เดิม, `episodes_changed`, `clip_not_ready`, `voice_not_found`, `ep_empty`, `transcript_too_long` มี "กลับไปแก้ตั้งค่า"; `gpu_busy`, `draft_locked`, `busy` อ่าน current ใหม่
+  - ค่าของขั้น 1 (D87): ใช้ `order` เมื่อ Draft job ล่าสุดเป็น `kind: "draft"` และยังไม่จบ, `failed` หรือ `cancelled` จนเริ่ม Draft job ใหม่ชนิดใดก็ได้ (EP ที่ไม่อยู่ในการตัดตอนนี้แล้ว → EP แรก); นอกนั้นใช้ Spoil draft แล้วค่าตั้งต้น
+- ขั้น 1 จำคลิปที่เลือกตาม `clip_id` ของ Spoil draft เมื่อมี (เว้นตอนใช้ `order` ด้านบน); เลื่อนจุดตัดบันทึกเมื่อ blur (`PUT /clips/{id}/episodes`)
 - ระหว่าง `locked: true` ทุกช่องแก้ของหน้าตรวจแก้กดไม่ได้ (D51)
 - ปุ่ม "เรียบเรียงใหม่" (D72, D75): เปิดกล่องเลือกก่อนส่ง — ช่องติ๊ก "เรียบเรียงประโยคที่แก้เองด้วย" (ตั้งต้นไม่ติ๊ก, แสดงเมื่อมีประโยค `edited`), "ประโยคที่เปลี่ยนต้องสร้างเสียงใหม่" เมื่อมีประโยคที่มีเสียง; ทุกประโยค `edited` และไม่ติ๊ก → ปุ่ม "เรียบเรียง" กดไม่ได้พร้อม "ทุกประโยคแก้เองแล้ว: ติ๊กเพื่อเรียบเรียงทับ"; ติ๊กแล้วเห็น "ข้อความที่แก้เอง {n} ประโยคจะถูกเขียนทับ ย้อนกลับไม่ได้"; กด "เรียบเรียง" รอการบันทึกประโยคที่ค้างให้จบ แล้วอ่าน `/draft` ใหม่ก่อนส่ง; ระหว่างงาน "กำลังเรียบเรียง" กับปุ่มยกเลิก; จบแล้วบอก "เรียบเรียง {done} ประโยค" หรือ "ไม่มีประโยคที่เปลี่ยน" เมื่อ 0; ประโยค `edited` มีป้าย "แก้เอง" (D74, D76)
 - ตัวเลือก Shot เล่นช่วงด้วย `/api/spoil/clips/{id}/video` เดิมโดยตั้ง `currentTime` เป็น `start` แล้วหยุดที่ `end`
@@ -582,7 +594,8 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 | `has_edits` | "ถอดใหม่จะลบบทพูดที่แก้ไว้" | ยืนยัน → ส่งซ้ำพร้อม `confirm_edit_loss: true` (D54) |
 | `ffmpeg_failed` | "render ไม่สำเร็จ" | กด render ใหม่ |
 | `crashed`, `model_failed` | "งานหยุดกลางทาง" | กดใหม่ |
-| `voice_in_use` | "เสียงนี้ใช้อยู่ใน Spoil draft" | — |
+| `voice_in_use` | "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท" | — |
+| `busy` (Draft job `kind: "draft"`) | "มีงานร่างบทอยู่แล้ว" | อ่าน state ร่วมใหม่ ขั้น 1 ล็อก (D87) |
 | อื่นๆ | `message` จาก backend | — |
 
 ### Ops
@@ -617,6 +630,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
      - คลิปถอดแล้วแต่ไม่ได้บรรยายฉาก → `400` `clip_not_ready` พร้อม id นั้น
      - `target_s` 29, 181, 60.5 → `400` `invalid_target`; `style` `x` → `400` `invalid_request`
      - token ปลอมของ EP 32,001 → `400` `transcript_too_long`; `GET /clips/{id}/episodes` คืน `tokens` 32,001 ใน EP นั้น
+     - `POST /draft-jobs` `kind: "draft"` → `202` และ `GET /draft-jobs/current` มี `order` ตรงกับคำขอพร้อม `clip_title` ของคลิป ทั้งระหว่าง `writing` และหลัง `failed`; `kind: "pick"` และ `"polish"` มี `order` `null` (D82)
    - EP (คลิปทดสอบ 3 วินาทีไม่พอ: ใช้ไฟล์ Shot ปลอมของคลิปยาว 3,600 วินาทีที่ Shot เริ่มทุก 7 วินาที):
      - ไม่มีไฟล์การตัด `ep_minutes` 30 → 2 EP จุดตัดที่ 1,799 (Shot ใกล้ 1,800 สุด)
      - `PUT` `minutes` 25 → 3 EP จุดตัด 1,498 และ 3,003; EP สุดท้ายยาว 597 วินาที; `GET /settings` มี `ep_minutes` 25
@@ -668,7 +682,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
      - TTS ปลอมคืน wav 2 วินาที → `audio.duration_s` 2.0; ยกเลิกหลังประโยคแรก → ประโยคแรก `ready` ประโยคสอง `no_audio`
      - `design_preview` แล้ว `POST /voices` → `201`, `GET /voices` มีเสียงนั้นพร้อม `chars_per_s` = ตัวอักษรของประโยคตัวอย่างหลังแปลง / ความยาว wav ปลอม
      - `design_preview` speed 1.3 หรือ `age` `baby` → `400` `invalid_voice`; `PATCH /voices/{id}` ชื่อ 41 ตัวอักษรหรือช่องว่างล้วน → `400` `invalid_voice`; ชื่อ `ผู้ชายเสียงต่ำ` → `200` และ `GET /voices` เห็นชื่อใหม่
-     - `DELETE /voices/{id}` ที่ Spoil draft ใช้ → `409` `voice_in_use`
+     - `DELETE /voices/{id}` ที่ Spoil draft ใช้ → `409` `voice_in_use`; ที่ `order.voice_id` ของ Draft job `writing` ใช้ → `409` `voice_in_use`, หลังงาน `failed` → `204` (D87)
    - Render:
      - มีประโยค `no_shot` → `400` `missing_shots`; ที่ว่างปลอม 0.5 GiB → `507` `disk_full`
      - draft 2 ประโยค (เสียงปลอม 2.0 และ 1.5 วินาที) layout A, B, C → mp4 1080×1920 ยาว 3.5 ±0.2 วินาที มีเสียง, `.srt` 2 cue ที่ `00:00:00,000 --> 00:00:02,000` และ `00:00:02,000 --> 00:00:03,500`
@@ -698,7 +712,14 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
    - หน้าตั้งค่า: เลือกคลิปได้ทีละคลิป; เลือกคลิป → เห็นรายการ EP จาก `GET /clips/{id}/episodes` พร้อมช่วงเวลาและ "render แล้ว {k}"; เลือก EP ได้ทีละ EP
    - EP ที่ `tokens` 40,000 → ปุ่มร่างกดไม่ได้ และเห็น 40,000 / 32,000
    - เปลี่ยนความยาวต่อ EP เป็น 25 → ส่ง `PUT` `{minutes: 25}`; ตอน `custom: true` → เห็นคำยืนยันก่อนส่ง; `409` `episodes_changed` ตอนกดร่าง → เห็นข้อความและรายการ EP อ่านใหม่; แก้เวลาจุดตัดแล้ว blur → ส่ง `PUT` พร้อม `cuts`; `400` `invalid_episodes` → เห็นข้อความของ code นั้น
-   - กดร่าง → `POST /draft-jobs` มี `clip_id` และ `ep` ที่เลือก
+   - กดร่าง → `POST /draft-jobs` มี `clip_id` และ `ep` ที่เลือก แล้ว hash เป็น `#/spoil/review` (D81)
+   - ขั้น 2 กับ current `writing`, `polishing`, `matching` 4/12 → เห็นการ์ดที่หัว "{clip_title} · EP 2" และขั้นที่กำลังทำตามลำดับ, "เลือกภาพ 4/12"; `done` → `GET /draft` ถูกเรียกใหม่และเห็นประโยค (D81)
+   - ขั้น 1 กับ current `writing` ที่มี `order` → เห็นคลิป EP สไตล์ ความยาว เสียงของ `order` ทุกช่องกดไม่ได้ ไม่มีปุ่มร่าง และ Alert ที่มีลิงก์ไปขั้น 2 (D82)
+   - ขั้น 2 current `failed` `draft_failed` → เห็น "AI ร่างบทไม่สำเร็จ 3 ครั้ง"; กด "ลองอีกครั้ง" → `POST /draft-jobs` ด้วย `order` เดิม; กดยกเลิกระหว่าง `writing` → "กำลังยกเลิก" จน current `cancelled` แล้ว hash เป็น `#/spoil` และค่าของ `order` ยังเลือกอยู่; current จบ `done` หลังกดยกเลิก → เห็นบทและ "ยกเลิกไม่ทัน บทร่างเสร็จแล้ว" (D83, D85)
+   - มี Spoil draft และ current `failed` → "ลองอีกครั้ง" แสดงคำยืนยันร่างทับก่อนส่ง; `POST` ตอบ `409` `episodes_changed` → ข้อความใน Alert พร้อม "กลับไปแก้ตั้งค่า"; กด "กลับไปแก้ตั้งค่า" → ขั้น 1 มีค่าของ `order` (D86, D87)
+   - ขั้น 2 การ์ดแสดงอยู่แล้ว current กลายเป็น `null` → เห็น "งานหยุดกลางทาง" (D87)
+   - `POST /draft-jobs` ตอบ `409` `busy` → เห็น "มีงานร่างบทอยู่แล้ว" และขั้น 1 ล็อก (D87)
+   - การ์ดสไตล์ทั้ง 3 มีบรรทัดอธิบายที่ผูกกับ radio ด้วย `aria-describedby` (D84)
    - มี Spoil draft ของ EP 2 → เปิดขั้น 1 แล้วคลิปนั้นถูกเลือก และ EP 2 มีป้ายว่าอยู่ใน Spoil draft
    - คลิปที่ยังไม่บรรยายฉากเลือกไม่ได้และเห็น "ยังไม่บรรยายฉาก"; ไม่มีคลิปพร้อมเลย → เห็นข้อความว่างพร้อมลิงก์
    - เลือกสไตล์ `drama` → layout เป็น B; เปลี่ยน layout เป็น A ได้
