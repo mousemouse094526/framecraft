@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** ticket 09 เสร็จ; ทุก ticket done รอ feature review
+**Now:** feature review รอบสี่เสร็จ; พร้อม merge
 
-**Next:** `/warroom-build spoil-maker --review-feature`
+**Next:** เปิด PR เข้า `develop`
 
 ## Tickets
 
@@ -20,6 +20,19 @@
 | 09 | ร่างบทแล้วรอที่ขั้นตรวจแก้ | done |
 
 ## Log
+
+### Feature review รอบสี่ — 2026-11-04
+
+**Built:** (`refactor(spoil-maker): feature review fixes`, `438a4e0`)
+- backend: `clip_title` อ่านก่อนจองช่อง GPU (ADR-0015); Draft job เช็คเสียงซ้ำใต้ lock ของ draft และตั้งงานใต้ lock นั้น, `DraftJobs.uses_voice` อ่านงานโดยไม่จับ lock ของ slot — ลบเสียงระหว่างเริ่มร่างได้ `voice_not_found` ไม่มีงานค้าง
+- หน้าเว็บ: ขั้น 1 ที่เปิดค้างเริ่มใหม่จาก `order` เมื่องานอีกแท็บจบ; ยกเลิกที่ backend ไม่ตอบเป็น offline; `runningDraft`, `draftLabel`, `ReplaceConfirm` ใช้ร่วม; `isDrafting` ลบ; ชื่อ `putJob`, `goOffline`, `dropJob`, `replaceDraft`, `keepDraft`; deps ของ effect ครบ
+- test: backend +2 (เสียงถูกลบ และคลิปหาย ระหว่างเริ่มร่าง); ขั้น 2 ย้ายไป `DraftProgress.test.tsx` +3 (Alert หายเมื่อเริ่มงานใหม่, ยกเลิกที่ backend ไม่ตอบ, ขั้น 1 เปิดค้างตอนงานอีกแท็บล้ม), ข้อมูลปลอมใน `setupFixtures.ts`
+- Docs: flow.md diagram 1, 2 และข้อความ (lint + render ผ่าน), spec › Design แถวขั้น 1 และตัวบอกขั้น, skill `vite-react-web`
+
+**Decided:**
+- D89 — แก้จาก feature review รอบสี่ (D88 changed)
+
+**Checks:** `uv run pytest` — 552 passed; `npm --prefix frontend test` — 239 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 09: ร่างบทแล้วรอที่ขั้นตรวจแก้ — done 2026-11-04
 
