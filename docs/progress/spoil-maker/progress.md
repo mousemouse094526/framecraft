@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** merged ([PR #3](https://github.com/mousemouse094526/framecraft/pull/3), `40a89b0`)
+**Now:** change request ตัด EP จากคลิปเดียว (D66–D71) อนุมัติแล้ว; ticket 06–07 พร้อม build
 
-**Next:** —
+**Next:** `/warroom-build spoil-maker 06`
 
 ## Tickets
 
@@ -14,8 +14,18 @@
 | 03 | ร่างบทและหน้าตรวจแก้ | done |
 | 04 | เสียงต่อประโยคและ render | done |
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
+| 06 | ตัด EP จากคลิปเดียว | ready |
+| 07 | ตัวบอกขั้นบอกสถานะจริง | ready |
 
 ## Log
+
+### change request ตัด EP จากคลิปเดียว — 2026-11-04
+
+**Decided:**
+- D66–D69: สปอยทำจาก Temp clip เดียว ตัดเป็น EP ตามความยาว 5–60 นาที (ตั้งต้น 30) ที่ขอบ Shot เลื่อนจุดตัดได้; ทำทีละ EP; ตัวบอกขั้นบอกสถานะจริง — D5 superseded, D53 changed
+- D70–D71: ทางเลือกเล็กและข้อแก้ The Breaker 12 ข้อ (2 BLOCKER: EP อ้างด้วยช่วง `episodes_changed`, lock ของไฟล์การตัด)
+- legal: verdict เดิม (ข้อ 1 รับความเสี่ยงแล้วใน D52)
+- re-cut: ticket 06–07; จอตั้งค่าคลิปสปอยและตัวบอกขั้นกลับเป็น `pending` (Blocked 13, 14)
 
 ### แบบ Figma สวิตช์และคำเตือนลายน้ำ — 2026-11-03
 
@@ -249,3 +259,5 @@
 | 10 | review | SVG 6 ไฟล์ซ้ำกันใน `spoil/assets/` และ `spoil-maker/assets/`; งานใหม่ทุกงานต้องแก้สองรายการใน lifespan ของ `app.py` | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 11 | review | ลายน้ำ `top_center` ทับ hook ของ layout A (D41 ยอมให้ทับ) — เตือนในหน้าเว็บหรือย้าย hook ลง | `/warroom tickets spoil-maker` | done (ticket 05) |
 | 12 | review | design: สวิตช์ลายน้ำและคำเตือนลายน้ำทับใน Figma Script review (D64, D65) | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390)) |
+| 13 | 06 | design: ตั้งค่าคลิปสปอย — เลือกคลิปเดียว รายการ EP เลื่อนจุดตัด (D66, D67, D69) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
+| 14 | 07 | design: ตัวบอกขั้นของ tab สปอย — บรรทัดสถานะและจุดหมุน (D68) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |

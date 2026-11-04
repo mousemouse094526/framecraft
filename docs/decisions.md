@@ -55,7 +55,7 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | แถบ tab บน: สปอย (`#/spoil`), Setup status (`#/setup`), default Setup status, ไม่ใช้ router library | [spoil](features/spoil/decisions.md) | D10 | — | — | changed by spoil-maker D53 |
-| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | — | — | active |
+| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | — | — | changed by spoil-maker D68 |
 | ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil | — | active |
 | แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |
 | font มากับ `@fontsource` ใน project ไม่โหลดจาก CDN | [setup-status](features/setup-status/decisions.md) | D19 | — | [0003](adr/0003-everything-inside-project.md) | active |
@@ -131,7 +131,7 @@ question; the full entry is in the feature's decisions.md.
 | สร้างคลิปสปอยเป็น feature ใหม่ `spoil-maker` ใน tab สปอย ใช้ Temp clip กับ Transcript ของ spoil | [spoil-maker](features/spoil-maker/decisions.md) | D1 | — | — | changed by spoil-maker D53 |
 | ทุกอย่างต้องฟรี: โมเดลและโปรแกรมในเครื่อง ไม่มี API ที่ต้องจ่าย | [spoil-maker](features/spoil-maker/decisions.md) | D2 | — | — | active |
 | AI ในเครื่องร่างบทสปอยจาก Transcript แล้วผู้ใช้แก้ทุกประโยคได้ก่อนสร้างเสียง | [spoil-maker](features/spoil-maker/decisions.md) | D4 | — | — | active |
-| คลิปสปอยหนึ่งคลิปทำจาก Temp clip ที่ถอดแล้วได้หลาย EP เรียงลำดับเอง | [spoil-maker](features/spoil-maker/decisions.md) | D5 | — | — | active |
+| คลิปสปอยหนึ่งคลิปทำจาก Temp clip ที่ถอดแล้วได้หลาย EP เรียงลำดับเอง | [spoil-maker](features/spoil-maker/decisions.md) | D5 | — | — | superseded by spoil-maker D66 |
 | เสียงบรรยายจาก OmniVoice เลือกเสียงตัวอย่างหรือ clone จากไฟล์เสียงสั้นได้ ใช้ซ้ำทุกคลิป | [spoil-maker](features/spoil-maker/decisions.md) | D6 | — | [0007](adr/0007-non-commercial-use.md) | changed by spoil-maker D48 |
 | เลือก preset สไตล์ 3 แบบตามคลิปตัวอย่าง แล้วใส่ความยาวเป้าหมายเป็นวินาที | [spoil-maker](features/spoil-maker/decisions.md) | D7 | — | — | active |
 | layout 3 แบบตามคลิปตัวอย่าง เลือกแยกจากสไตล์ ทุกแบบได้ 1080×1920 | [spoil-maker](features/spoil-maker/decisions.md) | D8 | — | — | active |
@@ -173,3 +173,9 @@ question; the full entry is in the feature's decisions.md.
 | spoil-maker ทำบน Mac อย่างเดียว; Windows เป็น feature แยก `windows-launch` | [spoil-maker](features/spoil-maker/decisions.md) | D50 | — | [0016](adr/0016-single-os-library-ports-separately.md) | active |
 | ข้อแก้ red team: ไฟล์ Shot ใน `media/temp/shots/` สลับตอนจบ, lock ของ draft, render คืน GPU หลัง voicing, ค่า LLM, escape ASS, error แบบ spoil, ลายน้ำขาวขอบดำ, 3 seam | [spoil-maker](features/spoil-maker/decisions.md) | D51 | — | [0015](adr/0015-one-gpu-slot.md) | active |
 | รับความเสี่ยงลิขสิทธิ์ของภาพและเสียงต้นฉบับในคลิปสปอยที่เผยแพร่ (legal 1 UNVERIFIED) | [spoil-maker](features/spoil-maker/decisions.md) | D52 | — | — | active |
+| คลิปสปอยทำจาก Temp clip เดียว: ใส่ความยาวต่อ EP (นาที) แอปตัดเท่ากันจากต้นคลิปที่ขอบ Shot, เลื่อนจุดตัดเองได้, 1 EP = 1 คลิปสปอย | [spoil-maker](features/spoil-maker/decisions.md) | D66 | — | — | active |
+| ทำสปอยทีละ EP: เลือก EP เดียวต่อ Spoil draft (draft งานเดียวตาม D28), หน้าเลือก EP แสดงเลข ช่วงเวลา ภาพเล็ก เลือกง่าย | [spoil-maker](features/spoil-maker/decisions.md) | D67 | — | — | active |
+| ตัวบอกขั้นของ tab สปอย: ไม่มีเครื่องหมายถูกตามตำแหน่ง ทุกขั้นกดได้ บรรทัดสถานะจริงใต้แต่ละขั้น (EP ที่เลือก, กำลังร่าง/สร้างเสียง x/y/จำนวนประโยค, render %/จำนวนคลิป) จุดหมุนเมื่องานรัน | [spoil-maker](features/spoil-maker/decisions.md) | D68 | — | — | active |
+| ความยาวต่อ EP 5–60 นาที ทีละ 5 ตั้งต้น 30 จำค่าล่าสุด | [spoil-maker](features/spoil-maker/decisions.md) | D69 | — | — | active |
+| ทางเลือกเล็กตัด EP: `media/temp/episodes/{id}.json` ของคลิป, จุดตัดที่ขอบ Shot, draft `version` 2 `clip_id` + `ep`, Transcript และ Shot เฉพาะช่วง EP, ผล render มี EP, ตัวบอกขั้นใช้ route เดิม | [spoil-maker](features/spoil-maker/decisions.md) | D70 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | changed by spoil-maker D71 |
+| ข้อแก้ Breaker ตัด EP: draft อ้าง EP ด้วยช่วง (`episodes_changed`), ไฟล์การตัดเขียนตอน GET แรกและอยู่ใต้ lock, ไฟล์เสียตัดใหม่, EP เดียวสั้นได้, `ep_empty`, ตัวบอกขั้นอ่านใหม่เมื่องานจบ, lock ของ settings | [spoil-maker](features/spoil-maker/decisions.md) | D71 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |

@@ -22,20 +22,21 @@ flowchart LR
     end
     subgraph spoil["tab สปอย"]
         direction TB
-        setup["ขั้น 1 เลือกคลิป<br/>EP สไตล์ ความยาว เสียง"] -->|กดร่างบท| draftjob["Draft job"]
+        setup["ขั้น 1 เลือกคลิป<br/>ตัดและเลือก EP<br/>สไตล์ ความยาว เสียง"] -->|กดร่างบท| draftjob["Draft job"]
         draftjob -->|draft.json| review["ขั้น 2 ตรวจแก้บท"]
         review -->|สร้างเสียง| voicejob["Voice job"]
         review -->|กด render| render["Render job"]
         voicejob -->|เสียงต่อประโยค| render
         render -->|mp4 + .srt| renders["ขั้น 3 ผล render"]
     end
-    ready -->|เลือกและเรียง| setup
+    ready -->|เลือกคลิปเดียว| setup
     edit -.->|ข้อความที่แก้| setup
     voice["Saved voice"] -->|เลือกเสียง| setup
 ```
 
 **ผู้ใช้ทำคลิปสปอยหนึ่งคลิปผ่านขั้นไหนบ้าง**
 - เตรียมคลิปใน tab คลิป แล้วทำสปอยใน tab สปอย 3 ขั้น (D53)
+- ขั้น 1 เลือกคลิปเดียว แอปตัดเป็น EP ตามความยาวต่อ EP แล้วทำทีละ EP (D66, D67)
 - แก้ Transcript ก่อนร่างบทได้; Draft job และ token ใช้ข้อความที่แก้ (D54)
 - Describe job ทำครั้งเดียวต่อคลิป ใช้ราว 45 นาทีต่อหนัง 96 นาที (D16, D18)
 - Saved voice สร้างก่อนครั้งเดียว ใช้ซ้ำทุกคลิป (D32)
@@ -54,11 +55,11 @@ sequenceDiagram
     UI->>API: POST /draft-jobs
     API->>API: เช็คคลิป token ช่อง GPU
     API-->>UI: 202 writing
-    API->>W: Transcript ทุก EP
+    API->>W: Transcript ของ EP
     W-->>API: JSON บท (สูงสุด 3 ครั้ง)
     API->>API: ตัดอักษรจีน ตรวจ refs
     loop ทุกประโยคที่มี refs
-        API->>W: Shot ในช่วง ±30 วินาที
+        API->>W: Shot ในช่วง ±30 วินาทีภายใน EP
         W-->>API: 2 Shot
     end
     API->>API: เขียน draft.json คืนช่อง GPU
@@ -68,7 +69,7 @@ sequenceDiagram
 
 **ร่างบทกับเลือก Shot ต่อกันในงานเดียวอย่างไร**
 - JSON พังหรือความยาวนอก ±25% สั่งใหม่ได้รวม 3 ครั้ง; ไม่มีผลที่อ่านได้เลย = `draft_failed` (D18)
-- token รวมเกิน 32,000 ไม่เริ่มงาน: `400` `transcript_too_long` (D46)
+- token ของ EP เกิน 32,000 ไม่เริ่มงาน: `400` `transcript_too_long` (D46)
 - ประโยคที่ไม่มี refs ข้ามขั้นเลือก Shot ได้ `[null, null]` (D18, D26)
 - ยกเลิกหรือ crash ก่อนเขียน draft.json: Spoil draft เดิมไม่เปลี่ยน
 - `kind: "pick"` ทำเฉพาะ loop กับประโยคเดียว (D25)
