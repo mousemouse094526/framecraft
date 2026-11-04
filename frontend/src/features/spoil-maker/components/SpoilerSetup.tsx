@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
-import { isRunning } from "../../../lib/job";
 import type { RefusalLine } from "../../../lib/refusal";
-import { epLabel, REVIEW_HASH, wholeDraft, type DraftAsk, type DraftOrder, type WholeDraftJob } from "../lib/draft";
+import { draftLabel, REVIEW_HASH, runningDraft, wholeDraft, type DraftAsk, type DraftOrder, type WholeDraftJob } from "../lib/draft";
 import { useEpisodes, type Episode, type Episodes } from "../hooks/useEpisodes";
 import { useSpoilerSetup, type Banner, type SetupState } from "../hooks/useSpoilerSetup";
 import { useDraftRun } from "../hooks/useStepStatus";
@@ -26,7 +25,10 @@ export function SpoilerSetup() {
   if (state.kind === "offline") return <OfflinePanel />;
   // The form starts from the latest whole draft's order, so it waits for the steps too (D87).
   if (state.kind === "loading" || !run.loaded) return <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>;
-  return <SetupForm state={state} job={wholeDraft(run.job)} onDraft={draft} onAskReplace={askReplace} />;
+  const job = wholeDraft(run.job);
+  // A job that ends while the form is open (another tab's) starts the form again from its order (D87).
+  const formKey = runningDraft(job) ? "locked" : (job?.started_at ?? "");
+  return <SetupForm key={formKey} state={state} job={job} onDraft={draft} onAskReplace={askReplace} />;
 }
 
 /** Why an EP can't be drafted (spec › Frontend, D71); null when it can. */
@@ -74,7 +76,7 @@ function orderEp(cut: Episodes, order: DraftOrder): Episode | null {
 
 function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
   const order = orderOf(job);
-  const locked = job !== null && isRunning(job);
+  const locked = runningDraft(job) !== null;
   // While it runs, every field shows its order, even one started in another tab (D82).
   const lockedOrder = locked ? order : null;
   const pickable = (id: string | null) => state.clips.some((clip) => clip.id === id && isReady(clip));
@@ -132,7 +134,6 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ลองอีกครั้ง sends the same draft again; a draft there was already agreed to be replaced. */}
       {state.banner && <SetupBanner banner={state.banner} />}
       {locked && order && (
         <Alert
@@ -143,7 +144,7 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
             </a>
           }
         >
-          กำลังร่างบท {order.clip_title} · {epLabel(order.ep.n)}: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้
+          กำลังร่างบท {draftLabel(order)}: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้
         </Alert>
       )}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -152,7 +153,7 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
           {locked && order && shownClipId === null && (
             // The order's clip is no longer in the list: its title only, no EPs (spec › Frontend).
             <p className="rounded-2xl border border-border bg-card px-4 py-3.5 text-sm leading-[21px] font-medium text-foreground">
-              {order.clip_title} · {epLabel(order.ep.n)}
+              {draftLabel(order)}
             </p>
           )}
           {shownClipId !== null && (

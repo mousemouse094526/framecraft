@@ -1,5 +1,6 @@
 // The shapes of the Spoil draft, the Draft job and Shots (backend.spoil_maker.draft, spoil-maker spec › API).
 import { sendJson } from "../../../lib/api";
+import { isRunning } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 
 export type Style = "fast" | "drama" | "chrono";
@@ -110,6 +111,15 @@ export type WholeDraftJob = DraftJob & { kind: "draft"; order: DraftOrder };
 export const wholeDraft = (job: DraftJob | null): WholeDraftJob | null =>
   job?.kind === "draft" && job.order !== null ? (job as WholeDraftJob) : null;
 
+/** The whole new draft that still runs: it locks step 1 and shows its card on step 2 (D81, D82). */
+export const runningDraft = (job: DraftJob | null): WholeDraftJob | null => {
+  const whole = wholeDraft(job);
+  return whole && isRunning(whole) ? whole : null;
+};
+
+/** "{clip title} · EP {n}": what a draft or an order is of (D68, D82). */
+export const draftLabel = (of: { clip_title: string; ep: Ep }): string => `${of.clip_title} · ${epLabel(of.ep.n)}`;
+
 /** What ตรวจแก้บท says of the Draft jobs it starts, which change the draft it shows (D25, D72). */
 const REVIEW_JOB_TEXT: Record<"pick" | "polish", { doing: string; label: string; waitingFor: string }> = {
   pick: { doing: "AI กำลังเลือก Shot ใหม่", label: "ความคืบหน้าการเลือก Shot", waitingFor: "รอให้ AI เลือก Shot เสร็จก่อน" },
@@ -135,9 +145,6 @@ export const REVIEW_HASH = "#/spoil/review";
 export const RENDERS_HASH = "#/spoil/renders";
 export const VOICES_HASH = "#/spoil/voices";
 
-/** Whether the job still runs; null is no job. */
-export const isDrafting = (job: DraftJob | null): boolean =>
-  job !== null && (job.state === "writing" || job.state === "polishing" || job.state === "matching");
 
 /** A model or a child that stopped says the same thing (spec › Frontend); the rest say the API's message. */
 export function jobFailureText(job: DraftJob): string {

@@ -2,132 +2,32 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
-import type { TempClip } from "../../../lib/clips";
-import type { DraftJob, DraftOrder } from "../lib/draft";
-import type { Episode, Episodes } from "../hooks/useEpisodes";
-import type { Voice } from "../hooks/useVoices";
 import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "./testBackend";
-
-const CLIPS_PATH = "/api/spoil/clips";
-const VOICES_PATH = "/api/spoil-maker/voices";
-const SETTINGS_PATH = "/api/spoil-maker/settings";
-const DRAFT_PATH = "/api/spoil-maker/draft";
-const JOBS_PATH = "/api/spoil-maker/draft-jobs";
-const CURRENT_PATH = "/api/spoil-maker/draft-jobs/current";
-const REVIEW_HASH = "#/spoil/review";
-
-function clipOf(id: string, title: string, change: Partial<TempClip> = {}): TempClip {
-  return {
-    id,
-    title,
-    channel: "ช่อง",
-    source_url: `https://www.youtube.com/watch?v=${id}`,
-    duration_s: 1420,
-    width: 1920,
-    height: 1080,
-    orientation: "landscape",
-    file_bytes: 1_000_000,
-    thumbnail: null,
-    downloaded_at: "2026-11-01T10:00:00+07:00",
-    yt_dlp_version: "2026.10.26",
-    transcribed: true,
-    described: true,
-    in_draft: false,
-    ...change,
-  };
-}
-
-const FILM = clipOf("aaaaaaaaaaa", "คืนสยองผีดิบ", { duration_s: 3600 });
-const OTHER = clipOf("bbbbbbbbbbb", "ไททัน ตอนที่ 2");
-const UNDESCRIBED = clipOf("ccccccccccc", "ไททัน ตอนที่ 3", { described: false });
-const UNTRANSCRIBED = clipOf("ddddddddddd", "นางนาก", { transcribed: false, described: false });
-
-const UNCLE: Voice = {
-  id: "v_0000abcd",
-  name: "ลุงเล่าผี",
-  speed: 1,
-  chars_per_s: 15,
-  created_at: "2026-11-02T10:00:00+07:00",
-  in_use: false,
-};
-
-/** What ร่างบท sent for EP 1 of FILM, as the job keeps it (D82). */
-const ORDER: DraftOrder = {
-  clip_id: FILM.id,
-  clip_title: FILM.title,
-  ep: { n: 1, start_s: 0, end_s: 1799 },
-  style: "drama",
-  layout: "B",
-  target_s: 60,
-  voice_id: UNCLE.id,
-};
-
-function jobOf(change: Partial<DraftJob>): DraftJob {
-  return {
-    kind: "draft",
-    state: "writing",
-    done: null,
-    total: null,
-    error: null,
-    cancel_requested: false,
-    started_at: "2026-11-02T11:00:00+07:00",
-    order: ORDER,
-    ...change,
-  };
-}
-
-/** A Spoil draft with no sentences: enough for ตรวจแก้บท and the steps to read (spec › API). */
-const EMPTY_DRAFT = {
-  clip_id: OTHER.id,
-  ep: { n: 1, start_s: 0, end_s: 1420 },
-  clip_title: OTHER.title,
-  style: "drama",
-  layout: "B",
-  target_s: 60,
-  voice_id: UNCLE.id,
-  original_volume: 20,
-  top_text: "",
-  sentences: [],
-  estimated_total_s: 0,
-  locked: false,
-};
-
-function epOf(n: number, start_s: number, end_s: number, change: Partial<Episode> = {}): Episode {
-  return { n, start_s, end_s, thumb_shot: n * 10, lines: 30, tokens: 18_400, renders: 0, in_draft: false, ...change };
-}
-
-/** FILM cut at 30 minutes: EP 1 and EP 2 meet at 29:59 (spoil-maker spec › EP). */
-function cutOf(change: Partial<Episodes> = {}): Episodes {
-  return {
-    clip_id: FILM.id,
-    minutes: 30,
-    custom: false,
-    episodes: [epOf(1, 0, 1799), epOf(2, 1799, 3600, { renders: 2 })],
-    limit: 32_000,
-    tokens_not_ready: null,
-    ...change,
-  };
-}
-
-const EPISODES = `/api/spoil-maker/clips/${FILM.id}/episodes`;
+import {
+  CLIPS_PATH,
+  CURRENT_PATH,
+  cutOf,
+  DRAFT_PATH,
+  EMPTY_DRAFT,
+  EPISODES,
+  epOf,
+  FILM,
+  jobOf,
+  JOBS_PATH,
+  ORDER,
+  OTHER,
+  REVIEW_HASH,
+  SETTINGS_PATH,
+  setupDefaults,
+  UNCLE,
+  UNDESCRIBED,
+  UNTRANSCRIBED,
+  VOICES_PATH,
+} from "./setupFixtures";
 
 /** Fake backend: the first matching route answers; one of several for a path answers once, the last keeps answering. */
 function backend(routes: Route[]) {
-  const defaults: [string, unknown][] = [
-    [CLIPS_PATH, { clips: [FILM, OTHER] }],
-    [VOICES_PATH, [UNCLE]],
-    [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null, ep_minutes: 30 }],
-    [DRAFT_PATH, null],
-    [CURRENT_PATH, null],
-    // What the steps and ตรวจแก้บท read besides: the drafting opens ตรวจแก้บท (D81).
-    ["/api/spoil-maker/voice-jobs/current", null],
-    ["/api/spoil-maker/renders/current", null],
-    ["/api/spoil-maker/renders", []],
-    [`/api/spoil-maker/clips/${OTHER.id}/shots`, { shots: [] }],
-    [EPISODES, cutOf()],
-    [`/api/spoil-maker/clips/${OTHER.id}/episodes`, cutOf({ clip_id: OTHER.id, episodes: [epOf(1, 0, 1420)] })],
-  ];
-  serve(fetchMock, routes, defaults);
+  serve(fetchMock, routes, setupDefaults());
 }
 
 const reads = (path: string) =>
@@ -503,141 +403,5 @@ describe("ตั้งค่าคลิปสปอย", () => {
     await user.click(draftButton());
 
     expect(await screen.findByText("รอให้งานบรรยายฉากเสร็จก่อน")).toBeInTheDocument();
-  });
-});
-
-describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83, D85–D87)", () => {
-  async function openReview() {
-    window.location.hash = REVIEW_HASH;
-    render(<App />);
-    return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-  }
-
-  it("ยกเลิก says กำลังยกเลิก until the job stops, then opens step 1 with the order picked", async () => {
-    const current = phased(CURRENT_PATH, jobOf({}), jobOf({ cancel_requested: true }), jobOf({ state: "cancelled", cancel_requested: true }));
-    backend([current.route, send("DELETE", CURRENT_PATH, jobOf({ cancel_requested: true }), 202)]);
-    const user = await openReview();
-    const cancel = await screen.findByRole("button", { name: "ยกเลิก" });
-
-    current.phases.at = 1; // what the backend says once the cancel is asked
-    await user.click(cancel);
-
-    expect(sent("DELETE", CURRENT_PATH)).toHaveLength(1);
-    expect(screen.getByText("กำลังยกเลิก")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeDisabled();
-    await nextPoll();
-    expect(window.location.hash).toBe(REVIEW_HASH); // still cancelling: the job hasn't stopped (D85)
-    current.phases.at = 2;
-    await nextPoll();
-    expect(await screen.findByRole("region", { name: "เลือกคลิป" })).toBeInTheDocument();
-    expect(window.location.hash).toBe("#/spoil");
-    expect(await screen.findByRole("radio", { name: "เลือก EP 1" })).toBeChecked();
-  });
-
-  it("a job that ends done after ยกเลิก shows the script with ยกเลิกไม่ทัน บทร่างเสร็จแล้ว", async () => {
-    const current = phased(CURRENT_PATH, jobOf({}), jobOf({ state: "done", cancel_requested: true }));
-    backend([current.route, send("DELETE", CURRENT_PATH, jobOf({ cancel_requested: true }), 202)]);
-    const user = await openReview();
-
-    await user.click(await screen.findByRole("button", { name: "ยกเลิก" }));
-    current.phases.at = 1;
-    await nextPoll();
-
-    expect(await screen.findByText("ยกเลิกไม่ทัน บทร่างเสร็จแล้ว")).toBeInTheDocument();
-    expect(window.location.hash).toBe(REVIEW_HASH);
-  });
-
-  it("a failed draft says why; ลองอีกครั้ง asks before replacing the draft there, then sends the order again", async () => {
-    const failed = jobOf({ state: "failed", error: { code: "draft_failed", message: "AI ร่างบทไม่สำเร็จ 3 ครั้ง" } });
-    const current = phased(CURRENT_PATH, failed, jobOf({}));
-    backend([current.route, get(DRAFT_PATH, EMPTY_DRAFT), send("POST", JOBS_PATH, jobOf({}), 202)]);
-    const user = await openReview();
-
-    expect(await screen.findByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toHaveAttribute("href", "#/spoil");
-    await user.click(screen.getByRole("button", { name: "ลองอีกครั้ง" }));
-    expect(screen.getByText("มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม")).toBeInTheDocument();
-    expect(sent("POST", JOBS_PATH)).toEqual([]);
-    current.phases.at = 1;
-    await user.click(screen.getByRole("button", { name: "ร่างทับ" }));
-
-    const { clip_title: _title, ...order } = ORDER;
-    expect(sent("POST", JOBS_PATH)).toEqual([{ kind: "draft", ...order, replace: true }]);
-    expect(await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" })).toBeInTheDocument();
-  });
-
-  it("ลองอีกครั้ง refused as episodes_changed says so and offers only กลับไปแก้ตั้งค่า", async () => {
-    const failed = jobOf({ state: "failed", error: { code: "draft_failed", message: "AI ร่างบทไม่สำเร็จ 3 ครั้ง" } });
-    const changed = { code: "episodes_changed", message: "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง" };
-    backend([get(CURRENT_PATH, failed), send("POST", JOBS_PATH, changed, 409)]);
-    const user = await openReview();
-
-    await user.click(await screen.findByRole("button", { name: "ลองอีกครั้ง" }));
-
-    expect(await screen.findByText("การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
-  });
-
-  it("กลับไปแก้ตั้งค่า after a failure opens step 1 with the order picked", async () => {
-    const failed = jobOf({ state: "failed", order: { ...ORDER, ep: { n: 2, start_s: 1799, end_s: 3600 } }, error: { code: "draft_failed", message: "AI ร่างบทไม่สำเร็จ 3 ครั้ง" } });
-    backend([get(CURRENT_PATH, failed)]);
-    const user = await openReview();
-
-    await user.click(await screen.findByRole("link", { name: "กลับไปแก้ตั้งค่า" }));
-
-    expect(await screen.findByRole("radio", { name: "เลือก EP 2" })).toBeChecked();
-  });
-
-  it("a job that goes away while its card shows says งานหยุดกลางทาง", async () => {
-    const current = phased(CURRENT_PATH, jobOf({}), null);
-    backend([current.route]);
-    await openReview();
-    await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
-
-    current.phases.at = 1;
-    await nextPoll();
-
-    expect(await screen.findByText("งานหยุดกลางทาง")).toBeInTheDocument();
-  });
-
-  it("a failed poll while the card shows says offline, then the card comes back once the backend answers", async () => {
-    let down = false;
-    backend([{ path: CURRENT_PATH, reply: () => (down ? Promise.reject(new TypeError("offline")) : jsonResponse(jobOf({}))) }]);
-    await openReview();
-    await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
-
-    down = true;
-    await nextPoll();
-    expect(await screen.findByRole("heading", { name: "Backend offline" })).toBeInTheDocument();
-    down = false;
-    await nextPoll();
-
-    expect(await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" })).toBeInTheDocument();
-  });
-
-  it("a job of another kind in place of the card's says งานหยุดกลางทาง", async () => {
-    const current = phased(CURRENT_PATH, jobOf({}), jobOf({ kind: "pick", state: "matching", done: 0, total: 1, order: null }));
-    backend([current.route]);
-    await openReview();
-    await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
-
-    current.phases.at = 1;
-    await nextPoll();
-
-    expect(await screen.findByText("งานหยุดกลางทาง")).toBeInTheDocument();
-  });
-
-  it("a draft that ends done while step 1 is open stays on step 1", async () => {
-    const current = phased(CURRENT_PATH, jobOf({}), jobOf({ state: "done", done: 12, total: 12 }));
-    backend([current.route]);
-    await openSetup();
-    await screen.findByText(`กำลังร่างบท ${FILM.title} · EP 1: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้`);
-
-    current.phases.at = 1;
-    await nextPoll();
-
-    expect(window.location.hash).toBe("#/spoil");
-    expect(await screen.findByRole("button", { name: "ร่างบท" })).toBeInTheDocument();
   });
 });

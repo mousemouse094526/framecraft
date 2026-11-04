@@ -465,6 +465,35 @@ def test_a_draft_job_carries_its_order_while_writing_and_after_it_fails(client, 
     assert (failed["state"], failed["order"]) == ("failed", expected)
 
 
+def test_a_voice_deleted_while_a_draft_starts_is_voice_not_found_and_frees_the_gpu(client, project, ready, monkeypatch):
+    # The token count runs between the first voice check and the draft's lock (D87).
+    def count_and_delete(snapshot_dir: Path, text: str) -> int:
+        client.delete(f"/api/spoil-maker/voices/{VOICE}")
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count_and_delete)
+
+    response = start(client)
+
+    assert (response.status_code, response.json()["code"]) == (400, "voice_not_found")
+    assert not (project.voices_dir / f"{VOICE}.json").exists()
+    assert gpu.slot.holds_draft() is False
+    assert client.get(CURRENT).json() is None
+
+
+def test_a_clip_gone_while_a_draft_starts_does_not_hold_the_gpu(client, project, ready, monkeypatch):
+    def count_and_delete(snapshot_dir: Path, text: str) -> int:
+        project.clip_json(EP1).unlink()
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count_and_delete)
+
+    response = start(client)
+
+    assert response.status_code == 404
+    assert gpu.slot.holds_draft() is False
+
+
 def test_a_cancelled_draft_job_keeps_its_order(client, project, ready, llm):
     llm.scripts = [passing_script()]
     llm.pause_at(0)

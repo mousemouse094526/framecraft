@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { Alert } from "../../../components/ui/Alert";
-import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import chevronDownIcon from "../assets/chevron-down.svg";
 import radioSelectedIcon from "../assets/radio-selected.svg";
 import radioIcon from "../assets/radio.svg";
@@ -8,6 +8,7 @@ import { STYLES, VOICES_HASH, type Layout, type Style } from "../lib/draft";
 import type { Episode } from "../hooks/useEpisodes";
 import type { RefusalLine } from "../../../lib/refusal";
 import type { Voice } from "../hooks/useVoices";
+import { ReplaceConfirm } from "./ReplaceConfirm";
 
 const LAYOUTS: Layout[] = ["A", "B", "C"];
 export const TARGET_MIN = 30;
@@ -264,21 +265,7 @@ function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number | 
 
 /** Figma component `Draft action`: ร่างบท and the ask before replacing a draft (D28); the drafting shows on ตรวจแก้บท (D81). */
 function DraftAction({ canDraft, confirmingReplace, onDraft, onReplace, onKeep }: Props) {
-  if (confirmingReplace) {
-    return (
-      <div className="flex flex-col gap-2">
-        <Alert tone="warning">มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม</Alert>
-        <div className="flex gap-2">
-          <button type="button" autoFocus onClick={onReplace} className={`h-11 flex-1 px-6 sm:h-10 sm:flex-none ${PRIMARY_BUTTON}`}>
-            ร่างทับ
-          </button>
-          <button type="button" onClick={onKeep} className={`h-11 flex-1 px-6 sm:h-10 sm:flex-none ${OUTLINE_BUTTON}`}>
-            ยกเลิก
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (confirmingReplace) return <ReplaceConfirm onReplace={onReplace} onKeep={onKeep} />;
   return (
     <button type="button" onClick={onDraft} disabled={!canDraft} className={`h-11 w-full px-6 sm:h-10 ${PRIMARY_BUTTON} disabled:opacity-50`}>
       ร่างบท

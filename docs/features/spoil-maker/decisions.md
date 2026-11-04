@@ -1415,7 +1415,25 @@
 
 **Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; เลือกตามโค้ดเดิม (`useStepStatus`, `useJobCalls`, `transcribe.clip_users`) และ review สามแกน.
 
-**From:** build ticket 09 · **Status:** active
+**From:** build ticket 09 · **Status:** changed by D89 (`voice_in_use` เช็คใต้ lock ของ draft)
+
+## D89: แก้จาก feature review รอบสี่
+
+**Chosen:** แก้ทุกข้อที่ผู้ใช้เลือกจาก review สามแกนของ change request ร่างบทไปขั้น 2 (bug backend, พฤติกรรมหน้าเว็บ, docs, เก็บกวาดโค้ด).
+
+**Details:**
+- **GPU ไม่ค้าง (ADR-0015):** `clip_title` ของ `order` อ่านก่อนจองช่อง GPU
+- **ลบเสียงระหว่างเริ่มร่าง (D87):** Draft job เช็คเสียงซ้ำใต้ lock ของ draft และตั้งงานใต้ lock นั้น; `DraftJobs.uses_voice` อ่านงานโดยไม่จับ lock ของ slot จึงเรียกใต้ lock ของ draft ได้โดยลำดับ lock ไม่กลับ — แทน Details ข้อ `voice_in_use` ของ D88 ("ถามงานก่อนจับ lock")
+- **ขั้น 1 ที่เปิดค้าง:** งานของอีกแท็บจบ (ล้ม ยกเลิก) → ฟอร์มเริ่มใหม่จาก `order`
+- **ยกเลิกที่ backend ไม่ตอบ** → offline (เดิมถือว่างานจบแล้ว)
+- **โค้ดใช้ร่วม:** `runningDraft`, `draftLabel` ใน `lib/draft.ts`; `isDrafting` ลบ ใช้ `isRunning`; คำยืนยันร่างทับเป็น component `ReplaceConfirm` ของขั้น 1 และขั้น 2; ชื่อ `putJob`, `goOffline`, `dropJob`, `replaceDraft`, `keepDraft`
+- **test:** ขั้น 2 ย้ายไป `DraftProgress.test.tsx`, ข้อมูลปลอมใช้ร่วมใน `setupFixtures.ts`; เพิ่ม Alert ร่างล้มหายเมื่อเริ่ม Draft job ใหม่, ยกเลิกที่ backend ไม่ตอบ, ขั้น 1 เปิดค้างตอนงานอีกแท็บล้ม, เสียงถูกลบระหว่างเริ่มร่าง, คลิปหายระหว่างเริ่มร่าง
+- **docs:** flow.md (ร่างบทเปิดขั้น 2, ยกเลิก, ลองอีกครั้ง, restart), spec › Design แถวขั้น 1 และตัวบอกขั้น, skill `vite-react-web` (`lib/draft.ts`, `DraftRunContext`, `lib/` ที่เรียก `lib/api`)
+- **ไม่แก้:** `Brief`/`_CheckedOrder`/`DraftOrder` ใน backend (คนละหน้าที่: คำสั่ง LLM, ไฟล์ที่ thread อ่าน, สิ่งที่หน้าเว็บแสดง); ยกเลิกงานร่างจริงยังไม่ได้ลอง (test และ fetch ปลอม)
+
+**Why:** ผู้ใช้เลือกแก้ทั้งสี่กลุ่ม; ไม่เปลี่ยนสิ่งที่ spec สัญญาต่อผู้ใช้.
+
+**From:** feature review 2026-11-04 · **Status:** active
 
 ## Sources
 

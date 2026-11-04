@@ -1,6 +1,6 @@
 // What each step of the สปอย tab says under its name (spoil-maker D68, D71).
 import { isRunning } from "../../../lib/job";
-import { epLabel, wholeDraft, type Draft, type DraftJob } from "./draft";
+import { draftLabel, runningDraft, type Draft, type DraftJob } from "./draft";
 import type { RenderJob, RenderResult, SentencesJob } from "./render";
 
 /** What the steps read; `undefined` is not read yet (no line), a job is the latest of its kind or null. */
@@ -25,10 +25,10 @@ export function stepLines(status: StepStatus): StepLines {
 
 function clipLine(draft: Draft | null | undefined, job: DraftJob | null): StepLine {
   // While a whole new draft is written, step 1 names what it is written from (D87).
-  const drafting = wholeDraft(job);
-  if (drafting && isRunning(drafting)) return { text: `${drafting.order.clip_title} · ${epLabel(drafting.order.ep.n)}`, busy: false };
+  const drafting = runningDraft(job);
+  if (drafting) return { text: draftLabel(drafting.order), busy: false };
   if (draft === undefined) return { text: "", busy: false };
-  return { text: draft ? `${draft.clip_title} · ${epLabel(draft.ep.n)}` : "ยังไม่เลือก", busy: false };
+  return { text: draft ? draftLabel(draft) : "ยังไม่เลือก", busy: false };
 }
 
 function reviewLine({ draft, draftJob, voiceJob }: StepStatus): StepLine {

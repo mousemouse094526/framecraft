@@ -96,7 +96,7 @@ export function useSpoilerSetup() {
       const reply = await sendDraft(order, replace);
       if (reply.kind === "started") {
         // In the steps' state before the hash changes: ตรวจแก้บท opens on the job, not on no draft (D87).
-        run.show(reply.job);
+        run.putJob(reply.job);
         refreshSteps();
         window.location.hash = REVIEW_HASH;
         return null;

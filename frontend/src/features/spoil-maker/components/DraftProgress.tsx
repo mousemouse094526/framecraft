@@ -1,9 +1,10 @@
 import { Alert } from "../../../components/ui/Alert";
-import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import checkWhiteIcon from "../assets/check-white.svg";
-import { epLabel, SETUP_HASH, STYLES, type WholeDraftJob } from "../lib/draft";
+import { draftLabel, SETUP_HASH, STYLES, type WholeDraftJob } from "../lib/draft";
 import type { DraftProgressView, RetryStep } from "../hooks/useDraftProgress";
+import { ReplaceConfirm } from "./ReplaceConfirm";
 
 type Phase = "done" | "running" | "waiting";
 
@@ -33,9 +34,7 @@ export function DraftProgressCard({ job, onCancel }: { job: WholeDraftJob; onCan
   return (
     <section aria-label="ความคืบหน้าการร่างบท" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
       <div className="flex flex-col gap-0.5">
-        <p className="text-base leading-6 font-semibold text-foreground">
-          {order.clip_title} · {epLabel(order.ep.n)}
-        </p>
+        <p className="text-base leading-6 font-semibold text-foreground">{draftLabel(order)}</p>
         <p className="text-[13px] leading-5 text-mid">
           {style} · {order.target_s} วินาที
         </p>
@@ -114,19 +113,7 @@ export function DraftNotice({ view, retryStep, onRetry, onReplace, onKeep }: Not
           กลับไปแก้ตั้งค่า
         </a>
       </div>
-      {retryStep === "confirming" && (
-        <div className="flex flex-col gap-2">
-          <Alert tone="warning">มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม</Alert>
-          <div className="flex gap-2 sm:justify-end">
-            <button type="button" onClick={onKeep} className={`h-11 flex-1 px-6 sm:h-10 sm:flex-none ${OUTLINE_BUTTON}`}>
-              ยกเลิก
-            </button>
-            <button type="button" autoFocus onClick={onReplace} className={`h-11 flex-1 px-6 sm:h-10 sm:flex-none ${PRIMARY_BUTTON}`}>
-              ร่างทับ
-            </button>
-          </div>
-        </div>
-      )}
+      {retryStep === "confirming" && <ReplaceConfirm onReplace={onReplace} onKeep={onKeep} />}
     </div>
   );
 }

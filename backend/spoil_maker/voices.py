@@ -233,7 +233,7 @@ _files_lock = threading.Lock()
 voice_users: list[Callable[[str], bool]] = []
 """Checks that answer True while a job will write a draft with that voice, so it can't be
 deleted (`voice_in_use`, D87). `spoil_maker.draft` adds the Draft job's when it is imported.
-Each takes its job slot's lock: call them before `gpu.slot.draft_lock`, never under it."""
+Each reads its job without taking a lock, so it may run under `gpu.slot.draft_lock`."""
 
 
 def _job_uses(voice_id: str) -> bool:
@@ -321,12 +321,11 @@ def delete(project: ProjectPaths, voice_id: str) -> None:
     """Removes the three files; the json goes last, so a half-deleted voice is never listed
     without its sample. The Spoil draft's voice, or the one of an unfinished Draft job, can't
     go: `voice_in_use` (D43, D87). Under the draft's lock, so the draft can't switch to it
-    between the check and the delete. The job is asked first: its slot's lock comes before
-    the draft's (lock order); a Draft job starting in between checks that the voice is there."""
-    job_uses = _job_uses(voice_id)
+    between the check and the delete, and a Draft job either is set already or checks the
+    voice after this delete (both under the draft's lock)."""
     with gpu.slot.draft_lock, _files_lock:
         info = _voice_file(project, voice_id, ".json")
-        if job_uses or draft_file.uses_voice(project, voice_id):
+        if _job_uses(voice_id) or draft_file.uses_voice(project, voice_id):
             raise ApiError(409, "voice_in_use", "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท")
         for suffix in (".pt", ".wav"):
             (project.voices_dir / f"{voice_id}{suffix}").unlink(missing_ok=True)

@@ -47,8 +47,8 @@ export function ScriptReview() {
           view={view}
           retryStep={progress.retryStep}
           onRetry={progress.retry}
-          onReplace={progress.replace}
-          onKeep={progress.keep}
+          onReplace={progress.replaceDraft}
+          onKeep={progress.keepDraft}
         />
       )}
       <ScriptReviewBody key={progress.scriptKey} />

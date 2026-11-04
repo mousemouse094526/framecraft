@@ -196,12 +196,25 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             transcript=transcript,
             shots=shots.read_shots(project, clip_id),
         )
+        # Read before the GPU is taken: nothing below may raise without releasing it (ADR-0015).
+        asked = DraftOrder(
+            clip_id=clip_id,
+            clip_title=clips.read_clip(project, clip_id).title,
+            ep=order.ep,
+            style=style,
+            layout=layout,
+            target_s=target_s,
+            voice_id=voice_id,
+        )
         with self._lock:
             if self._taken():
                 raise ApiError(409, "busy", "กำลังร่างบทอยู่")
             with gpu.slot.draft_lock:
                 if body.get("replace") is not True and draft_file.read(project) is not None:
                     raise ApiError(409, "draft_exists", "มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม")
+                # Under the draft's lock no voice is deleted: one may have been since the check above (D87).
+                if voices.chars_per_s(project, voice_id) is None:
+                    raise ApiError(400, "voice_not_found", "ไม่พบเสียงที่เลือก")
                 require_rows(gate_rows.qwen_jobs(project))
                 gpu.slot.take("draft", [clip_id], locks_draft=True)
                 # Holding the GPU for the clip, no `PUT` can change its cut now; one may have
@@ -210,24 +223,19 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 if now is None or not order.ep.matches(now.start_s, now.end_s):
                     gpu.slot.release("draft")
                     raise episodes.episodes_changed()
-            self._job = DraftJob(
-                kind="draft",
-                state="writing",
-                started_at=checks.now_iso(),
-                order=DraftOrder(
-                    clip_id=clip_id,
-                    clip_title=clips.read_clip(project, clip_id).title,
-                    ep=order.ep,
-                    style=style,
-                    layout=layout,
-                    target_s=target_s,
-                    voice_id=voice_id,
-                ),
-            )
+                # Set under the draft's lock, so a voice delete waiting on it sees the job (D87).
+                self._job = DraftJob(kind="draft", state="writing", started_at=checks.now_iso(), order=asked)
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
         threading.Thread(target=self._run, args=(lambda: self._draft(project, order),), daemon=True).start()
         return job
+
+    def uses_voice(self, voice_id: str) -> bool:
+        """Whether an unfinished job will write a draft with that voice (D87). Reads the job
+        without the slot's lock (one attribute read), so a voice delete can ask under the
+        draft's lock, where a starting job sets it, without breaking the lock order."""
+        job = self._job
+        return job is not None and job.state in UNFINISHED and job.order is not None and job.order.voice_id == voice_id
 
     def _start_pick(self, sentence_id: object) -> DraftJob:
         """New Shots for one sentence from its text now (spec › Draft job, D25, D27)."""
@@ -477,13 +485,7 @@ def job_reads_clip(clip_id: str) -> bool:
 transcribe.clip_users.append(job_reads_clip)
 
 
-def job_uses_voice(voice_id: str) -> bool:
-    """Whether an unfinished Draft job will write a draft with that voice (D87)."""
-    job = draft_jobs.current()
-    return job is not None and job.state in UNFINISHED and job.order is not None and job.order.voice_id == voice_id
-
-
-voices.voice_users.append(job_uses_voice)
+voices.voice_users.append(lambda voice_id: draft_jobs.uses_voice(voice_id))
 
 
 # --- Reading and changing the draft ---

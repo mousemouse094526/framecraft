@@ -42,7 +42,9 @@ export type DraftRun = {
   /** The last poll of the running job failed; the steps read again every second until one answers (D87). */
   offline: boolean;
   /** Puts a job a step just started or cancelled in the steps' state, before the hash changes (D87). */
-  show: (job: DraftJob) => void;
+  putJob: (job: DraftJob) => void;
+  /** No answer from the backend: offline until a read answers (D87). */
+  goOffline: () => void;
 };
 
 export const DraftRunContext = createContext<DraftRun>({
@@ -50,7 +52,8 @@ export const DraftRunContext = createContext<DraftRun>({
   job: null,
   draftExists: false,
   offline: false,
-  show: () => {},
+  putJob: () => {},
+  goOffline: () => {},
 });
 
 export const useDraftRun = () => useContext(DraftRunContext);
@@ -122,27 +125,29 @@ export function useStepStatus() {
     );
   };
   // A poll that failed stopped; dropping the job lets the next refresh follow it again.
-  const lost = (key: JobKey) => () => setIfMounted((s) => ({ ...s, [key]: null }));
+  const dropJob = (key: JobKey) => () => setIfMounted((s) => ({ ...s, [key]: null }));
 
   // A failed poll of a whole new draft keeps the job: ตรวจแก้บท says offline, not that the job is gone (D87).
-  const draftJobLost = () => (wholeDraft(status.draftJob) ? setDraftJobOffline(true) : lost("draftJob")());
-  usePollWhile(isRunning(status.draftJob) && !draftJobOffline, DRAFT_JOB_PATH, follow("draftJob"), draftJobLost);
+  const draftPollFailed = () => (wholeDraft(status.draftJob) ? setDraftJobOffline(true) : dropJob("draftJob")());
+  usePollWhile(isRunning(status.draftJob) && !draftJobOffline, DRAFT_JOB_PATH, follow("draftJob"), draftPollFailed);
   useEffect(() => {
     if (!draftJobOffline) return;
     const timer = setInterval(() => void load(), RETRY_MS);
     return () => clearInterval(timer);
   }, [draftJobOffline, load]);
-  usePollWhile(isRunning(status.voiceJob), VOICE_JOB_PATH, follow("voiceJob"), lost("voiceJob"));
-  usePollWhile(isRunning(status.renderJob), RENDER_JOB_PATH, follow("renderJob"), lost("renderJob"));
+  usePollWhile(isRunning(status.voiceJob), VOICE_JOB_PATH, follow("voiceJob"), dropJob("voiceJob"));
+  usePollWhile(isRunning(status.renderJob), RENDER_JOB_PATH, follow("renderJob"), dropJob("renderJob"));
 
   const refresh = useCallback(() => void load(), [load]);
-  const show = useCallback((job: DraftJob) => setIfMounted((s) => ({ ...s, draftJob: job })), [setIfMounted]);
+  const putJob = useCallback((job: DraftJob) => setIfMounted((s) => ({ ...s, draftJob: job })), [setIfMounted]);
+  const goOffline = useCallback(() => setDraftJobOffline(true), []);
   const draftRun: DraftRun = {
     loaded: firstReadDone,
     job: status.draftJob,
     draftExists: Boolean(status.draft),
     offline: draftJobOffline,
-    show,
+    putJob,
+    goOffline,
   };
 
   return { status, refresh, draftRun };
