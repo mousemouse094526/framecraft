@@ -1,6 +1,6 @@
 # Progress: spoil-maker
 
-**Now:** change request ตัด EP จากคลิปเดียว (D66–D71) อนุมัติแล้ว; ticket 06–07 พร้อม build
+**Now:** change request ตัด EP (D66–D71) และเรียบเรียงบท (D72–D76) อนุมัติแล้ว; ticket 06–08 พร้อม build
 
 **Next:** `/warroom-build spoil-maker 06`
 
@@ -16,8 +16,17 @@
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
 | 06 | ตัด EP จากคลิปเดียว | ready |
 | 07 | ตัวบอกขั้นบอกสถานะจริง | ready |
+| 08 | เรียบเรียงบท | ready |
 
 ## Log
+
+### change request เรียบเรียงบท — 2026-11-04
+
+**Decided:**
+- D72–D75: Draft job เรียบเรียงทั้งบทหลังร่างก่อนเลือก Shot, ปุ่ม "เรียบเรียงใหม่" ที่เลือกได้ว่าจะรวมประโยคแก้เองไหม, แก้เฉพาะข้อความ — D74 changed by D75
+- D76: ข้อแก้ The Breaker 10 ข้อ (2 BLOCKER: `polish_failed`, จับคู่ด้วย `i`)
+- legal: verdict เดิม
+- re-cut: ticket 08 (blocked by 06); หน้าตรวจแก้กลับเป็น `pending` (Blocked 15)
 
 ### change request ตัด EP จากคลิปเดียว — 2026-11-04
 
@@ -261,3 +270,4 @@
 | 12 | review | design: สวิตช์ลายน้ำและคำเตือนลายน้ำทับใน Figma Script review (D64, D65) | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8044-7390)) |
 | 13 | 06 | design: ตั้งค่าคลิปสปอย — เลือกคลิปเดียว รายการ EP เลื่อนจุดตัด (D66, D67, D69) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
 | 14 | 07 | design: ตัวบอกขั้นของ tab สปอย — บรรทัดสถานะและจุดหมุน (D68) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
+| 15 | 08 | design: หน้าตรวจแก้ — ปุ่มเรียบเรียงใหม่ กล่องเลือก ป้ายแก้เอง (D72, D74, D75) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
