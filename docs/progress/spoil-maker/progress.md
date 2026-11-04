@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** ticket 06 ตัด EP จากคลิปเดียว done (หน้าตาขั้น 1 ใช้ component เดิมจน Blocked 13 มีแบบ); ticket 07–08 พร้อม build
+**Now:** ticket 07 ตัวบอกขั้นบอกสถานะจริง done (หน้าตาต่อจาก `Spoil steps` เดิมจน Blocked 14 มีแบบ); ticket 08 พร้อม build
 
-**Next:** `/warroom-build spoil-maker 07`
+**Next:** `/warroom-build spoil-maker 08`
 
 ## Tickets
 
@@ -15,10 +15,34 @@
 | 04 | เสียงต่อประโยคและ render | done |
 | 05 | ลายน้ำเปิดปิดได้ และงานค้างจาก feature review | done |
 | 06 | ตัด EP จากคลิปเดียว | done |
-| 07 | ตัวบอกขั้นบอกสถานะจริง | ready |
+| 07 | ตัวบอกขั้นบอกสถานะจริง | done |
 | 08 | เรียบเรียงบท | ready |
 
 ## Log
+
+### 07: ตัวบอกขั้นบอกสถานะจริง — done 2026-11-04
+
+**Built:**
+- `useStepStatus` (state ร่วมใน `SpoilMakerPage`): อ่าน `/draft`, `/renders`, `/draft-jobs/current`, `/voice-jobs/current` (`sentences` เท่านั้น), `/renders/current`; poll งานที่ยังไม่จบทุก 1 วินาที แม้เปิดขั้นอื่น; งานจบ → อ่าน `/draft` และ `/renders` ใหม่; poll ล้ม → เลิกตามจน refresh
+- `StepsRefreshContext`: `useSpoilerSetup`, `useScriptReview`, `useReviewJobs`, `useRenders` เรียก refresh เมื่อเริ่มงาน (รวม `busy`), ยกเลิก, แทรก/ลบประโยค, ลบผล render
+- `lib/steps.ts` `stepLines`: ขั้น 1 "{ชื่อคลิป} · EP {n}" / "ยังไม่เลือก"; ขั้น 2 "กำลังร่าง" / "กำลังเลือกภาพ x/y" / "สร้างเสียง x/y" / "{n} ประโยค" / "ยังไม่มีบท" / "ร่างบทไม่สำเร็จ" / "สร้างเสียงไม่สำเร็จ" (งานที่เริ่มล่าสุดเป็นตัวบอก, `pick` คงจำนวนประโยคพร้อมจุดหมุน); ขั้น 3 "render {p}%" / "render…" / "render: สร้างเสียง x/y" / "{n} คลิป" / "ยังไม่มี" / "render ไม่สำเร็จ"
+- `SpoilSteps`: ทุกขั้นเป็นลิงก์ที่มีเลข, ที่เปิดอยู่ `aria-current="step"`, ไม่มีเครื่องหมายถูก (`check.svg` ลบ), จุดหมุน `motion-safe:animate-spin`, มือถือซ่อนชื่อและบรรทัดสถานะของขั้นที่ไม่ได้เปิดแต่จุดหมุนอยู่
+- test: `SpoilMakerPage.test.tsx` 25 test ตาม Seams 2 › ตัวบอกขั้น (รวม render ตอนเปิดขั้น 1, กด render ในขั้น 2, failed จนเริ่มใหม่, ยกเลิก, Draft job จบอ่าน draft ใหม่, poll ล้มแล้วตามได้อีก, reduced motion, มือถือ); 3 test เดิมที่ตอบ `*/current` เป็นลำดับใช้ `phased`
+- เช็คใน dev server กับ backend จริง: 1440 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; render ปลอม (patch fetch ในหน้า) เห็น "render 45%" และจุดหมุนที่ขั้น 3 ทั้งสองขนาด
+- Library notes: `react.md` (context เป็น provider, ค่าตั้งต้น), `tailwindcss.md` (`motion-safe:`)
+- Review สามแกนแก้แล้ว: poll ล้มค้างถาวร → เลิกตามจน refresh, test ที่ขาด (failed ล้างเมื่อเริ่มใหม่, ยกเลิก, Draft job จบ), test มือถือ query ด้วยข้อความไม่ใช่ selector, `countOf`, `readResults` ใช้ร่วม, `StepLines` tuple, ชื่อ `StepsRefreshContext`/`JobKey`/`changeSentenceCount`, comment `pick` อ้าง spec
+
+**Decided:**
+- D78 — ทางเลือกเล็กตอน build ตัวบอกขั้น
+
+**For the next ticket:**
+- ticket 08: `reviewLine` ใน `lib/steps.ts` ต้องเพิ่ม `kind: "polish"` และ state `polishing` → "กำลังเรียบเรียง" พร้อมจุดหมุน, `failed` → "เรียบเรียงไม่สำเร็จ" (ตอนนี้ polish ที่ล้มจะขึ้น "ร่างบทไม่สำเร็จ")
+- เมื่อ Blocked 14 มีแบบ: ปรับ `SpoilSteps` ให้ตรง Figma ที่ 1440 และ 375 (test มือถือเช็คด้วย class จะต้องตาม)
+- test helper: `phased`, `jsonResponse`, `backend` ซ้ำกันใน `RenderResults`, `ScriptReview`, `SpoilerSetup`, `SpoilMakerPage` test — รวมเป็น helper เดียวได้
+- `refreshSteps()` ซ้ำใน 4 hook (เริ่ม/ยกเลิก) — ถ้าเพิ่มงานอีก อาจรวมเป็น wrapper ของ `cancelCurrent`/`startJob`
+- ไม่ได้เช็คด้วยตา: ตัวบอกขั้นกับงานจริงที่รัน (ไม่มี draft `version` 2 ในเครื่อง)
+
+**Checks:** `uv run pytest` — 517 passed; `npm --prefix frontend test` — 207 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 06: ตัด EP จากคลิปเดียว — done 2026-11-04
 

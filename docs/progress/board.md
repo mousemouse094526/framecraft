@@ -7,4 +7,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [setup-status](setup-status/progress.md) | false | done | 🎨 1/1 | ✅ a027e8f | — | — |
 | [spoil](spoil/progress.md) | false | done | 🎨 5/5 | ✅ 49ee6de | — | — |
 | [windows-check](windows-check/progress.md) | false | blocked | — | 0/2 | รอเครื่อง Windows NVIDIA | `/warroom-build windows-check 01` |
-| [spoil-maker](spoil-maker/progress.md) | false | ready | ⏳ 5/8 | 7/9 | 2 ticket (07, 08) | `/warroom-build spoil-maker 07` |
+| [spoil-maker](spoil-maker/progress.md) | false | ready | ⏳ 5/8 | 8/9 | 1 ticket (08) | `/warroom-build spoil-maker 08` |

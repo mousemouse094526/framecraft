@@ -16,6 +16,7 @@ import {
   type Shot,
   type ShotRef,
 } from "../lib/draft";
+import { useStepsRefresh } from "./useStepStatus";
 
 export type ReviewState =
   | { kind: "loading" }
@@ -49,6 +50,7 @@ export type ChangeResult = { kind: "saved"; draft: Draft } | { kind: "refused"; 
  */
 export function useScriptReview() {
   const [state, setState, setIfMounted] = useMountedState<ReviewState>({ kind: "loading" });
+  const refreshSteps = useStepsRefresh();
 
   const load = useCallback(async () => {
     try {
@@ -140,12 +142,22 @@ export function useScriptReview() {
     [change],
   );
 
-  const insertAfter = useCallback(
-    (afterId: string | null, text: string) => change("POST", `${DRAFT_PATH}/sentences`, { after_id: afterId, text }),
-    [change],
+  /** A change to how many sentences there are: the steps count them (D68). */
+  const changeSentenceCount = useCallback(
+    async (method: string, path: string, body?: unknown) => {
+      const result = await change(method, path, body);
+      if (result.kind === "saved") refreshSteps();
+      return result;
+    },
+    [change, refreshSteps],
   );
 
-  const remove = useCallback((sentenceId: string) => change("DELETE", `${DRAFT_PATH}/sentences/${sentenceId}`), [change]);
+  const insertAfter = useCallback(
+    (afterId: string | null, text: string) => changeSentenceCount("POST", `${DRAFT_PATH}/sentences`, { after_id: afterId, text }),
+    [changeSentenceCount],
+  );
+
+  const remove = useCallback((sentenceId: string) => changeSentenceCount("DELETE", `${DRAFT_PATH}/sentences/${sentenceId}`), [changeSentenceCount]);
 
   /** เลือก Shot ใหม่: the Draft job `pick` for one sentence (D25). */
   const pick = useCallback(
@@ -155,6 +167,7 @@ export function useScriptReview() {
         if (reply.status === 202) {
           const job = reply.body as DraftJob;
           setIfMounted(whenLoaded((s) => ({ ...s, job, pickingId: sentenceId, error: null, draft: { ...s.draft, locked: true } })));
+          refreshSteps();
           return;
         }
         const refusal = refusalOf(reply.body);
@@ -168,7 +181,7 @@ export function useScriptReview() {
       }
       setIfMounted({ kind: "offline" });
     },
-    [setIfMounted],
+    [refreshSteps, setIfMounted],
   );
 
   /** ยกเลิก of a running pick: the draft keeps its Shots. */
@@ -176,10 +189,11 @@ export function useScriptReview() {
     const reply = await cancelCurrent<DraftJob>(DRAFT_JOB_PATH);
     if (reply.kind === "cancelling") {
       setIfMounted(whenLoaded((s) => (s.job ? { ...s, job: reply.job } : s)));
+      refreshSteps();
     } else if (reply.kind !== "ended") {
       setIfMounted({ kind: "offline" });
     }
-  }, [setIfMounted]);
+  }, [refreshSteps, setIfMounted]);
 
   const reload = useCallback(() => {
     setState({ kind: "loading" });

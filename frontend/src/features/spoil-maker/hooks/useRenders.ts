@@ -14,6 +14,7 @@ import {
   type RenderJob,
   type RenderResult,
 } from "../lib/render";
+import { useStepsRefresh } from "./useStepStatus";
 
 export type RendersState =
   | { kind: "loading" }
@@ -34,6 +35,7 @@ export type RendersState =
  */
 export function useRenders() {
   const [state, , setIfMounted] = useMountedState<RendersState>({ kind: "loading" });
+  const refreshSteps = useStepsRefresh();
 
   const load = useCallback(async () => {
     try {
@@ -74,9 +76,11 @@ export function useRenders() {
 
   const cancel = useCallback(async () => {
     const reply = await cancelCurrent<RenderJob>(RENDER_JOB_PATH);
-    if (reply.kind === "cancelling") setIfMounted((s) => (s.kind === "loaded" && s.job ? { ...s, job: reply.job } : s));
-    else if (reply.kind === "offline") setIfMounted({ kind: "offline" });
-  }, [setIfMounted]);
+    if (reply.kind === "cancelling") {
+      setIfMounted((s) => (s.kind === "loaded" && s.job ? { ...s, job: reply.job } : s));
+      refreshSteps();
+    } else if (reply.kind === "offline") setIfMounted({ kind: "offline" });
+  }, [refreshSteps, setIfMounted]);
 
   /** ลบ after its confirm: mp4, `.srt` and `.json` go together. */
   const remove = useCallback(
@@ -85,6 +89,7 @@ export function useRenders() {
         const reply = await sendJson<Refusal>("DELETE", `${RENDERS_PATH}/${name}`);
         if (reply.status === 204 || reply.status === 404) {
           setIfMounted((s) => (s.kind === "loaded" ? { ...s, renders: s.renders.filter((r) => r.name !== name) } : s));
+          refreshSteps();
           return;
         }
         const refusal = refusalOf(reply.body);
@@ -100,7 +105,7 @@ export function useRenders() {
       }
       setIfMounted({ kind: "offline" });
     },
-    [setIfMounted],
+    [refreshSteps, setIfMounted],
   );
 
   /** ลองอีกครั้ง of a failed render: the draft as it is now. */
@@ -110,6 +115,7 @@ export function useRenders() {
       setIfMounted({ kind: "offline" });
       return;
     }
+    refreshSteps();
     if (reply.kind === "busy") {
       void load(); // another render runs: follow it
       return;
@@ -121,7 +127,7 @@ export function useRenders() {
       return { ...s, error: { tone: "error", title: "render ไม่ได้", text: reply.refused.text, retry: false } };
     };
     setIfMounted(change);
-  }, [load, setIfMounted]);
+  }, [load, refreshSteps, setIfMounted]);
 
   return { state, cancel, remove, retry };
 }

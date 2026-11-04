@@ -46,6 +46,13 @@ function backend(routes: Route[]) {
 }
 
 const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
+
+/** One answer per poll, however many hooks poll the path: the test moves `phases.at` on (the steps poll too, D68). */
+function phased(path: string, ...bodies: unknown[]) {
+  const phases = { at: 0 };
+  const route: Route = { path, reply: () => jsonResponse(bodies[Math.min(phases.at, bodies.length - 1)]) };
+  return { route, phases };
+}
 const send = (method: string, path: string, body: unknown, code: number): Route => ({
   method,
   path,
@@ -90,18 +97,22 @@ describe("ผล render", () => {
   });
 
   it("a render running shows สร้างเสียง then render % then the new render with its files and source", async () => {
-    backend([
-      get(RENDERS, []),
-      get(CURRENT, VOICING),
-      get(CURRENT, { ...VOICING, state: "rendering", percent: 50, done: null, total: null }),
-      get(CURRENT, { ...VOICING, state: "done", percent: 100 }),
-      get(RENDERS, [RESULT]),
-    ]);
+    const current = phased(
+      CURRENT,
+      VOICING,
+      { ...VOICING, state: "rendering", percent: 50, done: null, total: null },
+      { ...VOICING, state: "done", percent: 100 },
+    );
+    const renders = phased(RENDERS, [], [], [RESULT]);
+    backend([renders.route, current.route]);
     await openRenders();
 
-    expect(await screen.findByText("สร้างเสียง 1/3")).toBeInTheDocument();
+    const running = await screen.findByRole("region", { name: "กำลัง render" });
+    expect(within(running).getByText("สร้างเสียง 1/3")).toBeInTheDocument();
+    current.phases.at = renders.phases.at = 1;
     await tick();
-    expect(screen.getByText("render 50%")).toBeInTheDocument();
+    expect(within(running).getByText("render 50%")).toBeInTheDocument();
+    current.phases.at = renders.phases.at = 2;
     await tick();
 
     const row = await screen.findByRole("listitem", { name: /^render / });

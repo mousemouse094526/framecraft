@@ -21,6 +21,7 @@ import {
   type Style,
 } from "../lib/draft";
 import type { Voice } from "./useVoices";
+import { useStepsRefresh } from "./useStepStatus";
 
 /** What ร่างบท sends with `kind: "draft"`: one EP of one clip, by its number and range (spoil-maker D66, D71). */
 export type Order = { clip_id: string; ep: EpRange; style: Style; layout: Layout; target_s: number; voice_id: string };
@@ -75,6 +76,7 @@ function bannerOf(status: number, refusal: Refusal | null): Banner | null {
  */
 export function useSpoilerSetup() {
   const [state, setState, setIfMounted] = useMountedState<SetupState>({ kind: "loading" });
+  const refreshSteps = useStepsRefresh();
 
   const load = useCallback(async () => {
     try {
@@ -139,6 +141,7 @@ export function useSpoilerSetup() {
         if (reply.status === 202) {
           const job = reply.body as DraftJob;
           setIfMounted(whenLoaded((s) => ({ ...s, job })));
+          refreshSteps();
           return null;
         }
         const refusal = refusalOf(reply.body);
@@ -149,6 +152,7 @@ export function useSpoilerSetup() {
         if (reply.status === 409 && refusal?.code === "busy") {
           const job = await getJson<DraftJob | null>(DRAFT_JOB_PATH);
           if (job !== null && isDrafting(job)) setIfMounted(whenLoaded((s) => ({ ...s, job })));
+          refreshSteps();
           return refusal.code;
         }
         // `episodes_changed`, `ep_empty`, `transcript_too_long` and the rest say the API's message (spec › Frontend).
@@ -163,7 +167,7 @@ export function useSpoilerSetup() {
       setIfMounted({ kind: "offline" });
       return null;
     },
-    [setIfMounted],
+    [refreshSteps, setIfMounted],
   );
 
   /** ร่างบท with a Spoil draft there asks first (Figma Draft action › replace confirm). */
@@ -176,10 +180,11 @@ export function useSpoilerSetup() {
     const reply = await cancelCurrent<DraftJob>(DRAFT_JOB_PATH);
     if (reply.kind === "cancelling") {
       setIfMounted(whenLoaded((s) => (s.job ? { ...s, job: reply.job } : s)));
+      refreshSteps();
     } else if (reply.kind !== "ended") {
       setIfMounted({ kind: "offline" });
     }
-  }, [setIfMounted]);
+  }, [refreshSteps, setIfMounted]);
 
   const reload = useCallback(() => {
     setState({ kind: "loading" });

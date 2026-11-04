@@ -1239,6 +1239,22 @@
 
 **From:** build ticket 06 · **Status:** active
 
+## D78: ทางเลือกเล็กตอน build ตัวบอกขั้น
+
+**Chosen:** ทางเลือกที่ ticket 07 ตัดสินเองภายใน D68, D71 และ conventions.
+
+**Details:**
+- **state ร่วม:** `useStepStatus` ใน `SpoilMakerPage` อ่าน `/draft`, `/renders` และ `*/current` ทั้งสาม แล้ว poll งานที่ยังไม่จบเอง; แต่ละขั้นยังอ่านข้อมูลละเอียดของตัวเองเหมือนเดิม และเรียก `refresh` ผ่าน `StepsRefreshContext` เมื่อเริ่มหรือยกเลิกงาน — ไม่ย้าย state ของทุกขั้นขึ้นมา เพราะจะต้องเขียน hook ของ 3 ขั้นใหม่โดยสิ่งที่ผู้ใช้เห็นไม่ต่าง
+- **อ่านใหม่เพิ่ม:** แทรกหรือลบประโยค และลบผล render ก็เรียก `refresh` ด้วย เพื่อให้ "{n} ประโยค" และ "{n} คลิป" ตรง
+- **งานล่าสุดของขั้น 2:** Draft job กับ Voice job `sentences` ตัวที่ `started_at` ใหม่กว่าเป็นตัวบอกสถานะ; `kind: "pick"` ที่ `failed` ไม่แสดง "ร่างบทไม่สำเร็จ" (หน้าตรวจแก้บอกเอง) — แสดงจำนวนประโยค; Voice job `design_preview` ไม่นับ
+- **poll ล้ม:** เลิกตามงานนั้น (ไม่มีจุดหมุน) จน `refresh` ครั้งถัดไป; ขั้นที่เปิดอยู่แสดง offline เอง
+- **หน้าตา (Blocked 14 ยัง `pending`):** ต่อจาก `Spoil steps` เดิม — ทุกขั้นเป็น pill ลิงก์ (ที่เปิดอยู่พื้น `accent-subtle` เลขพื้นทึบ, อื่นเลขขอบ), บรรทัดสถานะ `text-xs` ตัดท้ายที่ 12rem, เส้นเชื่อมสีเดียวกันทุกเส้น (ไม่บอกตำแหน่ง), จุดหมุนเป็นวงขอบ 14 px หลังเลข `motion-safe:animate-spin`; `check.svg` ลบ
+- **test:** jsdom ไม่มี CSS — reduced motion และมือถือเช็คด้วย class (`motion-safe:animate-spin`, `sr-only sm:not-sr-only`); test ที่ตอบ `*/current` เป็นลำดับใช้ `phased` (ตอบตาม phase ไม่ใช่ตามจำนวนครั้ง) เพราะตัวบอกขั้น poll path เดียวกัน
+
+**Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; เลือกตามโค้ดเดิม (`usePollWhile`, `useMountedState`, React 19 context) และ review สามแกน.
+
+**From:** build ticket 07 · **Status:** active
+
 ## Sources
 
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — เงื่อนไข attribution ที่ D41 รับความเสี่ยง (accessed 2026-10-31)

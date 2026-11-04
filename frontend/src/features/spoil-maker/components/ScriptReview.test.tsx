@@ -93,6 +93,13 @@ function backend(routes: Route[]) {
 }
 
 const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
+
+/** One answer per poll, however many hooks poll the path: the test moves `phases.at` on (the steps poll too, D68). */
+function phased(path: string, ...bodies: unknown[]) {
+  const phases = { at: 0 };
+  const route: Route = { path, reply: () => jsonResponse(bodies[Math.min(phases.at, bodies.length - 1)]) };
+  return { route, phases };
+}
 const send = (method: string, path: string, body: unknown, code: number): Route => ({
   method,
   path,
@@ -486,23 +493,31 @@ describe("ตรวจแก้บท: เสียง ลายน้ำ แล
   });
 
   it("render voices first, renders, then opens ผล render", async () => {
+    const current = phased(
+      RENDER_CURRENT,
+      null,
+      RENDER,
+      { ...RENDER, state: "rendering", percent: 50, done: null, total: null },
+      { ...RENDER, state: "done", percent: 100 },
+    );
     backend([
       get(DRAFT_PATH, draftOf({ sentences: [readyOf("s_00000001")] })),
       send("POST", RENDERS, RENDER, 202),
-      get(RENDER_CURRENT, null),
-      get(RENDER_CURRENT, { ...RENDER, state: "rendering", percent: 50, done: null, total: null }),
-      get(RENDER_CURRENT, { ...RENDER, state: "done", percent: 100 }),
+      current.route,
       get(RENDERS, []),
     ]);
     const user = await openReview();
     const footer = screen.getByRole("region", { name: "สร้างเสียงและ render" });
 
+    current.phases.at = 1;
     await user.click(within(footer).getByRole("button", { name: "render" }));
     expect(within(footer).getByText("สร้างเสียง 1/3")).toBeInTheDocument();
+    current.phases.at = 2;
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
     expect(within(footer).getByText("render 50%")).toBeInTheDocument();
+    current.phases.at = 3;
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });

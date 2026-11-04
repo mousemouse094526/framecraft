@@ -1,6 +1,8 @@
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { useHash } from "../../../lib/useHash";
+import { StepsRefreshContext, useStepStatus } from "../hooks/useStepStatus";
 import { VOICES_HASH } from "../lib/draft";
+import { stepLines } from "../lib/steps";
 import { RenderResults } from "./RenderResults";
 import { SavedVoicePage } from "./SavedVoicePage";
 import { ScriptReview } from "./ScriptReview";
@@ -14,13 +16,20 @@ import { SpoilSteps, stepOf } from "./SpoilSteps";
 export function SpoilMakerPage() {
   const hash = useHash();
   if (hash === VOICES_HASH) return <SavedVoicePage />;
-  const step = stepOf(hash);
+  return <SpoilSteppedPage step={stepOf(hash)} />;
+}
+
+/** The steps hold what every step shows (D68); the open step tells them when it changed something. */
+function SpoilSteppedPage({ step }: { step: number }) {
+  const { status, refresh } = useStepStatus();
   return (
     <PageLayout tab="spoil" wide>
-      <SpoilSteps current={step} />
-      {step === 0 && <SpoilerSetup />}
-      {step === 1 && <ScriptReview />}
-      {step === 2 && <RenderResults />}
+      <SpoilSteps current={step} lines={stepLines(status)} />
+      <StepsRefreshContext value={refresh}>
+        {step === 0 && <SpoilerSetup />}
+        {step === 1 && <ScriptReview />}
+        {step === 2 && <RenderResults />}
+      </StepsRefreshContext>
     </PageLayout>
   );
 }

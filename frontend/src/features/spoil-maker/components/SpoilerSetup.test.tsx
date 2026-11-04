@@ -111,6 +111,13 @@ function backend(routes: Route[]) {
 }
 
 const get = (path: string, body: unknown): Route => ({ path, reply: () => jsonResponse(body) });
+
+/** One answer per poll, however many hooks poll the path: the test moves `phases.at` on (the steps poll too, D68). */
+function phased(path: string, ...bodies: unknown[]) {
+  const phases = { at: 0 };
+  const route: Route = { path, reply: () => jsonResponse(bodies[Math.min(phases.at, bodies.length - 1)]) };
+  return { route, phases };
+}
 const send = (method: string, path: string, body: unknown, code: number): Route => ({
   method,
   path,
@@ -362,24 +369,28 @@ describe("ตั้งค่าคลิปสปอย", () => {
   });
 
   it("ร่างบท shows กำลังเขียนบท then กำลังเลือกภาพ x/y, and opens ตรวจแก้บท when done", async () => {
-    backend([
-      send("POST", JOBS_PATH, jobOf({}), 202),
-      get(CURRENT_PATH, null),
-      get(CURRENT_PATH, jobOf({ state: "matching", done: 4, total: 15 })),
-      get(CURRENT_PATH, jobOf({ state: "done", done: 15, total: 15 })),
-      get(DRAFT_PATH, null),
-    ]);
+    const current = phased(
+      CURRENT_PATH,
+      null,
+      jobOf({}),
+      jobOf({ state: "matching", done: 4, total: 15 }),
+      jobOf({ state: "done", done: 15, total: 15 }),
+    );
+    backend([send("POST", JOBS_PATH, jobOf({}), 202), current.route, get(DRAFT_PATH, null)]);
     const user = await pickFilm();
     expect(screen.getByText("18,400 / 32,000")).toBeInTheDocument();
 
+    current.phases.at = 1;
     await user.click(draftButton());
 
     expect(await screen.findByText("กำลังเขียนบท")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeInTheDocument();
     expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ ep: { n: 1, start_s: 0, end_s: 1799 } })]);
+    current.phases.at = 2;
     await nextPoll();
     expect(screen.getByText("กำลังเลือกภาพ")).toBeInTheDocument();
     expect(screen.getByText("4/15")).toBeInTheDocument();
+    current.phases.at = 3;
     await nextPoll();
     expect(window.location.hash).toBe("#/spoil/review");
   });
