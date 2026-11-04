@@ -1,21 +1,15 @@
 import { useId } from "react";
 import { Alert } from "../../../components/ui/Alert";
-import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
-import { ProgressBar } from "../../../components/ui/ProgressBar";
+import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import chevronDownIcon from "../assets/chevron-down.svg";
 import radioSelectedIcon from "../assets/radio-selected.svg";
 import radioIcon from "../assets/radio.svg";
-import { VOICES_HASH, type DraftJob, type Layout, type Style } from "../lib/draft";
+import { STYLES, VOICES_HASH, type Layout, type Style } from "../lib/draft";
 import type { Episode } from "../hooks/useEpisodes";
 import type { RefusalLine } from "../../../lib/refusal";
 import type { Voice } from "../hooks/useVoices";
+import { ReplaceConfirm } from "./ReplaceConfirm";
 
-// The styles and the layout each starts with (spoil-maker D7, D8).
-export const STYLES: { id: Style; label: string; layout: Layout }[] = [
-  { id: "fast", label: "ปั่นตัดเร็ว", layout: "A" },
-  { id: "drama", label: "เล่าละครหักมุม", layout: "B" },
-  { id: "chrono", label: "เล่าตามลำดับ", layout: "C" },
-];
 const LAYOUTS: Layout[] = ["A", "B", "C"];
 export const TARGET_MIN = 30;
 export const TARGET_MAX = 180;
@@ -32,21 +26,22 @@ type Props = {
   epBlocked: RefusalLine | null;
   /** An EP to draft from, a voice, and its lines within 32,000 tokens (D46). */
   canDraft: boolean;
-  job: DraftJob | null;
+  /** A whole new draft runs: every field shows its order and ร่างบท is gone (D82). */
+  locked: boolean;
   confirmingReplace: boolean;
   onChange: (settings: Settings) => void;
   onDraft: () => void;
   onReplace: () => void;
   onKeep: () => void;
-  onCancel: () => void;
 };
 
 const LABEL = "text-sm leading-[21px] font-medium text-foreground";
 
 /** Figma `Settings card` of ตั้งค่าคลิปสปอย: style, layout, length, voice, the token meter and ร่างบท. */
 export function SetupSettings(props: Props) {
-  const { settings, voices, ep, limit, epBlocked, canDraft, job, onChange } = props;
-  const drafting = job !== null;
+  const { settings, voices, ep, limit, epBlocked, canDraft, locked, onChange } = props;
+  // The order's voice was deleted while it drafted (D87); a voice the API can't delete is in use otherwise.
+  const voiceGone = settings.voiceId !== null && !voices.some((voice) => voice.id === settings.voiceId);
   const lengthId = useId();
   const voiceId = useId();
 
@@ -55,13 +50,15 @@ export function SetupSettings(props: Props) {
       aria-label="ตั้งค่า"
       className="flex min-w-0 flex-1 flex-col gap-5 rounded-2xl border border-border bg-card p-4"
     >
-      <fieldset disabled={drafting} className="flex flex-col gap-2">
+      <fieldset disabled={locked} className="flex flex-col gap-2">
         <legend className={`${LABEL} mb-2`}>สไตล์</legend>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        {/* Two columns from lg leave the card too narrow for three hints in a row until xl. */}
+        <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
           {STYLES.map((style) => (
             <StyleOption
               key={style.id}
               label={style.label}
+              hint={style.hint}
               selected={settings.style === style.id}
               // Picking a style picks its layout (D8); the layout can change after.
               onSelect={() => onChange({ ...settings, style: style.id, layout: style.layout })}
@@ -69,7 +66,7 @@ export function SetupSettings(props: Props) {
           ))}
         </div>
       </fieldset>
-      <fieldset disabled={drafting} className="flex flex-col gap-2">
+      <fieldset disabled={locked} className="flex flex-col gap-2">
         <legend className={`${LABEL} mb-2`}>Layout</legend>
         <div className="flex gap-2">
           {LAYOUTS.map((layout) => (
@@ -96,7 +93,7 @@ export function SetupSettings(props: Props) {
           max={TARGET_MAX}
           step={1}
           value={settings.targetS}
-          disabled={drafting}
+          disabled={locked}
           onChange={(event) => onChange({ ...settings, targetS: Number(event.target.value) })}
           className="h-11 w-full accent-brand-accent"
         />
@@ -128,10 +125,11 @@ export function SetupSettings(props: Props) {
             <select
               id={voiceId}
               value={settings.voiceId ?? ""}
-              disabled={drafting}
+              disabled={locked}
               onChange={(event) => onChange({ ...settings, voiceId: event.target.value })}
               className="h-10 w-full appearance-none rounded-lg border border-border bg-card px-3 pr-9 font-button text-sm leading-5 text-foreground"
             >
+              {locked && voiceGone && <option value={settings.voiceId ?? ""}>เสียงถูกลบแล้ว</option>}
               {voices.map((voice) => (
                 <option key={voice.id} value={voice.id}>
                   {voice.name}
@@ -144,8 +142,8 @@ export function SetupSettings(props: Props) {
       </div>
       <TokenMeter tokens={ep?.tokens ?? null} limit={limit} />
       <div className="h-px bg-border" />
-      <DraftAction {...props} canDraft={canDraft} />
-      {epBlocked && job === null && (
+      {!locked && <DraftAction {...props} canDraft={canDraft} />}
+      {epBlocked && !locked && (
         <p className="flex flex-wrap items-center gap-x-3 text-[13px] leading-5 text-mid">
           {epBlocked.text}
           {epBlocked.setupLink && (
@@ -159,17 +157,24 @@ export function SetupSettings(props: Props) {
   );
 }
 
-function StyleOption({ label, selected, onSelect }: { label: string; selected: boolean; onSelect: () => void }) {
+type StyleProps = { label: string; hint: string; selected: boolean; onSelect: () => void };
+
+/** Figma component `Style option`: the name and a line of how it tells the story (D84). */
+function StyleOption({ label, hint, selected, onSelect }: StyleProps) {
+  const hintId = useId();
   return (
     <label
-      className={`flex h-12 cursor-pointer items-center gap-2.5 rounded-lg border px-3 has-disabled:cursor-default sm:flex-1 ${
+      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-3 has-disabled:cursor-default has-disabled:opacity-60 sm:flex-1 ${
         selected ? "border-brand-accent bg-accent-subtle" : "border-border bg-card"
       }`}
     >
-      <input type="radio" name="style" checked={selected} onChange={onSelect} className="sr-only" />
-      <img src={selected ? radioSelectedIcon : radioIcon} alt="" width={16} height={16} />
-      <span className={`flex-1 text-sm leading-[21px] ${selected ? "font-semibold text-link" : "font-medium text-foreground"}`}>
-        {label}
+      <input type="radio" name="style" checked={selected} onChange={onSelect} aria-label={label} aria-describedby={hintId} className="sr-only" />
+      <img src={selected ? radioSelectedIcon : radioIcon} alt="" width={16} height={16} className="mt-0.5" />
+      <span className="flex flex-1 flex-col gap-0.5">
+        <span className={`text-sm leading-[21px] ${selected ? "font-semibold text-link" : "font-medium text-foreground"}`}>{label}</span>
+        <span id={hintId} className="text-xs leading-[18px] text-mid">
+          {hint}
+        </span>
       </span>
     </label>
   );
@@ -258,54 +263,9 @@ function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number | 
   );
 }
 
-/** Figma component `Draft action`: ร่างบท, the ask before replacing a draft, and the drafting steps (D72). */
-function DraftAction({ canDraft, job, confirmingReplace, onDraft, onReplace, onKeep, onCancel }: Props) {
-  if (job) {
-    // Only picking counts; writing and polishing don't (spec › Draft job).
-    const counting = job.state === "matching";
-    const done = job.done ?? 0;
-    const total = job.total ?? 0;
-    const step = counting ? "กำลังเลือกภาพ" : job.state === "polishing" ? "กำลังเรียบเรียง" : "กำลังเขียนบท";
-    const headline = job.cancel_requested ? "กำลังยกเลิก…" : step;
-    return (
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex items-center gap-2 text-sm leading-[21px] text-foreground">
-            <span className="flex-1 font-medium">{headline}</span>
-            {counting && <span className="font-mono font-medium">{`${done}/${total}`}</span>}
-          </div>
-          <ProgressBar
-            percent={counting ? (total ? Math.floor((done * 100) / total) : 0) : "unknown"}
-            label="ความคืบหน้าการร่างบท"
-            cancelling={job.cancel_requested}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={job.cancel_requested}
-          className={`h-11 w-full px-6 sm:h-10 sm:w-auto ${OUTLINE_BUTTON}`}
-        >
-          ยกเลิก
-        </button>
-      </div>
-    );
-  }
-  if (confirmingReplace) {
-    return (
-      <div className="flex flex-col gap-2">
-        <Alert tone="warning">มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม</Alert>
-        <div className="flex gap-2">
-          <button type="button" autoFocus onClick={onReplace} className={`h-11 flex-1 px-6 sm:h-10 sm:flex-none ${PRIMARY_BUTTON}`}>
-            ร่างทับ
-          </button>
-          <button type="button" onClick={onKeep} className={`h-11 flex-1 px-6 sm:h-10 sm:flex-none ${OUTLINE_BUTTON}`}>
-            ยกเลิก
-          </button>
-        </div>
-      </div>
-    );
-  }
+/** Figma component `Draft action`: ร่างบท and the ask before replacing a draft (D28); the drafting shows on ตรวจแก้บท (D81). */
+function DraftAction({ canDraft, confirmingReplace, onDraft, onReplace, onKeep }: Props) {
+  if (confirmingReplace) return <ReplaceConfirm onReplace={onReplace} onKeep={onKeep} />;
   return (
     <button type="button" onClick={onDraft} disabled={!canDraft} className={`h-11 w-full px-6 sm:h-10 ${PRIMARY_BUTTON} disabled:opacity-50`}>
       ร่างบท

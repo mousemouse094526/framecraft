@@ -329,14 +329,14 @@ describe("หน้า Saved voice", () => {
   it("a refused delete stays on the row with the reason", async () => {
     backend([
       get(VOICES_PATH, [UNCLE]),
-      send("DELETE", `${VOICES_PATH}/v_0000abcd`, { code: "voice_in_use", message: "เสียงนี้ใช้อยู่ใน Spoil draft" }, 409),
+      send("DELETE", `${VOICES_PATH}/v_0000abcd`, { code: "voice_in_use", message: "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท" }, 409),
     ]);
     const user = await openPage();
 
     await user.click(within(row("ลุงเล่าผี")).getByRole("button", { name: "ลบ" }));
     await user.click(within(row("ลุงเล่าผี")).getByRole("button", { name: "ลบ" }));
 
-    expect(within(row("ลุงเล่าผี")).getByRole("alert")).toHaveTextContent("เสียงนี้ใช้อยู่ใน Spoil draft");
+    expect(within(row("ลุงเล่าผี")).getByRole("alert")).toHaveTextContent("เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท");
   });
 
   it("shows the offline panel when the backend doesn't answer", async () => {

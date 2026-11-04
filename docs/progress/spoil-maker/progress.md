@@ -1,8 +1,8 @@
 # Progress: spoil-maker
 
-**Now:** merged ([PR #5](https://github.com/mousemouse094526/framecraft/pull/5), `c104fea`)
+**Now:** feature review รอบสี่เสร็จ; พร้อม merge
 
-**Next:** —
+**Next:** รอ merge [PR #6](https://github.com/mousemouse094526/framecraft/pull/6)
 
 ## Tickets
 
@@ -17,8 +17,63 @@
 | 06 | ตัด EP จากคลิปเดียว | done |
 | 07 | ตัวบอกขั้นบอกสถานะจริง | done |
 | 08 | เรียบเรียงบท | done |
+| 09 | ร่างบทแล้วรอที่ขั้นตรวจแก้ | done |
 
 ## Log
+
+### Feature review รอบสี่ — 2026-11-04
+
+**Built:** (`refactor(spoil-maker): feature review fixes`, `438a4e0`)
+- backend: `clip_title` อ่านก่อนจองช่อง GPU (ADR-0015); Draft job เช็คเสียงซ้ำใต้ lock ของ draft และตั้งงานใต้ lock นั้น, `DraftJobs.uses_voice` อ่านงานโดยไม่จับ lock ของ slot — ลบเสียงระหว่างเริ่มร่างได้ `voice_not_found` ไม่มีงานค้าง
+- หน้าเว็บ: ขั้น 1 ที่เปิดค้างเริ่มใหม่จาก `order` เมื่องานอีกแท็บจบ; ยกเลิกที่ backend ไม่ตอบเป็น offline; `runningDraft`, `draftLabel`, `ReplaceConfirm` ใช้ร่วม; `isDrafting` ลบ; ชื่อ `putJob`, `goOffline`, `dropJob`, `replaceDraft`, `keepDraft`; deps ของ effect ครบ
+- test: backend +2 (เสียงถูกลบ และคลิปหาย ระหว่างเริ่มร่าง); ขั้น 2 ย้ายไป `DraftProgress.test.tsx` +3 (Alert หายเมื่อเริ่มงานใหม่, ยกเลิกที่ backend ไม่ตอบ, ขั้น 1 เปิดค้างตอนงานอีกแท็บล้ม), ข้อมูลปลอมใน `setupFixtures.ts`
+- Docs: flow.md diagram 1, 2 และข้อความ (lint + render ผ่าน), spec › Design แถวขั้น 1 และตัวบอกขั้น, skill `vite-react-web`
+
+**Decided:**
+- D89 — แก้จาก feature review รอบสี่ (D88 changed)
+
+**Checks:** `uv run pytest` — 552 passed; `npm --prefix frontend test` — 239 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 09: ร่างบทแล้วรอที่ขั้นตรวจแก้ — done 2026-11-04
+
+**Built:**
+- backend: Draft job มี `order` (`DraftOrder`: `clip_id`, `clip_title`, `ep`, `style`, `layout`, `target_s`, `voice_id`) เฉพาะ `kind: "draft"` คงอยู่หลังจบ; `voices.voice_users` (แบบ `transcribe.clip_users`) — `voice_in_use` และ `in_use` รวมเสียงของงานร่างที่ยังไม่จบ, ข้อความ "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท"
+- หน้าเว็บ: `DraftRunContext` ใน `useStepStatus` (job ร่วม, `show` ก่อนเปลี่ยน hash, offline ของงานร่างแล้วอ่านใหม่ทุก 1 วินาที); `useDraftProgress` + `DraftProgressCard`/`DraftNotice` ที่ขั้น 2 (3 ขั้น, ยกเลิกรอหยุดจริง, ยกเลิกไม่ทัน, ร่างล้มพร้อมลองอีกครั้งที่ถามร่างทับ, งานหยุดกลางทาง); ขั้น 1 อ่านอย่างเดียวจาก `order` พร้อม Alert, หลังล้มหรือยกเลิกเริ่มจาก `order` (EP ตามเลขและช่วง ไม่ตรงเป็น EP แรก, เสียงที่ลบแล้วเป็นเสียงล่าสุด); ตัวบอกขั้นขั้น 1 ระหว่างร่างใช้ `order`; การ์ดสไตล์มี hint (`aria-describedby`)
+- โค้ดใช้ร่วม: `lib/draft.ts` › `STYLES`, `DraftAsk`, `askOf`, `sendDraft`, `BUSY_TEXT`, `wholeDraft`; ความคืบหน้าร่างบทและ banner ร่างล้มออกจากขั้น 1 (`Draft action` เหลือร่างบทกับร่างทับ)
+- test: backend +4 (order ระหว่างงาน/ล้ม/ยกเลิก, pick และ polish ไม่มี order, `voice_in_use` ของงาน); `SpoilerSetup.test.tsx` +15 (Seam 2 ข้อ D81–D87); test เดิมที่ขั้น 1 ติดตามงานร่างเขียนใหม่ตาม D81
+- ร่างบทจริงกับ backend ใหม่ (EP.1128-A EP 1, เล่าละครหักมุม 60 วินาที, M2): กดแล้วเปิดขั้น 2 ทันที การ์ด เขียนบท 1:31 → เรียบเรียง 0:41 → เลือกภาพ 0/13–13/13 → จบรวม ~4 นาที แล้วเห็นบท 13 ประโยค ตัวบอกขั้น "13 ประโยค"
+- เช็คใน dev server (patch fetch ให้ current เป็นงานร่างที่มี `order` เพราะ backend ที่รันอยู่เป็นโค้ดเก่า): ขั้น 2 การ์ด 3 ขั้นและขั้น 1 ล็อกที่ 1024 และ 375 ไม่มี scroll แนวนอน ไม่มี console error; ร่างล้มแสดง Alert กับลองอีกครั้งเหนือ "ยังไม่มีบท"
+- Review สามแกนแก้แล้ว: deadlock ระหว่างลบเสียงกับเริ่มร่าง (ลำดับ lock), งานหยุดกลางทางเมื่อมีงานชนิดอื่นแทน, EP ตามช่วงของ order, เสียงที่ลบหลังยกเลิก, offline เฉพาะงานร่างทั้งบท, test ที่ขาด (offline แล้วกลับมา, จบขณะเปิดขั้น 1, order หลังยกเลิก), query `listitem` แทน `.closest`, ไม่ใช้ `waitFor` ใต้ fake timer, `sendDraft` ใช้ร่วม, `STYLES` ย้ายเข้า `lib/draft.ts`, ชื่อ (`cancelledFor`, `cardShownFor`, `scriptKey`, `cancelledTooLate`, `RetryStep`), map ของ phase
+
+**Decided:**
+- D88 — ทางเลือกเล็กตอน build ร่างบทไปขั้น 2
+
+**For the next ticket:**
+- ยกเลิกกับงานร่างจริงยังไม่ได้ลอง (เช็คด้วย test และ fetch ปลอมเท่านั้น)
+- `isDrafting` (ของเดิม) กับ `isRunning` ซ้อนกันสำหรับ Draft job — รวมเป็นตัวเดียวได้ตอน feature review
+
+**Checks:** `uv run pytest` — 550 passed; `npm --prefix frontend test` — 236 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### แบบ Figma ร่างบทไปขั้น 2 — 2026-11-04
+
+**Built:** (Figma, ไม่มีโค้ด) section [`EP & เรียบเรียง`](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)
+- `Style option`: property `Hint` (บรรทัดอธิบายใต้ชื่อ, D84) ตั้งครบทุก instance ในไฟล์; state ใหม่ `disabled`, `disabled selected`
+- component ใหม่ `Draft progress card` (`writing`/`polishing`/`matching`/`cancelling`): หัวคลิป · EP, สไตล์ · ความยาว, 3 ขั้นพร้อมไอคอน เสร็จ/กำลังทำ/รอ, แถบ, ยกเลิก
+- frame `Spoiler setup / Draft flow …` 10 frame (5 สถานะ × 1440, 375) และ `Script review / Draft flow …` 20 frame (10 สถานะ × 1440, 375)
+- prototype: ร่างบท → เขียนบท → เรียบเรียง → เลือกภาพ → `3 tab / สปอย 2 ตรวจแก้บท`; ยกเลิก → กำลังยกเลิก → ขั้น 1; ร่างล้ม → ลองอีกครั้ง → ยืนยันร่างทับ → เขียนบท; กลับไปแก้ตั้งค่า → ขั้น 1; ขั้น 1 ในตัวบอกขั้นระหว่างร่าง → ขั้น 1 ล็อก
+- `ui-prompt.md` ลบ; spec › Design ไม่มีจอ `pending`
+
+**Decided:**
+- ขั้น 1 ที่ล็อก: ช่องอื่นนอกจากสไตล์ใช้ความทึบ 60% แทนเพิ่ม state `disabled` ทุก component (Source clip row, Episode row, Cut point, Layout option, slider, select); โค้ดใช้ `disabled` ของ input ตามปกติ
+- ปุ่ม "กลับไปแก้ตั้งค่า" เป็น ghost ข้าง "ลองอีกครั้ง" (outline); ข้อความใต้การ์ด "กำลังร่างบท ใช้เวลาหลายนาที"
+
+### change request ร่างบทไปขั้น 2 — 2026-11-04
+
+**Decided:**
+- D81–D84: ร่างบทแล้วเปิดขั้น 2 ที่มีการ์ดความคืบหน้า 3 ขั้น; ขั้น 1 อ่านอย่างเดียวระหว่างร่างด้วย `order` ของ Draft job; ร่างล้มลองอีกครั้งที่ขั้น 2, ยกเลิกกลับขั้น 1; บรรทัดอธิบายใต้ชื่อสไตล์ — D79 changed (ขั้น 1 ไม่แสดงความคืบหน้าแล้ว)
+- D85–D87: ข้อแก้ The Breaker 11 ข้อ (ไม่มี BLOCKER): ยกเลิกรอหยุดจริง, ลองอีกครั้งถามร่างทับทุกครั้ง (D83 changed), error ของลองอีกครั้ง, restart, `voice_in_use` ของงาน, `busy`
+- legal: verdict เดิม (เปลี่ยนแค่การแสดงผล)
+- re-cut: ticket 09; จอตั้งค่าคลิปสปอยและหน้าตรวจแก้กลับเป็น `pending` (Blocked 16, 17); `ui-prompt.md` เขียนใหม่
 
 ### แบบ Figma ตัด EP ตัวบอกขั้น และเรียบเรียงใหม่ — 2026-11-04
 
@@ -388,3 +443,5 @@
 | 13 | 06 | design: ตั้งค่าคลิปสปอย — เลือกคลิปเดียว รายการ EP เลื่อนจุดตัด (D66, D67, D69) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
 | 14 | 07 | design: ตัวบอกขั้นของ tab สปอย — บรรทัดสถานะและจุดหมุน (D68) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
 | 15 | 08 | design: หน้าตรวจแก้ — ปุ่มเรียบเรียงใหม่ กล่องเลือก ป้ายแก้เอง (D72, D74, D75) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
+| 16 | 09 | design: ตั้งค่าคลิปสปอย — บรรทัดอธิบายสไตล์ ขั้น 1 อ่านอย่างเดียวระหว่างร่าง (D82, D84, D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
+| 17 | 09 | design: หน้าตรวจแก้ — การ์ดความคืบหน้าร่างบท ยกเลิก ร่างล้ม ลองอีกครั้ง (D81, D83, D85–D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |

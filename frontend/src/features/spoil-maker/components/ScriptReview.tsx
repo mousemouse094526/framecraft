@@ -6,12 +6,14 @@ import arrowRightIcon from "../assets/arrow-right-white.svg";
 import fileTextIcon from "../assets/file-text-36.svg";
 import triangleAlertIcon from "../assets/triangle-alert-24.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
+import { useDraftProgress } from "../hooks/useDraftProgress";
 import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
 import { epLabel, reviewJobText, SETUP_HASH, type Draft, type Layout } from "../lib/draft";
 import { markNumbersOverTopText, type Watermark } from "../lib/render";
 import type { RefusalLine } from "../../../lib/refusal";
+import { DraftNotice, DraftProgressCard } from "./DraftProgress";
 import { PolishDialog } from "./PolishDialog";
 import { ReviewBanner } from "./ReviewBanner";
 import { ReviewFooter } from "./ReviewFooter";
@@ -30,12 +32,37 @@ type Overlay = { kind: "picker"; sentenceId: string; slot: number } | { kind: "p
 const NEW_SENTENCE = "ประโยคใหม่";
 
 /**
+ * Step 2 of the สปอย tab while a whole new draft is written (D81): its progress card in place
+ * of the script; once it ends, the script read again, under how it ended (D83, D85–D87).
+ */
+export function ScriptReview() {
+  const progress = useDraftProgress();
+  const { view } = progress;
+  if (view.kind === "offline") return <OfflinePanel />;
+  if (view.kind === "running") return <DraftProgressCard job={view.job} onCancel={() => void progress.cancel()} />;
+  return (
+    <div className="flex flex-col gap-4">
+      {view.kind !== "none" && (
+        <DraftNotice
+          view={view}
+          retryStep={progress.retryStep}
+          onRetry={progress.retry}
+          onReplace={progress.replaceDraft}
+          onKeep={progress.keepDraft}
+        />
+      )}
+      <ScriptReviewBody key={progress.scriptKey} />
+    </div>
+  );
+}
+
+/**
  * Step 2 of the สปอย tab, ตรวจแก้บท (Figma `Script review`): the text on top, the length,
  * every sentence with its voice, the original sound and the watermarks beside them, the
  * sticky footer that voices and renders, and เรียบเรียงใหม่ (spoil-maker D19, D25–D27, D30,
  * D40–D42, D51, D72–D76).
  */
-export function ScriptReview() {
+function ScriptReviewBody() {
   const review = useScriptReview();
   const { state } = review;
   const { jobs, ...run } = useReviewJobs(review.refresh, review.goOffline);

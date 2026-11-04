@@ -23,7 +23,7 @@ flowchart LR
     subgraph spoil["tab สปอย"]
         direction TB
         setup["ขั้น 1 เลือกคลิป<br/>ตัดและเลือก EP<br/>สไตล์ ความยาว เสียง"] -->|กดร่างบท| draftjob["Draft job"]
-        draftjob -->|draft.json| review["ขั้น 2 ตรวจแก้บท"]
+        draftjob -->|ความคืบหน้า แล้วบท| review["ขั้น 2 ตรวจแก้บท"]
         review -->|สร้างเสียง| voicejob["Voice job"]
         review -->|กด render| render["Render job"]
         voicejob -->|เสียงต่อประโยค| render
@@ -42,6 +42,7 @@ flowchart LR
 - Saved voice สร้างก่อนครั้งเดียว ใช้ซ้ำทุกคลิป (D32)
 - สร้างเสียงก่อนก็ได้ ข้ามไปกด render ก็ได้: render สร้างเสียงที่ขาดให้ (D30)
 - กดร่างบทตอนมี Spoil draft อยู่ต้องยืนยันทับ (D28)
+- กดร่างบทแล้วเปิดขั้น 2 ทันที ขั้น 2 แสดงการ์ดความคืบหน้าจนงานจบ; ระหว่างนั้นขั้น 1 อ่านอย่างเดียว (D81, D82)
 - ทุกงานในภาพนี้ใช้ช่อง GPU เดียวกัน: ดู diagram 5 (D45)
 - ถอดใหม่หรือบรรยายฉากใหม่ของคลิปใน Spoil draft ลบ Spoil draft หลังยืนยัน (D49)
 
@@ -54,7 +55,8 @@ sequenceDiagram
     participant W as process ลูก (Qwen)
     UI->>API: POST /draft-jobs
     API->>API: เช็คคลิป token ช่อง GPU
-    API-->>UI: 202 writing
+    API-->>UI: 202 writing พร้อม order
+    UI->>UI: เปิดขั้น 2 การ์ดความคืบหน้า
     API->>W: Transcript ของ EP
     W-->>API: JSON บท (สูงสุด 3 ครั้ง)
     API->>API: ตัดอักษรจีน ตรวจ refs
@@ -67,6 +69,7 @@ sequenceDiagram
     API->>API: เขียน draft.json คืนช่อง GPU
     UI->>API: GET /draft-jobs/current (poll)
     API-->>UI: done
+    UI->>API: GET /draft
 ```
 
 **ร่างบทกับเลือก Shot ต่อกันในงานเดียวอย่างไร**
@@ -74,6 +77,9 @@ sequenceDiagram
 - token ของ EP เกิน 32,000 ไม่เริ่มงาน: `400` `transcript_too_long` (D46)
 - ประโยคที่ไม่มี refs ข้ามขั้นเลือก Shot ได้ `[null, null]` (D18, D26)
 - ยกเลิกหรือ crash ก่อนเขียน draft.json: Spoil draft เดิมไม่เปลี่ยน
+- ยกเลิกจากการ์ด: "กำลังยกเลิก" จนเห็น `cancelled` แล้วเปิดขั้น 1 ที่ค่าของ `order`; จบ `done` ก่อนหยุด = "ยกเลิกไม่ทัน บทร่างเสร็จแล้ว" (D83, D85)
+- ล้ม: ขั้น 2 มี "ลองอีกครั้ง" ส่ง `order` เดิม (มี draft อยู่ถามร่างทับก่อน) และ "กลับไปแก้ตั้งค่า" (D83, D86)
+- backend restart ระหว่างงาน: current เป็น `null` → "งานหยุดกลางทาง"; `order` ไม่รอด (D87, ADR-0010)
 - `kind: "pick"` ทำเฉพาะ loop กับประโยคเดียว (D25)
 - ขั้นเรียบเรียงแก้แค่ข้อความ จำนวน ลำดับ refs คงเดิม; ผลพังไม่ทำให้งานล้ม ใช้ข้อความเดิม (D72, D73)
 - `kind: "polish"` ทำเฉพาะขั้นเรียบเรียงกับ draft ปัจจุบัน; ประโยคแก้เองคงไว้ เว้นแต่ผู้ใช้ติ๊กรวม (D74, D75)

@@ -44,7 +44,7 @@ No router library and no `routes/`: `App` picks the page from the hash
 (`#/setup`, `#/clips`, `#/spoil`, spoil D10, spoil-maker D53); a page with
 steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
 `#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59);
-the สปอย tab's hashes live in `features/spoil-maker/lib/draft.ts`, the voice and render API shapes in `lib/render.ts`. Each page wraps itself in `PageLayout`,
+the สปอย tab's hashes, the Draft job's shapes, the styles and `sendDraft` (the one `POST` of a whole new draft, step 1 and step 2 both send it) live in `features/spoil-maker/lib/draft.ts`, the voice and render API shapes and `startJob` in `lib/render.ts` — a `lib/` module may call `lib/api` when two hooks send the same request. The tab's steps share one state (`useStepStatus`): `StepsRefreshContext` reads it again, `DraftRunContext` gives the latest Draft job to step 1 (locked while it runs) and step 2 (its progress card). Each page wraps itself in `PageLayout`,
 whose tabs are plain `#/…` links, so clicks and the back button both just
 change the hash.
 

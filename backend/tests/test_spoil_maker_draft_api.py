@@ -440,6 +440,86 @@ def test_the_draft_has_the_order_the_remembered_volume_and_becomes_the_last_voic
     assert client.get("/api/spoil-maker/settings").json()["last_voice_id"] == VOICE
 
 
+def test_a_draft_job_carries_its_order_while_writing_and_after_it_fails(client, project, ready, llm):
+    llm.scripts = ["not json"] * 3
+    llm.pause_at(0)
+    title = next(clip["title"] for clip in client.get("/api/spoil/clips").json()["clips"] if clip["id"] == EP1)
+
+    started = start(client, style="fast", layout="A", target_s=90)
+    llm.wait_until(0)
+    writing = client.get(CURRENT).json()
+    llm.release(0)
+    failed = wait_for_end(client)
+
+    expected = {
+        "clip_id": EP1,
+        "clip_title": title,
+        "ep": WHOLE,
+        "style": "fast",
+        "layout": "A",
+        "target_s": 90,
+        "voice_id": VOICE,
+    }
+    assert started.json()["order"] == expected
+    assert writing["order"] == expected
+    assert (failed["state"], failed["order"]) == ("failed", expected)
+
+
+def test_a_voice_deleted_while_a_draft_starts_is_voice_not_found_and_frees_the_gpu(client, project, ready, monkeypatch):
+    # The token count runs between the first voice check and the draft's lock (D87).
+    def count_and_delete(snapshot_dir: Path, text: str) -> int:
+        client.delete(f"/api/spoil-maker/voices/{VOICE}")
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count_and_delete)
+
+    response = start(client)
+
+    assert (response.status_code, response.json()["code"]) == (400, "voice_not_found")
+    assert not (project.voices_dir / f"{VOICE}.json").exists()
+    assert gpu.slot.holds_draft() is False
+    assert client.get(CURRENT).json() is None
+
+
+def test_a_clip_gone_while_a_draft_starts_does_not_hold_the_gpu(client, project, ready, monkeypatch):
+    def count_and_delete(snapshot_dir: Path, text: str) -> int:
+        project.clip_json(EP1).unlink()
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count_and_delete)
+
+    response = start(client)
+
+    assert response.status_code == 404
+    assert gpu.slot.holds_draft() is False
+
+
+def test_a_cancelled_draft_job_keeps_its_order(client, project, ready, llm):
+    llm.scripts = [passing_script()]
+    llm.pause_at(0)
+
+    start(client)
+    llm.wait_until(0)
+    client.delete(CURRENT)
+    llm.release(0)
+    job = wait_for_end(client)
+
+    assert (job["state"], job["order"]["clip_id"], job["order"]["ep"]) == ("cancelled", EP1, WHOLE)
+
+
+def test_a_pick_or_polish_job_has_no_order(client, project, ready, llm):
+    write_draft(project)
+
+    picked = client.post(JOBS, json={"kind": "pick", "sentence_id": "s_00000001"})
+    wait_for_end(client)
+    polished = client.post(JOBS, json={"kind": "polish"})
+    wait_for_end(client)
+
+    assert picked.json()["order"] is None
+    assert polished.json()["order"] is None
+    assert client.get(CURRENT).json()["order"] is None
+
+
 def test_the_llm_gets_the_target_letters_and_sentences_and_the_generation_settings(client, project, ready, llm):
     llm.scripts = [passing_script()]
 
@@ -1311,9 +1391,26 @@ def test_deleting_the_drafts_voice_is_voice_in_use(client, project, ready):
     listed = client.get("/api/spoil-maker/voices").json()
 
     assert response.status_code == 409
-    assert response.json() == {"code": "voice_in_use", "message": "เสียงนี้ใช้อยู่ใน Spoil draft"}
+    assert response.json() == {"code": "voice_in_use", "message": "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท"}
     assert (project.voices_dir / f"{VOICE}.json").is_file()
     assert listed[0]["in_use"] is True
+
+
+def test_the_voice_of_an_unfinished_draft_job_is_voice_in_use_until_it_ends(client, project, ready, llm):
+    llm.scripts = ["not json"] * 3
+    llm.pause_at(0)
+
+    start(client)
+    llm.wait_until(0)
+    while_writing = client.delete(f"/api/spoil-maker/voices/{VOICE}")
+    listed = client.get("/api/spoil-maker/voices").json()
+    llm.release(0)
+    wait_for_end(client)
+    after_failing = client.delete(f"/api/spoil-maker/voices/{VOICE}")
+
+    assert (while_writing.status_code, while_writing.json()["code"]) == (409, "voice_in_use")
+    assert listed[0]["in_use"] is True
+    assert after_failing.status_code == 204
 
 
 # --- Clips in the Spoil draft (D49) ---

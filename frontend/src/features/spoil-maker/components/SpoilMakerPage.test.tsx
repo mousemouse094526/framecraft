@@ -88,6 +88,15 @@ const draftJob = (change: Partial<DraftJob>): DraftJob => ({
   error: null,
   cancel_requested: false,
   started_at: AT(0),
+  order: {
+    clip_id: "aaaaaaaaaaa",
+    clip_title: "คืนสยองผีดิบ",
+    ep: { n: 1, start_s: 0, end_s: 1799 },
+    style: "drama",
+    layout: "B",
+    target_s: 60,
+    voice_id: "v_0000abcd",
+  },
   ...change,
 });
 const FAILED = { code: "model_failed", message: "x" };

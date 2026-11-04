@@ -1,9 +1,9 @@
-import { createContext, useCallback, useContext, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { getJson } from "../../../lib/api";
 import { cancelCurrent, isRunning } from "../../../lib/job";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
-import { DRAFT_JOB_PATH, DRAFT_PATH, type Draft, type DraftJob } from "../lib/draft";
+import { DRAFT_JOB_PATH, DRAFT_PATH, wholeDraft, type Draft, type DraftJob } from "../lib/draft";
 import {
   RENDER_JOB_PATH,
   RENDERS_PATH,
@@ -31,6 +31,34 @@ const readResults = () => Promise.all([getJson<Draft | null>(DRAFT_PATH), getJso
 export const StepsRefreshContext = createContext<() => void>(() => {});
 
 export const useStepsRefresh = () => useContext(StepsRefreshContext);
+
+/** The latest Draft job as the steps hold it, for the steps that start, follow or show it (spoil-maker D81–D87). */
+export type DraftRun = {
+  /** False until the steps' first read answered or failed (a failed one leaves `job` null): step 1 starts from its order (D87). */
+  loaded: boolean;
+  job: DraftJob | null;
+  /** A Spoil draft is there: ลองอีกครั้ง asks before replacing it (D86). */
+  draftExists: boolean;
+  /** The last poll of the running job failed; the steps read again every second until one answers (D87). */
+  offline: boolean;
+  /** Puts a job a step just started or cancelled in the steps' state, before the hash changes (D87). */
+  putJob: (job: DraftJob) => void;
+  /** No answer from the backend: offline until a read answers (D87). */
+  goOffline: () => void;
+};
+
+export const DraftRunContext = createContext<DraftRun>({
+  loaded: false,
+  job: null,
+  draftExists: false,
+  offline: false,
+  putJob: () => {},
+  goOffline: () => {},
+});
+
+export const useDraftRun = () => useContext(DraftRunContext);
+
+const RETRY_MS = 1000;
 
 /**
  * `startJob` and `cancelCurrent` for a step's hook: each tells the steps once a job is started
@@ -65,6 +93,8 @@ export function useJobCalls() {
  */
 export function useStepStatus() {
   const [status, , setIfMounted] = useMountedState<StepStatus>(START);
+  const [draftJobOffline, setDraftJobOffline] = useState(false);
+  const [firstReadDone, setFirstReadDone] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -75,9 +105,11 @@ export function useStepStatus() {
         getJson<RenderJob | null>(RENDER_JOB_PATH),
       ]);
       setIfMounted({ draft, renders, draftJob, voiceJob: sentencesOnly(voiceJob), renderJob });
+      setDraftJobOffline(false);
     } catch {
       // the open step says offline
     }
+    setFirstReadDone(true);
   }, [setIfMounted]);
 
   useEffect(() => {
@@ -93,13 +125,30 @@ export function useStepStatus() {
     );
   };
   // A poll that failed stopped; dropping the job lets the next refresh follow it again.
-  const lost = (key: JobKey) => () => setIfMounted((s) => ({ ...s, [key]: null }));
+  const dropJob = (key: JobKey) => () => setIfMounted((s) => ({ ...s, [key]: null }));
 
-  usePollWhile(isRunning(status.draftJob), DRAFT_JOB_PATH, follow("draftJob"), lost("draftJob"));
-  usePollWhile(isRunning(status.voiceJob), VOICE_JOB_PATH, follow("voiceJob"), lost("voiceJob"));
-  usePollWhile(isRunning(status.renderJob), RENDER_JOB_PATH, follow("renderJob"), lost("renderJob"));
+  // A failed poll of a whole new draft keeps the job: ตรวจแก้บท says offline, not that the job is gone (D87).
+  const draftPollFailed = () => (wholeDraft(status.draftJob) ? setDraftJobOffline(true) : dropJob("draftJob")());
+  usePollWhile(isRunning(status.draftJob) && !draftJobOffline, DRAFT_JOB_PATH, follow("draftJob"), draftPollFailed);
+  useEffect(() => {
+    if (!draftJobOffline) return;
+    const timer = setInterval(() => void load(), RETRY_MS);
+    return () => clearInterval(timer);
+  }, [draftJobOffline, load]);
+  usePollWhile(isRunning(status.voiceJob), VOICE_JOB_PATH, follow("voiceJob"), dropJob("voiceJob"));
+  usePollWhile(isRunning(status.renderJob), RENDER_JOB_PATH, follow("renderJob"), dropJob("renderJob"));
 
   const refresh = useCallback(() => void load(), [load]);
+  const putJob = useCallback((job: DraftJob) => setIfMounted((s) => ({ ...s, draftJob: job })), [setIfMounted]);
+  const goOffline = useCallback(() => setDraftJobOffline(true), []);
+  const draftRun: DraftRun = {
+    loaded: firstReadDone,
+    job: status.draftJob,
+    draftExists: Boolean(status.draft),
+    offline: draftJobOffline,
+    putJob,
+    goOffline,
+  };
 
-  return { status, refresh };
+  return { status, refresh, draftRun };
 }

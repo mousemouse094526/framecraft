@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendJson } from "../../../lib/api";
-import { onlyWhen } from "../../../lib/job";
+import { isRunning, onlyWhen } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -8,7 +8,6 @@ import {
   DRAFT_JOB_PATH,
   DRAFT_JOBS_PATH,
   DRAFT_PATH,
-  isDrafting,
   jobFailureText,
   shotsPath,
   type Draft,
@@ -78,7 +77,7 @@ export function useScriptReview() {
         draft,
         shots,
         // A whole new draft is step 1's; this page follows the jobs that change the draft it shows.
-        job: isDrafting(job) && job?.kind !== "draft" ? job : null,
+        job: isRunning(job) && job?.kind !== "draft" ? job : null,
         pickingId: previous.kind === "loaded" ? previous.pickingId : null,
         message: previous.kind === "loaded" ? previous.message : null,
       }));
@@ -95,7 +94,7 @@ export function useScriptReview() {
     state.kind === "loaded" && state.job !== null,
     DRAFT_JOB_PATH,
     (job) => {
-      if (job !== null && isDrafting(job)) {
+      if (job !== null && isRunning(job)) {
         setIfMounted(whenLoaded((s) => ({ ...s, job })));
         return;
       }

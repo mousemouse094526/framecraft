@@ -14,6 +14,7 @@ import secrets
 import shutil
 import threading
 import wave
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, NamedTuple
 
@@ -77,7 +78,7 @@ class Voice(BaseModel):
     speed: float
     chars_per_s: float
     created_at: str
-    in_use: bool  # the Spoil draft uses it, so it can't be deleted (D43)
+    in_use: bool  # the Spoil draft or an unfinished Draft job uses it: it can't be deleted (D43, D87)
 
 
 class SentencesPlan(NamedTuple):
@@ -229,6 +230,15 @@ def _write_sentence_audio(project: ProjectPaths, voice_id: str, sentence_id: str
 # Saving moves the preview's files and a finished job replaces them: one at a time.
 _files_lock = threading.Lock()
 
+voice_users: list[Callable[[str], bool]] = []
+"""Checks that answer True while a job will write a draft with that voice, so it can't be
+deleted (`voice_in_use`, D87). `spoil_maker.draft` adds the Draft job's when it is imported.
+Each reads its job without taking a lock, so it may run under `gpu.slot.draft_lock`."""
+
+
+def _job_uses(voice_id: str) -> bool:
+    return any(uses(voice_id) for uses in voice_users)
+
 
 def _write_preview(project: ProjectPaths, request: Design, designed: Designed) -> None:
     """The new preview replaces the old one (spec › Saved voice step 3)."""
@@ -292,7 +302,7 @@ def list_voices(project: ProjectPaths) -> list[Voice]:
     for path in project.voices_dir.glob("v_*.json"):
         if VOICE_ID.fullmatch(path.stem):
             stored = json.loads(path.read_text(encoding="utf-8"))
-            in_use = draft is not None and draft.voice_id == path.stem
+            in_use = (draft is not None and draft.voice_id == path.stem) or _job_uses(path.stem)
             found.append((stored["created_at"], path.stat().st_mtime_ns, _voice(path.stem, stored, in_use)))
     return [voice for *_, voice in sorted(found, key=lambda entry: entry[:2], reverse=True)]
 
@@ -304,17 +314,19 @@ def rename(project: ProjectPaths, voice_id: str, name: str) -> Voice:
         stored = json.loads(path.read_text(encoding="utf-8"))
         stored["name"] = name
         files.write_atomic(path, _json(stored))
-    return _voice(voice_id, stored, draft_file.uses_voice(project, voice_id))
+    return _voice(voice_id, stored, draft_file.uses_voice(project, voice_id) or _job_uses(voice_id))
 
 
 def delete(project: ProjectPaths, voice_id: str) -> None:
     """Removes the three files; the json goes last, so a half-deleted voice is never listed
-    without its sample. The Spoil draft's voice can't go: `voice_in_use` (D43). Under the
-    draft's lock, so the draft can't switch to it between the check and the delete."""
+    without its sample. The Spoil draft's voice, or the one of an unfinished Draft job, can't
+    go: `voice_in_use` (D43, D87). Under the draft's lock, so the draft can't switch to it
+    between the check and the delete, and a Draft job either is set already or checks the
+    voice after this delete (both under the draft's lock)."""
     with gpu.slot.draft_lock, _files_lock:
         info = _voice_file(project, voice_id, ".json")
-        if draft_file.uses_voice(project, voice_id):
-            raise ApiError(409, "voice_in_use", "เสียงนี้ใช้อยู่ใน Spoil draft")
+        if _job_uses(voice_id) or draft_file.uses_voice(project, voice_id):
+            raise ApiError(409, "voice_in_use", "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท")
         for suffix in (".pt", ".wav"):
             (project.voices_dir / f"{voice_id}{suffix}").unlink(missing_ok=True)
         info.unlink()
