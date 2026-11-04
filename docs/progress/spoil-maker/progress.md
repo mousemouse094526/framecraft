@@ -1,6 +1,6 @@
 # Progress: spoil-maker
 
-**Now:** change request ร่างบทไปขั้น 2 ผ่าน gate (D81–D87); ticket 09 พร้อมทำ
+**Now:** แบบ Figma ของร่างบทไปขั้น 2 เสร็จ (Blocked 16–17); ticket 09 พร้อมทำ
 
 **Next:** `/warroom-build spoil-maker 09`
 
@@ -20,6 +20,19 @@
 | 09 | ร่างบทแล้วรอที่ขั้นตรวจแก้ | ready-for-agent |
 
 ## Log
+
+### แบบ Figma ร่างบทไปขั้น 2 — 2026-11-04
+
+**Built:** (Figma, ไม่มีโค้ด) section [`EP & เรียบเรียง`](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)
+- `Style option`: property `Hint` (บรรทัดอธิบายใต้ชื่อ, D84) ตั้งครบทุก instance ในไฟล์; state ใหม่ `disabled`, `disabled selected`
+- component ใหม่ `Draft progress card` (`writing`/`polishing`/`matching`/`cancelling`): หัวคลิป · EP, สไตล์ · ความยาว, 3 ขั้นพร้อมไอคอน เสร็จ/กำลังทำ/รอ, แถบ, ยกเลิก
+- frame `Spoiler setup / Draft flow …` 10 frame (5 สถานะ × 1440, 375) และ `Script review / Draft flow …` 20 frame (10 สถานะ × 1440, 375)
+- prototype: ร่างบท → เขียนบท → เรียบเรียง → เลือกภาพ → `3 tab / สปอย 2 ตรวจแก้บท`; ยกเลิก → กำลังยกเลิก → ขั้น 1; ร่างล้ม → ลองอีกครั้ง → ยืนยันร่างทับ → เขียนบท; กลับไปแก้ตั้งค่า → ขั้น 1; ขั้น 1 ในตัวบอกขั้นระหว่างร่าง → ขั้น 1 ล็อก
+- `ui-prompt.md` ลบ; spec › Design ไม่มีจอ `pending`
+
+**Decided:**
+- ขั้น 1 ที่ล็อก: ช่องอื่นนอกจากสไตล์ใช้ความทึบ 60% แทนเพิ่ม state `disabled` ทุก component (Source clip row, Episode row, Cut point, Layout option, slider, select); โค้ดใช้ `disabled` ของ input ตามปกติ
+- ปุ่ม "กลับไปแก้ตั้งค่า" เป็น ghost ข้าง "ลองอีกครั้ง" (outline); ข้อความใต้การ์ด "กำลังร่างบท ใช้เวลาหลายนาที"
 
 ### change request ร่างบทไปขั้น 2 — 2026-11-04
 
@@ -397,5 +410,5 @@
 | 13 | 06 | design: ตั้งค่าคลิปสปอย — เลือกคลิปเดียว รายการ EP เลื่อนจุดตัด (D66, D67, D69) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
 | 14 | 07 | design: ตัวบอกขั้นของ tab สปอย — บรรทัดสถานะและจุดหมุน (D68) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
 | 15 | 08 | design: หน้าตรวจแก้ — ปุ่มเรียบเรียงใหม่ กล่องเลือก ป้ายแก้เอง (D72, D74, D75) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
-| 16 | 09 | design: ตั้งค่าคลิปสปอย — บรรทัดอธิบายสไตล์ ขั้น 1 อ่านอย่างเดียวระหว่างร่าง (D82, D84, D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
-| 17 | 09 | design: หน้าตรวจแก้ — การ์ดความคืบหน้าร่างบท ยกเลิก ร่างล้ม ลองอีกครั้ง (D81, D83, D85–D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | open |
+| 16 | 09 | design: ตั้งค่าคลิปสปอย — บรรทัดอธิบายสไตล์ ขั้น 1 อ่านอย่างเดียวระหว่างร่าง (D82, D84, D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |
+| 17 | 09 | design: หน้าตรวจแก้ — การ์ดความคืบหน้าร่างบท ยกเลิก ร่างล้ม ลองอีกครั้ง (D81, D83, D85–D87) จาก `ui-prompt.md` | `/warroom spoil-maker` พร้อมลิงก์แบบ | done ([Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)) |

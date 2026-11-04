@@ -7,7 +7,7 @@
 **Covers:**
 - Decisions: D81, D82, D83, D84, D85, D86, D87 (และ D79 ส่วนขั้น 1 ที่เปลี่ยนตาม D82)
 - ADR: 0010
-- Screens: ตั้งค่าคลิปสปอย, หน้าตรวจแก้, ตัวบอกขั้นของ tab สปอย (บรรทัดสถานะขั้น 1 ระหว่างร่าง)
+- Screens: ตั้งค่าคลิปสปอย, หน้าตรวจแก้ ([Figma: Draft flow](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8083-27833)), ตัวบอกขั้นของ tab สปอย (บรรทัดสถานะขั้น 1 ระหว่างร่าง)
 - Seams: 1 (Draft: `order`; Saved voice: `voice_in_use` ของงาน), 2 (ข้อ D81–D87)
 - User stories: 5, 7, 14
 
@@ -41,5 +41,5 @@
 - `409` `busy` จากร่างบท → "มีงานร่างบทอยู่แล้ว" และขั้น 1 ล็อก
 - การ์ดสไตล์ทั้ง 3 มีบรรทัดอธิบายตาม D84 ผูกกับ radio ด้วย `aria-describedby`
 - ตัวบอกขั้นระหว่างร่าง: ขั้น 1 เป็น "{order.clip_title} · EP {n}"
-- หน้าตาตามแบบใหม่เมื่อ Blocked 16, 17 เป็น `done`; ก่อนหน้านั้นใช้ component เดิมของ Spoiler setup และ Script review ที่ 375 และ 1440
+- หน้าตาตาม frames `Spoiler setup / Draft flow …` และ `Script review / Draft flow …` ที่ 375 และ 1440
 - ทุก test ใน spec › Seams 2 ที่อ้าง D81–D87 ผ่าน
