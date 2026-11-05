@@ -1,11 +1,11 @@
 # Progress: story-kb
 
-**Now:** ทุก ticket done (04 เสร็จ 2026-11-06) — รอ feature review รอบใหม่ (โค้ดเปลี่ยนหลัง review ก่อน)
+**Now:** ready to merge — feature review รอบสองผ่าน (2026-11-06), CI เขียวทุกข้อ, ไม่มี Blocked `open`
 
-**Next:** feature review
+**Next:** เปิด PR (บอก spoil-maker D90 ใน PR)
 
 ```
-/warroom-build story-kb --review-feature
+/pr-open
 ```
 
 ## Tickets
@@ -18,6 +18,25 @@
 | 04 | ค่าเลือก Story ของขั้น 1 เป็นค่าเดียว | done |
 
 ## Log
+
+### feature review รอบสอง — 2026-11-06
+
+**Built:**
+- Review สามแกนทั้ง branch จาก merge-base d5557214 (เน้น ticket 04); แก้ใน 56d9980:
+- ลองอีกครั้งถูกปฏิเสธเป็น `story_not_found` (Story ของ order ถูกลบ) → ไม่มีปุ่มลองอีกครั้ง มีแค่ "กลับไปแก้ตั้งค่า" (`SETUP_REFUSALS`) — ก่อนนี้ส่ง `story_id` เดิมซ้ำได้ไม่จบ; test ใหม่ใน `DraftProgress.test.tsx`
+- ช่อง Story แสดง `message` ของ API (`gone` เก็บข้อความ, `onDraft` คืน `Refusal`) แทนข้อความซ้ำใน `StoryPicker`; test ใช้ข้อความของ API ที่ต่างจากในหน้า
+- test ใหม่: order ที่ `story_id` `null` + คลิปจำ Story → ช่องเป็น "ไม่ใช้" (เช็คแล้วว่าจับได้: เปลี่ยน order `null` เป็น `followsClip` → แดง)
+- ชื่อ: `storyIdOf` ของขั้น 1 → `sentStoryId`, `clipStory` → `clipStoryId`, ลบ `FOLLOWS_CLIP`; `remembering(stories, links)` ใช้แทน route ซ้ำ; ชื่อ test "picking one calls the API for nothing until ร่างบท"
+- comment: ตัวคั่นของ `_story_part`, test Trim job (ADR 0022); spoil D39 และแถว index กำกับว่า D90–D95 เป็นเลขของ branch `feat/spoil-maker-transcript-remove`
+
+**Decided:**
+- D24 — `story_not_found` ของลองอีกครั้งเป็นเหตุต้องแก้ตั้งค่า, ข้อความจาก API, ชื่อ `sentStoryId`/`clipStoryId`, กำกับเลข D90
+
+**For the next ticket:**
+- Spec: `ClipStory` (`useClipStory.ts`, `unknown`/`none`/`story` + title) กับ `StoryChoice` (`story` + id) ใช้ `kind` ชื่อเดียวกันคนละ payload ในโฟลเดอร์เดียว — ไม่เปลี่ยน; ระวังตอนใช้ร่วมกัน
+- Newcomer: `clips` ของ `StoryRow` เป็นจำนวน, `_tokens` คืน `None` ทุก error, "— / —" เมื่อนับ Story ไม่ได้ — ตาม spec › API, D17, D19; ไม่เปลี่ยน
+
+**Checks:** `uv run pytest` (679) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` (319) · `npm --prefix frontend run build` — all green
 
 ### 04: ค่าเลือก Story ของขั้น 1 เป็นค่าเดียว — done 2026-11-06
 
