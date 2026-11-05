@@ -1,14 +1,12 @@
 # Progress: story-kb
 
-**Now:** 01 backend เสร็จ (Stories API, Story ที่คลิปจำ, Ops); ส่วนหน้าเว็บของ 01 หยุดรอ design คลังความรู้ กับ แก้ Story (Blocked 1, 2)
+**Now:** 01 backend เสร็จ (Stories API, Story ที่คลิปจำ, Ops); design ครบทั้ง 4 จอ (Blocked 1–4 done) — ส่วนหน้าเว็บของ 01 ทำต่อได้
 
-**Next:** ทำ Figma frame จาก `docs/features/story-kb/ui-prompt.md` แล้ว
+**Next:** ทำกลุ่ม tab คลังความรู้ของ 01 ต่อ
 
 ```
-/warroom story-kb
+/warroom-build story-kb 01
 ```
-
-จากนั้น `/warroom-build story-kb 01` ทำกลุ่ม tab คลังความรู้
 
 ## Tickets
 
@@ -19,6 +17,18 @@
 | 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | ready |
 
 ## Log
+
+### design: 4 จอ — 2026-11-05
+
+**Built:**
+- Figma section [framecraft — คลังความรู้ (story-kb)](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8102-52561): คลังความรู้ 4 state, แก้ Story 8 state, ขั้น 1 ช่อง Story 6 state + การ์ดร่างบทมีบรรทัด "เรื่อง:", กล่องเรียบเรียงใหม่ 2 state; แต่ละ state ที่ 1440 และ 375; prototype link และ start point "คลังความรู้ — desktop/mobile"
+- Components ใหม่: Tab bar (4 tab), Story row, Character row (desktop/mobile), Article field, Story picker, Delete story dialog, icon/book-open
+- Components ที่แก้: Token meter เพิ่ม `ok story` / `over story`; Polish dialog เพิ่ม `Story line` กับ `Show hook note`; Draft progress card เพิ่ม `Story` กับ `Show story` (ปิดไว้เป็นค่าตั้งต้น)
+- `ui-prompt.md` ลบ; spec › Design ไม่มีจอ `pending`
+
+**For the next ticket:**
+- Polish dialog แสดง `Story line` ทุก instance รวม frame เก่าของ spoil-maker; ใช้ frame ใน section story-kb เป็นแบบล่าสุด
+- state "กำลังบันทึก" ของแก้ Story ไม่มีข้อความใหม่: ปุ่ม "บันทึก" กดไม่ได้ + `aria-busy` ตาม D16
 
 ### 01: คลังความรู้ — เพิ่ม แก้ ลบ Story — stopped 2026-11-05
 
@@ -43,7 +53,7 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01 | design: คลังความรู้ (รายการ Story) | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | open |
-| 2 | 01 | design: แก้ Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | open |
-| 3 | 02 | design: ขั้น 1 ตั้งค่าคลิปสปอย: ช่อง Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | open |
-| 4 | 03 | design: ขั้น 2 กล่องเรียบเรียงใหม่ | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | open |
+| 1 | 01 | design: คลังความรู้ (รายการ Story) | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8103-52679](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8103-52679)) |
+| 2 | 01 | design: แก้ Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8104-52899](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8104-52899)) |
+| 3 | 02 | design: ขั้น 1 ตั้งค่าคลิปสปอย: ช่อง Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8105-55260](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8105-55260)) |
+| 4 | 03 | design: ขั้น 2 กล่องเรียบเรียงใหม่ | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8105-56552](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8105-56552)) |
