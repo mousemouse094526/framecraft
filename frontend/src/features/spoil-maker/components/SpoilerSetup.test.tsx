@@ -18,7 +18,12 @@ import {
   OTHER,
   REVIEW_HASH,
   SETTINGS_PATH,
+  ALIEN,
+  CONAN,
   setupDefaults,
+  storyRowOf,
+  STORIES_PATH,
+  STORY_CLIPS_PATH,
   UNCLE,
   UNDESCRIBED,
   UNTRANSCRIBED,
@@ -191,6 +196,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
         layout: "B",
         target_s: 60,
         voice_id: UNCLE.id,
+        story_id: null,
         replace: false,
       },
     ]);
@@ -402,5 +408,170 @@ describe("ตั้งค่าคลิปสปอย", () => {
     await user.click(draftButton());
 
     expect(await screen.findByText("รอให้งานบรรยายฉากเสร็จก่อน")).toBeInTheDocument();
+  });
+});
+
+describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
+  const storyField = () => screen.getByRole("combobox", { name: "เรื่องในคลังความรู้" });
+  const remembering = (stories = [CONAN, ALIEN]): Route[] => [get(STORIES_PATH, stories), get(STORY_CLIPS_PATH, { [FILM.id]: CONAN.id })];
+
+  it("a clip that remembers a Story starts with it, and the meter adds the Story's tokens", async () => {
+    backend(remembering());
+    await pickFilm();
+
+    expect(storyField()).toHaveDisplayValue(CONAN.title);
+    expect(screen.getByText("Transcript ของ EP 1 + เรื่อง")).toBeInTheDocument();
+    expect(screen.getByText("21,500 / 32,000")).toBeInTheDocument();
+    expect(screen.getByText("เรื่อง 3,100 token")).toBeInTheDocument();
+    expect(screen.getByText("จำให้คลิปนี้ทุก EP เมื่อกดร่างบท")).toBeInTheDocument();
+    expect(draftButton()).toBeEnabled();
+  });
+
+  it("a clip whose Story was deleted starts with ไม่ใช้ and the meter counts the EP only", async () => {
+    backend(remembering([ALIEN]));
+    await pickFilm();
+
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+    expect(screen.getByText("Transcript ของ EP 1")).toBeInTheDocument();
+    expect(screen.getByText("18,400 / 32,000")).toBeInTheDocument();
+    expect(screen.queryByText(/^เรื่อง .* token$/)).not.toBeInTheDocument();
+  });
+
+  it("lists ไม่ใช้ then every Story by title; picking one sends nothing", async () => {
+    backend(remembering());
+    const user = await pickFilm();
+    const before = fetchMock.mock.calls.length;
+
+    expect(within(storyField()).getAllByRole("option").map((option) => option.textContent)).toEqual(["ไม่ใช้", CONAN.title, ALIEN.title]);
+    await user.selectOptions(storyField(), ALIEN.title);
+
+    expect(fetchMock.mock.calls.length).toBe(before);
+    expect(screen.getByText("19,300 / 32,000")).toBeInTheDocument();
+  });
+
+  it("sorts the Stories as Thai is sorted, a leading vowel after its consonant", async () => {
+    // By code point ข (U+0E02) comes before เ (U+0E40); in Thai order เกมล่า reads from ก.
+    const stories = [storyRowOf("st_000000b0", "ขุนพันธ์"), storyRowOf("st_000000a0", "เกมล่า")];
+    backend([get(STORIES_PATH, stories)]);
+    await pickFilm();
+
+    expect(within(storyField()).getAllByRole("option").map((option) => option.textContent)).toEqual(["ไม่ใช้", "เกมล่า", "ขุนพันธ์"]);
+  });
+
+  it("drafting with a Story, then opening step 1 of the clip again, starts with that Story", async () => {
+    const current = phased(CURRENT_PATH, null, jobOf({ state: "done", order: { ...ORDER, story_id: ALIEN.id, story_title: ALIEN.title } }));
+    backend([
+      get(STORIES_PATH, [CONAN, ALIEN]),
+      get(STORY_CLIPS_PATH, {}),
+      get(STORY_CLIPS_PATH, { [FILM.id]: ALIEN.id }),
+      send("POST", JOBS_PATH, jobOf({}), 202),
+      current.route,
+    ]);
+    const user = await pickFilm();
+    await user.selectOptions(storyField(), ALIEN.title);
+    current.phases.at = 1;
+    await user.click(draftButton());
+    expect(window.location.hash).toBe(REVIEW_HASH);
+
+    await act(async () => {
+      window.location.hash = "#/spoil";
+    });
+    await user.click(await screen.findByRole("radio", { name: `เลือก ${FILM.title}` }));
+
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: ALIEN.id })]);
+    expect(await screen.findByRole("combobox", { name: "เรื่องในคลังความรู้" })).toHaveDisplayValue(ALIEN.title);
+  });
+
+  it("a Story without a token count shows — / — and ร่างบท can't be pressed", async () => {
+    backend(remembering([{ ...CONAN, tokens: null }]));
+    await pickFilm();
+
+    expect(screen.getByText("— / —")).toBeInTheDocument();
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("an EP and a Story over 32,000 together can't be drafted and the meter says so", async () => {
+    backend([...remembering([{ ...CONAN, tokens: 14_800 }])]);
+    await pickFilm();
+
+    expect(screen.getByText("33,200 / 32,000")).toBeInTheDocument();
+    expect(screen.getByText("EP กับเรื่องรวม 33,200 token เกิน 32,000 (เรื่อง 14,800)")).toBeInTheDocument();
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("ร่างบท sends the field's Story; story_not_found reads the Stories again and says so with ไม่ใช้", async () => {
+    backend([
+      ...remembering(),
+      get(STORIES_PATH, [ALIEN]),
+      send("POST", JOBS_PATH, { code: "story_not_found", message: "ไม่พบเรื่องนี้ในคลังความรู้แล้ว" }, 400),
+    ]);
+    const user = await pickFilm();
+    const read = reads(STORIES_PATH);
+
+    await user.click(draftButton());
+
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: CONAN.id })]);
+    expect(await screen.findByText("ไม่พบเรื่องนี้ในคลังความรู้แล้ว")).toBeInTheDocument();
+    expect(reads(STORIES_PATH)).toBe(read + 1);
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+  });
+
+  it("the links open a new tab; coming back reads the Stories again and keeps what was set", async () => {
+    backend([...remembering([ALIEN]), get(STORIES_PATH, [ALIEN, CONAN])]);
+    const user = await pickFilm();
+    await user.click(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" }));
+    await user.selectOptions(storyField(), ALIEN.title);
+
+    const add = screen.getByRole("link", { name: "เพิ่มเรื่องในคลังความรู้" });
+    expect(add).toHaveAttribute("href", "#/stories/new");
+    expect(add).toHaveAttribute("target", "_blank");
+    const edit = screen.getByRole("link", { name: "แก้เรื่องนี้" });
+    expect(edit).toHaveAttribute("href", `#/stories/${ALIEN.id}`);
+    expect(edit).toHaveAttribute("target", "_blank");
+
+    const read = reads(STORIES_PATH);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(reads(STORIES_PATH)).toBe(read + 1);
+    expect(await within(storyField()).findByRole("option", { name: CONAN.title })).toBeInTheDocument();
+    expect(storyField()).toHaveDisplayValue(ALIEN.title);
+    expect(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" })).toBeChecked();
+  });
+
+  it("ไม่ใช้ has no แก้เรื่องนี้ link", async () => {
+    backend([get(STORIES_PATH, [CONAN])]);
+    await pickFilm();
+
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+    expect(screen.queryByRole("link", { name: "แก้เรื่องนี้" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "เพิ่มเรื่องในคลังความรู้" })).toBeInTheDocument();
+  });
+
+  it("a failed draft's order starts the field with its Story", async () => {
+    const failed = jobOf({ state: "failed", order: { ...ORDER, story_id: ALIEN.id, story_title: ALIEN.title } });
+    backend([get(STORIES_PATH, [CONAN, ALIEN]), get(CURRENT_PATH, failed)]);
+    await openSetup();
+
+    expect(await screen.findByRole("combobox", { name: "เรื่องในคลังความรู้" })).toHaveDisplayValue(ALIEN.title);
+  });
+
+  it("while a draft runs the field is its order's Story title as text", async () => {
+    const running = jobOf({ order: { ...ORDER, story_id: CONAN.id, story_title: "ชื่อตอนเริ่ม" } });
+    backend([get(STORIES_PATH, [CONAN]), get(CURRENT_PATH, running)]);
+    await openSetup();
+
+    const section = await screen.findByRole("region", { name: "เรื่องในคลังความรู้" });
+    expect(within(section).getByText("ชื่อตอนเริ่ม")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "เรื่องในคลังความรู้" })).not.toBeInTheDocument();
+  });
+
+  it("while a draft without a Story runs the field reads ไม่ใช้", async () => {
+    backend([get(STORIES_PATH, [CONAN]), get(CURRENT_PATH, jobOf({}))]);
+    await openSetup();
+
+    const section = await screen.findByRole("region", { name: "เรื่องในคลังความรู้" });
+    expect(within(section).getByText("ไม่ใช้")).toBeInTheDocument();
   });
 });

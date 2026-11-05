@@ -11,7 +11,7 @@
 - Seams: 1 (`kind: "draft"` กับ `story_id`, token รวม, คำสั่งเขียนบทและเรียบเรียง, คำสั่งเลือก Shot, คลิป "ไม่ใช้"), 2 (ขั้น 1, ระหว่างร่าง)
 - User stories: 5
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

@@ -96,6 +96,8 @@ const draftJob = (change: Partial<DraftJob>): DraftJob => ({
     layout: "B",
     target_s: 60,
     voice_id: "v_0000abcd",
+    story_id: null,
+    story_title: null,
   },
   ...change,
 });

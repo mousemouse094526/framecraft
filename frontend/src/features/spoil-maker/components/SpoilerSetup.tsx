@@ -10,6 +10,8 @@ import type { Voice } from "../hooks/useVoices";
 import { ClipPicker, isReady } from "./ClipPicker";
 import { EpisodePicker } from "./EpisodePicker";
 import { SetupSettings, type Settings } from "./SetupSettings";
+import { StoryPicker } from "./StoryPicker";
+import type { StoryRow } from "../../../lib/stories";
 
 const DEFAULT_TARGET_S = 60; // D39
 
@@ -31,11 +33,32 @@ export function SpoilerSetup() {
   return <SetupForm key={formKey} state={state} job={job} onDraft={draft} onAskReplace={askReplace} />;
 }
 
-/** Why an EP can't be drafted (spec › Frontend, D71); null when it can. */
-function epBlocked(ep: Episode, cut: Episodes): RefusalLine | null {
+/** Why the EP with its Story can't be drafted (spec › Frontend, D71, story-kb D14); null when it can. */
+function draftBlocked(ep: Episode, cut: Episodes, story: StoryRow | null): RefusalLine | null {
   if (ep.lines === 0) return { text: "EP นี้ไม่มีบทพูด", setupLink: false };
   if (ep.tokens === null) return { text: cut.tokens_not_ready ?? "", setupLink: true };
+  if (story && story.tokens === null) return { text: cut.tokens_not_ready ?? STORY_TOKENS_NOT_READY, setupLink: true };
   return null;
+}
+
+/** The EPs were counted, but not the Story: Qwen's tokenizer broke in between (story-kb D19). */
+const STORY_TOKENS_NOT_READY = "นับ token ของเรื่องไม่ได้";
+
+/** The Story the field shows: `id` while it is still in the list, else ไม่ใช้ (story-kb D15). */
+const listedStory = (stories: StoryRow[], id: string | null | undefined): StoryRow | null =>
+  stories.find((story) => story.id === id) ?? null;
+
+/**
+ * What the user did with the Story field: `undefined` until they touch it, when the field
+ * follows the picked clip's own Story; then a Story's id, or null for ไม่ใช้ (story-kb D3, D15).
+ */
+type StoryChoice = string | null | undefined;
+
+/** The EP's tokens with the Story's (story-kb D14); null while either can't be counted. */
+function draftTokens(ep: Episode | null, story: StoryRow | null): number | null {
+  if (ep?.tokens == null) return null;
+  if (!story) return ep.tokens;
+  return story.tokens === null ? null : ep.tokens + story.tokens;
 }
 
 type Loaded = Extract<SetupState, { kind: "loaded" }>;
@@ -92,6 +115,9 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
       ? settingsOf(order, state.voices, lastVoice, false)
       : { style: "drama", layout: "B", targetS: DEFAULT_TARGET_S, voiceId: lastVoice },
   );
+  // An order's Story counts as picked: the form starts from the order (D87).
+  const [pickedStory, setPickedStory] = useState<StoryChoice>(() => order?.story_id);
+  const [storyGone, setStoryGone] = useState(false);
   const shown = lockedOrder ? settingsOf(lockedOrder, state.voices, lastVoice, true) : settings;
   const shownClipId = lockedOrder ? (pickable(lockedOrder.clip_id) ? lockedOrder.clip_id : null) : clipId;
   const episodes = useEpisodes(shownClipId);
@@ -103,14 +129,24 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
     : fromOrder
       ? orderEp(cut, fromOrder)
       : (cut.episodes.find((one) => one.n === pickedEp) ?? cut.episodes.find((one) => one.in_draft) ?? cut.episodes[0] ?? null);
+  const story = lockedOrder
+    ? listedStory(state.stories, lockedOrder.story_id)
+    : listedStory(state.stories, pickedStory !== undefined ? pickedStory : clipId && state.clipStories[clipId]);
   const limit = cut?.limit ?? null;
-  const blocked = ep && cut ? epBlocked(ep, cut) : null;
-  const canDraft =
-    ep !== null && blocked === null && ep.tokens !== null && limit !== null && ep.tokens <= limit && settings.voiceId !== null && !locked;
+  const blocked = ep && cut ? draftBlocked(ep, cut, story) : null;
+  const tokens = draftTokens(ep, story);
+  const canDraft = ep !== null && blocked === null && tokens !== null && limit !== null && tokens <= limit && settings.voiceId !== null && !locked;
 
   const pickClip = (id: string) => {
     setClipId(id);
     setPickedEp(null);
+    setPickedStory(undefined);
+    setStoryGone(false);
+  };
+
+  const pickStory = (id: string | null) => {
+    setPickedStory(id);
+    setStoryGone(false);
   };
 
   const send = async (replace: boolean) => {
@@ -126,10 +162,15 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
         layout: settings.layout,
         target_s: settings.targetS,
         voice_id: settings.voiceId ?? "",
+        story_id: story?.id ?? null,
       },
       replace,
     );
     if (refused === "episodes_changed") episodes.reload();
+    if (refused === "story_not_found") {
+      setPickedStory(null);
+      setStoryGone(true);
+    }
   };
 
   return (
@@ -156,6 +197,15 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
               {draftLabel(order)}
             </p>
           )}
+          {(shownClipId !== null || lockedOrder) && (
+            <StoryPicker
+              stories={state.stories}
+              storyId={story?.id ?? null}
+              lockedText={lockedOrder ? (lockedOrder.story_title ?? "ไม่ใช้") : null}
+              gone={storyGone}
+              onChange={pickStory}
+            />
+          )}
           {shownClipId !== null && (
             <EpisodePicker
               clipId={shownClipId}
@@ -172,6 +222,8 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
           settings={shown}
           voices={state.voices}
           ep={ep}
+          story={story}
+          tokens={tokens}
           limit={limit}
           epBlocked={blocked}
           canDraft={canDraft}

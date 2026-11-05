@@ -1,0 +1,73 @@
+Polish the narration script of a short vertical video that spoils a story, so its sentences tell one story.
+How to tell it: A hook, the story, the twist, the motives, and a question at the end that invites comments.
+Write in Thai only.
+The text on top of the video, which the script opens after and you leave as it is: "หัวเรื่อง"
+The script, one sentence each as [i] text, then the transcript lines it tells about:
+[0] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[1] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[2] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[3] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[4] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[5] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[6] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[7] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[8] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[9] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[10] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[11] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[12] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[13] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[14] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[15] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[16] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[17] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[18] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[19] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[20] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[21] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[22] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[23] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[24] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[25] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[26] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[27] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[28] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+[29] กกกกกกกกกกกกกกกกกกกกกกกกกกกกกก
+    [0 00:00:00] Line 0.
+
+Rules:
+- Rewrite only the sentences not marked (fixed); fit the others around the fixed ones.
+- Each sentence carries on from the one before and leads into the next; add linking words only where needed.
+- Add nothing that is not in the lines a sentence tells about. A sentence with no lines keeps its meaning: change only how it joins the others.
+- Never merge, split or reorder sentences.
+- Keep each sentence about as long as it is.
+Answer with JSON only: {"sentences": [{"i": 0, "text": "..."}]}, one item for each i not marked (fixed).

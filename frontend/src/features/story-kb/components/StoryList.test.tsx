@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import { get, serve } from "../../../testing/testBackend";
-import type { StoryRow } from "../lib/story";
+import type { StoryRow } from "../../../lib/stories";
 
 const fetchMock = vi.fn<typeof fetch>();
 

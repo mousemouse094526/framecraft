@@ -250,3 +250,26 @@
 **Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; ตามรูปแบบที่โค้ดเดิมใช้.
 
 **From:** build ticket 01 · **Status:** active
+
+## D19: ทางเลือกเล็กของการร่างบทด้วย Story
+
+**Chosen:** รวมข้อตัดสินตอน build ของ Draft job `kind: "draft"` กับ `story_id` และช่อง Story ในขั้น 1 ที่อยู่ในกรอบของ spec › คำสั่ง LLM, › spoil-maker เปลี่ยน, › Frontend และ Figma.
+
+**Details:**
+- **ค่าคาดหวังของคำสั่ง "ไม่ใช้":** เก็บเป็นไฟล์ `backend/tests/golden/*.txt` ที่ได้จากโค้ดก่อน story-kb (คำสั่งเขียนบท, คำสั่งเขียนบทเมื่อสั่งใหม่, คำสั่งเรียบเรียงตอนร่างที่มี `top_text`); test เทียบทุกตัวอักษร
+- **รอยต่อของบล็อก:** คำสั่งเขียนบท: บล็อกตามด้วยบรรทัดว่างก่อน `Transcript, one line each…` (แบบรอยต่อเดิมหลังกฎ); บรรทัดชื่อต่อท้ายกฎชุดที่สอง ก่อนบรรทัดบอกว่าบทก่อนผิดตรงไหน; คำสั่งเรียบเรียง: บล็อกขึ้นบรรทัดเดียวก่อน `The script, one sentence each…` (คำสั่งเดิมไม่มีบรรทัดว่างช่วงนั้น)
+- **อ่าน Story ครั้งเดียวตอนเช็คคำขอ:** หลังเช็ค Saved voice (ข้อ 1.4); ค่าที่อ่านใช้ทั้งนับ token, `order.story_title` และคำสั่งทั้งงาน (D5); ใต้ lock ของ draft หลังจองช่อง GPU `stories.remember` เช็คแค่ว่าไฟล์ยังอยู่แล้วเขียน key — ถูกลบระหว่างนั้น → `story_not_found` และคืน GPU; `story_id` ที่ไม่ใช่ข้อความหรือไม่ตรงรูป id → `story_not_found`
+- **`transcript_too_long`:** ไม่มี Story → ข้อความและ body เดิมของ spoil-maker; มี Story → "EP กับเรื่องรวม {tokens} token เกิน 32,000 (เรื่อง {story_tokens})" พร้อม `tokens` รวมและ `story_tokens`
+- **นับ token ที่เดียว:** `backend.qwen_tokens.count` (เช็คแถว Qwen แล้วนับ, ไฟล์ tokenizer อ่านไม่ได้ → `503` `not_ready`) ใช้ทั้ง `episodes.tokens` และ `stories.block_tokens`; `backend.stories` ไม่ import `episodes` หรือ `script` เพราะ `spoil.transcribe` import `stories` (import วน); `script` import `stories` แทน
+- **ของ Story ที่สอง tab อ่าน:** `StoryRow`, path ของ `/api/stories` กับ `/api/story-clips` และ hash ของคลังความรู้ ย้ายไป `frontend/src/lib/stories.ts`; ที่เหลือ (กฎ ฟอร์ม) อยู่ใน `features/story-kb/lib/story.ts`
+- **ช่อง Story เป็นการ์ดของตัวเอง:** ระหว่างการ์ดเลือกคลิปกับการ์ดเลือก EP — Figma วางทุกส่วนในการ์ดเดียว แต่โค้ดแยกเป็นการ์ดต่อส่วนอยู่แล้ว; แสดงเมื่อเลือกคลิป หรือระหว่างร่าง
+- **ตัวนับ:** ชื่อเป็น "Transcript ของ EP {n}" และ "Transcript ของ EP {n} + เรื่อง" เมื่อเลือก Story ตาม Figma (เดิม "Transcript"); เกินพร้อม Story → Alert บรรทัดเดียวตามข้อความของ spec
+- **Story `tokens` `null` แต่ EP นับได้:** บรรทัดใต้ปุ่มร่างเป็น `tokens_not_ready` ของรายการ EP หรือ "นับ token ของเรื่องไม่ได้" พร้อมลิงก์ Setup status
+- **`story_not_found` ตอนกดร่าง:** Alert อยู่ในการ์ด Story (Figma state 6) หายเมื่อเลือกเรื่องหรือคลิปใหม่; ไม่ขึ้นเป็นแถบบนหน้า
+- **ลำดับและการอ่านใหม่:** เรียงชื่อด้วย `localeCompare(…, "th")`; อ่านใหม่ตอนกลับมา focus ไม่สำเร็จ → รายการเดิมอยู่ต่อ ไม่เป็น offline
+- **ไอคอนลิงก์แท็บใหม่:** `spoil-maker/assets/external-link.svg` 16px จาก Figma (ของ setup-status เป็น 12px สีม่วง คนละแบบ)
+- **ข้อ (e2e):** Vitest ผ่าน `App` กับ fetch ปลอมแบบ D18; ดูหน้าจอจริงที่ 1440 และ 375 กับ fetch ปลอมในหน้า
+
+**Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; ตามรูปแบบที่โค้ดเดิมใช้.
+
+**From:** build ticket 02 · **Status:** active

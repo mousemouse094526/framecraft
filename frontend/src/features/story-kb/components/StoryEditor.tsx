@@ -8,17 +8,8 @@ import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import circleCheckIcon from "../assets/circle-check.svg";
 import { useStoryEditor, type Editing } from "../hooks/useStoryEditor";
-import {
-  ARTICLE_MAX,
-  articleLength,
-  characterErrorKeys,
-  characterKey,
-  CHARACTERS_MAX,
-  grouped,
-  sameFields,
-  STORIES_HASH,
-  type Character,
-} from "../lib/story";
+import { ARTICLE_MAX, articleLength, characterErrorKeys, characterKey, CHARACTERS_MAX, grouped, sameFields, type Character } from "../lib/story";
+import { STORIES_HASH } from "../../../lib/stories";
 import { DeleteStoryDialog } from "./DeleteStoryDialog";
 
 // The Figma `Field` input; red while its field has an error.

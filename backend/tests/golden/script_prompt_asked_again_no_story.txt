@@ -1,0 +1,38 @@
+Write the narration script of a short vertical video that spoils the story in the transcript below.
+How to tell it: A hook, the story, the twist, the motives, and a question at the end that invites comments.
+Every sentence carries on from the one before: together they tell one story, not a line each.
+Write in Thai only: about 900 Thai letters in about 15 sentences, each sentence at most 72 Thai letters.
+Each sentence cites the 1 to 3 transcript lines it tells about by their ids, like "412"; never more than 3, never a run of lines.
+"top_text" is a hook that makes people want to watch, in Thai, at most 40 letters.
+Answer with JSON only: {"top_text": "...", "sentences": [{"text": "...", "refs": ["412"]}]}
+
+Transcript, one line each as [line hh:mm:ss] text:
+[0 00:00:00] Line 0.
+[1 00:00:10] Line 1.
+[2 00:00:20] Line 2.
+[3 00:00:30] Line 3.
+[4 00:00:40] Line 4.
+[5 00:00:50] Line 5.
+[6 00:01:00] Line 6.
+[7 00:01:10] Line 7.
+[8 00:01:20] Line 8.
+[9 00:01:30] Line 9.
+[10 00:01:40] Line 10.
+[11 00:01:50] Line 11.
+[12 00:02:00] Line 12.
+[13 00:02:10] Line 13.
+[14 00:02:20] Line 14.
+[15 00:02:30] Line 15.
+[16 00:02:40] Line 16.
+[17 00:02:50] Line 17.
+[18 00:03:00] Line 18.
+[19 00:03:10] Line 19.
+
+Now write the script.
+How to tell it: A hook, the story, the twist, the motives, and a question at the end that invites comments.
+Every sentence carries on from the one before: together they tell one story, not a line each.
+Write in Thai only: about 900 Thai letters in about 15 sentences, each sentence at most 72 Thai letters.
+Each sentence cites the 1 to 3 transcript lines it tells about by their ids, like "412"; never more than 3, never a run of lines.
+"top_text" is a hook that makes people want to watch, in Thai, at most 40 letters.
+Answer with JSON only: {"top_text": "...", "sentences": [{"text": "...", "refs": ["412"]}]}
+Your last script was 30 letters in 1 sentences: too short. Write about 900 letters this time.

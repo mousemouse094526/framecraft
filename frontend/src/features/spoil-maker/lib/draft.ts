@@ -64,6 +64,9 @@ export type DraftOrder = {
   layout: Layout;
   target_s: number;
   voice_id: string;
+  /** The Story the job uses, null for "ไม่ใช้", and its title as the job started (story-kb D15). */
+  story_id: string | null;
+  story_title: string | null;
 };
 
 export type DraftJob = {
@@ -80,10 +83,10 @@ export type DraftJob = {
   order: DraftOrder | null;
 };
 
-/** What ร่างบท sends with `kind: "draft"`: one EP of one clip (D66, D71); the job's order without the title it adds. */
-export type DraftAsk = Omit<DraftOrder, "clip_title">;
+/** What ร่างบท sends with `kind: "draft"`: one EP of one clip (D66, D71); the job's order without the titles it adds. */
+export type DraftAsk = Omit<DraftOrder, "clip_title" | "story_title">;
 
-export function askOf({ clip_title: _title, ...ask }: DraftOrder): DraftAsk {
+export function askOf({ clip_title: _title, story_title: _story, ...ask }: DraftOrder): DraftAsk {
   return ask;
 }
 

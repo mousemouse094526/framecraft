@@ -3,19 +3,8 @@ import { getReply, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
-import {
-  EMPTY_STORY,
-  fieldErrors,
-  fieldsOf,
-  sameFields,
-  STORIES_HASH,
-  STORIES_PATH,
-  storyHash,
-  storyPath,
-  type FieldErrors,
-  type Story,
-  type StoryFields,
-} from "../lib/story";
+import { EMPTY_STORY, fieldErrors, fieldsOf, sameFields, storyPath, type FieldErrors, type Story, type StoryFields } from "../lib/story";
+import { STORIES_HASH, STORIES_PATH, storyHash } from "../../../lib/stories";
 
 /** The form on screen. Saving and "บันทึกแล้ว" are flags of it, not states of their own: the form stays put through them. */
 export type Editing = {

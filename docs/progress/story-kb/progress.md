@@ -1,11 +1,11 @@
 # Progress: story-kb
 
-**Now:** 01 เสร็จ — tab คลังความรู้ เพิ่ม แก้ ลบ Story ได้; 02 (ร่างบทด้วย Story) พร้อมทำ
+**Now:** 02 เสร็จ — ขั้น 1 เลือก Story ให้คลิป ตัวนับรวม token และคำสั่งเขียนบท/เรียบเรียงตอนร่างมีบล็อก Story; 03 (เรียบเรียงใหม่ใช้ Story ล่าสุด) พร้อมทำ
 
-**Next:** ticket 02
+**Next:** ticket 03
 
 ```
-/warroom-build story-kb 02
+/warroom-build story-kb 03
 ```
 
 ## Tickets
@@ -13,10 +13,34 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | คลังความรู้ — เพิ่ม แก้ ลบ Story | done |
-| 02 | ร่างบทด้วย Story | ready |
+| 02 | ร่างบทด้วย Story | done |
 | 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | ready |
 
 ## Log
+
+### 02: ร่างบทด้วย Story — done 2026-11-05
+
+**Built:**
+- Draft job `kind: "draft"` รับ `story_id`: เช็คหลัง Saved voice (`story_not_found` เมื่อไม่มีไฟล์ อ่านไม่ได้ หรือ id ผิดรูป), token EP + บล็อก Story ≤ 32,000 (`transcript_too_long` มี `tokens` รวมและ `story_tokens`), จำ/ลืม key ใน `clip-stories.json` ใต้ lock ของ draft หลังจองช่อง GPU; `order` มี `story_id`, `story_title`
+- คำสั่งเขียนบทมีบล็อก Story ครั้งเดียวก่อน `Transcript, one line each` (รวมตอนสั่งใหม่) และบรรทัด `เขียนชื่อตัวละครตาม Story: …` ท้ายกฎ; คำสั่งเรียบเรียงตอนร่างมีบล็อกหลัง `top_text`; คำสั่งเลือก Shot ไม่มี; "ไม่ใช้" เท่ากับไฟล์ golden จากโค้ดก่อน story-kb ทุกตัวอักษร
+- `backend/qwen_tokens.py` นับ token ที่เดียว (EP และบล็อก Story); `stories.for_draft`, `stories.set_clip_story`, `stories.names_rule`, `stories.block_tokens`
+- ขั้น 1: การ์ด "เรื่องในคลังความรู้" (`StoryPicker`) ระหว่างการ์ดคลิปกับ EP — "ไม่ใช้" + Story เรียงตามชื่อแบบไทย, ค่าตั้งต้นจาก `order` หรือ Story ที่คลิปจำ, ลิงก์แท็บใหม่ "แก้เรื่องนี้" / "เพิ่มเรื่องในคลังความรู้", อ่านรายการใหม่เมื่อกลับมา focus, `story_not_found` → Alert ในการ์ดและ "ไม่ใช้"; ระหว่างร่างเป็นข้อความ `order.story_title` หรือ "ไม่ใช้"
+- ตัวนับ "Transcript ของ EP {n} + เรื่อง" กับ "เรื่อง {n} token", เกินรวม → Alert และปุ่มร่างกดไม่ได้, Story `tokens` `null` → "— / —"; การ์ดความคืบหน้ามี "เรื่อง: {story_title}"; "ลองอีกครั้ง" ส่ง `order.story_id`
+- `StoryRow`, path และ hash ของ Story ที่สอง tab อ่าน ย้ายไป `frontend/src/lib/stories.ts`; นับคลิปของ Story ด้วย `Counter` ทั้งรายการและ Story เดียว (ข้อจาก 01)
+- หน้าตาเทียบ Figma (remote Figma MCP) ใน browser จริงด้วย fetch ปลอมในหน้า: ช่อง Story ที่ 1440 (560×164) และ 375 (343×164), เกินเพดาน, ระหว่างร่าง (สูง 80) — ตรง
+
+**Decided:**
+- D19 — ค่าคาดหวังเป็นไฟล์ golden, รอยต่อของบล็อก, อ่าน Story ครั้งเดียวตอนเช็ค, ข้อความ `transcript_too_long` เมื่อมี Story, `backend.qwen_tokens`, ช่อง Story เป็นการ์ดของตัวเอง, ชื่อตัวนับตาม Figma, "นับ token ของเรื่องไม่ได้", Alert `story_not_found` ในการ์ด, เรียง `localeCompare(…, "th")`, ไอคอน 16px, ของ Story ใน `src/lib/stories.ts`
+
+**For the next ticket:**
+- ticket 03: `_polish_draft` ส่ง `None` เป็น Story ของ `_ask_to_polish` ตรงๆ (argument บังคับแล้ว) — เปลี่ยนเป็น Story ที่คลิปของ draft จำตอนรับคำขอ
+- Review (Spec): `remember()` ใน `test_stories_api.py` ยังเขียน `clip-stories.json` ตรง — fixture ของ Draft API อยู่ใน `test_spoil_maker_draft_api.py`; ย้าย fixture ไป conftest ตอน feature review แล้วจำผ่าน Draft job
+- Review (Spec): ระหว่างร่าง ตัวนับใช้ `tokens` ของ Story ตอนนี้จากรายการ ไม่ใช่ตอนเริ่มงาน — `order` ไม่มี token; รับได้เพราะช่องอ่านอย่างเดียว
+- Review (Standards): `story_id`/`story_title` เดินคู่กันใน `DraftOrder` ทั้งสองฝั่ง (Data Clump) — ตาม spec › `order` แบบ `clip_id`/`clip_title`; ไม่รวม
+- Review (Standards): prop `epBlocked` ของ `SetupSettings` ตอนนี้รวมเหตุของ Story ด้วย (`draftBlocked` ในฟอร์ม) — เปลี่ยนชื่อ prop ตอนแตะไฟล์อีก
+- `ไอคอน external-link` มีสองแบบ (setup-status 12px ม่วง, spoil-maker 16px เข้ม) ตาม Figma — ถาม designer ว่าควรเป็นตัวเดียวไหม
+
+**Checks:** `uv run pytest` (ที่ root ของ repo) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` · `npm --prefix frontend run build` — all green
 
 ### 01: คลังความรู้ — เพิ่ม แก้ ลบ Story — done 2026-11-05
 

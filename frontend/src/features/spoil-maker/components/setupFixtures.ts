@@ -1,6 +1,7 @@
 // The fake backend's data for the สปอย tab's step 1 and its drafting (spoil-maker seam 2): clips, a voice, a
 // cut of FILM, a Draft job with its order, and the reads every page of the tab makes besides.
 import type { TempClip } from "../../../lib/clips";
+import { STORIES_PATH, STORY_CLIPS_PATH, type StoryRow } from "../../../lib/stories";
 import type { DraftJob, DraftOrder } from "../lib/draft";
 import type { Episode, Episodes } from "../hooks/useEpisodes";
 import type { Voice } from "../hooks/useVoices";
@@ -12,6 +13,7 @@ export const DRAFT_PATH = "/api/spoil-maker/draft";
 export const JOBS_PATH = "/api/spoil-maker/draft-jobs";
 export const CURRENT_PATH = "/api/spoil-maker/draft-jobs/current";
 export const REVIEW_HASH = "#/spoil/review";
+export { STORIES_PATH, STORY_CLIPS_PATH };
 
 export function clipOf(id: string, title: string, change: Partial<TempClip> = {}): TempClip {
   return {
@@ -59,7 +61,16 @@ export const ORDER: DraftOrder = {
   layout: "B",
   target_s: 60,
   voice_id: UNCLE.id,
+  story_id: null,
+  story_title: null,
 };
+
+export function storyRowOf(id: string, title: string, change: Partial<StoryRow> = {}): StoryRow {
+  return { id, title, characters: 2, clips: 0, tokens: 3_100, updated_at: "2026-11-05T14:20:00+07:00", ...change };
+}
+
+export const CONAN = storyRowOf("st_3fa91c07", "ยอดนักสืบจิ๋วโคนัน", { clips: 1 });
+export const ALIEN = storyRowOf("st_0000aaaa", "เอเลี่ยนบุก", { tokens: 900 });
 
 export function jobOf(change: Partial<DraftJob>): DraftJob {
   return {
@@ -118,6 +129,8 @@ export function setupDefaults(): [string, unknown][] {
     [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null, ep_minutes: 30 }],
     [DRAFT_PATH, null],
     [CURRENT_PATH, null],
+    [STORIES_PATH, []],
+    [STORY_CLIPS_PATH, {}],
     // What the steps and ตรวจแก้บท read besides: the drafting opens ตรวจแก้บท (D81).
     ["/api/spoil-maker/voice-jobs/current", null],
     ["/api/spoil-maker/renders/current", null],

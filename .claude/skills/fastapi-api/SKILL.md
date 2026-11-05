@@ -49,6 +49,8 @@ backend/
 │                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
 │                    frames and compose share it
 ├── setup.py      ← entry point: python -m backend.setup
+├── qwen_tokens.py← an EP's lines and a Story block counted to Qwen behind its
+│                    Status check row (spoil-maker D46, story-kb D14)
 ├── stories.py    ← the คลังความรู้ tab (story-kb, ADR 0023): Stories and the
 │                    Story each clip remembers in `media/stories/`, their
 │                    checks, the Story block of the LLM prompts and its tokens;

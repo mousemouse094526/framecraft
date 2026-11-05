@@ -10,12 +10,13 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel
 
-from backend import clock
+from backend import clock, stories
 from backend.spoil.transcribe import Transcript, TranscriptLine
 from backend.spoil_maker import thai
 from backend.spoil_maker.draft_file import Layout, Ref, Sentence, Style
 from backend.spoil_maker.json_values import is_int
 from backend.spoil_maker.shots import Shot
+from backend.stories import Story
 
 # How each style tells the story, and the layout it starts with (D7, D8).
 STYLES: dict[Style, tuple[str, Layout]] = {
@@ -53,6 +54,7 @@ class Brief(BaseModel):
     layout: Layout
     target_s: int
     target_letters: int  # target_s × the Saved voice's speaking speed (D35)
+    story: Story | None = None  # the clip's Story as the job started, None for "ไม่ใช้" (story-kb D5, D15)
 
     @property
     def max_tokens(self) -> int:
@@ -74,7 +76,9 @@ SENTENCE_ROOM = 1.2
 def script_prompt(brief: Brief, last: list[Sentence] | None = None, asked_before: bool = False) -> str:
     """Step 2: the style, Thai only (D11), the target length, 1–3 cited lines per
     sentence, and `top_text` for layouts A and C (D19). Asked again (step 3), it says
-    what was wrong with the `last` script, or that no JSON came back (D61)."""
+    what was wrong with the `last` script, or that no JSON came back (D61). A Story
+    adds its block once, before the Transcript, and its names after the rules that
+    come again (story-kb D16); without one the prompt is as it was before story-kb."""
     telling, _ = STYLES[brief.style]
     sentences = round(brief.target_s / SECONDS_PER_SENTENCE)
     top = TOP_TEXTS.get(brief.layout)
@@ -94,12 +98,15 @@ def script_prompt(brief: Brief, last: list[Sentence] | None = None, asked_before
     )
     # The rules again after the Transcript: a whole film is ~30k tokens, and the model
     # follows best what it read last.
+    story = brief.story
     return (
         "Write the narration script of a short vertical video that spoils the story in the transcript below.\n"
         f"{rules}\n"
-        "Transcript, one line each as [line hh:mm:ss] text:\n"
+        + (f"{stories.prompt_block(story)}\n\n" if story else "")
+        + "Transcript, one line each as [line hh:mm:ss] text:\n"
         f"{transcript_block(brief.lines)}\n"
         f"Now write the script.\n{rules}"
+        + (stories.names_rule(story) if story else "")
         + (_retry_note(brief, last) if asked_before else "")
     )
 
@@ -172,11 +179,17 @@ POLISH_GROWTH = 0.15  # a `polish` may add this much to the script's letters (D7
 
 
 def polish_prompt(
-    style: Style, top_text: str, sentences: list[Sentence], transcript: Transcript | None, fixed: set[int]
+    style: Style,
+    top_text: str,
+    sentences: list[Sentence],
+    transcript: Transcript | None,
+    fixed: set[int],
+    story: Story | None,
 ) -> str:
     """The style, Thai only, `top_text` to open after, and the whole script as `[i] text`,
     each sentence followed by the lines it cites (edited text, D54); a fixed one is
-    marked `(fixed)` (spec › Draft job › เรียบเรียง)."""
+    marked `(fixed)` (spec › Draft job › เรียบเรียง). A Story adds its block after
+    `top_text`, before the script (story-kb D16)."""
     telling, _ = STYLES[style]
     lines = transcript.lines if transcript else []
     listed = ""
@@ -193,7 +206,8 @@ def polish_prompt(
         f"How to tell it: {telling}\n"
         "Write in Thai only.\n"
         f"{top}"
-        "The script, one sentence each as [i] text, then the transcript lines it tells about:\n"
+        + (f"{stories.prompt_block(story)}\n" if story else "")
+        + "The script, one sentence each as [i] text, then the transcript lines it tells about:\n"
         f"{listed}\n"
         "Rules:\n"
         "- Rewrite only the sentences not marked (fixed); fit the others around the fixed ones.\n"

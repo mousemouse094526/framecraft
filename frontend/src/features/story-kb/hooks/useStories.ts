@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
-import { STORIES_PATH, type StoryRow } from "../lib/story";
+import { STORIES_PATH, type StoryRow } from "../../../lib/stories";
 
 export type StoriesState = { kind: "loading" } | { kind: "offline" } | { kind: "result"; stories: StoryRow[] };
 

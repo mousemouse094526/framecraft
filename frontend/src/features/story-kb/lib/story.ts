@@ -1,8 +1,6 @@
 // A Story's shapes, rules and hashes (story-kb spec › Data, › Frontend). No React here.
 
-export const STORIES_PATH = "/api/stories";
-export const STORIES_HASH = "#/stories";
-export const NEW_STORY_HASH = "#/stories/new";
+import { NEW_STORY_HASH, STORIES_HASH, STORIES_PATH } from "../../../lib/stories";
 
 export const TITLE_MAX = 100;
 export const ARTICLE_MAX = 5000;
@@ -18,23 +16,12 @@ export type StoryFields = { title: string; article: string; characters: Characte
 /** `GET /api/stories/{id}`: the Story with how many clips remember it. */
 export type Story = StoryFields & { id: string; clips: number; created_at: string; updated_at: string };
 
-/** One row of `GET /api/stories`. */
-export type StoryRow = {
-  id: string;
-  title: string;
-  characters: number;
-  clips: number;
-  tokens: number | null;
-  updated_at: string;
-};
-
 /** The Story a hash opens: `null` for `#/stories/new`, `undefined` for the list. */
 export function storyIdOf(hash: string): string | null | undefined {
   if (hash === NEW_STORY_HASH) return null;
   return hash.startsWith(`${STORIES_HASH}/`) ? hash.slice(STORIES_HASH.length + 1) : undefined;
 }
 
-export const storyHash = (id: string) => `${STORIES_HASH}/${id}`;
 export const storyPath = (id: string) => `${STORIES_PATH}/${id}`;
 
 /** Letters as the backend counts them: code points, so Thai vowels and tone marks count (D12). */

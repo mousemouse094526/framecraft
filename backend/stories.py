@@ -21,10 +21,9 @@ from typing import Any, NamedTuple
 
 from pydantic import BaseModel, ValidationError
 
-from backend import files, gate_rows, spoil_maker
+from backend import files, qwen_tokens
 from backend.checks import now_iso
-from backend.errors import ApiError, invalid_request, require_rows
-from backend.models import QWEN
+from backend.errors import ApiError, invalid_request
 from backend.paths import ProjectPaths
 
 log = logging.getLogger(__name__)
@@ -150,7 +149,6 @@ def list_rows(project: ProjectPaths) -> list[StoryRow]:
     with _lock:
         found = _read_all(project)
         remembered = Counter(_clip_stories(project).values())
-    tokenizer = _tokenizer_ready(project)
     found.sort(key=lambda entry: (entry.story.updated_at, entry.changed_ns), reverse=True)
     return [
         StoryRow(
@@ -158,7 +156,7 @@ def list_rows(project: ProjectPaths) -> list[StoryRow]:
             title=story.title,
             characters=len(story.characters),
             clips=remembered[story.id],
-            tokens=_tokens(project, story) if tokenizer else None,
+            tokens=_tokens(project, story),
             updated_at=story.updated_at,
         )
         for story, _ in found
@@ -246,22 +244,64 @@ def prompt_block(story: Story) -> str:
     return "\n".join(lines)
 
 
-def _tokenizer_ready(project: ProjectPaths) -> bool:
-    try:
-        require_rows(gate_rows.qwen_model(project))
-    except ApiError:
-        return False
-    return True
+def names_rule(story: Story) -> str:
+    """The line that closes the writing prompt's rules: the names as the Story spells
+    them (D16); empty without characters."""
+    if not story.characters:
+        return ""
+    return f"เขียนชื่อตัวละครตาม Story: {', '.join(character.name for character in story.characters)}\n"
+
+
+def block_tokens(project: ProjectPaths, story: Story) -> int:
+    """The Story block's tokens to Qwen, counted with the EP's against 32,000 (D14).
+    Raises `ApiError` 503 `not_ready` without Qwen's tokenizer."""
+    return qwen_tokens.count(project, prompt_block(story))
 
 
 def _tokens(project: ProjectPaths, story: Story) -> int | None:
-    """The Story block's tokens to Qwen (D14); None when its tokenizer can't be read (D17),
+    """`block_tokens` for the list: None when Qwen's tokenizer can't be read (D17),
     whatever transformers raises for broken files: one Story never fails the whole list."""
     try:
-        return spoil_maker.count_tokens(project.snapshot_dir(QWEN, QWEN.revision), prompt_block(story))
+        return block_tokens(project, story)
+    except ApiError:
+        return None  # Qwen isn't installed: nothing to log
     except Exception:
         log.warning("story %s: Qwen's tokenizer can't count", story.id)
         return None
+
+
+# --- The Story a Draft job uses (D5, D15) ---
+
+
+def for_draft(project: ProjectPaths, story_id: object) -> Story | None:
+    """The Story a `kind: "draft"` asks for, read once as the job starts (D5); None for
+    `null`. Raises `ApiError` 400 `story_not_found` for one with no file or one that
+    can't be read (spoil-maker spec › Draft job step 1)."""
+    if story_id is None:
+        return None
+    with _lock:
+        story = _read(_path(project, story_id), story_id) if _is_stored(project, story_id) else None
+    if story is None:
+        raise _story_not_found()
+    return story
+
+
+def set_clip_story(project: ProjectPaths, clip_id: str, story_id: str | None) -> None:
+    """The clip remembers the Story of its latest draft, or forgets its Story for `None` (D15). The Story
+    may have been deleted since `for_draft`: then `story_not_found`, and nothing changes."""
+    with _lock:
+        if story_id is not None and not _is_stored(project, story_id):
+            raise _story_not_found()
+        stored = _clip_stories(project)
+        kept = {linked: linked_story for linked, linked_story in stored.items() if linked != clip_id}
+        if story_id is not None:
+            kept[clip_id] = story_id
+        if kept != stored:
+            _write_clip_stories(project, kept)
+
+
+def _story_not_found() -> ApiError:
+    return ApiError(400, "story_not_found", "ไม่พบเรื่องนี้ในคลังความรู้แล้ว")
 
 
 # --- Files; call with `_lock` held ---
@@ -271,12 +311,16 @@ def _path(project: ProjectPaths, story_id: str) -> Path:
     return project.stories_dir / f"{story_id}.json"
 
 
+def _is_stored(project: ProjectPaths, story_id: object) -> bool:
+    """Whether the id is a Story's and its file is there."""
+    return isinstance(story_id, str) and STORY_ID.fullmatch(story_id) is not None and _path(project, story_id).is_file()
+
+
 def _known_path(project: ProjectPaths, story_id: str) -> Path:
     """Raises `ApiError` 404 `not_found` for an id that isn't a Story's or has no file."""
-    path = _path(project, story_id)
-    if not STORY_ID.fullmatch(story_id) or not path.is_file():
+    if not _is_stored(project, story_id):
         raise _not_found()
-    return path
+    return _path(project, story_id)
 
 
 def _read_known(project: ProjectPaths, story_id: str) -> Story:
@@ -358,7 +402,7 @@ def _write_clip_stories(project: ProjectPaths, clip_stories: dict[str, str]) -> 
 
 
 def _view(story: Story, clip_stories: dict[str, str]) -> StoryView:
-    return StoryView(**story.model_dump(), clips=sum(1 for linked in clip_stories.values() if linked == story.id))
+    return StoryView(**story.model_dump(), clips=Counter(clip_stories.values())[story.id])
 
 
 def _not_found() -> ApiError:

@@ -41,6 +41,8 @@ frontend/src/
     │                   (the one line a refused button shows)
     ├── gpu.ts        ← "รอให้งาน{running}เสร็จก่อน" for `gpu_busy` (spoil-maker D45)
     ├── clips.ts      ← the Temp clip type and `/api/spoil/clips`: both tabs read it
+    ├── stories.ts    ← a Story's list row, `/api/stories`, `/api/story-clips` and the
+    │                   คลังความรู้ hashes: the สปอย tab's step 1 reads them too (story-kb D19)
     └── format.ts     ← a clip's length and `hh:mm:ss` of a line or a Shot
 ```
 

@@ -38,6 +38,7 @@ export function DraftProgressCard({ job, onCancel }: { job: WholeDraftJob; onCan
         <p className="text-[13px] leading-5 text-mid">
           {style} · {order.target_s} วินาที
         </p>
+        {order.story_title !== null && <p className="text-[13px] leading-5 text-mid">เรื่อง: {order.story_title}</p>}
       </div>
       <ol className="flex flex-col gap-2.5">
         {labels.map((label, index) => (
