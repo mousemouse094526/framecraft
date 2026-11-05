@@ -12,3 +12,6 @@ export function formatClock(seconds: number): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(whole / 3600))}:${pad(Math.floor((whole % 3600) / 60))}:${pad(whole % 60)}`;
 }
+
+/** A count with thousands separators, `32,000`: token counts and letter limits. */
+export const grouped = (n: number) => n.toLocaleString("en-US");

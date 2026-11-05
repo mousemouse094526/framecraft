@@ -1894,8 +1894,8 @@ def test_polish_without_the_clips_story_is_the_prompt_from_before_story_kb(clien
     assert wait_for_end(client)["state"] == "done"
 
     assert response.json()["order"] is None
-    # Written by the code before the polish job read a Story (60a1a6b, which passed None), letter for
-    # letter: what spoil-maker sent before story-kb (spec › Testing decisions, story-kb D19).
+    # Captured from the code before story-kb (d5557214), letter for letter (spec › Testing
+    # decisions, story-kb D19).
     assert prompts(llm, is_polish) == [(GOLDEN / "polish_again_prompt_no_story.txt").read_text(encoding="utf-8")]
 
 

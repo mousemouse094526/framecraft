@@ -44,6 +44,7 @@ export function useLeaveGuard(unsaved: LeaveGuard) {
   useEffect(() => {
     guard = unsaved;
     const beforeUnload = (event: BeforeUnloadEvent) => {
+      // Closing the tab goes nowhere: `next` is the hash it is on.
       if (unsaved(window.location.hash)) event.preventDefault();
     };
     window.addEventListener("beforeunload", beforeUnload);

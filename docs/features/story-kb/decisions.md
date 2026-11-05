@@ -258,7 +258,7 @@
 **Details:**
 - **ค่าคาดหวังของคำสั่ง "ไม่ใช้":** เก็บเป็นไฟล์ `backend/tests/golden/*.txt` ที่ได้จากโค้ดก่อน story-kb (คำสั่งเขียนบท, คำสั่งเขียนบทเมื่อสั่งใหม่, คำสั่งเรียบเรียงตอนร่างที่มี `top_text`); test เทียบทุกตัวอักษร
 - **รอยต่อของบล็อก:** คำสั่งเขียนบท: บล็อกตามด้วยบรรทัดว่างก่อน `Transcript, one line each…` (แบบรอยต่อเดิมหลังกฎ); บรรทัดชื่อต่อท้ายกฎชุดที่สอง ก่อนบรรทัดบอกว่าบทก่อนผิดตรงไหน; คำสั่งเรียบเรียง: บล็อกขึ้นบรรทัดเดียวก่อน `The script, one sentence each…` (คำสั่งเดิมไม่มีบรรทัดว่างช่วงนั้น)
-- **อ่าน Story ครั้งเดียวตอนเช็คคำขอ:** หลังเช็ค Saved voice (ข้อ 1.4); ค่าที่อ่านใช้ทั้งนับ token, `order.story_title` และคำสั่งทั้งงาน (D5); ใต้ lock ของ draft หลังจองช่อง GPU `stories.remember` เช็คแค่ว่าไฟล์ยังอยู่แล้วเขียน key — ถูกลบระหว่างนั้น → `story_not_found` และคืน GPU; `story_id` ที่ไม่ใช่ข้อความหรือไม่ตรงรูป id → `story_not_found`
+- **อ่าน Story ครั้งเดียวตอนเช็คคำขอ:** หลังเช็ค Saved voice (ข้อ 1.4); ค่าที่อ่านใช้ทั้งนับ token, `order.story_title` และคำสั่งทั้งงาน (D5); ใต้ lock ของ draft หลังจองช่อง GPU `stories.set_clip_story` เช็คแค่ว่าไฟล์ยังอยู่แล้วเขียน key — ถูกลบระหว่างนั้น → `story_not_found` และคืน GPU; `story_id` ที่ไม่ใช่ข้อความหรือไม่ตรงรูป id → `story_not_found`
 - **`transcript_too_long`:** ไม่มี Story → ข้อความและ body เดิมของ spoil-maker; มี Story → "EP กับเรื่องรวม {tokens} token เกิน 32,000 (เรื่อง {story_tokens})" พร้อม `tokens` รวมและ `story_tokens`
 - **นับ token ที่เดียว:** `backend.qwen_tokens.count` (เช็คแถว Qwen แล้วนับ, ไฟล์ tokenizer อ่านไม่ได้ → `503` `not_ready`) ใช้ทั้ง `episodes.tokens` และ `stories.block_tokens`; `backend.stories` ไม่ import `episodes` หรือ `script` เพราะ `spoil.transcribe` import `stories` (import วน); `script` import `stories` แทน
 - **ของ Story ที่สอง tab อ่าน:** `StoryRow`, path ของ `/api/stories` กับ `/api/story-clips` และ hash ของคลังความรู้ ย้ายไป `frontend/src/lib/stories.ts`; ที่เหลือ (กฎ ฟอร์ม) อยู่ใน `features/story-kb/lib/story.ts`
@@ -280,13 +280,29 @@
 
 **Details:**
 - **อ่าน Story ของคลิป:** `stories.read_clip_story` ไม่ raise — คลิปไม่จำ Story, Story ถูกลบ หรือไฟล์อ่านไม่ได้ → `None` (ไม่มีบล็อก) ไม่ใช่ `story_not_found` แบบ `kind: "draft"`; อ่านหลัง `draft_locked` ก่อนจองช่อง GPU
-- **ค่าคาดหวังของ "ไม่ใช้":** ไฟล์ golden `polish_again_prompt_no_story.txt` เขียนจากโค้ดที่ 60a1a6b (ยังส่ง `None`) แบบ D19
+- **ค่าคาดหวังของ "ไม่ใช้":** ไฟล์ golden `polish_again_prompt_no_story.txt` จากโค้ดก่อน story-kb แบบ D19 (feature review จับใหม่จาก d5557214 — ตรงทุกตัวอักษร, D21)
 - **ไม่เช็ค token ของบล็อก Story ตอนเรียบเรียงใหม่:** spec › Draft job เช็คเพดาน 32,000 เฉพาะ `kind: "draft"`; `max_tokens` ไม่เปลี่ยน
 - **กล่องเรียบเรียงใหม่อ่าน Story ไม่ได้ หรือกำลังโหลด:** ไม่แสดงบรรทัดเรื่อง — ปุ่ม "เรียบเรียง" ยังใช้ได้; ระหว่างเปิดกล่องแล้ว Story ถูกแก้ งานใช้ค่าตอนส่ง (ADR 0024)
 - **บรรทัด hook:** แสดงเมื่อ layout มีข้อความบนวิดีโอ (`TOP_TEXT_LABELS` ย้ายไป `lib/draft.ts`); บรรทัดใหม่ 13px `text-mid` ตาม Figma ใต้คำอธิบาย ก่อนช่องติ๊ก
 - **อ่าน `/api/stories` คู่ `/api/story-clips`:** `readStoryLinks` และ type `ClipStories` ใน `src/lib/stories.ts` — ขั้น 1 กับกล่องเรียบเรียงใหม่ใช้ร่วม
-- **หัวข้อและคำอธิบายของกล่อง:** Figma ของ section story-kb เป็น "เรียบเรียงบทใหม่" และคำอธิบายสั้นกว่า — ข้อความเดิมของ spoil-maker ไม่เปลี่ยนใน ticket นี้
+- **หัวข้อและคำอธิบายของกล่อง:** Figma ของ section story-kb เป็น "เรียบเรียงบทใหม่" และคำอธิบายสั้นกว่า — ข้อความเดิมของ spoil-maker ไม่เปลี่ยนใน ticket นี้ (changed by D21: ตาม Figma)
 
 **Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; ตามรูปแบบที่โค้ดเดิมใช้.
 
 **From:** build ticket 03 · **Status:** active
+
+## D21: ข้อแก้จาก feature review
+
+**Chosen:** รวมข้อตัดสินตอน feature review ของ story-kb.
+
+**Details:**
+- **กล่องเรียบเรียงใหม่ตาม Figma:** หัวข้อ "เรียบเรียงบทใหม่", คำอธิบาย "AI จะแก้ถ้อยคำให้ประโยคเล่าต่อกัน ภาพและลำดับประโยคไม่เปลี่ยน", บรรทัด "ประโยคที่เปลี่ยนต้องสร้างเสียงใหม่" 13px, ช่องติ๊กน้ำหนักปกติ ([Figma 8105-56586](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8105-56586)) — ปุ่ม "เรียบเรียงใหม่" บนหน้าตรวจแก้ไม่เปลี่ยน; ปุ่มในกล่องคงสูง 44px แบบกล่องอื่นของ spoil-maker (Figma 40px)
+- **`GET /api/story-clips` ตอบ `dict[str, str]`:** ไม่ห่อ `RootModel` — JSON เท่าเดิม ตามรูปของ spec › API
+- **`#/stories/` (ไม่มี id หลัง `/`):** เปิดรายการ ไม่ใช่ "ไม่พบเรื่องนี้"
+- **แถวรายการ "ใช้อยู่ {n} คลิป":** แสดงเมื่อ n > 0 ตาม Figma 8103-52679 (แถวที่ไม่มีคลิปไม่มี badge)
+- **test ที่ Story ต้องถูกจำไว้แล้ว:** `remember()` ใน `test_stories_api.py` จำผ่าน `stories.set_clip_story` ตัวเดียวกับ Draft job (Draft job เองทดสอบใน `test_spoil_maker_draft_api.py`); สถานะที่ crash ทิ้งไว้ (`left_behind`) ยังเขียนไฟล์ตรง; fixture ของ API ยัง import ข้ามไฟล์ test ตามแบบ `test_spoil_maker_episodes_api.py` — การย้ายไป `conftest.py` แตะ test ของ spoil และ spoil-maker ทั้งชุด จึงไม่ทำใน feature นี้
+- **ของใช้ร่วม:** `grouped` (ตัวเลขมีจุลภาค) อยู่ใน `src/lib/format.ts`; `listedStory` อยู่ใน `src/lib/stories.ts`; `stories.prompt_block` รับ `Story` เท่านั้น ส่วน `names_rule` และ `block_tokens` รับ `None` (คืน `""` และ `0`)
+
+**Why:** ข้อ Standards/Spec/Newcomer ของ feature review; ไม่เปลี่ยนสิ่งที่ spec สัญญานอกจากข้อความกล่องตาม Figma ที่ผู้ใช้เลือก.
+
+**From:** feature review · **Status:** active

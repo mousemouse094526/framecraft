@@ -57,7 +57,14 @@ def create(client, **changes) -> dict:
 
 
 def remember(project: ProjectPaths, links: dict[str, str]) -> None:
-    """What a Draft job leaves behind (D15): ticket 02 writes it through the API."""
+    """What a Draft job leaves behind (D15), written the way it writes it; the Draft job itself
+    is tested in test_spoil_maker_draft_api.py."""
+    for clip_id, story_id in links.items():
+        stories.set_clip_story(project, clip_id, story_id)
+
+
+def left_behind(project: ProjectPaths, links: dict[str, str]) -> None:
+    """`clip-stories.json` as a crash may leave it, with keys `set_clip_story` would refuse."""
     project.stories_dir.mkdir(parents=True, exist_ok=True)
     project.clip_stories_file.write_text(json.dumps(links), encoding="utf-8")
 
@@ -307,7 +314,7 @@ def test_a_restart_keeps_stories_and_keys_and_drops_leftovers(client, project):
     story = create(client)
     other = create(client, title="อีกเรื่อง")
     write_temp_clip(project, OTHER_ID)
-    remember(
+    left_behind(
         project,
         {
             VIDEO_ID: story["id"],  # kept: the clip and the Story are there

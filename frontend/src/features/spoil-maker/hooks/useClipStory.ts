@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { readStoryLinks } from "../../../lib/stories";
+import { listedStory, readStoryLinks } from "../../../lib/stories";
 import { useMountedState } from "../../../lib/useMountedState";
 
 /** The Story a clip remembers: its title, `none` for no Story (or one deleted since), or `unknown`
@@ -17,7 +17,7 @@ export function useClipStory(clipId: string): ClipStory {
       let next: ClipStory;
       try {
         const { rows, clipStories } = await readStoryLinks();
-        const row = rows.find((candidate) => candidate.id === clipStories[clipId]);
+        const row = listedStory(rows, clipStories[clipId]);
         next = row ? { kind: "story", title: row.title } : { kind: "none" };
       } catch {
         next = { kind: "unknown" };

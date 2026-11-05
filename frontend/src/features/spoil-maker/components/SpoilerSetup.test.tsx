@@ -22,13 +22,12 @@ import {
   CONAN,
   setupDefaults,
   storyRowOf,
-  STORIES_PATH,
-  STORY_CLIPS_PATH,
   UNCLE,
   UNDESCRIBED,
   UNTRANSCRIBED,
   VOICES_PATH,
 } from "./setupFixtures";
+import { STORIES_PATH, STORY_CLIPS_PATH } from "../../../lib/stories";
 
 /** Fake backend: the first matching route answers; one of several for a path answers once, the last keeps answering. */
 function backend(routes: Route[]) {

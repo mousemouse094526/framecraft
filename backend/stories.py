@@ -87,7 +87,7 @@ _lock = threading.Lock()
 # --- Checking a body ---
 
 
-def checked(body: dict[str, Any]) -> StoryFields:
+def _checked_fields(body: dict[str, Any]) -> StoryFields:
     """The body cleaned: single-line fields have every run of spaces and line breaks made
     one space (D16), the article is trimmed only. A body that isn't an object or a field
     of the wrong type raises `ApiError` 400 `invalid_request`; a value outside the rules,
@@ -145,11 +145,11 @@ def _invalid(field: str, message: str) -> ApiError:
 
 def list_rows(project: ProjectPaths) -> list[StoryRow]:
     """Every readable Story, latest change first; Stories changed in the same second by
-    their files' change time."""
+    their files' modification time."""
     with _lock:
         found = _read_all(project)
-        remembered = Counter(_clip_stories(project).values())
-    found.sort(key=lambda entry: (entry.story.updated_at, entry.changed_ns), reverse=True)
+        remembered = _remembered(project)
+    found.sort(key=lambda entry: (entry.story.updated_at, entry.modified_ns), reverse=True)
     return [
         StoryRow(
             id=story.id,
@@ -164,31 +164,31 @@ def list_rows(project: ProjectPaths) -> list[StoryRow]:
 
 
 def create(project: ProjectPaths, body: dict[str, Any]) -> StoryView:
-    fields = checked(body)
+    fields = _checked_fields(body)
     with _lock:
         project.stories_dir.mkdir(parents=True, exist_ok=True)
         story_id = _new_id(project)
         at = now_iso()
         story = Story(id=story_id, created_at=at, updated_at=at, **fields.model_dump())
         _write(project, story)
-        view = _view(story, _clip_stories(project))
+        view = _view(story, _remembered(project))
     log.info("created story %s", story_id)
     return view
 
 
 def get(project: ProjectPaths, story_id: str) -> StoryView:
     with _lock:
-        return _view(_read_known(project, story_id), _clip_stories(project))
+        return _view(_read_known(project, story_id), _remembered(project))
 
 
 def replace(project: ProjectPaths, story_id: str, body: dict[str, Any]) -> StoryView:
     """`PUT`: the whole Story but its id and `created_at`; the body is checked first."""
-    fields = checked(body)
+    fields = _checked_fields(body)
     with _lock:
         stored = _read_known(project, story_id)
         story = Story(id=story_id, created_at=stored.created_at, updated_at=now_iso(), **fields.model_dump())
         _write(project, story)
-        return _view(story, _clip_stories(project))
+        return _view(story, _remembered(project))
 
 
 def delete(project: ProjectPaths, story_id: str) -> None:
@@ -197,7 +197,7 @@ def delete(project: ProjectPaths, story_id: str) -> None:
     with _lock:
         path = _known_path(project, story_id)
         path.unlink()
-        _drop_clip_stories(project, lambda clip_id, linked: linked == story_id)
+        _rewrite_clip_stories(project, drop=lambda _clip_id, remembered: remembered == story_id)
     log.info("deleted story %s", story_id)
 
 
@@ -210,7 +210,7 @@ def clip_stories(project: ProjectPaths) -> dict[str, str]:
 def forget_clip(project: ProjectPaths, clip_id: str) -> None:
     """A deleted clip forgets its Story; the Story stays (D7, ADR 0022)."""
     with _lock:
-        _drop_clip_stories(project, lambda linked_clip, story_id: linked_clip == clip_id)
+        _rewrite_clip_stories(project, drop=lambda remembering, _story_id: remembering == clip_id)
 
 
 def clean_on_start(project: ProjectPaths) -> None:
@@ -219,9 +219,9 @@ def clean_on_start(project: ProjectPaths) -> None:
     empty, and the next Story a clip remembers writes it anew (spec › Ops)."""
     files.remove_unfinished(project.stories_dir)
     with _lock:
-        _drop_clip_stories(
+        _rewrite_clip_stories(
             project,
-            lambda clip_id, story_id: not project.clip_json(clip_id).is_file()
+            drop=lambda clip_id, story_id: not project.clip_json(clip_id).is_file()
             or not _path(project, story_id).is_file(),
         )
 
@@ -244,17 +244,19 @@ def prompt_block(story: Story) -> str:
     return "\n".join(lines)
 
 
-def names_rule(story: Story) -> str:
+def names_rule(story: Story | None) -> str:
     """The line that closes the writing prompt's rules: the names as the Story spells
-    them (D16); empty without characters."""
-    if not story.characters:
+    them (D16); empty without a Story or without characters."""
+    if story is None or not story.characters:
         return ""
     return f"เขียนชื่อตัวละครตาม Story: {', '.join(character.name for character in story.characters)}\n"
 
 
-def block_tokens(project: ProjectPaths, story: Story) -> int:
-    """The Story block's tokens to Qwen, counted with the EP's against 32,000 (D14).
-    Raises `ApiError` 503 `not_ready` without Qwen's tokenizer."""
+def block_tokens(project: ProjectPaths, story: Story | None) -> int:
+    """The Story block's tokens to Qwen, counted with the EP's against 32,000 (D14); 0 for
+    no Story. Raises `ApiError` 503 `not_ready` without Qwen's tokenizer."""
+    if story is None:
+        return 0
     return qwen_tokens.count(project, prompt_block(story))
 
 
@@ -299,12 +301,11 @@ def set_clip_story(project: ProjectPaths, clip_id: str, story_id: str | None) ->
     with _lock:
         if story_id is not None and not _is_stored(project, story_id):
             raise _story_not_found()
-        stored = _clip_stories(project)
-        kept = {linked: linked_story for linked, linked_story in stored.items() if linked != clip_id}
-        if story_id is not None:
-            kept[clip_id] = story_id
-        if kept != stored:
-            _write_clip_stories(project, kept)
+        _rewrite_clip_stories(
+            project,
+            drop=lambda remembering, _story_id: remembering == clip_id,
+            add={clip_id: story_id} if story_id is not None else None,
+        )
 
 
 def _story_not_found() -> ApiError:
@@ -355,18 +356,18 @@ def _read(path: Path, story_id: str) -> Story | None:
     return story
 
 
-class Found(NamedTuple):
+class StoredStory(NamedTuple):
     story: Story
-    changed_ns: int  # its file's change time, which orders Stories changed in the same second
+    modified_ns: int  # its file's `st_mtime_ns`, which orders Stories changed in the same second
 
 
-def _read_all(project: ProjectPaths) -> list[Found]:
+def _read_all(project: ProjectPaths) -> list[StoredStory]:
     """Every readable Story."""
     found = []
     if project.stories_dir.is_dir():
         for path in project.stories_dir.glob("st_*.json"):
             if STORY_ID.fullmatch(path.stem) and (story := _read(path, path.stem)) is not None:
-                found.append(Found(story, path.stat().st_mtime_ns))
+                found.append(StoredStory(story, path.stat().st_mtime_ns))
     return found
 
 
@@ -381,10 +382,13 @@ def _new_id(project: ProjectPaths) -> str:
             return story_id
 
 
-def _drop_clip_stories(project: ProjectPaths, drop: Callable[[str, str], bool]) -> None:
-    """Removes every `(clip_id, story_id)` that `drop` picks, writing only when one goes."""
+def _rewrite_clip_stories(
+    project: ProjectPaths, drop: Callable[[str, str], bool], add: dict[str, str] | None = None
+) -> None:
+    """Removes every `(clip_id, story_id)` that `drop` picks, then adds `add`, writing
+    only when something changed."""
     stored = _clip_stories(project)
-    kept = {clip_id: story_id for clip_id, story_id in stored.items() if not drop(clip_id, story_id)}
+    kept = {clip_id: story_id for clip_id, story_id in stored.items() if not drop(clip_id, story_id)} | (add or {})
     if kept != stored:
         _write_clip_stories(project, kept)
 
@@ -413,8 +417,13 @@ def _write_clip_stories(project: ProjectPaths, clip_stories: dict[str, str]) -> 
     files.write_atomic(project.clip_stories_file, json.dumps(clip_stories, ensure_ascii=False, indent=2))
 
 
-def _view(story: Story, clip_stories: dict[str, str]) -> StoryView:
-    return StoryView(**story.model_dump(), clips=Counter(clip_stories.values())[story.id])
+def _remembered(project: ProjectPaths) -> Counter[str]:
+    """How many clips remember each Story, by its id."""
+    return Counter(_clip_stories(project).values())
+
+
+def _view(story: Story, remembered: Counter[str]) -> StoryView:
+    return StoryView(**story.model_dump(), clips=remembered[story.id])
 
 
 def _not_found() -> ApiError:

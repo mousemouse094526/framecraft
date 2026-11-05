@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
 import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
-import { ALIEN, clipOf, CONAN, STORIES_PATH, STORY_CLIPS_PATH } from "./setupFixtures";
+import { ALIEN, clipOf, CONAN } from "./setupFixtures";
+import { STORIES_PATH, STORY_CLIPS_PATH } from "../../../lib/stories";
 
 const DRAFT_PATH = "/api/spoil-maker/draft";
 const JOBS_PATH = "/api/spoil-maker/draft-jobs";
@@ -660,7 +661,7 @@ const calls = () => fetchMock.mock.calls.map(([input, init]) => `${init?.method 
 
 async function openPolish(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "เรียบเรียงใหม่" }));
-  return screen.getByRole("dialog", { name: "เรียบเรียงใหม่" });
+  return screen.getByRole("dialog", { name: "เรียบเรียงบทใหม่" });
 }
 
 const HOOK_NOTE = "hook และชื่อตอนไม่ถูกเรียบเรียง แก้เองได้ที่ช่องด้านบน";

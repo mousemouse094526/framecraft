@@ -8,7 +8,8 @@ import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import circleCheckIcon from "../assets/circle-check.svg";
 import { useStoryEditor, type Editing } from "../hooks/useStoryEditor";
-import { ARTICLE_MAX, articleLength, characterErrorKeys, characterKey, CHARACTERS_MAX, grouped, sameFields, type Character } from "../lib/story";
+import { ARTICLE_MAX, articleLength, characterErrorKeys, characterKey, CHARACTERS_MAX, sameFields, type Character } from "../lib/story";
+import { grouped } from "../../../lib/format";
 import { STORIES_HASH } from "../../../lib/stories";
 import { DeleteStoryDialog } from "./DeleteStoryDialog";
 

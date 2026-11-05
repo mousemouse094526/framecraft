@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { grouped } from "../../../lib/format";
 import chevronDownIcon from "../assets/chevron-down.svg";
 import radioSelectedIcon from "../assets/radio-selected.svg";
 import radioIcon from "../assets/radio.svg";
@@ -27,8 +28,8 @@ type Props = {
   /** The EP's tokens with the Story's; null while either can't be counted. */
   tokens: number | null;
   limit: number | null;
-  /** Why ร่างบท is off for the picked EP: no lines, or no token count (D71); null when it isn't. */
-  epBlocked: RefusalLine | null;
+  /** Why ร่างบท is off for the picked EP and Story: no lines, or no token count of either (D71, story-kb D19); null when it isn't. */
+  draftBlocked: RefusalLine | null;
   /** An EP to draft from, a voice, and its lines within 32,000 tokens (D46). */
   canDraft: boolean;
   /** A whole new draft runs: every field shows its order and ร่างบท is gone (D82). */
@@ -44,7 +45,7 @@ const LABEL = "text-sm leading-[21px] font-medium text-foreground";
 
 /** Figma `Settings card` of ตั้งค่าคลิปสปอย: style, layout, length, voice, the token meter and ร่างบท. */
 export function SetupSettings(props: Props) {
-  const { settings, voices, ep, story, tokens, limit, epBlocked, canDraft, locked, onChange } = props;
+  const { settings, voices, ep, story, tokens, limit, draftBlocked, canDraft, locked, onChange } = props;
   // The order's voice was deleted while it drafted (D87); a voice the API can't delete is in use otherwise.
   const voiceGone = settings.voiceId !== null && !voices.some((voice) => voice.id === settings.voiceId);
   const lengthId = useId();
@@ -148,10 +149,10 @@ export function SetupSettings(props: Props) {
       <TokenMeter ep={ep} story={story} tokens={tokens} limit={limit} />
       <div className="h-px bg-border" />
       {!locked && <DraftAction {...props} canDraft={canDraft} />}
-      {epBlocked && !locked && (
+      {draftBlocked && !locked && (
         <p className="flex flex-wrap items-center gap-x-3 text-[13px] leading-5 text-mid">
-          {epBlocked.text}
-          {epBlocked.setupLink && (
+          {draftBlocked.text}
+          {draftBlocked.setupLink && (
             <a href="#/setup" className="flex h-11 items-center font-button font-medium text-brand hover:underline">
               ไปที่ Setup status
             </a>
@@ -237,7 +238,6 @@ function LayoutDrawing({ layout }: { layout: Layout }) {
   );
 }
 
-const grouped = (n: number) => n.toLocaleString("en-US");
 
 type MeterProps = { ep: Episode | null; story: StoryRow | null; tokens: number | null; limit: number | null };
 

@@ -1,5 +1,6 @@
 // A Story's shapes, rules and hashes (story-kb spec › Data, › Frontend). No React here.
 
+import { grouped } from "../../../lib/format";
 import { NEW_STORY_HASH, STORIES_HASH, STORIES_PATH } from "../../../lib/stories";
 
 export const TITLE_MAX = 100;
@@ -16,10 +17,11 @@ export type StoryFields = { title: string; article: string; characters: Characte
 /** `GET /api/stories/{id}`: the Story with how many clips remember it. */
 export type Story = StoryFields & { id: string; clips: number; created_at: string; updated_at: string };
 
-/** The Story a hash opens: `null` for `#/stories/new`, `undefined` for the list. */
+/** The Story a hash opens: `null` for `#/stories/new`, `undefined` for the list (`#/stories/` too). */
 export function storyIdOf(hash: string): string | null | undefined {
   if (hash === NEW_STORY_HASH) return null;
-  return hash.startsWith(`${STORIES_HASH}/`) ? hash.slice(STORIES_HASH.length + 1) : undefined;
+  const id = hash.startsWith(`${STORIES_HASH}/`) ? hash.slice(STORIES_HASH.length + 1) : "";
+  return id || undefined;
 }
 
 export const storyPath = (id: string) => `${STORIES_PATH}/${id}`;
@@ -92,5 +94,3 @@ export function editedAt(iso: string): string {
   return `${Number(day)} ${THAI_MONTHS[Number(month) - 1]} ${hour}:${minute}`;
 }
 
-/** "1,240": the counter's digits. */
-export const grouped = (n: number) => n.toLocaleString("en-US");

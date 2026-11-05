@@ -179,7 +179,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         # After the Saved voice (step 1.4): the Story, read once for the whole job (story-kb D5).
         story = stories.for_draft(project, body.get("story_id"))
         counted = episodes.tokens(project, lines)
-        story_tokens = stories.block_tokens(project, story) if story else 0
+        story_tokens = stories.block_tokens(project, story)
         if counted + story_tokens > episodes.TOKEN_LIMIT:
             raise _too_long(counted, story_tokens)
         order = _CheckedOrder(

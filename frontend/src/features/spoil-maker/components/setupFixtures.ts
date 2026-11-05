@@ -13,7 +13,6 @@ export const DRAFT_PATH = "/api/spoil-maker/draft";
 export const JOBS_PATH = "/api/spoil-maker/draft-jobs";
 export const CURRENT_PATH = "/api/spoil-maker/draft-jobs/current";
 export const REVIEW_HASH = "#/spoil/review";
-export { STORIES_PATH, STORY_CLIPS_PATH };
 
 export function clipOf(id: string, title: string, change: Partial<TempClip> = {}): TempClip {
   return {

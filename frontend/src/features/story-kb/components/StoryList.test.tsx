@@ -44,6 +44,14 @@ describe("คลังความรู้ list", () => {
     for (const add of adds) expect(add).toHaveAttribute("href", "#/stories/new");
   });
 
+  it("opens the list for #/stories/ with nothing after the slash", async () => {
+    window.location.hash = "#/stories/";
+    serve(fetchMock, [get("/api/stories", [])]);
+    render(<App />);
+
+    expect(await screen.findByText("ยังไม่มีเรื่องในคลังความรู้")).toBeInTheDocument();
+  });
+
   it("lists each Story as a link with its characters, clips and last edit", async () => {
     serve(fetchMock, [
       get("/api/stories", [

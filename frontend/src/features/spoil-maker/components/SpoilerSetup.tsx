@@ -11,7 +11,7 @@ import { ClipPicker, isReady } from "./ClipPicker";
 import { EpisodePicker } from "./EpisodePicker";
 import { SetupSettings, type Settings } from "./SetupSettings";
 import { StoryPicker } from "./StoryPicker";
-import type { StoryRow } from "../../../lib/stories";
+import { listedStory, type StoryRow } from "../../../lib/stories";
 
 const DEFAULT_TARGET_S = 60; // D39
 
@@ -37,16 +37,13 @@ export function SpoilerSetup() {
 function draftBlocked(ep: Episode, cut: Episodes, story: StoryRow | null): RefusalLine | null {
   if (ep.lines === 0) return { text: "EP นี้ไม่มีบทพูด", setupLink: false };
   if (ep.tokens === null) return { text: cut.tokens_not_ready ?? "", setupLink: true };
+  // The EPs' "not ready" text, when there is one, says why both can't be counted: no Qwen.
   if (story && story.tokens === null) return { text: cut.tokens_not_ready ?? STORY_TOKENS_NOT_READY, setupLink: true };
   return null;
 }
 
 /** The EPs were counted, but not the Story: Qwen's tokenizer broke in between (story-kb D19). */
 const STORY_TOKENS_NOT_READY = "นับ token ของเรื่องไม่ได้";
-
-/** The Story the field shows: `id` while it is still in the list, else ไม่ใช้ (story-kb D15). */
-const listedStory = (stories: StoryRow[], id: string | null | undefined): StoryRow | null =>
-  stories.find((story) => story.id === id) ?? null;
 
 /**
  * What the user did with the Story field: `undefined` until they touch it, when the field
@@ -129,6 +126,7 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
     : fromOrder
       ? orderEp(cut, fromOrder)
       : (cut.episodes.find((one) => one.n === pickedEp) ?? cut.episodes.find((one) => one.in_draft) ?? cut.episodes[0] ?? null);
+  // A Story deleted since shows ไม่ใช้ (story-kb D15).
   const story = lockedOrder
     ? listedStory(state.stories, lockedOrder.story_id)
     : listedStory(state.stories, pickedStory !== undefined ? pickedStory : clipId && state.clipStories[clipId]);
@@ -225,7 +223,7 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
           story={story}
           tokens={tokens}
           limit={limit}
-          epBlocked={blocked}
+          draftBlocked={blocked}
           canDraft={canDraft}
           locked={locked}
           confirmingReplace={state.confirmingReplace}

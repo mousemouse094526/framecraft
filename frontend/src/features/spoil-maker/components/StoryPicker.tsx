@@ -9,7 +9,7 @@ const LABEL = "เรื่องในคลังความรู้";
 const NEW_TAB_LINK = "flex h-8 items-center gap-2 rounded-lg px-3 font-button text-sm leading-5 font-medium text-brand hover:underline";
 
 type Props = {
-  /** By title; "ไม่ใช้" comes first (story-kb spec › Design). */
+  /** Sorted by title by the caller (`readStories`); "ไม่ใช้" comes first here (story-kb spec › Design). */
   stories: StoryRow[];
   /** The picked Story, null for ไม่ใช้. */
   storyId: string | null;

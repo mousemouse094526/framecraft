@@ -102,13 +102,19 @@ def script_prompt(brief: Brief, last: list[Sentence] | None = None, asked_before
     return (
         "Write the narration script of a short vertical video that spoils the story in the transcript below.\n"
         f"{rules}\n"
-        + (f"{stories.prompt_block(story)}\n\n" if story else "")
+        + _story_part(story, "\n\n")
         + "Transcript, one line each as [line hh:mm:ss] text:\n"
         f"{transcript_block(brief.lines)}\n"
         f"Now write the script.\n{rules}"
-        + (stories.names_rule(story) if story else "")
+        + stories.names_rule(story)
         + (_retry_note(brief, last) if asked_before else "")
     )
+
+
+def _story_part(story: Story | None, end: str) -> str:
+    """The Story block and what follows it; nothing for no Story, so the prompt is as it
+    was before story-kb (story-kb D19)."""
+    return f"{stories.prompt_block(story)}{end}" if story else ""
 
 
 def _retry_note(brief: Brief, last: list[Sentence] | None) -> str:
@@ -206,7 +212,7 @@ def polish_prompt(
         f"How to tell it: {telling}\n"
         "Write in Thai only.\n"
         f"{top}"
-        + (f"{stories.prompt_block(story)}\n" if story else "")
+        + _story_part(story, "\n")
         + "The script, one sentence each as [i] text, then the transcript lines it tells about:\n"
         f"{listed}\n"
         "Rules:\n"
