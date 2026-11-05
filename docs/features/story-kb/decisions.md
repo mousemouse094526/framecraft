@@ -306,3 +306,22 @@
 **Why:** ข้อ Standards/Spec/Newcomer ของ feature review; ไม่เปลี่ยนสิ่งที่ spec สัญญานอกจากข้อความกล่องตาม Figma ที่ผู้ใช้เลือก.
 
 **From:** feature review · **Status:** active
+
+## D22: ข้อถาม designer จาก feature review
+
+**Chosen:** โค้ดคงเดิมทั้งสามข้อ; Figma แก้ให้ตรงโค้ด.
+
+**Why:** ปิด Blocked 5–7 ของ `progress.md`; ผู้ใช้เลือกคงสิ่งที่ ship แล้ว และแก้ Figma ให้ตรงโค้ด.
+
+**Rejected:**
+- มุม 16px ทุกกล่อง — เปลี่ยนหน้าตากล่องของ spoil-maker ที่ ship แล้ว
+- มุม 16px เฉพาะกล่องลบเรื่อง — สองแบบในแอป
+- เว้นที่ใต้แถวปุ่ม 100px — rationale not recorded
+- รวมไอคอนเป็นไฟล์เดียว — rationale not recorded
+
+**Details:**
+- **มุมกล่องยืนยัน:** `ModalDialog` คง 24px ทุกกล่อง (Figma `Delete story dialog` 16px เป็นของ Figma ที่ต้องแก้) — กล่องของ spoil-maker ไม่เปลี่ยน
+- **แถวปุ่มของหน้าแก้ Story:** สูงตามปุ่ม; Spacer 100px ใน Figma เป็นของเหลือ
+- **ไอคอน external-link:** คงสองแบบ — 12px สีลิงก์หลังข้อความ ในบรรทัดข้อความ (setup-status) และ 16px หน้าข้อความ ในลิงก์แบบปุ่ม (spoil-maker)
+
+**From:** tickets · **Status:** active

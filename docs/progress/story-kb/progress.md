@@ -1,11 +1,11 @@
 # Progress: story-kb
 
-**Now:** feature review เสร็จ (b276e69), CI เขียว — เหลือ Blocked 5–8: 3 ข้อถาม designer, 1 refactor `StoryChoice`
+**Now:** re-cut 2026-11-06 — Blocked 5–7 ปิดด้วย D22 (โค้ดคงเดิม), Blocked 8 เป็น ticket 04
 
-**Next:** ตัด ticket หรือปิด Blocked 5–8
+**Next:** ticket 04
 
 ```
-/warroom tickets story-kb
+/warroom-build story-kb 04
 ```
 
 ## Tickets
@@ -15,6 +15,7 @@
 | 01 | คลังความรู้ — เพิ่ม แก้ ลบ Story | done |
 | 02 | ร่างบทด้วย Story | done |
 | 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | done |
+| 04 | ค่าเลือก Story ของขั้น 1 เป็นค่าเดียว | ready |
 
 ## Log
 
@@ -142,7 +143,7 @@
 | 2 | 01 | design: แก้ Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8104-52899](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8104-52899)) |
 | 3 | 02 | design: ขั้น 1 ตั้งค่าคลิปสปอย: ช่อง Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8105-55260](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8105-55260)) |
 | 4 | 03 | design: ขั้น 2 กล่องเรียบเรียงใหม่ | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8105-56552](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8105-56552)) |
-| 5 | review | designer: `ModalDialog` มุม `sm:rounded-3xl` (24px) แต่ Figma `Delete story dialog` 16px — ของใช้ร่วมกับ spoil-maker | `/warroom tickets story-kb` (หลังถาม designer) | open |
-| 6 | review | designer: Actions ของหน้าแก้ Story ใน Figma มี Spacer สูง 100px — โค้ดทำแถวสูงตามปุ่ม | `/warroom tickets story-kb` (หลังถาม designer) | open |
-| 7 | review | designer: ไอคอน external-link สองแบบ (setup-status 12px ม่วง, spoil-maker 16px เข้ม) ควรเป็นตัวเดียวไหม | `/warroom tickets story-kb` (หลังถาม designer) | open |
-| 8 | review | refactor: `StoryChoice` (`string \| null \| undefined`) กับ `storyGone` ใน `SpoilerSetup.tsx` เป็น union type เดียว | `/warroom tickets story-kb` | open |
+| 5 | review | designer: `ModalDialog` มุม `sm:rounded-3xl` (24px) แต่ Figma `Delete story dialog` 16px — ของใช้ร่วมกับ spoil-maker | `/warroom tickets story-kb` (หลังถาม designer) | → D22 |
+| 6 | review | designer: Actions ของหน้าแก้ Story ใน Figma มี Spacer สูง 100px — โค้ดทำแถวสูงตามปุ่ม | `/warroom tickets story-kb` (หลังถาม designer) | → D22 |
+| 7 | review | designer: ไอคอน external-link สองแบบ (setup-status 12px ม่วง, spoil-maker 16px เข้ม) ควรเป็นตัวเดียวไหม | `/warroom tickets story-kb` (หลังถาม designer) | → D22 |
+| 8 | review | refactor: `StoryChoice` (`string \| null \| undefined`) กับ `storyGone` ใน `SpoilerSetup.tsx` เป็น union type เดียว | `/warroom tickets story-kb` | → ticket 04 |
