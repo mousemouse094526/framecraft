@@ -1845,3 +1845,66 @@ def test_a_story_changed_during_a_draft_job_leaves_the_job_with_the_story_as_it_
     assert "ชื่อเรื่อง: ยอดนักสืบจิ๋วโคนัน" in polish
     assert "ชื่อใหม่" not in polish
     assert job["order"]["story_title"] == CONAN["title"]
+
+
+# --- Polishing again with the clip's Story (story-kb D5, ADR 0024) ---
+
+NEW_CONAN = CONAN | {
+    "article": "ชินอิจิกลายเป็นเด็ก",
+    "characters": [{"name": "เอโดงาวะ โคนัน", "description": "ชื่อใหม่"}, {"name": "รัน", "description": ""}],
+}
+NEW_CONAN_BLOCK = CONAN_BLOCK.replace(
+    "คุโด้ ชินอิจิ ถูกบังคับกินยา\nจนตัวหดเป็นเด็ก", "ชินอิจิกลายเป็นเด็ก"
+).replace("- โคนัน: ชินอิจิในร่างเด็ก", "- เอโดงาวะ โคนัน: ชื่อใหม่")
+
+
+def drafted_with(client, project, llm, story_id: str | None) -> None:
+    """A draft whose clip remembers `story_id` (through a real Draft job), then three known sentences."""
+    llm.scripts = [passing_script()]
+    start(client, story_id=story_id)
+    assert wait_for_end(client)["state"] == "done"
+    three_sentences(project)
+    llm.requests.clear()
+
+
+def test_polish_after_the_story_is_changed_asks_with_its_new_values(client, project, ready, llm):
+    story_id = new_story(client)
+    drafted_with(client, project, llm, story_id)
+    assert client.put(f"{STORIES}/{story_id}", json=NEW_CONAN).status_code == 200
+
+    polish(client)
+    assert wait_for_end(client)["state"] == "done"
+
+    no_story_prompt = (GOLDEN / "polish_again_prompt_no_story.txt").read_text(encoding="utf-8")
+    script_head = "The script, one sentence each"
+    (prompt,) = prompts(llm, is_polish)
+    assert prompt == no_story_prompt.replace(script_head, f"{NEW_CONAN_BLOCK}\n{script_head}", 1)
+
+
+@pytest.mark.parametrize("gone", ["never remembered", "story deleted", "file unreadable"])
+def test_polish_without_the_clips_story_is_the_prompt_from_before_story_kb(client, project, ready, llm, gone):
+    story_id = new_story(client)
+    drafted_with(client, project, llm, None if gone == "never remembered" else story_id)
+    if gone == "story deleted":
+        assert client.delete(f"{STORIES}/{story_id}").status_code == 204
+    if gone == "file unreadable":
+        (project.stories_dir / f"{story_id}.json").write_text("{", encoding="utf-8")
+
+    response = polish(client)
+    assert wait_for_end(client)["state"] == "done"
+
+    assert response.json()["order"] is None
+    # Written by the code before the polish job read a Story (60a1a6b, which passed None), letter for
+    # letter: what spoil-maker sent before story-kb (spec › Testing decisions, story-kb D19).
+    assert prompts(llm, is_polish) == [(GOLDEN / "polish_again_prompt_no_story.txt").read_text(encoding="utf-8")]
+
+
+def test_pick_of_a_clip_that_remembers_a_story_has_no_story_block(client, project, ready, llm):
+    """`kind: "pick"` after a draft with a Story: unlike `polish`, its prompt leaves the Story out (D4)."""
+    drafted_with(client, project, llm, new_story(client))
+
+    response = client.post(JOBS, json={"kind": "pick", "sentence_id": "s_00000001"})
+
+    assert (response.status_code, wait_for_end(client)["state"]) == (202, "done")
+    (prompt,) = prompts(llm, is_pick)
+    assert "ชื่อเรื่อง" not in prompt and "โคนัน" not in prompt

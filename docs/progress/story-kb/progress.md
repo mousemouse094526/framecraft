@@ -1,11 +1,11 @@
 # Progress: story-kb
 
-**Now:** 02 เสร็จ — ขั้น 1 เลือก Story ให้คลิป ตัวนับรวม token และคำสั่งเขียนบท/เรียบเรียงตอนร่างมีบล็อก Story; 03 (เรียบเรียงใหม่ใช้ Story ล่าสุด) พร้อมทำ
+**Now:** ทุก ticket เสร็จ — เรียบเรียงใหม่ใช้ Story ล่าสุดของคลิป และกล่องเรียบเรียงใหม่บอกเรื่องที่ใช้; รอ feature review
 
-**Next:** ticket 03
+**Next:** feature review
 
 ```
-/warroom-build story-kb 03
+/warroom-build story-kb --review-feature
 ```
 
 ## Tickets
@@ -14,9 +14,27 @@
 |---|---|---|
 | 01 | คลังความรู้ — เพิ่ม แก้ ลบ Story | done |
 | 02 | ร่างบทด้วย Story | done |
-| 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | ready |
+| 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | done |
 
 ## Log
+
+### 03: เรียบเรียงใหม่ใช้ Story ล่าสุด — done 2026-11-05
+
+**Built:**
+- Draft job `kind: "polish"` อ่าน Story ที่คลิปของ Spoil draft จำ ตอนรับคำขอ หลังเช็คของเรียบเรียงใหม่ผ่าน (`stories.read_clip_story`, ไม่ raise) แล้วส่งให้ `polish_prompt` — `PUT` Story หลังร่างแล้วเรียบเรียงใหม่ได้ค่าใหม่; ไม่จำ, ถูกลบ, อ่านไม่ได้ → คำสั่งเท่ากับ golden `polish_again_prompt_no_story.txt` (เขียนจากโค้ดที่ 60a1a6b); `order` ยัง `null`; `kind: "pick"` ไม่มีบล็อก
+- กล่องเรียบเรียงใหม่: "ใช้เรื่อง: {ชื่อ}" หรือ "ไม่ได้ใช้เรื่องในคลังความรู้" (`useClipStory` อ่าน `GET /api/story-clips` กับ `GET /api/stories` ตอนเปิด), อ่านไม่ได้ → ไม่มีบรรทัด; layout A/C → "hook และชื่อตอนไม่ถูกเรียบเรียง แก้เองได้ที่ช่องด้านบน"
+- `readStoryLinks` และ `ClipStories` ใน `src/lib/stories.ts` (ขั้น 1 ใช้ด้วย); `TOP_TEXT_LABELS` ย้ายไป `lib/draft.ts`; `stories._read_if_stored` ใช้ร่วมกับ `for_draft`
+- spoil-maker spec: แถวหน้าตรวจแก้ และ Frontend ของปุ่ม "เรียบเรียงใหม่" ชี้มาที่ story-kb (ข้อ Draft job `kind: "polish"` ชี้อยู่แล้ว)
+- หน้าตาเทียบ Figma 8105-56552 (remote Figma MCP) ใน browser จริงด้วย fetch ปลอมในหน้า ที่ desktop และ 375: บรรทัดใหม่ 13px `text-mid` ใต้คำอธิบาย ก่อนช่องติ๊ก — ตรง
+
+**Decided:**
+- D20 — `read_clip_story` ไม่ raise, golden ของ "ไม่ใช้", ไม่เช็ค token ตอนเรียบเรียงใหม่, กล่องไม่บอกเรื่องเมื่ออ่านไม่ได้, `readStoryLinks` ใช้ร่วม, หัวข้อกล่องของ spoil-maker ไม่เปลี่ยน
+
+**For the next ticket:**
+- Figma กล่องเรียบเรียงใหม่ (section story-kb) หัวข้อ "เรียบเรียงบทใหม่", คำอธิบาย "AI จะแก้ถ้อยคำให้ประโยคเล่าต่อกัน ภาพและลำดับประโยคไม่เปลี่ยน" และบรรทัดเสียง 13px — โค้ดยังเป็นข้อความเดิมของ spoil-maker ("เรียบเรียงใหม่", 14px); feature review ตัดสินว่าจะตาม Figma ไหม (test ของ spoil-maker หา dialog ด้วยชื่อ "เรียบเรียงใหม่")
+- Review (Newcomer): ระหว่างเปิดกล่องแล้ว Story ถูกแก้ บรรทัด "ใช้เรื่อง" เป็นค่าตอนเปิด งานใช้ค่าตอนส่ง — รับได้ตาม ADR 0024 (D20)
+
+**Checks:** `uv run pytest` (ที่ root ของ repo) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` · `npm --prefix frontend run build` — all green
 
 ### 02: ร่างบทด้วย Story — done 2026-11-05
 

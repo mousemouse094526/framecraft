@@ -287,11 +287,15 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                     raise ApiError(400, "nothing_to_polish", "ทุกประโยคแก้เองแล้ว ไม่มีอะไรให้เรียบเรียง")
                 require_rows(gate_rows.qwen_jobs(project))
                 _editable(project)  # `draft_locked`
+                # The Story the clip remembers now, read once as the request is taken (story-kb D5, ADR 0024).
+                story = stories.read_clip_story(project, draft.clip_id)
                 gpu.slot.take("draft", [draft.clip_id], locks_draft=True)
             self._job = DraftJob(kind="polish", state="polishing", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
-        threading.Thread(target=self._run, args=(lambda: self._polish_draft(project, include_edited),), daemon=True).start()
+        threading.Thread(
+            target=self._run, args=(lambda: self._polish_draft(project, include_edited, story),), daemon=True
+        ).start()
         return job
 
     def _run(self, steps) -> None:
@@ -384,7 +388,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             _sentence(draft, sentence_id).shots = picked
             draft_file.write(project, draft)
 
-    def _polish_draft(self, project: ProjectPaths, include_edited: bool) -> dict:
+    def _polish_draft(self, project: ProjectPaths, include_edited: bool, story: stories.Story | None) -> dict:
         """`kind: "polish"`: asks Qwen, then writes the draft. Only the text of the sentences that change is written, and a
         sentence `include_edited` let change is no longer `edited` (D75). The draft is locked
         meanwhile, so it is the one the checks read."""
@@ -400,7 +404,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             asked,
             # Not `near_target`: the draft may have been edited far from its target since (spec › เรียบเรียง).
             lambda after: script.grew_little(after, draft.sentences),
-            None,  # no Story block yet when the draft is polished again
+            story,
         )
         if polished is None:
             # The user asked for this polish, so here it is the job's failure; inside `kind: "draft"` it is not.

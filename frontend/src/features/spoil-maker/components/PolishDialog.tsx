@@ -1,11 +1,12 @@
 import { useId, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
-import type { Sentence } from "../lib/draft";
 import { ModalDialog } from "../../../components/ui/ModalDialog";
+import { useClipStory } from "../hooks/useClipStory";
+import { TOP_TEXT_LABELS, type Draft } from "../lib/draft";
 
 type Props = {
-  sentences: Sentence[];
+  draft: Pick<Draft, "clip_id" | "layout" | "sentences">;
   onPolish: (includeEdited: boolean) => void;
   onClose: () => void;
 };
@@ -13,9 +14,12 @@ type Props = {
 /**
  * The choice before เรียบเรียงใหม่ (spoil-maker D72, D74, D75): whether the sentences the
  * user edited are polished too, what that overwrites, and that changed sentences need
- * a new voice. Until Blocked 15 has its design, it is built from the Shot picker's parts.
+ * a new voice. It also says which คลังความรู้ Story the polish reads, and that the hook or
+ * episode title on top is not polished (story-kb D16).
  */
-export function PolishDialog({ sentences, onPolish, onClose }: Props) {
+export function PolishDialog({ draft, onPolish, onClose }: Props) {
+  const { sentences } = draft;
+  const story = useClipStory(draft.clip_id);
   const [includeEdited, setIncludeEdited] = useState(false);
   const titleId = useId();
   const edited = sentences.filter((s) => s.edited).length;
@@ -28,6 +32,11 @@ export function PolishDialog({ sentences, onPolish, onClose }: Props) {
         เรียบเรียงใหม่
       </h3>
       <p className="text-sm text-mid">AI อ่านบททั้งบทแล้วเกลาข้อความให้ประโยคเล่าต่อกัน จำนวน ลำดับ และ Shot ของประโยคไม่เปลี่ยน</p>
+      {/* `unknown` (loading, or the Stories can't be read) says nothing: the polish still works (story-kb D20). */}
+      {story.kind === "story" && <p className="text-[13px] text-mid">ใช้เรื่อง: {story.title}</p>}
+      {story.kind === "none" && <p className="text-[13px] text-mid">ไม่ได้ใช้เรื่องในคลังความรู้</p>}
+      {/* Only A and C put text on top of the video (D19). */}
+      {TOP_TEXT_LABELS[draft.layout] !== undefined && <p className="text-[13px] text-mid">hook และชื่อตอนไม่ถูกเรียบเรียง แก้เองได้ที่ช่องด้านบน</p>}
       {edited > 0 && (
         <label className="flex items-center gap-2 text-sm font-medium text-foreground">
           <input

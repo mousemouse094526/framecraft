@@ -11,7 +11,7 @@
 - Seams: 1 (`PUT` Story หลังร่าง แล้ว `kind: "polish"`), 2 (กล่องเรียบเรียงใหม่)
 - User stories: 6
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

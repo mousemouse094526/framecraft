@@ -280,10 +280,17 @@ def for_draft(project: ProjectPaths, story_id: object) -> Story | None:
     if story_id is None:
         return None
     with _lock:
-        story = _read(_path(project, story_id), story_id) if _is_stored(project, story_id) else None
+        story = _read_if_stored(project, story_id)
     if story is None:
         raise _story_not_found()
     return story
+
+
+def read_clip_story(project: ProjectPaths, clip_id: str) -> Story | None:
+    """The Story the clip remembers, read as it is now (D5, ADR 0024). Never raises, unlike
+    `for_draft`: None when the clip remembers none, or its Story was deleted or can't be read."""
+    with _lock:
+        return _read_if_stored(project, _clip_stories(project).get(clip_id))
 
 
 def set_clip_story(project: ProjectPaths, clip_id: str, story_id: str | None) -> None:
@@ -314,6 +321,11 @@ def _path(project: ProjectPaths, story_id: str) -> Path:
 def _is_stored(project: ProjectPaths, story_id: object) -> bool:
     """Whether the id is a Story's and its file is there."""
     return isinstance(story_id, str) and STORY_ID.fullmatch(story_id) is not None and _path(project, story_id).is_file()
+
+
+def _read_if_stored(project: ProjectPaths, story_id: object) -> Story | None:
+    """The Story of an id with a file there, if it can be read."""
+    return _read(_path(project, story_id), story_id) if _is_stored(project, story_id) else None
 
 
 def _known_path(project: ProjectPaths, story_id: str) -> Path:

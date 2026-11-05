@@ -273,3 +273,20 @@
 **Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; ตามรูปแบบที่โค้ดเดิมใช้.
 
 **From:** build ticket 02 · **Status:** active
+
+## D20: ทางเลือกเล็กของเรียบเรียงใหม่ด้วย Story
+
+**Chosen:** รวมข้อตัดสินตอน build ของ `kind: "polish"` และกล่องเรียบเรียงใหม่ที่อยู่ในกรอบของ spec › Draft job และ Design.
+
+**Details:**
+- **อ่าน Story ของคลิป:** `stories.read_clip_story` ไม่ raise — คลิปไม่จำ Story, Story ถูกลบ หรือไฟล์อ่านไม่ได้ → `None` (ไม่มีบล็อก) ไม่ใช่ `story_not_found` แบบ `kind: "draft"`; อ่านหลัง `draft_locked` ก่อนจองช่อง GPU
+- **ค่าคาดหวังของ "ไม่ใช้":** ไฟล์ golden `polish_again_prompt_no_story.txt` เขียนจากโค้ดที่ 60a1a6b (ยังส่ง `None`) แบบ D19
+- **ไม่เช็ค token ของบล็อก Story ตอนเรียบเรียงใหม่:** spec › Draft job เช็คเพดาน 32,000 เฉพาะ `kind: "draft"`; `max_tokens` ไม่เปลี่ยน
+- **กล่องเรียบเรียงใหม่อ่าน Story ไม่ได้ หรือกำลังโหลด:** ไม่แสดงบรรทัดเรื่อง — ปุ่ม "เรียบเรียง" ยังใช้ได้; ระหว่างเปิดกล่องแล้ว Story ถูกแก้ งานใช้ค่าตอนส่ง (ADR 0024)
+- **บรรทัด hook:** แสดงเมื่อ layout มีข้อความบนวิดีโอ (`TOP_TEXT_LABELS` ย้ายไป `lib/draft.ts`); บรรทัดใหม่ 13px `text-mid` ตาม Figma ใต้คำอธิบาย ก่อนช่องติ๊ก
+- **อ่าน `/api/stories` คู่ `/api/story-clips`:** `readStoryLinks` และ type `ClipStories` ใน `src/lib/stories.ts` — ขั้น 1 กับกล่องเรียบเรียงใหม่ใช้ร่วม
+- **หัวข้อและคำอธิบายของกล่อง:** Figma ของ section story-kb เป็น "เรียบเรียงบทใหม่" และคำอธิบายสั้นกว่า — ข้อความเดิมของ spoil-maker ไม่เปลี่ยนใน ticket นี้
+
+**Why:** ไม่เปลี่ยนสิ่งที่ spec สัญญา; ตามรูปแบบที่โค้ดเดิมใช้.
+
+**From:** build ticket 03 · **Status:** active

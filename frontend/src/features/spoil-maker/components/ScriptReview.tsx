@@ -10,7 +10,7 @@ import { useDraftProgress } from "../hooks/useDraftProgress";
 import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
-import { epLabel, reviewJobText, SETUP_HASH, type Draft, type Layout } from "../lib/draft";
+import { epLabel, reviewJobText, SETUP_HASH, TOP_TEXT_LABELS, type Draft } from "../lib/draft";
 import { markNumbersOverTopText, type Watermark } from "../lib/render";
 import type { RefusalLine } from "../../../lib/refusal";
 import { DraftNotice, DraftProgressCard } from "./DraftProgress";
@@ -21,8 +21,6 @@ import { ReviewJobProgress, SentenceCard } from "./SentenceCard";
 import { ShotPicker } from "./ShotPicker";
 import { VideoSettings } from "./VideoSettings";
 
-// What the text on top of the video is called in each layout; B has none (D19).
-const TOP_TEXT_LABELS: Partial<Record<Layout, string>> = { A: "Hook", C: "ชื่อตอน" };
 const TOP_TEXT_MAX = 40;
 const TOLERANCE = 0.25; // an estimate further off the target than this warns (D18)
 /** The dialog open over the page: the Shot picker of one sentence's slot, or the choice before เรียบเรียงใหม่. */
@@ -160,7 +158,7 @@ function ScriptReviewBody() {
       />
       {overlay?.kind === "polish" && (
         <PolishDialog
-          sentences={draft.sentences}
+          draft={draft}
           onClose={() => setOverlay(null)}
           onPolish={(includeEdited) => {
             setOverlay(null);

@@ -6,6 +6,9 @@ import { refusalOf, type Refusal } from "../../../lib/refusal";
 export type Style = "fast" | "drama" | "chrono";
 export type Layout = "A" | "B" | "C";
 
+/** What the text on top of the video is called in each layout; B has none (D19). */
+export const TOP_TEXT_LABELS: Partial<Record<Layout, string>> = { A: "Hook", C: "ชื่อตอน" };
+
 // The styles and how each tells the story (spoil-maker D7, D84); the layout is picked apart (D90).
 export const STYLES: { id: Style; label: string; hint: string }[] = [
   { id: "fast", label: "ปั่นตัดเร็ว", hint: "ประโยคสั้น ตลก เร็ว เล่าเหตุการณ์เด่น" },

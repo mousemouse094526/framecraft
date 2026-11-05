@@ -4,7 +4,7 @@ import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
 import { onlyWhen } from "../../../lib/job";
 import { refusalLine, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
-import { STORIES_PATH, STORY_CLIPS_PATH, type StoryRow } from "../../../lib/stories";
+import { type ClipStories, readStoryLinks, type StoryRow } from "../../../lib/stories";
 import { BUSY_TEXT, DRAFT_PATH, REVIEW_HASH, sendDraft, SETTINGS_PATH, VOICES_PATH, type Draft, type DraftAsk } from "../lib/draft";
 import type { Voice } from "./useVoices";
 import { useDraftRun, useJobCalls } from "./useStepStatus";
@@ -35,7 +35,7 @@ export type SetupState =
       /** Every Story by title, the field's choices besides ไม่ใช้ (story-kb D15). */
       stories: StoryRow[];
       /** `{clip_id: story_id}`: the Story each clip's latest draft used (story-kb D3). */
-      clipStories: Record<string, string>;
+      clipStories: ClipStories;
       banner: Banner | null;
       /** The API answered `draft_exists`, or the user pressed ร่างบท with a draft there: ร่างทับ waits. */
       confirmingReplace: boolean;
@@ -44,8 +44,8 @@ export type SetupState =
 type Loaded = Extract<SetupState, { kind: "loaded" }>;
 
 /** The Stories by title, as the field lists them (story-kb spec › Design). */
-async function readStories(): Promise<{ stories: StoryRow[]; clipStories: Record<string, string> }> {
-  const [rows, clipStories] = await Promise.all([getJson<StoryRow[]>(STORIES_PATH), getJson<Record<string, string>>(STORY_CLIPS_PATH)]);
+async function readStories(): Promise<{ stories: StoryRow[]; clipStories: ClipStories }> {
+  const { rows, clipStories } = await readStoryLinks();
   return { stories: [...rows].sort((a, b) => a.title.localeCompare(b.title, "th")), clipStories };
 }
 
