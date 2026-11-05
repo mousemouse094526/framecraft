@@ -11,13 +11,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import checks, gpu, paths, spoil_maker
+from backend import checks, ffmpeg, gpu, paths, spoil_maker
 from backend.app import app
 from backend.paths import ProjectPaths
 from backend.spoil_maker import render as render_module
 from backend.spoil_maker import thai, voices
 
-from .fakes import FakeTts, cuda_device, make_test_clip, ok_ffmpeg
+from .fakes import FakeFfmpeg, FakeTts, cuda_device, make_test_clip, ok_ffmpeg
 from .test_spoil_maker_draft_api import (
     EP1,
     VOICE,
@@ -424,23 +424,13 @@ def test_deleting_a_clip_of_the_draft_while_a_render_voices_is_clip_busy(client,
 
 
 @pytest.fixture
-def paused_ffmpeg(monkeypatch):
-    """A Render job holder whose runner holds the first ffmpeg run until the test sets
-    `release` (or cancels), as `fastapi-api` › testing pauses a job that runs ffmpeg."""
-    import threading
-
-    from backend.spoil_maker import compose
-
-    reached, release = threading.Event(), threading.Event()
-
-    def run(command, cwd, cancel, on_progress=None):
-        reached.set()
-        while not (release.is_set() or cancel.is_set()):
-            cancel.wait(0.01)
-        return compose.run(command, cwd, cancel, on_progress)
-
+def paused_ffmpeg(monkeypatch) -> FakeFfmpeg:
+    """A Render job holder whose runner holds the first ffmpeg run at point 0 until the test
+    releases it (or cancels), then runs the real ffmpeg (`fastapi-api` › testing)."""
+    run = FakeFfmpeg(progress=(), then=ffmpeg.run)
+    run.pause_at(0)
     monkeypatch.setattr(render_module, "render_jobs", render_module.RenderJobs(run_ffmpeg=run))
-    return reached, release
+    return run
 
 
 def test_a_describe_of_a_clip_outside_the_draft_starts_while_a_render_with_every_voice_runs_ffmpeg(
@@ -452,7 +442,6 @@ def test_a_describe_of_a_clip_outside_the_draft_starts_while_a_render_with_every
 
     from .fakes import FakeLlm
 
-    reached, release = paused_ffmpeg
     monkeypatch.setattr(describe, "describes", describe.Describes())
     monkeypatch.setattr(spoil_maker, "start_worker", FakeLlm())
     ready_clip(project, EP2)
@@ -460,9 +449,9 @@ def test_a_describe_of_a_clip_outside_the_draft_starts_while_a_render_with_every
     two_sentence_draft(project)
 
     assert client.post(RENDERS, json={}).json()["state"] == "rendering"
-    assert reached.wait(5)
+    paused_ffmpeg.wait_until(0)
     response = client.post("/api/spoil-maker/describes", json={"clip_id": EP2})
-    release.set()
+    paused_ffmpeg.release(0)
 
     assert response.status_code == 202, response.json()
     assert wait_for_end(client, RENDER_CURRENT)["state"] == "done"
@@ -470,14 +459,13 @@ def test_a_describe_of_a_clip_outside_the_draft_starts_while_a_render_with_every
 
 
 def test_a_render_draws_only_the_switched_on_watermarks(client, project, renderable, paused_ffmpeg):
-    reached, release = paused_ffmpeg
     client.patch(SETTINGS, json={"watermarks": [MARK | {"text": "@เปิด"}, MARK | {"text": "@ปิด", "enabled": False}]})
     two_sentence_draft(project)
 
     client.post(RENDERS, json={})
-    assert reached.wait(5)  # the ASS file is written, ffmpeg not yet run
+    paused_ffmpeg.wait_until(0)  # the ASS file is written, ffmpeg not yet run
     ass = (project.render_work_dir / render_module.CAPTIONS).read_text(encoding="utf-8")
-    release.set()
+    paused_ffmpeg.release(0)
 
     assert "@เปิด" in ass
     assert "@ปิด" not in ass
@@ -492,7 +480,6 @@ def test_a_render_frees_the_gpu_once_its_sentences_are_voiced(
 
     from .fakes import FakeLlm
 
-    reached, release = paused_ffmpeg
     monkeypatch.setattr(describe, "describes", describe.Describes())
     monkeypatch.setattr(spoil_maker, "start_worker", FakeLlm())
     ready_clip(project, EP2)
@@ -500,9 +487,9 @@ def test_a_render_frees_the_gpu_once_its_sentences_are_voiced(
     write_draft(project, sentences=[sentence("s_00000001", "ยังไม่มีเสียง", refs=[{"clip_id": EP1, "line": 1}], shots=shots(0, 1))])
 
     assert client.post(RENDERS, json={}).json()["state"] == "voicing"
-    assert reached.wait(5)  # voiced, now in ffmpeg
+    paused_ffmpeg.wait_until(0)  # voiced, now in ffmpeg
     response = client.post("/api/spoil-maker/describes", json={"clip_id": EP2})
-    release.set()
+    paused_ffmpeg.release(0)
 
     assert response.status_code == 202, response.json()
     assert wait_for_end(client, RENDER_CURRENT)["state"] == "done"
@@ -510,11 +497,10 @@ def test_a_render_frees_the_gpu_once_its_sentences_are_voiced(
 
 
 def test_cancelling_while_rendering_leaves_no_partial_files(client, project, renderable, paused_ffmpeg):
-    reached, _ = paused_ffmpeg
     two_sentence_draft(project)
 
     client.post(RENDERS, json={})
-    assert reached.wait(5)
+    paused_ffmpeg.wait_until(0)
     client.delete(RENDER_CURRENT)
 
     assert wait_for_end(client, RENDER_CURRENT)["state"] == "cancelled"

@@ -40,6 +40,8 @@ class GpuSlot:
         self._kind: Kind | None = None
         self._clip_ids: frozenset[str] = frozenset()
         self._holds_draft = False
+        self._trimming_clip: str | None = None
+        self._rendering_clip: str | None = None  # a Render job's clip, GPU or not (spoil D42)
         self.draft_lock = threading.RLock()
         """Every read-change-write of `draft.json`, from the API or a job, and the
         `draft_locked` check with the start of a job that changes the draft (D51).
@@ -50,11 +52,14 @@ class GpuSlot:
         `locks_draft`: the job changes the Spoil draft (a Draft, sentence Voice or Render job),
         so edits are `draft_locked` until it ends. A Render job holds the slot while it voices
         sentences only (spoil-maker spec › ช่อง GPU)."""
+        clip_ids = frozenset(clip_ids)
         with self._lock:
+            if self._trimming_clip in clip_ids:
+                raise _clip_busy()
             if self._kind is not None:
                 running = self._kind
                 raise ApiError(409, "gpu_busy", f"รอให้งาน{RUNNING_NAMES[running]}เสร็จก่อน", running=running)
-            self._kind, self._clip_ids, self._holds_draft = kind, frozenset(clip_ids), locks_draft
+            self._kind, self._clip_ids, self._holds_draft = kind, clip_ids, locks_draft
 
     def release(self, kind: Kind) -> None:
         """Frees the slot if `kind` holds it; every ending of a job calls it (done, failed, cancelled)."""
@@ -76,11 +81,62 @@ class GpuSlot:
     def clip_untouched(self, clip_id: str, by: Iterable[Kind] | None = None) -> Iterator[None]:
         """Runs the block (deleting or changing the clip's files) under the slot's lock:
         refuses with `ApiError` 409 `clip_busy` while the holder reads the clip — only a
-        holder of a kind in `by`, when given — and no job can take the slot until the block ends."""
+        holder of a kind in `by`, when given — or while a Trim job cuts it, whatever `by`
+        (spoil D42); and no job can take the slot until the block ends."""
         with self._lock:
-            if clip_id in self._clip_ids and (by is None or self._kind in by):
-                raise ApiError(409, "clip_busy", "คลิปนี้กำลังถูกใช้ในงานอื่น")
+            self._refuse_readers(clip_id, by)
+            if clip_id == self._trimming_clip:
+                raise _clip_busy()
             yield
+
+    @contextmanager
+    def trimmed_clip_swap(self, clip_id: str) -> Iterator[None]:
+        """`clip_untouched` for the Trim job that cuts the clip, putting its new mp4 in
+        place: the clip's trim mark is its own, so only a holder that reads the clip refuses."""
+        with self._lock:
+            self._refuse_readers(clip_id)
+            yield
+
+    def _refuse_readers(self, clip_id: str, by: Iterable[Kind] | None = None) -> None:
+        """Call with the lock held."""
+        if clip_id in self._clip_ids and (by is None or self._kind in by):
+            raise _clip_busy()
+
+    def begin_render(self, clip_id: str) -> None:
+        """Marks the clip a Render job reads, from its start to `end_render` on every ending:
+        a render whose sentences all have their voice never takes the slot, and one that
+        voices frees it before ffmpeg, yet both read the clip till the end. Raises `ApiError`
+        409 `clip_busy` while a Trim job cuts it; `begin_trim` refuses the marked clip (D42)."""
+        with self._lock:
+            if clip_id == self._trimming_clip:
+                raise _clip_busy()
+            self._rendering_clip = clip_id
+
+    def end_render(self) -> None:
+        with self._lock:
+            self._rendering_clip = None
+
+    @contextmanager
+    def begin_trim(self, clip_id: str) -> Iterator[None]:
+        """Runs the block (the Trim job's start checks) like `clip_untouched`; when it ends
+        without raising, the Trim job cuts the clip, and every job that reads it is refused
+        until `end_trim`. It holds no GPU (spoil D41, D42), so the slot's holder is left as it is.
+
+        The mark outlives this `with`: it is set as the block ends, still under the lock, and
+        stays set until the job's thread calls `end_trim` on every ending."""
+        with self.clip_untouched(clip_id):
+            if clip_id == self._rendering_clip:
+                raise _clip_busy()
+            yield
+            self._trimming_clip = clip_id
+
+    def end_trim(self) -> None:
+        with self._lock:
+            self._trimming_clip = None
+
+    def is_trimming(self, clip_id: str) -> bool:
+        with self._lock:
+            return self._trimming_clip == clip_id
 
     @contextmanager
     def clip_files_lock(self) -> Iterator[None]:
@@ -90,6 +146,10 @@ class GpuSlot:
         other (spoil-maker spec › EP, D71)."""
         with self._lock:
             yield
+
+
+def _clip_busy() -> ApiError:
+    return ApiError(409, "clip_busy", "คลิปนี้กำลังถูกใช้ในงานอื่น")
 
 
 slot = GpuSlot()

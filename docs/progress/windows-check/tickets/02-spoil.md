@@ -5,9 +5,9 @@
 **Blocked by:** 01: เช็ค setup-status บน Windows NVIDIA
 
 **Covers:**
-- Decisions: spoil D15, spoil D30, setup-status D25, spoil-maker D54
+- Decisions: spoil D15, spoil D30, spoil D36, spoil D42, setup-status D25, spoil-maker D54
 - ADR: 0012, 0014
-- Seams: 2, 3
+- Seams: 2, 3, 3a (ข้อ Windows)
 
 **Status:** ready-for-agent
 
@@ -40,3 +40,9 @@
 - process ลูก `spawn` เริ่มได้บน Windows
 - ยกเลิกงานถอด → process ลูกและ ffmpeg ที่มันเปิดหายภายใน 5 วินาที และ memory ของ backend ไม่โตขึ้น
 - แก้บรรทัดของ Transcript แล้วกด "บันทึก" → `PATCH` ได้ `200`, บรรทัดมีป้าย "แก้แล้ว"; `.tmp` rename ทับ `{id}.transcript.json` ได้บน Windows และไม่มี `{id}.transcript.json.tmp` ค้าง; restart `npm run dev` → ข้อความที่แก้ยังอยู่ (spoil-maker D54)
+
+### ตัดช่วง (spoil seam 3a, D36, D42)
+
+- ตัดหนังยาวกว่า 1 ชั่วโมงสองช่วงผ่าน `curl -X POST http://127.0.0.1:8000/api/spoil/trims` → `done` ด้วย `libx264`, เล่นได้ใน player, ความยาวตรงภายใน 1 วินาที และภาพเสียงตรงกันรอบรอยตัด; จดเวลาที่ใช้ลง progress.md
+- ตัดขณะ player เปิดคลิปนั้นอยู่ในอีก tab ของ browser → `done` หรือ `in_use` ที่ไฟล์เดิมยังเล่นได้ และ `.partial/` ว่าง
+- ยกเลิกที่ประมาณ 30% → ffmpeg หายภายใน 5 วินาที (Task Manager) และไฟล์เดิมเล่นได้

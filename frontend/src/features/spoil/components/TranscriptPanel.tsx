@@ -1,8 +1,8 @@
-import { useState, type RefObject } from "react";
+import { useLayoutEffect, useState, type RefObject } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
 import { notice, type Notice } from "../lib/notice";
-import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
+import { videoUrl, type TempClip } from "../../../lib/clips";
 import { transcriptPath, type LineEditResult, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
 import clockIcon from "../assets/clock.svg";
 import copyIcon from "../../../components/ui/assets/copy.svg";
@@ -14,6 +14,9 @@ import { NoticeAlert } from "./NoticeAlert";
 import { NotReady } from "./NotReady";
 import { ProgressCard } from "./ProgressCard";
 import { TranscriptLineItem } from "./TranscriptLineItem";
+import { TrimSection, type TrimControls } from "./TrimSection";
+import type { TrimView } from "../hooks/useTrim";
+import { TRIMMING_THIS_CLIP } from "../lib/trim";
 
 type Props = {
   /** The selected clip, or null (D25). */
@@ -35,20 +38,29 @@ type Props = {
   onCancel: () => void;
   /** Saves line `index`'s new text (spoil-maker D54). */
   onEditLine: (clipId: string, index: number, text: string) => Promise<LineEditResult>;
+  /** The player holds no file while the clip is posted to, or being, trimmed (D41). */
+  playerReleased: boolean;
+  /** The message after this clip's last trim or refusal (D33). */
+  trimNotice: Notice | null;
+  /** The ตัดช่วง section of `clip`, under its title (D38); null with no clip. */
+  trim: TrimControls | null;
 };
 
 /** What stands under the clip's title: one state of the panel's table (spec › Frontend). */
 type Action =
   | { kind: "progress"; job: TranscribeJob }
   | { kind: "notReady" }
-  | { kind: "otherClip"; title: string | null }
+  /** ถอดบทพูด disabled, saying why: another clip's job, or the ตัดช่วง section (D38). */
+  | { kind: "blocked"; reason: string }
   | { kind: "transcribed" }
   | { kind: "start" };
 
-function actionOf(clip: TempClip, missing: string[], job: TranscribeJob | null, jobTitle: string | null): Action {
+function actionOf(clip: TempClip, missing: string[], job: TranscribeJob | null, jobTitle: string | null, trimView: TrimView): Action {
   if (job !== null && job.clip_id === clip.id) return { kind: "progress", job };
   if (missing.length > 0) return { kind: "notReady" };
-  if (job !== null) return { kind: "otherClip", title: jobTitle };
+  if (job !== null) return { kind: "blocked", reason: `กำลังถอด ${jobTitle}` };
+  if (trimView.kind === "running") return { kind: "blocked", reason: TRIMMING_THIS_CLIP };
+  if (trimView.kind === "editing") return { kind: "blocked", reason: "กดตัดคลิปหรือยกเลิกก่อน" };
   return clip.transcribed ? { kind: "transcribed" } : { kind: "start" };
 }
 
@@ -57,8 +69,15 @@ const TRANSCRIBED = notice("info", "คลิปนี้ถอดแล้ว")
 /** Figma component `Transcript panel`: the selected clip's player, its Transcribe job and Transcript (D22–D27, D33). */
 export function TranscriptPanel(props: Props) {
   const { clip, videoRef, autoPlay, missing, job, jobTitle, notice, transcript, onStart, onCancel, onEditLine } = props;
+  const { playerReleased, trimNotice, trim } = props;
 
-  if (clip === null) {
+  // Without `src` the player still holds its file until `load()` (D41); a new `src` loads by itself.
+  useLayoutEffect(() => {
+    if (playerReleased) videoRef.current?.load();
+  }, [playerReleased, videoRef]);
+
+  // `trim` is null exactly when `clip` is.
+  if (clip === null || trim === null) {
     return (
       <section
         aria-label="กล่องถอดบทพูด"
@@ -76,7 +95,7 @@ export function TranscriptPanel(props: Props) {
     );
   }
 
-  const action = actionOf(clip, missing, job, jobTitle);
+  const action = actionOf(clip, missing, job, jobTitle, trim.view);
   return (
     <section
       aria-label="กล่องถอดบทพูด"
@@ -86,7 +105,8 @@ export function TranscriptPanel(props: Props) {
       <video
         ref={videoRef}
         key={clip.id}
-        src={`${CLIPS_PATH}/${clip.id}/video`}
+        // Each trim changes `?v=`, so the new file plays, not a cached old one (D41).
+        src={playerReleased ? undefined : videoUrl(clip)}
         controls
         autoPlay={autoPlay}
         className="h-[284px] w-full rounded-2xl bg-surface-inverse"
@@ -97,7 +117,9 @@ export function TranscriptPanel(props: Props) {
           <p className="font-mono text-[13px] text-muted-foreground">{formatDuration(clip.duration_s)}</p>
         )}
       </div>
+      {trimNotice && <NoticeAlert notice={trimNotice} />}
       {notice && <NoticeAlert notice={notice} />}
+      <TrimSection key={`trim-${clip.id}`} videoRef={videoRef} durationS={clip.duration_s} {...trim} />
       <ActionArea
         // Keyed apart from the player: another clip starts with no warning open.
         key={`action-${clip.id}`}
@@ -141,14 +163,14 @@ function ActionArea({ action, transcribed, inDraft, missing, onStart, onCancel }
       return <JobProgress job={action.job} onCancel={onCancel} />;
     case "notReady":
       return <NotReady missing={missing} />;
-    case "otherClip":
+    case "blocked":
       return (
         <div className="flex items-center gap-3">
           <button type="button" disabled className={`h-9 px-4 ${PRIMARY_BUTTON}`}>
             {transcribed ? "ถอดใหม่" : "ถอดบทพูด"}
           </button>
           <img src={clockIcon} alt="" width={16} height={16} className="shrink-0" />
-          <p className="min-w-0 flex-1 text-sm leading-[1.5] text-mid">กำลังถอด {action.title}</p>
+          <p className="min-w-0 flex-1 text-sm leading-[1.5] text-mid">{action.reason}</p>
         </div>
       );
     case "transcribed":

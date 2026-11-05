@@ -1,12 +1,15 @@
 import { useCallback, useEffect } from "react";
 import { getJson, getReply, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
+import type { ClipsChanged } from "./useTempClips";
 import { busyText } from "../../../lib/gpu";
 import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
 import { notice, type Notice } from "../lib/notice";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
-import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
+import { clipPath, type TempClip } from "../../../lib/clips";
+import { TRIMMING_THIS_CLIP } from "../lib/trim";
+import { HANDLED, type StartResult } from "../lib/confirm";
 
 // The shape of a Transcribe job (backend.spoil.transcribe.TranscribeJob, spec › API).
 export type TranscribeJobState = "preparing" | "transcribing" | "done" | "failed" | "cancelled";
@@ -22,11 +25,8 @@ export type TranscribeJob = {
 // `{id}.transcript.json` (spec › Transcribe); `edited` once the user changed the text (spoil-maker D54).
 export type TranscriptLine = { start_s: number; end_s: number; text: string; edited: boolean };
 
-/**
- * How posting a job ended: `has_edits` and `in_draft` wait for the user to confirm
- * their `message` (spoil-maker D54, D49).
- */
-export type StartResult = { kind: "has_edits" | "in_draft"; message: string } | { kind: "handled" };
+/** The refusals of a POST that wait for the user to confirm their `message` (spoil-maker D54, D49). */
+export type TranscribeLoss = "has_edits" | "in_draft";
 
 /** What the user already agreed to lose: edited lines, the Spoil draft. */
 export type Confirmed = { editLoss?: boolean; draftLoss?: boolean };
@@ -66,12 +66,10 @@ type Loaded = Extract<TranscribeState, { kind: "loaded" }>;
 const TRANSCRIPTIONS_PATH = "/api/spoil/transcriptions";
 const CURRENT_PATH = "/api/spoil/transcriptions/current";
 
-const HANDLED: StartResult = { kind: "handled" };
-
 const isUnfinished = isUnfinishedIn<TranscribeJobState>(["preparing", "transcribing"]);
 
 export function transcriptPath(clipId: string): string {
-  return `${CLIPS_PATH}/${clipId}/transcript`;
+  return `${clipPath(clipId)}/transcript`;
 }
 
 /** What a finished job says in the panel (spec › Frontend, D33). */
@@ -87,15 +85,14 @@ const whenLoaded = (change: (state: Loaded) => TranscribeState) =>
 
 /**
  * The transcript panel: which clip is selected, its Transcript, and the one
- * Transcribe job (D24). Checks the current job on mount, selecting its clip
- * when unfinished; polls every second only while a job is unfinished, apart
- * from the download's poll. Any failure (no backend, a status the API never
+ * Transcribe job (D24). Checks the current job on mount; polls every second
+ * only while a job is unfinished, apart from the download's poll. Any failure (no backend, a status the API never
  * sends, 30 s) is offline. `onClipsChanged` (stable) loads the list again:
  * when a followed job ends or is lost (ถอดแล้ว may change) and when a clip
  * turns out to be gone. `onNotReady` (stable) runs on a `503` POST, so the
  * status is checked again.
  */
-export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void) {
+export function useTranscribe(onClipsChanged: ClipsChanged, onNotReady: () => void) {
   const [state, setState, setIfMounted] = useMountedState<TranscribeState>({ kind: "loading" });
 
   /**
@@ -112,7 +109,7 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
           setIfMounted(whenLoaded((s) => (s.selectedId === clipId ? { ...s, transcript } : s)));
         } else if (reply.status === 404) {
           // The file went some other way (deleted by hand): the list shows it isn't ถอดแล้ว.
-          if (expected) onClipsChanged();
+          if (expected) void onClipsChanged();
         } else {
           setIfMounted({ kind: "offline" });
         }
@@ -126,22 +123,13 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
   const load = useCallback(async () => {
     try {
       const job = await getJson<TranscribeJob | null>(CURRENT_PATH);
-      // Opening the tab on an unfinished job selects its clip (spec › Frontend).
+      // The page selects the unfinished job's clip once the list is in (ClipsPage).
       const running = job !== null && isUnfinished(job) ? job : null;
-      setIfMounted({
-        kind: "loaded",
-        selectedId: running?.clip_id ?? null,
-        autoPlay: false,
-        job: running,
-        notice: null,
-        transcript: null,
-      });
-      // A clip being transcribed again keeps its old Transcript if the job is cancelled or fails.
-      if (running) void loadTranscript(running.clip_id, false);
+      setIfMounted({ kind: "loaded", selectedId: null, autoPlay: false, job: running, notice: null, transcript: null });
     } catch {
       setIfMounted({ kind: "offline" });
     }
-  }, [loadTranscript, setIfMounted]);
+  }, [setIfMounted]);
 
   useEffect(() => {
     void load();
@@ -166,17 +154,20 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
           return { ...s, job: null, notice: clipId === s.selectedId ? shown : s.notice };
         }),
       );
-      onClipsChanged();
+      void onClipsChanged();
       // `done` has a new Transcript; `cancelled` and `failed` leave the old one, if any, which may not be loaded.
       if (job !== null) void loadTranscript(job.clip_id, job.state === "done");
     },
     () => setIfMounted({ kind: "offline" }),
   );
 
-  /** Puts a clip in the panel (`null` empties it); a clip ถอดแล้ว loads its Transcript. */
+  /**
+   * Puts a clip in the panel (`null` empties it); a clip ถอดแล้ว loads its Transcript.
+   * `autoPlay` false for a clip selected for its running job rather than by a click.
+   */
   const select = useCallback(
-    (clip: TempClip | null) => {
-      setState(whenLoaded((s) => ({ ...s, selectedId: clip?.id ?? null, autoPlay: true, notice: null, transcript: null })));
+    (clip: TempClip | null, autoPlay = true) => {
+      setState(whenLoaded((s) => ({ ...s, selectedId: clip?.id ?? null, autoPlay, notice: null, transcript: null })));
       if (clip?.transcribed) void loadTranscript(clip.id, true);
     },
     [loadTranscript, setState],
@@ -189,7 +180,7 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
    * answer is handled here.
    */
   const start = useCallback(
-    async (clipId: string, confirmed: Confirmed = {}): Promise<StartResult> => {
+    async (clipId: string, confirmed: Confirmed = {}): Promise<StartResult<TranscribeLoss>> => {
       setIfMounted(whenLoaded((s) => ({ ...s, notice: null })));
       try {
         const body = {
@@ -211,6 +202,10 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
           if (job !== null && isUnfinished(job)) setIfMounted(whenLoaded((s) => ({ ...s, job })));
           return HANDLED;
         }
+        if (reply.status === 409 && code === "trimming") {
+          setIfMounted(whenLoaded((s) => ({ ...s, notice: notice("error", TRIMMING_THIS_CLIP, clipId) })));
+          return HANDLED;
+        }
         if (reply.status === 409 && (code === "has_edits" || code === "in_draft")) {
           return { kind: code, message: refusal!.message };
         }
@@ -222,7 +217,7 @@ export function useTranscribe(onClipsChanged: () => void, onNotReady: () => void
         }
         if (reply.status === 404 && code === "not_found") {
           setIfMounted(whenLoaded((s) => ({ ...s, notice: notice("error", "ไม่พบคลิปนี้", clipId) })));
-          onClipsChanged();
+          void onClipsChanged();
           return HANDLED;
         }
         if (reply.status === 503 && code === "not_ready") {

@@ -14,7 +14,7 @@ from backend import errors, files, paths
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil, spoil_maker
-from backend.spoil import clips, downloads, transcribe
+from backend.spoil import clips, downloads, transcribe, trim
 from backend.spoil_maker import describe, draft, episodes, render, shots, voices
 
 # Binding 127.0.0.1 doesn't stop DNS rebinding from another site (ADR 0011).
@@ -45,9 +45,16 @@ def _clean_shots(project: ProjectPaths) -> None:
     episodes.clean_on_start(project, {clip.id for clip in listed if clip.described})
 
 
+def _clean_clips(project: ProjectPaths) -> None:
+    # A Trim job's marker needs its `.partial/` file to tell how far it got, so first (spoil D41).
+    trim.recover_on_start(project)
+    clips.clean_on_start(project)
+
+
 # Every job, once. Start-up cleans in this order: the clips (a Download job's) before their Shots.
 JOB_HOLDERS = (
-    JobEntry(lambda: downloads.downloads, clips.clean_on_start),
+    JobEntry(lambda: downloads.downloads, _clean_clips),
+    JobEntry(lambda: trim.trims),
     JobEntry(lambda: transcribe.transcriptions),
     JobEntry(lambda: describe.describes, _clean_shots),
     JobEntry(lambda: draft.draft_jobs),

@@ -25,7 +25,7 @@ tab ในแอปที่ทำคลิปเล่าหรือสปอ�
 _Avoid_: recap, spoiler page
 
 **Temp clip**:
-คลิป YouTube หนึ่งคลิปที่โหลดมาเก็บใน `media/temp/` (วิดีโอ mp4, ข้อมูล json, thumbnail). อยู่จนผู้ใช้กดลบ. ไม่มีไฟล์ json คือคลิปยังไม่ครบ.
+คลิป YouTube หนึ่งคลิปที่โหลดมาเก็บใน `media/temp/` (วิดีโอ mp4, ข้อมูล json, thumbnail). อยู่จนผู้ใช้กดลบ. ไม่มีไฟล์ json คือคลิปยังไม่ครบ. ไฟล์ mp4 ถูกแทนได้เมื่อผู้ใช้ตัดช่วง (Trim job) จึงไม่ใช่สำเนาตรงของ YouTube.
 _Avoid_: cache, download, temp file
 
 **Download job**:
@@ -39,6 +39,10 @@ _Avoid_: subtitle, caption, บทสปอย
 **Transcribe job**:
 การถอด Temp clip หนึ่งคลิปเป็น Transcript ที่ backend ทำเบื้องหลังเมื่อผู้ใช้กดถอด. มีได้ทีละงาน รันพร้อม Download job ได้ และหายเมื่อ backend restart.
 _Avoid_: process, transcription task
+
+**Trim job**:
+การตัดช่วงที่ผู้ใช้เลือกออกจาก Temp clip หนึ่งคลิป ที่ backend ทำเบื้องหลังด้วยการ encode mp4 ใหม่แทนไฟล์เดิม. ช่วงที่ตัดหายจากคลิปถาวร ไม่ถึง Transcript, Shot, EP และ Spoil draft; ข้อมูลจากคลิปที่มีอยู่ก่อนถูกลบ (spoil D36, D37). มีได้ทีละงาน; restart ระหว่างตัดงานหายและไฟล์เดิมอยู่ ยกเว้นขั้นแทนไฟล์ที่ start ครั้งหน้าทำต่อจนจบ (spoil D41). ต่างจาก "การตัด EP" ที่แบ่งคลิปเป็นตอนโดยไม่แตะไฟล์.
+_Avoid_: cut job, edit, crop, การตัด EP
 
 
 **Shot**:

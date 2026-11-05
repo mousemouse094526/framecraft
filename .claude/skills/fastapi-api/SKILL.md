@@ -40,12 +40,20 @@ backend/
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
 │                    (delete or change, refusing a job that reads the clip)
-│                    and `clip_files_lock` (a clip's EP cuts, spoil-maker D71)
+│                    and `clip_files_lock` (a clip's EP cuts, spoil-maker D71);
+│                    `begin_trim` marks the clip a Trim job cuts, which every
+│                    job that reads it is refused until `end_trim` — the mark
+│                    outlives the `with` (spoil D42); `trimmed_clip_swap`
+│                    guards putting the new mp4 in place
+├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel)
+│                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
+│                    frames and compose share it
 ├── setup.py      ← entry point: python -m backend.setup
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips,
 │                    downloads (Download job),
 │                    transcribe (Transcribe job, Transcript files),
+│                    trim (Trim job: cut ranges out of a clip's mp4, D41),
 │                    whisper (the only torch/transformers import for
 │                    transcribing; its `worker` runs in a child process)
 ├── spoil_maker/  ← the สปอย tab (spoil-maker D56, D59): shots (Shot files),
@@ -60,9 +68,7 @@ backend/
 │                    EP list and its token count, D66), script (the
 │                    prompts and the reading of Qwen's answers), tokens
 │                    (the only transformers import of the backend process: Qwen's
-│                    tokenizer), settings (what the tab remembers),
-│                    ffmpeg (the binary, killing on cancel, `ffmpeg -i`
-│                    reading; frames and compose share it), render (the
+│                    tokenizer), settings (what the tab remembers), render (the
 │                    Render job and the render files), compose (the ffmpeg
 │                    commands of a render), captions (the ASS file and the
 │                    `.srt`); llm's and tts's `worker` run in a child process
@@ -105,8 +111,9 @@ through a queue; the thread writes the result file (ADR 0012).
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
-- Locks are taken in one order: a job slot's, then `gpu.slot.draft_lock`, then
-  the GPU slot's own (inside `GpuSlot`); never the other way round.
+- Locks are taken in one order: a job slot's, then `spoil.clips.files_lock`
+  (a Temp clip's mp4 and Transcript, spoil D46), then `gpu.slot.draft_lock`,
+  then the GPU slot's own (inside `GpuSlot`); never the other way round.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases

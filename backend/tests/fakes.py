@@ -518,3 +518,51 @@ def jpeg_width(path: Path) -> int:
             return int.from_bytes(data[index + 7 : index + 9], "big")
         index += 2 + length
     raise ValueError(f"no frame header in {path}")
+
+
+class FakeFfmpeg:
+    """A job's `run_ffmpeg` (`Trims`, `RenderJobs`; spoil spec › Testing decisions). Run
+    `n` (from 0) reports `progress` seconds, then holds at a point paused with `pause_at(n)`
+    until the test calls `release(n)` or the job cancels (`Cancelled`, `killed`); `fail`
+    raises `FfmpegFailed`. It then writes `output` to the command's last argument, or hands
+    the command to `then` (the real `ffmpeg.run`, for a render that must make its file)."""
+
+    def __init__(self, progress: tuple[float, ...] = (37.0,), output: bytes = b"new mp4", then=None):
+        self.commands: list[list[str]] = []
+        self.progress, self.output, self.then = progress, output, then
+        self.fail, self.killed = False, False
+        self._paused: dict[int, threading.Event] = {}
+        self._reached: dict[int, threading.Event] = {}
+
+    def pause_at(self, index: int) -> None:
+        self._paused[index] = threading.Event()
+        self._reached[index] = threading.Event()
+
+    def wait_until(self, index: int) -> None:
+        assert self._reached[index].wait(5), f"ffmpeg never reached run {index}"
+
+    def release(self, index: int) -> None:
+        self._paused[index].set()
+
+    def __call__(self, command, cwd, cancel, on_progress=None) -> None:
+        from backend.ffmpeg import FfmpegFailed
+        from backend.jobs import Cancelled
+
+        index = len(self.commands)
+        self.commands.append(command)
+        for seconds in self.progress:
+            if on_progress:
+                on_progress(seconds)
+        if index in self._paused:
+            self._reached[index].set()
+            while not (self._paused[index].is_set() or cancel.is_set()):
+                cancel.wait(0.01)
+        if cancel.is_set():
+            self.killed = True
+            raise Cancelled()
+        if self.fail:
+            raise FfmpegFailed("ffmpeg exited with 1: Invalid data found when processing input", "Invalid data found when processing input")
+        if self.then is not None:
+            self.then(command, cwd, cancel, on_progress)
+        else:
+            Path(command[-1]).write_bytes(self.output)

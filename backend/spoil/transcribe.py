@@ -68,7 +68,8 @@ spoil-maker's Draft job adds one."""
 
 
 class Transcriptions(ModelJobSlot[TranscribeJob]):
-    """Holds the latest Transcribe job. Its lock also guards every clip delete (D29)."""
+    """Holds the latest Transcribe job. Its start, a clip delete and a line edit hold
+    `clips.files_lock` too (D29)."""
 
     unfinished = UNFINISHED
     gpu_kind = "transcribe"
@@ -87,8 +88,9 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
         require_rows(_needed_rows(project))
         # The gate just found a GPU and DeviceProbe caches it, so this is that same device.
         device = checks.probe_device()
-        with self._lock:
+        with self._lock, clips.files_lock:
             mp4 = clips.video_file(project, clip_id)  # 404 unless both json and mp4 are there
+            _refuse_trimming(clip_id)
             if self._taken():
                 raise ApiError(409, "busy", "กำลังถอดคลิปอื่นอยู่")
             if not confirm_edit_loss and _has_edits(project, clip_id):
@@ -103,13 +105,22 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
         thread.start()
         return job
 
+    def transcribing(self, clip_id: str) -> bool:
+        """Whether a Transcribe job of that clip is still running. Call under
+        `clips.files_lock`: a job starts only under it, so one can't start meanwhile. Reads
+        the job without the slot's lock (one attribute read), so a Trim job can ask under
+        `files_lock` without breaking the lock order; a job ending meanwhile reads as running."""
+        job = self._job
+        return job is not None and job.state in self.unfinished and job.clip_id == clip_id
+
     def delete_clip(self, clip_id: str) -> None:
         """Deletes a clip's files unless it is being transcribed (D27) or another GPU job
         reads it (`clip_busy`, spoil-maker D49). The checks and the delete share the locks
         the jobs start under, so neither slips between the other (D29)."""
-        with self._lock:
-            if self._taken() and self._job.clip_id == clip_id:
+        with clips.files_lock:
+            if self.transcribing(clip_id):
                 raise ApiError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ")
+            _refuse_trimming(clip_id)
             project = paths.project()
             with gpu.slot.clip_untouched(clip_id):
                 clips.delete_clip(project, clip_id)
@@ -119,20 +130,22 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
     def edit_line(self, clip_id: str, n: str, text: str) -> TranscriptLine:
         """Replaces line `n`'s text and marks it edited; times and line count stay,
         so whatever points at a line by its index still holds (spoil-maker D54, ADR 0018).
-        Under the job's lock, so a Transcribe job can't start between the check and the write."""
+        Under `clips.files_lock`, so neither a Transcribe job's start nor a Trim job's new mp4
+        comes between the check and the write."""
         # One line stays one line: a line break would add lines to `.txt` and split an `.srt` cue.
         text = " ".join(text.split())
         if not text:
             raise ApiError(400, "invalid_request", "บรรทัดต้องมีข้อความ")
         project = paths.project()
-        with self._lock:
+        with clips.files_lock:
             transcript = read_transcript(project, clip_id)
             # `n` comes as text so `x` and `-1` are 404, not a validation error; ASCII digits only.
             index = int(n) if n.isascii() and n.isdigit() else -1
             if not 0 <= index < len(transcript.lines):
                 raise ApiError(404, "not_found", "ไม่พบบรรทัดนี้")
-            if self._taken() and self._job.clip_id == clip_id:
+            if self.transcribing(clip_id):
                 raise ApiError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ รอให้ถอดเสร็จก่อนแล้วแก้")
+            _refuse_trimming(clip_id)
             if any(in_use(clip_id) for in_use in clip_users):
                 raise ApiError(409, "clip_busy", "คลิปนี้กำลังถูกใช้ในงานอื่น")
             line = transcript.lines[index]
@@ -185,6 +198,12 @@ def _needed_rows(project: ProjectPaths) -> dict[str, Row]:
     }
     whisper: dict[str, Row] = {WHISPER.check_id: (WHISPER.label, lambda: checks.check_model(project, WHISPER))}
     return packages | gate_rows.FFMPEG | whisper | gate_rows.DEVICE
+
+
+def _refuse_trimming(clip_id: str) -> None:
+    """A clip a Trim job cuts can't be transcribed, edited or deleted until it ends (D41)."""
+    if gpu.slot.is_trimming(clip_id):
+        raise ApiError(409, "trimming", "กำลังตัดคลิปนี้อยู่")
 
 
 def _has_edits(project: ProjectPaths, clip_id: str) -> bool:

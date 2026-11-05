@@ -540,3 +540,176 @@
 
 **From:** feature review · **Status:** active
 
+
+## D36: ตัดช่วงออกจาก Temp clip ด้วยการ encode mp4 ใหม่แทนไฟล์เดิม
+
+**Chosen:** ผู้ใช้เลือกช่วงที่ไม่ต้องการ (โฆษณาต้นคลิป, เพลงเปิด-ปิด, ตัวอย่างตอนหน้า) แล้วแอปใช้ ffmpeg encode `{id}.mp4` ใหม่ที่ไม่มีช่วงเหล่านั้นและแทนไฟล์เดิมทันที ไม่เก็บต้นฉบับ. encoder: Mac `h264_videotoolbox`, Windows `libx264`; เสียง `aac`.
+
+**Why:** ผู้ใช้เลือกให้ทุกงานถัดไป (ถอด, บรรยายฉาก, ตัด EP, render, player) อ่านไฟล์เดียวโดยไม่ต้องรู้เรื่องการตัด และขอให้ใช้บน Windows ได้ด้วย; ไม่เก็บต้นฉบับเพื่อไม่ให้ดิสก์โตเป็นสองเท่า — ตัดพลาดก็ลบคลิปแล้วโหลดใหม่.
+
+**Rejected:**
+- เก็บช่วงไว้ใน json แล้วให้ทุกงานข้ามเอง — ทุก feature ต้องแปลงเวลาเอง พลาดที่เดียวก็ได้ข้อมูลผิดเงียบๆ
+- ffmpeg stream copy ไม่ encode — ตัดได้แค่ที่ keyframe คลาดได้หลายวินาที
+- เก็บต้นฉบับไว้กดคืนได้ — ดิสก์ราว 2 เท่าต่อคลิป
+- `h264_videotoolbox` ทุก OS — มีแค่บน Mac
+
+**Details:**
+- `libx264`, `h264_videotoolbox` และ `aac` มีใน ffmpeg 7.1 ของ imageio-ffmpeg (ADR-0005) — เช็คด้วย `ffmpeg -encoders` บน Mac 2026-11-05; บน Windows เช็คใน `windows-check` (ADR-0016)
+- ตัดซ้ำได้หลายรอบบนไฟล์ที่ตัดแล้ว; เวลาของแต่ละรอบเป็นเวลาของไฟล์ ณ ตอนนั้น
+- ไม่ใช่งานที่โหลดโมเดล จึงไม่จองช่อง GPU (ADR-0015)
+- supersedes บางส่วนของ Out of Scope "ตัดต่อ" ของ D2: ตัดช่วงทิ้งอยู่ใน scope, ตัดต่ออื่นยังไม่อยู่
+
+**From:** change request · **Status:** active
+
+## D37: ตัดคลิปที่มีข้อมูลจากคลิปแล้ว: เตือน ยืนยัน แล้วลบทั้งหมด
+
+**Chosen:** คลิปที่มี Transcript (รวมบรรทัดที่แก้ไว้), Shot, การตัด EP หรือ Spoil draft → ก่อนตัดแอปบอกว่าจะลบอะไรบ้าง; ยืนยันแล้วตัด และเมื่อแทนไฟล์สำเร็จจึงลบทั้งหมด ต้องถอดและบรรยายฉากใหม่.
+
+**Why:** ผู้ใช้เลือกทางที่ตรง ADR-0018: เวลาทุกค่าหลังจุดตัดเลื่อน ข้อมูลเดิมจึงชี้ผิดทั้งหมด; ปกติผู้ใช้ตัดก่อนถอดอยู่แล้ว.
+
+**Rejected:**
+- เลื่อนเวลาของบรรทัดและ Shot ที่เหลือ เก็บไว้ไม่ต้องถอดใหม่ — บรรทัดและ Shot ที่คร่อมรอยตัดต้องมีกฎ, เลขบรรทัดเลื่อน (ขัด spoil-maker D54), งาน build มากขึ้นมาก
+- ตัดได้เฉพาะคลิปที่ยังไม่ถอด — เห็นโฆษณาหลังถอดแล้วต้องลบคลิปโหลดใหม่
+
+**Details:**
+- ใช้ ADR-0018 และ spoil-maker D49 (ทำใหม่ของคลิปใน Spoil draft ลบ draft หลังยืนยัน) ไม่มีกฎใหม่: การตัดนับเป็น "การทำใหม่ของคลิป" อีกแบบ
+- ยืนยันครั้งเดียวด้วย `confirm_derived_loss: true` ครอบทั้ง Transcript, Shot, การตัด EP และ Spoil draft
+
+**From:** change request · **Status:** active
+
+## D38: เลือกช่วงตัดบน timeline ใต้ player ในกล่องขวาของ tab คลิป
+
+**Chosen:** กล่องถอดบทพูดของคลิปที่เลือกมีปุ่ม "ตัดช่วง" เปิดส่วนตัดช่วงใต้ชื่อคลิป: timeline ยาวเต็มกล่องที่มีช่วงที่จะตัดเป็นแถบทึบ ลากหัวท้ายได้, รายการช่วงพร้อมเวลาเริ่ม-จบที่พิมพ์ได้, ปุ่มตั้งเวลาจากตำแหน่งที่เล่นอยู่, "เพิ่มช่วง", ความยาวที่จะเหลือ และปุ่ม "ตัดคลิป".
+
+**Why:** ผู้ใช้เลือกแบบที่อยู่ข้าง player ที่ดูคลิปอยู่แล้ว ไม่ต้องเปิดหน้าใหม่.
+
+**Rejected:**
+- หน้าต่าง modal เต็มจอ — timeline ยาวกว่าแต่เป็นหน้าใหม่ที่ต้อง design และแยกจาก player เดิม
+
+**Details:**
+- sketch: [trim-sketch.md](trim-sketch.md)
+- ช่วงที่ยังไม่กด "ตัดคลิป" อยู่ใน memory ของหน้าแยกตามคลิป หายเมื่อโหลดหน้าใหม่
+
+**From:** change request · **Status:** active
+
+## D39: ตัดช่วงแทนการซ่อนบรรทัด Transcript ทีละบรรทัด
+
+**Chosen:** เลิกแผนซ่อนบรรทัด Transcript (`removed: true`) ของ spoil-maker ticket 10; ของขยะในคลิปเอาออกด้วยการตัดช่วงก่อนถอด. ส่วน "เลือกสไตล์ไม่เปลี่ยน layout" ของ ticket 10 (spoil-maker D92, D93) ยังทำ.
+
+**Why:** ผู้ใช้เลือกให้มีทางเดียวในการเอาส่วนที่ไม่ต้องการออก.
+
+**Rejected:**
+- มีทั้งตัดช่วงและซ่อนบรรทัด — สองทางทำงานซ้อนกัน; บรรทัดขยะเดี่ยวยังแก้ข้อความได้ตาม spoil-maker D54
+
+**Details:**
+- supersedes spoil-maker D90, D91, D94, D95 ซึ่งอยู่บน branch `feat/spoil-maker-transcript-remove` ยังไม่ merge: การแก้ Status ของสี่ข้อนั้น, spec และ ticket 10 ของ spoil-maker ทำบน branch นั้น (บันทึกส่งต่ออยู่ใน notes ของกลุ่ม session)
+- แก้ข้อความทีละบรรทัด (spoil-maker D54) ยังอยู่
+
+**From:** change request · **Status:** active
+
+## D40: ส่วนตัดช่วงออกแบบใน Figma หลังแผน
+
+**Chosen:** Design source ของส่วนตัดช่วงและป้าย "ตัดแล้ว" เป็น `pending`; ออกแบบใน Figma ไฟล์เดิมของ spoil จาก `ui-prompt.md` แล้วนำลิงก์กลับมาด้วย `/warroom spoil`.
+
+**Why:** ผู้ใช้เลือกให้เหมือนหน้าอื่นของ spoil ที่มีแบบใน Figma; timeline หลายช่วงเป็นของใหม่ไม่มี component เทียบ.
+
+**Rejected:**
+- build จาก sketch กับ component เดิมโดยไม่ทำแบบ — slider หลายช่วงไม่มีแบบให้เทียบ
+
+**From:** change request · **Status:** active
+
+## D41: กติกาของงานตัดช่วงที่ตัดสินจากโค้ดและ library
+
+**Chosen:** รายละเอียดของ Trim job, ไฟล์ และหน้าจอที่ไม่ต้องให้ผู้ใช้ตัดสิน.
+
+**Details:**
+- **งาน:** Trim job ทีละงานทั้งแอป (`JobSlot`, ADR-0010) ใน thread ของ backend ที่รัน ffmpeg เป็น subprocess; ทำพร้อม Download job และงาน GPU ของคลิปอื่นได้ — ไม่โหลดโมเดล (ADR-0015)
+- **คลิปเดียวกัน:** ระหว่าง Trim job คลิปนั้นถูกใช้ (`clip_busy` ของ spoil-maker D49) — ถอด, บรรยายฉาก, ร่างบท, `PUT` การตัด EP, แก้บรรทัดและลบคลิปถูกปฏิเสธ; กลับกันคลิปที่งานอื่นใช้อยู่ตัดไม่ได้ — ไฟล์เดียวต้องไม่ถูกแทนระหว่างงานอื่นอ่าน
+- **ช่วง:** 1–20 ช่วง, `0 ≤ start_s < end_s ≤ duration_s`, ยาว ≥ 0.5 วินาที; ช่วงที่ทับหรือชนกันรวมเป็นช่วงเดียว; เหลือรวม ≥ 10 วินาที — กันคลิปว่างที่ทุกงานต่อไปล้ม
+- **คุณภาพ:** bitrate ภาพ = bitrate เฉลี่ยของไฟล์เดิม (`file_bytes × 8 ÷ duration_s`) ลบ 192 kbps ไม่ต่ำกว่า 300 kbps (D46); เสียง `aac` 192 kbps — ไฟล์ขนาดใกล้เดิมต่อนาที โดยไม่ต้องมี ffprobe (ADR-0005)
+- **แทนไฟล์:** เขียนผลลง `.partial/`, เขียน marker `{id}.trimming.json` (json ใหม่ของคลิป), `os.replace` mp4, ลบข้อมูลจากคลิป, แล้ว `os.replace` marker เป็น `{id}.json`; start backend ทำต่อหรือย้อนตาม marker — ไม่มีสถานะที่ mp4 ใหม่อยู่กับ Transcript หรือ Shot เดิม
+- **Windows:** แทน mp4 ไม่ได้เพราะไฟล์ยังเปิดอยู่ → `failed` `in_use` และไม่ลบอะไร (แบบ D15); หน้าเว็บปลด player ก่อนส่งงาน
+- **player:** `src` ของ video มี `?v={trimmed_at หรือ downloaded_at}` ให้ browser ไม่ใช้ไฟล์เก่าจาก cache
+- **ดิสก์:** ที่ว่าง < ขนาดเดิม × ส่วนที่เหลือ + 1 GiB → `failed` `disk_full` (แบบ D11)
+
+**From:** code · **Status:** active
+
+## D42: ข้อแก้ The Breaker ของงานตัดช่วง
+
+**Chosen:** ห้าข้อที่ The Breaker พบในแผนตัดช่วง แก้ตามที่ตรวจกับโค้ดแล้ว.
+
+**Details:**
+- **ความยาว:** ตรวจช่วงและคิด bitrate จากความยาวจริงของ mp4 ด้วย `spoil_maker.ffmpeg.probe` ไม่ใช่ `duration_s` ของ json; json ใหม่เก็บ `duration_s` เป็นจำนวนเต็มเหมือนเดิม — `duration_s` เป็น `int | None` ในโค้ด (`whisper.plan_segments` ใช้กับ `range()`) และเป็น `null` ได้
+- **ลำดับ lock:** แทน mp4 และลบ Transcript, Shot, ไฟล์การตัด EP ใต้ lock ของงานถอดกับ `clip_untouched`; ลบ Spoil draft หลังออกจาก lock ของ slot — ตาม `Transcriptions.delete_clip` เพราะ Draft job ถือ `draft_lock` ก่อน lock ของ slot จึงกลับลำดับแล้ว deadlock
+- **คลิปที่กำลังตัด:** `GpuSlot.trimming_clip`; `take()` ของทุกชนิดและ `clip_untouched` ไม่ว่า `by` ปฏิเสธคลิปนี้ — Trim job ไม่จองช่อง GPU, `GpuSlot` เดิมเห็นแค่งานที่ถือช่อง; ครอบ Render และ Voice job ด้วย
+- **ตรวจผลก่อนแทน:** ความยาวไฟล์ใหม่ต่างจาก `kept_s` ไม่เกิน 1 วินาที และมีเสียงเมื่อต้นฉบับมี ไม่งั้น `ffmpeg_failed` ไม่แตะอะไร — ไม่มีต้นฉบับให้คืน (D36)
+- **Windows:** `os.replace` ลองใหม่ทุก 0.5 วินาทีนาน 10 วินาทีก่อน `in_use` — Range response ที่ยังส่ง หรือ Defender ล็อกไฟล์ชั่วครู่ ไม่ควรทิ้งงาน encode หลายสิบนาที
+
+**From:** red team · **Status:** active
+
+## D43: จุด inject ของ Trim job เป็นอาร์กิวเมนต์ของ `Trims` และ ffmpeg ย้ายขึ้นระดับบน
+
+**Chosen:**
+- ตัวปลอมของ test ส่งเข้า `Trims(run_ffmpeg=…, probe=…, free_bytes=…, sleep=…, replace_mp4=…)` แทน module attribute ของ `backend.spoil.trim`.
+- `spoil_maker/ffmpeg.py` ย้ายเป็น `backend/ffmpeg.py` พร้อม `run` และ `Runner` ที่ย้ายออกจาก `compose`.
+- การลอง `os.replace` ซ้ำ (D42) ปล่อย lock ระหว่างรอ.
+
+**Why:**
+- `rules/testing.md` ให้งานที่รัน ffmpeg รับ runner เป็นอาร์กิวเมนต์ของ holder แบบ `RenderJobs(run_ffmpeg=…)` ไม่ patch ฟังก์ชันของ module.
+- SKILL.md บอกว่าโค้ดที่มีผู้ใช้คนที่สองต้องย้ายไป module ระดับบนใน change เดียวกัน: Trim job ของ spoil เป็นผู้ใช้คนที่สองนอก spoil_maker.
+- ถือ lock ของงานถอดกับ GPU slot ไว้ 10 วินาทีจะทำให้ poll และการเริ่มงานอื่นค้างไปด้วย.
+
+**Rejected:** module attribute ตาม spec › Trim เดิม — ขัดกับ `rules/testing.md`.
+
+**From:** build ticket 06 · **Status:** active
+
+## D44: แบบส่วนตัดช่วงใน Figma
+
+**Chosen:**
+- แบบอยู่ใน [Figma: Components — ตัดช่วง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8094-49867) และ frame "คลิป — ตัดช่วง" 13 state ของ desktop กับ 3, 6, 9 ของ mobile ([start](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8098-50405)).
+- ปุ่ม "เริ่ม = ตอนนี้" และ "จบ = ตอนนี้" อยู่ใต้ช่องเวลาของมัน: แถวกว้างพอทั้ง 502px และ 343px โดยไม่ต้องแยกบรรทัดปุ่ม.
+- "ตัดแล้ว" เป็น Badge accent ก่อน "ถอดแล้ว"; Alert ผลหลังงานจบอยู่ใต้ชื่อคลิปเหมือน Alert ของงานถอด (D33); ระหว่างแทนไฟล์ใช้แถบไม่มีตัวเลขกับ "ยกเลิกไม่ได้ระหว่างแทนไฟล์".
+- คำยืนยันเป็น `confirm()` ของ browser ตาม D37.
+
+**Why:** ทำตาม ui-prompt.md; ช่องเวลาสองช่องกับปุ่มสามปุ่มในบรรทัดเดียวไม่พอที่ 502px.
+
+**From:** design (`/warroom ui spoil`, ทำใน Figma ผ่าน MCP) · **Status:** active
+
+
+## D45: ทางเลือกเล็กของส่วนตัดช่วงในหน้าเว็บ
+
+**Chosen:**
+- ความยาวของ timeline = `video.duration` ปัดลงเป็น 0.1 วินาทีเมื่อ player อ่านไฟล์แล้ว; ก่อนนั้นใช้ `duration_s` ของรายการ
+- ช่วงที่สั้นกว่า 0.5 วินาทีเป็น error ที่ช่องจบ ("เวลาไม่ถูกต้อง") และ "ตัดคลิป" disabled
+- "เพิ่มช่วง" ที่ตำแหน่งเล่นที่อยู่ในช่วงอื่น หรือมีที่ว่างไม่ถึง 0.5 วินาที → disabled
+- "ตัดออก {x} · เหลือ {y}" ใช้รูปแบบความยาวเดียวกับแถว (`m:ss` ต่ำกว่าชั่วโมง) ตาม Figma; "ตัดคลิปเสร็จ: เหลือ {h:mm:ss}" ตาม spec
+- งาน `done` แล้ว player ยังว่างจนรายการใหม่ (`?v=` ใหม่) มาถึง; ไม่งั้น browser เล่นไฟล์เก่าจาก cache ด้วย `?v=` เดิมชั่วครู่
+- ระหว่างตัดคลิปนี้ ปุ่มถอดบทพูด disabled กับ "กำลังตัดคลิปนี้อยู่"; `DELETE /trims/current` ได้ `409` `replacing` → Alert warning ในกล่อง
+- `POST /trims` ได้ `409` `busy` → ติดตามงานปัจจุบัน: ของคลิปนี้ (ส่งซ้ำ) เห็น %; ของคลิปอื่นเห็น `message` เป็น Alert error กับ "กำลังตัด {ชื่อ}"
+- player ของ Shot picker (spoil-maker) อ่าน `GET /api/spoil/clips` เพื่อใส่ `?v=`; อ่านรายการไม่ได้ → `src` ไม่มี `?v=` (เปลี่ยนเป็น `GET /clips/{id}` ใน D46)
+- ปุ่ม secondary ของ Figma เป็น `SECONDARY_BUTTON` ใน `buttonStyles`; `plus.svg` ย้ายไป `components/ui/assets/` เพราะสอง feature ใช้
+
+**Why:**
+- `duration_s` เป็นจำนวนเต็มที่ปัดขึ้นได้ (893.18 → 893) และ 0.1 วินาทีที่ปัดขึ้น (893.2) เกินความยาวจริง backend จึงตอบ `invalid_ranges` — เจอตอนเช็คมือ
+- 0.5 วินาทีและ "ไม่ทับช่วงอื่น" เป็นกติกาของ D41 ที่ backend ตรวจอยู่แล้ว ให้ผู้ใช้เห็นก่อนส่ง
+- `?v=` "ทุกที่" (D41) รวม player ของ Shot picker ที่ไม่มีข้อมูลคลิปในบทอยู่แล้ว
+
+**From:** build ticket 07 · **Status:** active
+
+## D46: สิ่งที่แก้จาก feature review ของงานตัดช่วง
+
+**Chosen:**
+- bitrate ภาพของ Trim job มีพื้น 300 kbps แทน 1 Mbps (แค่กันค่าผิดปกติ); คลิป bitrate ต่ำจึงไม่โตขึ้นหลังตัด
+- `409` `has_derived` มี `message` เป็นคำถามเต็ม "ตัดคลิปจะลบ {รายการ} ของคลิปนี้ ตัดต่อไหม?" ด้วยคำของหน้าเว็บ; หน้าเว็บส่ง `POST /trims` ก่อนแล้วถาม `message` แบบงานถอด (`has_edits`) แทนถามจาก flag ของรายการ
+- ลำดับตรวจ `busy` ก่อน `clip_busy`: `POST` ซ้ำของคลิปที่กำลังตัดได้ `busy` และหน้าเว็บติดตามงานต่อ (D45)
+- `ffmpeg_failed` แสดงบรรทัดท้ายของ stderr เท่านั้น ไม่มี exit code
+- หัวลากรับลูกศรขึ้น/ลงด้วย ตามแบบ slider ของ ARIA
+- start ลบ marker `{id}.trimming.json` ที่ไม่มี `{id}.json` (คลิปถูกลบแล้ว)
+- `GET /api/spoil/clips/{id}` ให้ player ของ Shot picker อ่าน `trimmed_at` คลิปเดียว แทนอ่านทั้งรายการ
+- Alert ผลของงานตัดหายเมื่อเลือกคลิปอื่น แบบงานถอด (D33)
+- Render job ทำเครื่องหมายคลิปที่อ่านใน `backend.gpu` (`begin_render`/`end_render`) ทุกครั้ง: render ที่เสียงครบไม่จองช่อง GPU จึงไม่เห็นและไม่ถูกเห็นโดย Trim job; ตอนนี้สองฝั่งได้ `409` `clip_busy`
+- lock ของไฟล์คลิป (mp4 และ Transcript) เป็น `spoil.clips.files_lock` แทน lock ของ Transcribe job ที่ Trim job และการลบคลิปยืมใช้; ลำดับ lock: job slot → `files_lock` → `draft_lock` → GPU slot
+
+**Why:** feature review สามแกนของ ticket 06–07 เจอโค้ดที่ต่างจาก spec หรือทำสิ่งเดียวกันสองแบบ; ไฟล์โตหลังตัด (1.34 เท่าต่อนาที) ขัดกับ "ไฟล์ขนาดใกล้เดิมต่อนาที" ของ D41
+
+**From:** feature review · **Status:** active

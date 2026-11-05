@@ -1,10 +1,11 @@
 # Flow: spoil
 
-4 diagrams, read in this order:
+5 diagrams, read in this order:
 1. ผู้ใช้วางลิงก์จนได้ Temp clip: หน้าเว็บ, API, Download job และ yt-dlp คุยกันยังไง
 2. state ของ Download job และสิ่งที่เกิดกับไฟล์ในแต่ละทาง
 3. ผู้ใช้เลือกคลิปแล้วกดถอดจนเห็น Transcript
 4. state ของ Transcribe job และสิ่งที่เกิดกับ Transcript ในแต่ละทาง
+5. state ของ Trim job และสิ่งที่เกิดกับ mp4 และข้อมูลจากคลิปในแต่ละทาง — ตัดก่อนถอด แล้ว diagram 3 อ่านไฟล์ที่ตัดแล้ว
 
 All diagrams use the same names as [spec.md](spec.md).
 
@@ -141,3 +142,25 @@ stateDiagram-v2
 - restart backend ระหว่างงาน → งานหาย Transcript เดิมยังอยู่ (ADR-0010)
 - หลัง `done` แก้ข้อความทีละบรรทัดได้ด้วย `PATCH /clips/{id}/transcript/lines/{n}`: เวลาและจำนวนบรรทัดไม่เปลี่ยน บรรทัดได้ `edited: true`; ระหว่าง Transcribe job ของคลิปนั้น `409` `transcribing`; ถอดใหม่จน `done` ทับที่แก้ไว้ (spoil-maker D54)
 
+## 5. state ของ Trim job
+
+```mermaid
+stateDiagram-v2
+    [*] --> trimming: POST /trims ผ่าน
+    trimming --> cancelled: flag ยกเลิก kill ffmpeg
+    trimming --> failed: disk_full หรือ ffmpeg_failed
+    trimming --> replacing: ffmpeg exit 0
+    replacing --> failed: in_use หรือ internal
+    replacing --> done: แทน mp4 ลบข้อมูลจากคลิป เขียน json
+    done --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
+
+Trim job จาก `POST /trims` จนจบ: ยกเลิกได้เฉพาะตอน `trimming`; ตั้งแต่ `replacing` ไฟล์ถูกแทนจริง (D41).
+
+**งานจบได้สามทาง และ mp4 กับข้อมูลจากคลิปเป็นอย่างไร**
+- `done`: `{id}.mp4` เป็นไฟล์ใหม่; Transcript, Shot, การตัด EP และ Spoil draft ของคลิปหาย; json มี `duration_s` ใหม่และ `trimmed` (D36, D37)
+- `cancelled` และ `failed`: mp4 และข้อมูลเดิมไม่ถูกแตะ; ไฟล์ใน `.partial/` ถูกลบ (D41)
+- ระหว่างงานยังไม่จบ ถอด แก้บรรทัด และลบคลิปนั้นได้ `409` `trimming`; งาน spoil-maker ของคลิปนั้นได้ `409` `clip_busy` (D41)
+- restart backend ระหว่าง `replacing` → marker `{id}.trimming.json` ทำให้ start ครั้งหน้าทำต่อหรือย้อนจนครบ (D41)

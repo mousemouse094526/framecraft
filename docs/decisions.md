@@ -98,7 +98,7 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | ถอดคำพูดของ Temp clip ด้วย Whisper large-v3-turbo ที่ติดตั้งแล้ว ตรวจภาษาเอง; ได้ Transcript อย่างเดียว ไม่แยกไฟล์เสียงให้ผู้ใช้ | [spoil](features/spoil/decisions.md) | D21 | spoil-maker | — | active |
 | แสดง Transcript ทีละบรรทัดพร้อมเวลา กดแล้ว player กระโดด, Copy ทั้งหมด, โหลด `.txt` และ `.srt` | [spoil](features/spoil/decisions.md) | D22 | — | — | active |
-| ถอดเมื่อผู้ใช้กดเท่านั้น, Transcript เก็บคู่ Temp clip ข้าม restart, แถวแสดง "ถอดแล้ว", ลบคลิปลบ Transcript | [spoil](features/spoil/decisions.md) | D23 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
+| ถอดเมื่อผู้ใช้กดเท่านั้น, Transcript เก็บคู่ Temp clip ข้าม restart, แถวแสดง "ถอดแล้ว", ลบคลิปลบ Transcript | [spoil](features/spoil/decisions.md) | D23 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | Transcribe job ทีละงาน ไม่มีคิว, รันพร้อม Download job ได้, poll % และยกเลิกได้ | [spoil](features/spoil/decisions.md) | D24 | spoil-maker | [0015](adr/0015-one-gpu-slot.md) | changed by spoil-maker D45 |
 | tab คลิปสองคอลัมน์ (เดิม tab สปอย): รายการคลิป → ลูกศร → กล่องถอดบทพูด (player ย้ายเข้ากล่อง), 375px เรียงบนลงล่าง | [spoil](features/spoil/decisions.md) | D25 | — | — | changed by spoil-maker D53 |
 | ไม่จำกัดเวลาถอด ต้องเห็น % และยกเลิกได้ | [spoil](features/spoil/decisions.md) | D26 | — | — | active |
@@ -111,7 +111,7 @@ question; the full entry is in the feature's decisions.md.
 | ของบนจอที่ design ของกล่องถอดเพิ่ม: ช่องลิงก์อยู่คอลัมน์ซ้าย, ข้อความหลังงานถอดเป็น Alert ในกล่อง, แถบ % แบบ Download progress, Transcript ว่างไม่มีปุ่ม Copy/ไฟล์; อยู่ใน tab คลิป | [spoil](features/spoil/decisions.md) | D33 | — | — | changed by spoil-maker D53 |
 | ทางเลือกเล็กตอน build กล่องถอด: คลิปที่เลือกอยู่กับ `useTranscribe`, status GET ครั้งเดียว, `busy` → GET current, ลบคลิปที่กำลังถอดไม่ปลด player, ซ่อน Transcript ระหว่างถอดใหม่, ไม่ autoPlay เมื่อเลือกเพราะงาน, `PageLayout wide` | [spoil](features/spoil/decisions.md) | D34 | — | — | changed by spoil-maker D53 |
 | แก้จาก feature review: gate สองงานผ่าน `require_rows`, `JobFailed`, `write_atomic`, `jobs.py` → `downloads.py`, `features/spoil/lib/`, งานโหลดไม่หลุดเมื่องานถอดได้ 503 | [spoil](features/spoil/decisions.md) | D35 | — | — | active |
-| แก้ข้อความ Transcript ทีละบรรทัดใน tab คลิป (เวลาและจำนวนบรรทัดไม่เปลี่ยน), `edited: true`, `PATCH .../transcript/lines/{n}`; ถอดใหม่ต้องยืนยัน (`has_edits`); `.txt` `.srt` token Draft job ใช้ข้อความที่แก้ | [spoil-maker](features/spoil-maker/decisions.md) | D54 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
+| แก้ข้อความ Transcript ทีละบรรทัดใน tab คลิป (เวลาและจำนวนบรรทัดไม่เปลี่ยน), `edited: true`, `PATCH .../transcript/lines/{n}`; ถอดใหม่ต้องยืนยัน (`has_edits`); `.txt` `.srt` token Draft job ใช้ข้อความที่แก้ | [spoil-maker](features/spoil-maker/decisions.md) | D54 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | ทางเลือกเล็กตอน build แถบ 3 tab และแก้ Transcript: `ClipsPage`/`SpoilMakerPage`, `useHash.ts`, `#/spoil/…` ไม่รู้จัก = ขั้น 1, `clip_users` ของ `clip_busy`, `PATCH` ต้องเป็น JSON, ข้อความแก้เป็นบรรทัดเดียว, ปุ่ม "แก้" แสดงตลอดบนจอสัมผัส, error ใต้ช่องแก้ | [spoil-maker](features/spoil-maker/decisions.md) | D55 | — | [0013](adr/0013-post-requires-json.md) | active |
 | ทางเลือกเล็กตอน build ติดตั้ง Qwen, ช่อง GPU และดูภาพ: แถว `model_qwen`/`mlx_vlm` หลัง `device`, `ModelSpec.platforms`, `not_ready` มี `rows` (id), `ApiError`/`backend.jobs` ใช้ร่วม, `GpuSlot.clip_untouched`, ลำดับการเช็ค, ไฟล์ของ `spoil_maker`, ภาพเล็ก ffmpeg `-q:v 5`, `404` `not_found` ทั้งแอป, ยืนยันดูภาพใหม่ในแถว | [spoil-maker](features/spoil-maker/decisions.md) | D56 | — | [0015](adr/0015-one-gpu-slot.md) | active |
 | เฟรมที่ Qwen บรรยายกว้าง 448 (เดิม 640): หนัง 96 นาทีจบใน 52.7 นาทีแทน 64 นาทีบน M2 | [spoil-maker](features/spoil-maker/decisions.md) | D57 | — | — | active |
@@ -123,6 +123,22 @@ question; the full entry is in the feature's decisions.md.
 | แก้จาก feature review: `10:30 น.` อ่านเป็นนาฬิกา, `audio.wav` `no-store`, พื้นเบลอ A ย่อ-เบลอ-ขยาย, error ของ framework เป็น `{code, message}`, `ModelJobSlot._run_job`, `backend.gate_rows`, `RefusalLine` | [spoil-maker](features/spoil-maker/decisions.md) | D63 | — | [0013](adr/0013-post-requires-json.md) | active |
 | ลายน้ำเปิดปิดได้ทีละอัน (`enabled`, ปิดแล้วจำไว้); หน้าตรวจแก้เตือนเมื่อลายน้ำ `top_center` ที่เปิดอยู่ทับ hook (A) หรือชื่อตอน (C) | [spoil-maker](features/spoil-maker/decisions.md) | D64 | — | — | active |
 | ทางเลือกเล็กตอน build ลายน้ำเปิดปิดและงานค้างจาก review: `PATCH` ไม่มี `enabled` = เปิด, สวิตช์ `role="switch"`, คำเตือนใต้ช่อง hook ตามที่พิมพ์, `RenderJobs(run_ffmpeg=...)`, `JOB_HOLDERS`, icon ใช้ร่วมใน `components/ui/assets/` | [spoil-maker](features/spoil-maker/decisions.md) | D65 | — | — | active |
+
+## ตัดช่วงคลิป
+
+| Decision | Feature | D | Used by | ADR | Status |
+|---|---|---|---|---|---|
+| ตัดช่วงออกจาก Temp clip ด้วย ffmpeg encode mp4 ใหม่แทนไฟล์เดิม ไม่เก็บต้นฉบับ; Mac `h264_videotoolbox`, Windows `libx264`, เสียง `aac`; ไม่จองช่อง GPU | [spoil](features/spoil/decisions.md) | D36 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
+| ตัดคลิปที่มี Transcript, Shot, การตัด EP หรือ Spoil draft: เตือน ยืนยันครั้งเดียว (`confirm_derived_loss`) แล้วลบทั้งหมด | [spoil](features/spoil/decisions.md) | D37 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
+| เลือกช่วงตัดบน timeline ใต้ player ในกล่องขวาของ tab คลิป: ลากหัวท้าย, พิมพ์เวลา, ตั้งจากตำแหน่งเล่น, เพิ่มช่วง, ความยาวที่เหลือ | [spoil](features/spoil/decisions.md) | D38 | — | — | active |
+| ตัดช่วงแทนการซ่อนบรรทัด Transcript (เลิก spoil-maker D90, D91, D94, D95); D92, D93 ยังทำ | [spoil](features/spoil/decisions.md) | D39 | — | — | active |
+| ส่วนตัดช่วงออกแบบใน Figma หลังแผน (`pending`) | [spoil](features/spoil/decisions.md) | D40 | — | — | active |
+| กติกาของ Trim job: ทีละงาน, `clip_busy` สองทาง, 1–20 ช่วง เหลือ ≥ 10 วินาที, bitrate จากไฟล์เดิม, marker `{id}.trimming.json`, `in_use` บน Windows, `?v=` ของ player, เช็คดิสก์ | [spoil](features/spoil/decisions.md) | D41 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
+| ข้อแก้ Breaker ตัดช่วง: ความยาวจาก `probe`, ลบ draft หลัง lock ของ slot, `GpuSlot.trimming_clip`, ตรวจไฟล์ผลก่อนแทน, `os.replace` ลองซ้ำ 10 วินาที | [spoil](features/spoil/decisions.md) | D42 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
+| Trim job รับตัวปลอมผ่าน `Trims(…)`; ffmpeg เป็น `backend/ffmpeg.py`; ลอง `os.replace` ซ้ำโดยไม่ถือ lock | [spoil](features/spoil/decisions.md) | D43 | — | — | active |
+| แบบส่วนตัดช่วงใน Figma: ปุ่ม "= ตอนนี้" ใต้ช่องเวลา, Badge "ตัดแล้ว", Alert ใต้ชื่อคลิป, `confirm()` ของ browser | [spoil](features/spoil/decisions.md) | D44 | — | — | active |
+| ส่วนตัดช่วงในหน้าเว็บ: ความยาวจาก `video.duration` ปัดลง 0.1 วินาที, ช่วงสั้นกว่า 0.5 วินาทีเป็น error, `busy` ติดตามงาน, `?v=` ของ Shot picker, `SECONDARY_BUTTON` | [spoil](features/spoil/decisions.md) | D45 | — | — | active |
+| feature review ของงานตัดช่วง: พื้น bitrate 300 kbps, `has_derived` เป็นคำถามเต็มและถามหลัง `POST`, `busy` ก่อน `clip_busy`, `GET /clips/{id}` | [spoil](features/spoil/decisions.md) | D46 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
 
 ## สร้างคลิปสปอย
 
@@ -150,7 +166,7 @@ question; the full entry is in the feature's decisions.md.
 | ตัวเลือก Shot เปิดที่ ±30 วินาทีรอบบรรทัดที่อ้าง ขยายดูทั้งคลิปทีละ EP ได้; เก็บเฟรมกลางเป็นภาพเล็ก | [spoil-maker](features/spoil-maker/decisions.md) | D26 | — | — | active |
 | หน้าตรวจแก้: แก้ ลบ แทรกประโยคได้ (ประโยคแทรกเลือก Shot เอง) ไม่มีลากสลับลำดับ | [spoil-maker](features/spoil-maker/decisions.md) | D27 | — | — | active |
 | Spoil draft (บท, Shot, เสียง, ค่าตั้ง) เก็บเป็นไฟล์ใน `media/` งานเดียว ร่างใหม่ทับหลังยืนยัน | [spoil-maker](features/spoil-maker/decisions.md) | D28 | — | — | active |
-| ลบ Temp clip ที่ Spoil draft ใช้: เตือน ยืนยันแล้วลบทั้งคลิปและ Spoil draft | [spoil-maker](features/spoil-maker/decisions.md) | D29 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
+| ลบ Temp clip ที่ Spoil draft ใช้: เตือน ยืนยันแล้วลบทั้งคลิปและ Spoil draft | [spoil-maker](features/spoil-maker/decisions.md) | D29 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | เสียง: ปุ่มสร้างทั้งหมด (เฉพาะที่ขาด) + ฟังและสร้างใหม่ทีละประโยค; แก้ข้อความ = ต้องสร้างใหม่; render สร้างส่วนที่ขาดให้ | [spoil-maker](features/spoil-maker/decisions.md) | D30 | — | — | active |
 | render: เสียงประโยคแบ่งครึ่งให้ 2 Shot เล่นจากต้น Shot, Shot สั้นเล่นเลยท้ายต่อในต้นฉบับ | [spoil-maker](features/spoil-maker/decisions.md) | D31 | — | — | active |
 | เสียงตัวอย่าง = Saved voice ที่ผู้ใช้ออกแบบ (เพศ วัย ระดับเสียง → สุ่ม → ฟัง → บันทึก) เก็บเป็น clone prompt อยู่รายการเดียวกับเสียง clone | [spoil-maker](features/spoil-maker/decisions.md) | D32 | — | [0019](adr/0019-saved-voice-tied-to-tts-model.md) | changed by spoil-maker D48 |
@@ -169,7 +185,7 @@ question; the full entry is in the feature's decisions.md.
 | Transcript รวมของ EP ที่เลือกไม่เกิน 32,000 token (tokenizer ของ Qwen นับข้อความที่แก้แล้ว D54) เกินไม่ให้ร่าง `transcript_too_long` | [spoil-maker](features/spoil-maker/decisions.md) | D46 | — | — | active |
 | test: API กับ worker ปลอมของโมเดลแต่ ffmpeg จริง, หน้าเว็บกับ fetch ปลอม; adapter จริงเช็คมือ | [spoil-maker](features/spoil-maker/decisions.md) | D47 | — | — | changed by spoil-maker D51 |
 | ตัด clone เสียงออกจากรอบนี้ ออกแบบเสียงอย่างเดียว; `kind` เก็บไว้ให้เพิ่ม clone ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D48 | — | — | active |
-| ถอดหรือดูภาพใหม่ของคลิปใน Spoil draft ลบ draft หลังยืนยัน; คลิปที่งาน spoil-maker ใช้อยู่ `409` `clip_busy` | [spoil-maker](features/spoil-maker/decisions.md) | D49 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
+| ถอดหรือดูภาพใหม่ของคลิปใน Spoil draft ลบ draft หลังยืนยัน; คลิปที่งาน spoil-maker ใช้อยู่ `409` `clip_busy` | [spoil-maker](features/spoil-maker/decisions.md) | D49 | spoil | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | spoil-maker ทำบน Mac อย่างเดียว; Windows เป็น feature แยก `windows-launch` | [spoil-maker](features/spoil-maker/decisions.md) | D50 | — | [0016](adr/0016-single-os-library-ports-separately.md) | active |
 | ข้อแก้ red team: ไฟล์ Shot ใน `media/temp/shots/` สลับตอนจบ, lock ของ draft, render คืน GPU หลัง voicing, ค่า LLM, escape ASS, error แบบ spoil, ลายน้ำขาวขอบดำ, 3 seam | [spoil-maker](features/spoil-maker/decisions.md) | D51 | — | [0015](adr/0015-one-gpu-slot.md) | active |
 | รับความเสี่ยงลิขสิทธิ์ของภาพและเสียงต้นฉบับในคลิปสปอยที่เผยแพร่ (legal 1 UNVERIFIED) | [spoil-maker](features/spoil-maker/decisions.md) | D52 | — | — | active |
@@ -177,14 +193,14 @@ question; the full entry is in the feature's decisions.md.
 | ทำสปอยทีละ EP: เลือก EP เดียวต่อ Spoil draft (draft งานเดียวตาม D28), หน้าเลือก EP แสดงเลข ช่วงเวลา ภาพเล็ก เลือกง่าย | [spoil-maker](features/spoil-maker/decisions.md) | D67 | — | — | active |
 | ตัวบอกขั้นของ tab สปอย: ไม่มีเครื่องหมายถูกตามตำแหน่ง ทุกขั้นกดได้ บรรทัดสถานะจริงใต้แต่ละขั้น (EP ที่เลือก, กำลังร่าง/สร้างเสียง x/y/จำนวนประโยค, render %/จำนวนคลิป) จุดหมุนเมื่องานรัน | [spoil-maker](features/spoil-maker/decisions.md) | D68 | — | — | active |
 | ความยาวต่อ EP 5–60 นาที ทีละ 5 ตั้งต้น 30 จำค่าล่าสุด | [spoil-maker](features/spoil-maker/decisions.md) | D69 | — | — | active |
-| ทางเลือกเล็กตัด EP: `media/temp/episodes/{id}.json` ของคลิป, จุดตัดที่ขอบ Shot, draft `version` 2 `clip_id` + `ep`, Transcript และ Shot เฉพาะช่วง EP, ผล render มี EP, ตัวบอกขั้นใช้ route เดิม | [spoil-maker](features/spoil-maker/decisions.md) | D70 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | changed by spoil-maker D71 |
-| ข้อแก้ Breaker ตัด EP: draft อ้าง EP ด้วยช่วง (`episodes_changed`), ไฟล์การตัดเขียนตอน GET แรกและอยู่ใต้ lock, ไฟล์เสียตัดใหม่, EP เดียวสั้นได้, `ep_empty`, ตัวบอกขั้นอ่านใหม่เมื่องานจบ, lock ของ settings | [spoil-maker](features/spoil-maker/decisions.md) | D71 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
+| ทางเลือกเล็กตัด EP: `media/temp/episodes/{id}.json` ของคลิป, จุดตัดที่ขอบ Shot, draft `version` 2 `clip_id` + `ep`, Transcript และ Shot เฉพาะช่วง EP, ผล render มี EP, ตัวบอกขั้นใช้ route เดิม | [spoil-maker](features/spoil-maker/decisions.md) | D70 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | changed by spoil-maker D71 |
+| ข้อแก้ Breaker ตัด EP: draft อ้าง EP ด้วยช่วง (`episodes_changed`), ไฟล์การตัดเขียนตอน GET แรกและอยู่ใต้ lock, ไฟล์เสียตัดใหม่, EP เดียวสั้นได้, `ep_empty`, ตัวบอกขั้นอ่านใหม่เมื่องานจบ, lock ของ settings | [spoil-maker](features/spoil-maker/decisions.md) | D71 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | Draft job เรียบเรียงทั้งบทให้ประโยคเชื่อมกันหลังร่างก่อนเลือก Shot; หน้าตรวจแก้มีปุ่ม "เรียบเรียงใหม่"; คำสั่งร่างขอเรื่องที่ต่อกัน | [spoil-maker](features/spoil-maker/decisions.md) | D72 | — | — | active |
 | เรียบเรียงแก้เฉพาะข้อความ: จำนวน ลำดับ `refs` และ Shot คงเดิม; ข้อความเปลี่ยนแล้วเสียงเป็น `stale_audio` | [spoil-maker](features/spoil-maker/decisions.md) | D73 | — | — | active |
 | เรียบเรียงใหม่ไม่แตะประโยคที่ผู้ใช้แก้หรือแทรกเอง (ป้าย "แก้เอง") | [spoil-maker](features/spoil-maker/decisions.md) | D74 | — | — | changed by spoil-maker D75 |
 | กดเรียบเรียงใหม่แล้วเลือกได้: ช่องติ๊ก "เรียบเรียงประโยคที่แก้เองด้วย" (ตั้งต้นไม่ติ๊ก); ติ๊กแล้วเขียนทับที่แก้เองและล้างป้าย | [spoil-maker](features/spoil-maker/decisions.md) | D75 | — | — | active |
 | ข้อแก้ Breaker เรียบเรียง: จับคู่ด้วย `i`, `polish_failed`, คุมความยาวรวม, สั่งใหม่ 2 ครั้ง, `edited` เมื่อข้อความต่างจริง, ปุ่มรอบันทึกค้างและเตือนเขียนทับ, ตัวบอกขั้นของ polish | [spoil-maker](features/spoil-maker/decisions.md) | D76 | — | — | active |
-| ทางเลือกเล็กตอน build ตัด EP: `spoil_maker.episodes`, `GpuSlot.clip_files`, `PUT` กันเฉพาะงานที่อ่านคลิป, ลำดับเช็คและเช็คช่วงซ้ำหลังจอง GPU, ref เป็น index บรรทัด, หน้าเว็บขั้น 1 ใช้ component เดิมจนแบบใหม่มา | [spoil-maker](features/spoil-maker/decisions.md) | D77 | — | [0018](adr/0018-temp-clip-owns-derived-data.md) | active |
+| ทางเลือกเล็กตอน build ตัด EP: `spoil_maker.episodes`, `GpuSlot.clip_files`, `PUT` กันเฉพาะงานที่อ่านคลิป, ลำดับเช็คและเช็คช่วงซ้ำหลังจอง GPU, ref เป็น index บรรทัด, หน้าเว็บขั้น 1 ใช้ component เดิมจนแบบใหม่มา | [spoil-maker](features/spoil-maker/decisions.md) | D77 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | ทางเลือกเล็กตอน build ตัวบอกขั้น: `useStepStatus` ใน `SpoilMakerPage` กับ `StepsRefreshContext`, งานล่าสุดของขั้น 2 ตาม `started_at`, poll ล้มเลิกตามจน refresh, หน้าตาต่อจาก `Spoil steps` เดิมจนแบบใหม่มา | [spoil-maker](features/spoil-maker/decisions.md) | D78 | — | — | active |
 | ทางเลือกเล็กตอน build เรียบเรียงบท: รูปคำสั่ง `[i]`/`(fixed)`, `i` ซ้ำทิ้งทุกอัน, `edited` `false` เมื่อข้อความเปลี่ยนเท่านั้น, `busy` เช็คก่อน, รอ change ที่ค้างก่อนส่ง, กล่องเลือกแบบ Shot picker จนแบบใหม่มา | [spoil-maker](features/spoil-maker/decisions.md) | D79 | — | — | changed by spoil-maker D82 |
 | แก้จาก feature review รอบสาม: ADR-0013 รวม `PUT`, `tokens_not_ready`, ลำดับลบคลิปใน spec ตามโค้ด, `ModalDialog`, `useJobCalls`, test ผ่าน API แทน `gpu.slot.take` | [spoil-maker](features/spoil-maker/decisions.md) | D80 | — | [0013](adr/0013-post-requires-json.md) | active |

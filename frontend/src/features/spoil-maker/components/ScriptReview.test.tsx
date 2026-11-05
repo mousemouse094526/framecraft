@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
 import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "./testBackend";
+import { clipOf } from "./setupFixtures";
 
 const DRAFT_PATH = "/api/spoil-maker/draft";
 const JOBS_PATH = "/api/spoil-maker/draft-jobs";
@@ -248,6 +249,26 @@ describe("ตรวจแก้บท", () => {
     expect(within(dialog).getByRole("tooltip")).toHaveTextContent("Shot 15 picture.");
     expect(dialog.querySelector("video")?.currentTime).toBe(75);
     expect(within(dialog).getByText("EP 2 · 00:01:15 – 00:01:20")).toBeInTheDocument();
+  });
+
+  it("plays the clip with ?v= from its last trim, so a cached file from before it never plays (spoil D41)", async () => {
+    const trimmedAt = "2026-11-05T10:00:00+07:00";
+    backend([get(`/api/spoil/clips/${EP1}`, clipOf(EP1, "Night of the Living Dead", { trimmed_at: trimmedAt }))]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 1" }));
+
+    const video = screen.getByRole("dialog").querySelector("video");
+    expect(video).toHaveAttribute("src", `/api/spoil/clips/${EP1}/video?v=${encodeURIComponent(trimmedAt)}`);
+  });
+
+  it("plays the bare path when the clip can't be read (404)", async () => {
+    backend([send("GET", `/api/spoil/clips/${EP1}`, { code: "not_found", message: "ไม่พบคลิปนี้" }, 404)]);
+    const user = await openReview();
+
+    await user.click(within(card(1)).getByRole("button", { name: "เปลี่ยน Shot 1" }));
+
+    expect(screen.getByRole("dialog").querySelector("video")).toHaveAttribute("src", `/api/spoil/clips/${EP1}/video`);
   });
 
   it("a sentence citing no line opens the picker on the whole EP", async () => {

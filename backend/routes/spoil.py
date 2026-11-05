@@ -1,12 +1,15 @@
+from typing import Any
+
 from fastapi import APIRouter, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend import paths
-from backend.spoil import clips, downloads, transcribe
+from backend.spoil import clips, downloads, transcribe, trim
 from backend.spoil.clips import ListedClip
 from backend.spoil.downloads import DownloadJob
 from backend.spoil.transcribe import TranscribeJob, Transcript, TranscriptLine
+from backend.spoil.trim import TrimJob
 
 
 router = APIRouter(prefix="/spoil")
@@ -33,6 +36,11 @@ class ClipList(BaseModel):
 @router.get("/clips")
 def list_clips() -> ClipList:
     return ClipList(clips=clips.list_clips(paths.project()))
+
+
+@router.get("/clips/{clip_id}")
+def get_clip(clip_id: str) -> ListedClip:
+    return clips.listed_clip(paths.project(), clip_id)
 
 
 @router.get("/clips/{clip_id}/video")
@@ -110,3 +118,19 @@ def get_current_download() -> DownloadJob | None:
 @router.delete("/downloads/current", status_code=202)
 def cancel_download() -> DownloadJob:
     return downloads.downloads.cancel()
+
+
+@router.post("/trims", status_code=202)
+def start_trim(body: dict[str, Any]) -> TrimJob:
+    return trim.trims.start(body)
+
+
+@router.get("/trims/current")
+def get_current_trim() -> TrimJob | None:
+    """The latest Trim job, or null when none ran since the backend started."""
+    return trim.trims.current()
+
+
+@router.delete("/trims/current", status_code=202)
+def cancel_trim() -> TrimJob:
+    return trim.trims.cancel()

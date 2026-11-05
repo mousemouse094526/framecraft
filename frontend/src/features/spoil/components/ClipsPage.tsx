@@ -1,14 +1,17 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
-import { missingLabels, TRANSCRIBE_ITEMS } from "../lib/gate";
+import { missingLabels, TRANSCRIBE_ITEMS, TRIM_ITEMS } from "../lib/gate";
 import { gpuBusyText } from "../../../lib/gpu";
 import { useDescribe } from "../hooks/useDescribe";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";
-import { useTranscribe, type Confirmed } from "../hooks/useTranscribe";
-import type { TempClip } from "../../../lib/clips";
+import { useTranscribe, type TranscribeLoss } from "../hooks/useTranscribe";
+import { playerReleasedFor, trimViewOf, useTrim } from "../hooks/useTrim";
+import { postConfirming } from "../lib/confirm";
+import { allSettled } from "../lib/settled";
+import type { Range, TempClip } from "../../../lib/clips";
 import arrowDownIcon from "../assets/arrow-down.svg";
 import arrowRightIcon from "../assets/arrow-right.svg";
 import { DownloadProgress } from "./DownloadProgress";
@@ -22,25 +25,37 @@ import { TranscriptPanel } from "./TranscriptPanel";
 export function ClipsPage() {
   const list = useTempClips();
   // A job that ends (or is lost) changes the list: load it once (D6).
-  const { state, start, cancel, reload, recheckStatus } = useSpoilDownload(list.refetch);
+  const download = useSpoilDownload(list.refetch);
   // A 503 to ถอดบทพูด means the install changed: check the status again.
-  const transcribe = useTranscribe(list.refetch, recheckStatus);
-  const describe = useDescribe(list.refetch, recheckStatus);
+  const transcribe = useTranscribe(list.refetch, download.recheckStatus);
+  const describe = useDescribe(list.refetch, download.recheckStatus);
+  const trim = useTrim(list.refetch, download.recheckStatus);
   const video = useRef<HTMLVideoElement>(null);
+  const states = [download.state, list.state, transcribe.state, describe.state, trim.state] as const;
+
+  // Opening the tab (or Refresh) on an unfinished Trim or Transcribe job selects its clip
+  // once everything is in, with the player waiting (spec › Frontend).
+  const jobClipChecked = useRef(false);
+  const { select } = transcribe;
+  useEffect(() => {
+    if (jobClipChecked.current || !allSettled(states)) return;
+    jobClipChecked.current = true;
+    const [, listed, transcribing, , trimming] = states;
+    const clipId = trimming.job?.clip_id ?? transcribing.job?.clip_id;
+    const clip = listed.clips.find((one) => one.id === clipId);
+    if (clip) select(clip, false);
+  });
 
   const refresh = () => {
-    reload();
+    jobClipChecked.current = false;
+    download.reload();
     list.reload();
     transcribe.reload();
     describe.reload();
+    trim.reload();
   };
 
-  if (
-    state.kind === "offline" ||
-    list.state.kind === "offline" ||
-    transcribe.state.kind === "offline" ||
-    describe.state.kind === "offline"
-  ) {
+  if (states.some((one) => one.kind === "offline")) {
     return (
       <PageLayout tab="clips" action={<RefreshButton onClick={refresh} />}>
         <OfflinePanel />
@@ -48,12 +63,7 @@ export function ClipsPage() {
     );
   }
 
-  if (
-    state.kind === "loading" ||
-    list.state.kind === "loading" ||
-    transcribe.state.kind === "loading" ||
-    describe.state.kind === "loading"
-  ) {
+  if (!allSettled(states)) {
     return (
       <PageLayout tab="clips">
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
@@ -61,37 +71,49 @@ export function ClipsPage() {
     );
   }
 
-  const clips = list.state.clips;
-  const panel = transcribe.state;
+  const [state, listed, panel, described, trimState] = states;
+  const clips = listed.clips;
   const selected = clips.find((clip) => clip.id === panel.selectedId) ?? null;
   const transcribingClip = panel.job ? clips.find((clip) => clip.id === panel.job?.clip_id) : undefined;
   const notice = state.kind === "ready" ? state.notice : null;
-  const describing = describe.state.job;
+  const describing = described.job;
   // One GPU job at a time (spoil-maker D45): while one runs, บรรยายฉาก waits, saying for what.
   const gpuBusyReason = panel.job ? gpuBusyText("transcribe") : describing ? gpuBusyText("describe") : null;
+  const titleOf = (clipId: string) => clips.find((clip) => clip.id === clipId)?.title ?? clipId;
+
+  /** Another clip in the panel (or none): each job's last message goes with the old one (D33). */
+  const selectClip = (clip: TempClip | null) => {
+    transcribe.select(clip);
+    trim.clearNotice();
+  };
 
   /**
    * Transcribing again replaces the lines the user edited and removes the Spoil draft made
    * from the clip, so it asks first (spoil-maker D54, D49): the panel warns about a clip the
    * list marks `in_draft`; a loss only the API knows of (edited lines, a newer draft) is asked here.
    */
-  const startTranscribe = async (clip: TempClip, draftConfirmed: boolean) => {
-    const confirmed: Confirmed = { draftLoss: draftConfirmed };
-    for (;;) {
-      const result = await transcribe.start(clip.id, confirmed);
-      if (result.kind === "handled" || !window.confirm(result.message)) return;
-      if (result.kind === "has_edits") confirmed.editLoss = true;
-      else confirmed.draftLoss = true;
-    }
+  const startTranscribe = (clip: TempClip, draftConfirmed: boolean) =>
+    postConfirming<TranscribeLoss>((agreed) =>
+      transcribe.start(clip.id, { editLoss: agreed.includes("has_edits"), draftLoss: draftConfirmed || agreed.includes("in_draft") }),
+    );
+
+  /**
+   * A trim removes the Transcript, Shots, EP cuts and Spoil draft made from the clip: the
+   * API's `has_derived` asks first (D37). The player lets go of the file for the POST and
+   * gets it back when the user says no (D41).
+   */
+  const startTrim = async (clip: TempClip, ranges: Range[]) => {
+    const went = await postConfirming<"has_derived">((agreed) => trim.start(clip.id, ranges, agreed.includes("has_derived")));
+    if (!went) trim.returnPlayer();
   };
 
-  /** Lets go of the file (Windows can't delete one the player holds open, D15), then empties the panel. */
+  /** Lets go of the file, then empties the panel: Windows can't delete one the player holds open (D15). */
   const closePlayer = () => {
     if (video.current) {
       video.current.removeAttribute("src");
       video.current.load();
     }
-    transcribe.select(null);
+    selectClip(null);
   };
 
   return (
@@ -101,8 +123,8 @@ export function ClipsPage() {
           {state.kind === "notReady" && <NotReady missing={state.missing} />}
           {state.kind === "ready" && (
             <>
-              <LinkForm busy={state.job !== null} onSubmit={start} />
-              {state.job && <DownloadProgress job={state.job} onCancel={cancel} />}
+              <LinkForm busy={state.job !== null} onSubmit={download.start} />
+              {state.job && <DownloadProgress job={state.job} onCancel={download.cancel} />}
               {notice && <NoticeAlert notice={notice} />}
             </>
           )}
@@ -110,15 +132,15 @@ export function ClipsPage() {
           <TempClipList
             clips={clips}
             selectedId={selected?.id ?? null}
-            transcribingId={panel.job?.clip_id ?? null}
-            deleteErrors={list.state.deleteErrors}
+            busyIds={[panel.job?.clip_id, trimState.job?.clip_id].filter((id): id is string => id !== undefined)}
+            deleteErrors={listed.deleteErrors}
             highlightId={notice?.clipId ?? null}
-            onSelect={transcribe.select}
+            onSelect={selectClip}
             onClosePlayer={closePlayer}
             onDelete={list.remove}
             describe={{
               job: describing,
-              errors: describe.state.errors,
+              errors: described.errors,
               busyReason: gpuBusyReason,
               onStart: (id, confirmDraftLoss) => void describe.start(id, confirmDraftLoss),
               onCancel: () => void describe.cancel(),
@@ -141,6 +163,19 @@ export function ClipsPage() {
           onStart={(draftConfirmed = false) => selected && void startTranscribe(selected, draftConfirmed)}
           onCancel={() => void transcribe.cancel()}
           onEditLine={transcribe.editLine}
+          playerReleased={selected !== null && playerReleasedFor(trimState, selected.id)}
+          trimNotice={selected !== null && trimState.notice?.clipId === selected.id ? trimState.notice : null}
+          trim={
+            selected && {
+              view: trimViewOf(trimState, selected.id, titleOf),
+              blocked: missingLabels(state.status, TRIM_ITEMS).length > 0 || panel.job?.clip_id === selected.id,
+              onOpen: () => trim.open(selected.id),
+              onEdit: (drafts) => trim.edit(selected.id, drafts),
+              onClose: () => trim.close(selected.id),
+              onTrim: (ranges) => void startTrim(selected, ranges),
+              onCancel: () => void trim.cancel(),
+            }
+          }
         />
       </div>
     </PageLayout>
