@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, gate_rows, gpu, paths, spoil_maker
+from backend import checks, gate_rows, gpu, paths, spoil_maker, stories
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.jobs import ModelJobSlot, stop_process
 from backend.models import QWEN
@@ -103,6 +103,8 @@ class DraftOrder(BaseModel):
     layout: Layout
     target_s: int
     voice_id: str
+    story_id: str | None  # the Story the job uses, None for "ไม่ใช้" (story-kb D15)
+    story_title: str | None  # its title as the job started
 
 
 class DraftJob(BaseModel):
@@ -174,14 +176,12 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         chars_per_s = voices.chars_per_s(project, voice_id) if isinstance(voice_id, str) else None
         if chars_per_s is None:
             raise ApiError(400, "voice_not_found", "ไม่พบเสียงที่เลือก")
+        # After the Saved voice (step 1.4): the Story, read once for the whole job (story-kb D5).
+        story = stories.for_draft(project, body.get("story_id"))
         counted = episodes.tokens(project, lines)
-        if counted > episodes.TOKEN_LIMIT:
-            raise ApiError(
-                400,
-                "transcript_too_long",
-                f"Transcript ของ EP นี้ {counted:,} token เกิน {episodes.TOKEN_LIMIT:,}",
-                tokens=counted,
-            )
+        story_tokens = stories.block_tokens(project, story)
+        if counted + story_tokens > episodes.TOKEN_LIMIT:
+            raise _too_long(counted, story_tokens)
         order = _CheckedOrder(
             brief=Brief(
                 clip_id=clip_id,
@@ -190,6 +190,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 layout=layout,
                 target_s=target_s,
                 target_letters=round(target_s * chars_per_s),
+                story=story,
             ),
             ep=Ep(n=ep.n, start_s=ep.start_s, end_s=ep.end_s),
             voice_id=voice_id,
@@ -205,6 +206,8 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             layout=layout,
             target_s=target_s,
             voice_id=voice_id,
+            story_id=story.id if story else None,
+            story_title=story.title if story else None,
         )
         with self._lock:
             if self._taken():
@@ -223,6 +226,14 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 if now is None or not order.ep.matches(now.start_s, now.end_s):
                     gpu.slot.release("draft")
                     raise episodes.episodes_changed()
+                # Every check passed and the GPU is the job's: only now does the clip remember
+                # its Story (story-kb D15). One deleted since the check above is `story_not_found`;
+                # a failed write raises too, and neither may keep the GPU (ADR-0015).
+                try:
+                    stories.set_clip_story(project, clip_id, asked.story_id)
+                except Exception:
+                    gpu.slot.release("draft")
+                    raise
                 # Set under the draft's lock, so a voice delete waiting on it sees the job (D87).
                 self._job = DraftJob(kind="draft", state="writing", started_at=checks.now_iso(), order=asked)
             self._cancel.clear()
@@ -276,11 +287,15 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                     raise ApiError(400, "nothing_to_polish", "ทุกประโยคแก้เองแล้ว ไม่มีอะไรให้เรียบเรียง")
                 require_rows(gate_rows.qwen_jobs(project))
                 _editable(project)  # `draft_locked`
+                # The Story the clip remembers now, read once as the request is taken (story-kb D5, ADR 0024).
+                story = stories.read_clip_story(project, draft.clip_id)
                 gpu.slot.take("draft", [draft.clip_id], locks_draft=True)
             self._job = DraftJob(kind="polish", state="polishing", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
-        threading.Thread(target=self._run, args=(lambda: self._polish_draft(project, include_edited),), daemon=True).start()
+        threading.Thread(
+            target=self._run, args=(lambda: self._polish_draft(project, include_edited, story),), daemon=True
+        ).start()
         return job
 
     def _run(self, steps) -> None:
@@ -331,6 +346,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             order.transcript,
             set(range(len(sentences))),
             lambda after: script.near_target(after, brief.target_letters),
+            brief.story,
         )
         if polished is None:
             # Not the job's failure: a draft that reads less smoothly is still a draft (spec › เรียบเรียง).
@@ -372,7 +388,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             _sentence(draft, sentence_id).shots = picked
             draft_file.write(project, draft)
 
-    def _polish_draft(self, project: ProjectPaths, include_edited: bool) -> dict:
+    def _polish_draft(self, project: ProjectPaths, include_edited: bool, story: stories.Story | None) -> dict:
         """`kind: "polish"`: asks Qwen, then writes the draft. Only the text of the sentences that change is written, and a
         sentence `include_edited` let change is no longer `edited` (D75). The draft is locked
         meanwhile, so it is the one the checks read."""
@@ -388,6 +404,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             asked,
             # Not `near_target`: the draft may have been edited far from its target since (spec › เรียบเรียง).
             lambda after: script.grew_little(after, draft.sentences),
+            story,
         )
         if polished is None:
             # The user asked for this polish, so here it is the job's failure; inside `kind: "draft"` it is not.
@@ -411,12 +428,13 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         transcript: Transcript | None,
         asked: set[int],
         fits: Callable[[list[Sentence]], bool],
+        story: stories.Story | None,
     ) -> list[Sentence] | None:
         """Asks Qwen; returns the sentences with the text it rewrote for those in `asked`
         (spec › เรียบเรียง), or None after `POLISH_ATTEMPTS` tries that `fits`, the check of
         the whole script's length, refused. Writes nothing. A timeout is a failed try: its process is stopped and the next ask starts one."""
         fixed = set(range(len(sentences))) - asked
-        prompt = script.polish_prompt(style, top_text, sentences, transcript, fixed)
+        prompt = script.polish_prompt(style, top_text, sentences, transcript, fixed, story)
         max_tokens = script.polish_max_tokens(sentences)
         for attempt in range(1, POLISH_ATTEMPTS + 1):
             try:
@@ -475,6 +493,21 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         self._model = None
         self._track(None)
         stop_process(process)
+
+
+def _too_long(tokens: int, story_tokens: int) -> ApiError:
+    """`transcript_too_long`: the EP's lines with the Story block over 32,000 (D46, story-kb D14)."""
+    limit = episodes.TOKEN_LIMIT
+    if not story_tokens:
+        return ApiError(400, "transcript_too_long", f"Transcript ของ EP นี้ {tokens:,} token เกิน {limit:,}", tokens=tokens)
+    total = tokens + story_tokens
+    return ApiError(
+        400,
+        "transcript_too_long",
+        f"EP กับเรื่องรวม {total:,} token เกิน {limit:,} (เรื่อง {story_tokens:,})",
+        tokens=total,
+        story_tokens=story_tokens,
+    )
 
 
 def job_reads_clip(clip_id: str) -> bool:

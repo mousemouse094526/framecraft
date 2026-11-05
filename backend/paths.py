@@ -114,6 +114,16 @@ class ProjectPaths:
         return self.spoil_maker_dir / "settings.json"
 
     @property
+    def stories_dir(self) -> Path:
+        """The คลังความรู้ tab's Stories, `{story_id}.json` each (story-kb spec › Data, D12)."""
+        return self.root / "media" / "stories"
+
+    @property
+    def clip_stories_file(self) -> Path:
+        """The Story each Temp clip remembers, `{clip_id: story_id}` (story-kb D3, D15)."""
+        return self.stories_dir / "clip-stories.json"
+
+    @property
     def kanit_dir(self) -> Path:
         """Kanit Bold and its license, the font of every render (spoil-maker D21)."""
         return self.models_dir / "fonts" / "kanit"

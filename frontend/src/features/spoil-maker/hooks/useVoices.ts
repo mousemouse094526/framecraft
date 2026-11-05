@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { getJson, headStatus, sendJson } from "../../../lib/api";
+import { getJson, headStatus, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { GPU_JOB_PATHS } from "../../../lib/gpu";
 import { isRunning, isUnfinishedIn, onlyWhen } from "../../../lib/job";
 import { refusalLine, refusalOf, type Refusal, type RefusalLine } from "../../../lib/refusal";
@@ -66,7 +66,6 @@ export function sampleUrl(voiceId: string): string {
   return `${VOICES_PATH}/${voiceId}/sample.wav`;
 }
 
-const OFFLINE_TEXT = "ติดต่อ backend ไม่ได้";
 
 const isUnfinished = isUnfinishedIn<VoiceJobState>(["voicing"]);
 

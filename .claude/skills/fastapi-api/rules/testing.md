@@ -51,6 +51,9 @@ def test_missing_marker(tmp_path):
   `python -c` to prove importing the adapter loads neither torch nor
   transformers.
 
+- A prompt promised not to change is compared letter for letter with a file in
+  `backend/tests/golden/`, captured from the code before the change (story-kb D19).
+
 ## Good examples
 
 - [backend/tests/conftest.py](../../../../backend/tests/conftest.py) — the `fake_root` fixture only.

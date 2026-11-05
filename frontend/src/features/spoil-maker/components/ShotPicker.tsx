@@ -5,7 +5,7 @@ import checkLinkIcon from "../assets/check-link.svg";
 import checkWhiteIcon from "../assets/check-white.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { epLabel, inEp, shotImageUrl, type Ep, type Sentence, type Shot, type ShotRef } from "../lib/draft";
-import { ModalDialog } from "./ModalDialog";
+import { ModalDialog } from "../../../components/ui/ModalDialog";
 
 type Props = {
   sentence: Sentence;

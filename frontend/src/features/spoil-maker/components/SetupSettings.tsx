@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { grouped } from "../../../lib/format";
 import chevronDownIcon from "../assets/chevron-down.svg";
 import radioSelectedIcon from "../assets/radio-selected.svg";
 import radioIcon from "../assets/radio.svg";
@@ -8,6 +9,7 @@ import { STYLES, VOICES_HASH, type Layout, type Style } from "../lib/draft";
 import type { Episode } from "../hooks/useEpisodes";
 import type { RefusalLine } from "../../../lib/refusal";
 import type { Voice } from "../hooks/useVoices";
+import type { StoryRow } from "../../../lib/stories";
 import { ReplaceConfirm } from "./ReplaceConfirm";
 
 const LAYOUTS: Layout[] = ["A", "B", "C"];
@@ -21,9 +23,13 @@ type Props = {
   voices: Voice[];
   /** The picked EP, or null; `limit` is the token count the backend checks (D46), null until the EPs are read. */
   ep: Episode | null;
+  /** The Story the draft uses: its tokens count with the EP's (story-kb D14); null for ไม่ใช้. */
+  story: StoryRow | null;
+  /** The EP's tokens with the Story's; null while either can't be counted. */
+  tokens: number | null;
   limit: number | null;
-  /** Why ร่างบท is off for the picked EP: no lines, or no token count (D71); null when it isn't. */
-  epBlocked: RefusalLine | null;
+  /** Why ร่างบท is off for the picked EP and Story: no lines, or no token count of either (D71, story-kb D19); null when it isn't. */
+  draftBlocked: RefusalLine | null;
   /** An EP to draft from, a voice, and its lines within 32,000 tokens (D46). */
   canDraft: boolean;
   /** A whole new draft runs: every field shows its order and ร่างบท is gone (D82). */
@@ -39,7 +45,7 @@ const LABEL = "text-sm leading-[21px] font-medium text-foreground";
 
 /** Figma `Settings card` of ตั้งค่าคลิปสปอย: style, layout, length, voice, the token meter and ร่างบท. */
 export function SetupSettings(props: Props) {
-  const { settings, voices, ep, limit, epBlocked, canDraft, locked, onChange } = props;
+  const { settings, voices, ep, story, tokens, limit, draftBlocked, canDraft, locked, onChange } = props;
   // The order's voice was deleted while it drafted (D87); a voice the API can't delete is in use otherwise.
   const voiceGone = settings.voiceId !== null && !voices.some((voice) => voice.id === settings.voiceId);
   const lengthId = useId();
@@ -60,8 +66,8 @@ export function SetupSettings(props: Props) {
               label={style.label}
               hint={style.hint}
               selected={settings.style === style.id}
-              // Picking a style picks its layout (D8); the layout can change after.
-              onSelect={() => onChange({ ...settings, style: style.id, layout: style.layout })}
+              // The layout stays as the user picked it (D90).
+              onSelect={() => onChange({ ...settings, style: style.id })}
             />
           ))}
         </div>
@@ -140,13 +146,13 @@ export function SetupSettings(props: Props) {
           </div>
         )}
       </div>
-      <TokenMeter tokens={ep?.tokens ?? null} limit={limit} />
+      <TokenMeter ep={ep} story={story} tokens={tokens} limit={limit} />
       <div className="h-px bg-border" />
       {!locked && <DraftAction {...props} canDraft={canDraft} />}
-      {epBlocked && !locked && (
+      {draftBlocked && !locked && (
         <p className="flex flex-wrap items-center gap-x-3 text-[13px] leading-5 text-mid">
-          {epBlocked.text}
-          {epBlocked.setupLink && (
+          {draftBlocked.text}
+          {draftBlocked.setupLink && (
             <a href="#/setup" className="flex h-11 items-center font-button font-medium text-brand hover:underline">
               ไปที่ Setup status
             </a>
@@ -232,17 +238,28 @@ function LayoutDrawing({ layout }: { layout: Layout }) {
   );
 }
 
-/** Figma component `Token meter`: the picked EP's "{tokens} / 32,000"; over the limit it turns red with an alert (D46). */
-function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number | null }) {
+
+type MeterProps = { ep: Episode | null; story: StoryRow | null; tokens: number | null; limit: number | null };
+
+/**
+ * Figma component `Token meter`: the picked EP's "{tokens} / 32,000", with its Story's tokens
+ * added (story-kb D14); over the limit it turns red with an alert (D46). A count missing shows "—".
+ */
+function TokenMeter({ ep, story, tokens, limit }: MeterProps) {
   const total = tokens ?? 0;
+  // The Story's own count: shown under the bar, and in the alert's words when over.
+  const storyTokens = story?.tokens ?? null;
   const over = limit !== null && total > limit;
   const percent = limit === null ? 0 : Math.min(100, Math.round((total * 100) / limit));
+  const label = ep ? `Transcript ของ EP ${ep.n}${story ? " + เรื่อง" : ""}` : "Transcript";
+  // A Story whose tokens can't be counted makes the whole meter unknown (story-kb spec › Frontend).
+  const limitText = (story && storyTokens === null) || limit === null ? "—" : grouped(limit);
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col ${over ? "gap-2" : "gap-1.5"}`}>
       <div className="flex items-center gap-2 text-sm leading-[21px] text-foreground">
-        <span className="flex-1 font-button font-medium">Transcript</span>
+        <span className="flex-1 font-button font-medium">{label}</span>
         <span className={`font-mono font-medium whitespace-nowrap ${over ? "text-destructive" : ""}`}>
-          {tokens === null ? "—" : total.toLocaleString("en-US")} / {limit?.toLocaleString("en-US") ?? "—"}
+          {tokens === null ? "—" : grouped(total)} / {limitText}
         </span>
       </div>
       <div className="relative h-2 overflow-hidden rounded-full bg-muted">
@@ -251,14 +268,22 @@ function TokenMeter({ tokens, limit }: { tokens: number | null; limit: number | 
           style={{ width: `${percent}%` }}
         />
       </div>
-      {over && (
-        <Alert tone="error">
-          <span className="block text-destructive">
-            Transcript ของ EP นี้ {total.toLocaleString("en-US")} token เกิน {limit?.toLocaleString("en-US")}
-          </span>
-          <span className="block">ลดความยาวต่อ EP หรือเลื่อนจุดตัด</span>
-        </Alert>
+      {storyTokens !== null && (
+        <p className={`text-xs leading-[1.5] ${over ? "text-destructive" : "text-mid"}`}>เรื่อง {grouped(storyTokens)} token</p>
       )}
+      {over &&
+        (storyTokens !== null ? (
+          <Alert tone="error">
+            EP กับเรื่องรวม {grouped(total)} token เกิน {grouped(limit)} (เรื่อง {grouped(storyTokens)})
+          </Alert>
+        ) : (
+          <Alert tone="error">
+            <span className="block text-destructive">
+              Transcript ของ EP นี้ {grouped(total)} token เกิน {grouped(limit)}
+            </span>
+            <span className="block">ลดความยาวต่อ EP หรือเลื่อนจุดตัด</span>
+          </Alert>
+        ))}
     </div>
   );
 }

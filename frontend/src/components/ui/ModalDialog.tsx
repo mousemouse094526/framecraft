@@ -12,7 +12,7 @@ type Props = {
 };
 
 /**
- * The Shot picker's frame, shared by every dialog of the สปอย tab: a dimmed overlay, a box
+ * The Shot picker's frame, shared by every dialog (สปอย tab, คลังความรู้): a dimmed overlay, a box
  * full width on a phone and rounded with a shadow from `sm`. Esc closes it, and Tab stays
  * inside it while it is open (Figma `Picker header`).
  */

@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
-import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "./testBackend";
+import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
 import { CURRENT_PATH, DRAFT_PATH, EMPTY_DRAFT, FILM, jobOf, JOBS_PATH, ORDER, REVIEW_HASH, setupDefaults } from "./setupFixtures";
 
 // ตรวจแก้บท while a whole new draft runs and after it ends (spoil-maker seam 2, D81, D83, D85–D88).
@@ -95,7 +95,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     current.phases.at = 1;
     await user.click(screen.getByRole("button", { name: "ร่างทับ" }));
 
-    const { clip_title: _title, ...order } = ORDER;
+    const { clip_title: _title, story_title: _story, ...order } = ORDER;
     expect(sent("POST", JOBS_PATH)).toEqual([{ kind: "draft", ...order, replace: true }]);
     expect(await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" })).toBeInTheDocument();
   });
@@ -109,6 +109,19 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     await user.click(await screen.findByRole("button", { name: "ลองอีกครั้ง" }));
 
     expect(await screen.findByText("การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
+  });
+
+  it("ลองอีกครั้ง refused as story_not_found says so and offers only กลับไปแก้ตั้งค่า (story-kb spec › Frontend)", async () => {
+    const failed = jobOf({ state: "failed", order: { ...ORDER, story_id: "st_000000ff", story_title: "เรื่องที่ลบแล้ว" }, error: { code: "draft_failed", message: "AI ร่างบทไม่สำเร็จ 3 ครั้ง" } });
+    const gone = { code: "story_not_found", message: "ไม่พบเรื่องนี้ในคลังความรู้แล้ว" };
+    backend([get(CURRENT_PATH, failed), send("POST", JOBS_PATH, gone, 400)]);
+    const user = await openReview();
+
+    await user.click(await screen.findByRole("button", { name: "ลองอีกครั้ง" }));
+
+    expect(await screen.findByText("ไม่พบเรื่องนี้ในคลังความรู้แล้ว")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
   });
@@ -229,5 +242,34 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     expect(slider).toBeEnabled();
     expect(slider).toHaveValue("120");
   });
-});
 
+  it("the card says เรื่อง: {story_title} of a draft with a Story, and nothing of one without", async () => {
+    const withStory = jobOf({ order: { ...ORDER, story_id: "st_3fa91c07", story_title: "ยอดนักสืบจิ๋วโคนัน" } });
+    backend([get(CURRENT_PATH, withStory)]);
+    await openReview();
+
+    const card = await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
+    expect(card).toHaveTextContent("เรื่อง: ยอดนักสืบจิ๋วโคนัน");
+  });
+
+  it("a card without a Story has no เรื่อง line", async () => {
+    backend([get(CURRENT_PATH, jobOf({}))]);
+    await openReview();
+
+    const card = await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
+    expect(card).not.toHaveTextContent("เรื่อง:");
+  });
+
+  it("ลองอีกครั้ง sends the order's Story again", async () => {
+    const order = { ...ORDER, story_id: "st_3fa91c07", story_title: "ยอดนักสืบจิ๋วโคนัน" };
+    const failed = jobOf({ state: "failed", error: { code: "draft_failed", message: "AI ร่างบทไม่สำเร็จ 3 ครั้ง" }, order });
+    const current = phased(CURRENT_PATH, failed, jobOf({ order }));
+    backend([current.route, send("POST", JOBS_PATH, jobOf({ order }), 202)]);
+    const user = await openReview();
+
+    await user.click(await screen.findByRole("button", { name: "ลองอีกครั้ง" }));
+
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: "st_3fa91c07" })]);
+    expect(sent("POST", JOBS_PATH)[0]).not.toHaveProperty("story_title");
+  });
+});

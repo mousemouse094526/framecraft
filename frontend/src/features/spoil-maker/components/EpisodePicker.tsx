@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import { formatDuration } from "../../../lib/format";
+import { formatDuration, grouped } from "../../../lib/format";
 import { parseClock } from "../lib/clock";
 import chevronDownIcon from "../assets/chevron-down.svg";
 import radioSelectedIcon from "../assets/radio-selected.svg";
@@ -144,7 +144,7 @@ function EpisodeRow({ clipId, ep, limit, picked, disabled, onPick }: RowProps) {
         </span>
         <span className="flex flex-wrap gap-x-3 text-xs leading-4 text-mid">
           <span className={`font-mono ${ep.tokens !== null && ep.tokens > limit ? "text-destructive" : ""}`}>
-            {ep.tokens === null ? "—" : ep.tokens.toLocaleString("en-US")} / {limit.toLocaleString("en-US")} token
+            {ep.tokens === null ? "—" : grouped(ep.tokens)} / {grouped(limit)} token
           </span>
           <span>render แล้ว {ep.renders}</span>
         </span>

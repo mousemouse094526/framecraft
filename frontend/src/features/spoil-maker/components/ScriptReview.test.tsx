@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
-import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "./testBackend";
-import { clipOf } from "./setupFixtures";
+import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
+import { ALIEN, clipOf, CONAN } from "./setupFixtures";
+import { STORIES_PATH, STORY_CLIPS_PATH } from "../../../lib/stories";
 
 const DRAFT_PATH = "/api/spoil-maker/draft";
 const JOBS_PATH = "/api/spoil-maker/draft-jobs";
@@ -77,6 +78,8 @@ function backend(routes: Route[]) {
     [VOICE_CURRENT, null],
     [RENDER_CURRENT, null],
     [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null }],
+    [STORIES_PATH, []],
+    [STORY_CLIPS_PATH, {}],
   ];
   serve(fetchMock, routes, defaults);
 }
@@ -658,8 +661,61 @@ const calls = () => fetchMock.mock.calls.map(([input, init]) => `${init?.method 
 
 async function openPolish(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "เรียบเรียงใหม่" }));
-  return screen.getByRole("dialog", { name: "เรียบเรียงใหม่" });
+  return screen.getByRole("dialog", { name: "เรียบเรียงบทใหม่" });
 }
+
+const HOOK_NOTE = "hook และชื่อตอนไม่ถูกเรียบเรียง แก้เองได้ที่ช่องด้านบน";
+
+describe("ตรวจแก้บท: เรียบเรียงใหม่ กับเรื่องในคลังความรู้ (story-kb D5, D16)", () => {
+  it("the clip remembers a Story: the choice says ใช้เรื่อง with its title", async () => {
+    backend([get(STORIES_PATH, [ALIEN, CONAN]), get(STORY_CLIPS_PATH, { [EP1]: CONAN.id, other: ALIEN.id })]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+
+    expect(await within(dialog).findByText(`ใช้เรื่อง: ${CONAN.title}`)).toBeInTheDocument();
+    expect(calls()).toContain(`GET ${STORY_CLIPS_PATH}`);
+  });
+
+  it.each([
+    ["remembers none", {}],
+    ["remembers a Story since deleted", { [EP1]: "st_deadbeef" }],
+  ])("the clip %s: the choice says ไม่ได้ใช้เรื่องในคลังความรู้", async (_, clipStories) => {
+    backend([get(STORIES_PATH, [CONAN]), get(STORY_CLIPS_PATH, clipStories)]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+
+    expect(await within(dialog).findByText("ไม่ได้ใช้เรื่องในคลังความรู้")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/ใช้เรื่อง:/)).not.toBeInTheDocument();
+  });
+
+  it("the Stories can't be read: no Story line, and เรียบเรียง still works", async () => {
+    backend([{ method: "GET", path: STORY_CLIPS_PATH, reply: () => Promise.reject(new TypeError("offline")) }, send("POST", JOBS_PATH, POLISH, 202)]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+    await waitFor(() => expect(calls()).toContain(`GET ${STORY_CLIPS_PATH}`));
+
+    expect(within(dialog).queryByText(/^ใช้เรื่อง:/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("ไม่ได้ใช้เรื่องในคลังความรู้")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "เรียบเรียง" }));
+    await waitFor(() => expect(sent("POST", JOBS_PATH)).toHaveLength(1));
+  });
+
+  it.each([
+    ["A", true],
+    ["C", true],
+    ["B", false],
+  ] as const)("layout %s: the hook and episode-title note shows: %s", async (layout, shown) => {
+    backend([get(DRAFT_PATH, draftOf({ layout, top_text: layout === "B" ? "" : "คดีที่หลอนที่สุด" }))]);
+    const user = await openReview();
+
+    const dialog = await openPolish(user);
+
+    expect(within(dialog).queryByText(HOOK_NOTE) !== null).toBe(shown);
+  });
+});
 
 describe("ตรวจแก้บท: เรียบเรียงใหม่ (D72–D76)", () => {
   it("a sentence the user edited shows แก้เอง, the others don't", async () => {

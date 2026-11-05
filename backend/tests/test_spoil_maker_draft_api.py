@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import checks, gpu, paths, spoil, spoil_maker
+from backend import checks, gpu, paths, spoil, spoil_maker, stories
 from backend.app import app
 from backend.models import QWEN
 from backend.paths import ProjectPaths
@@ -459,6 +459,8 @@ def test_a_draft_job_carries_its_order_while_writing_and_after_it_fails(client, 
         "layout": "A",
         "target_s": 90,
         "voice_id": VOICE,
+        "story_id": None,
+        "story_title": None,
     }
     assert started.json()["order"] == expected
     assert writing["order"] == expected
@@ -1559,3 +1561,350 @@ def test_start_up_removes_a_half_written_draft(fake_root, project, monkeypatch):
         pass
 
     assert not (project.spoil_maker_dir / "draft.json.tmp").exists()
+
+
+# --- The Story of the clip (story-kb seam 1) ---
+
+GOLDEN = Path(__file__).parent / "golden"
+STORIES = "/api/stories"
+CLIP_STORIES = "/api/story-clips"
+CONAN = {
+    "title": "ยอดนักสืบจิ๋วโคนัน",
+    "article": "คุโด้ ชินอิจิ ถูกบังคับกินยา\nจนตัวหดเป็นเด็ก",
+    "characters": [{"name": "โคนัน", "description": "ชินอิจิในร่างเด็ก"}, {"name": "รัน", "description": ""}],
+}
+CONAN_BLOCK = (
+    "ข้อมูลพื้นหลังของเรื่อง (ใช้เข้าใจเรื่องและสะกดชื่อเท่านั้น ห้ามเล่าเหตุการณ์จากส่วนนี้ "
+    "เหตุการณ์ต้องมาจากบรรทัดของ Transcript):\n"
+    "ชื่อเรื่อง: ยอดนักสืบจิ๋วโคนัน\n"
+    "บทความ:\n"
+    "คุโด้ ชินอิจิ ถูกบังคับกินยา\nจนตัวหดเป็นเด็ก\n"
+    "ตัวละคร (เขียนชื่อตามนี้ แม้ Transcript สะกดต่าง):\n"
+    "- โคนัน: ชินอิจิในร่างเด็ก\n"
+    "- รัน"
+)
+NAMES_RULE = "เขียนชื่อตัวละครตาม Story: โคนัน, รัน\n"
+TOP = "หัวเรื่อง"
+
+
+def new_story(client, **changes) -> str:
+    response = client.post(STORIES, json=CONAN | changes)
+    assert response.status_code == 201, response.json()
+    return response.json()["id"]
+
+
+def remembered(client) -> dict[str, str]:
+    return client.get(CLIP_STORIES).json()
+
+
+def short_then_passing() -> list[str]:
+    """A first script too short, so the job asks again (step 3), then one that passes."""
+    return [script((THIRTY, ["1"]), top_text=TOP), script(*[(THIRTY, ["0"])] * PASSING, top_text=TOP)]
+
+
+def prompts(llm, kind) -> list[str]:
+    return [request.prompt for request in llm.requests if kind(request)]
+
+
+@pytest.mark.parametrize("asked", [{"story_id": None}, {}], ids=["null", "left out"])
+def test_without_a_story_the_prompts_are_the_ones_from_before_story_kb(client, project, ready, llm, asked):
+    llm.scripts = short_then_passing()
+
+    assert start(client, layout="A", **asked).status_code == 202
+    assert wait_for_end(client)["state"] == "done"
+
+    # Kept from the prompts of spoil-maker before story-kb, letter for letter (spec › Testing decisions).
+    first, again = prompts(llm, is_script)
+    assert first == (GOLDEN / "script_prompt_no_story.txt").read_text(encoding="utf-8")
+    assert again == (GOLDEN / "script_prompt_asked_again_no_story.txt").read_text(encoding="utf-8")
+    assert prompts(llm, is_polish) == [(GOLDEN / "polish_prompt_no_story.txt").read_text(encoding="utf-8")]
+
+
+def test_the_story_block_comes_once_before_the_transcript_and_the_names_close_the_rules(client, project, ready, llm):
+    story_id = new_story(client)
+    llm.scripts = short_then_passing()
+
+    start(client, layout="A", story_id=story_id)
+    assert wait_for_end(client)["state"] == "done"
+
+    before = (GOLDEN / "script_prompt_no_story.txt").read_text(encoding="utf-8")
+    again_before = (GOLDEN / "script_prompt_asked_again_no_story.txt").read_text(encoding="utf-8")
+    transcript_head = "Transcript, one line each"
+    retry_head = "Your last script was"
+    first, again = prompts(llm, is_script)
+    # The first rules, the block, then the Transcript; the rules again end with the names.
+    expected = before.replace(transcript_head, f"{CONAN_BLOCK}\n\n{transcript_head}", 1) + NAMES_RULE
+    assert first == expected
+    assert first.count(CONAN_BLOCK) == 1
+    assert again == again_before.replace(transcript_head, f"{CONAN_BLOCK}\n\n{transcript_head}", 1).replace(
+        retry_head, NAMES_RULE + retry_head
+    )
+
+
+def test_the_polish_prompt_of_a_draft_has_the_block_after_top_text(client, project, ready, llm):
+    story_id = new_story(client)
+    llm.scripts = [script(*[(THIRTY, ["0"])] * PASSING, top_text=TOP)]
+
+    start(client, layout="A", story_id=story_id)
+    assert wait_for_end(client)["state"] == "done"
+
+    before = (GOLDEN / "polish_prompt_no_story.txt").read_text(encoding="utf-8")
+    script_head = "The script, one sentence each"
+    (polish,) = prompts(llm, is_polish)
+    assert polish == before.replace(script_head, f"{CONAN_BLOCK}\n{script_head}", 1)
+    assert polish.index(f'"{TOP}"') < polish.index(CONAN_BLOCK)
+
+
+def test_no_article_no_characters_and_no_description_leave_their_lines_out(client, project, ready, llm):
+    bare = new_story(client, article="", characters=[])
+    llm.scripts = [passing_script()]
+
+    start(client, story_id=bare)
+    wait_for_end(client)
+
+    (prompt,) = prompts(llm, is_script)
+    assert "ชื่อเรื่อง: ยอดนักสืบจิ๋วโคนัน\n\nTranscript, one line each" in prompt
+    assert "บทความ:" not in prompt
+    assert "ตัวละคร" not in prompt
+    assert "เขียนชื่อตัวละครตาม Story" not in prompt
+
+    named = new_story(client, characters=[{"name": "โคนัน"}])
+    llm.requests.clear()
+    start(client, story_id=named, replace=True)
+    wait_for_end(client)
+
+    (prompt,) = prompts(llm, is_script)
+    assert "\n- โคนัน\n\nTranscript, one line each" in prompt
+    assert prompt.endswith("เขียนชื่อตัวละครตาม Story: โคนัน\n")
+
+
+def test_the_pick_prompts_have_no_story_block(client, project, ready, llm):
+    llm.scripts = [passing_script()]
+
+    start(client, story_id=new_story(client))
+    wait_for_end(client)
+
+    picks = prompts(llm, is_pick)
+    assert len(picks) == PASSING
+    assert not any("ชื่อเรื่อง" in prompt or "โคนัน" in prompt for prompt in picks)
+
+
+def test_a_draft_with_a_story_remembers_it_for_the_clip_and_carries_it_in_its_order(client, project, ready, llm):
+    story_id = new_story(client)
+    llm.scripts = [passing_script()]
+
+    response = start(client, story_id=story_id)
+    job = wait_for_end(client)
+
+    assert response.status_code == 202
+    assert remembered(client) == {EP1: story_id}
+    assert (response.json()["order"]["story_id"], response.json()["order"]["story_title"]) == (story_id, CONAN["title"])
+    assert (job["order"]["story_id"], job["order"]["story_title"]) == (story_id, CONAN["title"])
+    assert client.get(f"{STORIES}/{story_id}").json()["clips"] == 1
+
+
+@pytest.mark.parametrize("asked", [{"story_id": None}, {}], ids=["null", "left out"])
+def test_a_draft_without_a_story_makes_the_clip_forget_its_story(client, project, ready, llm, asked):
+    story_id = new_story(client)
+    llm.scripts = [passing_script()]
+    start(client, story_id=story_id)
+    wait_for_end(client)
+    start(client, story_id=story_id, clip_id=EP2, replace=True)
+    wait_for_end(client)
+
+    response = start(client, replace=True, **asked)
+    job = wait_for_end(client)
+
+    assert response.status_code == 202
+    assert remembered(client) == {EP2: story_id}
+    assert (job["order"]["story_id"], job["order"]["story_title"]) == (None, None)
+
+
+@pytest.mark.parametrize("story_id", ["st_00000000", "not-an-id", 7], ids=["no file", "bad id", "not text"])
+def test_a_story_that_is_not_there_is_story_not_found_and_the_clip_keeps_its_story(client, project, ready, llm, story_id):
+    kept = new_story(client)
+    llm.scripts = [passing_script()]
+    start(client, story_id=kept)
+    wait_for_end(client)
+
+    response = start(client, story_id=story_id, replace=True)
+
+    assert response.status_code == 400
+    assert response.json() == {"code": "story_not_found", "message": "ไม่พบเรื่องนี้ในคลังความรู้แล้ว"}
+    assert remembered(client) == {EP1: kept}
+
+
+def test_a_story_file_that_cannot_be_read_is_story_not_found(client, project, ready, caplog):
+    story_id = new_story(client)
+    (project.stories_dir / f"{story_id}.json").write_text("{", encoding="utf-8")
+
+    response = start(client, story_id=story_id)
+
+    assert (response.status_code, response.json()["code"]) == (400, "story_not_found")
+    assert story_id in caplog.text
+    assert remembered(client) == {}
+
+
+def test_the_story_counts_with_the_ep_against_32000_tokens(client, project, ready, llm, monkeypatch):
+    story_id = new_story(client)
+    llm.scripts = [passing_script()]
+
+    def count(snapshot_dir: Path, text: str) -> int:
+        return 2_001 if text.startswith(stories.BLOCK_HEAD) else 30_000
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count)
+
+    refused = start(client, story_id=story_id)
+    accepted = start(client, story_id=None)
+
+    assert refused.status_code == 400
+    assert refused.json() == {
+        "code": "transcript_too_long",
+        "message": "EP กับเรื่องรวม 32,001 token เกิน 32,000 (เรื่อง 2,001)",
+        "tokens": 32_001,
+        "story_tokens": 2_001,
+    }
+    assert remembered(client) == {}
+    assert accepted.status_code == 202
+    wait_for_end(client)
+
+
+def test_the_story_block_is_counted_as_the_llm_gets_it(client, project, ready, llm, counted):
+    llm.scripts = [passing_script()]
+
+    start(client, story_id=new_story(client))
+    wait_for_end(client)
+
+    assert CONAN_BLOCK in counted
+
+
+def test_a_story_without_qwens_tokenizer_is_not_ready(client, project, ready, monkeypatch):
+    story_id = new_story(client)
+
+    def gone(snapshot_dir, text):
+        if text.startswith(stories.BLOCK_HEAD):
+            raise FileNotFoundError(snapshot_dir)
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", gone)
+
+    response = start(client, story_id=story_id)
+
+    assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["model_qwen"])
+
+
+def test_a_draft_refused_as_draft_exists_or_gpu_busy_leaves_the_clips_story_as_it_was(client, project, ready, llm, whisper):
+    kept, other = new_story(client), new_story(client, title="เรื่องสอง")
+    llm.scripts = [passing_script()]
+    start(client, story_id=kept)
+    wait_for_end(client)
+
+    exists = start(client, story_id=other)
+    with transcribing(client, whisper, EP2):
+        busy = start(client, story_id=other, replace=True)
+
+    assert (exists.status_code, exists.json()["code"]) == (409, "draft_exists")
+    assert (busy.status_code, busy.json()["code"]) == (409, "gpu_busy")
+    assert remembered(client) == {EP1: kept}
+
+
+def test_a_story_deleted_while_a_draft_starts_is_story_not_found_and_frees_the_gpu(client, project, ready, llm, monkeypatch):
+    story_id = new_story(client)
+    llm.scripts = [passing_script()]
+
+    # The token count runs between the Story check and the draft's lock.
+    def count_and_delete(snapshot_dir: Path, text: str) -> int:
+        client.delete(f"{STORIES}/{story_id}")
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count_and_delete)
+
+    response = start(client, story_id=story_id)
+
+    assert (response.status_code, response.json()["code"]) == (400, "story_not_found")
+    assert remembered(client) == {}
+    assert client.get(CURRENT).json() is None
+    # The GPU went back: the next draft starts.
+    assert start(client).status_code == 202
+    wait_for_end(client)
+
+
+def test_a_story_changed_during_a_draft_job_leaves_the_job_with_the_story_as_it_started(client, project, ready, llm):
+    story_id = new_story(client)
+    llm.scripts = [passing_script()]
+    llm.pause_at(1)  # the polish
+
+    start(client, story_id=story_id)
+    llm.wait_until(1)
+    changed = client.put(f"{STORIES}/{story_id}", json=CONAN | {"title": "ชื่อใหม่"})
+    llm.release(1)
+    job = wait_for_end(client)
+
+    assert changed.status_code == 200
+    (polish,) = prompts(llm, is_polish)
+    assert "ชื่อเรื่อง: ยอดนักสืบจิ๋วโคนัน" in polish
+    assert "ชื่อใหม่" not in polish
+    assert job["order"]["story_title"] == CONAN["title"]
+
+
+# --- Polishing again with the clip's Story (story-kb D5, ADR 0024) ---
+
+NEW_CONAN = CONAN | {
+    "article": "ชินอิจิกลายเป็นเด็ก",
+    "characters": [{"name": "เอโดงาวะ โคนัน", "description": "ชื่อใหม่"}, {"name": "รัน", "description": ""}],
+}
+NEW_CONAN_BLOCK = CONAN_BLOCK.replace(
+    "คุโด้ ชินอิจิ ถูกบังคับกินยา\nจนตัวหดเป็นเด็ก", "ชินอิจิกลายเป็นเด็ก"
+).replace("- โคนัน: ชินอิจิในร่างเด็ก", "- เอโดงาวะ โคนัน: ชื่อใหม่")
+
+
+def drafted_with(client, project, llm, story_id: str | None) -> None:
+    """A draft whose clip remembers `story_id` (through a real Draft job), then three known sentences."""
+    llm.scripts = [passing_script()]
+    start(client, story_id=story_id)
+    assert wait_for_end(client)["state"] == "done"
+    three_sentences(project)
+    llm.requests.clear()
+
+
+def test_polish_after_the_story_is_changed_asks_with_its_new_values(client, project, ready, llm):
+    story_id = new_story(client)
+    drafted_with(client, project, llm, story_id)
+    assert client.put(f"{STORIES}/{story_id}", json=NEW_CONAN).status_code == 200
+
+    polish(client)
+    assert wait_for_end(client)["state"] == "done"
+
+    no_story_prompt = (GOLDEN / "polish_again_prompt_no_story.txt").read_text(encoding="utf-8")
+    script_head = "The script, one sentence each"
+    (prompt,) = prompts(llm, is_polish)
+    assert prompt == no_story_prompt.replace(script_head, f"{NEW_CONAN_BLOCK}\n{script_head}", 1)
+
+
+@pytest.mark.parametrize("gone", ["never remembered", "story deleted", "file unreadable"])
+def test_polish_without_the_clips_story_is_the_prompt_from_before_story_kb(client, project, ready, llm, gone):
+    story_id = new_story(client)
+    drafted_with(client, project, llm, None if gone == "never remembered" else story_id)
+    if gone == "story deleted":
+        assert client.delete(f"{STORIES}/{story_id}").status_code == 204
+    if gone == "file unreadable":
+        (project.stories_dir / f"{story_id}.json").write_text("{", encoding="utf-8")
+
+    response = polish(client)
+    assert wait_for_end(client)["state"] == "done"
+
+    assert response.json()["order"] is None
+    # Captured from the code before story-kb (d5557214), letter for letter (spec › Testing
+    # decisions, story-kb D19).
+    assert prompts(llm, is_polish) == [(GOLDEN / "polish_again_prompt_no_story.txt").read_text(encoding="utf-8")]
+
+
+def test_pick_of_a_clip_that_remembers_a_story_has_no_story_block(client, project, ready, llm):
+    """`kind: "pick"` after a draft with a Story: unlike `polish`, its prompt leaves the Story out (D4)."""
+    drafted_with(client, project, llm, new_story(client))
+
+    response = client.post(JOBS, json={"kind": "pick", "sentence_id": "s_00000001"})
+
+    assert (response.status_code, wait_for_end(client)["state"]) == (202, "done")
+    (prompt,) = prompts(llm, is_pick)
+    assert "ชื่อเรื่อง" not in prompt and "โคนัน" not in prompt

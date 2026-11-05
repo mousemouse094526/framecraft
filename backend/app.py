@@ -10,10 +10,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.exceptions import HTTPException
 
-from backend import errors, files, paths
+from backend import errors, files, paths, stories
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil, spoil_maker
+from backend.routes import stories as stories_routes
 from backend.spoil import clips, downloads, transcribe, trim
 from backend.spoil_maker import describe, draft, episodes, render, shots, voices
 
@@ -72,6 +73,8 @@ async def lifespan(app: FastAPI):
             job.clean_on_start(project)
     # Half-written `draft.json`, `settings.json`, voice files (spoil-maker spec › Ops).
     files.remove_unfinished(project.spoil_maker_dir)
+    # After the clips' clean: a key of a clip start-up removed goes too (story-kb spec › Ops).
+    stories.clean_on_start(project)
     yield
     for job in JOB_HOLDERS:
         job.current().stop_on_shutdown()
@@ -103,7 +106,7 @@ async def framework_refusal_response(request: Request, error: HTTPException):
 
 async def invalid_body_response(request: Request, error: RequestValidationError):
     """A body that isn't the JSON object a route takes, the same `400` as any other bad field."""
-    return errors.error_response(request, ApiError(400, "invalid_request", "ข้อมูลที่ส่งมาไม่ถูกต้อง"))
+    return errors.error_response(request, errors.invalid_request())
 
 
 app = FastAPI(title="framecraft", lifespan=lifespan, dependencies=[Depends(require_json)])
@@ -114,3 +117,5 @@ app.add_exception_handler(RequestValidationError, invalid_body_response)
 app.include_router(setup_status.router, prefix="/api")
 app.include_router(spoil.router, prefix="/api")
 app.include_router(spoil_maker.router, prefix="/api")
+app.include_router(stories_routes.router, prefix="/api")
+app.include_router(stories_routes.clips_router, prefix="/api")

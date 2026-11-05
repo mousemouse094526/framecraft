@@ -6,11 +6,14 @@ import { refusalOf, type Refusal } from "../../../lib/refusal";
 export type Style = "fast" | "drama" | "chrono";
 export type Layout = "A" | "B" | "C";
 
-// The styles, how each tells the story, and the layout each starts with (spoil-maker D7, D8, D84).
-export const STYLES: { id: Style; label: string; hint: string; layout: Layout }[] = [
-  { id: "fast", label: "ปั่นตัดเร็ว", hint: "ประโยคสั้น ตลก เร็ว เล่าเหตุการณ์เด่น", layout: "A" },
-  { id: "drama", label: "เล่าละครหักมุม", hint: "hook เรื่อง หักมุม แรงจูงใจ คำถามชวนคอมเมนต์ท้ายคลิป", layout: "B" },
-  { id: "chrono", label: "เล่าตามลำดับ", hint: "เล่าทีละฉากตามเวลา มีบทพูดตัวละครแทรกได้", layout: "C" },
+/** What the text on top of the video is called in each layout; B has none (D19). */
+export const TOP_TEXT_LABELS: Partial<Record<Layout, string>> = { A: "Hook", C: "ชื่อตอน" };
+
+// The styles and how each tells the story (spoil-maker D7, D84); the layout is picked apart (D90).
+export const STYLES: { id: Style; label: string; hint: string }[] = [
+  { id: "fast", label: "ปั่นตัดเร็ว", hint: "ประโยคสั้น ตลก เร็ว เล่าเหตุการณ์เด่น" },
+  { id: "drama", label: "เล่าละครหักมุม", hint: "hook เรื่อง หักมุม แรงจูงใจ คำถามชวนคอมเมนต์ท้ายคลิป" },
+  { id: "chrono", label: "เล่าตามลำดับ", hint: "เล่าทีละฉากตามเวลา มีบทพูดตัวละครแทรกได้" },
 ];
 export type SentenceStatus = "no_shot" | "no_audio" | "stale_audio" | "ready";
 
@@ -64,6 +67,9 @@ export type DraftOrder = {
   layout: Layout;
   target_s: number;
   voice_id: string;
+  /** The Story the job uses, null for "ไม่ใช้", and its title as the job started (story-kb D15). */
+  story_id: string | null;
+  story_title: string | null;
 };
 
 export type DraftJob = {
@@ -80,10 +86,10 @@ export type DraftJob = {
   order: DraftOrder | null;
 };
 
-/** What ร่างบท sends with `kind: "draft"`: one EP of one clip (D66, D71); the job's order without the title it adds. */
-export type DraftAsk = Omit<DraftOrder, "clip_title">;
+/** What ร่างบท sends with `kind: "draft"`: one EP of one clip (D66, D71); the job's order without the titles it adds. */
+export type DraftAsk = Omit<DraftOrder, "clip_title" | "story_title">;
 
-export function askOf({ clip_title: _title, ...ask }: DraftOrder): DraftAsk {
+export function askOf({ clip_title: _title, story_title: _story, ...ask }: DraftOrder): DraftAsk {
   return ask;
 }
 

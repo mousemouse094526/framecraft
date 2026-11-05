@@ -12,9 +12,8 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ValidationError
 
-from backend import files, gate_rows, gpu, spoil_maker
-from backend.errors import ApiError, require_rows
-from backend.models import QWEN
+from backend import files, gpu, qwen_tokens
+from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
@@ -145,12 +144,7 @@ def lines_of(transcript: Transcript, ep: CutEp) -> list[NumberedLine]:
 def tokens(project: ProjectPaths, lines: Sequence[NumberedLine]) -> int:
     """How many tokens the lines are to Qwen, as the Draft job sends them. Raises
     `ApiError` 503 `not_ready` without Qwen's tokenizer (D60)."""
-    require_rows(gate_rows.qwen_model(project))
-    try:
-        return spoil_maker.count_tokens(project.snapshot_dir(QWEN, QWEN.revision), script.transcript_block(lines))
-    except OSError:
-        # A marker without its snapshot, or with files transformers can't read: the install is broken the same way.
-        raise ApiError(503, "not_ready", f"ยังติดตั้งไม่ครบ: {QWEN.label}", rows=[QWEN.check_id]) from None
+    return qwen_tokens.count(project, script.transcript_block(lines))
 
 
 def cut_by_minutes(found: ShotsFile, minutes: int) -> list[float]:
