@@ -1,12 +1,8 @@
 # Progress: story-kb
 
-**Now:** [PR #8](https://github.com/mousemouse094526/framecraft/pull/8) เปิดแล้ว (2026-11-06) — รอ merge
+**Now:** merged — [PR #8](https://github.com/mousemouse094526/framecraft/pull/8) (d75f574)
 
-**Next:** merge แล้ว
-
-```
-/warroom next
-```
+**Next:** —
 
 ## Tickets
 
