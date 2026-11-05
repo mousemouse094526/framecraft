@@ -241,17 +241,16 @@ describe("ตั้งค่าคลิปสปอย", () => {
     expect(draftButton()).toBeDisabled();
   });
 
-  it("picking เล่าละครหักมุม picks layout B, and the layout can change to A", async () => {
+  it("picking a style keeps the layout the user picked (D90)", async () => {
     backend([]);
     const user = await openSetup();
 
+    await user.click(screen.getByRole("radio", { name: "Layout C" }));
     await user.click(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" }));
-    expect(screen.getByRole("radio", { name: "Layout A" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Layout C" })).toBeChecked();
     await user.click(screen.getByRole("radio", { name: "เล่าละครหักมุม" }));
-    expect(screen.getByRole("radio", { name: "Layout B" })).toBeChecked();
-    await user.click(screen.getByRole("radio", { name: "Layout A" }));
 
-    expect(screen.getByRole("radio", { name: "Layout A" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Layout C" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "เล่าละครหักมุม" })).toBeChecked();
   });
 

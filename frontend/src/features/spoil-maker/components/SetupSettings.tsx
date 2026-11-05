@@ -60,8 +60,8 @@ export function SetupSettings(props: Props) {
               label={style.label}
               hint={style.hint}
               selected={settings.style === style.id}
-              // Picking a style picks its layout (D8); the layout can change after.
-              onSelect={() => onChange({ ...settings, style: style.id, layout: style.layout })}
+              // The layout stays as the user picked it (D90).
+              onSelect={() => onChange({ ...settings, style: style.id })}
             />
           ))}
         </div>

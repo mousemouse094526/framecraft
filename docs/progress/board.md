@@ -8,3 +8,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [spoil](spoil/progress.md) | false | done | 🎨 6/6 | ✅ 899e9a1 | — | — |
 | [windows-check](windows-check/progress.md) | false | blocked | — | 0/2 | รอเครื่อง Windows NVIDIA | `/warroom-build windows-check 01` |
 | [spoil-maker](spoil-maker/progress.md) | false | done | 🎨 8/8 | ✅ 83821a9 | — | — |
+| [story-kb](story-kb/progress.md) | false | planning | ⏳ 0/4 | — | ตัด ticket | `/warroom tickets story-kb` |

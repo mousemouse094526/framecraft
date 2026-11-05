@@ -6,11 +6,11 @@ import { refusalOf, type Refusal } from "../../../lib/refusal";
 export type Style = "fast" | "drama" | "chrono";
 export type Layout = "A" | "B" | "C";
 
-// The styles, how each tells the story, and the layout each starts with (spoil-maker D7, D8, D84).
-export const STYLES: { id: Style; label: string; hint: string; layout: Layout }[] = [
-  { id: "fast", label: "ปั่นตัดเร็ว", hint: "ประโยคสั้น ตลก เร็ว เล่าเหตุการณ์เด่น", layout: "A" },
-  { id: "drama", label: "เล่าละครหักมุม", hint: "hook เรื่อง หักมุม แรงจูงใจ คำถามชวนคอมเมนต์ท้ายคลิป", layout: "B" },
-  { id: "chrono", label: "เล่าตามลำดับ", hint: "เล่าทีละฉากตามเวลา มีบทพูดตัวละครแทรกได้", layout: "C" },
+// The styles and how each tells the story (spoil-maker D7, D84); the layout is picked apart (D90).
+export const STYLES: { id: Style; label: string; hint: string }[] = [
+  { id: "fast", label: "ปั่นตัดเร็ว", hint: "ประโยคสั้น ตลก เร็ว เล่าเหตุการณ์เด่น" },
+  { id: "drama", label: "เล่าละครหักมุม", hint: "hook เรื่อง หักมุม แรงจูงใจ คำถามชวนคอมเมนต์ท้ายคลิป" },
+  { id: "chrono", label: "เล่าตามลำดับ", hint: "เล่าทีละฉากตามเวลา มีบทพูดตัวละครแทรกได้" },
 ];
 export type SentenceStatus = "no_shot" | "no_audio" | "stale_audio" | "ready";
 

@@ -55,8 +55,8 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | แถบ tab บน: สปอย (`#/spoil`), Setup status (`#/setup`), default Setup status, ไม่ใช้ router library | [spoil](features/spoil/decisions.md) | D10 | — | — | changed by spoil-maker D53 |
-| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | — | — | changed by spoil-maker D68 |
-| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil | — | active |
+| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | story-kb | — | changed by spoil-maker D68; changed by story-kb D9 |
+| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb | — | active |
 | แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |
 | font มากับ `@fontsource` ใน project ไม่โหลดจาก CDN | [setup-status](features/setup-status/decisions.md) | D19 | — | [0003](adr/0003-everything-inside-project.md) | active |
 | `fix` ไม่มีช่องว่าง = คำสั่ง (chip กับปุ่ม copy), มีช่องว่าง = ข้อความ | [setup-status](features/setup-status/decisions.md) | D20 | spoil | — | changed by setup-status D26 |
@@ -150,7 +150,7 @@ question; the full entry is in the feature's decisions.md.
 | คลิปสปอยหนึ่งคลิปทำจาก Temp clip ที่ถอดแล้วได้หลาย EP เรียงลำดับเอง | [spoil-maker](features/spoil-maker/decisions.md) | D5 | — | — | superseded by spoil-maker D66 |
 | เสียงบรรยายจาก OmniVoice เลือกเสียงตัวอย่างหรือ clone จากไฟล์เสียงสั้นได้ ใช้ซ้ำทุกคลิป | [spoil-maker](features/spoil-maker/decisions.md) | D6 | — | [0007](adr/0007-non-commercial-use.md) | changed by spoil-maker D48 |
 | เลือก preset สไตล์ 3 แบบตามคลิปตัวอย่าง แล้วใส่ความยาวเป้าหมายเป็นวินาที | [spoil-maker](features/spoil-maker/decisions.md) | D7 | — | — | active |
-| layout 3 แบบตามคลิปตัวอย่าง เลือกแยกจากสไตล์ ทุกแบบได้ 1080×1920 | [spoil-maker](features/spoil-maker/decisions.md) | D8 | — | — | active |
+| layout 3 แบบตามคลิปตัวอย่าง เลือกแยกจากสไตล์ ทุกแบบได้ 1080×1920 | [spoil-maker](features/spoil-maker/decisions.md) | D8 | — | — | changed by spoil-maker D90 |
 | เสียงต้นฉบับลดเบาไว้ใต้เสียงบรรยาย ตั้งระดับได้ (0 = ปิด) ไม่มีเพลงพื้นหลัง | [spoil-maker](features/spoil-maker/decisions.md) | D9 | — | — | active |
 | ผลลัพธ์เป็น mp4 1080×1920 กับ `.srt` ของบทบรรยาย แก้ในแอปแล้ว render ใหม่ | [spoil-maker](features/spoil-maker/decisions.md) | D10 | — | — | active |
 | บทบรรยายและเสียงบรรยายเป็นภาษาไทยอย่างเดียว ต้นฉบับภาษาอะไรก็ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D11 | — | — | active |
@@ -182,12 +182,12 @@ question; the full entry is in the feature's decisions.md.
 | Saved voice เปลี่ยนชื่อและลบได้ (ยกเว้นที่ Spoil draft ใช้) speed แก้ไม่ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D43 | — | — | active |
 | อ่านตัวเลข: เลขไทยเป็นอารบิก, ทศนิยม `จุด`, เวลา `นาฬิกา…นาที`, `%` เปอร์เซ็นต์, อื่นๆ อ่านทีละกลุ่ม; เขียนเอง | [spoil-maker](features/spoil-maker/decisions.md) | D44 | — | — | active |
 | ข้อตัดสินทางเทคนิค: งาน GPU ทีละงานทั้ง project (`gpu_busy`), Kanit Bold pin commit, ภาพเล็ก Shot 320 px, ค่าที่จำไว้ใน `settings.json`, clone เป็น base64 ≤ 20 MB, `pythainlp` newmm | [spoil-maker](features/spoil-maker/decisions.md) | D45 | — | [0015](adr/0015-one-gpu-slot.md) | active |
-| Transcript รวมของ EP ที่เลือกไม่เกิน 32,000 token (tokenizer ของ Qwen นับข้อความที่แก้แล้ว D54) เกินไม่ให้ร่าง `transcript_too_long` | [spoil-maker](features/spoil-maker/decisions.md) | D46 | — | — | active |
-| test: API กับ worker ปลอมของโมเดลแต่ ffmpeg จริง, หน้าเว็บกับ fetch ปลอม; adapter จริงเช็คมือ | [spoil-maker](features/spoil-maker/decisions.md) | D47 | — | — | changed by spoil-maker D51 |
+| Transcript รวมของ EP ที่เลือกไม่เกิน 32,000 token (tokenizer ของ Qwen นับข้อความที่แก้แล้ว D54) เกินไม่ให้ร่าง `transcript_too_long` | [spoil-maker](features/spoil-maker/decisions.md) | D46 | story-kb | — | active |
+| test: API กับ worker ปลอมของโมเดลแต่ ffmpeg จริง, หน้าเว็บกับ fetch ปลอม; adapter จริงเช็คมือ | [spoil-maker](features/spoil-maker/decisions.md) | D47 | story-kb | — | changed by spoil-maker D51 |
 | ตัด clone เสียงออกจากรอบนี้ ออกแบบเสียงอย่างเดียว; `kind` เก็บไว้ให้เพิ่ม clone ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D48 | — | — | active |
 | ถอดหรือดูภาพใหม่ของคลิปใน Spoil draft ลบ draft หลังยืนยัน; คลิปที่งาน spoil-maker ใช้อยู่ `409` `clip_busy` | [spoil-maker](features/spoil-maker/decisions.md) | D49 | spoil | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | spoil-maker ทำบน Mac อย่างเดียว; Windows เป็น feature แยก `windows-launch` | [spoil-maker](features/spoil-maker/decisions.md) | D50 | — | [0016](adr/0016-single-os-library-ports-separately.md) | active |
-| ข้อแก้ red team: ไฟล์ Shot ใน `media/temp/shots/` สลับตอนจบ, lock ของ draft, render คืน GPU หลัง voicing, ค่า LLM, escape ASS, error แบบ spoil, ลายน้ำขาวขอบดำ, 3 seam | [spoil-maker](features/spoil-maker/decisions.md) | D51 | — | [0015](adr/0015-one-gpu-slot.md) | active |
+| ข้อแก้ red team: ไฟล์ Shot ใน `media/temp/shots/` สลับตอนจบ, lock ของ draft, render คืน GPU หลัง voicing, ค่า LLM, escape ASS, error แบบ spoil, ลายน้ำขาวขอบดำ, 3 seam | [spoil-maker](features/spoil-maker/decisions.md) | D51 | story-kb | [0015](adr/0015-one-gpu-slot.md) | active |
 | รับความเสี่ยงลิขสิทธิ์ของภาพและเสียงต้นฉบับในคลิปสปอยที่เผยแพร่ (legal 1 UNVERIFIED) | [spoil-maker](features/spoil-maker/decisions.md) | D52 | — | — | active |
 | คลิปสปอยทำจาก Temp clip เดียว: ใส่ความยาวต่อ EP (นาที) แอปตัดเท่ากันจากต้นคลิปที่ขอบ Shot, เลื่อนจุดตัดเองได้, 1 EP = 1 คลิปสปอย | [spoil-maker](features/spoil-maker/decisions.md) | D66 | — | — | active |
 | ทำสปอยทีละ EP: เลือก EP เดียวต่อ Spoil draft (draft งานเดียวตาม D28), หน้าเลือก EP แสดงเลข ช่วงเวลา ภาพเล็ก เลือกง่าย | [spoil-maker](features/spoil-maker/decisions.md) | D67 | — | — | active |
@@ -195,7 +195,7 @@ question; the full entry is in the feature's decisions.md.
 | ความยาวต่อ EP 5–60 นาที ทีละ 5 ตั้งต้น 30 จำค่าล่าสุด | [spoil-maker](features/spoil-maker/decisions.md) | D69 | — | — | active |
 | ทางเลือกเล็กตัด EP: `media/temp/episodes/{id}.json` ของคลิป, จุดตัดที่ขอบ Shot, draft `version` 2 `clip_id` + `ep`, Transcript และ Shot เฉพาะช่วง EP, ผล render มี EP, ตัวบอกขั้นใช้ route เดิม | [spoil-maker](features/spoil-maker/decisions.md) | D70 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | changed by spoil-maker D71 |
 | ข้อแก้ Breaker ตัด EP: draft อ้าง EP ด้วยช่วง (`episodes_changed`), ไฟล์การตัดเขียนตอน GET แรกและอยู่ใต้ lock, ไฟล์เสียตัดใหม่, EP เดียวสั้นได้, `ep_empty`, ตัวบอกขั้นอ่านใหม่เมื่องานจบ, lock ของ settings | [spoil-maker](features/spoil-maker/decisions.md) | D71 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
-| Draft job เรียบเรียงทั้งบทให้ประโยคเชื่อมกันหลังร่างก่อนเลือก Shot; หน้าตรวจแก้มีปุ่ม "เรียบเรียงใหม่"; คำสั่งร่างขอเรื่องที่ต่อกัน | [spoil-maker](features/spoil-maker/decisions.md) | D72 | — | — | active |
+| Draft job เรียบเรียงทั้งบทให้ประโยคเชื่อมกันหลังร่างก่อนเลือก Shot; หน้าตรวจแก้มีปุ่ม "เรียบเรียงใหม่"; คำสั่งร่างขอเรื่องที่ต่อกัน | [spoil-maker](features/spoil-maker/decisions.md) | D72 | story-kb | — | active |
 | เรียบเรียงแก้เฉพาะข้อความ: จำนวน ลำดับ `refs` และ Shot คงเดิม; ข้อความเปลี่ยนแล้วเสียงเป็น `stale_audio` | [spoil-maker](features/spoil-maker/decisions.md) | D73 | — | — | active |
 | เรียบเรียงใหม่ไม่แตะประโยคที่ผู้ใช้แก้หรือแทรกเอง (ป้าย "แก้เอง") | [spoil-maker](features/spoil-maker/decisions.md) | D74 | — | — | changed by spoil-maker D75 |
 | กดเรียบเรียงใหม่แล้วเลือกได้: ช่องติ๊ก "เรียบเรียงประโยคที่แก้เองด้วย" (ตั้งต้นไม่ติ๊ก); ติ๊กแล้วเขียนทับที่แก้เองและล้างป้าย | [spoil-maker](features/spoil-maker/decisions.md) | D75 | — | — | active |
@@ -204,8 +204,8 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กตอน build ตัวบอกขั้น: `useStepStatus` ใน `SpoilMakerPage` กับ `StepsRefreshContext`, งานล่าสุดของขั้น 2 ตาม `started_at`, poll ล้มเลิกตามจน refresh, หน้าตาต่อจาก `Spoil steps` เดิมจนแบบใหม่มา | [spoil-maker](features/spoil-maker/decisions.md) | D78 | — | — | active |
 | ทางเลือกเล็กตอน build เรียบเรียงบท: รูปคำสั่ง `[i]`/`(fixed)`, `i` ซ้ำทิ้งทุกอัน, `edited` `false` เมื่อข้อความเปลี่ยนเท่านั้น, `busy` เช็คก่อน, รอ change ที่ค้างก่อนส่ง, กล่องเลือกแบบ Shot picker จนแบบใหม่มา | [spoil-maker](features/spoil-maker/decisions.md) | D79 | — | — | changed by spoil-maker D82 |
 | แก้จาก feature review รอบสาม: ADR-0013 รวม `PUT`, `tokens_not_ready`, ลำดับลบคลิปใน spec ตามโค้ด, `ModalDialog`, `useJobCalls`, test ผ่าน API แทน `gpu.slot.take` | [spoil-maker](features/spoil-maker/decisions.md) | D80 | — | [0013](adr/0013-post-requires-json.md) | active |
-| ร่างบทแล้วเปิดขั้น 2 ทันที ระหว่างร่างขั้น 2 แสดงการ์ดความคืบหน้า 3 ขั้น (เขียนบท, เรียบเรียง, เลือกภาพ) กับปุ่มยกเลิก | [spoil-maker](features/spoil-maker/decisions.md) | D81 | — | — | active |
-| ระหว่างร่างบท ขั้น 1 อ่านอย่างเดียวด้วยค่าของงาน (`order` ใน Draft job) พร้อม Alert ให้ไปยกเลิกที่ขั้น 2 | [spoil-maker](features/spoil-maker/decisions.md) | D82 | — | — | active |
+| ร่างบทแล้วเปิดขั้น 2 ทันที ระหว่างร่างขั้น 2 แสดงการ์ดความคืบหน้า 3 ขั้น (เขียนบท, เรียบเรียง, เลือกภาพ) กับปุ่มยกเลิก | [spoil-maker](features/spoil-maker/decisions.md) | D81 | story-kb | — | active |
+| ระหว่างร่างบท ขั้น 1 อ่านอย่างเดียวด้วยค่าของงาน (`order` ใน Draft job) พร้อม Alert ให้ไปยกเลิกที่ขั้น 2 | [spoil-maker](features/spoil-maker/decisions.md) | D82 | story-kb | — | active |
 | ร่างบทล้ม: ขั้น 2 แสดง error พร้อม "ลองอีกครั้ง" ด้วย `order` เดิมและ "กลับไปแก้ตั้งค่า"; ยกเลิก: กลับขั้น 1 ที่ค่าเดิม | [spoil-maker](features/spoil-maker/decisions.md) | D83 | — | — | changed by spoil-maker D86 |
 | การ์ดสไตล์มีบรรทัดอธิบายใต้ชื่อทั้ง 3 ใบ ตามตารางสไตล์ใน spec | [spoil-maker](features/spoil-maker/decisions.md) | D84 | — | — | active |
 | ยกเลิกร่างบท: "กำลังยกเลิก" จนเห็น `cancelled` แล้วกลับขั้น 1; จบ `done` ก่อนหยุด → บทใหม่พร้อม "ยกเลิกไม่ทัน บทร่างเสร็จแล้ว" | [spoil-maker](features/spoil-maker/decisions.md) | D85 | — | — | active |
@@ -213,3 +213,25 @@ question; the full entry is in the feature's decisions.md.
 | ข้อแก้ The Breaker ร่างบทไปขั้น 2: error ของลองอีกครั้ง, ค่าของขั้น 1 จาก `order`, restart, `voice_in_use` ของงาน, state ก่อนเปลี่ยน hash, `busy` | [spoil-maker](features/spoil-maker/decisions.md) | D87 | — | — | active |
 | ทางเลือกเล็กตอน build ร่างบทไปขั้น 2: การ์ดแทนทั้งขั้น, ซ่อนลองอีกครั้งเมื่อต้องแก้ตั้งค่า, offline เฉพาะงานร่างทั้งบท, `voice_in_use` ถามงานก่อน lock | [spoil-maker](features/spoil-maker/decisions.md) | D88 | — | — | changed by spoil-maker D89 |
 | แก้จาก feature review รอบสี่: GPU ไม่ค้างเมื่ออ่านชื่อคลิปพลาด, เช็คเสียงซ้ำใต้ lock ของ draft, ขั้น 1 เริ่มใหม่จาก `order`, `ReplaceConfirm`, `runningDraft`, flow.md | [spoil-maker](features/spoil-maker/decisions.md) | D89 | — | [0015](adr/0015-one-gpu-slot.md) | active |
+| เลือกสไตล์ไม่เปลี่ยน layout; ฟอร์มใหม่ตั้งต้น B | [spoil-maker](features/spoil-maker/decisions.md) | D90 | — | — | active |
+
+## คลังความรู้
+
+| Decision | Feature | D | Used by | ADR | Status |
+|---|---|---|---|---|---|
+| คลังความรู้เป็น feature ใหม่ `story-kb` มี tab และข้อมูลของตัวเอง | [story-kb](features/story-kb/decisions.md) | D1 | — | [0023](adr/0023-story-owned-by-story-kb.md) | active |
+| ตัวละครของ Story: ชื่อ (ต้องมี) กับคำอธิบายสั้น กดบวกเพิ่มได้ | [story-kb](features/story-kb/decisions.md) | D2 | — | — | active |
+| Temp clip จำ Story ที่เลือกในขั้น 1 ของ tab สปอย ทุก EP ใช้เรื่องเดิม มี "ไม่ใช้" | [story-kb](features/story-kb/decisions.md) | D3 | — | — | changed by story-kb D15 |
+| AI ใช้ Story ตอนเขียนบทและเรียบเรียง ไม่ใช้ตอนเลือก Shot | [story-kb](features/story-kb/decisions.md) | D4 | — | — | active |
+| ทุกงานอ่าน Story ตอนนี้ของคลิปตอนเริ่มงาน Spoil draft ไม่เก็บสำเนา | [story-kb](features/story-kb/decisions.md) | D5 | — | [0024](adr/0024-llm-jobs-read-story-at-start.md) | active |
+| Story: ชื่อเรื่อง ≤ 100, บทความ ≤ 5,000 ตัวอักษร, ตัวละคร ≤ 30 (ชื่อ ≤ 40, คำอธิบาย ≤ 200); ไม่นับในเพดาน token ของ Transcript | [story-kb](features/story-kb/decisions.md) | D6 | — | — | changed by story-kb D14 |
+| Story ที่คลิปจำลบพร้อมคลิป แต่ไม่หมดอายุเมื่อถอดใหม่ บรรยายฉากใหม่ หรือตัดช่วง (ข้อยกเว้นของ ADR-0021) | [story-kb](features/story-kb/decisions.md) | D7 | — | [0022](adr/0022-user-bound-clip-data-never-expires.md) | active |
+| Story เป็นพื้นหลังและตัวสะกดชื่อ เหตุการณ์ต้องมาจากบรรทัดของ EP เท่านั้น | [story-kb](features/story-kb/decisions.md) | D8 | — | — | active |
+| แถบ tab: ติดตั้ง · คลิป · คลังความรู้ (`#/stories`) · สปอย | [story-kb](features/story-kb/decisions.md) | D9 | — | — | active |
+| ลบ Story ได้หลังยืนยันที่บอกจำนวนคลิป คลิปเหล่านั้นเป็น "ไม่ใช้" | [story-kb](features/story-kb/decisions.md) | D10 | — | — | active |
+| หน้าแก้ Story บันทึกด้วยปุ่ม ถามก่อนออกเมื่อยังไม่บันทึก | [story-kb](features/story-kb/decisions.md) | D11 | — | — | active |
+| ทางเลือกเล็ก: `media/stories/` ไฟล์ละเรื่อง + `clip-stories.json`, lock เดียว, API `/api/stories`, บันทึกหลังทับก่อน, ชื่อตัวละครห้ามซ้ำ, นับ code point | [story-kb](features/story-kb/decisions.md) | D12 | — | [0023](adr/0023-story-owned-by-story-kb.md) | active |
+| seam: API กับ LLM ปลอมที่จดคำสั่ง และหน้าเว็บกับ fetch ปลอม | [story-kb](features/story-kb/decisions.md) | D13 | — | — | active |
+| token ของ EP + บล็อก Story ≤ 32,000 (`transcript_too_long`); ตัวนับขั้น 1 แสดงผลรวม | [story-kb](features/story-kb/decisions.md) | D14 | — | — | active |
+| คลิปจำ Story ตอนกดร่าง: `kind: "draft"` ส่ง `story_id`; ไม่มี route บันทึกแยก | [story-kb](features/story-kb/decisions.md) | D15 | — | — | active |
+| ข้อแก้ red team: ตำแหน่งบล็อก Story, lock ในสุด, ขึ้นบรรทัดเป็นช่องว่าง, บันทึกซ้ำ, ตัวกันออกใน `useHash`, เพิ่มเรื่องในแท็บใหม่, กล่องเรียบเรียงบอกเรื่อง | [story-kb](features/story-kb/decisions.md) | D16 | — | — | active |

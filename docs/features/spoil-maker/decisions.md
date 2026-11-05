@@ -115,12 +115,14 @@
 - layout ผูกกับสไตล์ — เลือกผสมไม่ได้
 - layout เดียวในรอบแรก — ผู้ใช้อยากได้ทั้ง 3 แบบ
 
+**Changed by:** D90 (เลือกสไตล์ไม่เปลี่ยน layout)
+
 **Details:**
 - layout ตาม [reference-shorts.md](reference-shorts.md): เต็มจอ 9:16 มี hook ค้างด้านบนกับซับทีละคำ; ภาพ 16:9 บนพื้นดำกับซับเป็นประโยค; ชื่อตอนค้างด้านบนกับภาพ 16:9
 - ทุก layout ได้วิดีโอ 1080×1920
 - รายละเอียดของแต่ละ layout (ตำแหน่ง, font, สี, ข้อความที่ผู้ใช้ใส่เอง) ยังเป็น sketch ใน map
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by D90
 
 ## D9: เสียงต้นฉบับลดเบาไว้ใต้เสียงบรรยาย ตั้งระดับได้
 
@@ -840,7 +842,7 @@
 
 **Changes:** spoil D10 (2 tab "สปอย" และ "Setup status"); D1 ส่วนที่ว่า Describe อยู่ใน tab สปอย — ปุ่มดูภาพย้ายไป tab คลิป.
 
-**From:** design review · **Status:** active
+**From:** design review · **Status:** changed by story-kb D9
 
 ## D54: แก้ข้อความ Transcript ทีละบรรทัดใน tab คลิป
 
@@ -1434,6 +1436,21 @@
 **Why:** ผู้ใช้เลือกแก้ทั้งสี่กลุ่ม; ไม่เปลี่ยนสิ่งที่ spec สัญญาต่อผู้ใช้.
 
 **From:** feature review 2026-11-04 · **Status:** active
+
+## D90: เลือกสไตล์ไม่เปลี่ยน layout
+
+**Chosen:** layout คงตามที่ผู้ใช้เลือก เปลี่ยนสไตล์แล้ว layout ไม่ตาม; ฟอร์มใหม่ตั้งต้น B (เท่าเดิม).
+
+**Why:** ผู้ใช้ขอ: เลือกสไตล์แล้ว layout เปลี่ยนตามทำให้ต้องกดเลือก layout ใหม่ทุกครั้ง.
+
+**Rejected:**
+- layout ตั้งต้นตามสไตล์ (D8 เดิม) — ทับสิ่งที่ผู้ใช้เลือกไว้
+
+**Details:**
+- คอลัมน์ "layout ตั้งต้น" ในตารางสไตล์ของ spec เหลือไว้เป็นข้อมูลอ้างอิงของคลิปตัวอย่าง ไม่ใช้ในหน้าเว็บ
+- แทนงานบน branch `feat/spoil-maker-transcript-remove` (D90–D95 ของ branch นั้น) ที่ไม่ merge; เลข D90 ใน develop เป็นของข้อนี้
+
+**From:** user request 2026-11-05 · **Status:** active
 
 ## Sources
 
