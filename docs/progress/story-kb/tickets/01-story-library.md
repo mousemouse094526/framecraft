@@ -11,7 +11,7 @@
 - Seams: 1 (CRUD, `invalid_story`, `DELETE` Story, ลบคลิป, Trim job, restart), 2 (หน้าคลังความรู้, ตัวกันออก, ลบ Story)
 - User stories: 1, 2, 3, 4
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Acceptance criteria
 

@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from backend import checks, clock, files, gate_rows, gpu, paths, spoil
+from backend import checks, clock, files, gate_rows, gpu, paths, spoil, stories
 from backend.models import WHISPER
 from backend.paths import ProjectPaths
 from backend.spoil import clips
@@ -126,6 +126,8 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
                 clips.delete_clip(project, clip_id)
             # After the slot's lock (its lock comes after the draft's), and only once the clip is gone (D29).
             draft_file.drop_if_uses(project, clip_id)
+            # The Story it remembers goes with it; `stories`' lock is the innermost (story-kb D7, D16).
+            stories.forget_clip(project, clip_id)
 
     def edit_line(self, clip_id: str, n: str, text: str) -> TranscriptLine:
         """Replaces line `n`'s text and marks it edited; times and line count stay,

@@ -49,6 +49,10 @@ backend/
 │                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
 │                    frames and compose share it
 ├── setup.py      ← entry point: python -m backend.setup
+├── stories.py    ← the คลังความรู้ tab (story-kb, ADR 0023): Stories and the
+│                    Story each clip remembers in `media/stories/`, their
+│                    checks, the Story block of the LLM prompts and its tokens;
+│                    its own lock is the innermost (story-kb D16)
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
 │                    links, adapter (the only yt-dlp import), clips,
 │                    downloads (Download job),
@@ -72,7 +76,7 @@ backend/
 │                    Render job and the render files), compose (the ffmpeg
 │                    commands of a render), captions (the ASS file and the
 │                    `.srt`); llm's and tts's `worker` run in a child process
-├── routes/       ← one router file per feature, e.g. setup_status.py
+├── routes/       ← one router file per feature, e.g. setup_status.py, stories.py
 └── tests/        ← pytest, test_{module}.py
 ```
 
@@ -114,6 +118,7 @@ through a queue; the thread writes the result file (ADR 0012).
 - Locks are taken in one order: a job slot's, then `spoil.clips.files_lock`
   (a Temp clip's mp4 and Transcript, spoil D46), then `gpu.slot.draft_lock`,
   then the GPU slot's own (inside `GpuSlot`); never the other way round.
+  `stories`' lock comes after all of them: nothing else is taken while it is held.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases

@@ -25,6 +25,11 @@ def error_response(request: Request, error: ApiError) -> JSONResponse:
     )
 
 
+def invalid_request() -> ApiError:
+    """A body that isn't the JSON object a route takes, or a field of the wrong type."""
+    return ApiError(400, "invalid_request", "ข้อมูลที่ส่งมาไม่ถูกต้อง")
+
+
 class JobFailed(Exception):
     """Ends a job as `failed` with an error `code` the job's API defines."""
 
