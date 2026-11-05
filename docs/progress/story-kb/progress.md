@@ -1,11 +1,11 @@
 # Progress: story-kb
 
-**Now:** re-cut 2026-11-06 — Blocked 5–7 ปิดด้วย D22 (โค้ดคงเดิม), Blocked 8 เป็น ticket 04
+**Now:** ทุก ticket done (04 เสร็จ 2026-11-06) — รอ feature review รอบใหม่ (โค้ดเปลี่ยนหลัง review ก่อน)
 
-**Next:** ticket 04
+**Next:** feature review
 
 ```
-/warroom-build story-kb 04
+/warroom-build story-kb --review-feature
 ```
 
 ## Tickets
@@ -15,9 +15,27 @@
 | 01 | คลังความรู้ — เพิ่ม แก้ ลบ Story | done |
 | 02 | ร่างบทด้วย Story | done |
 | 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | done |
-| 04 | ค่าเลือก Story ของขั้น 1 เป็นค่าเดียว | ready |
+| 04 | ค่าเลือก Story ของขั้น 1 เป็นค่าเดียว | done |
 
 ## Log
+
+### 04: ค่าเลือก Story ของขั้น 1 เป็นค่าเดียว — done 2026-11-06
+
+**Built:**
+- `SpoilerSetup.tsx`: `StoryChoice` เป็น union เดียว `followsClip` · `story` · `none` · `gone` แทน `string | null | undefined` + ธง `storyGone`; `choiceOf` (id จากช่องหรือ order → ค่าเลือก), `storyIdOf` (ค่าเลือก → id ที่ส่ง); ลบ `pickStory`; เปลี่ยนคลิปคืน `followsClip`, `story_not_found` → `gone`
+- `listedStory` รับ `string | null` (ไม่รับ `undefined` อีก); `useClipStory` ส่ง `?? null`
+- test ใหม่ใน `SpoilerSetup.test.tsx` (ผ่าน `App`): ไม่แตะแล้วเปลี่ยนคลิปตามเรื่องของคลิปใหม่, เรื่องที่เลือกหายเมื่อเปลี่ยนคลิป (ไม่ใช้/เรื่องของคลิปกลับมา), "ไม่ใช้" ส่ง `story_id` `null`, หลัง `story_not_found` เลือกเรื่องหรือเปลี่ยนคลิปแล้วข้อความหาย, ร่างใหม่ส่ง `null`; test เดิมไม่แก้สักบรรทัด
+- เช็คว่า test จับได้: เอาการคืน `followsClip` ตอนเปลี่ยนคลิปออก → 2 test แดง
+
+**Decided:**
+- D23 — union สี่แบบ, ชื่อ `followsClip` (Newcomer อ่าน `clip` เป็น "คลิป"), `gone` ส่ง `null` เหมือน `none`, order ที่ `story_id` `null` เป็น `none` (D87)
+
+**For the next ticket:**
+- Review (Standards): `StoryPicker` ยังส่ง `null` = ไม่ใช้ ให้ `choiceOf` แปลง — ขอบของ component รับได้; ไม่เปลี่ยน prop
+- Review (Standards): test ของขั้น 1 ยังหา radio ของคลิปด้วย `getByRole("radio", …)` ซ้ำ ~30 ที่ — test ใหม่ใช้ `clipRadio`; ย้าย test เดิมไปใช้ตอนแตะไฟล์อีก
+- Feature review รอบใหม่: โค้ดเปลี่ยนหลัง 2e8eb0d
+
+**Checks:** `uv run pytest` (679) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` (317) · `npm --prefix frontend run build` — all green
 
 ### feature review — 2026-11-06
 
@@ -146,4 +164,4 @@
 | 5 | review | designer: `ModalDialog` มุม `sm:rounded-3xl` (24px) แต่ Figma `Delete story dialog` 16px — ของใช้ร่วมกับ spoil-maker | `/warroom tickets story-kb` (หลังถาม designer) | → D22 |
 | 6 | review | designer: Actions ของหน้าแก้ Story ใน Figma มี Spacer สูง 100px — โค้ดทำแถวสูงตามปุ่ม | `/warroom tickets story-kb` (หลังถาม designer) | → D22 |
 | 7 | review | designer: ไอคอน external-link สองแบบ (setup-status 12px ม่วง, spoil-maker 16px เข้ม) ควรเป็นตัวเดียวไหม | `/warroom tickets story-kb` (หลังถาม designer) | → D22 |
-| 8 | review | refactor: `StoryChoice` (`string \| null \| undefined`) กับ `storyGone` ใน `SpoilerSetup.tsx` เป็น union type เดียว | `/warroom tickets story-kb` | → ticket 04 |
+| 8 | review | refactor: `StoryChoice` (`string \| null \| undefined`) กับ `storyGone` ใน `SpoilerSetup.tsx` เป็น union type เดียว | `/warroom tickets story-kb` | done (ticket 04) |

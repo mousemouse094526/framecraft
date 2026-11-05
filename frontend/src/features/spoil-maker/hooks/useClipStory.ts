@@ -17,7 +17,7 @@ export function useClipStory(clipId: string): ClipStory {
       let next: ClipStory;
       try {
         const { rows, clipStories } = await readStoryLinks();
-        const row = listedStory(rows, clipStories[clipId]);
+        const row = listedStory(rows, clipStories[clipId] ?? null);
         next = row ? { kind: "story", title: row.title } : { kind: "none" };
       } catch {
         next = { kind: "unknown" };

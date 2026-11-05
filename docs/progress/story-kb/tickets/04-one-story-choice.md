@@ -9,7 +9,7 @@
 - Screens: ขั้น 1 ตั้งค่าคลิปสปอย: ช่อง Story
 - User stories: 5
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

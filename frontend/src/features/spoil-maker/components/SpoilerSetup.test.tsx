@@ -413,6 +413,8 @@ describe("ตั้งค่าคลิปสปอย", () => {
 describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
   const storyField = () => screen.getByRole("combobox", { name: "เรื่องในคลังความรู้" });
   const remembering = (stories = [CONAN, ALIEN]): Route[] => [get(STORIES_PATH, stories), get(STORY_CLIPS_PATH, { [FILM.id]: CONAN.id })];
+  const clipRadio = (clip: { title: string }) => screen.getByRole("radio", { name: `เลือก ${clip.title}` });
+  const GONE_TEXT = "ไม่พบเรื่องนี้ในคลังความรู้แล้ว";
 
   it("a clip that remembers a Story starts with it, and the meter adds the Story's tokens", async () => {
     backend(remembering());
@@ -513,6 +515,82 @@ describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
     expect(await screen.findByText("ไม่พบเรื่องนี้ในคลังความรู้แล้ว")).toBeInTheDocument();
     expect(reads(STORIES_PATH)).toBe(read + 1);
     expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+  });
+
+  it("left untouched, the field follows the picked clip's own Story", async () => {
+    backend([get(STORIES_PATH, [CONAN, ALIEN]), get(STORY_CLIPS_PATH, { [FILM.id]: CONAN.id, [OTHER.id]: ALIEN.id })]);
+    const user = await pickFilm();
+    expect(storyField()).toHaveDisplayValue(CONAN.title);
+
+    await user.click(clipRadio(OTHER));
+
+    expect(storyField()).toHaveDisplayValue(ALIEN.title);
+  });
+
+  it("a Story picked for one clip is dropped for the next: ไม่ใช้ for a clip without one, the clip's own coming back", async () => {
+    backend(remembering());
+    const user = await pickFilm();
+    await user.selectOptions(storyField(), ALIEN.title);
+
+    await user.click(clipRadio(OTHER));
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+
+    await user.click(clipRadio(FILM));
+    expect(storyField()).toHaveDisplayValue(CONAN.title);
+  });
+
+  it("ไม่ใช้ picked over the clip's Story sends story_id null", async () => {
+    backend([...remembering(), send("POST", JOBS_PATH, jobOf({}), 202)]);
+    const user = await pickFilm();
+
+    await user.selectOptions(storyField(), "ไม่ใช้");
+    await user.click(draftButton());
+
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: null })]);
+  });
+
+  describe("after story_not_found", () => {
+    const goneMessage = () => screen.queryByText(GONE_TEXT);
+
+    /** Picks FILM, which remembers CONAN (OTHER remembers ALIEN), and presses ร่างบท; every ร่างบท is refused as story_not_found. */
+    async function draftDeletedStory() {
+      backend([
+        get(STORIES_PATH, [CONAN, ALIEN]),
+        get(STORY_CLIPS_PATH, { [FILM.id]: CONAN.id, [OTHER.id]: ALIEN.id }),
+        get(STORIES_PATH, [ALIEN]),
+        send("POST", JOBS_PATH, { code: "story_not_found", message: GONE_TEXT }, 400),
+      ]);
+      const user = await pickFilm();
+      await user.click(draftButton());
+      expect(await screen.findByText(GONE_TEXT)).toBeInTheDocument();
+      return user;
+    }
+
+    it("picking a Story clears the message and the field shows it", async () => {
+      const user = await draftDeletedStory();
+
+      await user.selectOptions(storyField(), ALIEN.title);
+
+      expect(goneMessage()).not.toBeInTheDocument();
+      expect(storyField()).toHaveDisplayValue(ALIEN.title);
+    });
+
+    it("picking another clip clears the message and the field follows that clip's Story", async () => {
+      const user = await draftDeletedStory();
+
+      await user.click(clipRadio(OTHER));
+
+      expect(goneMessage()).not.toBeInTheDocument();
+      expect(storyField()).toHaveDisplayValue(ALIEN.title);
+    });
+
+    it("the next ร่างบท sends story_id null, not the deleted Story", async () => {
+      const user = await draftDeletedStory();
+
+      await user.click(draftButton());
+
+      expect(sent("POST", JOBS_PATH).at(-1)).toEqual(expect.objectContaining({ story_id: null }));
+    });
   });
 
   it("the links open a new tab; coming back reads the Stories again and keeps what was set", async () => {

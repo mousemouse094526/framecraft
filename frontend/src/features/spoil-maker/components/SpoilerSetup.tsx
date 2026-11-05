@@ -46,10 +46,22 @@ function draftBlocked(ep: Episode, cut: Episodes, story: StoryRow | null): Refus
 const STORY_TOKENS_NOT_READY = "นับ token ของเรื่องไม่ได้";
 
 /**
- * What the user did with the Story field: `undefined` until they touch it, when the field
- * follows the picked clip's own Story; then a Story's id, or null for ไม่ใช้ (story-kb D3, D15).
+ * What the user did with the Story field (story-kb D3, D15, D23): `followsClip` until they touch it,
+ * when the field shows the picked clip's own Story; a picked Story; ไม่ใช้ (`none`); or `gone`:
+ * ไม่ใช้ too, because the Story ร่างบท sent was deleted, and the field says so.
  */
-type StoryChoice = string | null | undefined;
+type StoryChoice = { kind: "followsClip" } | { kind: "story"; id: string } | { kind: "none" } | { kind: "gone" };
+
+const FOLLOWS_CLIP: StoryChoice = { kind: "followsClip" };
+
+/** The field's choice for a picked id; null is ไม่ใช้. */
+const choiceOf = (id: string | null): StoryChoice => (id === null ? { kind: "none" } : { kind: "story", id });
+
+/** The Story id the choice stands for, the clip's own while untouched; null is ไม่ใช้. */
+function storyIdOf(choice: StoryChoice, clipStory: string | null): string | null {
+  if (choice.kind === "followsClip") return clipStory;
+  return choice.kind === "story" ? choice.id : null;
+}
 
 /** The EP's tokens with the Story's (story-kb D14); null while either can't be counted. */
 function draftTokens(ep: Episode | null, story: StoryRow | null): number | null {
@@ -112,9 +124,8 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
       ? settingsOf(order, state.voices, lastVoice, false)
       : { style: "drama", layout: "B", targetS: DEFAULT_TARGET_S, voiceId: lastVoice },
   );
-  // An order's Story counts as picked: the form starts from the order (D87).
-  const [pickedStory, setPickedStory] = useState<StoryChoice>(() => order?.story_id);
-  const [storyGone, setStoryGone] = useState(false);
+  // An order's Story, ไม่ใช้ included, counts as picked: the form starts from the order (D87).
+  const [storyChoice, setStoryChoice] = useState<StoryChoice>(() => (order ? choiceOf(order.story_id) : FOLLOWS_CLIP));
   const shown = lockedOrder ? settingsOf(lockedOrder, state.voices, lastVoice, true) : settings;
   const shownClipId = lockedOrder ? (pickable(lockedOrder.clip_id) ? lockedOrder.clip_id : null) : clipId;
   const episodes = useEpisodes(shownClipId);
@@ -126,10 +137,9 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
     : fromOrder
       ? orderEp(cut, fromOrder)
       : (cut.episodes.find((one) => one.n === pickedEp) ?? cut.episodes.find((one) => one.in_draft) ?? cut.episodes[0] ?? null);
+  const clipStory = clipId === null ? null : (state.clipStories[clipId] ?? null);
   // A Story deleted since shows ไม่ใช้ (story-kb D15).
-  const story = lockedOrder
-    ? listedStory(state.stories, lockedOrder.story_id)
-    : listedStory(state.stories, pickedStory !== undefined ? pickedStory : clipId && state.clipStories[clipId]);
+  const story = listedStory(state.stories, lockedOrder ? lockedOrder.story_id : storyIdOf(storyChoice, clipStory));
   const limit = cut?.limit ?? null;
   const blocked = ep && cut ? draftBlocked(ep, cut, story) : null;
   const tokens = draftTokens(ep, story);
@@ -138,13 +148,7 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
   const pickClip = (id: string) => {
     setClipId(id);
     setPickedEp(null);
-    setPickedStory(undefined);
-    setStoryGone(false);
-  };
-
-  const pickStory = (id: string | null) => {
-    setPickedStory(id);
-    setStoryGone(false);
+    setStoryChoice(FOLLOWS_CLIP);
   };
 
   const send = async (replace: boolean) => {
@@ -165,10 +169,7 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
       replace,
     );
     if (refused === "episodes_changed") episodes.reload();
-    if (refused === "story_not_found") {
-      setPickedStory(null);
-      setStoryGone(true);
-    }
+    if (refused === "story_not_found") setStoryChoice({ kind: "gone" });
   };
 
   return (
@@ -200,8 +201,8 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
               stories={state.stories}
               storyId={story?.id ?? null}
               lockedText={lockedOrder ? (lockedOrder.story_title ?? "ไม่ใช้") : null}
-              gone={storyGone}
-              onChange={pickStory}
+              gone={storyChoice.kind === "gone"}
+              onChange={(id) => setStoryChoice(choiceOf(id))}
             />
           )}
           {shownClipId !== null && (

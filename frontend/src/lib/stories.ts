@@ -23,7 +23,7 @@ export type StoryRow = {
 };
 
 /** The listed row of a Story id; null for no id, or one no longer in the list (deleted). */
-export const listedStory = (rows: StoryRow[], id: string | null | undefined): StoryRow | null =>
+export const listedStory = (rows: StoryRow[], id: string | null): StoryRow | null =>
   rows.find((row) => row.id === id) ?? null;
 
 /** `GET /api/story-clips`: `{clip_id: story_id}` of every clip that remembers a Story. */

@@ -325,3 +325,19 @@
 - **ไอคอน external-link:** คงสองแบบ — 12px สีลิงก์หลังข้อความ ในบรรทัดข้อความ (setup-status) และ 16px หน้าข้อความ ในลิงก์แบบปุ่ม (spoil-maker)
 
 **From:** tickets · **Status:** active
+
+## D23: ค่าเลือกของช่อง Story เป็น union สี่แบบ
+
+**Chosen:** `StoryChoice` ใน `SpoilerSetup.tsx` เป็น `{ kind: "followsClip" } | { kind: "story"; id } | { kind: "none" } | { kind: "gone" }` ค่าเดียว แทน `string | null | undefined` คู่กับธง `storyGone`.
+
+**Why:** ปิด Blocked 8 (ticket 04): "เรื่องถูกลบแต่ยังเลือกเรื่องอยู่" เขียนไม่ได้; ตาม rules/components.md (สถานะเป็น discriminated union ไม่ใช่ boolean แยก).
+
+**Rejected:**
+- `gone` เป็นธงใน `none` (`{ kind: "none"; gone: boolean }`) — ยังเป็นสองค่าในหนึ่ง; `gone` เป็นสถานะของตัวเองที่ช่องบอก
+
+**Details:**
+- `followsClip` = ยังไม่แตะ ตามเรื่องที่คลิปจำ; เปลี่ยนคลิปคืน `followsClip` (ข้อความเรื่องถูกลบหายไปด้วย)
+- `gone` ส่ง `story_id` `null` เหมือน `none`; เลือกอะไรในช่องแล้วเป็น `story` หรือ `none`
+- เปิดจาก order: `story_id` มี → `story`, `null` → `none` (spoil-maker D87)
+
+**From:** build ticket 04 · **Status:** active

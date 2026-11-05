@@ -241,3 +241,4 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กของเรียบเรียงใหม่ด้วย Story: อ่าน Story ของคลิปแบบไม่ raise, golden ของ "ไม่ใช้", ไม่เช็ค token, กล่องไม่บอกเรื่องเมื่ออ่านไม่ได้, `readStoryLinks` ใช้ร่วม | [story-kb](features/story-kb/decisions.md) | D20 | — | — | active |
 | ข้อแก้จาก feature review ของ story-kb: กล่องเรียบเรียงใหม่ตาม Figma, `story-clips` ไม่ห่อ RootModel, `#/stories/` เปิดรายการ, badge ใช้อยู่เมื่อ n > 0, `grouped` ใน `lib/format` | [story-kb](features/story-kb/decisions.md) | D21 | — | — | active |
 | ข้อถาม designer ของ story-kb: `ModalDialog` มุม 24px คงเดิม, แถวปุ่มหน้าแก้ Story สูงตามปุ่ม, ไอคอน external-link คงสองแบบ | [story-kb](features/story-kb/decisions.md) | D22 | — | — | active |
+| ค่าเลือกของช่อง Story ขั้น 1 เป็น union สี่แบบ (`followsClip`, `story`, `none`, `gone`) ไม่มีธงเรื่องถูกลบแยก | [story-kb](features/story-kb/decisions.md) | D23 | — | — | active |
