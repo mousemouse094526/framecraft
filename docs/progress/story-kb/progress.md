@@ -1,11 +1,11 @@
 # Progress: story-kb
 
-**Now:** ทุก ticket เสร็จ — เรียบเรียงใหม่ใช้ Story ล่าสุดของคลิป และกล่องเรียบเรียงใหม่บอกเรื่องที่ใช้; รอ feature review
+**Now:** feature review เสร็จ (b276e69), CI เขียว — เหลือ Blocked 5–8: 3 ข้อถาม designer, 1 refactor `StoryChoice`
 
-**Next:** feature review
+**Next:** ตัด ticket หรือปิด Blocked 5–8
 
 ```
-/warroom-build story-kb --review-feature
+/warroom tickets story-kb
 ```
 
 ## Tickets
@@ -17,6 +17,28 @@
 | 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | done |
 
 ## Log
+
+### feature review — 2026-11-06
+
+**Built:**
+- Review สามแกนทั้ง branch (Standards, Spec, Newcomer) จาก merge-base d5557214; แก้ใน b276e69:
+- `#/stories/` (ไม่มี id) เปิดรายการแทนพังเป็น offline — test ใหม่ใน `StoryList.test.tsx`
+- กล่องเรียบเรียงใหม่ตาม Figma 8105-56586: "เรียบเรียงบทใหม่", คำอธิบายใหม่, บรรทัดเสียง 13px, ช่องติ๊กน้ำหนักปกติ (ไม่ได้เทียบใน browser จริง — test หา dialog ด้วยชื่อใหม่)
+- golden `polish_again_prompt_no_story.txt` จับใหม่จาก d5557214 (worktree ชั่วคราว) — ตรงทุกตัวอักษร; comment ใน test ชี้ commit นั้น
+- `remember()` ใน `test_stories_api.py` จำผ่าน `stories.set_clip_story`; สถานะค้างจาก crash ใช้ `left_behind`
+- `backend/stories.py`: `_rewrite_clip_stories` ตัวเดียว (ลบ/เพิ่ม key), `_remembered` นับคลิปที่เดียว, `_checked_fields`, `StoredStory.modified_ns`, ชื่อ lambda ชัด; `names_rule`/`block_tokens` รับ `None` → `script._story_part` เหลือเงื่อนไขเดียว
+- frontend: `grouped` → `src/lib/format.ts` (EpisodePicker ใช้ด้วย), `listedStory` → `src/lib/stories.ts` (ขั้น 1 และกล่องเรียบเรียง), prop `epBlocked` → `draftBlocked`, `setupFixtures` ไม่ re-export path ของ Story, comment ของ `StoryPicker`, `useHash` beforeunload, ข้อความ not-ready ของ Story
+- docs: spec › Modules touched (`backend.qwen_tokens.count`), D19 (`set_clip_story`), ADR 0024 (ร่างบทอ่าน Story ของคำขอ), spec › Design (badge เมื่อ n > 0), spoil-maker spec › Frontend (หัวข้อกล่อง)
+
+**Decided:**
+- D21 — กล่องเรียบเรียงใหม่ตาม Figma (ปุ่มคง 44px), `story-clips` ไม่ห่อ RootModel, `#/stories/` เปิดรายการ, badge "ใช้อยู่" เมื่อ n > 0, fixture ของ API ยัง import ข้ามไฟล์ตามแบบ spoil-maker (ย้าย conftest แตะ test ทั้งชุด), ของใช้ร่วม
+
+**For the next ticket:**
+- Spec: spoil-maker D90 (เลือกสไตล์ไม่เปลี่ยน layout) อยู่ใน branch นี้ตั้งแต่ 4c62661 ตามคำขอผู้ใช้ — บอกใน PR
+- Spec: test ที่ patch `stories.now_iso` และ tokenizer ปลอมที่ลบ Story ผูกกับลำดับภายใน — รับได้ (ไม่มีทางอื่นผ่าน API)
+- Standards: `story_id`/`story_title` และ `ep`/`story`/`tokens`/`limit` เดินคู่ (Data Clump) — ไม่รวม ตาม 02
+
+**Checks:** `uv run pytest` (679) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` (311) · `npm --prefix frontend run build` — all green
 
 ### 03: เรียบเรียงใหม่ใช้ Story ล่าสุด — done 2026-11-05
 
@@ -120,3 +142,7 @@
 | 2 | 01 | design: แก้ Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8104-52899](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8104-52899)) |
 | 3 | 02 | design: ขั้น 1 ตั้งค่าคลิปสปอย: ช่อง Story | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8105-55260](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8105-55260)) |
 | 4 | 03 | design: ขั้น 2 กล่องเรียบเรียงใหม่ | `/warroom story-kb` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/story-kb/ui-prompt.md`) | done ([Figma 8105-56552](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8105-56552)) |
+| 5 | review | designer: `ModalDialog` มุม `sm:rounded-3xl` (24px) แต่ Figma `Delete story dialog` 16px — ของใช้ร่วมกับ spoil-maker | `/warroom tickets story-kb` (หลังถาม designer) | open |
+| 6 | review | designer: Actions ของหน้าแก้ Story ใน Figma มี Spacer สูง 100px — โค้ดทำแถวสูงตามปุ่ม | `/warroom tickets story-kb` (หลังถาม designer) | open |
+| 7 | review | designer: ไอคอน external-link สองแบบ (setup-status 12px ม่วง, spoil-maker 16px เข้ม) ควรเป็นตัวเดียวไหม | `/warroom tickets story-kb` (หลังถาม designer) | open |
+| 8 | review | refactor: `StoryChoice` (`string \| null \| undefined`) กับ `storyGone` ใน `SpoilerSetup.tsx` เป็น union type เดียว | `/warroom tickets story-kb` | open |
