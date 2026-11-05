@@ -412,9 +412,15 @@ describe("ตั้งค่าคลิปสปอย", () => {
 
 describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
   const storyField = () => screen.getByRole("combobox", { name: "เรื่องในคลังความรู้" });
-  const remembering = (stories = [CONAN, ALIEN]): Route[] => [get(STORIES_PATH, stories), get(STORY_CLIPS_PATH, { [FILM.id]: CONAN.id })];
+  /** The Stories listed, and the Story each clip remembers: FILM remembers CONAN unless `links` says otherwise. */
+  const remembering = (stories = [CONAN, ALIEN], links: Record<string, string> = { [FILM.id]: CONAN.id }): Route[] => [
+    get(STORIES_PATH, stories),
+    get(STORY_CLIPS_PATH, links),
+  ];
+  const BOTH_REMEMBER = { [FILM.id]: CONAN.id, [OTHER.id]: ALIEN.id };
   const clipRadio = (clip: { title: string }) => screen.getByRole("radio", { name: `เลือก ${clip.title}` });
-  const GONE_TEXT = "ไม่พบเรื่องนี้ในคลังความรู้แล้ว";
+  /** The API's story_not_found message, worded apart from the app's own texts: the field says what the API says. */
+  const GONE_TEXT = "ไม่พบเรื่องนี้แล้ว (ข้อความของ API)";
 
   it("a clip that remembers a Story starts with it, and the meter adds the Story's tokens", async () => {
     backend(remembering());
@@ -438,7 +444,7 @@ describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
     expect(screen.queryByText(/^เรื่อง .* token$/)).not.toBeInTheDocument();
   });
 
-  it("lists ไม่ใช้ then every Story by title; picking one sends nothing", async () => {
+  it("lists ไม่ใช้ then every Story by title; picking one calls the API for nothing until ร่างบท", async () => {
     backend(remembering());
     const user = await pickFilm();
     const before = fetchMock.mock.calls.length;
@@ -504,7 +510,7 @@ describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
     backend([
       ...remembering(),
       get(STORIES_PATH, [ALIEN]),
-      send("POST", JOBS_PATH, { code: "story_not_found", message: "ไม่พบเรื่องนี้ในคลังความรู้แล้ว" }, 400),
+      send("POST", JOBS_PATH, { code: "story_not_found", message: GONE_TEXT }, 400),
     ]);
     const user = await pickFilm();
     const read = reads(STORIES_PATH);
@@ -512,13 +518,13 @@ describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
     await user.click(draftButton());
 
     expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: CONAN.id })]);
-    expect(await screen.findByText("ไม่พบเรื่องนี้ในคลังความรู้แล้ว")).toBeInTheDocument();
+    expect(await screen.findByText(GONE_TEXT)).toBeInTheDocument();
     expect(reads(STORIES_PATH)).toBe(read + 1);
     expect(storyField()).toHaveDisplayValue("ไม่ใช้");
   });
 
   it("left untouched, the field follows the picked clip's own Story", async () => {
-    backend([get(STORIES_PATH, [CONAN, ALIEN]), get(STORY_CLIPS_PATH, { [FILM.id]: CONAN.id, [OTHER.id]: ALIEN.id })]);
+    backend(remembering([CONAN, ALIEN], BOTH_REMEMBER));
     const user = await pickFilm();
     expect(storyField()).toHaveDisplayValue(CONAN.title);
 
@@ -555,8 +561,7 @@ describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
     /** Picks FILM, which remembers CONAN (OTHER remembers ALIEN), and presses ร่างบท; every ร่างบท is refused as story_not_found. */
     async function draftDeletedStory() {
       backend([
-        get(STORIES_PATH, [CONAN, ALIEN]),
-        get(STORY_CLIPS_PATH, { [FILM.id]: CONAN.id, [OTHER.id]: ALIEN.id }),
+        ...remembering([CONAN, ALIEN], BOTH_REMEMBER),
         get(STORIES_PATH, [ALIEN]),
         send("POST", JOBS_PATH, { code: "story_not_found", message: GONE_TEXT }, 400),
       ]);
@@ -632,6 +637,14 @@ describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
     await openSetup();
 
     expect(await screen.findByRole("combobox", { name: "เรื่องในคลังความรู้" })).toHaveDisplayValue(ALIEN.title);
+  });
+
+  it("a failed draft's order with ไม่ใช้ starts the field at ไม่ใช้, not at the clip's own Story (spoil-maker D87)", async () => {
+    const failed = jobOf({ state: "failed", order: { ...ORDER, story_id: null, story_title: null } });
+    backend([...remembering(), get(CURRENT_PATH, failed)]);
+    await openSetup();
+
+    expect(await screen.findByRole("combobox", { name: "เรื่องในคลังความรู้" })).toHaveDisplayValue("ไม่ใช้");
   });
 
   it("while a draft runs the field is its order's Story title as text", async () => {

@@ -328,7 +328,7 @@
 
 ## D23: ค่าเลือกของช่อง Story เป็น union สี่แบบ
 
-**Chosen:** `StoryChoice` ใน `SpoilerSetup.tsx` เป็น `{ kind: "followsClip" } | { kind: "story"; id } | { kind: "none" } | { kind: "gone" }` ค่าเดียว แทน `string | null | undefined` คู่กับธง `storyGone`.
+**Chosen:** `StoryChoice` ใน `SpoilerSetup.tsx` เป็น `{ kind: "followsClip" } | { kind: "story"; id } | { kind: "none" } | { kind: "gone"; message }` ค่าเดียว แทน `string | null | undefined` คู่กับธง `storyGone`.
 
 **Why:** ปิด Blocked 8 (ticket 04): "เรื่องถูกลบแต่ยังเลือกเรื่องอยู่" เขียนไม่ได้; ตาม rules/components.md (สถานะเป็น discriminated union ไม่ใช่ boolean แยก).
 
@@ -341,3 +341,17 @@
 - เปิดจาก order: `story_id` มี → `story`, `null` → `none` (spoil-maker D87)
 
 **From:** build ticket 04 · **Status:** active
+
+## D24: ข้อแก้จาก feature review รอบสอง
+
+**Chosen:** รวมข้อตัดสินตอน feature review หลัง ticket 04.
+
+**Details:**
+- **ลองอีกครั้งถูกปฏิเสธเป็น `story_not_found`:** อยู่ในกลุ่มที่ต้องแก้ตั้งค่า แบบ `voice_not_found` — ไม่มีปุ่มลองอีกครั้ง มีแค่ "กลับไปแก้ตั้งค่า" (ส่ง order เดิมซ้ำไม่มีทางผ่าน); ขั้น 1 เปิดจาก order แล้วช่องเป็น "ไม่ใช้" เพราะ Story ไม่อยู่ในรายการ
+- **ข้อความ `story_not_found` ในช่อง Story:** ใช้ `message` ของ API (`gone` เก็บไว้) ไม่ใช่ข้อความซ้ำในหน้า — แบบ refusal อื่นของขั้น 1
+- **ชื่อ:** `sentStoryId` (ค่าเลือก → id ที่ส่ง) แยกจาก `storyIdOf` ของ hash ใน story-kb; `clipStoryId`
+- **เลข spoil-maker D90:** spoil D39 อ้างเลขของ branch `feat/spoil-maker-transcript-remove`; ใน develop D90 คือ "เลือกสไตล์ไม่เปลี่ยน layout" — เขียนกำกับใน spoil D39 และแถว index
+
+**Why:** ข้อ Standards/Spec/Newcomer ของ feature review รอบสอง; ไม่เปลี่ยนสิ่งที่ spec สัญญา (spec › Frontend: `story_not_found` → ช่องเป็น "ไม่ใช้").
+
+**From:** feature review · **Status:** active

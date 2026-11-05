@@ -120,10 +120,10 @@ export function useSpoilerSetup() {
 
   /**
    * ร่างบท, or ร่างทับ with `replace` once the user agreed to lose the draft there (D28).
-   * Resolves to the refusal's code when the API refused, so the page can read the EPs again.
+   * Resolves to the API's refusal when it refused, so the page can read the EPs again or show its message.
    */
   const draft = useCallback(
-    async (order: DraftAsk, replace: boolean): Promise<string | null> => {
+    async (order: DraftAsk, replace: boolean): Promise<Refusal | null> => {
       setIfMounted(whenLoaded((s) => ({ ...s, banner: null, confirmingReplace: false })));
       const reply = await sendDraft(order, replace);
       if (reply.kind === "started") {
@@ -137,24 +137,24 @@ export function useSpoilerSetup() {
         const { status, refusal } = reply;
         if (status === 409 && refusal?.code === "draft_exists") {
           setIfMounted(whenLoaded((s) => ({ ...s, draftExists: true, confirmingReplace: true })));
-          return refusal.code;
+          return refusal;
         }
         if (status === 400 && refusal?.code === "story_not_found") {
           // The form says so by its Story field, which reads ไม่ใช้ once the list is read again.
           await reloadStories();
-          return refusal.code;
+          return refusal;
         }
         if (status === 409 && refusal?.code === "busy") {
           // Another tab drafts: the steps read its job, which locks this page (D87).
           setIfMounted(whenLoaded((s) => ({ ...s, banner: { kind: "refused", text: BUSY_TEXT } })));
           refreshSteps();
-          return refusal.code;
+          return refusal;
         }
         // `episodes_changed`, `ep_empty`, `transcript_too_long` and the rest say the API's message (spec › Frontend).
         const banner = bannerOf(status, refusal);
         if (banner && refusal) {
           setIfMounted(whenLoaded((s) => ({ ...s, banner })));
-          return refusal.code;
+          return refusal;
         }
       }
       setIfMounted({ kind: "offline" });

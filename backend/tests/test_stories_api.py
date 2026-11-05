@@ -264,7 +264,8 @@ def test_deleting_a_clip_forgets_its_story_and_keeps_the_story(client, project):
 
 
 def test_a_trim_job_that_is_done_keeps_the_clips_story(client, project):
-    """A Trim job drops what was made from the mp4; the Story a user chose isn't (D7, ADR 0022)."""
+    """A Trim job replaces the clip's mp4 and drops what was made from it (ADR 0022); the
+    Story is the user's choice for the clip, not made from the mp4, so it stays (D7)."""
     story = create(client)
     remember(project, {VIDEO_ID: story["id"]})
 

@@ -15,13 +15,13 @@ type Props = {
   storyId: string | null;
   /** While a draft runs: its order's Story title, or ไม่ใช้, as text (spoil-maker D82); null otherwise. */
   lockedText: string | null;
-  /** The picked Story was gone when ร่างบท sent it (`story_not_found`). */
-  gone: boolean;
+  /** The API's message when the picked Story was gone as ร่างบท sent it (`story_not_found`); null otherwise. */
+  goneText: string | null;
   onChange: (storyId: string | null) => void;
 };
 
 /** Figma component `Story picker` of ตั้งค่าคลิปสปอย: the Story the clip's draft uses (story-kb D3, D15, D16). */
-export function StoryPicker({ stories, storyId, lockedText, gone, onChange }: Props) {
+export function StoryPicker({ stories, storyId, lockedText, goneText, onChange }: Props) {
   const fieldId = useId();
   return (
     <section aria-label={LABEL} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 lg:w-[560px] lg:shrink-0">
@@ -32,7 +32,7 @@ export function StoryPicker({ stories, storyId, lockedText, gone, onChange }: Pr
         </div>
       ) : (
         <>
-          {gone && <Alert tone="error">ไม่พบเรื่องนี้ในคลังความรู้แล้ว</Alert>}
+          {goneText !== null && <Alert tone="error">{goneText}</Alert>}
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-col gap-2">
               <label htmlFor={fieldId} className="font-button text-sm leading-5 font-medium text-foreground">

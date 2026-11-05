@@ -113,6 +113,19 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
   });
 
+  it("ลองอีกครั้ง refused as story_not_found says so and offers only กลับไปแก้ตั้งค่า (story-kb spec › Frontend)", async () => {
+    const failed = jobOf({ state: "failed", order: { ...ORDER, story_id: "st_000000ff", story_title: "เรื่องที่ลบแล้ว" }, error: { code: "draft_failed", message: "AI ร่างบทไม่สำเร็จ 3 ครั้ง" } });
+    const gone = { code: "story_not_found", message: "ไม่พบเรื่องนี้ในคลังความรู้แล้ว" };
+    backend([get(CURRENT_PATH, failed), send("POST", JOBS_PATH, gone, 400)]);
+    const user = await openReview();
+
+    await user.click(await screen.findByRole("button", { name: "ลองอีกครั้ง" }));
+
+    expect(await screen.findByText("ไม่พบเรื่องนี้ในคลังความรู้แล้ว")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
+  });
+
   it("กลับไปแก้ตั้งค่า after a failure opens step 1 with the order picked", async () => {
     const failed = jobOf({ state: "failed", order: { ...ORDER, ep: { n: 2, start_s: 1799, end_s: 3600 } }, error: { code: "draft_failed", message: "AI ร่างบทไม่สำเร็จ 3 ครั้ง" } });
     backend([get(CURRENT_PATH, failed)]);

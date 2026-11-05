@@ -4,11 +4,12 @@ import { useDraftRun, useJobCalls } from "./useStepStatus";
 
 /**
  * Refusals of ลองอีกครั้ง that need the setup changed: they offer กลับไปแก้ตั้งค่า only, as
- * sending the same order again can't pass (spec › Frontend, D87, D88). The rest (`busy`,
+ * sending the same order again can't pass (spec › Frontend, D87, D88; `story_not_found`: story-kb
+ * spec › Frontend, step 1 then shows ไม่ใช้). The rest (`busy`,
  * `gpu_busy`, `draft_locked`, no answer) depend on something else: the steps read again and
  * ลองอีกครั้ง stays.
  */
-const SETUP_REFUSALS = ["episodes_changed", "clip_not_ready", "voice_not_found", "ep_empty", "transcript_too_long"] as const;
+const SETUP_REFUSALS = ["episodes_changed", "clip_not_ready", "voice_not_found", "story_not_found", "ep_empty", "transcript_too_long"] as const;
 
 const needsSetup = (code: string) => (SETUP_REFUSALS as readonly string[]).includes(code);
 

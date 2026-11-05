@@ -113,7 +113,9 @@ def script_prompt(brief: Brief, last: list[Sentence] | None = None, asked_before
 
 def _story_part(story: Story | None, end: str) -> str:
     """The Story block and what follows it; nothing for no Story, so the prompt is as it
-    was before story-kb (story-kb D19)."""
+    was before story-kb (story-kb D19). `end` matches the prompt it goes in: a blank line
+    before the writing prompt's Transcript, a plain line break in the polish prompt, whose
+    parts follow one another line by line."""
     return f"{stories.prompt_block(story)}{end}" if story else ""
 
 

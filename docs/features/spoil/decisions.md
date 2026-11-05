@@ -604,6 +604,7 @@
 **Details:**
 - supersedes spoil-maker D90, D91, D94, D95 ซึ่งอยู่บน branch `feat/spoil-maker-transcript-remove` ยังไม่ merge: การแก้ Status ของสี่ข้อนั้น, spec และ ticket 10 ของ spoil-maker ทำบน branch นั้น (บันทึกส่งต่ออยู่ใน notes ของกลุ่ม session)
 - แก้ข้อความทีละบรรทัด (spoil-maker D54) ยังอยู่
+- เลข D90–D95 ในข้อนี้เป็นเลขของ branch `feat/spoil-maker-transcript-remove`: ส่วน "เลือกสไตล์ไม่เปลี่ยน layout" (D92 ของ branch นั้น) ลง develop เป็น spoil-maker D90 ผ่าน story-kb; spoil-maker D90 ใน develop ไม่ใช่ข้อที่เลิก
 
 **From:** change request · **Status:** active
 

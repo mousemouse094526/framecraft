@@ -131,7 +131,7 @@ question; the full entry is in the feature's decisions.md.
 | ตัดช่วงออกจาก Temp clip ด้วย ffmpeg encode mp4 ใหม่แทนไฟล์เดิม ไม่เก็บต้นฉบับ; Mac `h264_videotoolbox`, Windows `libx264`, เสียง `aac`; ไม่จองช่อง GPU | [spoil](features/spoil/decisions.md) | D36 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
 | ตัดคลิปที่มี Transcript, Shot, การตัด EP หรือ Spoil draft: เตือน ยืนยันครั้งเดียว (`confirm_derived_loss`) แล้วลบทั้งหมด | [spoil](features/spoil/decisions.md) | D37 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | เลือกช่วงตัดบน timeline ใต้ player ในกล่องขวาของ tab คลิป: ลากหัวท้าย, พิมพ์เวลา, ตั้งจากตำแหน่งเล่น, เพิ่มช่วง, ความยาวที่เหลือ | [spoil](features/spoil/decisions.md) | D38 | — | — | active |
-| ตัดช่วงแทนการซ่อนบรรทัด Transcript (เลิก spoil-maker D90, D91, D94, D95); D92, D93 ยังทำ | [spoil](features/spoil/decisions.md) | D39 | — | — | active |
+| ตัดช่วงแทนการซ่อนบรรทัด Transcript (เลิก spoil-maker D90, D91, D94, D95 เลขของ branch `feat/spoil-maker-transcript-remove`); D92, D93 ยังทำ — D92 ลง develop เป็น spoil-maker D90 | [spoil](features/spoil/decisions.md) | D39 | — | — | active |
 | ส่วนตัดช่วงออกแบบใน Figma หลังแผน (`pending`) | [spoil](features/spoil/decisions.md) | D40 | — | — | active |
 | กติกาของ Trim job: ทีละงาน, `clip_busy` สองทาง, 1–20 ช่วง เหลือ ≥ 10 วินาที, bitrate จากไฟล์เดิม, marker `{id}.trimming.json`, `in_use` บน Windows, `?v=` ของ player, เช็คดิสก์ | [spoil](features/spoil/decisions.md) | D41 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
 | ข้อแก้ Breaker ตัดช่วง: ความยาวจาก `probe`, ลบ draft หลัง lock ของ slot, `GpuSlot.trimming_clip`, ตรวจไฟล์ผลก่อนแทน, `os.replace` ลองซ้ำ 10 วินาที | [spoil](features/spoil/decisions.md) | D42 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
@@ -242,3 +242,4 @@ question; the full entry is in the feature's decisions.md.
 | ข้อแก้จาก feature review ของ story-kb: กล่องเรียบเรียงใหม่ตาม Figma, `story-clips` ไม่ห่อ RootModel, `#/stories/` เปิดรายการ, badge ใช้อยู่เมื่อ n > 0, `grouped` ใน `lib/format` | [story-kb](features/story-kb/decisions.md) | D21 | — | — | active |
 | ข้อถาม designer ของ story-kb: `ModalDialog` มุม 24px คงเดิม, แถวปุ่มหน้าแก้ Story สูงตามปุ่ม, ไอคอน external-link คงสองแบบ | [story-kb](features/story-kb/decisions.md) | D22 | — | — | active |
 | ค่าเลือกของช่อง Story ขั้น 1 เป็น union สี่แบบ (`followsClip`, `story`, `none`, `gone`) ไม่มีธงเรื่องถูกลบแยก | [story-kb](features/story-kb/decisions.md) | D23 | — | — | active |
+| ลองอีกครั้งที่ถูกปฏิเสธเป็น `story_not_found` พาไปแก้ตั้งค่าเท่านั้น; ข้อความเรื่องถูกลบในช่อง Story มาจาก API | [story-kb](features/story-kb/decisions.md) | D24 | — | — | active |
