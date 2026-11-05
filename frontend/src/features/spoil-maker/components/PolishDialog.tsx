@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import type { Sentence } from "../lib/draft";
-import { ModalDialog } from "./ModalDialog";
+import { ModalDialog } from "../../../components/ui/ModalDialog";
 
 type Props = {
   sentences: Sentence[];

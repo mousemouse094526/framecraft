@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Draft, DraftJob, Sentence } from "../lib/draft";
 import type { RenderJob, RenderResult, SentencesJob } from "../lib/render";
-import { jsonResponse } from "./testBackend";
+import { jsonResponse } from "../../../testing/testBackend";
 
 const API = "/api/spoil-maker";
 const DRAFT = `${API}/draft`;

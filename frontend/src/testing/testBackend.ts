@@ -1,6 +1,6 @@
 import type { Mock } from "vitest";
 
-/** The fake backend the สปอย tab's tests answer `fetch` with: routes matched by method and path. */
+/** The fake backend the tabs' tests answer `fetch` with: routes matched by method and path. */
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

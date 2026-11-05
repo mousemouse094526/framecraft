@@ -4,7 +4,7 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Voice, VoiceJob } from "../hooks/useVoices";
-import { get, type Route, send, sent as sentTo, serve } from "./testBackend";
+import { get, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
 
 const VOICES_PATH = "/api/spoil-maker/voices";
 const JOBS_PATH = "/api/spoil-maker/voice-jobs";

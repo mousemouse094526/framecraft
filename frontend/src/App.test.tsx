@@ -39,12 +39,13 @@ describe("tab bar", () => {
     expect(tab("ติดตั้ง")).toHaveAttribute("aria-current", "page");
   });
 
-  it("lists ติดตั้ง, คลิป, สปอย in that order (spoil-maker D53)", () => {
+  it("lists ติดตั้ง, คลิป, คลังความรู้, สปอย in that order (spoil-maker D53, story-kb D9)", () => {
     render(<App />);
 
     expect(within(screen.getByRole("navigation", { name: "แถบ tab" })).getAllByRole("link").map((link) => link.textContent)).toEqual([
       "ติดตั้ง",
       "คลิป",
+      "คลังความรู้",
       "สปอย",
     ]);
   });
@@ -74,6 +75,13 @@ describe("tab bar", () => {
 
     expect(tab("สปอย")).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("navigation", { name: "ขั้นของสปอย" })).toBeInTheDocument();
+  });
+
+  it.each(["#/stories", "#/stories/new", "#/stories/st_3fa91c07"])("opens คลังความรู้ from %s (story-kb D9)", (hash) => {
+    window.location.hash = hash;
+    render(<App />);
+
+    expect(tab("คลังความรู้")).toHaveAttribute("aria-current", "page");
   });
 
   it("goes back to the previous tab with the browser back button", async () => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, sendJson } from "../../../lib/api";
+import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { clipPath, videoPath, videoUrl, type TempClip } from "../../../lib/clips";
 import { isRunning, onlyWhen } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
@@ -142,7 +142,7 @@ export function useScriptReview() {
         // offline, below
       }
       setIfMounted({ kind: "offline" });
-      return { kind: "refused", message: "ติดต่อ backend ไม่ได้" };
+      return { kind: "refused", message: OFFLINE_TEXT };
     },
     [load, setIfMounted],
   );

@@ -236,3 +236,4 @@ question; the full entry is in the feature's decisions.md.
 | คลิปจำ Story ตอนกดร่าง: `kind: "draft"` ส่ง `story_id`; ไม่มี route บันทึกแยก | [story-kb](features/story-kb/decisions.md) | D15 | — | — | active |
 | ข้อแก้ red team: ตำแหน่งบล็อก Story, lock ในสุด, ขึ้นบรรทัดเป็นช่องว่าง, บันทึกซ้ำ, ตัวกันออกใน `useHash`, เพิ่มเรื่องในแท็บใหม่, กล่องเรียบเรียงบอกเรื่อง | [story-kb](features/story-kb/decisions.md) | D16 | — | — | active |
 | ทางเลือกเล็กของการเช็คค่า Story: ไม่ส่งชื่อ = ว่าง, ช่องบรรทัดเดียวรวมช่องว่าง, ชื่อซ้ำเทียบ casefold, ไม่สนฟิลด์ที่ไม่รู้จัก, Story อ่านไม่ได้เป็น `404` | [story-kb](features/story-kb/decisions.md) | D17 | — | — | active |
+| ทางเลือกเล็กของหน้าคลังความรู้: ข้อ e2e ด้วย Vitest ผ่าน `App`, ตัวกันออกลงทะเบียนตอนโหลด module, บันทึกครั้งแรกไม่ remount, Alert เมื่อบันทึกไม่ได้, วันเวลาจากข้อความ `updated_at`, ของใช้ร่วมย้ายไป `components/ui` และ `src/testing` | [story-kb](features/story-kb/decisions.md) | D18 | — | — | active |

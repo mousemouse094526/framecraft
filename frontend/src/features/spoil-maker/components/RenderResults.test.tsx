@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { RenderJob, RenderResult } from "../lib/render";
-import { get, phased, type Route, send, serve } from "./testBackend";
+import { get, phased, type Route, send, serve } from "../../../testing/testBackend";
 
 const RENDERS = "/api/spoil-maker/renders";
 const CURRENT = "/api/spoil-maker/renders/current";

@@ -1,22 +1,43 @@
 # Progress: story-kb
 
-**Now:** 01 backend เสร็จ (Stories API, Story ที่คลิปจำ, Ops); design ครบทั้ง 4 จอ (Blocked 1–4 done) — ส่วนหน้าเว็บของ 01 ทำต่อได้
+**Now:** 01 เสร็จ — tab คลังความรู้ เพิ่ม แก้ ลบ Story ได้; 02 (ร่างบทด้วย Story) พร้อมทำ
 
-**Next:** ทำกลุ่ม tab คลังความรู้ของ 01 ต่อ
+**Next:** ticket 02
 
 ```
-/warroom-build story-kb 01
+/warroom-build story-kb 02
 ```
 
 ## Tickets
 
 | # | Title | Status |
 |---|---|---|
-| 01 | คลังความรู้ — เพิ่ม แก้ ลบ Story | in-progress |
+| 01 | คลังความรู้ — เพิ่ม แก้ ลบ Story | done |
 | 02 | ร่างบทด้วย Story | ready |
 | 03 | เรียบเรียงใหม่ใช้ Story ล่าสุด | ready |
 
 ## Log
+
+### 01: คลังความรู้ — เพิ่ม แก้ ลบ Story — done 2026-11-05
+
+**Built:**
+- แถบ tab 4 tab (ติดตั้ง · คลิป · คลังความรู้ · สปอย); `tabOf` จับ `#/stories/…`; `useLeaveGuard` ใน `lib/useHash` ถาม "ออกโดยไม่บันทึก?" ก่อน hash เปลี่ยน (ปฏิเสธ → `replaceState` คืน hash เดิม) และ `beforeunload`
+- `features/story-kb/`: รายการ Story (ว่าง, กำลังโหลด skeleton, offline, แถวพร้อม "ใช้อยู่ {n} คลิป" และ "แก้ล่าสุด"), หน้าแก้ Story (ชื่อเรื่อง, บทความพร้อมตัวนับ code point, ตัวละคร ≤ 30, error ใต้ช่องจากเช็คในหน้าและจาก `invalid_story`, "บันทึกแล้ว", ลบพร้อมกล่องยืนยัน, "ไม่พบเรื่องนี้")
+- ของใช้ร่วม: `ModalDialog` และ `arrow-left.svg` → `components/ui/`, `testBackend.ts` → `src/testing/`, `OFFLINE_TEXT` → `lib/api`; `Refusal` มี `field`
+- หน้าตาเทียบ Figma ใน browser จริง (fetch ปลอมในหน้า): รายการที่ 1440, แก้ Story ที่ 1440 และ 375, บันทึกแล้ว, กล่องยืนยันลบ — ตรง; backend ที่รันอยู่ของเครื่องยังเป็นโค้ดเก่า (`/api/stories` 404 → `OfflinePanel`)
+- กลุ่ม "tab คลังความรู้" ครบ; ข้อ (e2e) เป็น Vitest ผ่าน `App` (D18)
+
+**Decided:**
+- D18 — ข้อ e2e ด้วย Vitest, ตัวกันออกลงทะเบียนตอนโหลด module, บันทึกครั้งแรกไม่ remount และไม่ถามตอนไป `#/stories/{id}`, Alert เมื่อบันทึก/ลบไม่ได้, วันเวลาจากข้อความ `updated_at`, ไอคอน + สีขาวบนปุ่ม "เพิ่มเรื่อง", ของใช้ร่วมย้ายที่
+
+**For the next ticket:**
+- Review (Spec): test ที่ใช้ `remember()` เขียน `clip-stories.json` ตรง — ticket 02 เปลี่ยนเป็นจำผ่าน Draft job (`kind: "draft"`) เมื่อมีแล้ว
+- Review (Standards): `stories.list_rows` กับ `stories._view` นับคลิปของ Story คนละแบบ (`Counter` กับ `sum`) — รวมตอนแตะไฟล์นี้ใน 02
+- Review (Standards): `GET /api/story-clips` ตอบ `dict[str, str]` ไม่ใช่ Pydantic model — ตามรูปของ spec › API; feature review ตัดสินว่าจะห่อเป็น `RootModel` ไหม
+- `ModalDialog` มุม `sm:rounded-3xl` (24px) ส่วน Figma `Delete story dialog` 16px — ของใช้ร่วมของ spoil-maker ไม่แก้ใน ticket นี้
+- Actions ของหน้าแก้ใน Figma มี Spacer สูง 100px (แถวสูงกว่าปุ่ม) — ทำเป็นแถวสูงตามปุ่ม; ถาม designer ถ้าตั้งใจ
+
+**Checks:** `uv run pytest` (ที่ root ของ repo) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` · `npm --prefix frontend run build` — all green
 
 ### design: 4 จอ — 2026-11-05
 

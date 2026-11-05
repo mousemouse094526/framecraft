@@ -1,4 +1,8 @@
 // Every backend call goes through here, so none can hang the UI forever.
+
+/** The line a refused action shows when the backend gave no answer. */
+export const OFFLINE_TEXT = "ติดต่อ backend ไม่ได้";
+
 const TIMEOUT_MS = 30_000;
 
 /** Throws when the network fails or no response comes in 30 s. */

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
-import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "./testBackend";
+import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
 import { clipOf } from "./setupFixtures";
 
 const DRAFT_PATH = "/api/spoil-maker/draft";

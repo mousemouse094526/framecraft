@@ -1,7 +1,7 @@
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
-import arrowLeftIcon from "../assets/arrow-left.svg";
+import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import userIcon from "../assets/user.svg";
 import { useVoices } from "../hooks/useVoices";
 import { VoiceDesigner } from "./VoiceDesigner";
