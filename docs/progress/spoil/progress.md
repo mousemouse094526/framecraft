@@ -2,7 +2,7 @@
 
 **Now:** ready to merge — ticket 06–07 (ตัดช่วง) ผ่าน feature review บน `feat/spoil` (`aacca74`); 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/pr-open`
+**Next:** merge [PR #7](https://github.com/mousemouse094526/framecraft/pull/7) แล้ว `/warroom next`
 
 ## Tickets
 
