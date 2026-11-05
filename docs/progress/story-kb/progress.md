@@ -1,11 +1,11 @@
 # Progress: story-kb
 
-**Now:** ready to merge — feature review รอบสองผ่าน (2026-11-06), CI เขียวทุกข้อ, ไม่มี Blocked `open`
+**Now:** [PR #8](https://github.com/mousemouse094526/framecraft/pull/8) เปิดแล้ว (2026-11-06) — รอ merge
 
-**Next:** เปิด PR (บอก spoil-maker D90 ใน PR)
+**Next:** merge แล้ว
 
 ```
-/pr-open
+/warroom next
 ```
 
 ## Tickets
