@@ -24,10 +24,8 @@ import xIcon from "../../../components/ui/assets/x.svg";
 import { ProgressCard } from "./ProgressCard";
 import { TrimTimeline } from "./TrimTimeline";
 
-type Props = {
-  videoRef: RefObject<HTMLVideoElement | null>;
-  /** The clip's length from the list, until the player knows it to the frame. */
-  durationS: number | null;
+/** The selected clip's ตัดช่วง section as the page gives it (D38). */
+export type TrimControls = {
   view: TrimView;
   /** ffmpeg isn't ok, or this clip is being transcribed: ตัดช่วง stays disabled. */
   blocked: boolean;
@@ -38,27 +36,32 @@ type Props = {
   onCancel: () => void;
 };
 
+type Props = TrimControls & {
+  videoRef: RefObject<HTMLVideoElement | null>;
+  /** The clip's length from the list, until the player knows it to the frame. */
+  durationS: number | null;
+};
+
 /** Figma component `Trim section` and the `Transcript panel` trim states (D38, D41, D44). */
 export function TrimSection({ videoRef, durationS, view, blocked, onOpen, onEdit, onClose, onTrim, onCancel }: Props) {
   const length = useMediaLength(videoRef, durationS);
 
-  switch (view.kind) {
-    case "running":
-      return (
-        <SectionBox>
-          <TrimProgress job={view.job} onCancel={onCancel} />
-        </SectionBox>
-      );
-    case "editing":
-      // No length (none in the list, and the player hasn't read the file): ตัดช่วง stays disabled below.
-      if (length !== null) {
-        return (
-          <SectionBox>
-            <RangeEditor videoRef={videoRef} length={length} drafts={view.drafts} onEdit={onEdit} onClose={onClose} onTrim={onTrim} />
-          </SectionBox>
-        );
-      }
+  if (view.kind === "running") {
+    return (
+      <SectionBox>
+        <TrimProgress job={view.job} onCancel={onCancel} />
+      </SectionBox>
+    );
   }
+  if (view.kind === "editing" && length !== null) {
+    return (
+      <SectionBox>
+        <RangeEditor videoRef={videoRef} length={length} drafts={view.drafts} onEdit={onEdit} onClose={onClose} onTrim={onTrim} />
+      </SectionBox>
+    );
+  }
+  // Closed, another clip's job, or editing with no length yet (none in the list, and the
+  // player hasn't read the file): the ตัดช่วง button, disabled in the last two.
   const otherTitle = view.kind === "otherClip" ? view.title : null;
   return (
     <div className="flex items-center gap-3">
@@ -170,10 +173,10 @@ function RangeEditor({ videoRef, length, drafts, onEdit, onClose, onTrim }: Edit
     <>
       <TrimTimeline
         length={length}
-        ranges={ranges.flatMap((range, i) => (range ? [{ n: i + 1, range }] : []))}
+        ranges={ranges.flatMap((range, draftIndex) => (range ? [{ draftIndex, range }] : []))}
         playhead={playhead}
         onSeek={seek}
-        onMove={(n, side, seconds) => change(n - 1, side, formatTime(seconds))}
+        onMove={(draftIndex, side, seconds) => change(draftIndex, side, formatTime(seconds))}
       />
       {drafts.length > 0 && (
         <div className="flex flex-col gap-3">

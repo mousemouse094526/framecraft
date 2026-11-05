@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
+import type { ClipsChanged } from "./useTempClips";
 import { busyText } from "../../../lib/gpu";
 import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
 import { refusalLine, refusalOf, type Refusal, type RefusalLine } from "../../../lib/refusal";
@@ -66,7 +67,7 @@ const withError = (clipId: string, error: RefusalLine | null) =>
  * ends (บรรยายฉากแล้ว may change) or a clip is gone; `onNotReady` (stable) runs on
  * a `503`, so the status is checked again.
  */
-export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) {
+export function useDescribe(onClipsChanged: ClipsChanged, onNotReady: () => void) {
   const [state, setState, setIfMounted] = useMountedState<DescribeState>({ kind: "loading" });
 
   const load = useCallback(async () => {
@@ -93,7 +94,7 @@ export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) 
       // Polls run only while a job is followed, so any other answer is its end.
       setIfMounted(whenLoaded((s) => ({ ...s, job: null })));
       if (job?.state === "failed") setIfMounted(withError(job.clip_id, { text: failureText(job), setupLink: false }));
-      onClipsChanged();
+      void onClipsChanged();
     },
     () => setIfMounted({ kind: "offline" }),
   );
@@ -124,13 +125,13 @@ export function useDescribe(onClipsChanged: () => void, onNotReady: () => void) 
           return;
         }
         if (reply.status === 404 && refusal?.code === "not_found") {
-          onClipsChanged();
+          void onClipsChanged();
           return;
         }
         if (reply.status === 409 && refusal?.code === "in_draft") {
           // A draft made since the list loaded: the new list marks the clip, so the next try warns.
           setIfMounted(withError(clipId, refusalLine(refusal)));
-          onClipsChanged();
+          void onClipsChanged();
           return;
         }
         if (reply.status === 503 && refusal?.code === "not_ready") {

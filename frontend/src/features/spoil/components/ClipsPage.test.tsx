@@ -1637,10 +1637,16 @@ describe("ตัดช่วง (D36–D41)", () => {
     expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
   });
 
-  it("asks before trimming a transcribed clip, lets go of the player, then posts confirm_derived_loss", async () => {
+  const DERIVED_QUESTION = "ตัดคลิปจะลบ Transcript (รวมบรรทัดที่แก้ไว้), ภาพฉากและการตัด EP ของคลิปนี้ ตัดต่อไหม?";
+  const hasDerived = () => postTrim({ code: "has_derived", message: DERIVED_QUESTION, derived: ["transcript", "shots"] }, 409);
+  const trimBodies = () =>
+    fetchMock.mock.calls.filter(([input, init]) => String(input) === "/api/spoil/trims" && init?.method === "POST").map(([, init]) => init?.body);
+
+  it("lets go of the player, asks the API's has_derived message, then posts confirm_derived_loss", async () => {
     const confirm = vi.fn(() => true);
     vi.stubGlobal("confirm", confirm);
-    let srcAtPost: string | null = "unset";
+    const srcAtPost: (string | null)[] = [];
+    const answers = [() => jsonResponse({ code: "has_derived", message: DERIVED_QUESTION, derived: ["transcript"] }, 409), () => jsonResponse(trimJobOf({}), 202)];
     backend([
       status(READY_ITEMS),
       current(null),
@@ -1649,8 +1655,8 @@ describe("ตัดช่วง (D36–D41)", () => {
         method: "POST",
         path: "/api/spoil/trims",
         reply: () => {
-          srcAtPost = video().getAttribute("src");
-          return jsonResponse(trimJobOf({}), 202);
+          srcAtPost.push(video().getAttribute("src"));
+          return answers.shift()!();
         },
       },
     ]);
@@ -1659,28 +1665,26 @@ describe("ตัดช่วง (D36–D41)", () => {
 
     await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
 
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Transcript"));
-    expect(srcAtPost).toBeNull();
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/spoil/trims",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ clip_id: RICK.id, ranges: [{ start_s: 0, end_s: 30 }], confirm_derived_loss: true }),
-      }),
-    );
+    expect(confirm).toHaveBeenCalledWith(DERIVED_QUESTION);
+    expect(srcAtPost).toEqual([null, null]);
+    expect(trimBodies()).toEqual([
+      JSON.stringify({ clip_id: RICK.id, ranges: [{ start_s: 0, end_s: 30 }] }),
+      JSON.stringify({ clip_id: RICK.id, ranges: [{ start_s: 0, end_s: 30 }], confirm_derived_loss: true }),
+    ]);
     expect(await within(panel()).findByText("กำลังตัดคลิป")).toBeInTheDocument();
   });
 
-  it("sends nothing when that confirm is cancelled", async () => {
+  it("posts once, and gives the player back, when that confirm is cancelled", async () => {
     vi.stubGlobal("confirm", vi.fn(() => false));
-    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED_RICK])]);
+    backend([status(READY_ITEMS), current(null), clips([TRANSCRIBED_RICK]), hasDerived()]);
     render(<ClipsPage />);
     const user = await openWithRange(0);
 
     await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
 
-    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "/api/spoil/trims")).toHaveLength(0);
-    expect(video()).toHaveAttribute("src");
+    expect(trimBodies()).toHaveLength(1);
+    expect(video()).toHaveAttribute("src", `/api/spoil/clips/${RICK.id}/video?v=${encodeURIComponent(RICK.downloaded_at)}`);
+    expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
   });
 
   it("shows กำลังตัดคลิป 37%, then ตัดคลิปเสร็จ, the new ?v= and ตัดแล้ว on the row", async () => {
@@ -1792,27 +1796,6 @@ describe("ตัดช่วง (D36–D41)", () => {
     expect(within(panel()).getByText("37%")).toBeInTheDocument();
   });
 
-  it("asks again on 409 has_derived, naming what the API found, then posts confirm_derived_loss", async () => {
-    const confirm = vi.fn(() => true);
-    vi.stubGlobal("confirm", confirm);
-    backend([
-      status(READY_ITEMS),
-      current(null),
-      clips([RICK]),
-      postTrim({ code: "has_derived", message: "ตัดคลิปจะลบ Transcript ของคลิปนี้", derived: ["transcript", "draft"] }, 409),
-      postTrim(trimJobOf({})),
-    ]);
-    render(<ClipsPage />);
-    const user = await openWithRange(0);
-
-    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
-
-    expect(confirm).toHaveBeenCalledWith("ตัดคลิปจะลบ Transcript (รวมบรรทัดที่แก้ไว้), Spoil draft ของคลิปนี้ ตัดต่อไหม?");
-    const bodies = fetchMock.mock.calls.filter(([input]) => String(input) === "/api/spoil/trims").map(([, init]) => init?.body);
-    expect(bodies[1]).toBe(JSON.stringify({ clip_id: RICK.id, ranges: [{ start_s: 0, end_s: 30 }], confirm_derived_loss: true }));
-    expect(await within(panel()).findByText("กำลังตัดคลิป")).toBeInTheDocument();
-  });
-
   it("shows a refused POST's message and loads the player back", async () => {
     backend([
       status(READY_ITEMS),
@@ -1828,6 +1811,20 @@ describe("ตัดช่วง (D36–D41)", () => {
     expect(await within(panel()).findByText("ช่วงที่ตัดไม่ถูกต้อง: ต้องเหลือคลิปอย่างน้อย 10 วินาที")).toBeInTheDocument();
     expect(video()).toHaveAttribute("src");
     expect(within(range(1)).getByLabelText("จบ")).toHaveValue("0:00:30.0");
+  });
+
+  it("drops the last trim's message once another clip is selected, as for a transcription (D33)", async () => {
+    const refused = "ช่วงที่ตัดไม่ถูกต้อง: ต้องเหลือคลิปอย่างน้อย 10 วินาที";
+    backend([status(READY_ITEMS), current(null), clips([RICK, MOON]), postTrim({ code: "invalid_ranges", message: refused }, 400)]);
+    render(<ClipsPage />);
+    const user = await openWithRange(0);
+    await user.click(within(panel()).getByRole("button", { name: "ตัดคลิป" }));
+    expect(await within(panel()).findByText(refused)).toBeInTheDocument();
+
+    await selectRow(/^From the Moon/);
+    await selectRow(/^Rick Astley/);
+
+    expect(within(panel()).queryByText(refused)).not.toBeInTheDocument();
   });
 
   it("shows a failed job's message and keeps the ranges; replacing offers no ยกเลิก", async () => {

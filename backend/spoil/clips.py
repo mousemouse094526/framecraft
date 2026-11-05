@@ -3,6 +3,7 @@ written last, so a clip without json is unfinished (spoil D14, D15)."""
 
 import logging
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -52,6 +53,12 @@ class ListedClip(TempClip):
     in_draft: bool
 
 
+files_lock = threading.Lock()
+"""Guards a Temp clip's files while they go or change under a job: a clip delete and a
+Trim job's new mp4 take it, and so do a Transcribe job's start and a Transcript line
+edit, so none slips between the others' checks and writes (D29, D42). Lock order: a job
+slot's lock, then this one, then `gpu.slot.draft_lock`, then the GPU slot's own."""
+
 TRANSCRIPT_SUFFIX = ".transcript.json"
 TRIMMING_SUFFIX = ".trimming.json"  # the new json of a clip whose mp4 is being replaced (D41)
 
@@ -94,14 +101,21 @@ def list_clips(project: ProjectPaths) -> list[ListedClip]:
             log.warning("skipping unreadable %s", path)
             continue
         if clip.id == path.stem and video_path(project, clip.id).is_file():
-            transcribed = transcript_path(project, clip.id).is_file()
-            described = shots.is_described(project, clip.id)
-            listed = ListedClip(
-                **clip.model_dump(), transcribed=transcribed, described=described, in_draft=clip.id == in_draft
-            )
-            found.append((downloaded, listed))
+            found.append((downloaded, _listed(project, clip, in_draft)))
     found.sort(key=lambda pair: pair[0], reverse=True)
     return [clip for _, clip in found]
+
+
+def listed_clip(project: ProjectPaths, video_id: str) -> ListedClip:
+    """One row of `list_clips`. Raises `ApiError` 404 unless the clip has both json and mp4 (D46)."""
+    video_file(project, video_id)
+    return _listed(project, read_clip(project, video_id), draft_file.draft_clip_id(project))
+
+
+def _listed(project: ProjectPaths, clip: TempClip, in_draft: str | None) -> ListedClip:
+    transcribed = transcript_path(project, clip.id).is_file()
+    described = shots.is_described(project, clip.id)
+    return ListedClip(**clip.model_dump(), transcribed=transcribed, described=described, in_draft=clip.id == in_draft)
 
 
 def read_clip(project: ProjectPaths, video_id: str) -> TempClip:
@@ -137,7 +151,7 @@ def delete_clip(project: ProjectPaths, video_id: str) -> None:
 
     An mp4 Windows still holds open → `ApiError` 409 `in_use`, json untouched.
     The API calls it through `transcribe.transcriptions.delete_clip`, which holds
-    the Transcribe job's lock and refuses a clip being transcribed.
+    `files_lock` and refuses a clip being transcribed.
     """
     check_known(project, video_id)
     try:

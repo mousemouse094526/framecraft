@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { flushSync } from "react-dom";
 import { getJson, sendJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
 import { cancelCurrent, isUnfinishedIn, onlyWhen } from "../../../lib/job";
@@ -6,7 +7,9 @@ import { notice, type Notice } from "../lib/notice";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import type { Range } from "../../../lib/clips";
-import { formatAxisTime, type DerivedKind, type RangeDraft } from "../lib/trim";
+import { formatAxisTime, type RangeDraft } from "../lib/trim";
+import { HANDLED, type StartResult } from "../lib/confirm";
+import type { ClipsChanged } from "./useTempClips";
 
 // The shape of a Trim job (backend.spoil.trim.TrimJob, spec › API).
 export type TrimJobState = "trimming" | "replacing" | "done" | "failed" | "cancelled";
@@ -22,8 +25,8 @@ export type TrimJob = {
   error: { code: string; message: string } | null;
 };
 
-/** How posting a job ended: `has_derived` waits for the user to confirm losing what `derived` names (D37). */
-export type TrimStartResult = { kind: "has_derived"; derived: DerivedKind[] } | { kind: "handled" };
+/** `has_derived` waits for the user to confirm its `message`: the Transcript, Shots, EP cuts or draft go (D37). */
+export type TrimStartResult = StartResult<"has_derived">;
 
 export type TrimState =
   | { kind: "loading" }
@@ -38,11 +41,10 @@ export type TrimState =
       drafts: Record<string, RangeDraft[]>;
       /**
        * A clip whose player stays let go outside its job's run (D41): its POST hasn't
-       * answered, or its job is `done` and the list with the new `?v=` hasn't come back.
+       * answered, the user is asked about its `has_derived`, or its job is `done` and the
+       * list with the new `?v=` hasn't come back.
        */
-      released: string | null;
-      /** The clip of the unfinished job the tab opened on: the page selects it once, then calls `clipSelected`. */
-      clipToSelect: string | null;
+      releasedClipId: string | null;
     };
 
 type Loaded = Extract<TrimState, { kind: "loaded" }>;
@@ -65,17 +67,21 @@ export function trimViewOf(state: Loaded, clipId: string, titleOf: (clipId: stri
 
 /** The clip's player holds no file while its POST is out or its job runs: Windows can't replace an open file (D41). */
 export function playerReleasedFor(state: Loaded, clipId: string): boolean {
-  return state.released === clipId || state.job?.clip_id === clipId;
+  return state.releasedClipId === clipId || state.job?.clip_id === clipId;
 }
 
 const TRIMS_PATH = "/api/spoil/trims";
 const CURRENT_PATH = "/api/spoil/trims/current";
 
-const HANDLED: TrimStartResult = { kind: "handled" };
-
 const isUnfinished = isUnfinishedIn<TrimJobState>(["trimming", "replacing"]);
 
 const whenLoaded = (change: (state: Loaded) => TrimState) => onlyWhen<TrimState, "loaded">("loaded", change);
+
+/** The unfinished job, or null when there is none. */
+async function runningJob(): Promise<TrimJob | null> {
+  const job = await getJson<TrimJob | null>(CURRENT_PATH);
+  return job !== null && isUnfinished(job) ? job : null;
+}
 
 /** A clip's section closed, its ranges forgotten. */
 function withoutDraft(drafts: Record<string, RangeDraft[]>, clipId: string): Record<string, RangeDraft[]> {
@@ -99,14 +105,13 @@ function resultNotice(job: TrimJob): Notice {
  * followed job ends (the new length, ตัดแล้ว and the new `?v=`) or a clip is gone, and
  * resolves once it has; `onNotReady` (stable) runs on a `503`, so the status is checked again.
  */
-export function useTrim(onClipsChanged: () => Promise<void>, onNotReady: () => void) {
+export function useTrim(onClipsChanged: ClipsChanged, onNotReady: () => void) {
   const [state, setState, setIfMounted] = useMountedState<TrimState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
-      const job = await getJson<TrimJob | null>(CURRENT_PATH);
-      const running = job !== null && isUnfinished(job) ? job : null;
-      setIfMounted({ kind: "loaded", job: running, notice: null, drafts: {}, released: null, clipToSelect: running?.clip_id ?? null });
+      // The page selects the unfinished job's clip once the list is in (ClipsPage).
+      setIfMounted({ kind: "loaded", job: await runningJob(), notice: null, drafts: {}, releasedClipId: null });
     } catch {
       setIfMounted({ kind: "offline" });
     }
@@ -133,10 +138,10 @@ export function useTrim(onClipsChanged: () => Promise<void>, onNotReady: () => v
           // `done` closes the section; any other end keeps the ranges to try again. The old
           // file's `?v=` would play from cache, so a done clip's player waits for the new list.
           const drafts = done ? withoutDraft(s.drafts, job.clip_id) : s.drafts;
-          return { ...s, job: null, notice: shown, drafts, released: done ? job.clip_id : s.released };
+          return { ...s, job: null, notice: shown, drafts, releasedClipId: done ? job.clip_id : s.releasedClipId };
         }),
       );
-      void onClipsChanged().then(() => setIfMounted(whenLoaded((s) => ({ ...s, released: null }))));
+      void onClipsChanged().then(() => setIfMounted(whenLoaded((s) => ({ ...s, releasedClipId: null }))));
     },
     () => setIfMounted({ kind: "offline" }),
   );
@@ -158,36 +163,38 @@ export function useTrim(onClipsChanged: () => Promise<void>, onNotReady: () => v
     [setState],
   );
 
-  /** The page selected `clipToSelect`; it isn't selected again. */
-  const clipSelected = useCallback(() => setState(whenLoaded((s) => ({ ...s, clipToSelect: null }))), [setState]);
+  /** Another clip was selected: the last trim's message goes, as a Transcribe job's does (D33). */
+  const clearNotice = useCallback(() => setState(whenLoaded((s) => (s.notice ? { ...s, notice: null } : s))), [setState]);
+
+  /** The user said no to `has_derived`: the player gets its file back. */
+  const returnPlayer = useCallback(() => setState(whenLoaded((s) => ({ ...s, releasedClipId: null }))), [setState]);
 
   /**
-   * Posts the job; the caller lets go of the player first (D41). Resolves to `has_derived`
-   * when the clip has data the user didn't agree to lose: the caller asks, then calls again
-   * (D37). Every other answer is handled here; a refusal is an error Alert in the panel and
-   * the player comes back.
+   * Lets go of the player, then posts the job (D41). Resolves to `has_derived` when the clip
+   * has data the user didn't agree to lose, with the player still let go: the caller asks,
+   * then calls again or `returnPlayer` (D37). Every other answer is handled here; a refusal
+   * is an error Alert in the panel and the player comes back.
    */
   const start = useCallback(
     async (clipId: string, ranges: Range[], confirmDerivedLoss: boolean): Promise<TrimStartResult> => {
-      setIfMounted(whenLoaded((s) => ({ ...s, notice: null, released: clipId })));
-      const settle = (change: Partial<Loaded>) => setIfMounted(whenLoaded((s) => ({ ...s, released: null, ...change })));
+      // Rendered now, not after the POST: the panel lets go of the file as it renders (D41).
+      flushSync(() => setIfMounted(whenLoaded((s) => ({ ...s, notice: null, releasedClipId: clipId }))));
+      const settle = (change: Partial<Loaded>) => setIfMounted(whenLoaded((s) => ({ ...s, releasedClipId: null, ...change })));
       try {
         const body = { clip_id: clipId, ranges, ...(confirmDerivedLoss ? { confirm_derived_loss: true } : {}) };
-        const reply = await sendJson<TrimJob | (Refusal & { derived?: DerivedKind[] })>("POST", TRIMS_PATH, body);
+        const reply = await sendJson<TrimJob | Refusal>("POST", TRIMS_PATH, body);
         if (reply.status === 202) {
           settle({ job: reply.body as TrimJob });
           return HANDLED;
         }
         const refusal = refusalOf(reply.body);
         if (reply.status === 409 && refusal?.code === "has_derived") {
-          settle({});
-          return { kind: "has_derived", derived: (reply.body as { derived?: DerivedKind[] }).derived ?? [] };
+          return { kind: "has_derived", message: refusal.message };
         }
         if (reply.status === 409 && refusal?.code === "busy") {
           // The running job is followed: this clip's (a second POST) shows its percent; another
           // clip's is named on ตัดช่วง, under the API's message.
-          const job = await getJson<TrimJob | null>(CURRENT_PATH);
-          const running = job !== null && isUnfinished(job) ? job : null;
+          const running = await runningJob();
           settle({ job: running, notice: running?.clip_id === clipId ? null : notice("error", refusal.message, clipId) });
           return HANDLED;
         }
@@ -222,5 +229,5 @@ export function useTrim(onClipsChanged: () => Promise<void>, onNotReady: () => v
     void load();
   }, [load, setState]);
 
-  return { state, open, close, edit, clipSelected, start, cancel, reload };
+  return { state, open, close, edit, clearNotice, returnPlayer, start, cancel, reload };
 }

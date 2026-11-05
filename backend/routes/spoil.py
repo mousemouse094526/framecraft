@@ -38,6 +38,11 @@ def list_clips() -> ClipList:
     return ClipList(clips=clips.list_clips(paths.project()))
 
 
+@router.get("/clips/{clip_id}")
+def get_clip(clip_id: str) -> ListedClip:
+    return clips.listed_clip(paths.project(), clip_id)
+
+
 @router.get("/clips/{clip_id}/video")
 def get_video(clip_id: str) -> FileResponse:
     """FileResponse answers `Range` with 206, so the player can seek."""

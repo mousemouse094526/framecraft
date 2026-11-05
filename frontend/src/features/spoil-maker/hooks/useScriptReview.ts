@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendJson } from "../../../lib/api";
-import { CLIPS_PATH, videoPath, videoUrl, type TempClip } from "../../../lib/clips";
+import { clipPath, videoPath, videoUrl, type TempClip } from "../../../lib/clips";
 import { isRunning, onlyWhen } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
@@ -75,8 +75,8 @@ export function useScriptReview() {
       // Shots that can't be read show no pictures; the rest of the draft still opens.
       const [list, clip] = await Promise.all([
         getJson<{ shots: Shot[] }>(shotsPath(draft.clip_id)).then((file) => file.shots, () => []),
-        // The clip's `trimmed_at` gives the player's `?v=`; an unreadable list plays the bare path.
-        getJson<{ clips: TempClip[] }>(CLIPS_PATH).then((file) => file.clips.find((one) => one.id === draft.clip_id), () => undefined),
+        // The clip's `trimmed_at` gives the player's `?v=`; a clip that can't be read plays the bare path.
+        getJson<TempClip>(clipPath(draft.clip_id)).then((clip) => clip, () => undefined),
       ]);
       const shots = { [draft.clip_id]: list };
       const videoSrc = clip ? videoUrl(clip) : videoPath(draft.clip_id);

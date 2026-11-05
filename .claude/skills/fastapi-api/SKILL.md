@@ -42,7 +42,9 @@ backend/
 │                    (delete or change, refusing a job that reads the clip)
 │                    and `clip_files_lock` (a clip's EP cuts, spoil-maker D71);
 │                    `begin_trim` marks the clip a Trim job cuts, which every
-│                    job that reads it is refused until `end_trim` (spoil D42)
+│                    job that reads it is refused until `end_trim` — the mark
+│                    outlives the `with` (spoil D42); `trimmed_clip_swap`
+│                    guards putting the new mp4 in place
 ├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel)
 │                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
 │                    frames and compose share it
@@ -109,8 +111,9 @@ through a queue; the thread writes the result file (ADR 0012).
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
-- Locks are taken in one order: a job slot's, then `gpu.slot.draft_lock`, then
-  the GPU slot's own (inside `GpuSlot`); never the other way round.
+- Locks are taken in one order: a job slot's, then `spoil.clips.files_lock`
+  (a Temp clip's mp4 and Transcript, spoil D46), then `gpu.slot.draft_lock`,
+  then the GPU slot's own (inside `GpuSlot`); never the other way round.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases

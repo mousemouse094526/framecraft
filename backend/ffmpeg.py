@@ -26,7 +26,13 @@ DURATION = re.compile(r"Duration: (\d+):(\d\d):(\d\d(?:\.\d+)?)")
 
 
 class FfmpegFailed(Exception):
-    """ffmpeg exited with an error; the message is the last line it printed."""
+    """ffmpeg exited with an error. The message names the exit code and the last line
+    ffmpeg printed, for the log; `last_line` is that line alone, for a message the user
+    sees (spoil spec › Trim `ffmpeg_failed`)."""
+
+    def __init__(self, message: str, last_line: str):
+        super().__init__(message)
+        self.last_line = last_line
 
 
 class Media(NamedTuple):
@@ -52,7 +58,8 @@ def probe(path: Path) -> Media:
     found = DURATION.search(result.stderr)
     if found is None:
         lines = result.stderr.strip().splitlines()
-        raise FfmpegFailed(f"no length for {path.name}: {lines[-1] if lines else 'no output'}")
+        last_line = lines[-1] if lines else "no output"
+        raise FfmpegFailed(f"no length for {path.name}: {last_line}", last_line)
     return Media(duration_s=seconds_of(found), has_audio=re.search(r"Stream #\S+.*: Audio:", result.stderr) is not None)
 
 
@@ -75,7 +82,7 @@ class Runner(Protocol):
 def run(command: list[str], cwd: Path, cancel: threading.Event, on_progress: Callable[[float], None] | None = None) -> None:
     """Runs ffmpeg in `cwd`. `on_progress` gets the output's seconds so far from
     `-progress pipe:1`. Raises `Cancelled` once `cancel` is set (ffmpeg is killed), or
-    `FfmpegFailed` with the last line it printed; the last 20 go to the log."""
+    `FfmpegFailed` with the last line it printed (`last_line`); the last 20 go to the log."""
     if cancel.is_set():
         raise Cancelled()
     stderr: deque[str] = deque(maxlen=STDERR_LINES)
@@ -99,4 +106,5 @@ def run(command: list[str], cwd: Path, cancel: threading.Event, on_progress: Cal
         raise Cancelled()
     if process.returncode != 0:
         log.error("ffmpeg exited with %s:\n%s", process.returncode, "\n".join(stderr))
-        raise FfmpegFailed(f"ffmpeg exited with {process.returncode}: {stderr[-1] if stderr else 'no output'}")
+        last_line = stderr[-1] if stderr else "no output"
+        raise FfmpegFailed(f"ffmpeg exited with {process.returncode}: {last_line}", last_line)

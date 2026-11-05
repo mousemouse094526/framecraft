@@ -116,29 +116,3 @@ export function handleBounds(range: Range, side: Side, others: Range[], length: 
   const high = Math.min(length, ...others.filter((one) => one.start_s >= range.end_s).map((one) => one.start_s));
   return [Math.min(high, range.start_s + MIN_RANGE_S), high];
 }
-
-/** What a trim deletes of a clip (`derived` of `409 has_derived`, spec › API). */
-export type DerivedKind = "transcript" | "shots" | "episodes" | "draft";
-
-// What each kind of data from the clip is called in the confirm (D37); shots and EP cuts go together.
-const DERIVED_WORDS: Record<DerivedKind, string> = {
-  transcript: "Transcript (รวมบรรทัดที่แก้ไว้)",
-  shots: "ภาพฉากและการตัด EP",
-  episodes: "ภาพฉากและการตัด EP",
-  draft: "Spoil draft",
-};
-
-/** "ตัดคลิปจะลบ {รายการ} ของคลิปนี้ ตัดต่อไหม?" from the API's `derived` kinds; null when there is nothing to lose. */
-export function derivedQuestion(derived: DerivedKind[]): string | null {
-  const words = [...new Set(derived.map((kind) => DERIVED_WORDS[kind] ?? kind))];
-  return words.length === 0 ? null : `ตัดคลิปจะลบ ${words.join(", ")} ของคลิปนี้ ตัดต่อไหม?`;
-}
-
-/** The kinds the list already knows the clip has (`transcribed`, `described`, `in_draft`). */
-export function derivedOf(clip: { transcribed: boolean; described: boolean; in_draft: boolean }): DerivedKind[] {
-  const kinds: DerivedKind[] = [];
-  if (clip.transcribed) kinds.push("transcript");
-  if (clip.described) kinds.push("shots");
-  if (clip.in_draft) kinds.push("draft");
-  return kinds;
-}

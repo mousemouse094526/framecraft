@@ -71,7 +71,7 @@ def find_cuts(
     if cancel.is_set():
         return cuts, duration or 0.0
     if process.returncode != 0 or duration is None:
-        raise FfmpegFailed(f"ffmpeg exited with {process.returncode}: {last_line}")
+        raise FfmpegFailed(f"ffmpeg exited with {process.returncode}: {last_line}", last_line)
     return cuts, duration
 
 
@@ -90,4 +90,5 @@ def extract_frame(mp4: Path, at_s: float, thumbnail: Path, llm_frame: Path) -> N
     result = subprocess.run(command, capture_output=True, text=True, errors="replace")
     if result.returncode != 0 or not (llm_frame.is_file() and thumbnail.is_file()):
         lines = result.stderr.strip().splitlines()
-        raise FfmpegFailed(f"ffmpeg exited with {result.returncode}: {lines[-1] if lines else 'no frame'}")
+        last_line = lines[-1] if lines else "no frame"
+        raise FfmpegFailed(f"ffmpeg exited with {result.returncode}: {last_line}", last_line)

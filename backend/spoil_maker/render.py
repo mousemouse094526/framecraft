@@ -115,8 +115,14 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             if self._taken():
                 raise ApiError(409, "busy", "กำลัง render อยู่")
             plan = voices.plan_sentences(project, found, unvoiced) if unvoiced else None
+            # Every render reads the draft's clip to its end, with the GPU or not (spoil D42).
+            gpu.slot.begin_render(found.clip_id)
             if plan:
-                gpu.slot.take("render", [plan.clip_id], locks_draft=True)
+                try:
+                    gpu.slot.take("render", [plan.clip_id], locks_draft=True)
+                except ApiError:
+                    gpu.slot.end_render()
+                    raise
                 self._job = RenderJob(state="voicing", done=0, total=len(unvoiced), started_at=checks.now_iso())
             else:
                 self._job = RenderJob(state="rendering", percent=0, started_at=checks.now_iso())
@@ -129,6 +135,8 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         """A cancel keeps the sentences already voiced in the draft (spec › Render job)."""
 
         def clean_up(state: str) -> None:
+            # First, before anything here can fail: the job reads as finished right after.
+            gpu.slot.end_render()
             shutil.rmtree(project.render_work_dir, ignore_errors=True)
             _remove_partials(project)
 

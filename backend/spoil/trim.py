@@ -13,9 +13,10 @@ import os
 import sys
 import threading
 import time
-from pathlib import Path
 from collections.abc import Callable
-from typing import Literal
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel
 
@@ -34,7 +35,7 @@ MAX_RANGES = 20
 MIN_RANGE_S = 0.5
 MIN_KEPT_S = 10.0
 AUDIO_BPS = 192_000
-MIN_VIDEO_BPS = 1_000_000
+MIN_VIDEO_BPS = 300_000  # a sanity floor only: a clip's own bitrate is what keeps its look (D41)
 GIB = 1024**3
 LENGTH_SLACK_S = 1.0  # how far the new file's length may be from `kept_s` (D42)
 REPLACE_TRIES = 20  # `os.replace` every 0.5 s for 10 s while Windows holds the mp4 (D42)
@@ -43,11 +44,19 @@ REPLACE_WAIT_S = 0.5
 State = Literal["trimming", "replacing", "done", "failed", "cancelled"]
 UNFINISHED = frozenset({"trimming", "replacing"})
 Derived = Literal["transcript", "shots", "episodes", "draft"]
-DERIVED_NAMES: dict[Derived, str] = {"transcript": "Transcript", "shots": "Shot", "episodes": "การตัด EP", "draft": "Spoil draft"}
+# The words of `has_derived`, as the web page shows them (spec › API `POST /trims`). Shots and
+# EP cuts share one: a clip has EP cuts only once it is described, so they never come apart.
+DERIVED_NAMES: dict[Derived, str] = {
+    "transcript": "Transcript (รวมบรรทัดที่แก้ไว้)",
+    "shots": "ภาพฉากและการตัด EP",
+    "episodes": "ภาพฉากและการตัด EP",
+    "draft": "Spoil draft",
+}
+ErrorCode = Literal["disk_full", "ffmpeg_failed", "in_use", "internal"]
 
 
 class TrimJobError(BaseModel):
-    code: Literal["disk_full", "ffmpeg_failed", "in_use", "internal"]
+    code: ErrorCode
     message: str
 
 
@@ -61,9 +70,28 @@ class TrimJob(BaseModel):
 
 
 class TrimFailed(Exception):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: ErrorCode, message: str):
         super().__init__(message)
         self.code, self.message = code, message
+
+
+class _Ending(TypedDict, total=False):
+    """What `_run` sets on the job once its thread is over."""
+
+    state: Literal["done", "failed", "cancelled"]
+    error: TrimJobError
+
+
+@dataclass(frozen=True)
+class TrimPlan:
+    """What a started Trim job works from, checked at its start (spec › Trim step 1)."""
+
+    project: ProjectPaths
+    clip: TempClip
+    mp4: Path
+    media: Media  # the mp4's real length and sound, from the probe
+    cut: list[Range]  # the ranges asked for, merged
+    spans: list[Range]  # what is kept
 
 
 # --- Pure parts: the ranges, the bitrate and the ffmpeg command (spec › Seams 1) ---
@@ -127,7 +155,9 @@ def kept_seconds(spans: list[Range]) -> float:
 
 
 def video_bps(file_bytes: int, duration_s: float) -> int:
-    """The old file's average bitrate less the audio's, at least 1 Mbps (D41)."""
+    """The old file's average bitrate less the audio's (D41), so the new file is about
+    as big for its length; at least 300 kbps, a floor against a nonsense bitrate only, so
+    a low-bitrate clip doesn't grow."""
     return max(MIN_VIDEO_BPS, round(file_bytes * 8 / duration_s) - AUDIO_BPS)
 
 
@@ -159,6 +189,12 @@ def _seconds(value: float) -> str:
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
+def has_derived_message(derived: list[Derived]) -> str:
+    """The question the web page shows as it is before a cut that loses `derived`."""
+    names = ", ".join(dict.fromkeys(DERIVED_NAMES[one] for one in derived))
+    return f"ตัดคลิปจะลบ {names} ของคลิปนี้ ตัดต่อไหม?"
+
+
 # --- Files ---
 
 
@@ -188,7 +224,12 @@ def derived_of(project: ProjectPaths, clip_id: str) -> list[Derived]:
 def recover_on_start(project: ProjectPaths) -> None:
     """Before `.partial/` is cleaned (D15): a marker with its file still in `.partial/`
     means the mp4 wasn't replaced — the marker goes; without it, the mp4 was replaced —
-    the derived data goes and the marker becomes the json (spec › Trim)."""
+    the derived data goes and the marker becomes the json (spec › Trim).
+
+    "No partial ⇒ replaced" holds because of the job's order: the marker is written before
+    the replace and removed when the replace fails, and `_run` removes the partial only in
+    its `finally`, after the replace is over either way. A crash in between leaves the
+    marker and either the partial (not replaced) or no partial (replaced)."""
     for marker in project.media_temp_dir.glob(f"*{clips.TRIMMING_SUFFIX}"):
         clip_id = marker.name.removesuffix(clips.TRIMMING_SUFFIX)
         try:
@@ -241,13 +282,15 @@ class Trims(JobSlot[TrimJob]):
         if not isinstance(clip_id, str) or not isinstance(confirm, bool):
             raise ApiError(400, "invalid_request", "ส่ง clip_id เป็นข้อความ และ confirm_derived_loss เป็น true หรือ false")
         asked = checked_ranges(body.get("ranges"))
-        with self._lock, transcribe.transcriptions.clips_lock():
+        with self._lock, clips.files_lock:
             mp4 = clips.video_file(project, clip_id)  # 404 unless both json and mp4 are there
             clip = clips.read_clip(project, clip_id)
+            # The json's `duration_s` is whole seconds (or null), too coarse for D41's checks.
             try:
                 media = self._probe(mp4)
             except FfmpegFailed as error:
-                raise ApiError(500, "internal", f"อ่านความยาวคลิปไม่ได้: {short(error)}") from error
+                log.error("probing %s failed: %s", clip_id, error)
+                raise ApiError(500, "internal", f"อ่านความยาวคลิปไม่ได้: {short(error.last_line)}") from error
             cut = merged(asked, media.duration_s)
             if transcribe.transcriptions.transcribing(clip_id):
                 raise ApiError(409, "transcribing", "กำลังถอดคลิปนี้อยู่ รอให้ถอดเสร็จก่อนแล้วตัด")
@@ -256,13 +299,12 @@ class Trims(JobSlot[TrimJob]):
             with gpu.slot.begin_trim(clip_id):
                 derived = derived_of(project, clip_id)
                 if derived and not confirm:
-                    names = ", ".join(DERIVED_NAMES[one] for one in derived)
-                    raise ApiError(409, "has_derived", f"ตัดคลิปจะลบ {names} ของคลิปนี้", derived=derived)
-                spans = kept_spans(cut, media.duration_s)
-                self._job = TrimJob(clip_id=clip_id, state="trimming", percent=0, kept_s=round(kept_seconds(spans), 3))
+                    raise ApiError(409, "has_derived", has_derived_message(derived), derived=derived)
+                plan = TrimPlan(project, clip, mp4, media, cut, kept_spans(cut, media.duration_s))
+                self._job = TrimJob(clip_id=clip_id, state="trimming", percent=0, kept_s=round(kept_seconds(plan.spans), 3))
                 self._cancel.clear()
             job = self._job.model_copy(deep=True)
-            self._thread = threading.Thread(target=self._run, args=(project, clip, mp4, media, cut, spans), daemon=True)
+            self._thread = threading.Thread(target=self._run, args=(plan,), daemon=True)
             self._thread.start()
         return job
 
@@ -287,29 +329,30 @@ class Trims(JobSlot[TrimJob]):
         if replacing and thread is not None:
             thread.join()
 
-    def _run(self, project: ProjectPaths, clip: TempClip, mp4: Path, media: Media, cut: list[Range], spans: list[Range]) -> None:
-        ending: dict = {"state": "failed"}
+    def _run(self, plan: TrimPlan) -> None:
+        ending: _Ending = {"state": "failed"}
         try:
-            self._trim(project, clip, mp4, media, cut, spans)
+            self._trim(plan)
             ending = {"state": "done"}
         except Cancelled:
             ending = {"state": "cancelled"}
         except TrimFailed as failed:
             ending["error"] = TrimJobError(code=failed.code, message=failed.message)
         except Exception as error:
-            log.exception("Trim job of %s failed", clip.id)
+            log.exception("Trim job of %s failed", plan.clip.id)
             ending["error"] = TrimJobError(code="internal", message=f"ตัดคลิปไม่สำเร็จ: {short(error)}")
         finally:
             # A restart reads the partial's absence as "the mp4 was replaced" (recover_on_start),
             # so it goes only here, after the replace is over either way.
-            trimmed_partial(project, clip.id).unlink(missing_ok=True)
+            trimmed_partial(plan.project, plan.clip.id).unlink(missing_ok=True)
             # Before the state reads as finished: a client that sees it may use the clip at once.
             gpu.slot.end_trim()
         self._update(percent=None, **ending)
 
-    def _trim(self, project: ProjectPaths, clip: TempClip, mp4: Path, media: Media, cut: list[Range], spans: list[Range]) -> None:
+    def _trim(self, plan: TrimPlan) -> None:
         """Steps 2–6: encode the kept spans into `.partial/`, check the result, then put it in place."""
-        kept = kept_seconds(spans)
+        project, clip, mp4, media = plan.project, plan.clip, plan.mp4, plan.media
+        kept = kept_seconds(plan.spans)
         file_bytes = mp4.stat().st_size
         needed = file_bytes * kept / media.duration_s + GIB
         free = self._free_bytes(project.media_temp_dir)
@@ -317,7 +360,7 @@ class Trims(JobSlot[TrimJob]):
             raise TrimFailed("disk_full", f"ที่ว่างไม่พอ: ต้องการ {needed / 1e9:.1f} GB มี {free / 1e9:.1f} GB")
         project.partial_dir.mkdir(parents=True, exist_ok=True)
         out = trimmed_partial(project, clip.id)
-        argv = command(mp4, out, spans, media.has_audio, video_bps(file_bytes, media.duration_s))
+        argv = command(mp4, out, plan.spans, media.has_audio, video_bps(file_bytes, media.duration_s))
 
         def on_progress(seconds: float) -> None:
             self._update(percent=min(99, math.floor(seconds / kept * 100)))
@@ -325,7 +368,7 @@ class Trims(JobSlot[TrimJob]):
         try:
             self._run_ffmpeg(argv, project.partial_dir, self._cancel, on_progress)
         except FfmpegFailed as error:
-            raise TrimFailed("ffmpeg_failed", f"ตัดคลิปไม่สำเร็จ: {short(error)}") from error
+            raise TrimFailed("ffmpeg_failed", f"ตัดคลิปไม่สำเร็จ: {short(error.last_line)}") from error
         made = self._probe(out)
         if abs(made.duration_s - kept) > LENGTH_SLACK_S or (media.has_audio and not made.has_audio):
             raise TrimFailed("ffmpeg_failed", "ตัดคลิปไม่สำเร็จ: ไฟล์ที่ตัดได้ไม่ครบ")
@@ -333,16 +376,17 @@ class Trims(JobSlot[TrimJob]):
             if self._cancel.is_set():
                 raise Cancelled()
             self._job.state, self._job.percent = "replacing", None
-        self._replace(project, clip, out, made, cut)
+        self._replace(plan, out, made)
 
-    def _replace(self, project: ProjectPaths, clip: TempClip, out: Path, made: Media, cut: list[Range]) -> None:
+    def _replace(self, plan: TrimPlan, out: Path, made: Media) -> None:
         """Step 6, in `Transcriptions.delete_clip`'s lock order (D42)."""
+        project, clip = plan.project, plan.clip
         marker = marker_path(project, clip.id)
         new = clip.model_copy(
             update={
                 "duration_s": round(made.duration_s),
                 "file_bytes": out.stat().st_size,
-                "trimmed": [*clip.trimmed, *cut],
+                "trimmed": [*clip.trimmed, *plan.cut],
                 "trimmed_at": checks.now_iso(),
             }
         )
@@ -362,7 +406,7 @@ class Trims(JobSlot[TrimJob]):
     def _put_in_place(self, project: ProjectPaths, clip_id: str, out: Path) -> bool:
         """One try of the new mp4 over the old, and the derived files with it; False while
         Windows still holds the old file (D42)."""
-        with transcribe.transcriptions.clips_lock(), gpu.slot.clip_untouched(clip_id, trimming=True):
+        with clips.files_lock, gpu.slot.trimmed_clip_swap(clip_id):
             try:
                 self._replace_mp4(out, clips.video_path(project, clip_id))
             except PermissionError:

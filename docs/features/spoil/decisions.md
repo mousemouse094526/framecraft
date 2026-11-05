@@ -626,7 +626,7 @@
 - **งาน:** Trim job ทีละงานทั้งแอป (`JobSlot`, ADR-0010) ใน thread ของ backend ที่รัน ffmpeg เป็น subprocess; ทำพร้อม Download job และงาน GPU ของคลิปอื่นได้ — ไม่โหลดโมเดล (ADR-0015)
 - **คลิปเดียวกัน:** ระหว่าง Trim job คลิปนั้นถูกใช้ (`clip_busy` ของ spoil-maker D49) — ถอด, บรรยายฉาก, ร่างบท, `PUT` การตัด EP, แก้บรรทัดและลบคลิปถูกปฏิเสธ; กลับกันคลิปที่งานอื่นใช้อยู่ตัดไม่ได้ — ไฟล์เดียวต้องไม่ถูกแทนระหว่างงานอื่นอ่าน
 - **ช่วง:** 1–20 ช่วง, `0 ≤ start_s < end_s ≤ duration_s`, ยาว ≥ 0.5 วินาที; ช่วงที่ทับหรือชนกันรวมเป็นช่วงเดียว; เหลือรวม ≥ 10 วินาที — กันคลิปว่างที่ทุกงานต่อไปล้ม
-- **คุณภาพ:** bitrate ภาพ = bitrate เฉลี่ยของไฟล์เดิม (`file_bytes × 8 ÷ duration_s`) ลบ 192 kbps ไม่ต่ำกว่า 1 Mbps; เสียง `aac` 192 kbps — ไฟล์ขนาดใกล้เดิมต่อนาที โดยไม่ต้องมี ffprobe (ADR-0005)
+- **คุณภาพ:** bitrate ภาพ = bitrate เฉลี่ยของไฟล์เดิม (`file_bytes × 8 ÷ duration_s`) ลบ 192 kbps ไม่ต่ำกว่า 300 kbps (D46); เสียง `aac` 192 kbps — ไฟล์ขนาดใกล้เดิมต่อนาที โดยไม่ต้องมี ffprobe (ADR-0005)
 - **แทนไฟล์:** เขียนผลลง `.partial/`, เขียน marker `{id}.trimming.json` (json ใหม่ของคลิป), `os.replace` mp4, ลบข้อมูลจากคลิป, แล้ว `os.replace` marker เป็น `{id}.json`; start backend ทำต่อหรือย้อนตาม marker — ไม่มีสถานะที่ mp4 ใหม่อยู่กับ Transcript หรือ Shot เดิม
 - **Windows:** แทน mp4 ไม่ได้เพราะไฟล์ยังเปิดอยู่ → `failed` `in_use` และไม่ลบอะไร (แบบ D15); หน้าเว็บปลด player ก่อนส่งงาน
 - **player:** `src` ของ video มี `?v={trimmed_at หรือ downloaded_at}` ให้ browser ไม่ใช้ไฟล์เก่าจาก cache
@@ -686,7 +686,7 @@
 - งาน `done` แล้ว player ยังว่างจนรายการใหม่ (`?v=` ใหม่) มาถึง; ไม่งั้น browser เล่นไฟล์เก่าจาก cache ด้วย `?v=` เดิมชั่วครู่
 - ระหว่างตัดคลิปนี้ ปุ่มถอดบทพูด disabled กับ "กำลังตัดคลิปนี้อยู่"; `DELETE /trims/current` ได้ `409` `replacing` → Alert warning ในกล่อง
 - `POST /trims` ได้ `409` `busy` → ติดตามงานปัจจุบัน: ของคลิปนี้ (ส่งซ้ำ) เห็น %; ของคลิปอื่นเห็น `message` เป็น Alert error กับ "กำลังตัด {ชื่อ}"
-- player ของ Shot picker (spoil-maker) อ่าน `GET /api/spoil/clips` เพื่อใส่ `?v=`; อ่านรายการไม่ได้ → `src` ไม่มี `?v=`
+- player ของ Shot picker (spoil-maker) อ่าน `GET /api/spoil/clips` เพื่อใส่ `?v=`; อ่านรายการไม่ได้ → `src` ไม่มี `?v=` (เปลี่ยนเป็น `GET /clips/{id}` ใน D46)
 - ปุ่ม secondary ของ Figma เป็น `SECONDARY_BUTTON` ใน `buttonStyles`; `plus.svg` ย้ายไป `components/ui/assets/` เพราะสอง feature ใช้
 
 **Why:**
@@ -695,3 +695,21 @@
 - `?v=` "ทุกที่" (D41) รวม player ของ Shot picker ที่ไม่มีข้อมูลคลิปในบทอยู่แล้ว
 
 **From:** build ticket 07 · **Status:** active
+
+## D46: สิ่งที่แก้จาก feature review ของงานตัดช่วง
+
+**Chosen:**
+- bitrate ภาพของ Trim job มีพื้น 300 kbps แทน 1 Mbps (แค่กันค่าผิดปกติ); คลิป bitrate ต่ำจึงไม่โตขึ้นหลังตัด
+- `409` `has_derived` มี `message` เป็นคำถามเต็ม "ตัดคลิปจะลบ {รายการ} ของคลิปนี้ ตัดต่อไหม?" ด้วยคำของหน้าเว็บ; หน้าเว็บส่ง `POST /trims` ก่อนแล้วถาม `message` แบบงานถอด (`has_edits`) แทนถามจาก flag ของรายการ
+- ลำดับตรวจ `busy` ก่อน `clip_busy`: `POST` ซ้ำของคลิปที่กำลังตัดได้ `busy` และหน้าเว็บติดตามงานต่อ (D45)
+- `ffmpeg_failed` แสดงบรรทัดท้ายของ stderr เท่านั้น ไม่มี exit code
+- หัวลากรับลูกศรขึ้น/ลงด้วย ตามแบบ slider ของ ARIA
+- start ลบ marker `{id}.trimming.json` ที่ไม่มี `{id}.json` (คลิปถูกลบแล้ว)
+- `GET /api/spoil/clips/{id}` ให้ player ของ Shot picker อ่าน `trimmed_at` คลิปเดียว แทนอ่านทั้งรายการ
+- Alert ผลของงานตัดหายเมื่อเลือกคลิปอื่น แบบงานถอด (D33)
+- Render job ทำเครื่องหมายคลิปที่อ่านใน `backend.gpu` (`begin_render`/`end_render`) ทุกครั้ง: render ที่เสียงครบไม่จองช่อง GPU จึงไม่เห็นและไม่ถูกเห็นโดย Trim job; ตอนนี้สองฝั่งได้ `409` `clip_busy`
+- lock ของไฟล์คลิป (mp4 และ Transcript) เป็น `spoil.clips.files_lock` แทน lock ของ Transcribe job ที่ Trim job และการลบคลิปยืมใช้; ลำดับ lock: job slot → `files_lock` → `draft_lock` → GPU slot
+
+**Why:** feature review สามแกนของ ticket 06–07 เจอโค้ดที่ต่างจาก spec หรือทำสิ่งเดียวกันสองแบบ; ไฟล์โตหลังตัด (1.34 เท่าต่อนาที) ขัดกับ "ไฟล์ขนาดใกล้เดิมต่อนาที" ของ D41
+
+**From:** feature review · **Status:** active

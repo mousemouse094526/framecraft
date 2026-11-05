@@ -138,6 +138,7 @@ question; the full entry is in the feature's decisions.md.
 | Trim job รับตัวปลอมผ่าน `Trims(…)`; ffmpeg เป็น `backend/ffmpeg.py`; ลอง `os.replace` ซ้ำโดยไม่ถือ lock | [spoil](features/spoil/decisions.md) | D43 | — | — | active |
 | แบบส่วนตัดช่วงใน Figma: ปุ่ม "= ตอนนี้" ใต้ช่องเวลา, Badge "ตัดแล้ว", Alert ใต้ชื่อคลิป, `confirm()` ของ browser | [spoil](features/spoil/decisions.md) | D44 | — | — | active |
 | ส่วนตัดช่วงในหน้าเว็บ: ความยาวจาก `video.duration` ปัดลง 0.1 วินาที, ช่วงสั้นกว่า 0.5 วินาทีเป็น error, `busy` ติดตามงาน, `?v=` ของ Shot picker, `SECONDARY_BUTTON` | [spoil](features/spoil/decisions.md) | D45 | — | — | active |
+| feature review ของงานตัดช่วง: พื้น bitrate 300 kbps, `has_derived` เป็นคำถามเต็มและถามหลัง `POST`, `busy` ก่อน `clip_busy`, `GET /clips/{id}` | [spoil](features/spoil/decisions.md) | D46 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
 
 ## สร้างคลิปสปอย
 

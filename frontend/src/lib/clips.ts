@@ -32,9 +32,14 @@ export type TempClip = {
 
 export const CLIPS_PATH = "/api/spoil/clips";
 
+/** One clip: `GET` answers it as a list item (404 `not_found` when gone), `DELETE` removes it. */
+export function clipPath(clipId: string): string {
+  return `${CLIPS_PATH}/${clipId}`;
+}
+
 /** The clip's mp4 with no `?v=`: only for a clip whose list entry can't be read. */
 export function videoPath(clipId: string): string {
-  return `${CLIPS_PATH}/${clipId}/video`;
+  return `${clipPath(clipId)}/video`;
 }
 
 /** The clip's mp4; `?v=` changes with each trim, so the browser never plays a cached file from before it (D41). */

@@ -97,14 +97,14 @@
   - `backend.spoil.trim` (ใหม่): Trim job, ตรวจช่วง, คำสั่ง ffmpeg และการแทนไฟล์ (D36, D41)
   - `backend.spoil.clips`: field `trimmed` และ `trimmed_at` ใน json, ลบข้อมูลจากคลิปแยกจากการลบคลิป ให้ Trim job ใช้ส่วนเดียวกัน, ทำ marker `{id}.trimming.json` ต่อตอน start, `409` `trimming` (D37, D41)
   - `backend.spoil.transcribe` และ `PATCH` บรรทัด: คลิปที่ Trim job ยังไม่จบ → `409` `trimming` (D41)
-  - `backend.gpu` (ของ spoil-maker): `GpuSlot.trimming_clip` — `take()` และ `clip_untouched` ปฏิเสธคลิปที่กำลังตัด เพื่อให้ Describe, Draft, Voice, Render job และ `PUT` การตัด EP ของคลิปนั้นได้ `409` `clip_busy` (spoil-maker D49, D55, D42); แก้เฉพาะจุดนี้
+  - `backend.gpu` (ของ spoil-maker): `GpuSlot.trimming_clip` — `take()` และ `clip_untouched` ปฏิเสธคลิปที่กำลังตัด เพื่อให้ Describe, Draft, Voice, Render job และ `PUT` การตัด EP ของคลิปนั้นได้ `409` `clip_busy` (spoil-maker D49, D55, D42); แก้เฉพาะจุดนี้; `begin_render`/`end_render` ทำเครื่องหมายคลิปที่ Render job อ่าน (render ที่ไม่ต้องสร้างเสียงไม่จองช่อง GPU) ให้ Trim job ของคลิปนั้นได้ `clip_busy` และ render ระหว่างตัดได้ `clip_busy` (D46)
 - **frontend**
   - `App`: แถบ tab; hook `useHashTab` ใน `lib/` อ่านและเขียน hash. ไม่มี folder `routes/` เพราะไม่ใช้ router (D10). บันทึกเรื่องนี้ใน skill `vite-react-web`
   - `features/spoil/` (folder ใหม่): ช่องลิงก์, แถบความคืบหน้า, รายการ Temp clip และ player (D6, D7); layout สองคอลัมน์และกล่องถอดบทพูด `TranscriptPanel` กับ hook `useTranscribe` (D22, D25). player ย้ายจากเหนือรายการเข้ากล่อง
   - `lib/api`: เพิ่ม `sendJson<T>(method, path, body?)` คืน `{ status, body }` ที่ body เป็น JSON หรือ `null` เมื่อไม่มี body; throw เฉพาะ network ล้มหรือเกิน 30 วินาที. timeout เดียวกับ `getJson`
   - `components/ui/`: ย้าย `OfflinePanel` จาก `features/setup-status` มาที่นี่ เพราะ tab สปอยใช้ด้วย
   - `lib/statusTypes`: ย้าย type ของ `/api/setup/status` ออกจาก `features/setup-status` เพราะ tab สปอยอ่านด้วย
-  - `features/spoil/`: ส่วนตัดช่วง `TrimPanel` กับ hook `useTrim` ในกล่องถอดบทพูด, ป้าย "ตัดแล้ว" ใน `Clip row`, `?v=` ของ `src` ใน player (D38, D41)
+  - `features/spoil/`: ส่วนตัดช่วง `TrimSection` กับ hook `useTrim` ในกล่องถอดบทพูด, ป้าย "ตัดแล้ว" ใน `Clip row`, `?v=` ของ `src` ใน player (D38, D41)
 
 ### Dependencies
 
@@ -269,7 +269,7 @@ Adapter `backend.spoil.whisper` (ตัวเดียวที่ import `trans
    2. body ถูกรูป: `clip_id` string, `ranges` list 1–20 ตัวของ `{start_s, end_s}` ที่เป็นตัวเลขจำกัด (ไม่ใช่ boolean, NaN, Infinity), `confirm_derived_loss` boolean ถ้ามี → ไม่ใช่ `400` `invalid_request`
    3. ภายใต้ lock ของงานถอด (lock เดียวกับ `DELETE /clips/{id}`, D29) แล้ว `gpu.slot.clip_untouched(clip_id)` ข้างใน (lock ของ slot อยู่ในสุดเสมอ, spoil-maker D49): มี Temp clip ของ `clip_id` → ไม่ใช่ `404` `not_found`
    4. ความยาวจริงของ mp4 จาก `backend.ffmpeg.probe` (ไม่ใช้ `duration_s` ของ json ที่เป็นจำนวนเต็มหรือ `null`); probe ล้ม → `500` `internal`; ช่วงผ่านกฎของ D41 เทียบความยาวนี้ → ไม่ใช่ `400` `invalid_ranges` (D42)
-   5. Transcribe job ของคลิปนี้ยังไม่จบ → `409` `transcribing`; งานใดก็ตามใช้คลิปนี้อยู่ใน `backend.gpu` (Describe, Draft, Voice, Render, `PUT` การตัด EP) → `409` `clip_busy`; มี Trim job ที่ thread ยังไม่ออก → `409` `busy`
+   5. Transcribe job ของคลิปนี้ยังไม่จบ → `409` `transcribing`; มี Trim job ที่ thread ยังไม่ออก → `409` `busy` (รวม `POST` ซ้ำของคลิปที่กำลังตัด, D46); งานใดก็ตามใช้คลิปนี้อยู่ใน `backend.gpu` (Describe, Draft, Voice, Render, `PUT` การตัด EP) → `409` `clip_busy`
    6. คลิปมี `{id}.transcript.json`, Shot, ไฟล์การตัด EP หรือ Spoil draft ที่ใช้คลิปนี้ และไม่มี `confirm_derived_loss: true` → `409` `has_derived` พร้อม `derived` (D37)
    7. สร้างงาน แล้วตั้ง `gpu.slot.trimming_clip` = `clip_id` (D42): `take()` ของงานทุกชนิดที่ `clip_ids` มีคลิปนี้ได้ `409` `clip_busy` และ `clip_untouched(clip_id)` ปฏิเสธไม่ว่า `by` เป็นอะไร — Trim job ไม่จองช่อง GPU แต่งานอื่นต้องเห็นมัน
 2. เริ่ม daemon thread, state `trimming`:
@@ -293,6 +293,7 @@ backend start ก่อนล้าง `.partial/` (D15): ทุก `{id}.trimmi
 - ยังมี `.partial/{id}.trim.mp4` → แทนไฟล์ยังไม่เกิด: ลบ marker
 - ไม่มี → แทนไฟล์แล้ว: ลบ Transcript, Shot, ไฟล์การตัด EP และ Spoil draft ของคลิปนี้ แล้วทำขั้น 6.4 ต่อ
 - marker อ่านไม่ได้ → ลบ marker และ log; ไม่แตะอย่างอื่น
+- marker ที่ไม่มี `{id}.json` (คลิปถูกลบแล้ว) → ลบ marker (D46)
 
 Encoder ตาม `sys.platform`: `darwin` → `h264_videotoolbox`; อื่น → `libx264` `-preset veryfast` (D36). คำสั่ง ffmpeg ทั้งหมดอยู่ในฟังก์ชันเดียวของ `backend.spoil.trim` ที่คืน argv ให้ test ตรวจได้โดยไม่รัน ffmpeg.
 
@@ -363,6 +364,7 @@ Trim job:
 | Method | Path | Response |
 |---|---|---|
 | `GET` | `/clips` | `200` `{"clips": [Temp clip + `transcribed`, ...]}` |
+| `GET` | `/clips/{id}` | `200` Temp clip หนึ่งคลิปรูปเดียวกับแถวของ `/clips`; ไม่มี → `404` `not_found` (D46) |
 | `GET` | `/clips/{id}/video` | `200` หรือ `206` ไฟล์ `video/mp4` รองรับ Range; ไม่มี → `404` `not_found`; query string ไม่มีผล (`?v=` ของ D41) |
 | `GET` | `/clips/{id}/thumbnail` | `200` ไฟล์ thumbnail; ไม่มี → `404` `not_found` |
 | `DELETE` | `/clips/{id}` | `204`; ไม่มี → `404` `not_found`; ไฟล์ถูกเปิดอยู่ → `409` `in_use` "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"; กำลังถอดคลิปนี้ → `409` `transcribing` "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ"; กำลังตัดคลิปนี้ → `409` `trimming` "กำลังตัดคลิปนี้อยู่ รอให้จบหรือยกเลิกก่อน" |
@@ -370,7 +372,7 @@ Trim job:
 | `GET` | `/clips/{id}/transcript.txt`, `/clips/{id}/transcript.srt` | `200` `text/plain; charset=utf-8` หรือ `application/x-subrip`, `Content-Disposition: attachment; filename="{id}.txt"` หรือ `.srt`; ไม่มี → `404` `not_found` |
 | `PATCH` | `/clips/{id}/transcript/lines/{n}` | body `{"text": "..."}` แก้ข้อความบรรทัดที่ `n` (นับจาก 0) ตั้ง `edited: true` เขียนแบบ `.tmp` แล้ว rename → `200` บรรทัดนั้น; `text` ว่างหลังตัดช่องว่าง → `400` `invalid_request`; ไม่มีคลิป Transcript หรือบรรทัด → `404` `not_found`; Transcribe job ของคลิปนั้นยังไม่จบ → `409` `transcribing`; Draft job ที่ใช้คลิปนั้น → `409` `clip_busy` (spoil-maker D54); Trim job ของคลิปนั้นยังไม่จบ → `409` `trimming` (D41) |
 | `POST` | `/transcriptions` | body `{"clip_id": "...", "confirm_edit_loss"?: true}`. `202` กับ Transcribe job. error: `503` `not_ready`, `404` `not_found`, `409` `busy` "กำลังถอดคลิปอื่นอยู่"; คลิปมีบรรทัด `edited` และไม่มี `confirm_edit_loss: true` → `409` `has_edits` "ถอดใหม่จะลบบทพูดที่แก้ไว้" (spoil-maker D54); Trim job ของคลิปนั้นยังไม่จบ → `409` `trimming` (D41) |
-| `POST` | `/trims` | body `{"clip_id": "...", "ranges": [{"start_s": 0, "end_s": 90}], "confirm_derived_loss"?: true}`. `202` กับ Trim job. error ตามลำดับของ Trim ข้อ 1: `503` `not_ready`, `400` `invalid_request`, `404` `not_found`, `400` `invalid_ranges` "ช่วงที่ตัดไม่ถูกต้อง: {เหตุผล}", `409` `transcribing`, `409` `clip_busy`, `409` `busy` "กำลังตัดคลิปอื่นอยู่", `409` `has_derived` "ตัดคลิปจะลบ {รายการ} ของคลิปนี้" พร้อม `derived` (list ของ `transcript`, `shots`, `episodes`, `draft`) (D37, D41) |
+| `POST` | `/trims` | body `{"clip_id": "...", "ranges": [{"start_s": 0, "end_s": 90}], "confirm_derived_loss"?: true}`. `202` กับ Trim job. error ตามลำดับของ Trim ข้อ 1: `503` `not_ready`, `400` `invalid_request`, `404` `not_found`, `400` `invalid_ranges` "ช่วงที่ตัดไม่ถูกต้อง: {เหตุผล}", `409` `transcribing`, `409` `busy` "กำลังตัดคลิปอื่นอยู่", `409` `clip_busy`, `409` `has_derived` "ตัดคลิปจะลบ {รายการ} ของคลิปนี้ ตัดต่อไหม?" (รายการเป็นคำของหน้าเว็บ: "Transcript (รวมบรรทัดที่แก้ไว้)", "ภาพฉากและการตัด EP", "Spoil draft") พร้อม `derived` (list ของ `transcript`, `shots`, `episodes`, `draft`) (D37, D41, D46) |
 | `GET` | `/trims/current` | `200` Trim job ล่าสุด หรือ `null` |
 | `DELETE` | `/trims/current` | `202` ตั้ง flag ยกเลิก; state `replacing` → `409` `replacing` "กำลังแทนไฟล์ ยกเลิกไม่ได้แล้ว"; ไม่มีงานที่ยังไม่จบ → `404` `not_found` |
 | `GET` | `/transcriptions/current` | `200` Transcribe job ล่าสุด หรือ `null` |
@@ -522,10 +524,10 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
 - ช่วงที่ยังไม่ส่งเก็บใน memory แยกตาม `clip_id` ตลอดที่หน้าเปิดอยู่; "ยกเลิก" ล้างช่วงของคลิปนั้นและปิดส่วนตัด (D38)
 - เปิดส่วนตัดครั้งแรกไม่มีช่วง; "เพิ่มช่วง" เพิ่มช่วงที่ตำแหน่งเล่นยาว 30 วินาที ตัดให้อยู่ในคลิปและไม่ทับช่วงอื่น; มี 20 ช่วงแล้ว หรือไม่มีที่ว่างพอ 0.5 วินาที → disabled
 - timeline: ความกว้างทั้งหมด = `duration_s`; กดที่ว่าง → `video.currentTime` ไปตรงนั้น; ช่วงเป็นแถบทึบที่มีหัวท้ายลากได้ (pointer events); หัวลากไม่ข้ามหัวอีกข้างของช่วงเดียวกันหรือช่วงข้างเคียง; ปัดเวลาเป็น 0.1 วินาที
-- หัวลากเป็น `role="slider"` โฟกัสได้ มี `aria-valuetext` เป็นเวลา; ลูกศรซ้ายขวา ±1 วินาที, Shift ±10 วินาที; เป้าแตะ ≥ 44px
+- หัวลากเป็น `role="slider"` โฟกัสได้ มี `aria-valuetext` เป็นเวลา; ลูกศรขวา/ขึ้น +1 วินาที ซ้าย/ลง −1 วินาทีตามแบบ slider ของ ARIA (D46), Shift ±10 วินาที; เป้าแตะ ≥ 44px
 - แต่ละช่วงในรายการ: ช่องเวลาเริ่มและจบแบบ `h:mm:ss.s` (รับ `m:ss` และ `ss` ด้วย); พิมพ์ผิดรูป อยู่นอกคลิป หรือเริ่มไม่น้อยกว่าจบ → ช่องเป็น error และ "ตัดคลิป" disabled; "เริ่ม = ตอนนี้" และ "จบ = ตอนนี้" ใช้ `video.currentTime`; "✕" ลบช่วง
 - "ตัดออก {x} · เหลือ {y}" คิดจากช่วงที่รวมกันแล้วแบบเดียวกับ backend; เหลือน้อยกว่า 10 วินาที หรือไม่มีช่วง → "ตัดคลิป" disabled
-- กด "ตัดคลิป": คลิปมี `transcribed`, `described` หรือ `in_draft` → `window.confirm("ตัดคลิปจะลบ {รายการ} ของคลิปนี้ ตัดต่อไหม?")` ที่รายการเป็นคำของสิ่งที่มี: "Transcript (รวมบรรทัดที่แก้ไว้)", "ภาพฉากและการตัด EP" (การตัด EP มีได้เฉพาะคลิปที่บรรยายฉากแล้ว, spoil-maker D66), "Spoil draft"; ยืนยัน → ส่งพร้อม `confirm_derived_loss: true`; ไม่มีอะไร → ส่งเลย (D37)
+- กด "ตัดคลิป" → ส่ง `POST /trims` เลยแบบงานถอด; ได้ `409` `has_derived` → `window.confirm(message)` (message ของ API เป็นคำถามเต็ม; การตัด EP มีได้เฉพาะคลิปที่บรรยายฉากแล้ว, spoil-maker D66 จึงใช้คำเดียวกับ Shot); ยืนยัน → ส่งซ้ำพร้อม `confirm_derived_loss: true`; ไม่ยืนยัน → คืน player (D37, D46)
 - ก่อนส่ง `POST /trims` ปลด player; ได้ `409` `has_derived` (ข้อมูลเปลี่ยนหลังโหลดรายการ) → ถามยืนยันด้วยรายการจาก `derived` แล้วส่งซ้ำ; error อื่นของ `POST` → ข้อความในตาราง API เป็น Alert error ในกล่อง แล้วโหลด player กลับ
 - เปิด tab → `GET /api/spoil/trims/current` ครั้งหนึ่ง; งานยังไม่จบ → เลือกคลิปนั้นและเข้า state ของงาน
 - poll `GET /api/spoil/trims/current` ทุก 1 วินาทีเฉพาะตอนงานยังไม่จบ แยกจาก poll อื่น; จบ → `GET /api/spoil/clips` ครั้งเดียว และโหลด player ใหม่ด้วย `?v=` ใหม่
@@ -652,7 +654,7 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
    - พิมพ์เวลาจบ `1:30` → ช่วงเป็น 0–90; พิมพ์ `abc` → ช่องเป็น error และ "ตัดคลิป" disabled
    - หัวลากของจุดจบโฟกัสแล้วกดลูกศรขวา → จบเพิ่ม 1 วินาที; Shift+ลูกศรขวา → 10 วินาที; ไม่ข้ามจุดเริ่มของช่วงถัดไป
    - กด "จบ = ตอนนี้" ที่ `currentTime` 95.34 → จบเป็น 95.3
-   - คลิป `transcribed: true` กด "ตัดคลิป" → `window.confirm` มี "Transcript"; ยืนยัน → `POST /trims` มี `confirm_derived_loss: true` และ `<video>` ไม่มี `src` ก่อนส่ง; ไม่ยืนยัน → ไม่ส่ง
+   - กด "ตัดคลิป" → `<video>` ไม่มี `src` ก่อน `POST /trims`; ได้ `409` `has_derived` → `window.confirm` แสดง message; ไม่ยืนยัน → ไม่ส่งซ้ำและ player กลับมา
    - current คืน `trimming` 37 แล้ว `done` → เห็น "กำลังตัดคลิป" 37% แล้ว "ตัดคลิปเสร็จ" และ `src` มี `?v=` ใหม่; แถวมี "ตัดแล้ว"
    - `POST /trims` ได้ `409` `has_derived` → ถามยืนยันแล้วส่งซ้ำพร้อม `confirm_derived_loss: true`
    - current คืน `failed` `in_use` → เห็น message และช่วงยังอยู่; current `replacing` → ไม่มีปุ่มยกเลิก

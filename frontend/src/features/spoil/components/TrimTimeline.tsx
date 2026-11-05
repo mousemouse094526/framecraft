@@ -2,18 +2,18 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Range } from "../../../lib/clips";
 import { formatAxisTime, formatTime, handleBounds, SIDE_WORDS, toTenth, type Side } from "../lib/trim";
 
-/** A valid range on the timeline, with its number in the list ("ช่วง {n}"). */
-export type TimelineRange = { n: number; range: Range };
+/** A valid range on the timeline and where its draft is in the list: the row "ช่วง {draftIndex + 1}". */
+export type IndexedRange = { draftIndex: number; range: Range };
 
 type Props = {
   /** The clip's length in seconds: the timeline's whole width. */
   length: number;
-  ranges: TimelineRange[];
+  ranges: IndexedRange[];
   playhead: number;
   /** A click on the track moves the player there. */
   onSeek: (seconds: number) => void;
   /** A handle moved: `seconds` is already kept inside its bounds and rounded to 0.1 s. */
-  onMove: (n: number, side: Side, seconds: number) => void;
+  onMove: (draftIndex: number, side: Side, seconds: number) => void;
 };
 
 const percentOf = (seconds: number, length: number) => `${(seconds / length) * 100}%`;
@@ -42,9 +42,9 @@ export function TrimTimeline({ length, ranges, playhead, onSeek, onMove }: Props
     <div className="flex w-full flex-col gap-0.5">
       <div ref={track} onPointerDown={seek} className="relative h-11 w-full touch-none">
         <div className="absolute inset-x-0 top-[18px] h-2 rounded-full border border-border bg-muted" />
-        {ranges.map(({ n, range }) => (
+        {ranges.map(({ draftIndex, range }) => (
           <div
-            key={n}
+            key={draftIndex}
             className="absolute top-[14px] h-4 rounded border border-brand-accent bg-accent-subtle"
             style={{ left: percentOf(range.start_s, length), width: percentOf(range.end_s - range.start_s, length) }}
           />
@@ -53,20 +53,20 @@ export function TrimTimeline({ length, ranges, playhead, onSeek, onMove }: Props
           className="pointer-events-none absolute top-1 h-9 w-0.5 -translate-x-1/2 rounded-[1px] bg-foreground"
           style={{ left: percentOf(Math.min(playhead, length), length) }}
         />
-        {ranges.flatMap(({ n, range }) =>
+        {ranges.flatMap(({ draftIndex, range }) =>
           (["start", "end"] as const).map((side) => {
-            const others = ranges.filter((other) => other.n !== n).map((other) => other.range);
+            const others = ranges.filter((other) => other.draftIndex !== draftIndex).map((other) => other.range);
             const [low, high] = handleBounds(range, side, others, length);
             return (
               <Handle
-                key={`${n}-${side}`}
-                label={`${SIDE_WORDS[side].handle}ช่วง ${n}`}
+                key={`${draftIndex}-${side}`}
+                label={`${SIDE_WORDS[side].handle}ช่วง ${draftIndex + 1}`}
                 value={side === "start" ? range.start_s : range.end_s}
                 low={low}
                 high={high}
                 length={length}
                 timeAt={timeAt}
-                onMove={(seconds) => onMove(n, side, seconds)}
+                onMove={(seconds) => onMove(draftIndex, side, seconds)}
               />
             );
           }),
@@ -97,6 +97,7 @@ function Handle({ label, value, low, high, length, timeAt, onMove }: HandleProps
 
   const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const step = event.shiftKey ? 10 : 1;
+    // Up and Down too: the keys an ARIA slider answers, whichever way it lies.
     if (event.key === "ArrowRight" || event.key === "ArrowUp") moveTo(value + step);
     else if (event.key === "ArrowLeft" || event.key === "ArrowDown") moveTo(value - step);
     else return;

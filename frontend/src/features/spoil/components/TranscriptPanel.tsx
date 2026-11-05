@@ -1,8 +1,8 @@
-import { useState, type RefObject } from "react";
+import { useLayoutEffect, useState, type RefObject } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { useCopy } from "../../../lib/useCopy";
 import { notice, type Notice } from "../lib/notice";
-import { videoUrl, type Range, type TempClip } from "../../../lib/clips";
+import { videoUrl, type TempClip } from "../../../lib/clips";
 import { transcriptPath, type LineEditResult, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
 import clockIcon from "../assets/clock.svg";
 import copyIcon from "../../../components/ui/assets/copy.svg";
@@ -14,9 +14,9 @@ import { NoticeAlert } from "./NoticeAlert";
 import { NotReady } from "./NotReady";
 import { ProgressCard } from "./ProgressCard";
 import { TranscriptLineItem } from "./TranscriptLineItem";
-import { TrimSection } from "./TrimSection";
+import { TrimSection, type TrimControls } from "./TrimSection";
 import type { TrimView } from "../hooks/useTrim";
-import { TRIMMING_THIS_CLIP, type RangeDraft } from "../lib/trim";
+import { TRIMMING_THIS_CLIP } from "../lib/trim";
 
 type Props = {
   /** The selected clip, or null (D25). */
@@ -42,19 +42,8 @@ type Props = {
   playerReleased: boolean;
   /** The message after this clip's last trim or refusal (D33). */
   trimNotice: Notice | null;
-  /** The ตัดช่วง section, under the clip's title (D38); the panel gives each action its clip. */
-  trim: TrimControls;
-};
-
-export type TrimControls = {
-  view: TrimView;
-  /** ffmpeg isn't ok, or this clip is being transcribed. */
-  blocked: boolean;
-  onOpen: (clipId: string) => void;
-  onEdit: (clipId: string, drafts: RangeDraft[]) => void;
-  onClose: (clipId: string) => void;
-  onTrim: (clip: TempClip, ranges: Range[]) => void;
-  onCancel: () => void;
+  /** The ตัดช่วง section of `clip`, under its title (D38); null with no clip. */
+  trim: TrimControls | null;
 };
 
 /** What stands under the clip's title: one state of the panel's table (spec › Frontend). */
@@ -66,12 +55,12 @@ type Action =
   | { kind: "transcribed" }
   | { kind: "start" };
 
-function actionOf(clip: TempClip, missing: string[], job: TranscribeJob | null, jobTitle: string | null, trim: Props["trim"]): Action {
+function actionOf(clip: TempClip, missing: string[], job: TranscribeJob | null, jobTitle: string | null, trimView: TrimView): Action {
   if (job !== null && job.clip_id === clip.id) return { kind: "progress", job };
   if (missing.length > 0) return { kind: "notReady" };
   if (job !== null) return { kind: "blocked", reason: `กำลังถอด ${jobTitle}` };
-  if (trim.view.kind === "running") return { kind: "blocked", reason: TRIMMING_THIS_CLIP };
-  if (trim.view.kind === "editing") return { kind: "blocked", reason: "กดตัดคลิปหรือยกเลิกก่อน" };
+  if (trimView.kind === "running") return { kind: "blocked", reason: TRIMMING_THIS_CLIP };
+  if (trimView.kind === "editing") return { kind: "blocked", reason: "กดตัดคลิปหรือยกเลิกก่อน" };
   return clip.transcribed ? { kind: "transcribed" } : { kind: "start" };
 }
 
@@ -82,7 +71,13 @@ export function TranscriptPanel(props: Props) {
   const { clip, videoRef, autoPlay, missing, job, jobTitle, notice, transcript, onStart, onCancel, onEditLine } = props;
   const { playerReleased, trimNotice, trim } = props;
 
-  if (clip === null) {
+  // Without `src` the player still holds its file until `load()` (D41); a new `src` loads by itself.
+  useLayoutEffect(() => {
+    if (playerReleased) videoRef.current?.load();
+  }, [playerReleased, videoRef]);
+
+  // `trim` is null exactly when `clip` is.
+  if (clip === null || trim === null) {
     return (
       <section
         aria-label="กล่องถอดบทพูด"
@@ -100,7 +95,7 @@ export function TranscriptPanel(props: Props) {
     );
   }
 
-  const action = actionOf(clip, missing, job, jobTitle, trim);
+  const action = actionOf(clip, missing, job, jobTitle, trim.view);
   return (
     <section
       aria-label="กล่องถอดบทพูด"
@@ -124,18 +119,7 @@ export function TranscriptPanel(props: Props) {
       </div>
       {trimNotice && <NoticeAlert notice={trimNotice} />}
       {notice && <NoticeAlert notice={notice} />}
-      <TrimSection
-        key={`trim-${clip.id}`}
-        videoRef={videoRef}
-        durationS={clip.duration_s}
-        view={trim.view}
-        blocked={trim.blocked}
-        onOpen={() => trim.onOpen(clip.id)}
-        onEdit={(drafts) => trim.onEdit(clip.id, drafts)}
-        onClose={() => trim.onClose(clip.id)}
-        onTrim={(ranges) => trim.onTrim(clip, ranges)}
-        onCancel={trim.onCancel}
-      />
+      <TrimSection key={`trim-${clip.id}`} videoRef={videoRef} durationS={clip.duration_s} {...trim} />
       <ActionArea
         // Keyed apart from the player: another clip starts with no warning open.
         key={`action-${clip.id}`}
