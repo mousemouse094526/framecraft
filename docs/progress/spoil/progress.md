@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** ticket 06–07 (ตัดช่วง: backend และหน้าเว็บ) done บน `feat/spoil` — รอ feature review ของสองตัวนี้; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** ready to merge — ticket 06–07 (ตัดช่วง) ผ่าน feature review บน `feat/spoil` (`aacca74`); 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom-build spoil --review-feature`
+**Next:** `/pr-open`
 
 ## Tickets
 
@@ -17,6 +17,27 @@
 | 07 | ส่วนตัดช่วงใน tab คลิป | done |
 
 ## Log
+
+### Feature review (ตัดช่วง) — done 2026-11-05
+
+**Built:**
+- review สามแกนบน ticket 06–07 (`ffaab9c..8456ee5`) แก้ทุกข้อที่ผู้ใช้เลือกใน `aacca74`
+- backend: `ffmpeg_failed` แสดงบรรทัดท้ายของ stderr (`FfmpegFailed.last_line`); พื้น bitrate 300 kbps; `has_derived` เป็นคำถามเต็มด้วยคำของหน้าเว็บ; `GET /api/spoil/clips/{id}`; `clips.files_lock` แทน lock ของ Transcribe job; `TrimPlan`, ending และ `ErrorCode` มี type; `trimmed_clip_swap` แทน flag `trimming=True`
+- bug: render ที่เสียงครบไม่จองช่อง GPU จึงไม่ถูกปฏิเสธระหว่างตัดคลิปนั้น และ Trim ไม่เห็น render — เพิ่ม `begin_render`/`end_render` ให้สองฝั่งได้ `clip_busy` (test แดงก่อนแก้ทั้งสองทาง)
+- test: ffmpeg และ probe จริงบนคลิป lavfi ผ่าน API; `FakeFfmpeg` ใช้ `pause_at`/`wait_until`/`release` และ render ใช้ตัวเดียวกัน; `clip_busy` ผ่าน route จริงของ describe, draft pick, voice, render; deadlock test เริ่ม Draft pick จริง; probe ล้ม → `500`; shutdown ผ่าน lifespan
+- frontend: ตัดคลิปส่ง `POST` ก่อนแล้วถาม `message` แบบงานถอดผ่าน `postConfirming` ตัวเดียว (`lib/confirm.ts`); Alert ของงานตัดหายเมื่อเลือกคลิปอื่น; เลือกคลิปของงานที่ค้างที่เดียวใน `ClipsPage`; ปลด player ทางเดียว (state + `flushSync`); `ClipsChanged` type เดียว; `allSettled` (`lib/settled.ts`) แทนเช็คห้า hook; Shot picker อ่าน `GET /clips/{id}`; ชื่อ `releasedClipId`, `IndexedRange`
+- docs: spec ตามโค้ด (`busy` ก่อน `clip_busy`, ลูกศรขึ้น/ลง, marker ที่ไม่มี json, `TrimSection`); ลำดับ lock ใน `fastapi-api/SKILL.md`
+
+**Decided:**
+- D46 — สิ่งที่แก้จาก feature review ของงานตัดช่วง
+
+**For the next ticket:**
+- ไม่ได้แก้: `Trims.cancel`/`stop_on_shutdown` ไม่ย้ายไป `ModelJobSlot` — class นั้นถือว่ามี GPU kind และ child process ส่วน Trim ปฏิเสธยกเลิกใน `replacing` และ join thread ตอน shutdown
+- ลบคลิปและ `PUT` การตัด EP ยังไม่เช็คเครื่องหมายของ render ระหว่างขั้น ffmpeg (มีมาก่อน feature นี้ ของ spoil-maker)
+- เวลาตัดหนัง 2 ชั่วโมงยังเป็นค่าประมาณจากหนัง 69 นาที (~13 นาที) ไม่ได้วัดจริง
+- test ของ spoil-maker สองตัว ("the failure's Alert stays…", "แทรกใต้ adds a sentence…") ล้มบางครั้งตอนเครื่องหนัก — ล้มบน HEAD เดิมด้วย; รันสามรอบหลังแก้ผ่านทั้งหมด
+
+**Checks:** `uv run pytest` — 603 passed; `npm --prefix frontend test` — 266 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 07: ส่วนตัดช่วงใน tab คลิป — done 2026-11-05
 
