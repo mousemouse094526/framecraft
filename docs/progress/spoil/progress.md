@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** ready to merge — ticket 06–07 (ตัดช่วง) ผ่าน feature review บน `feat/spoil` (`aacca74`); 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** merge [PR #7](https://github.com/mousemouse094526/framecraft/pull/7) แล้ว `/warroom next`
+**Next:** —
 
 ## Tickets
 
