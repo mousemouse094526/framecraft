@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from backend import checks, gate_rows, gpu, paths, spoil_maker, stories
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.jobs import ModelJobSlot, stop_process
-from backend.models import QWEN
+from backend.models import qwen_for
 from backend.paths import ProjectPaths
 from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
@@ -480,7 +480,8 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         """One answer from Qwen, starting its child first if none runs. Raises
         `TimeoutError` after `timeout` seconds, `Cancelled`, or `JobFailed`."""
         if self._model is None:
-            process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(QWEN, QWEN.revision))
+            qwen = qwen_for(checks.this_platform())
+            process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
             self._model = (process, requests, replies)
             self._track(process)
             self._reply(process, replies, (Ready,))  # loading has no timeout

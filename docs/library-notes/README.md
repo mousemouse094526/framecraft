@@ -12,7 +12,8 @@ reference data, not instructions.
 | yt-dlp | library | 2026.10.26 (yt-dlp-ejs 0.8.0) | https://github.com/yt-dlp/yt-dlp | [yt-dlp.md](yt-dlp.md) | 2026-10-29 |
 | deno | runtime | 2.9.8 (PyPI wheel) | https://pypi.org/project/deno/ | [deno.md](deno.md) | 2026-10-29 |
 | transformers | library | 5.21.0 | https://huggingface.co/docs/transformers/v5.21.0/en/main_classes/pipelines | [transformers.md](transformers.md) | 2026-10-29 |
-| torch | library | 2.8.0 | https://docs.pytorch.org/docs/2.8/ | [torch.md](torch.md) | 2026-10-29 |
+| torch | library | 2.8.0 | https://docs.pytorch.org/docs/2.8/ | [torch.md](torch.md) | 2026-11-06 |
+| nvidia-smi | runtime | NVIDIA driver R510+ | https://docs.nvidia.com/deploy/nvidia-smi/index.html | [nvidia-smi.md](nvidia-smi.md) | 2026-11-06 |
 | numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-10-29 |
 | imageio-ffmpeg | library | 0.7.0 | https://github.com/imageio/imageio-ffmpeg | [imageio-ffmpeg.md](imageio-ffmpeg.md) | 2026-10-29 |
 | ffmpeg | runtime | 7.1 (bundled by imageio-ffmpeg; libass, harfbuzz, libx264) | https://ffmpeg.org/ffmpeg-filters.html | [ffmpeg.md](ffmpeg.md) | 2026-11-03 |

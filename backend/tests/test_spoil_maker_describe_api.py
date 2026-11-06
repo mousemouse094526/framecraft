@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from backend import checks, gpu, paths, spoil, spoil_maker
 from backend.app import app
-from backend.models import QWEN
+from backend.models import QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 from backend.spoil import downloads, transcribe
 from backend.spoil_maker import describe
@@ -21,6 +21,8 @@ from .fakes import (
     FakeLlm,
     FakeWorker,
     cuda_device,
+    card,
+    on_windows,
     jpeg_width,
     make_test_clip,
     ok_deno,
@@ -154,7 +156,7 @@ def test_the_llm_gets_a_448_frame_the_pinned_snapshot_and_the_generation_setting
     start(client)
     wait_for_end(client)
 
-    assert llm.processes[0].snapshot_dir == project.snapshot_dir(QWEN, QWEN.revision)
+    assert llm.processes[0].snapshot_dir == project.snapshot_dir(QWEN_MAC, QWEN_MAC.revision)
     assert widths == [448, 448, 448]
     request = llm.requests[0]
     assert (request.max_tokens, request.temperature) == (80, 0.0)
@@ -479,7 +481,7 @@ def test_start_up_removes_unfinished_shot_folders_and_shots_of_clips_it_cleans(f
 
 def test_a_missing_qwen_marker_is_not_ready_naming_it(client, project, three_colours):
     add_clip(project, three_colours)
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     response = start(client)
 
@@ -487,6 +489,30 @@ def test_a_missing_qwen_marker_is_not_ready_naming_it(client, project, three_col
     assert response.json()["code"] == "not_ready"
     assert response.json()["rows"] == ["model_qwen"]
     assert response.json()["message"] == "ยังติดตั้งไม่ครบ: Qwen3.5 9B model"
+
+
+def test_on_windows_a_card_under_qwen_s_target_is_not_ready_naming_the_gpu_row(
+    client, project, llm, three_colours, monkeypatch
+):
+    add_clip(project, three_colours)
+    on_windows(monkeypatch, card("NVIDIA GeForce RTX 2060", 6, (7, 5)))
+
+    response = start(client)
+
+    assert (response.status_code, response.json()["code"]) == (503, "not_ready")
+    assert response.json()["rows"] == ["gpu", "model_qwen", "bitsandbytes"]
+    assert llm.processes == []
+
+
+def test_on_windows_a_ready_card_describes_with_qwen_s_own_repo(client, project, llm, three_colours, monkeypatch):
+    add_clip(project, three_colours)
+    on_windows(monkeypatch)
+
+    start(client)
+    job = wait_for_end(client)
+
+    assert job["state"] == "done"
+    assert llm.processes[0].snapshot_dir == project.snapshot_dir(QWEN_WINDOWS, QWEN_WINDOWS.revision)
 
 
 def test_describing_an_unknown_clip_is_404(client):

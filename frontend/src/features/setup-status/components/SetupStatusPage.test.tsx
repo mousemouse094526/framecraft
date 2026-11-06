@@ -156,6 +156,27 @@ describe("SetupStatusPage", () => {
     expect(within(row).queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("shows the Windows GPU row's card and Qwen hint without a copy button", async () => {
+    const hint = "Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB";
+    const gpu: ChecklistItem = {
+      id: "gpu",
+      label: "GPU",
+      status: "warning",
+      detail: "NVIDIA GeForce RTX 2060 · 6 GB · sm_75",
+      fix: hint,
+      fix_kind: "hint",
+      license: null,
+    };
+    fetchMock.mockResolvedValue(jsonResponse(statusOf([...READY_ITEMS, gpu])));
+
+    render(<SetupStatusPage />);
+
+    const row = await screen.findByRole("listitem", { name: "GPU" });
+    expect(within(row).getByText("NVIDIA GeForce RTX 2060 · 6 GB · sm_75")).toBeInTheDocument();
+    expect(within(row).getByText(hint)).toBeInTheDocument();
+    expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+  });
+
   it("shows a command fix as a copy chip even when it has spaces", async () => {
     const items = replaceItem("torch", {
       status: "missing",

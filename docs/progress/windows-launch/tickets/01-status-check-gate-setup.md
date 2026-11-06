@@ -11,7 +11,7 @@
 - Seams: 1, 2 (gate และตัวนับ token), 4
 - User stories: 1, 5, 6
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Acceptance criteria
 

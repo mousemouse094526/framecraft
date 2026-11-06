@@ -8,11 +8,11 @@ from fastapi.testclient import TestClient
 
 from backend import checks, gpu, paths, spoil_maker
 from backend.app import app
-from backend.models import OMNIVOICE, QWEN
+from backend.models import OMNIVOICE, QWEN_MAC
 from backend.paths import ProjectPaths
 from backend.spoil_maker import voices
 
-from .fakes import FakeTts, cuda_device, poll_until
+from .fakes import FakeTts, cuda_device, card, on_windows, poll_until
 
 FINISHED = {"done", "failed", "cancelled"}
 JOBS = "/api/spoil-maker/voice-jobs"
@@ -172,10 +172,19 @@ def test_a_design_holds_the_gpu_until_it_ends(client, tts):
 
 
 def test_a_design_does_not_need_qwen(client, project):
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     assert client.post(JOBS, json=DESIGN).status_code == 202
     assert wait_for_end(client)["state"] == "done"
+
+
+def test_on_windows_a_card_torch_has_no_kernels_for_refuses_a_design(client, tts, monkeypatch):
+    on_windows(monkeypatch, card("NVIDIA GeForce GTX 1050 Ti", 4, (6, 1)))
+
+    response = client.post(JOBS, json=DESIGN)
+
+    assert response.status_code == 503
+    assert (response.json()["code"], response.json()["rows"]) == ("not_ready", ["device"])
 
 
 def test_without_the_omnivoice_marker_a_design_is_not_ready(client, project, tts):

@@ -140,6 +140,11 @@ through a queue; the thread writes the result file (ADR 0012).
   not see uv on PATH (D24).
 - The Status check never imports `omnivoice` or `transformers` and never uses
   the network.
+- The backend process never asks torch about a CUDA device (no CUDA context next to
+  a worker's VRAM): the Status check reads the card with `nvidia-smi` and only
+  `torch.cuda.get_arch_list()` from torch (windows-launch D12).
+- Qwen's spec comes from `models.qwen_for(checks.this_platform())` when it is used,
+  never `QWEN_MAC` or `QWEN_WINDOWS` directly (ADR 0025).
 - `setup.ps1` stays ASCII-only; Thai text is printed from Python.
 
 ## Rules by layer

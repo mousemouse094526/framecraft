@@ -73,7 +73,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 - **`backend.checks`**
   - แถว `device` เช็ครุ่นการ์ด ดู ### Status check (D8).
   - แถว `gpu` หลังแถว `device` บน Windows เท่านั้น (D8).
-  - บน Windows แถว `bitsandbytes` แทนแถว `mlx_vlm` ในตำแหน่งเดียวกัน ใช้ `check_package("bitsandbytes")` (D6, D12).
+  - บน Windows แถว `bitsandbytes` แทนแถว `mlx_vlm` ในตำแหน่งเดียวกัน อ่านเวอร์ชันผ่าน probe `bitsandbytes` (D6, D12, D14).
   - แถว `model_qwen` เช็ค spec ของ OS นั้น (D6).
   - เลิกใช้ `MAC_ONLY_FIX` และ `UNSUPPORTED_HERE` กับแถว Qwen.
   - `Probes` เพิ่ม `gpu` ที่คืน `GpuInfo` ให้ test สลับได้ (setup-status D18).
@@ -131,7 +131,7 @@ probe `gpu` คืน `GpuInfo` หรือ raise; บน Mac ไม่ถู�
 
 | Row | OS | `ok` เมื่อ | ไม่ `ok` |
 |---|---|---|---|
-| `device` | Windows | `cuda` และ `sm_{major}{minor}` อยู่ใน `arch_list` | `missing` `hint` "การ์ด {name} (sm_{xy}) เก่าเกินสำหรับ torch ที่ติดตั้ง" (D8) |
+| `device` | Windows | `cuda` และ `arch_list` มี `sm_` major เดียวกับการ์ด (D13) | `missing` `hint` "การ์ด {name} (sm_{xy}) เก่าเกินสำหรับ torch ที่ติดตั้ง" (D8) |
 | `device` | Mac | เหมือนเดิม (`mps`) | เหมือนเดิม |
 | `gpu` | Windows | capability ≥ (8, 0) และ `memory_bytes` ≥ 7.5 GiB | `warning` `hint` เป้าของ Qwen (D9, D10); probe raise → `warning` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA" (D12) |
 | `bitsandbytes` | Windows | `gpu` `ok` และติดตั้งแล้ว | `gpu` ไม่ `ok` → `warning` ข้อความของ `gpu`; ไม่ได้ติดตั้ง → `missing` คำสั่ง setup |

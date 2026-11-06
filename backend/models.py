@@ -56,7 +56,7 @@ WHISPER = ModelSpec(
     author="OpenAI",
 )
 
-QWEN = ModelSpec(
+QWEN_MAC = ModelSpec(
     check_id="model_qwen",
     label="Qwen3.5 9B model",
     repo_id="mlx-community/Qwen3.5-9B-MLX-4bit",
@@ -69,5 +69,25 @@ QWEN = ModelSpec(
     platforms=("darwin",),  # an MLX model: Apple Silicon only (spoil-maker D50)
 )
 
+# bf16 weights that transformers shrinks to 4-bit with bitsandbytes as it loads them (windows-launch D3).
+QWEN_WINDOWS = ModelSpec(
+    check_id="model_qwen",
+    label="Qwen3.5 9B model",
+    repo_id="Qwen/Qwen3.5-9B",
+    revision="c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    allow_patterns=QWEN_MAC.allow_patterns,
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Qwen",
+    platforms=("win32",),
+)
+
+
+def qwen_for(sys_platform: str) -> ModelSpec:
+    """Qwen as the OS runs it; one Checklist item, `model_qwen`, either way (windows-launch D6).
+    Callers pass `checks.this_platform()` when they use it, so tests can swap the OS."""
+    return QWEN_WINDOWS if sys_platform == "win32" else QWEN_MAC
+
+
 # Setup downloads in this order and the checklist lists them in it too.
-MODELS = (OMNIVOICE, WHISPER, QWEN)
+MODELS = (OMNIVOICE, WHISPER, QWEN_MAC, QWEN_WINDOWS)

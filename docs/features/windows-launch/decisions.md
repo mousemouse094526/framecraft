@@ -184,6 +184,40 @@
 
 **From:** red team · **Status:** active
 
+## D13: แถว `device` ผ่านเมื่อ torch มี kernel ของ major เดียวกับการ์ด
+
+**Chosen:** บน Windows แถว `device` เป็น `ok` เมื่อ `torch.cuda.get_arch_list()` มี `sm_` ที่ major เท่ากับ compute capability ของการ์ด ตามกฎที่ torch เองใช้ (`_check_cubins`) แทนการหา `sm_{major}{minor}` ตรงตัว.
+
+**Why:** ผู้ใช้เลือกตัวเลือกที่แนะนำ: build cu128 ของ torch 2.8 ไม่มี `sm_89` แต่ RTX 40xx (เป้าของ D10) รัน kernel `sm_86` ได้; ถ้าเทียบตรงตัว RTX 40xx จะขึ้น "การ์ดเก่าเกิน".
+
+**Rejected:**
+- เทียบ `sm_{major}{minor}` ตรงตัวตาม spec เดิม — RTX 40xx ทุกใบขึ้นแถว Device สีแดง
+
+**Details:**
+- ยังตรง ADR-0026: "torch ที่ติดตั้งรันบนการ์ดนี้ได้"; GTX 10xx (sm_61) ยังเป็น `missing` เพราะ cu128 ไม่มี `sm_6x`
+- arch list ของ cu128: `7.0;7.5;8.0;8.6;9.0;10.0;12.0` ([docs/library-notes/torch.md](../../library-notes/torch.md))
+
+**Sources:** [torch/cuda/__init__.py v2.8.0](https://github.com/pytorch/pytorch/blob/v2.8.0/torch/cuda/__init__.py) · [build_cuda.sh v2.8.0](https://github.com/pytorch/pytorch/blob/v2.8.0/.ci/manywheel/build_cuda.sh)
+
+**From:** build ticket 01 · **Status:** active
+
+## D14: รายละเอียดแถว Qwen บน Windows ที่ build ticket 01 เลือก
+
+**Chosen:** ค่าเล็กๆ ของแถว `device`, `gpu`, `model_qwen`, `bitsandbytes` ที่ spec ไม่ได้กำหนด เลือกตามโค้ดเดิม.
+
+**Why:** อยู่ในขอบของ spec และไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Details:**
+- แถว `model_qwen` และ `bitsandbytes` ที่ `gpu` ไม่ `ok`: ค่าเป็น "ดูแถว GPU" และ `hint` เป็นข้อความของแถว `gpu`
+- probe `gpu` พัง: แถว `device` ยังดูแค่ `cuda` (`ok`) — ไม่บอกว่าการ์ดเก่าเมื่ออ่านการ์ดไม่ได้ (D12); ค่าของแถว `gpu` เป็นข้อความ error
+- VRAM ที่แสดงเป็น GiB ปัดเป็นจำนวนเต็ม: การ์ด 8 GB ที่รายงาน 7.6 GiB แสดง "8 GB"
+- อ่านการ์ดครั้งเดียวต่อ Status check และต่อ gate (`checks.read_once`): `nvidia-smi` รันครั้งเดียว
+- แถว `bitsandbytes` อ่านเวอร์ชันผ่าน probe `bitsandbytes` (metadata) แทน `check_package` ตรงๆ เพื่อให้ test ไม่ขึ้นกับเครื่อง (rules › testing); ผลเหมือน D12
+- gate ของตัวนับ token บน Windows มีแถว `gpu` ก่อน `model_qwen`: การ์ดต่ำกว่าเป้าไม่มีไฟล์ Qwen (D9) จึงบอกแถว GPU
+- Setup script พิมพ์ "ข้าม Qwen3.5 9B model: {hint ของแถว gpu}" ทั้งเมื่อการ์ดต่ำกว่าเป้าและเมื่อ `nvidia-smi` อ่านการ์ดไม่ได้; ที่ว่างบน Windows 30 GB เมื่อต้องโหลด Qwen, 15 GB เมื่อข้าม Qwen (โมเดลที่เหลือราว 5 GB)
+
+**From:** build ticket 01 · **Status:** active
+
 ## Sources
 
 - [PyTorch dev-discuss: Maxwell and Pascal support removed in CUDA 12.8 and 12.9 builds](https://dev-discuss.pytorch.org/t/cuda-toolkit-version-and-architecture-support-update-maxwell-and-pascal-architecture-support-removed-in-cuda-12-8-and-12-9-builds/3128) — D2 (accessed 2026-11-06)

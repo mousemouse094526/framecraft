@@ -15,6 +15,7 @@ dependencies = [
     "uvicorn",
     "yt-dlp[default,deno]>=2026.10.26",
     "mlx-vlm==0.7.11 ; sys_platform == 'darwin'",
+    "bitsandbytes==0.50.2 ; sys_platform == 'win32'",
     "pythainlp==5.4.0",
 ]
 

@@ -25,6 +25,9 @@ def test_missing_marker(tmp_path):
 - Tests never depend on the machine that runs them: what an installed package
   or the OS says goes through a probe or `checks.this_platform()`, and
   `fake_root` sets both to a Mac with everything installed (ADR 0016).
+- A Windows case: `run_checks(..., sys_platform="win32")` with `fake_probes(gpu=gpu(...))`,
+  or `on_windows(monkeypatch, gpu(...))` for an API test; `fake_root` holds both Qwen
+  models, and `gpu()` is an RTX 3060 against torch's cu128 arch list (`CU128_ARCHS`).
 - Each case asserts one exact count or status, never "8 or 9".
 - No browser e2e tool yet; UI is tested in the frontend with Vitest.
 - Background jobs are tested without sleeps on a timer: the fake pauses at a

@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from backend.checks import FfmpegInfo, Probes
+from backend.checks import FfmpegInfo, GpuInfo, Probes
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 from backend.spoil import clips
@@ -101,12 +101,48 @@ def cuda_device() -> str:
     return "cuda"
 
 
+# What torch 2.8.0+cu128 was built for (docs/library-notes/torch.md): no sm_89, no Pascal.
+CU128_ARCHS = ("sm_70", "sm_75", "sm_80", "sm_86", "sm_90", "sm_100", "sm_120")
+
+
+def card(name: str = "NVIDIA GeForce RTX 3060", gib: float = 12, capability: tuple[int, int] = (8, 6)):
+    """A `gpu` probe that reads one card, as nvidia-smi and torch's arch list would report it."""
+    info = GpuInfo(name=name, memory_bytes=int(gib * 2**30), capability=capability, arch_list=CU128_ARCHS)
+    return lambda: info
+
+
+def broken_gpu() -> GpuInfo:
+    raise FileNotFoundError("nvidia-smi")
+
+
+def ok_bitsandbytes() -> str:
+    return "0.50.2"
+
+
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
     probes = Probes(
-        device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp, mlx_vlm=ok_mlx_vlm, pythainlp=ok_pythainlp
+        device=cuda_device,
+        ffmpeg=ok_ffmpeg,
+        deno=ok_deno,
+        yt_dlp=ok_yt_dlp,
+        mlx_vlm=ok_mlx_vlm,
+        pythainlp=ok_pythainlp,
+        gpu=card(),
+        bitsandbytes=ok_bitsandbytes,
     )
     return dataclasses.replace(probes, **overrides)
+
+
+def on_windows(monkeypatch, gpu_probe=None) -> None:
+    """Makes the API's checks see a Windows machine with an RTX 3060 and bitsandbytes,
+    unless `gpu_probe` says otherwise; `fake_root` has every model of both OSes."""
+    from backend import checks
+
+    monkeypatch.setattr(checks, "this_platform", lambda: "win32")
+    monkeypatch.setattr(checks, "probe_device", cuda_device)
+    monkeypatch.setattr(checks, "probe_gpu", gpu_probe or card())
+    monkeypatch.setattr(checks, "probe_bitsandbytes", ok_bitsandbytes)
 
 
 def item(result, item_id: str):

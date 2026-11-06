@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from backend import checks, gpu, paths, spoil, spoil_maker, stories
 from backend.app import app
-from backend.models import QWEN
+from backend.models import QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 from backend.spoil import transcribe
 from backend.spoil_maker import describe, draft, voices
@@ -25,7 +25,9 @@ from .fakes import (
     FakeTts,
     FakeWorker,
     cuda_device,
+    card,
     make_test_clip,
+    on_windows,
     ok_ffmpeg,
     write_temp_clip,
     write_transcript,
@@ -122,6 +124,19 @@ def counted(monkeypatch) -> list[str]:
 
     monkeypatch.setattr(spoil_maker, "count_tokens", count)
     return texts
+
+
+@pytest.fixture
+def counted_in(monkeypatch) -> list[Path]:
+    """The fake token counter, keeping the snapshot each count read its tokenizer from."""
+    snapshots: list[Path] = []
+
+    def count(snapshot_dir: Path, text: str) -> int:
+        snapshots.append(snapshot_dir)
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count)
+    return snapshots
 
 
 @pytest.fixture
@@ -368,6 +383,48 @@ def test_with_qwens_snapshot_gone_tokens_are_null_and_a_draft_is_not_ready(clien
     assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["model_qwen"])
 
 
+def test_on_windows_a_card_under_qwen_s_target_refuses_a_draft_naming_the_gpu_row(client, ready, llm, monkeypatch):
+    on_windows(monkeypatch, card("NVIDIA GeForce RTX 2070", 8, (7, 5)))
+
+    response = start(client)
+
+    # The token count's gate refuses first: the card's model was never downloaded (D9).
+    assert (response.status_code, response.json()["code"]) == (503, "not_ready")
+    assert response.json()["rows"] == ["gpu", "model_qwen"]
+    assert llm.processes == []
+
+
+def test_on_windows_without_qwen_s_own_files_the_token_count_is_not_ready(client, project, ready, monkeypatch):
+    on_windows(monkeypatch)
+    project.marker(QWEN_WINDOWS).unlink()
+
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes").json()
+    response = start(client)
+
+    assert [ep["tokens"] for ep in listed["episodes"]] == [None]
+    assert listed["tokens_not_ready"] == "ยังติดตั้งไม่ครบ: Qwen3.5 9B model"
+    assert (response.status_code, response.json()["rows"]) == (503, ["model_qwen"])
+
+
+def test_on_windows_tokens_are_counted_with_qwen_s_own_tokenizer(client, project, ready, counted_in, monkeypatch):
+    on_windows(monkeypatch)
+
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes").json()
+
+    assert listed["episodes"][0]["tokens"] is not None
+    assert set(counted_in) == {project.snapshot_dir(QWEN_WINDOWS, QWEN_WINDOWS.revision)}
+
+
+def test_on_windows_a_ready_card_drafts_with_qwen_s_own_repo(client, project, ready, llm, monkeypatch):
+    on_windows(monkeypatch)
+    llm.scripts = [passing_script()]
+
+    assert start(client).status_code == 202
+    wait_for_end(client)
+
+    assert llm.processes[0].snapshot_dir == project.snapshot_dir(QWEN_WINDOWS, QWEN_WINDOWS.revision)
+
+
 def test_episodes_of_a_clip_not_transcribed_are_clip_not_ready(client, project, ready):
     write_temp_clip(project, "bbbbbbbbbbb")
     write_shots(project, "bbbbbbbbbbb")
@@ -402,7 +459,7 @@ def test_a_draft_already_there_without_replace_is_draft_exists(client, project, 
 
 
 def test_a_missing_qwen_marker_is_not_ready(client, project, ready):
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     response = start(client)
 
@@ -1047,7 +1104,7 @@ def test_polish_without_a_draft_is_no_draft_before_any_other_check(client, ready
 
 def test_polish_without_qwen_is_not_ready(client, project, ready):
     three_sentences(project)
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     response = polish(client)
 
@@ -1444,7 +1501,7 @@ def test_describing_a_clip_in_the_draft_without_qwen_is_not_ready_before_in_draf
     """The gate comes before `in_draft` (D60): no confirm is asked for a job that can't run."""
     shutil.copyfile(three_colours, project.media_temp_dir / f"{EP1}.mp4")
     write_draft(project)
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     response = client.post("/api/spoil-maker/describes", json={"clip_id": EP1})
 

@@ -15,7 +15,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from backend import checks, gate_rows, gpu, paths, spoil_maker
-from backend.models import QWEN
+from backend.models import qwen_for
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.errors import ApiError, JobFailed, require_rows
@@ -122,7 +122,8 @@ class Describes(ModelJobSlot[DescribeJob]):
         (new / "frames").mkdir(parents=True)
         spans = self._cut(mp4, clip.duration_s)
         self._update(state="describing", percent=None, done=0, total=len(spans))
-        process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(QWEN, QWEN.revision))
+        qwen = qwen_for(checks.this_platform())
+        process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
         self._track(process)
         self._reply(process, replies, (Ready,))  # loading has no timeout
         described = []
