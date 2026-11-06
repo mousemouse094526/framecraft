@@ -22,7 +22,7 @@ from backend.errors import ApiError, JobFailed, require_rows
 from backend.jobs import Cancelled, ModelJobSlot
 from backend.spoil_maker import draft_file, episodes, frames, shots
 from backend.ffmpeg import FfmpegFailed
-from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
+from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError, timeouts
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +34,6 @@ ErrorCode = Literal["crashed", "model_failed", "ffmpeg_failed", "internal"]
 DESCRIBE_PROMPT = "Describe this frame in English in no more than 30 words."
 DESCRIBE_MAX_TOKENS = 80
 DESCRIBE_TEMPERATURE = 0.0
-DESCRIBE_TIMEOUT_SECONDS = 60  # per Shot; longer and the child is terminated (spec › ค่าการสร้างข้อความ)
 
 SHOT_IMAGE = re.compile(r"(\d{1,5})\.jpg")
 
@@ -122,6 +121,8 @@ class Describes(ModelJobSlot[DescribeJob]):
         (new / "frames").mkdir(parents=True)
         spans = self._cut(mp4, clip.duration_s)
         self._update(state="describing", percent=None, done=0, total=len(spans))
+        # Seconds one Shot's description may take on this OS; longer and the child is terminated (windows-launch D7).
+        seconds = timeouts().describe
         qwen = qwen_for(checks.this_platform())
         process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
         self._track(process)
@@ -133,9 +134,9 @@ class Describes(ModelJobSlot[DescribeJob]):
             frames.extract_frame(mp4, (start + end) / 2, thumbnail=new / f"{n}.jpg", llm_frame=frame)
             requests.put(Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE))
             try:
-                reply = self._reply(process, replies, (Generated,), DESCRIBE_TIMEOUT_SECONDS)
+                reply = self._reply(process, replies, (Generated,), seconds)
             except TimeoutError:
-                raise JobFailed("model_failed", f"บรรยายภาพเกิน {DESCRIBE_TIMEOUT_SECONDS:g} วินาที. {gpu.ADVICE}") from None
+                raise JobFailed("model_failed", f"บรรยายภาพเกิน {seconds:g} วินาที. {gpu.ADVICE}") from None
             described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
             self._update(done=n + 1)
         requests.put(None)

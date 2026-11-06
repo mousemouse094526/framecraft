@@ -64,7 +64,7 @@ backend/
 │                    transcribing; its `worker` runs in a child process)
 ├── spoil_maker/  ← the สปอย tab (spoil-maker D56, D59): shots (Shot files),
 │                    describe (Describe job), frames (ffmpeg for Shots),
-│                    llm (the only mlx-vlm import), tts (the only omnivoice
+│                    llm (the only mlx-vlm import; picks the child per OS), tts (the only omnivoice
 │                    import), voices (Saved voices, Voice job), thai
 │                    (numbers as words, letter count, the only pythainlp
 │                    import), json_values (int and number checks of a JSON
@@ -77,7 +77,10 @@ backend/
 │                    tokenizer), settings (what the tab remembers), render (the
 │                    Render job and the render files), compose (the ffmpeg
 │                    commands of a render), captions (the ASS file and the
-│                    `.srt`); llm's and tts's `worker` run in a child process
+│                    `.srt`), llm_windows (Qwen on Windows: the only
+│                    transformers VLM and bitsandbytes import, windows-launch
+│                    D3); llm's, llm_windows's and tts's `worker` run in a
+│                    child process; `llm.TIMEOUTS` holds each OS's timeouts
 ├── routes/       ← one router file per feature, e.g. setup_status.py, stories.py
 └── tests/        ← pytest, test_{module}.py
 ```

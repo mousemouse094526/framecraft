@@ -49,7 +49,11 @@ def test_missing_marker(tmp_path):
   `FakeLlm.respond(request)` makes each reply, and `FakeModel.HANG` as a reply
   never comes, for a timeout in any process); Qwen's tokenizer neither (a
   `count_tokens` stand-in that counts characters);
-  the real `worker`s are checked by hand with the model (seam 3). Its pure helpers
+  the real `worker`s are checked by hand with the model (seam 3); the Windows
+  worker's steps are also tested against stand-in `torch` and `transformers`
+  modules put in `sys.modules` (`test_spoil_maker_llm_windows.py`). A timeout test
+  swaps the per-OS table with `os_timeouts(monkeypatch, darwin=…, win32=…)`, never
+  a constant. Its pure helpers
   (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
   `python -c` to prove importing the adapter loads neither torch nor
   transformers.

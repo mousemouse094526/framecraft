@@ -145,6 +145,31 @@ def on_windows(monkeypatch, gpu_probe=None) -> None:
     monkeypatch.setattr(checks, "probe_bitsandbytes", ok_bitsandbytes)
 
 
+def os_timeouts(monkeypatch, darwin: float, win32: float) -> None:
+    """Swaps `llm.TIMEOUTS` so every step of the Mac and of Windows has the given seconds."""
+    from backend.spoil_maker import llm
+
+    monkeypatch.setattr(llm, "TIMEOUTS", {"darwin": llm.Timeouts(*[darwin] * 4), "win32": llm.Timeouts(*[win32] * 4)})
+
+
+# A fake answer this slow outlasts a Mac timeout of 0.2 s and fits a Windows one of 1 s.
+SLOW_ANSWER_SECONDS = 0.5
+
+
+def slow_first(reply):
+    """`reply` (a text, or a function of the request) that takes `SLOW_ANSWER_SECONDS`
+    the first time only, so a retry after a timeout answers at once."""
+    asked = []
+
+    def respond(request):
+        if not asked:
+            time.sleep(SLOW_ANSWER_SECONDS)
+        asked.append(request)
+        return reply(request) if callable(reply) else reply
+
+    return respond
+
+
 def item(result, item_id: str):
     return next(i for i in result.items if i.id == item_id)
 

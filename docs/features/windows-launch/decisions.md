@@ -233,6 +233,20 @@
 
 **From:** build ticket 01 · **Status:** active
 
+## D16: รายละเอียด worker Windows และ timeout ที่ build ticket 02 เลือก
+
+**Chosen:** ค่าเล็กๆ ที่ spec ไม่ได้กำหนด หรือที่ spec เขียนไม่ตรงกับ library ที่ติดตั้ง:
+- `llm_int8_skip_modules` เป็น `["model.visual", "lm_head"]` แทน `["visual", "lm_head"]`: transformers 5.21.0 จับชื่อจากต้นชื่อเต็มหรือท้ายชื่อ `"visual"` จึงไม่จับ `model.visual.blocks.*` และ vision tower จะถูกย่อ ขัด D12 ([docs/library-notes/transformers.md](../../library-notes/transformers.md))
+- โหลดด้วย `dtype=torch.bfloat16` ด้วย นอกจาก compute dtype: ส่วนที่ไม่ย่อก็เป็น bfloat16 ตาม D10
+- log หลังโหลด: `[qwen] not quantized: model.visual (N), lm_head (1)` (นับ `Linear` ที่ไม่ย่อตามสองส่วนแรกของชื่อ) และ `[qwen] VRAM after load: {GiB} GiB` จาก `torch.cuda.max_memory_allocated`; ขึ้นใน terminal ของ `[api]`
+- ตาราง `Timeouts` อยู่ใน `backend.spoil_maker.llm` (`TIMEOUTS`, `timeouts()`); Draft job อ่านตอนเริ่มงานแต่ละครั้ง; OS อื่นได้ของ Mac
+- ขั้นเขียนบทและเรียบเรียงที่เกินเวลายังเป็น "ลองไม่สำเร็จหนึ่งครั้ง" ตาม spoil-maker เดิม ไม่ใช่ `model_failed`; บรรยายและเลือก Shot เป็น `model_failed` ที่บอกวินาทีจากตาราง — ticket เขียนว่า "ทั้งสี่ขั้นจบ `model_failed`" แต่ spec › ค่าต่อ OS เปลี่ยนแค่ค่า ไม่ได้เปลี่ยนพฤติกรรม
+- worker Windows มี unit test กับ `torch` และ `transformers` ปลอมใน `sys.modules` (ticket ระบุพฤติกรรมไว้); โมเดลจริงเช็คมือใน ticket 03
+
+**Why:** อยู่ในขอบของ spec และทำให้สิ่งที่ spec สัญญา (ไม่ย่อ `visual`, bfloat16 ทางเดียว, timeout ต่อ OS) เป็นจริงกับ library ที่ติดตั้ง.
+
+**From:** build ticket 02 · **Status:** active
+
 ## Sources
 
 - [PyTorch dev-discuss: Maxwell and Pascal support removed in CUDA 12.8 and 12.9 builds](https://dev-discuss.pytorch.org/t/cuda-toolkit-version-and-architecture-support-update-maxwell-and-pascal-architecture-support-removed-in-cuda-12-8-and-12-9-builds/3128) — D2 (accessed 2026-11-06)

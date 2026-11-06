@@ -20,6 +20,8 @@ from backend.spoil import transcribe
 from backend.spoil_maker import describe, draft, voices
 
 from .fakes import (
+    os_timeouts,
+    slow_first,
     poll_until,
     FakeLlm,
     FakeTts,
@@ -415,6 +417,50 @@ def test_on_windows_tokens_are_counted_with_qwen_s_own_tokenizer(client, project
     assert set(counted_in) == {project.snapshot_dir(QWEN_WINDOWS, QWEN_WINDOWS.revision)}
 
 
+def slow_step(llm: FakeLlm, step: str) -> None:
+    """Makes the first answer of one step (`write`, `polish` or `pick`) slow."""
+    llm.scripts = [slow_first(passing_script()) if step == "write" else passing_script()]
+    if step == "polish":
+        llm.polishes = slow_first(unchanged)
+    if step == "pick":
+        llm.picks = slow_first('{"shots": [0, 1]}')
+
+
+@pytest.mark.parametrize("step", ["write", "polish", "pick"])
+def test_on_windows_a_step_slower_than_the_mac_s_timeout_finishes_in_one_try(step, client, ready, llm, monkeypatch):
+    on_windows(monkeypatch)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    slow_step(llm, step)
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"
+    assert len(llm.processes) == 1  # no try timed out
+
+
+@pytest.mark.parametrize("step", ["write", "polish"])
+def test_on_the_mac_the_same_slow_write_or_polish_is_a_timed_out_try(step, client, ready, llm, monkeypatch):
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    slow_step(llm, step)
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"  # the next try answers at once (windows-launch D16)
+    assert llm.processes[0].terminated is True
+    assert len(llm.processes) == 2
+
+
+def test_on_the_mac_the_same_slow_pick_fails_naming_the_mac_s_seconds(client, ready, llm, monkeypatch):
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    slow_step(llm, "pick")
+
+    start(client)
+    job = wait_for_end(client)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert "เลือกภาพเกิน 0.2 วินาที" in job["error"]["message"]
+
+
 def test_on_windows_a_ready_card_drafts_with_qwen_s_own_repo(client, project, ready, llm, monkeypatch):
     on_windows(monkeypatch)
     llm.scripts = [passing_script()]
@@ -662,7 +708,7 @@ def test_asking_again_says_what_was_wrong_with_the_last_reply(client, project, r
 
 
 def test_a_reply_slower_than_the_timeout_counts_as_a_failed_try(client, project, ready, llm, monkeypatch):
-    monkeypatch.setattr(draft, "WRITE_TIMEOUT_SECONDS", 0.2)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
     llm.scripts = [FakeLlm.HANG, passing_script()]
 
     start(client)
@@ -779,7 +825,7 @@ def test_cancelling_while_writing_ends_cancelled_and_keeps_the_old_draft(client,
 
 
 def test_a_picking_timeout_fails_as_model_failed(client, project, ready, llm, monkeypatch):
-    monkeypatch.setattr(draft, "PICK_TIMEOUT_SECONDS", 0.2)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
     llm.scripts = [passing_script()]
     llm.picks = lambda request: FakeLlm.HANG
 
@@ -932,7 +978,7 @@ def test_a_polish_longer_than_the_target_allows_twice_keeps_the_written_text(cli
 
 
 def test_a_polish_slower_than_the_timeout_counts_as_a_failed_try(client, project, ready, llm, monkeypatch):
-    monkeypatch.setattr(draft, "POLISH_TIMEOUT_SECONDS", 0.2)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
     llm.scripts = [passing_script()]
     replies = iter([FakeLlm.HANG])
     llm.polishes = lambda request: next(replies, None) or polished({i: "ข" * 30 for i in asked_to_polish(request)})

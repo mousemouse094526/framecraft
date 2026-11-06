@@ -25,7 +25,7 @@ from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, episodes, script, settings, shots, thai, voices
 from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef, Style
 from backend.spoil_maker.json_values import is_int
-from backend.spoil_maker.llm import Generate, Generated, Ready, WorkerError
+from backend.spoil_maker.llm import Generate, Generated, Ready, Timeouts, WorkerError, timeouts
 from backend.spoil_maker.script import Brief
 from backend.spoil_maker.shots import ShotsFile
 
@@ -41,15 +41,13 @@ TARGET_MIN, TARGET_MAX = 30, 180  # D39
 ATTEMPTS = 3
 WINDOW_SECONDS = 30  # Shots this far around the lines a sentence cites (D18, D26)
 
-# spec › ค่าการสร้างข้อความ; thinking is off for every step (llm.generate).
+# spec › ค่าการสร้างข้อความ; thinking is off for every step (`llm.generate`, `llm_windows.generate`), and each
+# step's timeout is this OS's (`llm.TIMEOUTS`, windows-launch D7).
 WRITE_TEMPERATURE = 0.3  # D61: 0.5 and 0.7 swing ±40% in length, 0.1 can run on
-WRITE_TIMEOUT_SECONDS = 600
 POLISH_ATTEMPTS = 2
 POLISH_TEMPERATURE = 0.3
-POLISH_TIMEOUT_SECONDS = 300
 PICK_TEMPERATURE = 0.0
 PICK_MAX_TOKENS = 64
-PICK_TIMEOUT_SECONDS = 60
 # A pick reads about 0.4 s a Shot on an M2: 40 is 17 s, a 96-minute film's 840 are minutes (D61).
 PICK_MAX_SHOTS = 40
 
@@ -149,6 +147,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
     def __init__(self):
         super().__init__()
         self._model = None  # (process, requests, replies) of the running child
+        self._timeouts: Timeouts = timeouts()  # replaced by this OS's table as each job starts (`_run`)
 
     def start(self, body: dict) -> DraftJob:
         if body.get("kind") == "draft":
@@ -305,6 +304,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         def clean_up(state: str) -> None:
             self._model = None  # `_finish` stops its process
 
+        self._timeouts = timeouts()
         self._run_job(self.current().kind, steps, clean_up)
 
     def _draft(self, project: ProjectPaths, order: _CheckedOrder) -> None:
@@ -316,11 +316,11 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             prompt = script.script_prompt(brief, last, asked_before=attempt > 1)
             last = None
             try:
-                reply = self._ask(project, prompt, brief.max_tokens, WRITE_TEMPERATURE, WRITE_TIMEOUT_SECONDS)
+                reply = self._ask(project, prompt, brief.max_tokens, WRITE_TEMPERATURE, self._timeouts.write)
             except TimeoutError:
                 # One failed try of three (step 3); a stuck generation ends only with its
                 # process, so the next ask starts a new one.
-                log.warning("script attempt %d took longer than %d s", attempt, WRITE_TIMEOUT_SECONDS)
+                log.warning("script attempt %d took longer than %g s", attempt, self._timeouts.write)
                 self._stop_model()
                 continue
             parsed = script.parse_script(reply, brief)
@@ -438,9 +438,9 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         max_tokens = script.polish_max_tokens(sentences)
         for attempt in range(1, POLISH_ATTEMPTS + 1):
             try:
-                reply = self._ask(project, prompt, max_tokens, POLISH_TEMPERATURE, POLISH_TIMEOUT_SECONDS)
+                reply = self._ask(project, prompt, max_tokens, POLISH_TEMPERATURE, self._timeouts.polish)
             except TimeoutError:
-                log.warning("polish attempt %d took longer than %d s", attempt, POLISH_TIMEOUT_SECONDS)
+                log.warning("polish attempt %d took longer than %g s", attempt, self._timeouts.polish)
                 self._stop_model()
                 continue
             texts = script.parse_polish(reply, sentences, asked)
@@ -469,10 +469,10 @@ class DraftJobs(ModelJobSlot[DraftJob]):
             asked = script.closest(candidates, first.start_s, PICK_MAX_SHOTS)
             prompt = script.pick_prompt(sentence, transcript, asked)
             try:
-                reply = self._ask(project, prompt, PICK_MAX_TOKENS, PICK_TEMPERATURE, PICK_TIMEOUT_SECONDS)
+                reply = self._ask(project, prompt, PICK_MAX_TOKENS, PICK_TEMPERATURE, self._timeouts.pick)
             except TimeoutError:
                 # Unlike the script, a stuck pick ends the job (spec › ค่าการสร้างข้อความ).
-                raise JobFailed("model_failed", f"เลือกภาพเกิน {PICK_TIMEOUT_SECONDS} วินาที. {gpu.ADVICE}") from None
+                raise JobFailed("model_failed", f"เลือกภาพเกิน {self._timeouts.pick:g} วินาที. {gpu.ADVICE}") from None
             picked = script.parse_pick(reply, asked) or script.nearest(asked, first.start_s)
         return [ShotRef(clip_id=window.clip_id, n=n) for n in picked]
 

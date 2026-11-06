@@ -12,6 +12,7 @@
 - Pass a dtype object (`torch.float16`, `torch.float32`), not a string, where an API takes `dtype` — [Tensor attributes](https://docs.pytorch.org/docs/2.8/tensor_attributes.html)
 - `torch.cuda.get_arch_list()` lists the `sm_XY` (and `compute_XY` PTX) targets the build was compiled for; `[]` when CUDA isn't available. It reads build flags only — no device query — [torch.cuda](https://docs.pytorch.org/docs/2.8/cuda.html)
 - A card is usable when the list has an `sm_` of the same major: CUDA binaries run on later minors of that major, the rule torch's own `_check_cubins` applies — [torch/cuda/__init__.py v2.8.0](https://github.com/pytorch/pytorch/blob/v2.8.0/torch/cuda/__init__.py)
+- `torch.cuda.max_memory_allocated(device)` gives the peak bytes torch's allocator held on that card since start (not the driver's total) — [torch.cuda](https://docs.pytorch.org/docs/2.8/cuda.html)
 - Importing torch takes seconds; import it inside the function that needs it — project rule (`backend.checks`)
 
 ## Pattern

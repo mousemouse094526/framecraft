@@ -16,6 +16,8 @@ from backend.spoil import downloads, transcribe
 from backend.spoil_maker import describe
 
 from .fakes import (
+    os_timeouts,
+    slow_first,
     poll_until,
     FakeAdapter,
     FakeLlm,
@@ -305,7 +307,7 @@ def test_cancel_without_a_running_job_is_404(client):
 
 def test_an_llm_slower_than_the_timeout_fails_as_model_failed(client, project, llm, monkeypatch, three_colours):
     add_clip(project, three_colours)
-    monkeypatch.setattr(describe, "DESCRIBE_TIMEOUT_SECONDS", 0.2)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
     llm.hang_at = 0
 
     start(client)
@@ -513,6 +515,29 @@ def test_on_windows_a_ready_card_describes_with_qwen_s_own_repo(client, project,
 
     assert job["state"] == "done"
     assert llm.processes[0].snapshot_dir == project.snapshot_dir(QWEN_WINDOWS, QWEN_WINDOWS.revision)
+
+
+def test_on_windows_a_shot_slower_than_the_mac_s_timeout_is_described(client, project, llm, three_colours, monkeypatch):
+    add_clip(project, three_colours)
+    on_windows(monkeypatch)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    llm.respond = slow_first(llm.respond)
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"
+
+
+def test_on_the_mac_the_same_slow_shot_fails_naming_the_mac_s_seconds(client, project, llm, three_colours, monkeypatch):
+    add_clip(project, three_colours)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    llm.respond = slow_first(llm.respond)
+
+    start(client)
+    job = wait_for_end(client)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert "บรรยายภาพเกิน 0.2 วินาที" in job["error"]["message"]
 
 
 def test_describing_an_unknown_clip_is_404(client):

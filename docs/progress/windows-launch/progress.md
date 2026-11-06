@@ -1,11 +1,11 @@
 # Progress: windows-launch
 
-**Now:** 01 done — แถว Windows ตรง Figma แล้ว; ต่อ 02 (worker Qwen บน Windows และ timeout ต่อ OS)
+**Now:** 01, 02 done — โค้ด Windows ครบ เช็คด้วย worker ปลอมบน Mac แล้ว; 03 รอเครื่อง Windows RTX 30xx ขึ้นไป (Blocked #2)
 
-**Next:**
+**Next:** บนเครื่อง Windows ที่ clone `develop` แล้ว (หลัง merge branch นี้):
 
 ```
-/warroom-build windows-launch 02
+/warroom-build windows-launch 03
 ```
 
 ## Tickets
@@ -13,10 +13,31 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | Status check, gate และ Setup script ของ Qwen ต่อ OS | done |
-| 02 | Worker Qwen บน Windows และ timeout ต่อ OS | ready |
+| 02 | Worker Qwen บน Windows และ timeout ต่อ OS | done |
 | 03 | ลอง Qwen บนเครื่อง Windows RTX 30xx ขึ้นไป | ready |
 
 ## Log
+
+### 02: Worker Qwen บน Windows และ timeout ต่อ OS — done 2026-11-06
+
+**Built:**
+- บน Windows งานบรรยายฉาก ร่างบท และเรียบเรียงเริ่ม worker transformers ตัวใหม่ (`spoil_maker/llm_windows.py`) ที่โหลด `Qwen/Qwen3.5-9B` แบบ 4-bit nf4 บน `cuda:0` จาก snapshot เท่านั้น; Mac ใช้ mlx-vlm เดิม ข้อความระหว่าง process เหมือนเดิม
+- หลังโหลด worker พิมพ์ module ที่ไม่ได้ย่อ และ VRAM ลง terminal ของ `[api]` ให้ ticket 03 จด
+- timeout ทั้งสี่อยู่ในตารางเดียว `llm.TIMEOUTS` (Mac 60/600/300/60, Windows 300/3000/1500/300 วินาที) อ่านตอนเริ่มงาน; งานที่ช้ากว่า Mac บน Windows ไม่ถูกตัด
+- เจอว่า `llm_int8_skip_modules=["visual"]` ตามแผนไม่จับ vision tower ใน transformers 5.21.0 → ใช้ `"model.visual"`
+
+**Decided:**
+- D16 — skip `model.visual`, dtype bfloat16, รูปแบบ log, ที่อยู่ของตาราง timeout, เขียน/เรียบเรียงเกินเวลายังเป็น "ลองไม่สำเร็จ" (ไม่ใช่ `model_failed`), test worker Windows ด้วย `torch`/`transformers` ปลอม; ticket และ spec อ้าง D16 แล้ว
+
+**For the next ticket:**
+- ticket 03 ดูใน log `[qwen] not quantized:` ต้องมีแค่ `model.visual (…)` กับ `lm_head (1)`; ถ้ามีอย่างอื่น skip list พลาด
+- ยังไม่ได้เช็คกับโมเดลจริง: `BatchFeature.to` คืนตัวเอง, processor รับ path ของภาพ, `pixel_values` float32 เข้า vision tower bf16 — ดูตอนลองใน 03
+- timeout Windows หลังลอง: แก้ค่าใน `llm.TIMEOUTS["win32"]` เป็น max(ค่าเดิม, นานสุด × 3 ปัดขึ้นเป็นนาที) (D7)
+- `llm_windows.load` และ `spoil_maker/tokens.py` ไม่ส่ง `cache_dir` (SKILL บอกทุก HF call): ทั้งคู่อ่าน folder snapshot ตรงด้วย `local_files_only` จึงไม่แตะ cache — แก้กฎให้ยกเว้น หรือส่ง `cache_dir` ทั้งสองที่
+- `slow_first` ใน `fakes.py` ใช้ `time.sleep(0.5)` จริงตาม seam 3 (0.2 / 0.5 / 1 วินาที); ถ้า test สะดุดบนเครื่องช้า ให้เปลี่ยนเป็นจับวินาทีที่ `_reply` ได้รับ
+- ข้อจาก 01 ยังค้าง: `qwen_snapshot(project)` ซ้ำใน `describe.py`, `draft.py`, `qwen_tokens.py`; `QWEN_TARGET` ใน `test_checks.py`
+
+**Checks:** `uv run pytest` (733) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` (321) · `npm --prefix frontend run build` — all green
 
 ### 01: Status check, gate และ Setup script ของ Qwen ต่อ OS — done 2026-11-06
 

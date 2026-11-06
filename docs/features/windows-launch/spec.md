@@ -118,7 +118,7 @@ probe `gpu` คืน `GpuInfo` หรือ raise; บน Mac ไม่ถู�
    - `load_in_4bit=True`
    - `bnb_4bit_quant_type="nf4"`
    - `bnb_4bit_compute_dtype=torch.bfloat16`
-   - `llm_int8_skip_modules=["visual", "lm_head"]`
+   - `llm_int8_skip_modules=["model.visual", "lm_head"]` (D16: `"visual"` อย่างเดียวไม่จับ `model.visual.*`)
 4. log ชื่อ module ที่ไม่ได้ย่อ และ VRAM ที่ใช้หลังโหลด (trial อ่านค่านี้).
 5. ส่ง `Ready`.
 6. ต่อ `Generate`: สร้างข้อความ chat ด้วย `processor.apply_chat_template(..., enable_thinking=False)` (spoil-maker D51) พร้อมภาพเมื่อมี แล้ว `generate` ด้วย `max_new_tokens` และ `temperature` ของคำขอ; `temperature` 0 = `do_sample=False`.
@@ -191,7 +191,7 @@ probe `gpu` คืน `GpuInfo` หรือ raise; บน Mac ไม่ถู�
    - ไม่มี marker ของ `Qwen/Qwen3.5-9B` → `GET .../episodes` ตอบ `503` `not_ready` ที่ `rows` มี `model_qwen`; มี marker → ตัวนับปลอมได้ snapshot ของ `Qwen/Qwen3.5-9B`.
 3. **timeout ต่อ OS** Describe job และ Draft job กับตาราง timeout ที่สลับเป็นค่าเล็ก (Mac 0.2 วินาที, Windows 1 วินาที) และ worker ปลอมที่ตอบใน 0.5 วินาที
    - ทั้งสี่ขั้น (บรรยาย, เขียน, เรียบเรียง, เลือก Shot) บน `win32` → `done`.
-   - ทั้งสี่ขั้นบน `darwin` → `model_failed` ข้อความบอกวินาทีจากตาราง.
+   - บรรยายและเลือก Shot บน `darwin` → `model_failed` ข้อความบอกวินาทีจากตาราง; เขียนบทและเรียบเรียง → การลองที่ไม่สำเร็จหนึ่งครั้งตามเดิม (D16).
 4. **หน้าติดตั้ง** `SetupStatusPage` กับ fetch ปลอม
    - status มีแถว `gpu` `warning` พร้อม `hint` → เห็นชื่อ "GPU", ค่า, และข้อความ hint ไม่มีปุ่ม copy.
 
