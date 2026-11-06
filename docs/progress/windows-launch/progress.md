@@ -1,14 +1,14 @@
 # Progress: windows-launch
 
-**Now:** 01 ทำครบยกเว้นหน้าตาแถวให้ตรง Figma ที่รอแบบ (Blocked #1); 02 รอ 01 done
+**Now:** 01 แบบแถวใหม่มีแล้ว (Blocked #1 done) — เหลือทำหน้าตาแถวให้ตรง Figma; 02 รอ 01 done
 
 **Next:**
 
 ```
-/warroom windows-launch
+/warroom-build windows-launch 01
 ```
 
-ทำแบบจาก [ui-prompt.md](../../features/windows-launch/ui-prompt.md) แล้วส่งลิงก์ Figma; ปิด Blocked #1 แล้ว `/warroom-build windows-launch 01` เก็บข้อสุดท้าย
+เก็บข้อสุดท้ายของ 01: หน้าตาแถว `device`, `gpu`, `bitsandbytes`, `model_qwen` ให้ตรง [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588)
 
 ## Tickets
 
@@ -39,10 +39,14 @@
 - Windows fakes: `fakes.card(...)`, `broken_gpu`, `on_windows(monkeypatch, card(...))`, `CU128_ARCHS`
 
 **Checks:** `uv run pytest` (712) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` (320) · `npm --prefix frontend run build` — all green
+### design link — 2026-11-06
+
+- ออกแบบแถว Windows ใน Figma: 5 สถานะ (ครบ, การ์ดต่ำกว่าเป้า Qwen, การ์ดเก่าเกิน, อ่านการ์ดไม่ได้, Qwen ยังไม่โหลด) × 1440/375 [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588); ปุ่ม Refresh ลิงก์ไป frame refreshing เดิม
+- spec › Design Source เป็นลิงก์นี้; `ui-prompt.md` ลบ; spec › Design ไม่มีจอ `pending`
 
 ## Blocked
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01 | design: ติดตั้ง (Status check) — แถว `device`, `gpu`, `bitsandbytes`, `model_qwen` ยังไม่มีแบบ | `/warroom windows-launch` พร้อมลิงก์แบบที่ทำจาก [ui-prompt.md](../../features/windows-launch/ui-prompt.md) | open |
+| 1 | 01 | design: ติดตั้ง (Status check) — แถว `device`, `gpu`, `bitsandbytes`, `model_qwen` ยังไม่มีแบบ | `/warroom windows-launch` พร้อมลิงก์แบบ | done ([Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588)) |
 | 2 | 03 | ต้องมีเครื่อง Windows ที่การ์ด RTX 30xx ขึ้นไปและ VRAM ≥ 8 GB (spec Open Question 1) | ผู้ใช้ clone `develop` บนเครื่องนั้นแล้ว `/warroom-build windows-launch 03` | open |

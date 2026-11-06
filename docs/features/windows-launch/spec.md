@@ -35,9 +35,7 @@
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
-| ติดตั้ง (Status check) | 1, 5, 6 | แถว `device` ที่ไม่ `ok` บอกชื่อการ์ดกับ capability และ `hint` ว่าการ์ดเก่าเกินสำหรับ torch ที่ติดตั้ง (D8); บน Windows แถว `gpu` ชื่อ "GPU" ค่าเป็นชื่อการ์ด VRAM และ capability (D8); `gpu` เป็น `warning` พร้อม `hint` "Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB" (D9, D10); แถว `model_qwen` และ `bitsandbytes` เป็น `warning` ข้อความเดียวกันเมื่อ `gpu` ไม่ `ok` (D9); probe พัง → `gpu` `warning` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA" (D12); บน Windows แถว `bitsandbytes` แทน `mlx_vlm` (D6); แถว "Qwen3.5 9B model" แสดง revision ของ repo ของ OS (D6); Mac ไม่มีแถว `gpu` และ `bitsandbytes` (D6, D8) | pending |
-
-Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
+| ติดตั้ง (Status check) | 1, 5, 6 | แถว `device` ที่ไม่ `ok` บอกชื่อการ์ดกับ capability และ `hint` ว่าการ์ดเก่าเกินสำหรับ torch ที่ติดตั้ง (D8); บน Windows แถว `gpu` ชื่อ "GPU" ค่าเป็นชื่อการ์ด VRAM และ capability (D8); `gpu` เป็น `warning` พร้อม `hint` "Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB" (D9, D10); แถว `model_qwen` และ `bitsandbytes` เป็น `warning` ข้อความเดียวกันเมื่อ `gpu` ไม่ `ok` (D9); probe พัง → `gpu` `warning` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA" (D12); บน Windows แถว `bitsandbytes` แทน `mlx_vlm` (D6); แถว "Qwen3.5 9B model" แสดง revision ของ repo ของ OS (D6); Mac ไม่มีแถว `gpu` และ `bitsandbytes` (D6, D8) | [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588) |
 
 ## Expected Outcome
 
