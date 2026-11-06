@@ -216,6 +216,21 @@
 - gate ของตัวนับ token บน Windows มีแถว `gpu` ก่อน `model_qwen`: การ์ดต่ำกว่าเป้าไม่มีไฟล์ Qwen (D9) จึงบอกแถว GPU
 - Setup script พิมพ์ "ข้าม Qwen3.5 9B model: {hint ของแถว gpu}" ทั้งเมื่อการ์ดต่ำกว่าเป้าและเมื่อ `nvidia-smi` อ่านการ์ดไม่ได้; ที่ว่างบน Windows 30 GB เมื่อต้องโหลด Qwen, 15 GB เมื่อข้าม Qwen (โมเดลที่เหลือราว 5 GB)
 
+**From:** build ticket 01 · **Status:** changed by D15 (ค่าของแถว `model_qwen` และ `bitsandbytes` เมื่อ `gpu` ไม่ `ok`, ค่าของแถว `gpu` เมื่อ probe พัง)
+
+## D15: ค่าของแถว Windows ตามแบบ Figma
+
+**Chosen:** ค่าของแถวบน Windows ตาม [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588):
+- `model_qwen` และ `bitsandbytes` ที่ `gpu` ไม่ `ok`: ยังเป็น `warning` กับ `hint` ของแถว `gpu` แต่ค่าเป็นค่าของแถวเอง (revision, เวอร์ชัน, หรือ "ไม่พบ marker ใน models/.setup" เมื่อยังไม่โหลด) แทน "ดูแถว GPU"
+- probe `gpu` พัง: ค่าของแถว `gpu` ว่าง แสดงแค่ `hint` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA"; หน้าเว็บไม่แสดงบรรทัดค่าที่ว่าง
+- `device` เป็น `missing` เพราะการ์ดเก่าเกิน: ค่าเป็น `{ชื่อการ์ด} · sm_{xy}` แทน `cuda`
+- ค่าของแถว `warning` ทุกแถว (Mac ด้วย) เป็นตัว mono 13px สีเหลือง เหมือนค่าของแถว `ok`; แถว `missing` คงตัวปกติ 14px สีแดง
+
+**Why:** ผู้ใช้เลือกตามแบบ (build ticket 01): เห็นค่าจริงของแต่ละแถว ไม่เห็น error ดิบ และแถว Device บอกการ์ดตรงๆ.
+
+**Rejected:**
+- คงข้อความเดิมของ D14 แก้แค่สีและฟอนต์ — ไม่ตรงแบบ
+
 **From:** build ticket 01 · **Status:** active
 
 ## Sources

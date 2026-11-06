@@ -9,7 +9,7 @@ import rowWarningIcon from "../assets/row-warning.svg";
 const ROW_LOOK: Record<ItemStatus, { icon: string; alt: string; rowClass: string; detailClass: string }> = {
   ok: { icon: rowOkIcon, alt: "ผ่าน", rowClass: "", detailClass: "font-mono text-[13px] text-mid" },
   missing: { icon: rowMissingIcon, alt: "ขาด", rowClass: "bg-error-surface", detailClass: "text-sm text-destructive" },
-  warning: { icon: rowWarningIcon, alt: "คำเตือน", rowClass: "bg-warning-surface", detailClass: "text-sm text-warning" },
+  warning: { icon: rowWarningIcon, alt: "คำเตือน", rowClass: "bg-warning-surface", detailClass: "font-mono text-[13px] text-warning" },
 };
 
 /** The Checklist items in the order the API sends them. */
@@ -34,7 +34,8 @@ function Row({ item }: { item: ChecklistItem }) {
           {item.label}
         </p>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <p className={`leading-[22px] break-words ${look.detailClass}`}>{item.detail}</p>
+          {/* An unreadable GPU has no detail, only its fix (windows-launch D15). */}
+          {item.detail && <p className={`leading-[22px] break-words ${look.detailClass}`}>{item.detail}</p>}
           {item.status !== "ok" && item.fix && <Fix fix={item.fix} kind={item.fix_kind} />}
           {item.license && <LicenseLine license={item.license} />}
         </div>

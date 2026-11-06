@@ -301,6 +301,35 @@ def test_an_rtx_20xx_warns_on_every_qwen_row_but_stays_ready(fake_root):
     assert result.ready is True
 
 
+def test_qwen_rows_under_the_target_still_show_their_own_value(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="win32", gpu=card("NVIDIA GeForce RTX 2070", 8, (7, 5)))
+
+    assert item(result, "model_qwen").detail.startswith(f"{QWEN_WINDOWS.revision[:7]} · ")
+    assert item(result, "bitsandbytes").detail == "0.50.2"
+
+
+def test_qwen_not_downloaded_under_the_target_warns_with_the_missing_detail(fake_root):
+    ProjectPaths(fake_root).marker(QWEN_WINDOWS).unlink()
+
+    result = checks_with_fakes(fake_root, sys_platform="win32", gpu=card("NVIDIA GeForce RTX 2070", 8, (7, 5)))
+
+    row = item(result, "model_qwen")
+    assert (row.status, row.detail, row.fix) == ("warning", "ไม่พบ marker ใน models/.setup", QWEN_TARGET)
+
+
+def test_bitsandbytes_not_installed_under_the_target_warns_and_stays_ready(fake_root):
+    def not_installed() -> str:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง")
+
+    result = checks_with_fakes(
+        fake_root, sys_platform="win32", gpu=card("NVIDIA GeForce RTX 2070", 8, (7, 5)), bitsandbytes=not_installed
+    )
+
+    row = item(result, "bitsandbytes")
+    assert (row.status, row.detail, row.fix) == ("warning", "ยังไม่ได้ติดตั้ง", QWEN_TARGET)
+    assert result.ready is True
+
+
 def test_a_6_gb_card_warns_on_the_gpu_row(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="win32", gpu=card(gib=6, capability=(8, 6)))
 
@@ -318,8 +347,9 @@ def test_a_pascal_card_makes_device_missing_with_the_reason(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="win32", gpu=card("NVIDIA GeForce GTX 1050 Ti", 4, (6, 1)))
 
     device = item(result, "device")
-    assert (device.status, device.fix, device.fix_kind) == (
+    assert (device.status, device.detail, device.fix, device.fix_kind) == (
         "missing",
+        "NVIDIA GeForce GTX 1050 Ti · sm_61",
         "การ์ด NVIDIA GeForce GTX 1050 Ti (sm_61) เก่าเกินสำหรับ torch ที่ติดตั้ง",
         "hint",
     )
@@ -330,7 +360,12 @@ def test_an_unreadable_card_warns_about_the_driver_not_the_card(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="win32", gpu=broken_gpu)
 
     row = item(result, "gpu")
-    assert (row.status, row.fix, row.fix_kind) == ("warning", "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA", "hint")
+    assert (row.status, row.detail, row.fix, row.fix_kind) == (
+        "warning",
+        "",
+        "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA",
+        "hint",
+    )
     assert item(result, "model_qwen").fix == "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA"
     assert item(result, "device").status == "ok"
 

@@ -60,8 +60,6 @@ QWEN_MIN_MEMORY_BYTES = 15 * 2**29  # 7.5 GiB
 QWEN_GPU_FIX = Fix("Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB", "hint")
 # A card nvidia-smi can't read isn't said to be too old (windows-launch D12).
 GPU_UNREADABLE_FIX = Fix("อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA", "hint")
-# The detail of a Qwen row the gpu row holds back; its fix is the gpu row's (windows-launch D14).
-SEE_GPU_ROW = "ดูแถว GPU"
 NVIDIA_SMI_QUERY = [
     "nvidia-smi",
     "--query-gpu=name,memory.total,compute_cap",
@@ -522,7 +520,8 @@ def check_version(probe: Callable[[], str]) -> tuple[ItemStatus, str]:
 
 def check_device(device_probe: Callable[[], str], gpu: Callable[[], GpuInfo] | None = None) -> CheckResult:
     """`cpu` is a warning (ADR 0006). Given `gpu` (Windows), a CUDA card this torch has
-    no kernels for is missing: every GPU job would fail on it (windows-launch D8)."""
+    no kernels for is missing: every GPU job would fail on it (windows-launch D8). The
+    detail is the device, or on that missing card the card itself (windows-launch D15)."""
     device = device_probe()
     if device == "cpu":
         return "warning", device
@@ -533,7 +532,7 @@ def check_device(device_probe: Callable[[], str], gpu: Callable[[], GpuInfo] | N
     except Exception:
         return "ok", device  # the gpu row says it can't read the card (windows-launch D12)
     if not torch_runs_on(card):
-        return "missing", device, Fix(f"การ์ด {card.name} ({card.sm}) เก่าเกินสำหรับ torch ที่ติดตั้ง", "hint")
+        return "missing", f"{card.name} · {card.sm}", Fix(f"การ์ด {card.name} ({card.sm}) เก่าเกินสำหรับ torch ที่ติดตั้ง", "hint")
     return "ok", device
 
 
@@ -546,11 +545,13 @@ def torch_runs_on(card: GpuInfo) -> bool:
 
 def check_gpu(gpu: Callable[[], GpuInfo]) -> CheckResult:
     """Windows: ok on a card that meets Qwen's target (windows-launch D9, D10); otherwise a
-    warning, which a Qwen job's gate refuses but which leaves `ready` true."""
+    warning, which a Qwen job's gate refuses but which leaves `ready` true. A card
+    `nvidia-smi` can't read is a warning with an empty detail: the fix tells the user
+    what to do, and the error is dropped by design (windows-launch D12, D15)."""
     try:
         card = gpu()
-    except Exception as error:
-        return "warning", str(error) or type(error).__name__, GPU_UNREADABLE_FIX
+    except Exception:
+        return "warning", "", GPU_UNREADABLE_FIX
     detail = f"{card.name} · {card.memory_bytes / 2**30:.0f} GB · {card.sm}"
     if card.capability < QWEN_MIN_CAPABILITY or card.memory_bytes < QWEN_MIN_MEMORY_BYTES:
         return "warning", detail, QWEN_GPU_FIX
@@ -565,13 +566,18 @@ def qwen_gpu_problem(gpu: Callable[[], GpuInfo]) -> Fix | None:
 
 
 def on_qwen_gpu(gpu: Callable[[], GpuInfo], check: Check) -> Check:
-    """`check`, on a card Qwen runs on; else a warning that points at the gpu row and
-    shows its fix, whatever `check` would say (windows-launch D9, D14)."""
+    """`check`, on a card Qwen runs on. Otherwise `check` still runs for its detail
+    alone — its status, even a raise, is dropped — and the row is a warning with the
+    gpu row's fix, so a weak card never makes `ready` false (windows-launch D9, D15)."""
 
     def checked() -> CheckResult:
         problem = qwen_gpu_problem(gpu)
-        if problem:
-            return "warning", SEE_GPU_ROW, problem
-        return check()
+        if not problem:
+            return check()
+        try:
+            _, detail, *_ = check()
+        except Exception as error:  # bitsandbytes not installed, say
+            detail = str(error) or type(error).__name__
+        return "warning", detail, problem
 
     return checked

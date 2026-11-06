@@ -11,7 +11,7 @@
 - Seams: 1, 2 (gate และตัวนับ token), 4
 - User stories: 1, 5, 6
 
-**Status:** in-progress
+**Status:** done
 
 ## Acceptance criteria
 
@@ -52,4 +52,4 @@
 ### หน้าติดตั้ง
 
 - status มีแถว `gpu` `warning` พร้อม `hint` → เห็นชื่อ "GPU", ค่า, และข้อความ hint ไม่มีปุ่ม copy
-- หน้าตาของแถว `device`, `gpu`, `bitsandbytes`, `model_qwen` ตรงแบบใน Figma (รอแบบ: progress › Blocked #1)
+- หน้าตาของแถว `device`, `gpu`, `bitsandbytes`, `model_qwen` ตรงแบบใน Figma ([8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588), D15)

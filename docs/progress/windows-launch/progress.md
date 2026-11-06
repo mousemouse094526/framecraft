@@ -1,24 +1,40 @@
 # Progress: windows-launch
 
-**Now:** 01 แบบแถวใหม่มีแล้ว (Blocked #1 done) — เหลือทำหน้าตาแถวให้ตรง Figma; 02 รอ 01 done
+**Now:** 01 done — แถว Windows ตรง Figma แล้ว; ต่อ 02 (worker Qwen บน Windows และ timeout ต่อ OS)
 
 **Next:**
 
 ```
-/warroom-build windows-launch 01
+/warroom-build windows-launch 02
 ```
-
-เก็บข้อสุดท้ายของ 01: หน้าตาแถว `device`, `gpu`, `bitsandbytes`, `model_qwen` ให้ตรง [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588)
 
 ## Tickets
 
 | # | Title | Status |
 |---|---|---|
-| 01 | Status check, gate และ Setup script ของ Qwen ต่อ OS | in-progress |
+| 01 | Status check, gate และ Setup script ของ Qwen ต่อ OS | done |
 | 02 | Worker Qwen บน Windows และ timeout ต่อ OS | ready |
 | 03 | ลอง Qwen บนเครื่อง Windows RTX 30xx ขึ้นไป | ready |
 
 ## Log
+
+### 01: Status check, gate และ Setup script ของ Qwen ต่อ OS — done 2026-11-06
+
+**Built:**
+- แถว `device`, `gpu`, `bitsandbytes`, `model_qwen` บนหน้าติดตั้งตรง [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588) — เทียบในเบราว์เซอร์ด้วยสถานะ Windows ปลอม
+- การ์ดต่ำกว่าเป้า: แถว Qwen และ bitsandbytes เหลือง แต่แสดงค่าของตัวเอง (revision / เวอร์ชัน / ยังไม่ติดตั้ง) แทน "ดูแถว GPU"; bitsandbytes ไม่ได้ติดตั้งบนการ์ดต่ำกว่าเป้ายังเป็น `warning` และ `ready` true (เดิมหลุดเป็น `missing`)
+- อ่านการ์ดไม่ได้: แถว GPU ไม่มีบรรทัดค่า เหลือแค่ "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA"; การ์ดเก่าเกิน: แถว Device แสดง `{การ์ด} · sm_xy`
+- ค่าของแถว `warning` (ทั้ง Mac และ Windows) เป็นตัว mono 13px สีเหลือง
+
+**Decided:**
+- D15 — ค่าของแถว Windows ตาม Figma (ผู้ใช้เลือก); D14 changed by D15
+
+**For the next ticket:**
+- `QWEN_TARGET` ใน `backend/tests/test_checks.py` เก็บข้อความของ `checks.QWEN_GPU_FIX`: ใช้ `QWEN_GPU_FIX.text` แทน หรือเปลี่ยนชื่อ
+- `qwen_gpu_problem` อ่าน `status, _, *fix = check_gpu(gpu)` — ok เป็น tuple 2 ตัว ปัญหาเป็น 3 ตัว; `CheckResult` เป็น NamedTuple จะอ่านง่ายกว่า (ข้อเดิม)
+- ข้อจาก entry ด้านล่างยังค้าง: `qwen_snapshot(project)` ตอนแตะ `start_worker`
+
+**Checks:** `uv run pytest` (715) · `npm --prefix frontend run typecheck` · `npm --prefix frontend test` (321) · `npm --prefix frontend run build` — all green
 
 ### 01: Status check, gate และ Setup script ของ Qwen ต่อ OS — in-progress 2026-11-06
 
