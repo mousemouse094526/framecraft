@@ -16,6 +16,10 @@ _Avoid_: health check, smoke test
 หนึ่งรายการใน Status check มีสถานะ `ok`, `missing` หรือ `warning`.
 _Avoid_: requirement, dependency row
 
+**ตัวรัน Qwen**:
+library ที่โหลด Qwen ขึ้นการ์ดและสร้างข้อความใน process ลูก: mlx-vlm บน Mac, transformers กับ bitsandbytes บน Windows (windows-launch D3). แต่ละ OS มีแถว Status check ของตัวรันของตัวเอง (windows-launch D6).
+_Avoid_: backend ของ LLM, engine, runtime
+
 **Model marker**:
 ไฟล์ใน `models/.setup/` ที่ Setup script เขียนหลังโหลดโมเดลหนึ่งตัวเสร็จ. ไม่มี marker คือโมเดลยังไม่ครบ.
 _Avoid_: lock file, done flag
