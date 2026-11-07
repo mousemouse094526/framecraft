@@ -30,13 +30,20 @@ def get_status() -> StatusResponse:
   module as `backend.errors.ApiError`; one handler registered in `app.py`
   (`errors.error_response`) turns it into `{"code", "message", ...}`. Routes
   never build error responses themselves.
-- A rule for every route (`POST` and `PATCH` must be JSON, `415`) is an app-wide
-  dependency in `app.py` (`FastAPI(dependencies=[Depends(...)])`) that raises
+- A rule for every route (`POST` and `PATCH` must be JSON, `415`; a raw-file route
+  opts out below, ADR 0028) is an app-wide dependency in `app.py` (`FastAPI(dependencies=[Depends(...)])`) that raises
   the API's refusal (`ApiError`).
 - A route that serves a file built in memory calls one module function that
   returns its text (`transcribe.transcript_srt`), then wraps it in a `Response`.
 - A file download built in memory is a `Response` with `media_type` and
   `Content-Disposition: attachment; filename="..."`.
+- A route that takes a raw file body is `async def`, takes `request: Request` and no
+  body parameter, lists `Depends(body_types.require_octet_stream)` in its decorator,
+  and hands `request.stream()` to one module function, which writes the chunks and
+  runs ffmpeg in threads (`anyio.to_thread.run_sync`); its query values are `str | None`
+  so the module answers a bad one with its own code (`routes/spoil.py` `import_file`).
+- A client that goes away mid-body raises `ClientDisconnect`; the module cleans up and
+  lets it go, and `app.py`'s handler answers nobody quietly instead of a 500.
 - Status codes other than 200 on success go in the decorator
   (`status_code=202`).
 

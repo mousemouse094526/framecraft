@@ -46,6 +46,8 @@ Follows [RTL setup](https://testing-library.com/docs/react-testing-library/setup
 - `userEvent.setup()` replaces `navigator.clipboard` with a stub — [user-event setup](https://testing-library.com/docs/user-event/setup)
 - jest-dom 7 requires Node 22+; `toContainAnyBy*`/`toContainOneBy*` are new — [jest-dom releases](https://github.com/testing-library/jest-dom/releases)
 - Import `act` from `react`, not `react-dom/test-utils` — [React 19 Upgrade Guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide)
+- `user.upload` drops files the input's `accept` doesn't match (`applyAccept` is `true` by default), so a test of a wrong file type sets `userEvent.setup({ applyAccept: false })` — a real browser lets the user pick "All files" — [user-event options](https://testing-library.com/docs/user-event/options), `utility/upload.js` in 14.6.8
+- jsdom runs a real `XMLHttpRequest`: a test of an upload replaces it with `vi.stubGlobal("XMLHttpRequest", …)` and fires the events itself
 
 ## Sources
 

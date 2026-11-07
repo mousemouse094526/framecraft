@@ -16,21 +16,29 @@ _Avoid_: health check, smoke test
 หนึ่งรายการใน Status check มีสถานะ `ok`, `missing` หรือ `warning`.
 _Avoid_: requirement, dependency row
 
+**ตัวรัน Qwen**:
+library ที่โหลด Qwen ขึ้นการ์ดและสร้างข้อความใน process ลูก: mlx-vlm บน Mac, transformers กับ bitsandbytes บน Windows (windows-launch D3). แต่ละ OS มีแถว Status check ของตัวรันของตัวเอง (windows-launch D6).
+_Avoid_: backend ของ LLM, engine, runtime
+
 **Model marker**:
 ไฟล์ใน `models/.setup/` ที่ Setup script เขียนหลังโหลดโมเดลหนึ่งตัวเสร็จ. ไม่มี marker คือโมเดลยังไม่ครบ.
 _Avoid_: lock file, done flag
 
 **สปอย**:
-tab ในแอปที่ทำคลิปเล่าหรือสปอยหนังจาก Temp clip ที่ถอดและบรรยายฉากแล้ว เป็น 3 ขั้น: เลือกคลิป → ตรวจแก้บท → ผล render. tab สปอยไม่โหลดและไม่ถอดคลิปเอง; ทำใน tab คลิป. แอปมี 4 tab ตามลำดับ: **ติดตั้ง** (Setup status), **คลิป** (โหลด Temp clip จากลิงก์ YouTube, ถอดบทพูด, บรรยายฉาก, แก้ Transcript), **คลังความรู้** (Story), **สปอย** (spoil-maker D53, story-kb D9).
+tab ในแอปที่ทำคลิปเล่าหรือสปอยหนังจาก Temp clip ที่ถอดและบรรยายฉากแล้ว เป็น 3 ขั้น: เลือกคลิป → ตรวจแก้บท → ผล render. tab สปอยไม่โหลดและไม่ถอดคลิปเอง; ทำใน tab คลิป. แอปมี 4 tab ตามลำดับ: **ติดตั้ง** (Setup status), **คลิป** (โหลด Temp clip จากลิงก์หรือเอาไฟล์ mp4 ในเครื่องเข้า, ถอดบทพูด, บรรยายฉาก, แก้ Transcript), **คลังความรู้** (Story), **สปอย** (spoil-maker D53, story-kb D9).
 _Avoid_: recap, spoiler page
 
 **Temp clip**:
-คลิป YouTube หนึ่งคลิปที่โหลดมาเก็บใน `media/temp/` (วิดีโอ mp4, ข้อมูล json, thumbnail). อยู่จนผู้ใช้กดลบ. ไม่มีไฟล์ json คือคลิปยังไม่ครบ. ไฟล์ mp4 ถูกแทนได้เมื่อผู้ใช้ตัดช่วง (Trim job) จึงไม่ใช่สำเนาตรงของ YouTube.
+คลิปหนึ่งคลิปที่โหลดจากลิงก์ (YouTube หรือเว็บอื่นที่ yt-dlp โหลดได้) หรือเอาเข้าจากไฟล์ mp4 ในเครื่อง มาเก็บใน `media/temp/` (วิดีโอ mp4, ข้อมูล json, thumbnail) (spoil D47, D49). อยู่จนผู้ใช้กดลบ. ไม่มีไฟล์ json คือคลิปยังไม่ครบ. ไฟล์ mp4 ถูกแทนได้เมื่อผู้ใช้ตัดช่วง (Trim job) จึงไม่ใช่สำเนาตรงของต้นทาง.
 _Avoid_: cache, download, temp file
 
 **Download job**:
 การโหลด Temp clip หนึ่งคลิปที่ backend ทำเบื้องหลัง. มีได้ทีละงานและหายเมื่อ backend restart.
 _Avoid_: task, queue item
+
+**File import**:
+การเอาไฟล์ mp4 ในเครื่องหนึ่งไฟล์เข้าเป็น Temp clip: หน้าเว็บส่งสำเนาไฟล์ให้ backend ใน request เดียว ไม่แปลงไฟล์ ไม่แตะต้นฉบับ. มีได้ทีละงานและไม่รันพร้อม Download job (spoil D49, D52).
+_Avoid_: upload job, การนำเข้า, Download job
 
 **Transcript**:
 บทพูดของ Temp clip หนึ่งคลิปที่ Whisper ถอดออกมา เป็นบรรทัดพร้อมเวลาเริ่มและจบ. แก้ข้อความทีละบรรทัดได้ใน tab คลิป แต่เวลาและจำนวนบรรทัดไม่เปลี่ยน; บรรทัดที่แก้มี `edited: true` (spoil-maker D54). เก็บใน `media/temp/{id}.transcript.json` และหายเมื่อลบคลิป. คลิปมี Transcript = "ถอดแล้ว".

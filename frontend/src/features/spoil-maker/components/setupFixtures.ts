@@ -28,6 +28,7 @@ export function clipOf(id: string, title: string, change: Partial<TempClip> = {}
     thumbnail: null,
     downloaded_at: "2026-11-01T10:00:00+07:00",
     yt_dlp_version: "2026.10.26",
+    site: "Youtube",
     transcribed: true,
     described: true,
     in_draft: false,

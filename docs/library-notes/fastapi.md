@@ -55,6 +55,11 @@ Follows [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-appli
 - **Avoid** passing `filename=` to a `FileResponse` meant for `<video src>`: it adds `content-disposition: attachment` — [Starlette responses](https://www.starlette.io/responses/#fileresponse)
 - A path parameter with `Path(pattern=...)` that fails gives `422`, not `404`; check the shape in code when the spec wants `404` — [Path params](https://fastapi.tiangolo.com/tutorial/path-params-numeric-validations/)
 
+- `await request.stream()` (an async generator) yields the body chunk by chunk as the ASGI server receives it, never the whole body in memory; it raises `starlette.requests.ClientDisconnect` when `receive()` gives `http.disconnect`. A route that reads it must be `async def`, and takes no body parameter, so FastAPI never reads the body first — [Starlette requests › Body](https://www.starlette.io/requests/#body)
+- **Avoid** sync file writes or `subprocess.run` inside an `async def` route: they block the event loop; hand them to `anyio.to_thread.run_sync` ([anyio.md](anyio.md))
+- `TestClient` reads a request's whole `content` before the app's first `receive()`, so it can't pause, stall or drop a body mid-way. A test of that drives the app as ASGI itself: `await app(scope, receive, send)` with a scripted `receive` (`{"type": "http.request", "body": ..., "more_body": True}`, then `{"type": "http.disconnect"}`), in the same event loop as `httpx.AsyncClient(transport=httpx.ASGITransport(app))` for the requests made meanwhile — checked against `starlette/testclient.py` and `httpx/_transports/asgi.py` in `.venv` (httpx 0.28.1)
+- `scope["route"]` is the matched `APIRoute` by the time a dependency runs (`fastapi/routing.py` `APIRoute.matches`), so an app-wide dependency can read the route's own `dependencies` and tell which route it guards
+
 ## Sources
 
 - [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-applications/) — `APIRouter`, `include_router`, prefix (accessed 2026-10-29)
@@ -67,3 +72,4 @@ Follows [Bigger Applications](https://fastapi.tiangolo.com/tutorial/bigger-appli
 - [Testing events: lifespan](https://fastapi.tiangolo.com/advanced/testing-events/) — `with TestClient(app)` (accessed 2026-10-29)
 - [Starlette responses](https://www.starlette.io/responses/#fileresponse) — `FileResponse`, Range, checked against starlette 1.10.0 source in `.venv` (accessed 2026-10-29)
 - [Path params](https://fastapi.tiangolo.com/tutorial/path-params-numeric-validations/) — validation errors are `422` (accessed 2026-10-29)
+- [Starlette requests](https://www.starlette.io/requests/#body) — `request.stream()`, `ClientDisconnect`, checked against starlette 1.10.0 source in `.venv` (accessed 2026-11-07)

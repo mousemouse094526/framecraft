@@ -43,6 +43,7 @@ command = [ffmpeg, "-nostdin", "-v", "error", "-y", "-ss", f"{start:.3f}", "-i",
 - `\an1`–`\an9` pick the anchor (numpad layout), `\pos(x,y)` places that anchor; `\fs` font size, `\bord` outline, `\1c`/`\3c` fill and outline colour as `&HBBGGRR&`, `\1a`/`\3a` alpha `&HAA&` where `00` is opaque — [ASS tags](https://aegisub.org/docs/latest/ass_tags/)
 - In Dialogue text `{…}` is an override block and `\N` a hard line break; text from users must have `{`, `}` and `\` escaped before it goes in (spoil-maker D51)
 - Times are `H:MM:SS.cc` (centiseconds)
+- `-i` with no output lists each stream as `Stream #0:N…: Video: {codec} (…), {pix_fmt}(…), {w}x{h} …`; a cover image is a video stream ending in `(attached pic)` and may come before or after the picture; a turned phone video keeps its stored size and adds an indented `Side data:` / `displaymatrix: rotation of 90.00 degrees` under that stream (older files: a `rotate : 90` metadata tag). Junk input prints no `Stream` or `Duration` line (checked on 7.1, 2026-11-07)
 
 ## Sources
 

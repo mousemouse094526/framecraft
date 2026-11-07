@@ -43,30 +43,30 @@ class ProjectPaths:
         """Where yt-dlp writes while downloading; emptied on every start (spoil D14)."""
         return self.media_temp_dir / ".partial"
 
-    def clip_json(self, video_id: str) -> Path:
+    def clip_json(self, clip_id: str) -> Path:
         """A Temp clip's `{id}.json`, written last: no json, no clip (spoil D14)."""
-        return self.media_temp_dir / f"{video_id}.json"
+        return self.media_temp_dir / f"{clip_id}.json"
 
     @property
     def shots_dir(self) -> Path:
         """Shots of every described Temp clip, one folder each (spoil-maker D51)."""
         return self.media_temp_dir / "shots"
 
-    def clip_shots_dir(self, video_id: str) -> Path:
+    def clip_shots_dir(self, clip_id: str) -> Path:
         """A described clip's `shots.json` and `{n}.jpg` thumbnails."""
-        return self.shots_dir / video_id
+        return self.shots_dir / clip_id
 
-    def new_shots_dir(self, video_id: str) -> Path:
+    def new_shots_dir(self, clip_id: str) -> Path:
         """Where a Describe job writes until it is `done`, so the old shots stay till then (D51)."""
-        return self.shots_dir / f".new-{video_id}"
+        return self.shots_dir / f".new-{clip_id}"
 
     @property
     def episodes_dir(self) -> Path:
         """Each described Temp clip's EP cuts, `{id}.json` (spoil-maker spec › EP, ADR 0018)."""
         return self.media_temp_dir / "episodes"
 
-    def episodes_file(self, video_id: str) -> Path:
-        return self.episodes_dir / f"{video_id}.json"
+    def episodes_file(self, clip_id: str) -> Path:
+        return self.episodes_dir / f"{clip_id}.json"
 
     @property
     def pythainlp_dir(self) -> Path:

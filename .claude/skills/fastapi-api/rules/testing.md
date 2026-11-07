@@ -36,6 +36,11 @@ def test_missing_marker(tmp_path):
   ffmpeg or makes up its output by swapping in a holder with a stand-in, never
   by patching a module function the job calls.
 - A lifespan only runs inside `with TestClient(app, ...)`.
+- `TestClient` sends a body in one go. A body that pauses, stalls or is dropped mid-way
+  is played through the app as ASGI with a scripted `receive` (`Upload`, `Gate` and
+  `play` in `test_spoil_import_api.py`), and the requests made meanwhile go through
+  `httpx.AsyncClient(transport=httpx.ASGITransport(app=app))` in the same `anyio.run`
+  event loop, so a blocked loop shows as a slow answer.
 - ffmpeg is real in tests: `make_test_clip` builds clips with `lavfi` in a
   session fixture, never a media file in git (spoil-maker seam 1). The scene
   filter goes by brightness: colours of the same luma (red, green) make no cut.

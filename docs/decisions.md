@@ -29,10 +29,10 @@ question; the full entry is in the feature's decisions.md.
 | ติดตั้งด้วย script บน terminal, เว็บแค่แสดงสถานะ | [setup-status](features/setup-status/decisions.md) | D3 | — | [0002](adr/0002-install-only-in-setup.md) superseded by [0008](adr/0008-runtime-media-download.md) | active |
 | `setup.sh` กับ `setup.ps1` บางๆ เรียก `backend.setup` ตัวเดียว | [setup-status](features/setup-status/decisions.md) | D8 | — | [0002](adr/0002-install-only-in-setup.md) superseded by [0008](adr/0008-runtime-media-download.md) | active |
 | เช็ค PID ของ setup lock: `os.kill(pid, 0)` บน Mac, `OpenProcess` บน Windows | [setup-status](features/setup-status/decisions.md) | D17 | — | — | active |
-| จุด inject สำหรับ test: probe, `download`, `backend_running`, `free_bytes`, `DeviceProbe` | [setup-status](features/setup-status/decisions.md) | D18 | spoil | — | active |
+| จุด inject สำหรับ test: probe, `download`, `backend_running`, `free_bytes`, `DeviceProbe` | [setup-status](features/setup-status/decisions.md) | D18 | spoil, windows-launch | — | active |
 | `setup.cmd` หยุดรอเมื่อดับเบิลคลิกและคืน code page, `setup.ps1` เช็ค `$LASTEXITCODE` ไม่ใช้ `Stop`, ติดตั้ง uv ใน PowerShell ลูกที่ Bypass, CRLF, `run_checks` รับ `sys_platform` | [setup-status](features/setup-status/decisions.md) | D23 | — | — | active |
 | `npm run dev` start backend ด้วย Python ใน `.venv` ผ่าน `scripts/dev-api.mjs` ไม่พึ่ง uv ใน PATH; README ติดตั้งและใช้งานเป็นไทย | [setup-status](features/setup-status/decisions.md) | D24 | — | — | active |
-| Status check เป็น checklist 9 รายการ ไม่โหลดโมเดล ไม่ใช้ network | [setup-status](features/setup-status/decisions.md) | D7 | spoil | [0004](adr/0004-pinned-model-registry.md) | extended by spoil D9 |
+| Status check เป็น checklist 9 รายการ ไม่โหลดโมเดล ไม่ใช้ network | [setup-status](features/setup-status/decisions.md) | D7 | spoil, windows-launch | [0004](adr/0004-pinned-model-registry.md) | extended by spoil D9 |
 | Status check เพิ่มแถว `yt_dlp` และ `deno` เป็น 11 แถว; tab คลิป gate งานโหลดด้วยแถว `yt_dlp`, `deno`, `ffmpeg` ไม่ใช้ `ready` (แต่ละ tab gate เฉพาะแถวที่ใช้, spoil-maker D53) | [spoil](features/spoil/decisions.md) | D9 | — | [0009](adr/0009-status-check-single-place.md) | active |
 
 ## ffmpeg
@@ -56,7 +56,7 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | แถบ tab บน: สปอย (`#/spoil`), Setup status (`#/setup`), default Setup status, ไม่ใช้ router library | [spoil](features/spoil/decisions.md) | D10 | — | — | changed by spoil-maker D53 |
 | แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | story-kb | — | changed by spoil-maker D68; changed by story-kb D9 |
-| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb | — | active |
+| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb, windows-launch | — | active |
 | แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |
 | font มากับ `@fontsource` ใน project ไม่โหลดจาก CDN | [setup-status](features/setup-status/decisions.md) | D19 | — | [0003](adr/0003-everything-inside-project.md) | active |
 | `fix` ไม่มีช่องว่าง = คำสั่ง (chip กับปุ่ม copy), มีช่องว่าง = ข้อความ | [setup-status](features/setup-status/decisions.md) | D20 | spoil | — | changed by setup-status D26 |
@@ -72,7 +72,20 @@ question; the full entry is in the feature's decisions.md.
 | Temp clip เก็บใน `media/temp/` ของ project จนผู้ใช้กดลบเอง | [spoil](features/spoil/decisions.md) | D3 | — | — | active |
 | Temp clip = `{id}.mp4` + `{id}.json` (เขียนสุดท้าย) + thumbnail; ไฟล์ค้างใน `.partial/` ล้างตอน start; Download job อยู่ใน memory | [spoil](features/spoil/decisions.md) | D14 | spoil-maker | [0010](adr/0010-long-jobs-in-process-thread.md) | active |
 | คลิปแนวตั้งแบบ reels เท่านั้น, ด้านสั้น ≤ 720 px, mp4 | [spoil](features/spoil/decisions.md) | D4 | — | — | superseded by spoil D5 |
-| รับคลิป YouTube ทุกแนว, temp ด้านสั้น ≤ 1080 px mp4; output แนวตั้งเลือก p ได้ถึง 1080 (รอบหน้า) | [spoil](features/spoil/decisions.md) | D5 | — | — | active |
+| รับคลิป YouTube ทุกแนว, temp ด้านสั้น ≤ 1080 px mp4; output แนวตั้งเลือก p ได้ถึง 1080 (รอบหน้า) | [spoil](features/spoil/decisions.md) | D5 | — | — | changed by spoil D47 |
+| ลิงก์คลิปเดียวจากทุกเว็บที่ yt-dlp โหลดได้แบบสาธารณะ ไม่ใช้ cookies; ที่เหลือผู้ใช้โหลดเองแล้วเลือกไฟล์ในเครื่อง | [spoil](features/spoil/decisions.md) | D47 | — | [0029](adr/0029-media-links-dedicated-extractors-only.md) | active |
+| ไฟล์ในเครื่องรับทุกชนิดที่ ffmpeg อ่านได้, copy เข้า Temp clip; mp4 h264/aac ≤ 1080 copy ตรง นอกนั้นแปลง (มี %, ยกเลิกได้) | [spoil](features/spoil/decisions.md) | D48 | — | [0005](adr/0005-ffmpeg-from-imageio.md) | superseded by spoil D49 |
+| ไฟล์ในเครื่องรับแค่ mp4 h264/aac ≤ 1080 copy ตรง ไม่แปลง; ไม่ตรง → error ให้ผู้ใช้แปลงเอง | [spoil](features/spoil/decisions.md) | D49 | — | [0027](adr/0027-temp-clip-one-format-owned-copy.md) | active |
+| เลือกไฟล์/ลากวางในเว็บ ส่ง body ดิบ `application/octet-stream`; ADR-0013 ขยายรับ octet-stream | [spoil](features/spoil/decisions.md) | D50 | — | [0013](adr/0013-post-requires-json.md), [0028](adr/0028-raw-file-upload-per-route.md) | active |
+| คลิปซ้ำชี้แถวเดิม: ลิงก์ = เว็บ+id, ไฟล์ = ชื่อ+ขนาด; id: YouTube 11 ตัวเดิม, `{extractor}-{id}`, `local-{sha1}` ตรง `[A-Za-z0-9_-]{1,64}` | [spoil](features/spoil/decisions.md) | D51 | — | — | active |
+| ทางเลือกเล็ก: กันลิงก์ localhost/private, error `unsupported`/`playlist`/`download_error`, File import เป็น request เดียวส่งไฟล์ดิบ, ทีละงานกับ Download job, แถว "ไฟล์ในเครื่อง" | [spoil](features/spoil/decisions.md) | D52 | — | — | active |
+| ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของเว็บอื่นและไฟล์ในเครื่องแบบ D13 (Accepted risk) | [spoil](features/spoil/decisions.md) | D53 | — | — | active |
+| คลิปจากเว็บต้อง h264/aac ด้านสั้น ≤ 1080 (format selector + ตรวจหลัง merge) ไม่งั้น `unsupported_format` | [spoil](features/spoil/decisions.md) | D54 | — | [0027](adr/0027-temp-clip-one-format-owned-copy.md) | active |
+| red team: ปิด generic extractor, id+hash (ตัวพิมพ์และการล้างตอน start แก้ใน D59), upload ค้าง 60 วิ, thread, yuv420p/rotation, `CLIP_ID` ทุกที่, model nullable | [spoil](features/spoil/decisions.md) | D55 | — | [0028](adr/0028-raw-file-upload-per-route.md), [0029](adr/0029-media-links-dedicated-extractors-only.md) | active |
+| ทางเลือกเล็กตอน build โหลดหลายเว็บ: "No suitable extractor" เป็น `unsupported`, คำ login ของเว็บอื่น, format ไม่บอก codec ให้ตัวตรวจไฟล์ตัดสิน, ขนาดภาพจากไฟล์, thumbnail `.image` | [spoil](features/spoil/decisions.md) | D56 | — | [0027](adr/0027-temp-clip-one-format-owned-copy.md) | active |
+| ทางเลือกเล็กตอน build เอาไฟล์ mp4 เข้า: ข้อความของ API, `name`/`size` ที่ไม่ถูก, `require_json` ข้าม route ที่มี `require_octet_stream` (`backend/body_types.py`), `ClientDisconnect` ตอบเงียบ, flag ใน `Downloads`, เขียนทีละ 1 MiB, thumbnail ว่างเป็น `null` | [spoil](features/spoil/decisions.md) | D57 | — | [0013](adr/0013-post-requires-json.md), [0028](adr/0028-raw-file-upload-per-route.md) | active |
+| ทางเลือกเล็กตอน build ปุ่มเลือกไฟล์: ทั้งกล่องเป็นปุ่ม "เลือกไฟล์ในเครื่อง", วางไฟล์ได้ทั้งกล่องลิงก์ กัน browser เปิดไฟล์, ข้อความช่องเดียว, `emphasis` หลัง `unsupported`/`login_required`/`unsupported_format`, `sendFile` ไม่มี timeout | [spoil](features/spoil/decisions.md) | D58 | — | [0028](adr/0028-raw-file-upload-per-route.md) | active |
+| feature review หลายเว็บและเอาไฟล์เข้า: id เว็บอื่นตัวเล็ก + hash เมื่อมีตัวใหญ่, ล้างตอน start เฉพาะ `{site}` ที่ yt-dlp รู้จัก, ชื่อ `ffmpeg.input_info`/`NOT_MP4_CONTAINER`/`ONLY_MP4`/`clip_id` | [spoil](features/spoil/decisions.md) | D59 | — | — | active |
 | โหลดทีละคลิปเป็นงานเบื้องหลัง, poll % ทุก 1 วินาที, ยกเลิกได้, ไม่มีคิว | [spoil](features/spoil/decisions.md) | D6 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | active |
 | หน้าต่างรายการ temp clip: thumbnail, ชื่อ, ช่อง, ความยาว, ขนาดภาพ/แนว, ขนาดไฟล์, เวลาโหลด, ลบ, เล่นในหน้าเว็บ | [spoil](features/spoil/decisions.md) | D7 | — | — | extended by D25 |
 | ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของ YouTube; หารายได้ขัด ADR-0007 ต้องเปลี่ยน TTS ก่อน feature เสียง | [spoil](features/spoil/decisions.md) | D13 | — | — | active |
@@ -88,7 +101,7 @@ question; the full entry is in the feature's decisions.md.
 | ลายน้ำข้อความหลายอัน เลือก 6 ตำแหน่งและขนาดเล็กหรือกลาง แอปจำไว้; ไม่บังคับเครดิตโมเดล (Accepted risk) | [spoil-maker](features/spoil-maker/decisions.md) | D41 | — | [0017](adr/0017-non-commercial-no-forced-credit.md) | changed by spoil-maker D51, D64 |
 | ภาพเปลี่ยนแบบตัดตรงทุก layout ไม่มี transition หรือภาพเลื่อน ซ้อน เอียง | [spoil-maker](features/spoil-maker/decisions.md) | D24 | — | — | active |
 | ทางเลือกเล็กของรายการ Temp clip: คลิปมีอยู่ = มี json, ลบ json ที่ mp4 หาย, เรียงตามเวลาจริง, ลบได้ 404 = แถวหาย, highlight มาจากข้อความ, `useMountedState`, `autoPlay` | [spoil](features/spoil/decisions.md) | D20 | — | — | active |
-| ลิงก์ซ้ำ (video id เดิม) ไม่โหลดใหม่ ชี้แถวเดิม | [spoil](features/spoil/decisions.md) | D12 | — | — | active |
+| ลิงก์ซ้ำ (video id เดิม) ไม่โหลดใหม่ ชี้แถวเดิม | [spoil](features/spoil/decisions.md) | D12 | — | — | extended by spoil D51 |
 | ไม่จำกัดความยาว, ปฏิเสธ live, เช็คดิสก์ว่าง ≥ ขนาดประมาณ + 1 GB ก่อนโหลด | [spoil](features/spoil/decisions.md) | D11 | — | — | active |
 | `yt-dlp[default]` และ `deno` (PyPI wheel) pin ใน `uv.lock`; โหลดพังแสดงเวอร์ชันและคำสั่งอัปเดต | [spoil](features/spoil/decisions.md) | D8 | — | — | active |
 
@@ -182,11 +195,23 @@ question; the full entry is in the feature's decisions.md.
 | Saved voice เปลี่ยนชื่อและลบได้ (ยกเว้นที่ Spoil draft ใช้) speed แก้ไม่ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D43 | — | — | active |
 | อ่านตัวเลข: เลขไทยเป็นอารบิก, ทศนิยม `จุด`, เวลา `นาฬิกา…นาที`, `%` เปอร์เซ็นต์, อื่นๆ อ่านทีละกลุ่ม; เขียนเอง | [spoil-maker](features/spoil-maker/decisions.md) | D44 | — | — | active |
 | ข้อตัดสินทางเทคนิค: งาน GPU ทีละงานทั้ง project (`gpu_busy`), Kanit Bold pin commit, ภาพเล็ก Shot 320 px, ค่าที่จำไว้ใน `settings.json`, clone เป็น base64 ≤ 20 MB, `pythainlp` newmm | [spoil-maker](features/spoil-maker/decisions.md) | D45 | — | [0015](adr/0015-one-gpu-slot.md) | active |
-| Transcript รวมของ EP ที่เลือกไม่เกิน 32,000 token (tokenizer ของ Qwen นับข้อความที่แก้แล้ว D54) เกินไม่ให้ร่าง `transcript_too_long` | [spoil-maker](features/spoil-maker/decisions.md) | D46 | story-kb | — | active |
-| test: API กับ worker ปลอมของโมเดลแต่ ffmpeg จริง, หน้าเว็บกับ fetch ปลอม; adapter จริงเช็คมือ | [spoil-maker](features/spoil-maker/decisions.md) | D47 | story-kb | — | changed by spoil-maker D51 |
+| Transcript รวมของ EP ที่เลือกไม่เกิน 32,000 token (tokenizer ของ Qwen นับข้อความที่แก้แล้ว D54) เกินไม่ให้ร่าง `transcript_too_long` | [spoil-maker](features/spoil-maker/decisions.md) | D46 | story-kb, windows-launch | — | active |
+| test: API กับ worker ปลอมของโมเดลแต่ ffmpeg จริง, หน้าเว็บกับ fetch ปลอม; adapter จริงเช็คมือ | [spoil-maker](features/spoil-maker/decisions.md) | D47 | story-kb, windows-launch | — | changed by spoil-maker D51 |
 | ตัด clone เสียงออกจากรอบนี้ ออกแบบเสียงอย่างเดียว; `kind` เก็บไว้ให้เพิ่ม clone ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D48 | — | — | active |
 | ถอดหรือดูภาพใหม่ของคลิปใน Spoil draft ลบ draft หลังยืนยัน; คลิปที่งาน spoil-maker ใช้อยู่ `409` `clip_busy` | [spoil-maker](features/spoil-maker/decisions.md) | D49 | spoil | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
-| spoil-maker ทำบน Mac อย่างเดียว; Windows เป็น feature แยก `windows-launch` | [spoil-maker](features/spoil-maker/decisions.md) | D50 | — | [0016](adr/0016-single-os-library-ports-separately.md) | active |
+| spoil-maker ทำบน Mac อย่างเดียว; Windows เป็น feature แยก `windows-launch` | [spoil-maker](features/spoil-maker/decisions.md) | D50 | windows-launch | [0016](adr/0016-single-os-library-ports-separately.md) | active |
+| Qwen บน Windows NVIDIA เป็น feature `windows-launch` (ตัวรัน CUDA + โมเดล pin); ช่องวางลิงก์โมเดล HF เองเป็นอีก feature ทีหลัง | [windows-launch](features/windows-launch/decisions.md) | D1 | — | — | active |
+| Windows เป้าหมาย RTX (sm_75+) VRAM ≥ 8 GB, คง CUDA 12.8 ตาม ADR-0016; GTX 10xx (Pascal) ไม่อยู่ใน scope | [windows-launch](features/windows-launch/decisions.md) | D2 | — | [0026](adr/0026-device-row-gates-every-gpu-job.md) | changed by D10 |
+| Windows รัน Qwen ด้วย transformers + `Qwen/Qwen3.5-9B` pin commit ย่อ 4-bit nf4 ด้วย bitsandbytes ตอนโหลด; Mac คง mlx-vlm | [windows-launch](features/windows-launch/decisions.md) | D3 | — | [0025](adr/0025-per-os-model-spec-one-row-id.md) | active |
+| Status check แถว `gpu` (ชื่อการ์ด, VRAM); Windows ต่ำกว่า sm_75 หรือ < 8 GB ไม่ ok และ gate Describe/Draft job; Mac ok เสมอ | [windows-launch](features/windows-launch/decisions.md) | D4 | — | — | changed by D8, D9 |
+| Windows ผ่านเมื่อ Describe, Draft (ใกล้ 32,000 token) และเรียบเรียงใหม่จบ `done` บน `f7jkZXvaB4g` และผู้ใช้รับบทไทย; ไม่มีเพดานเวลา | [windows-launch](features/windows-launch/decisions.md) | D5 | — | — | active |
+| Status check แสดงแถวตัวรันของ OS นั้น: Mac `mlx_vlm`, Windows `bitsandbytes`; `model_qwen` ชื่อเดิม เช็ค repo ของ OS | [windows-launch](features/windows-launch/decisions.md) | D6 | — | [0025](adr/0025-per-os-model-spec-one-row-id.md) | active |
+| timeout งาน Qwen ต่อ OS: Mac คงเดิม, Windows ตั้งต้น Mac × 5 แล้วเปลี่ยนเป็นเวลานานสุดที่ลองวัด × 3 (ไม่ต่ำกว่า Mac) | [windows-launch](features/windows-launch/decisions.md) | D7 | — | — | changed by D12 |
+| แถว `device` ไม่ ok เมื่อ capability ไม่อยู่ใน arch list ของ torch (gate ทุกงาน GPU); แถว `gpu` เฉพาะ Windows gate งาน Qwen; การ์ด index 0 | [windows-launch](features/windows-launch/decisions.md) | D8 | — | [0026](adr/0026-device-row-gates-every-gpu-job.md) | active |
+| การ์ดต่ำกว่าเป้า Qwen = `warning` ที่ยังกันงาน Qwen; Setup script ข้ามโหลด Qwen และจบปกติ | [windows-launch](features/windows-launch/decisions.md) | D9 | — | — | active |
+| Qwen บน Windows ต้อง RTX 30xx ขึ้นไป (sm_80) VRAM ≥ 8 GB, bfloat16 ทางเดียว | [windows-launch](features/windows-launch/decisions.md) | D10 | — | — | active |
+| เขียนโค้ดและ test บน Mac ก่อน ลองบน Windows เมื่อได้เครื่อง; ไม่พอ = change request | [windows-launch](features/windows-launch/decisions.md) | D11 | — | — | active |
+| ข้อแก้ red team: ดิสก์ Windows 30 GB, ไม่ย่อ `visual` กับ `lm_head`, timeout หลังลองไม่ต่ำกว่าก่อนลอง, probe พังเป็น warning, `bitsandbytes` ใช้ `check_package`, token ต่างกัน = change request | [windows-launch](features/windows-launch/decisions.md) | D12 | — | — | active |
 | ข้อแก้ red team: ไฟล์ Shot ใน `media/temp/shots/` สลับตอนจบ, lock ของ draft, render คืน GPU หลัง voicing, ค่า LLM, escape ASS, error แบบ spoil, ลายน้ำขาวขอบดำ, 3 seam | [spoil-maker](features/spoil-maker/decisions.md) | D51 | story-kb | [0015](adr/0015-one-gpu-slot.md) | active |
 | รับความเสี่ยงลิขสิทธิ์ของภาพและเสียงต้นฉบับในคลิปสปอยที่เผยแพร่ (legal 1 UNVERIFIED) | [spoil-maker](features/spoil-maker/decisions.md) | D52 | — | — | active |
 | คลิปสปอยทำจาก Temp clip เดียว: ใส่ความยาวต่อ EP (นาที) แอปตัดเท่ากันจากต้นคลิปที่ขอบ Shot, เลื่อนจุดตัดเองได้, 1 EP = 1 คลิปสปอย | [spoil-maker](features/spoil-maker/decisions.md) | D66 | — | — | active |
@@ -232,7 +257,7 @@ question; the full entry is in the feature's decisions.md.
 | หน้าแก้ Story บันทึกด้วยปุ่ม ถามก่อนออกเมื่อยังไม่บันทึก | [story-kb](features/story-kb/decisions.md) | D11 | — | — | active |
 | ทางเลือกเล็ก: `media/stories/` ไฟล์ละเรื่อง + `clip-stories.json`, lock เดียว, API `/api/stories`, บันทึกหลังทับก่อน, ชื่อตัวละครห้ามซ้ำ, นับ code point | [story-kb](features/story-kb/decisions.md) | D12 | — | [0023](adr/0023-story-owned-by-story-kb.md) | active |
 | seam: API กับ LLM ปลอมที่จดคำสั่ง และหน้าเว็บกับ fetch ปลอม | [story-kb](features/story-kb/decisions.md) | D13 | — | — | active |
-| token ของ EP + บล็อก Story ≤ 32,000 (`transcript_too_long`); ตัวนับขั้น 1 แสดงผลรวม | [story-kb](features/story-kb/decisions.md) | D14 | — | — | active |
+| token ของ EP + บล็อก Story ≤ 32,000 (`transcript_too_long`); ตัวนับขั้น 1 แสดงผลรวม | [story-kb](features/story-kb/decisions.md) | D14 | windows-launch | — | active |
 | คลิปจำ Story ตอนกดร่าง: `kind: "draft"` ส่ง `story_id`; ไม่มี route บันทึกแยก | [story-kb](features/story-kb/decisions.md) | D15 | — | — | active |
 | ข้อแก้ red team: ตำแหน่งบล็อก Story, lock ในสุด, ขึ้นบรรทัดเป็นช่องว่าง, บันทึกซ้ำ, ตัวกันออกใน `useHash`, เพิ่มเรื่องในแท็บใหม่, กล่องเรียบเรียงบอกเรื่อง | [story-kb](features/story-kb/decisions.md) | D16 | — | — | active |
 | ทางเลือกเล็กของการเช็คค่า Story: ไม่ส่งชื่อ = ว่าง, ช่องบรรทัดเดียวรวมช่องว่าง, ชื่อซ้ำเทียบ casefold, ไม่สนฟิลด์ที่ไม่รู้จัก, Story อ่านไม่ได้เป็น `404` | [story-kb](features/story-kb/decisions.md) | D17 | — | — | active |

@@ -27,6 +27,9 @@ backend/
 │                    Status check checks it, the Render job draws with it
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
 ├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
+├── body_types.py ← what a POST/PUT/PATCH body may be: JSON everywhere, a raw
+│                    `application/octet-stream` file on the routes that list
+│                    `require_octet_stream` (ADR 0013, ADR 0028)
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
@@ -56,8 +59,12 @@ backend/
 │                    checks, the Story block of the LLM prompts and its tokens;
 │                    its own lock is the innermost (story-kb D16)
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
-│                    links, adapter (the only yt-dlp import), clips,
-│                    downloads (Download job),
+│                    links (accepted links, clip ids), adapter (the only
+│                    yt-dlp import), mp4check (the h264/aac ≤ 1080 rule
+│                    every Temp clip's mp4 meets, ADR 0027), clips,
+│                    downloads (Download job, and the flag of a File import
+│                    receiving, under the same lock), imports (File import:
+│                    a local mp4 as a raw body, one request, ADR 0028),
 │                    transcribe (Transcribe job, Transcript files),
 │                    trim (Trim job: cut ranges out of a clip's mp4, D41),
 │                    whisper (the only torch/transformers import for
@@ -126,7 +133,9 @@ through a queue; the thread writes the result file (ADR 0012).
 - Every job that loads a model takes `gpu.slot` before it starts and releases
   it on every ending, before its state reads as finished (ADR 0015).
 - Every `POST`, `PUT` and `PATCH` must be `application/json`, else `415` (ADR 0013);
-  `app.py` enforces it with an app-wide dependency, `require_json`.
+  `app.py` enforces it with an app-wide dependency, `body_types.require_json`. A route
+  that takes a raw file lists `Depends(body_types.require_octet_stream)` itself, and
+  `require_json` leaves it alone; `multipart/form-data` is refused everywhere (ADR 0028).
 - A path no route matches answers `404` `not_found` in the same shape
   (`app.py`): `%2F` decodes before routing.
 - `TrustedHostMiddleware` allows only `127.0.0.1`, `localhost`, `[::1]`

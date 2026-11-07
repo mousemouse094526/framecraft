@@ -1,6 +1,6 @@
 # Spec: spoil
 
-ผู้ใช้วางลิงก์ YouTube ใน tab คลิป (spoil-maker D53) แล้วแอปโหลดคลิปมาเก็บเป็น Temp clip พร้อมหน้าต่างบอกว่าโหลดอะไรมา. จากนั้นเลือกคลิปเข้ากล่องถอดบทพูด แล้วกดให้ Whisper ถอดคำพูดเป็น Transcript ที่อ่าน คัดลอก และโหลดเป็นไฟล์ได้. ก่อนถอด ผู้ใช้ตัดช่วงที่ไม่ต้องการ (โฆษณา, เพลงเปิด-ปิด, ตัวอย่างตอนหน้า) ออกจากคลิปได้ ช่วงที่ตัดจึงไม่ไปถึง Transcript, Shot, EP หรือ Spoil draft.
+ผู้ใช้วางลิงก์คลิปจาก YouTube หรือเว็บอื่นที่ yt-dlp โหลดได้ หรือเลือกไฟล์ mp4 ในเครื่อง ใน tab คลิป (spoil-maker D53, D47, D49) แล้วแอปเก็บคลิปเป็น Temp clip พร้อมหน้าต่างบอกว่าโหลดอะไรมา. จากนั้นเลือกคลิปเข้ากล่องถอดบทพูด แล้วกดให้ Whisper ถอดคำพูดเป็น Transcript ที่อ่าน คัดลอก และโหลดเป็นไฟล์ได้. ก่อนถอด ผู้ใช้ตัดช่วงที่ไม่ต้องการ (โฆษณา, เพลงเปิด-ปิด, ตัวอย่างตอนหน้า) ออกจากคลิปได้ ช่วงที่ตัดจึงไม่ไปถึง Transcript, Shot, EP หรือ Spoil draft.
 
 **Status:** ready-to-build
 
@@ -11,7 +11,9 @@
 ## Solution
 
 - tab ด้านบนของแอป 3 tab: ติดตั้ง · คลิป · สปอย (D10, spoil-maker D53)
-- วางลิงก์ YouTube คลิปเดียว แล้วโหลดคลิปทุกแนวที่ด้านสั้นไม่เกิน 1080 px เป็น mp4 (D5)
+- วางลิงก์คลิปเดียวจาก YouTube หรือเว็บอื่นที่ yt-dlp โหลดได้โดยไม่ต้อง login แล้วโหลดคลิปทุกแนวที่ด้านสั้นไม่เกิน 1080 px เป็น mp4 (D5, D47)
+- เลือกไฟล์หรือลากไฟล์ mp4 (h264/aac ด้านสั้น ≤ 1080 px) มาวาง แอป copy เข้าเป็น Temp clip ไม่แปลง; ไฟล์ไม่ตรง → บอกเหตุให้ผู้ใช้แปลงเอง (D49, D50)
+- คลิปซ้ำ (ลิงก์เว็บเดียวกัน id เดียวกัน หรือไฟล์ชื่อและขนาดเท่ากัน) ชี้แถวเดิม (D12, D51)
 - เห็น % ระหว่างโหลด และกดยกเลิกได้ (D6)
 - เห็นรายการ Temp clip ที่โหลดมา เล่นดูในหน้าเว็บ และกดลบได้ (D3, D7)
 - Setup script ติดตั้ง yt-dlp กับ Deno และ Status check บอกว่าติดตั้งครบไหม (D1, D8, D9)
@@ -37,14 +39,16 @@
 11. As a ผู้ทำคลิปสปอย, I want เห็นว่าคลิปไหนถอดแล้ว และเปิดแอปใหม่ก็ยังอยู่, so that ไม่ต้องถอดซ้ำ (D23)
 12. As a ผู้ทำคลิปสปอย, I want เลือกช่วง A–B และ C–D บน timeline แล้วตัดออกจากคลิป, so that โฆษณา เพลงเปิด-ปิด และตัวอย่างตอนหน้าไม่ไปถึง Transcript, Shot, EP และบทสปอย (D36, D38)
 13. As a ผู้ทำคลิปสปอย, I want เห็น % ระหว่างตัด ยกเลิกได้ และรู้ก่อนว่าการตัดจะลบอะไรของคลิป, so that ไม่เสีย Transcript หรือ Spoil draft โดยไม่รู้ตัว (D37, D41)
+14. As a ผู้ทำคลิปสปอย, I want วางลิงก์จาก Facebook, TikTok หรือเว็บอื่นได้เหมือน YouTube, so that ใช้คลิปต้นทางจากที่ไหนก็ได้ที่โหลดแบบสาธารณะได้ (D47)
+15. As a ผู้ทำคลิปสปอย, I want เลือกหรือลากไฟล์ mp4 ในเครื่องเข้ามา เห็น % และยกเลิกได้, so that ใช้คลิปที่โหลดเองจากเว็บที่แอปโหลดไม่ได้ (D47, D49, D50)
 
 ## Design
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
 | แถบ tab | 1 | tab "ติดตั้ง" · "คลิป" · "สปอย" ตามลำดับนี้, tab ที่เปิดอยู่เด่นกว่า (D10, spoil-maker D53) | [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — header ของทุก frame; component `Tab`. เดิม 2 tab: [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frame "Tab bar / Setup status active" |
-| tab คลิป | 2, 3, 6, 7 | ช่องลิงก์กับปุ่ม "โหลด"; ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ "ไปหน้าติดตั้ง" แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 1 loading, 2–3 idle, 4 downloading, 5 progress states, 6 done, 7 failed with fix, 8 messages, 9 duplicate, 11 not ready, 12 offline, 13 mobile 375px; component `Download progress` |
-| หน้าต่างรายการ Temp clip | 4, 5 | ใน tab คลิปใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); state ว่าง: "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน" | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 2 empty, 3 list, 6 and 9 highlight, 10 playing and delete error; component `Clip row` (D18) |
+| tab คลิป | 2, 3, 6, 7, 14, 15 | ช่องลิงก์ (placeholder ไม่ผูก YouTube) กับปุ่ม "โหลด"; ปุ่ม "เลือกไฟล์ในเครื่อง" (รับ `.mp4`) และพื้นที่ลากไฟล์มาวางที่บอกว่ารับ mp4 h264 ≤ 1080p (D49, D50); ระหว่างส่งไฟล์: ชื่อไฟล์, แถบ %, ปุ่ม "ยกเลิก", "กำลังตรวจไฟล์…" หลังส่งครบ; error ของไฟล์ที่ไม่ตรงพร้อมบอกให้แปลงเอง; error `unsupported`, `login_required` และ `unsupported_format` ชี้ไปที่ปุ่มเลือกไฟล์ (D52, D58); ระหว่างโหลด: ชื่อคลิปเมื่อรู้แล้ว, แถบ % (ไม่รู้ขนาด → แถบไม่มีตัวเลข), ปุ่ม "ยกเลิก" (ซ่อนตอนรวมไฟล์), ปุ่มโหลด disabled (D6, D15); ข้อความ error ตาราง Frontend รวมเวอร์ชัน yt-dlp และคำสั่งอัปเดต (D8); ลิงก์ซ้ำ → highlight แถวเดิม (D12); ติดตั้งไม่ครบ → ข้อความกับลิงก์ "ไปหน้าติดตั้ง" แทนช่องลิงก์ (D9, D10); backend offline → ข้อความเดียวกับหน้า Setup status (setup-status D21) | [Figma: tab คลิป — ลิงก์และไฟล์](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8113-60644) — component `File drop` (default, drag-over, disabled, emphasis), `Download progress` state importing และ checking file, icon `icon/upload`, `icon/file-video`, `icon/link`; frames "คลิป — ลิงก์และไฟล์ / 1–10 / desktop" และ 1, 3, 4, 5, 6b, 8a / mobile; แถว "ไฟล์ในเครื่อง" และชื่อเว็บใช้ text property `Channel · duration` ของ `Clip row`. แบบเดิมของการโหลดลิงก์: [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames 1, 4–9, 11–13 |
+| หน้าต่างรายการ Temp clip | 4, 5 | ใน tab คลิปใต้ช่องลิงก์; แถวใหม่สุดก่อน: thumbnail, ชื่อคลิป, ชื่อช่อง, ความยาว, ขนาดภาพกับแนว "ตั้ง" หรือ "นอน", ขนาดไฟล์, เวลาโหลด, ปุ่มลบพร้อมยืนยัน และ error เมื่อลบไม่ได้ (D7, D15); กดแถว → player เล่นคลิปนั้น (D7); แถวของเว็บอื่นแสดงชื่อเว็บ, แถวของไฟล์ในเครื่องแสดง "ไฟล์ในเครื่อง" แทนชื่อช่อง (D52); state ว่าง: "ยังไม่มีคลิป วางลิงก์หรือเลือกไฟล์ด้านบน" | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 2 empty, 3 list, 6 and 9 highlight, 10 playing and delete error; component `Clip row` (D18) |
 | layout สองคอลัมน์ของ tab คลิป | 8 | จอกว้าง: รายการคลิปซ้าย, ลูกศร → กลาง, กล่องถอดบทพูดขวา; 375px เรียงบนลงล่างพร้อมลูกศร ↓ (D25); แถวที่เลือกเด่นกว่า; แถวที่ถอดแล้วมีสถานะ "ถอดแล้ว" (D23); ช่องลิงก์กับแถบโหลดอยู่คอลัมน์ซ้ายเหนือรายการ (D33) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — frames: 14 nothing selected, 15 selected, 16 transcribing while downloading, 17 transcribed, 19 mobile 375 stacked; component `Clip row` (property `Show transcribed`), icon `icon/arrow-right`, `icon/arrow-down`; ใน tab คลิป: [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — frame คลิป |
 | กล่องถอดบทพูด | 8–11 | ยังไม่เลือก: "เลือกคลิปจากรายการ"; เลือกแล้ว: player, ชื่อคลิป, ความยาว, ปุ่ม "ถอดบทพูด" (ถอดแล้ว → "ถอดใหม่" พร้อม alert "คลิปนี้ถอดแล้ว"); ระหว่างถอด: "กำลังเตรียมเสียง…" หรือ "กำลังถอด {n}%" กับแถบ % และปุ่ม "ยกเลิก"; Transcript: บรรทัด `[hh:mm:ss] ข้อความ` กดได้, ภาษาที่ตรวจได้, ปุ่ม Copy, `.txt`, `.srt`; ว่าง: "ไม่พบคำพูดในคลิปนี้"; error ของงานถอด; ติดตั้งไม่ครบ: ข้อความกับลิงก์ "ไปหน้าติดตั้ง" แทนปุ่มถอด (D22–D27); ข้อความหลังงานจบเป็น Alert ในกล่อง (D33); ชี้บรรทัดแล้วมีปุ่ม "แก้", กำลังแก้: ช่องพิมพ์กับ "บันทึก" และ "ยกเลิก", บรรทัดที่แก้แล้วมีป้าย "แก้แล้ว" (spoil-maker D54) | [Figma: framecraft — สปอย](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) — component `Transcript panel` (ทุก state), `Transcript line`, `Player`; frames: 14–17, 18 messages, 19 mobile; แก้บรรทัด: [Figma: 3 tab](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633) — frames คลิป และ คลิป — แก้ประโยค; component `Transcript line` state hover, editing, edited |
 | ส่วนตัดช่วง | 12, 13 | ในกล่องถอดบทพูดใต้ชื่อคลิป: ปุ่ม "ตัดช่วง"; timeline เต็มกว้างกล่องที่มีช่วงที่จะตัดเป็นแถบทึบ หัวท้ายลากได้ และตำแหน่งเล่น; แต่ละช่วงมีเวลาเริ่ม-จบที่พิมพ์ได้, "เริ่ม = ตอนนี้", "จบ = ตอนนี้", ลบช่วง; "เพิ่มช่วง"; "ตัดออก {x} · เหลือ {y}"; ปุ่ม "ตัดคลิป" และ "ยกเลิก"; ปุ่มถอด disabled พร้อมเหตุผลระหว่างเลือกช่วง; ระหว่างตัด: player ว่าง, "กำลังตัดคลิป {n}%" กับแถบ % และ "ยกเลิก", "กำลังแทนไฟล์…" ไม่มีปุ่มยกเลิก; คำยืนยันที่บอกสิ่งที่จะถูกลบ; Alert ผลหลังงานจบ; คลิปอื่นกำลังตัด: "ตัดช่วง" disabled กับ "กำลังตัด {ชื่อ}"; แถว Temp clip ที่ตัดแล้วมีป้าย "ตัดแล้ว"; 375px ใช้แบบเดียวกันเรียงในกล่อง หัวลากแตะได้ ≥ 44px (D36–D41) | [Figma: Components — ตัดช่วง](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8094-49867) — component `Trim timeline`, `Trim range row`, `Trim section`, `icon/scissors`; `Transcript panel` state trim closed, trim open, trim running, trim other clip (property `Show trim alert`); `Clip row` property `Show trimmed`. frames "คลิป — ตัดช่วง / 1–13 / desktop" ([start](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8098-50405)) และ 3, 6, 9 / mobile (D44) |
@@ -53,11 +57,16 @@
 
 ## Expected Outcome
 
-ผู้ใช้เอาคลิป YouTube เข้า framecraft ได้ในแอปเดียว โดยไม่ต้องใช้เครื่องมือโหลดอื่น.
+ผู้ใช้เอาคลิปจาก YouTube เว็บอื่น หรือไฟล์ในเครื่องเข้า framecraft ได้ในแอปเดียว.
 
 - **วางลิงก์คลิปแนวตั้ง:** เห็น % เดินจนครบ แล้วคลิปขึ้นบนสุดของรายการ ขนาดภาพเป็นขนาดใหญ่สุดของต้นทางที่ด้านสั้นไม่เกิน 1080 (เช่น "1080×1920 ตั้ง" หรือ "720×1280 ตั้ง") (D5)
 - **วางลิงก์หนังแนวนอนยาว 2 ชั่วโมง:** โหลดได้ ได้แถว "นอน" ที่ด้านสั้นไม่เกิน 1080
 - **วางลิงก์ซ้ำ:** ไม่โหลด แถวเดิมถูก highlight
+- **วางลิงก์คลิป public ของ Facebook หรือ TikTok:** โหลดได้เหมือน YouTube แถวแสดงชื่อเว็บ (D47)
+- **วางลิงก์เว็บที่ yt-dlp ไม่รู้จัก:** "เว็บนี้โหลดอัตโนมัติไม่ได้…" ชี้ปุ่มเลือกไฟล์ (D52)
+- **ลากไฟล์ mp4 1080p ขนาด 2 GB มาวาง:** % เดินจนครบ แถวใหม่ "ไฟล์ในเครื่อง" ชื่อตามไฟล์ เล่น ถอด ตัด ได้เหมือนคลิปที่โหลด; ไฟล์ต้นฉบับไม่เปลี่ยน (D49)
+- **เลือกไฟล์ `.mkv` หรือ mp4 4K/HEVC:** ไม่รับ บอกว่าไม่ตรงข้อไหนและให้แปลงเป็น mp4 h264 ≤ 1080p เอง (D49)
+- **เลือกไฟล์เดิมซ้ำ:** ไม่ส่ง แถวเดิมถูก highlight (D51)
 - **กดยกเลิกกลางทาง:** งานหยุด ไม่มีแถวใหม่ ไม่มีไฟล์ค้างใน `media/temp/.partial/`
 - **เลือกหนังภาษาอังกฤษ 1:35 ชม. แล้วกดถอด:** % เดินจนครบ เห็น Transcript ทีละบรรทัดพร้อมเวลา ภาษา "en"; กดบรรทัดแล้ว player กระโดดไปเวลานั้น; แถวในรายการขึ้น "ถอดแล้ว" (D22, D23)
 - **ถอดระหว่างโหลดคลิปอื่น:** ทั้งสองงานเดินไปพร้อมกันจนจบ (D24)
@@ -70,6 +79,7 @@
 - โหลด YouTube Shorts หนึ่งคลิปและคลิปแนวนอนยาวกว่า 1 ชั่วโมงหนึ่งคลิปได้จริง แต่ละไฟล์เล่นได้ใน player ของหน้าเว็บ
 - ไฟล์ที่ได้เป็น mp4 และด้านสั้นไม่เกิน 1080 px
 - restart `npm run dev` แล้วรายการเดิมยังอยู่ครบ
+- โหลดคลิป public หนึ่งคลิปจาก Facebook และหนึ่งคลิปจาก TikTok ได้จริง เล่นได้ใน player; เอาไฟล์ mp4 ในเครื่องเข้ายาวกว่า 1 ชั่วโมงได้ และถอดกับตัดได้ (D47, D49)
 - ถอด Shorts ภาษาไทยหนึ่งคลิปและหนังแนวนอนยาวกว่า 1 ชั่วโมงหนึ่งคลิปได้จริง; Copy แล้ววางได้ข้อความครบ; `.srt` เปิดใน VLC แล้ว subtitle ตรงเวลา; restart `npm run dev` แล้วยังเห็น Transcript
 - ยกเลิกงานถอดแล้ว process ลูกหยุดภายใน 5 วินาที และ Transcript เดิม (ถ้ามี) ยังอยู่
 - ตัดหนังยาวกว่า 1 ชั่วโมงสองช่วงบน Mac: ไฟล์ใหม่เล่นได้ใน player, ความยาวตรงกับที่คาดภายใน 1 วินาที, ภาพและเสียงตรงกันที่รอยตัด (ดูสามจุดรอบรอยตัด), ขนาดไฟล์ต่อนาทีไม่เกิน 1.2 เท่าของเดิม; ถอดคลิปที่ตัดแล้วไม่มีบรรทัดของช่วงที่ตัด
@@ -97,6 +107,11 @@
   - `backend.spoil.trim` (ใหม่): Trim job, ตรวจช่วง, คำสั่ง ffmpeg และการแทนไฟล์ (D36, D41)
   - `backend.spoil.clips`: field `trimmed` และ `trimmed_at` ใน json, ลบข้อมูลจากคลิปแยกจากการลบคลิป ให้ Trim job ใช้ส่วนเดียวกัน, ทำ marker `{id}.trimming.json` ต่อตอน start, `409` `trimming` (D37, D41)
   - `backend.spoil.transcribe` และ `PATCH` บรรทัด: คลิปที่ Trim job ยังไม่จบ → `409` `trimming` (D41)
+  - `backend.spoil.links`: ลิงก์ YouTube ตามตารางเดิม หรือลิงก์ `http(s)` อื่นที่ host ไม่ใช่ loopback/private; `CLIP_ID` = `[A-Za-z0-9_-]{1,64}` แทน `VIDEO_ID` ทุกที่ที่ใช้เป็นชื่อไฟล์หรือ path (D51, D52)
+  - `backend.spoil.downloads` และ `adapter`: id จาก `extractor_key` กับ `id` หลัง `fetch_info`, เช็คซ้ำหลัง `checking`, error `unsupported`, `playlist`, `download_error`, field `site` (D51, D52)
+  - `backend.spoil.clips`: `TempClip.source_url`, `channel`, `yt_dlp_version` เป็น `Optional`, เพิ่ม `site`; `check_known` และ `clean_on_start` ใช้ `CLIP_ID`; `backend.spoil_maker` ที่ตรวจ id ของคลิปใช้ `CLIP_ID` เดียวกัน (D55)
+  - `backend.spoil.imports` (ใหม่): File import — รับ body ดิบ, เช็คดิสก์, ตรวจ mp4 ด้วย ffmpeg, thumbnail, เขียน json (D49–D52)
+  - `backend.app` และ `backend.body_types` (ใหม่): `require_json` ตัวเดิม (ย้ายไป `body_types`) ยกเว้น route ที่มี dependency `require_octet_stream` ของตัวเอง ตอนนี้มีแค่ `POST /api/spoil/imports` ที่รับ `application/octet-stream` อย่างเดียว (D50, D55, D57)
   - `backend.gpu` (ของ spoil-maker): `GpuSlot.trimming_clip` — `take()` และ `clip_untouched` ปฏิเสธคลิปที่กำลังตัด เพื่อให้ Describe, Draft, Voice, Render job และ `PUT` การตัด EP ของคลิปนั้นได้ `409` `clip_busy` (spoil-maker D49, D55, D42); แก้เฉพาะจุดนี้; `begin_render`/`end_render` ทำเครื่องหมายคลิปที่ Render job อ่าน (render ที่ไม่ต้องสร้างเสียงไม่จองช่อง GPU) ให้ Trim job ของคลิปนั้นได้ `clip_busy` และ render ระหว่างตัดได้ `clip_busy` (D46)
 - **frontend**
   - `App`: แถบ tab; hook `useHashTab` ใน `lib/` อ่านและเขียน hash. ไม่มี folder `routes/` เพราะไม่ใช้ router (D10). บันทึกเรื่องนี้ใน skill `vite-react-web`
@@ -104,13 +119,14 @@
   - `lib/api`: เพิ่ม `sendJson<T>(method, path, body?)` คืน `{ status, body }` ที่ body เป็น JSON หรือ `null` เมื่อไม่มี body; throw เฉพาะ network ล้มหรือเกิน 30 วินาที. timeout เดียวกับ `getJson`
   - `components/ui/`: ย้าย `OfflinePanel` จาก `features/setup-status` มาที่นี่ เพราะ tab สปอยใช้ด้วย
   - `lib/statusTypes`: ย้าย type ของ `/api/setup/status` ออกจาก `features/setup-status` เพราะ tab สปอยอ่านด้วย
+  - `features/spoil/`: `FileDropArea` ที่ครอบ `LinkForm` (ปุ่มเลือกไฟล์และพื้นที่ลากวาง, D58), hook `useFileImport` (XHR เพราะ `fetch` ไม่บอก upload progress), แถว "ไฟล์ในเครื่อง"/ชื่อเว็บใน `TempClipList`; type ของ `lib/clips` ให้ `source_url`, `channel`, `yt_dlp_version` เป็น `null` ได้และมี `site` (D52)
   - `features/spoil/`: ส่วนตัดช่วง `TrimSection` กับ hook `useTrim` ในกล่องถอดบทพูด, ป้าย "ตัดแล้ว" ใน `Clip row`, `?v=` ของ `src` ใน player (D38, D41)
 
 ### Dependencies
 
 | Package | Version | ใช้ทำอะไร |
 |---|---|---|
-| `yt-dlp[default,deno]` | latest ตอน lock แล้ว pin ใน `uv.lock` | โหลดคลิป YouTube; extra `default` มี `yt-dlp-ejs`, extra `deno` มี package `deno` ที่เป็น JavaScript runtime (D8) |
+| `yt-dlp[default,deno]` | latest ตอน lock แล้ว pin ใน `uv.lock` | โหลดคลิป YouTube และเว็บอื่น (D47); extra `default` มี `yt-dlp-ejs`, extra `deno` มี package `deno` ที่เป็น JavaScript runtime (D8) |
 
 ### Library assumptions
 
@@ -124,6 +140,10 @@
 | yt-dlp | เดียวกัน | `paths: {"home": ..., "temp": ...}` แยกไฟล์ระหว่างโหลดออกจากไฟล์ผลลัพธ์, `noplaylist: True` โหลดคลิปเดียวเมื่อลิงก์มี `list=` | [YoutubeDL.py](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/YoutubeDL.py) |
 | yt-dlp | เดียวกัน | YouTube ต้องมี JavaScript runtime; Deno ≥ 2.3.0 | [yt-dlp EJS](https://github.com/yt-dlp/yt-dlp/wiki/EJS) |
 | yt-dlp | เดียวกัน | error ตอนโหลดเป็น `yt_dlp.utils.DownloadError` ที่ `exc_info[1]` คือ exception ต้นทาง (`GeoRestrictedError`, `ExtractorError` ที่ `expected=True`); คลิป upcoming ทำให้ `extract_info` raise เพราะไม่มี format | [YoutubeDL.py](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/YoutubeDL.py) |
+| yt-dlp | เดียวกัน | `extract_info` ของลิงก์ที่ไม่มีตัวโหลดเฉพาะใช้ generic extractor; หาวิดีโอไม่เจอ raise `DownloadError` ที่ข้อความมี "Unsupported URL"; info มี `extractor_key` (เช่น `Youtube`, `Facebook`, `TikTok`) และ `id`; ลิงก์ playlist กับ `noplaylist` ที่เว็บไม่รองรับ ได้ `_type` `playlist` | [YoutubeDL.py](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/YoutubeDL.py), [supportedsites.md](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) |
+| starlette | 1.10.0 | `await request.stream()` ให้ body ทีละก้อนโดยไม่เก็บทั้งไฟล์ใน memory; client ตัดการเชื่อมต่อกลางทาง → `ClientDisconnect` | [Starlette requests](https://www.starlette.io/requests/#body) |
+| browser `XMLHttpRequest` | — | `xhr.upload.onprogress` ให้ `loaded`/`total` ระหว่างส่ง body; `abort()` ตัดการเชื่อมต่อ; `fetch` ไม่มี upload progress | [MDN XMLHttpRequest.upload](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/upload) |
+| ffmpeg (imageio) | 7.1 | stderr ของ `ffmpeg -hide_banner -i {file}` มี `Stream #0:… Video: h264 …, {w}x{h}` และ `Audio: aac` และ `Duration:`; `-ss {t} -i {file} -frames:v 1 {id}.jpg` ได้ thumbnail | [ffmpeg docs](https://ffmpeg.org/ffmpeg.html) |
 | deno (PyPI) | latest ตอน lock (2.9.8 ตอนเขียน) | wheel macOS arm64 และ Windows amd64 มี binary, `deno.find_deno_bin()` คืน path | [deno on PyPI](https://pypi.org/project/deno/) |
 | starlette | 1.10.0 (มากับ fastapi 0.162.0) | `FileResponse` ตอบ HTTP Range ให้ `<video>` seek ได้ | [Starlette responses](https://www.starlette.io/responses/#fileresponse) |
 | imageio-ffmpeg | 0.7.0 | `get_ffmpeg_exe()` คืน path ffmpeg ที่ใช้ merge (ADR-0005) | [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) |
@@ -157,14 +177,14 @@
 
 ขั้นตอนของ Download job หนึ่งงาน (D5, D6, D11, D14, D15):
 
-1. `POST /api/spoil/downloads` ตรวจตามลำดับ: probe `yt_dlp`, `deno` และ `ffmpeg` ผ่าน; ลิงก์ตรงรูปแบบ; แล้วภายใต้ lock เดียว: ไม่มี Temp clip ของ id นี้, ไม่มีงานที่ thread ยังไม่ออก, สร้างงาน. ไม่ผ่านข้อไหนตอบ error ของข้อนั้นทันที
+1. `POST /api/spoil/downloads` ตรวจตามลำดับ: probe `yt_dlp`, `deno` และ `ffmpeg` ผ่าน; ลิงก์ตรงรูปแบบ; แล้วภายใต้ lock เดียว: (ลิงก์ YouTube เท่านั้น) ไม่มี Temp clip ของ id นี้, ไม่มีงานที่ thread ยังไม่ออกและไม่มี File import ที่ยังไม่จบ, สร้างงาน. ไม่ผ่านข้อไหนตอบ error ของข้อนั้นทันที
 2. เริ่ม daemon thread, state `checking`: `adapter.fetch_info(url)`
-3. flag ยกเลิกถูกตั้ง → `cancelled`. `live_status` เป็น `is_live` หรือ `is_upcoming` หรือ error ของ upcoming → `failed` code `live` (D11)
+3. info เป็น playlist → `failed` code `playlist`. id ของคลิป (D51) มี Temp clip แล้ว → `failed` code `duplicate` พร้อม `clip_id` (ลิงก์เว็บอื่น). flag ยกเลิกถูกตั้ง → `cancelled`. `live_status` เป็น `is_live` หรือ `is_upcoming` หรือ error ของ upcoming → `failed` code `live` (D11)
 4. ประมาณขนาด: ผลรวม `filesize` หรือ `filesize_approx` ของ `requested_formats`; ไม่มี → `tbr` (kbps) × `duration` × 125 bytes; ประมาณไม่ได้ → 0
 5. `free_bytes(media/temp)` < ขนาดประมาณ + 1 GiB → `failed` code `disk_full` (D11)
 6. state `downloading`: `adapter.download(info, on_progress)`. `percent` = byte ที่โหลดแล้วของทุก format ÷ ขนาดประมาณ × 100 ปัดลง ไม่เกิน 100; ขนาดประมาณเป็น 0 → `percent` เป็น `null`. hook raise `DownloadCancelled` เมื่อ flag ถูกตั้ง
 7. state `merging` เมื่อ hook ของ format สุดท้ายได้ `finished`. ตั้งแต่นี้ยกเลิกไม่ได้ (D15)
-8. อ่านขนาดภาพจาก metadata ของ format ที่เลือก, เขียน `{id}.json` แบบเขียนไฟล์ชั่วคราวแล้ว rename (D14), state `done` และ `clip_id` = id
+8. ตรวจ mp4 ด้วยตัวตรวจของ File import ขั้น 4; ไม่ผ่าน → `failed` `unsupported_format` และลบไฟล์ (D54). อ่านขนาดภาพจากผลตรวจ, เขียน `{id}.json` แบบเขียนไฟล์ชั่วคราวแล้ว rename (D14), state `done` และ `clip_id` = id
 9. ยกเลิกหรือ error ที่ขั้นไหนก็ตาม → ลบไฟล์ของ id นี้ใน `.partial/` และ `{id}.*` ที่ยังไม่มี json, state `cancelled` หรือ `failed`. งานนับว่าจบเมื่อ thread ออกจากขั้นนี้
 
 Adapter (ตัวเดียวที่ import yt-dlp, test แทนด้วยตัวปลอม):
@@ -181,9 +201,11 @@ Adapter (ตัวเดียวที่ import yt-dlp, test แทนด้�
 | เมื่อ | `code` |
 |---|---|
 | upcoming (ข้อ 3): ข้อความ error มี "This live event will begin" หรือ "Premieres in" | `live` |
-| ข้อความ error มี "Sign in to confirm" หรือ "not a bot" | `login_required` |
+| ข้อความ error มี "Sign in to confirm", "not a bot", "logged-in", "registered users" หรือ "login required" | `login_required` (D56) |
 | `GeoRestrictedError` หรือข้อความมี "Private video", "unavailable", "removed" | `unavailable` |
-| อื่นๆ ทั้งหมด รวม error ของ ffmpeg | `youtube_error` |
+| ข้อความ error มี "Unsupported URL" หรือ "No suitable extractor found" (ลิงก์ที่ต้องใช้ generic extractor) | `unsupported` (D52, D55, D56) |
+| ข้อความ error มี "Requested format is not available" หรือ selector ไม่ yield | `unsupported_format` (D54) |
+| อื่นๆ ทั้งหมด รวม error ของ ffmpeg | `download_error` (เดิม `youtube_error`, D52) |
 
 เช็คตามลำดับแถว. ข้อความยืนยันกับ YouTube จริงตอน build ticket 01 (D16).
 
@@ -191,12 +213,14 @@ params ของ yt-dlp (adapter เดียวใน `backend.spoil` สร้
 
 | Key | ค่า |
 |---|---|
-| `format_sort` | `["res:1080", "vcodec:h264", "acodec:aac"]` (D5) |
+| `format` | format selector (callable) ที่เลือกภาพ `vcodec` ขึ้นต้น `avc1` หรือ `h264`, `pix_fmt` ไม่ระบุหรือ `yuv420p`, `min(width, height)` ≤ 1080 กับเสียง `acodec` ขึ้นต้น `mp4a`; หรือ format รวมที่ตรงทั้งคู่; ใหญ่สุดก่อน; ไม่มีที่ตรง → format ที่ `vcodec` และ `acodec` เป็น `null` ตัวท้ายสุดของ list (ตัวตรวจไฟล์ตัดสินหลังโหลด, D56); ไม่มีเลย → ไม่ yield อะไร → `unsupported_format` (D5, D54) |
+| `allowed_extractors` | `["default", "-generic"]` (D55) |
+| `socket_timeout` | `30` (D55) |
 | `merge_output_format` | `"mp4"` (D5) |
 | `ffmpeg_location` | `imageio_ffmpeg.get_ffmpeg_exe()` (ADR-0005) |
 | `js_runtimes` | `{"deno": {"path": deno.find_deno_bin()}}` (D8) |
 | `paths` | `{"home": media/temp, "temp": media/temp/.partial}` (D14) |
-| `outtmpl` | `"%(id)s.%(ext)s"` (D14) |
+| `outtmpl` | `"{clip_id}.%(ext)s"` ที่ `clip_id` คำนวณจาก info ก่อนโหลด (D14, D51) |
 | `writethumbnail` | `True`; thumbnail ได้นามสกุลตามที่ YouTube ให้ ไม่แปลง |
 | `noplaylist` | `True` |
 | `quiet`, `noprogress` | `True`; ความคืบหน้ามาจาก `progress_hooks` |
@@ -212,7 +236,35 @@ params ของ yt-dlp (adapter เดียวใน `backend.spoil` สร้
 
 - รับทั้ง `http` และ `https`, ตัดช่องว่างหัวท้าย
 - query อื่น (`list`, `t`, `si`) ไม่สนใจ
-- นอกตาราง → `invalid_url`
+- นอกตาราง: ลิงก์ `http`/`https` ที่มี host → รับเป็นลิงก์ของเว็บอื่น (D47); ตัด `.` ท้าย host แล้ว host เป็น `localhost`, ลงท้าย `.localhost`, ตัวเลขล้วนหรือตัวเลขกับจุดที่ไม่ใช่ IPv4 สี่ส่วน (`127.1`, `2130706433`), หรือเป็น IP ที่ `ipaddress` บอกว่า `is_loopback`, `is_private`, `is_link_local` หรือ `is_unspecified` → `invalid_url` (D52). ไม่ resolve DNS และไม่กัน redirect — เป็นชั้นแรก; ชั้นหลักคือปิด generic extractor (D55) ให้ yt-dlp ยิงแค่เว็บที่มีตัวโหลดเฉพาะ
+- ไม่ใช่ `http`/`https` หรือไม่มี host → `invalid_url`
+- ลิงก์ playlist ของ YouTube (`/playlist`) ยังเป็น `invalid_url`
+
+id ของ Temp clip (D51):
+
+| แหล่ง | id |
+|---|---|
+| YouTube (`extractor_key` `Youtube`) | video id 11 ตัว เหมือนเดิม |
+| เว็บอื่น | `{extractor_key ตัวเล็ก}-{id ตัวเล็ก}` (ดิสก์ของ Mac และ Windows ไม่สนตัวพิมพ์); id มีตัวพิมพ์ใหญ่หรือตัวนอก `A-Za-z0-9_-` (แทนด้วย `_`) → ต่อ `-` + 8 ตัวแรกของ sha1 ของ `"{extractor_key}:{id}"` (D55, D59) |
+| ไฟล์ในเครื่อง | `local-` + 12 ตัวแรกของ sha1 hex ของ `"{name}|{size}"` |
+
+ยาวเกิน 64 → 55 ตัวแรก + `-` + 8 ตัวแรกของ sha1 ของ `"{extractor_key}:{id}"`. ทุก id ตรง `CLIP_ID` = `[A-Za-z0-9_-]{1,64}`.
+
+### File import
+
+เอาไฟล์ mp4 ในเครื่องเข้าเป็น Temp clip ใน request เดียว (D49, D50, D52):
+
+0. หน้าเว็บส่ง `POST /api/spoil/imports/check` body `{"name": ..., "size": ...}` (JSON) ก่อน ซึ่งตรวจข้อ 1 ทุกข้อยกเว้นการรับ body แล้วตอบ `200` `{"clip_id": ...}` หรือ error เดียวกับข้อ 1 — เพราะ server ที่ตอบ `409` ระหว่าง browser ยังส่ง body ไม่ครบ ทำให้ XHR ได้ network error แทน response. ข้อ 1 ตรวจซ้ำเพราะสถานะเปลี่ยนได้ระหว่างสอง request
+1. `POST /api/spoil/imports?name={ชื่อไฟล์}&size={byte}` `Content-Type: application/octet-stream` body คือตัวไฟล์. ตรวจตามลำดับ: แถว `ffmpeg` `ok`; `name` ลงท้าย `.mp4` (ไม่สนตัวพิมพ์) ไม่งั้น `400` `not_mp4`; `size` เป็นจำนวนเต็ม > 0; id (D51) มี Temp clip แล้ว → `409` `duplicate` กับ `clip_id`; ภายใต้ lock เดียวกับ Download job: ไม่มี Download job ที่ thread ยังไม่ออก และไม่มี File import อื่น → ไม่งั้น `409` `busy`; `free_bytes(media/temp)` ≥ `size` + 1 GiB → ไม่งั้น `409` `disk_full`
+2. เขียน `request.stream()` ลง `.partial/{id}.import.mp4` ทีละก้อน ใน `anyio.to_thread.run_sync` (ffmpeg ขั้น 4–5 ด้วย) ไม่ block event loop; ไม่ได้ byte ใหม่ 60 วินาที → ลบ `408` `stalled` (D55); จำนวน byte เกิน `size` → หยุด `400` `size_mismatch`; client ตัดการเชื่อมต่อ (`ClientDisconnect`) → ลบไฟล์ ไม่มีใครรับคำตอบ (handler ตอบ `400` เงียบๆ แทน 500, D57)
+3. byte ที่ได้ไม่เท่า `size` → ลบ `400` `size_mismatch`
+4. ตรวจด้วย `ffmpeg -hide_banner -i` (ตัวตรวจเดียวกับขั้น 8 ของ Download): stream ภาพแรกที่ไม่ใช่ `attached_pic` เป็น `h264` และ `yuv420p`; rotation ±90 (side data `displaymatrix` หรือ tag `rotate`) → สลับกว้างกับสูงก่อนคิด; ด้านสั้น ≤ 1080, ทุก stream เสียงเป็น `aac` (ไม่มีเสียงได้), อ่าน `Duration` ได้. ไม่ผ่าน → ลบ `400` `unsupported_file` พร้อม `message` ที่บอกข้อที่ไม่ตรง ("ภาพเป็น hevc", "ภาพ 2160×3840 ด้านสั้นเกิน 1080", "เสียงเป็น opus", "อ่านไฟล์ไม่ได้") ต่อด้วย "แปลงเป็น mp4 (H.264, AAC) ไม่เกิน 1080p ด้วยโปรแกรมอื่นแล้วลองอีกครั้ง"
+5. thumbnail: `-ss {10% ของความยาว} -frames:v 1` เป็น `{id}.jpg`; ไม่ได้ → `null`
+6. `os.replace` ไฟล์เข้า `media/temp/{id}.mp4`, เขียน `{id}.json` แบบ `.tmp` แล้ว rename สุดท้าย → `201` Temp clip
+7. error ที่ขั้นไหนก็ตาม → ลบไฟล์ของ id นี้ใน `.partial/` และ `{id}.*` ที่ยังไม่มี json; flag "กำลังรับไฟล์" ปล่อยใน `finally` ทุกทาง (D55)
+
+- ไม่มี state ใน memory นอกจาก flag "กำลังรับไฟล์" ที่ lock ใช้; restart กลางทาง → ไฟล์ค้างถูกล้างตอน start (D14)
+- ไม่แตะไฟล์ต้นฉบับ: browser ส่งสำเนา (D49)
 
 ### Transcribe
 
@@ -332,6 +384,7 @@ Trim job:
   "id": "dQw4w9WgXcQ",
   "title": "ชื่อคลิป",
   "channel": "ชื่อช่อง",
+  "site": "Youtube",
   "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   "duration_s": 7212,
   "width": 1920,
@@ -347,6 +400,9 @@ Trim job:
 ```
 
 - `orientation` เป็น `portrait` เมื่อ `height` > `width`, ไม่งั้น `landscape`
+- `site` = `extractor_key` ของ yt-dlp หรือ `"local"` สำหรับไฟล์ในเครื่อง; json เดิมที่ไม่มี field นี้อ่านเป็น `"Youtube"` (D52)
+- ไฟล์ในเครื่อง: `title` = ชื่อไฟล์ไม่มีนามสกุล, `channel`, `source_url` และ `yt_dlp_version` เป็น `null`, `downloaded_at` = เวลาที่เอาเข้า (D52)
+- เว็บอื่น: `channel` = `channel` หรือ `uploader` ของ info หรือ `null`
 - `thumbnail` เป็น `null` เมื่อโหลด thumbnail ไม่ได้
 - `file_bytes` อ่านจากไฟล์ mp4 จริงหลัง merge และหลังตัด
 - `trimmed` เป็น list ว่างและ `trimmed_at` เป็น `null` เมื่อยังไม่เคยตัด; json เดิมที่ไม่มีสอง field นี้อ่านเป็นค่าเดียวกัน; แต่ละช่วงเป็นเวลาของไฟล์ก่อนการตัดรอบนั้น (D36)
@@ -355,7 +411,7 @@ Trim job:
 - ลบ = ลบ `{id}.mp4`, thumbnail และ `{id}.transcript.json` ก่อน แล้ว `{id}.json` สุดท้าย; ลบ mp4 ไม่ได้ (Windows ที่ไฟล์ยังเปิดอยู่) → `409` `in_use` และไม่แตะ json (D15, D23); คลิปที่ Transcribe job ยังไม่จบ → `409` `transcribing` ไม่ลบอะไร (D27); คลิปที่ Trim job ยังไม่จบ → `409` `trimming` ไม่ลบอะไร (D41)
 - รายการมี field `transcribed`: `true` เมื่อมีไฟล์ `{id}.transcript.json` (ไม่ parse); รายการคลิปข้ามไฟล์ `*.transcript.json` (D23, D29)
 - เช็คกับลบภายใต้ lock ของงานถอด (D29)
-- backend start → ทำ marker `{id}.trimming.json` ต่อตาม Trim, แล้วลบ `.partial/` ทั้งหมด, ไฟล์ `{id}.*` ใน `media/temp/` ที่ไม่มี `{id}.json` และไฟล์ `*.tmp` ทั้งหมด (D15, D29); รายการคลิปข้ามไฟล์ `*.trimming.json` (D41)
+- backend start → ทำ marker `{id}.trimming.json` ต่อตาม Trim, แล้วลบ `.partial/` ทั้งหมด, ไฟล์ `{id}.*` ใน `media/temp/` ที่ไม่มี `{id}.json` เฉพาะ `{id}` รูปที่แอปสร้าง (11 ตัวของ YouTube, `local-[0-9a-f]{12}`, หรือ `{site}-…` ตรง `CLIP_ID` ที่ `{site}` เป็นเว็บที่ yt-dlp มีตัวโหลด; D55, D59) และไฟล์ `*.tmp` ทั้งหมด (D15, D29); รายการคลิปข้ามไฟล์ `*.trimming.json` (D41)
 
 ### API
 
@@ -366,7 +422,7 @@ Trim job:
 | `GET` | `/clips` | `200` `{"clips": [Temp clip + `transcribed`, ...]}` |
 | `GET` | `/clips/{id}` | `200` Temp clip หนึ่งคลิปรูปเดียวกับแถวของ `/clips`; ไม่มี → `404` `not_found` (D46) |
 | `GET` | `/clips/{id}/video` | `200` หรือ `206` ไฟล์ `video/mp4` รองรับ Range; ไม่มี → `404` `not_found`; query string ไม่มีผล (`?v=` ของ D41) |
-| `GET` | `/clips/{id}/thumbnail` | `200` ไฟล์ thumbnail; ไม่มี → `404` `not_found` |
+| `GET` | `/clips/{id}/thumbnail` | `200` ไฟล์ thumbnail; นามสกุลที่ไม่บอกชนิด (TikTok `.image`) → `Content-Type` จาก byte แรก (D56); ไม่มี → `404` `not_found` |
 | `DELETE` | `/clips/{id}` | `204`; ไม่มี → `404` `not_found`; ไฟล์ถูกเปิดอยู่ → `409` `in_use` "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"; กำลังถอดคลิปนี้ → `409` `transcribing` "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ"; กำลังตัดคลิปนี้ → `409` `trimming` "กำลังตัดคลิปนี้อยู่ รอให้จบหรือยกเลิกก่อน" |
 | `GET` | `/clips/{id}/transcript` | `200` เนื้อ `{id}.transcript.json`; ไม่มี → `404` `not_found` |
 | `GET` | `/clips/{id}/transcript.txt`, `/clips/{id}/transcript.srt` | `200` `text/plain; charset=utf-8` หรือ `application/x-subrip`, `Content-Disposition: attachment; filename="{id}.txt"` หรือ `.srt`; ไม่มี → `404` `not_found` |
@@ -377,13 +433,15 @@ Trim job:
 | `DELETE` | `/trims/current` | `202` ตั้ง flag ยกเลิก; state `replacing` → `409` `replacing` "กำลังแทนไฟล์ ยกเลิกไม่ได้แล้ว"; ไม่มีงานที่ยังไม่จบ → `404` `not_found` |
 | `GET` | `/transcriptions/current` | `200` Transcribe job ล่าสุด หรือ `null` |
 | `DELETE` | `/transcriptions/current` | `202` ตั้ง flag ยกเลิก; ไม่มีงานที่ยังไม่จบ → `404` `not_found` |
-| `POST` | `/downloads` | body `{"url": "..."}`. `202` กับ Download job. error: `503` `not_ready`, `400` `invalid_url`, `409` `duplicate` (body มี `clip_id` เพิ่ม), `409` `busy` |
+| `POST` | `/downloads` | body `{"url": "..."}`. `202` กับ Download job. error: `503` `not_ready`, `400` `invalid_url`, `409` `duplicate` (ลิงก์ YouTube; body มี `clip_id` เพิ่ม), `409` `busy` (Download job หรือ File import ยังไม่จบ) |
+| `POST` | `/imports/check` | body `{"name": "...", "size": 123}`. `200` `{"clip_id": "local-…"}`; error เดียวกับ `/imports` ข้อ 1 (File import ขั้น 0) |
+| `POST` | `/imports?name=…&size=…` | body ไฟล์ดิบ `application/octet-stream` (D50). `201` Temp clip. error: `503` `not_ready` (แถว `ffmpeg`), `400` `not_mp4`, `400` `invalid_request` (`name` หรือ `size` ผิด), `409` `duplicate` กับ `clip_id`, `409` `busy`, `409` `disk_full`, `400` `size_mismatch`, `400` `unsupported_file`; `Content-Type` อื่น → `415` (File import) |
 | `GET` | `/downloads/current` | `200` Download job ล่าสุด หรือ `null` ถ้ายังไม่เคยมีตั้งแต่ backend start |
 | `DELETE` | `/downloads/current` | `202` ตั้ง flag ยกเลิก; state เป็น `cancelled` เมื่อ thread หยุด (รอบ progress ถัดไป หรือหลัง `fetch_info` คืน); state `merging` → `409` `merging`; ไม่มีงานที่ยังไม่จบ → `404` `not_found` |
 
-`{id}` ใน path ต้องตรงรูปแบบ id 11 ตัว ไม่งั้น `404` — กัน path traversal.
+`{id}` ใน path ต้องตรง `CLIP_ID` (`[A-Za-z0-9_-]{1,64}`, D51) ไม่งั้น `404` — กัน path traversal.
 
-ทุก `POST` ใต้ `/api/spoil` ที่ `Content-Type` ไม่ใช่ `application/json` ได้ `415` `unsupported_media_type` — บังคับ CORS preflight จึงไม่มีเว็บอื่นสั่งงานได้ (D29). `sendJson` ส่ง header นี้อยู่แล้ว.
+ทุก `POST` ใต้ `/api/spoil` ที่ `Content-Type` ไม่ใช่ `application/json` ได้ `415` `unsupported_media_type` ยกเว้น `POST /imports` ที่รับ `application/octet-stream` อย่างเดียว — ทั้งสองบังคับ CORS preflight จึงไม่มีเว็บอื่นสั่งงานได้ (D29, D50). `sendJson` ส่ง header นี้อยู่แล้ว.
 
 ทุก request ที่ `Host` ไม่ใช่ `127.0.0.1`, `localhost` หรือ `[::1]` (port ใดก็ได้) ได้ `400` จาก `TrustedHostMiddleware` (D15). Vite proxy ส่ง `Host: localhost:5173` ต่อมาจึงผ่าน.
 
@@ -408,7 +466,7 @@ Download job:
 - `percent` เป็น `null` นอก `downloading` หรือเมื่อประมาณขนาดไม่ได้
 - `clip_id` มีค่าเมื่อ `done`
 - `cancel_requested` เป็น `true` หลัง `DELETE /downloads/current` จนงานจบ
-- `error` มีค่าเมื่อ `failed`: `{"code": "...", "message": "...", "yt_dlp_version": "...", "fix": "..."}`; `fix` มีค่าเฉพาะ `youtube_error`
+- `error` มีค่าเมื่อ `failed`: `{"code": "...", "message": "...", "yt_dlp_version": "...", "fix": "..."}`; `fix` มีค่าเฉพาะ `download_error`; `duplicate` มี `clip_id` ใน `error`
 
 Transcribe job:
 
@@ -440,8 +498,12 @@ error ของ Download job (`failed`):
 | `live` | `live_status` เป็น `is_live` หรือ `is_upcoming` | "คลิปนี้เป็น live หรือยังไม่เริ่มฉาย โหลดไม่ได้" |
 | `disk_full` | ที่ว่างไม่พอตามขั้น 5 | "ที่ว่างไม่พอ: ต้องการ {ต้องการ} GB มี {ว่าง} GB" |
 | `unavailable` | ตารางแยก error | "คลิปนี้เป็น private ถูกลบ หรือจำกัดประเทศ โหลดไม่ได้" |
-| `login_required` | ตารางแยก error | "YouTube ขอให้ login หรือยืนยันว่าไม่ใช่ bot ยังไม่รองรับในรอบนี้ ลองใหม่ภายหลังหรือใช้คลิปอื่น" |
-| `youtube_error` | ตารางแยก error | "โหลดไม่สำเร็จ (yt-dlp {version}). ถ้าเป็นทุกคลิป ให้อัปเดต yt-dlp ด้วยคำสั่งด้านล่างแล้วรัน Setup script"; `fix` = `uv lock --upgrade-package yt-dlp`; ข้อความเต็มจาก yt-dlp อยู่ใน log ของ `[api]` (D8) |
+| `login_required` | ตารางแยก error | "เว็บนี้ขอให้ login หรือยืนยันว่าไม่ใช่ bot โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด \"เลือกไฟล์ในเครื่อง\"" (D47) |
+| `unsupported` | ตารางแยก error | "เว็บนี้โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด \"เลือกไฟล์ในเครื่อง\"" (D52) |
+| `playlist` | ขั้น 3 | "ลิงก์นี้เป็น playlist วางลิงก์ของคลิปเดียว" |
+| `duplicate` | ขั้น 3 | "คลิปนี้โหลดไว้แล้ว"; `clip_id` ใน `error` (D51) |
+| `unsupported_format` | selector ไม่ yield หรือไฟล์หลัง merge ไม่ผ่านตัวตรวจ (ขั้น 8) | "เว็บนี้ไม่มีไฟล์ H.264 ไม่เกิน 1080p ให้โหลด โหลดเองแล้วแปลง จากนั้นกด \"เลือกไฟล์ในเครื่อง\"" (D54) |
+| `download_error` | ตารางแยก error | "โหลดไม่สำเร็จ (yt-dlp {version}). ถ้าเป็นทุกคลิป ให้อัปเดต yt-dlp ด้วยคำสั่งด้านล่างแล้วรัน Setup script"; `fix` = `uv lock --upgrade-package yt-dlp`; ข้อความเต็มจาก yt-dlp อยู่ใน log ของ `[api]` (D8) |
 
 ### Frontend
 
@@ -470,10 +532,27 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
 | poll ได้ `null` ระหว่างติดตามงาน | "งานโหลดหายเพราะ backend เริ่มใหม่ ลองโหลดอีกครั้ง" แล้วโหลดรายการใหม่ (D15) |
 | `409` `merging` | "กำลังรวมไฟล์ ยกเลิกไม่ได้แล้ว" |
 | ลบได้ `409` `in_use` | `message` จาก API ใต้แถวนั้น |
-| `400` `invalid_url` | "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube" |
+| `400` `invalid_url` | "ลิงก์นี้ใช้ไม่ได้ วางลิงก์ http หรือ https ของคลิป" |
+| งาน `failed` `duplicate` | "คลิปนี้โหลดไว้แล้ว" และ highlight แถว `error.clip_id` (D51) |
 | `409` `duplicate` | "คลิปนี้โหลดไว้แล้ว" และ highlight แถว `clip_id` พร้อมเลื่อนไปหา (D12) |
-| `409` `busy` | "กำลังโหลดคลิปอื่นอยู่" |
+| `409` `busy` | "กำลังโหลดหรือเอาไฟล์อื่นเข้าอยู่" |
 | `503` `not_ready` | state not ready |
+
+เอาไฟล์เข้า (D49–D52):
+
+| State | เมื่อไร | แสดง |
+|---|---|---|
+| importing | XHR กำลังส่ง body | "กำลังเอาไฟล์เข้า {ชื่อไฟล์}" กับแถบ % จาก `upload.onprogress`, ปุ่ม "ยกเลิก"; ช่องลิงก์ ปุ่มโหลด และปุ่มเลือกไฟล์ disabled |
+| checking file | ส่ง body ครบ รอ response | "กำลังตรวจไฟล์…" ไม่มีปุ่มยกเลิก |
+
+- ปุ่ม "เลือกไฟล์ในเครื่อง" เปิด `<input type="file" accept="video/mp4,.mp4">`; ลากไฟล์มาวางบนกล่องที่รวมช่องลิงก์ แถบงาน ข้อความ และกล่องเลือกไฟล์ได้ผลเดียวกัน (D58); ลากหลายไฟล์ → ใช้ไฟล์แรกพร้อมข้อความ "เอาเข้าได้ทีละไฟล์"
+- ไฟล์ที่ชื่อไม่ลงท้าย `.mp4` → "รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน" โดยไม่ส่ง
+- ส่ง `POST /api/spoil/imports/check` ก่อน (`sendJson`); error → แสดงตามกฎข้างล่างโดยไม่ส่งไฟล์
+- ส่ง `POST /api/spoil/imports` ด้วย `XMLHttpRequest`, `Content-Type: application/octet-stream`, ไม่มี timeout ของ `lib/api`
+- `201` → "เอาไฟล์เข้าเสร็จ: {title}" และ highlight แถวใหม่; `409` `duplicate` → "ไฟล์นี้เอาเข้าไว้แล้ว" และ highlight `clip_id`; `400`/`409` อื่น → `message` จาก API; network ล้ม → state offline
+- ยกเลิก → `xhr.abort()` แล้ว "ยกเลิกแล้ว"
+- ระหว่าง importing ปิด tab ของ browser → การส่งหยุด, backend ลบไฟล์ค้าง
+- XHR `error` ระหว่างส่ง (server ตอบก่อนรับ body ครบ) → "เอาไฟล์เข้าไม่สำเร็จ ลองอีกครั้ง" ไม่ใช่ offline; `408` `stalled` → `message` (D55)
 
 กฎอื่น:
 - เปิด tab → `GET /api/spoil/downloads/current` ครั้งหนึ่ง; งานยังไม่จบ → เข้า state downloading; งานจบแล้ว → แสดงข้อความผลของงานนั้น (D15)
@@ -545,14 +624,32 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
 - งานถอดใช้ memory ของ process ลูกประมาณ 2–4 GB (โมเดล 1.6 GB กับเสียงช่วงละ 300 วินาทีประมาณ 19 MB) ไม่โตตามความยาวคลิป และคืนทั้งหมดเมื่อ process ลูกออก (D28, D29)
 - งานถอดมีปัญหา: กดยกเลิก หรือปิด `npm run dev` — process ลูกถูก terminate; ปิด feature ทั้งหมดไม่ได้นอกจากไม่กดถอด
 - งานตัดใช้ที่ดิสก์ชั่วคราวเท่าไฟล์ใหม่ใน `.partial/` จนแทนไฟล์เสร็จ; ใช้ CPU หนักบน Windows (`libx264`) — ถอดคลิปอื่นพร้อมกันได้แต่ช้าลง
-- ตัดพลาด: ไม่มีต้นฉบับให้คืน — ลบคลิปแล้วโหลดจาก YouTube ใหม่ (D36)
+- ตัดพลาด: ไม่มีต้นฉบับให้คืน — ลบคลิปแล้วโหลดใหม่หรือเอาไฟล์เข้าใหม่ (D36)
+- revert change นี้: คลิปที่ไม่ใช่ YouTube ไม่ขึ้นในรายการ — ลบในแอปก่อน revert หรือลบ `media/temp/{id}.*` ด้วยมือ (D55)
+- เว็บหนึ่งเปลี่ยนแล้วโหลดไม่ได้ → อัปเดต yt-dlp แบบเดียวกับ YouTube; ยังไม่ได้ → ผู้ใช้โหลดเองแล้วเอาไฟล์เข้า (D47)
 
 ## Seams
 
 ห้า seam: API ของสปอยกับ adapter ปลอม, adapter จริงกับ YouTube, adapter จริงของ Whisper, ffmpeg จริงของงานตัด (3a), และหน้าเว็บ — เพราะ yt-dlp กับ YouTube จริงช้าและเปลี่ยนตลอด จึงแยก adapter ไว้ตัวเดียวให้ส่วนอื่นทดสอบได้เร็ว (D14).
 
 1. **Spoil API** `/api/spoil/*` และ `GET /api/setup/status` ด้วย `TestClient`, root ปลอมใน `tmp_path` และ adapter ปลอม
-   - ลิงก์ทุกแบบในตารางลิงก์ → `202`; `https://vimeo.com/1`, `https://www.youtube.com/playlist?list=x` → `400` `invalid_url`
+   - ลิงก์ทุกแบบในตารางลิงก์ → `202`; `https://vimeo.com/1` → `202`; `https://www.youtube.com/playlist?list=x`, `ftp://x.com/a`, `http://localhost:8000/a`, `http://127.0.0.1/a`, `http://192.168.1.5/a`, `http://[::1]/a`, `http://169.254.169.254/` → `400` `invalid_url` (D52)
+   - adapter ปลอมคืน info `extractor_key` `Facebook` id `123` → `done` และ json `id` `facebook-123`, `site` `Facebook`; โหลดลิงก์เดิมอีกครั้ง → งาน `failed` `duplicate` กับ `clip_id` `facebook-123` และไม่เรียก download (D51)
+   - id ยาว 80 ตัว → id ยาว 64 ตัวตรง `CLIP_ID`; id `a.b` กับ `a_b` ของเว็บเดียวกัน → id ต่างกัน; id `BVabc` กับ `bvabc` → ต่างกันแม้ไม่สนตัวพิมพ์ (D55, D59); start app ขณะมี `my-video.mp4` ไม่มี json → ไฟล์อยู่ (D59)
+   - format selector กับ list format ปลอม: มีแต่ `hevc` หรือมีแต่ด้านสั้น 1440 → `failed` `unsupported_format` และ download ไม่ถูกเรียก; มี `avc1` 1080×1920 → เลือกตัวนั้น (D54)
+   - ตัวตรวจไฟล์กับ stderr ปลอม: `yuv422p10le` → ไม่ผ่าน; `attached_pic` เป็น stream แรกตามด้วย h264 → ผ่าน; 1920×1080 กับ rotation 90 → `width` 1080 `height` 1920 `portrait` (D55)
+   - stream ปลอมไม่ส่ง byte 60 วินาที (เวลาปลอม) → `408` `stalled`, `.partial/` ว่าง และ `POST /imports` ถัดไปไม่ได้ `busy`
+   - start app ขณะ `media/temp/` มี `notes.txt` และ `facebook-1.mp4` ที่ไม่มี json → `notes.txt` อยู่, `facebook-1.mp4` หาย
+   - adapter ปลอม raise "Unsupported URL" → `failed` `unsupported`; info `_type` `playlist` → `failed` `playlist`
+   - `POST /imports` mp4 h264/aac 640×360 จาก lavfi (ffmpeg จริง) → `201`, `{id}.mp4` byte เท่าต้นทาง, json `site` `local`, `channel` `null`, `title` ตามชื่อ, มี thumbnail; `GET /clips` มีแถว (D49)
+   - mp4 hevc, mp4 1920×1440 (ด้านสั้น 1440), mp4 เสียง opus, ไฟล์ขยะชื่อ `.mp4` → `400` `unsupported_file` ที่ `message` บอกข้อที่ไม่ตรง และ `.partial/` ว่าง, ไม่มี json
+   - `name` `a.mkv` → `400` `not_mp4` และ body ไม่ถูกเขียน; `size` ไม่ตรง byte จริง → `400` `size_mismatch`
+   - ไฟล์ชื่อและขนาดเดิมซ้ำ → `409` `duplicate` กับ `clip_id`; `POST /imports/check` ของไฟล์นั้น → `409` `duplicate`, ของไฟล์ใหม่ → `200` กับ `clip_id` ที่เท่ากับ id ที่ `/imports` สร้าง
+   - ระหว่าง File import (stream ปลอมรอสัญญาณ): `POST /downloads` → `409` `busy`; `POST /imports` อื่น → `409` `busy`; ระหว่าง Download job: `POST /imports` → `409` `busy`
+   - ที่ว่างปลอมน้อยกว่า `size` + 1 GiB → `409` `disk_full`
+   - client ตัดกลางทาง (stream ปลอม raise `ClientDisconnect`) → `.partial/` ว่าง และ `POST /imports` ถัดไป → `201`
+   - `POST /imports` ที่ `multipart/form-data` หรือ `application/json` → `415`; route อื่นที่ `application/octet-stream` → `415` (D50)
+   - json เดิมไม่มี `site` → `GET /clips` ได้ `site` `Youtube`; คลิป id `local-…` และ `facebook-123`: `GET /clips/{id}/video`, ถอด, ตัด, ลบ ทำได้เหมือนคลิป YouTube
    - adapter ปลอมสำเร็จ → poll จน `done`, `GET /clips` มีคลิปนั้นพร้อมทุกฟิลด์ และ `/clips/{id}/video` ตอบ `206` เมื่อส่ง `Range: bytes=0-99`
    - ลิงก์ของ id ที่มี json แล้ว → `409` `duplicate` กับ `clip_id`
    - POST ระหว่างงานยังไม่จบ → `409` `busy`
@@ -569,7 +666,7 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
    - POST สองครั้งพร้อมกันจากสอง thread → หนึ่ง `202` หนึ่ง `409` `busy`
    - adapter ปลอม raise error ที่มี "Sign in to confirm" → `failed` `login_required`
    - adapter ปลอม raise `GeoRestrictedError` → `failed` `unavailable`
-   - adapter ปลอม raise error อื่น → `youtube_error` ที่มี `yt_dlp_version` และ `fix`
+   - adapter ปลอม raise error อื่น → `download_error` ที่มี `yt_dlp_version` และ `fix`
    - `DELETE /clips/{id}` ขณะลบ mp4 ไม่ได้ (monkeypatch ให้ raise `PermissionError`) → `409` `in_use` และ json ยังอยู่
    - start app ขณะมี `{id}.mp4` ที่ไม่มี json → ไฟล์หาย
    - request ที่ `Host: evil.example` → `400`
@@ -617,6 +714,10 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
    - ลิงก์ live ที่ยังไม่เริ่ม → `live`
    - Ctrl+C ระหว่างโหลด แล้ว `npm run dev` ใหม่ → ไม่มี process ค้าง และ `.partial/` ว่าง
    - Windows: เล่นคลิปใน player แล้วกดลบ → ลบได้ หรือได้ `in_use` และแถวยังอยู่
+   - คลิป public หนึ่งคลิปจาก Facebook และ TikTok → mp4 ด้านสั้น ≤ 1080 มีเสียง; บันทึกข้อความ error จริงของลิงก์ที่ต้อง login และลิงก์ที่ไม่รองรับลง `docs/library-notes/yt-dlp.md` (D47, D52)
+   - ไฟล์ ≥ 4 GB ผ่าน `npm run dev` (proxy ของ Vite) → `201`; ถูกตัดที่ราว 300 วินาที → ตั้ง `requestTimeout` ของ dev server ด้วย plugin เล็กใน `vite.config.ts`; แก้ไม่ได้ → หยุดแล้วถามผู้ใช้ (D55)
+   - คลิป TikTok ที่มีแต่ HEVC → `unsupported_format` ก่อนโหลด (D54)
+   - ลากไฟล์ mp4 ยาวกว่า 1 ชั่วโมงในหน้าเว็บจริง → % เดิน, ยกเลิกกลางทางแล้ว `.partial/` ว่าง; จดเวลาที่ใช้ของไฟล์ 2 GB ลง progress.md
 3. **Whisper adapter** `backend.spoil.whisper` กับโมเดลจริง (เช็คมือ ไม่อยู่ใน test ที่รันทุกครั้ง)
    - Shorts ภาษาไทยและหนังภาษาอังกฤษยาวกว่า 1 ชั่วโมง → Transcript อ่านรู้เรื่อง ภาษาตรง เวลาของบรรทัดตรงกับเสียงในคลิปภายใน 2 วินาที (สุ่มดู 5 บรรทัด)
    - ยกเลิกกลางหนัง → process ลูกหายภายใน 5 วินาที (`ps`) และ memory ของ backend ไม่โตขึ้น
@@ -640,7 +741,12 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
    - กำลังติดตามงานแล้ว current คืน `null` → "งานโหลดหายเพราะ backend เริ่มใหม่"
    - เปิด tab แล้ว current เป็น `failed` → เห็น `error.message`
    - กดยกเลิก → ส่ง `DELETE /api/spoil/downloads/current`; current คืน `cancel_requested: true` → เห็น "กำลังยกเลิก…"
-   - รายการว่าง → "ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน"
+   - รายการว่าง → "ยังไม่มีคลิป วางลิงก์หรือเลือกไฟล์ด้านบน"
+   - เลือกไฟล์ `a.mp4` (XHR ปลอมยิง progress 50%) → "กำลังเอาไฟล์เข้า a.mp4" 50% แล้ว `201` → "เอาไฟล์เข้าเสร็จ" และแถวใหม่ "ไฟล์ในเครื่อง"; กดยกเลิก → `abort()` ถูกเรียก
+   - เลือก `a.mkv` → "รับเฉพาะไฟล์ mp4…" และไม่มี request; ลากไฟล์มาวาง → ส่ง request เดียวกับปุ่ม
+   - `400` `unsupported_file` → เห็น `message`; `409` `duplicate` → highlight แถว
+   - งาน `failed` `duplicate` กับ `clip_id` → highlight แถวนั้น; `failed` `unsupported` → เห็น message
+   - แถว `site` `Facebook` แสดงชื่อเว็บ
    - กดแถว → มี `<video>` ที่ `src` ถูก; กดลบและยืนยัน → แถวหาย
    - ยังไม่เลือก → "เลือกคลิปจากรายการ"; กดแถว → กล่องมีชื่อคลิปและปุ่ม "ถอดบทพูด"
    - กดถอด, current คืน `transcribing` 35 แล้ว `done` → เห็น "กำลังถอด 35%" แล้วบรรทัดของ Transcript และแถวมี "ถอดแล้ว"
@@ -668,6 +774,8 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
 - **Copy:** `frontend/src/features/spoil/components/SpoilPage.test.tsx` (หน้าของ tab คลิป, spoil-maker D53) — fake backend ที่ตอบตาม route; เพิ่ม route ของ `/transcriptions` และ `/transcript`
 - **Copy:** `backend/tests/test_spoil_api.py` — test งานถอด (worker ปลอมรอสัญญาณ, ยกเลิก, crash) ใช้กับ Trim job ด้วย `run_ffmpeg` ปลอม; `backend/tests/fakes.py` เพิ่ม `run_ffmpeg` ปลอมที่เขียนไฟล์ผล รายงาน progress และรอสัญญาณได้
 - **Copy:** test ของ `clip_busy` และ Spoil draft ใน `backend/tests/` ของ spoil-maker — สร้าง Shot ไฟล์การตัด EP และ draft ปลอมก่อนตัด
+- **Copy:** `backend/tests/test_spoil_api.py` › test ของ Trim ที่ใช้ ffmpeg จริงบนคลิป lavfi (feature review ตัดช่วง) — สร้าง mp4 h264/hevc/opus จริงสำหรับ File import; codec ที่ ffmpeg ของ imageio encode ไม่ได้ (hevc) → สร้าง stderr ปลอมของ `probe` แทน
+- **Copy:** `frontend/src/features/spoil/components/ClipsPage.test.tsx` — เพิ่ม XHR ปลอม (`upload.onprogress`, `abort`) ใน fake backend
 - **Copy:** `backend/tests/test_checks.py` — test แถวใหม่ของ Status check และนับ 11 แถว
 - **Copy:** `frontend/src/features/setup-status/components/SetupStatusPage.test.tsx` — fetch ปลอมและการ assert ข้อความ
 - test ที่มีอยู่ซึ่งนับ 9 แถวต้องแก้เป็น 11
@@ -697,7 +805,11 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
 - คลิป live (D11)
 - คลิปที่ต้อง login หรือ cookies — ได้ error `login_required` (D15)
 - ยกเลิกระหว่างรวมไฟล์ (D15)
-- เว็บอื่นนอกจาก YouTube (D5)
+- คลิปที่ต้อง login หรือ cookies ของทุกเว็บ — ผู้ใช้โหลดเองแล้วเอาไฟล์เข้า (D47)
+- รายชื่อเว็บที่แอปรับรอง (D47)
+- แปลงไฟล์ที่ไม่ใช่ mp4 h264/aac ≤ 1080p (D49)
+- เอาไฟล์เข้าหลายไฟล์พร้อมกันหรือเป็นคิว (D52)
+- อ้างไฟล์ในเครื่องโดยไม่ copy (D49)
 
 ## Open Questions
 
@@ -707,6 +819,8 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
 
 4. ช่วงละ 300 วินาทีตัดคำที่คร่อมรอยต่อได้ทุก 5 นาที — non-blocking: เช็คตอน build seam 3; ตัดจนอ่านไม่รู้เรื่อง → เพิ่ม overlap ระหว่างช่วงเป็น `D{n}` ใหม่
 5. `libx264` ใน ffmpeg ของ imageio-ffmpeg บน Windows และการแทน mp4 ขณะ player เปิดอยู่ยังไม่ได้เช็คบนเครื่องจริง — non-blocking: seam 3a ข้อ Windows เพิ่มเข้า `windows-check` 02 ตอน build ticket ของงานตัด (ADR-0016)
+6. legal ข้อ 7 (ToS ของ TikTok และเว็บอื่น) เป็น UNVERIFIED — non-blocking: ผู้ใช้รับความเสี่ยงใน D53
+7. ~~หน้าเว็บของการเลือกไฟล์ยังไม่มีแบบ~~ — ปิด 2026-11-07: แบบอยู่ที่ [Figma 8113-60644](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8113-60644)
 
 ## Sources
 
@@ -721,3 +835,6 @@ tab คลิป (เดิม tab สปอย, spoil-maker D53):
 - [deno on PyPI](https://pypi.org/project/deno/) — wheel macOS arm64 และ Windows amd64, `find_deno_bin` (accessed 2026-10-29)
 - [Starlette responses](https://www.starlette.io/responses/#fileresponse) — `FileResponse` รองรับ Range (accessed 2026-10-29)
 - [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) — `get_ffmpeg_exe()` (accessed 2026-10-29)
+- [yt-dlp supportedsites.md](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) — รายชื่อตัวโหลดของแต่ละเว็บ, generic extractor (accessed 2026-11-07)
+- [Starlette requests › Body](https://www.starlette.io/requests/#body) — `request.stream()`, `ClientDisconnect` (accessed 2026-11-07)
+- [MDN XMLHttpRequest.upload](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/upload) — upload progress, `abort()` (accessed 2026-11-07)

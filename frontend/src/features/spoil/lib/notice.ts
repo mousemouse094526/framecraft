@@ -8,6 +8,8 @@ export type Notice = {
   fix: string | null;
   /** The clip this message is about: a highlighted list row (D12), or the panel's clip (D33). */
   clipId: string | null;
+  /** The message tells the user to pick the file themselves: เลือกไฟล์ในเครื่อง stands out (D52). */
+  pickFile?: boolean;
 };
 
 export function notice(tone: Notice["tone"], text: string, clipId: string | null = null): Notice {

@@ -46,9 +46,21 @@ Checked against YouTube on 2026-10-29 with this version (spoil ticket 01):
 - Merging into mp4 works with imageio-ffmpeg's ffmpeg and no ffprobe: 1080p h264 + aac came out 1920×1080 with sound.
 - Warnings ("Unknown codec …") still print with `quiet: True`; `no_warnings: True` hides them.
 
+Checked on 2026-11-07 with the same version (spoil ticket 08):
+
+- `format` may be a function of `ctx` (`formats` sorted worst first, `has_merged_format`, `incomplete_formats`) that yields the format dicts to download; a merged pick is a dict with `requested_formats`, `format_id`, `ext` and `protocol` (README › "Use a custom format selector"). It runs inside `extract_info(download=False)` and again in `process_ie_result(info, download=True)`; both worked with YouTube's 1080p `312+258` merge and a combined format.
+- A selector that yields nothing raises `ExtractorError` "Requested format is not available…" from `extract_info`.
+- With `allowed_extractors: ["default", "-generic"]`, a link no extractor matches raises "No suitable extractor found for URL …", not "Unsupported URL".
+- Vimeo without login: "[vimeo] 1: The web client only works when logged-in. Use --cookies, …".
+- A Facebook link that is not a video (`/somebody/private-thing`): "No suitable extractor found".
+- Facebook lists progressive `hd`/`sd` formats with every codec, size and `ext` `None`, beside DASH that is often VP9 only; `hd` may be h264/aac 1080p or VP9 — only the file tells.
+- TikTok lists h264 (`h264_720p_…`) beside HEVC (`bytevc1_…`, `vcodec` `h265`) and a `download` format with no size. Old posts raise "Your IP address is blocked from accessing this post" from Thailand, with or without `curl_cffi`; it also warns "attempting impersonation, but no impersonate target is available" without it, and current posts load anyway.
+- TikTok's thumbnail is written as `{name}.image` (a JPEG).
+
 ## Sources
 
 - [YoutubeDL.py at 2026.10.26](https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/yt_dlp/YoutubeDL.py) — params, progress hooks, `js_runtimes` (accessed 2026-10-29, read from the installed package)
 - [utils/_utils.py at 2026.10.26](https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/yt_dlp/utils/_utils.py) — `DownloadError`, `DownloadCancelled`, `GeoRestrictedError` (accessed 2026-10-29)
 - [README › Sorting Formats](https://github.com/yt-dlp/yt-dlp#sorting-formats) — `res` meaning (accessed 2026-10-29)
 - [EJS wiki](https://github.com/yt-dlp/yt-dlp/wiki/EJS) — JavaScript runtime requirement (accessed 2026-10-29)
+- [README › Use a custom format selector](https://github.com/yt-dlp/yt-dlp#use-a-custom-format-selector) — `format` as a function (accessed 2026-11-07, checked against the installed `YoutubeDL._select_formats`)

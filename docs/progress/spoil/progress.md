@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** ready to merge — feature review ของโหลดหลายเว็บและเอาไฟล์เข้า (08–10) done 2026-11-07 (`198d118`); ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** —
+**Next:** `/pr-open`
 
 ## Tickets
 
@@ -15,8 +15,94 @@
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
 | 06 | Backend Trim job และ API | done |
 | 07 | ส่วนตัดช่วงใน tab คลิป | done |
+| 08 | โหลดคลิปจากหลายเว็บ | done |
+| 09 | Backend เอาไฟล์ mp4 ในเครื่องเข้า | done |
+| 10 | ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป | done |
 
 ## Log
+
+### Feature review (โหลดหลายเว็บและเอาไฟล์เข้า) — done 2026-11-07
+
+**Built:**
+- review สามแกนบน ticket 08–10 (`d21804f..918c648`) แก้ทุกกลุ่มที่ผู้ใช้เลือกใน `198d118`
+- bug: id ของเว็บอื่นที่ต่างกันแค่ตัวพิมพ์ (`BVabc`/`bvabc`) เป็นไฟล์เดียวกันบนดิสก์ Mac/Windows → คลิปที่สองได้ `duplicate` ที่ชี้แถวที่ไม่มี; ตอนนี้ id เป็นตัวเล็กและต่อ hash เมื่อ id เดิมมีตัวใหญ่ (test แดงก่อนแก้)
+- bug: ตอน start ไฟล์ของผู้ใช้ใน `media/temp/` ที่ชื่อมี `-` และไม่มี json (`my-video.mp4`) ถูกลบ; ตอนนี้ลบเฉพาะ `{site}-…` ของเว็บที่ yt-dlp มีตัวโหลด (`links.is_app_made`, test แดงก่อนแก้)
+- ชื่อและโค้ดซ้ำ: `ffmpeg.input_info`, `NOT_MP4_CONTAINER`/`ONLY_MP4`, `clip_id` แทน `video_id` ใน `paths.py` และ `spoil_maker`, `Mp4Info.orientation`, `imports._duplicate`, `frontend/src/testing/fakeXhr.ts` (กฎ test และ SKILL.md ตาม)
+- spec ตามโค้ด: `emphasis` สามรหัส, `FileDropArea` ครอบ `LinkForm`, id ตัวเล็ก, กฎการล้างตอน start
+
+**Decided:**
+- D59 — id เว็บอื่นตัวเล็ก + hash, การล้างตอน start เฉพาะเว็บที่ yt-dlp รู้จัก, ชื่อในโค้ด (แทนสองข้อของ D55)
+
+**For the next ticket:**
+- ไม่ได้แก้ (ผู้ใช้เลือกแก้สี่กลุ่ม ข้อเล็กเหล่านี้ไม่ใช่สิ่งที่ spec สัญญา): ออกจาก tab ระหว่าง "กำลังตรวจไฟล์…" คลิปยังเข้าเงียบๆ (ตรง spec, ยกเลิกซ่อนในขั้นนั้น); ไฟล์ผู้ใช้ที่ชื่อยาว 11 ตัวแบบ YouTube id ยังถูกลบตอน start (กฎ D14 เดิม); id YouTube ที่ต่างแค่ตัวพิมพ์ยังชนกันบนดิสก์ (มีก่อน feature นี้); `site` เป็น string ที่มีค่าพิเศษทั้ง backend และ frontend; `name, size` เดินคู่; `Downloads` ถือ flag ของ File import; `refusalNotice` ของสอง hook คล้ายกัน; กฎ "ข้อความเดียวเหนือรายการ" อยู่ใน `ClipsPage`; test `stalled` ใช้เวลาจริง 0.2 วินาที; test `unsupported_format` ผ่าน adapter ปลอมไม่ผ่าน selector; `data-emphasis` มีไว้ให้ test; การเช็คซ้ำหลังได้ flag ไม่มี test
+- คลิปเว็บอื่นที่โหลดไว้ก่อน `198d118` และ id มีตัวใหญ่: โหลดลิงก์เดิมอีกครั้งได้คลิปใหม่หนึ่งครั้ง (D59)
+
+**Checks:** `uv run pytest` — 818 passed; `npm --prefix frontend test` — 353 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 10: ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป — done 2026-11-07
+
+**Built:**
+- `FileDropArea` (component `File drop` ใน Figma 8113-60644: default, drag-over, disabled, emphasis): ทั้งกล่องเป็นปุ่ม "เลือกไฟล์ในเครื่อง" ที่เปิด `<input type="file" accept="video/mp4,.mp4">` กดด้วยคีย์บอร์ดได้ คำใต้ปุ่มเป็น description; ลากไฟล์มาวางได้ทั้งกล่องลิงก์ แถบงาน ข้อความ และกล่อง; `window` กัน browser เปิดไฟล์ที่วางนอกกล่อง; icon `upload`, `file-video` จาก Figma
+- `useFileImport`: `POST /imports/check` ด้วย `sendJson` แล้ว `sendFile` (XHR ใหม่ใน `lib/api.ts`, `application/octet-stream`, ไม่มี timeout) พร้อม % จาก `upload.onprogress`, "กำลังตรวจไฟล์…" หลังส่งครบ (ไม่มียกเลิก), `abort()` ตอนยกเลิก unmount และเมื่องานอื่นทำให้ tab offline; ชื่อที่ไม่ลงท้าย `.mp4` ไม่ส่งอะไร; หลายไฟล์ → ไฟล์แรกกับ "เอาเข้าได้ทีละไฟล์"; `duplicate` highlight แถว; `400`/`408`/`409` อื่นเป็น `message`; XHR error → "เอาไฟล์เข้าไม่สำเร็จ ลองอีกครั้ง"; `503` → not ready; อื่น → offline. job ที่ Refresh หรือ offline ทิ้งไปแล้วไม่แตะหน้าอีก
+- `ClipsPage`: ช่องลิงก์ ปุ่มโหลด และกล่องไฟล์ disabled ระหว่างส่งไฟล์; ข้อความช่องเดียวที่การโหลดกับการเอาไฟล์เข้าล้างกัน; `File drop` เด่นหลังงานโหลด `failed` `unsupported`/`login_required`/`unsupported_format` (`Notice.pickFile`); แถว `site` `local` แสดง "ไฟล์ในเครื่อง · {ความยาว}" (`LOCAL_SITE`); `ProgressCard` ไม่มีแถวปุ่มเมื่อไม่มี `onCancel`; token `--color-border-disabled`
+- test: 30 ข้อใน `ClipsPage.test.tsx` (XHR ปลอมที่ยิง progress/load/error/abort เอง) ครบ seam 4 ข้อการเอาไฟล์เข้า; กฎ test ให้หา file input ที่ซ่อนด้วย `querySelector` ในกล่อง; note `docs/library-notes/web-platform.md` (XHR upload, drag and drop, file input) และ trap `applyAccept` ของ user-event
+- เช็คมือใน browser จริงบน Mac (backend :8010 บน root ชั่วคราว, Vite :5180 proxy แบบ `vite.config.ts`; ไม่แตะ `media/temp/` ของผู้ใช้; วางไฟล์ด้วย `DragEvent` ที่มี `DataTransfer` จริงบนหน้าจริง): mp4 h264/aac 65 นาที 180 MB → % เดิน 0→94 แล้ว "กำลังตรวจไฟล์…" → "เอาไฟล์เข้าเสร็จ" ใน 1.0 วินาที แถว "ไฟล์ในเครื่อง · 1:05:00" เล่นได้ที่นาที 50 (readyState 4); ยกเลิกที่ 11% → "ยกเลิกแล้ว", `.partial/` ว่าง, `check` ถัดไปได้ `200` (ไม่ `busy`); mp4 1080p 62 นาที **3.08 GB → 8.6 วินาที** (ส่งครบ 8.4 วินาที, % เดินทีละ 1); `.mkv` → "รับเฉพาะไฟล์ mp4…"; drag-over และ emphasis หลังลิงก์ `example.com` ตรง frame 2 และ 8a; 375px ไม่มี scroll แนวนอน กล่องกว้าง 343
+
+**Decided:**
+- D58 — ชื่อปุ่ม "เลือกไฟล์ในเครื่อง", ที่วางไฟล์ทั้งกล่องลิงก์ กัน browser เปิดไฟล์, ซ่อนเมื่อติดตั้งไม่ครบ, ข้อความช่องเดียว, tone, ยกเลิกระหว่าง `check`, หลายไฟล์ที่ไฟล์แรกไม่ใช่ mp4, offline หยุด upload, `emphasis` สามรหัส, `sendFile` ไม่มี timeout, token
+
+**For the next ticket:**
+- feature review: กฎ "ข้อความเดียวเหนือรายการ" กระจายอยู่ใน `ClipsPage` (เรียก `clearNotice` ของอีก hook และรวม `notice` เอง) — ถ้าเพิ่มงานที่สามควรย้ายเป็นที่เดียว
+- review ที่ไม่ได้แก้: test ของ `ClipsPage` ยังใช้ `backend()` ของไฟล์เองแทน `testing/testBackend.ts` (มีก่อน ticket นี้ ticket นี้เพิ่ม route `check`); `data-emphasis` เป็นทางเดียวที่ test เห็นความเด่นของกล่อง (jsdom ไม่มี style) — ดูด้วยมือแล้ว; `PICK_FILE_CODES` กับ status `400`/`408`/`409` เป็นค่าดิบ
+- vitest ข้อหนึ่งล้มครั้งหนึ่งระหว่าง ffmpeg encode ไฟล์ทดสอบ (เครื่องหนัก) ผ่านเมื่อรันใหม่ — ข้อเดิมจาก ticket 09
+- Figma MCP ของแอป Figma desktop ปิดอยู่; ใช้ Figma MCP ตัว remote แทน
+
+**Checks:** `uv run pytest` — 818 passed; `npm --prefix frontend test` — 353 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 09: Backend เอาไฟล์ mp4 ในเครื่องเข้า — done 2026-11-07
+
+**Built:**
+- `backend/spoil/imports.py`: `POST /api/spoil/imports/check` (JSON `{name, size}` → `{"clip_id"}`) และ `POST /api/spoil/imports?name=…&size=…` (body ดิบ) ตาม spec › File import ขั้น 0–7: gate ffmpeg, `not_mp4`, `invalid_request`, `duplicate` กับ `clip_id` (เช็คซ้ำหลังได้ flag), `busy`, `disk_full`; เขียน `.partial/{id}.import.mp4` ทีละราว 1 MiB ใน thread, `408` `stalled` เมื่อไม่ได้ byte 60 วินาที, `size_mismatch` ทั้งเกินและขาด, ตัวตรวจ `mp4check` ใน thread → `unsupported_file` "{ข้อที่ไม่ตรง}. แปลงเป็น mp4 …", thumbnail ที่ 10% (`null` เมื่อไม่ได้เฟรม), `os.replace` แล้ว json ท้ายสุด → `201` Temp clip `site` `local`; ล้างไฟล์ใน `finally` แบบ shield
+- flag "กำลังรับไฟล์" ใน `Downloads` ใต้ lock เดียวกับงานโหลด (`receiving_file()`, `refuse_if_busy()`, `_require_free`); `downloads.require_disk` ใช้ร่วม; `links.local_id`, `links.LOCAL_SITE`
+- `backend/body_types.py`: `require_json` ย้ายจาก `app.py`, `require_octet_stream` ของ route; `require_json` ข้าม route ที่ list dependency นั้น (ADR-0028). handler `ClientDisconnect` ใน `app.py` ตอบ `400` เงียบๆ แทน 500
+- test: `test_spoil_import_api.py` 56 ข้อ — ffmpeg จริงบนไฟล์ lavfi (h264/aac, ไม่มีเสียง, hevc ด้วย libx265, 1920×1440, opus, mkv, ไฟล์ขยะ); body ที่หยุด รอ และหลุดกลางทางเล่นผ่าน ASGI ตรงๆ (`Upload`, `Gate`, `play`) ใน event loop เดียวกับ `httpx.ASGITransport` ที่ poll ระหว่างนั้น (< 1 วินาที ทั้งตอนรับ body และตอน ffmpeg ตรวจ); 415 ของทุก route; คลิป `local-…` ถอดและตัดได้ (parametrize ใน test ของ Transcribe และ Trim). mutation check: ffmpeg บน event loop และ flag ไม่ปล่อย → test แดง
+- เช็คมือบน Mac (backend :8010 บน root ชั่วคราว, Vite :5180 proxy เดียวกับ `vite.config.ts`; ไม่แตะ `media/temp/` ของผู้ใช้): mp4 65 นาที `curl --data-binary` → `201` ใน 0.3 วินาที, sha1 ต้นฉบับเดิม; ตัด 0–60 วินาที → `done` 63 วินาที (64:00); ถอด → `done` 349 วินาที; ไฟล์ 2.16 GB ผ่าน proxy → `201` **3.5 วินาที**, 4.32 GB → `201` 5.9 วินาที (ไม่ถึง 300 วินาที ไม่ต้องตั้ง `requestTimeout`); ระหว่างรับ 4 GB: poll 15 ms, `check` ได้ `busy`; ฆ่า curl กลางทาง → `.partial/` ว่าง, `check` ได้ `200`; Ctrl+C (SIGINT ทั้ง backend และ Vite) ระหว่างรับไฟล์ → backend ล้าง `.partial/` เองแล้วออก, start ใหม่ `.partial/` ว่าง และเอาไฟล์เดิมเข้าได้; ไฟล์ซ้ำ → `409` `duplicate`
+
+**Decided:**
+- D57 — ข้อความของ API, `name`/`size` ที่ไม่ถูก, `require_json` ข้าม route ที่มี `require_octet_stream`, `ClientDisconnect` ตอบเงียบ, flag ใน `Downloads`, เขียนทีละ 1 MiB, thumbnail ว่างเป็น `null`, เช็คซ้ำหลังได้ flag, ไม่ต้องตั้ง timeout ของ Vite
+
+**For the next ticket:**
+- ticket 10: `curl --data-binary` อ่านทั้งไฟล์เข้า memory (2 GB ได้ "out of memory") — ใช้ `-T` ตอนลองไฟล์ใหญ่; browser ส่งแบบ stream อยู่แล้ว. ระหว่างรับไฟล์ `GET /downloads/current` ยังเป็นงานเก่า/`null` — หน้าเว็บรู้ % จาก XHR เอง
+- ticket 10: `400` ของ `ClientDisconnect` ไม่มี body — XHR ที่ `abort()` เองไม่เห็นอยู่แล้ว
+- review ที่ไม่ได้แก้: `Downloads` ถือ flag ของ File import ด้วย (ชื่อ class ไม่บอก); `name, size` เดินด้วยกันหลายฟังก์ชัน; `size` เป็น text จาก route จนถึง module (ตาม `rules/routes.md`); test `stalled` ใช้เวลาจริง 0.2 วินาทีแทนเวลาปลอม; การเช็คซ้ำหลังได้ flag ไม่มี test (ต้องจับจังหวะสอง request)
+- vitest สองข้อล้มครั้งหนึ่งขณะ Whisper ถอดหนังอยู่ (เครื่องหนัก) ผ่านเมื่อรันใหม่ — ข้อเดิมจาก feature review ตัดช่วง
+
+**Checks:** `uv run pytest` — 818 passed; `npm --prefix frontend test` — 323 passed (รอบที่สอง); `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 08: โหลดคลิปจากหลายเว็บ — done 2026-11-07
+
+**Built:**
+- `links.parse`: ลิงก์ YouTube ตามตาราง (playlist และ host YouTube ที่ไม่มี id ยัง `invalid_url`) หรือ `http(s)` ของเว็บอื่นที่ host ไม่ใช่ localhost/`*.localhost`/loopback/private/link-local/unspecified และไม่ใช่ตัวเลขที่ไม่ใช่ IPv4 สี่ส่วน (`127.1`, `2130706433`, `0x7f000001`); `links.clip_id` (YouTube 11 ตัว, `{site}-{id}` คงตัวพิมพ์, แทนตัวนอก `A-Za-z0-9_-` แล้วต่อ sha1 8 ตัว, ตัดที่ 64); `CLIP_ID` ใน `check_known` (spoil_maker ใช้ผ่านตัวนี้) และการล้างตอน start ลบเฉพาะชื่อที่แอปสร้าง (`notes.txt` อยู่)
+- Download job: id และเช็คซ้ำหลัง `fetch_info` (`failed` `duplicate` พร้อม `error.clip_id`), `playlist`, `unsupported`, `unsupported_format`, `download_error` (เดิม `youtube_error`), ข้อความ `login_required` ชี้ปุ่มเลือกไฟล์; `DownloadJob.id` เป็น `null` จนรู้; ขนาดภาพจากไฟล์ (หมุนแล้ว)
+- adapter: `select_formats` (callable) h264 `yuv420p` ≤ 1080 + aac หรือ format รวม ใหญ่สุดก่อน, ทางสำรองคือ format ที่ไม่บอก codec; `allowed_extractors: ["default", "-generic"]`, `socket_timeout` 30, `outtmpl` จาก `clip_id`
+- `backend/spoil/mp4check.py`: ตัวตรวจ mp4 เดียวที่ ticket 09 ใช้ซ้ำ (container mp4, h264 `yuv420p`, ข้าม `attached_pic`, rotation ±90, ด้านสั้น ≤ 1080, เสียงทุก track aac); `ffmpeg.describe` ใช้ร่วมกับ `probe`; `Downloads(check_mp4=…)`
+- `TempClip`: `site` (json เดิม → `Youtube`), `source_url`/`yt_dlp_version` เป็น `null` ได้; thumbnail ที่นามสกุลไม่บอกชนิด (TikTok `.image`) ตอบ media type จาก byte แรก
+- หน้าเว็บ: ป้าย "ลิงก์คลิป", placeholder "วางลิงก์คลิป (YouTube, Facebook, TikTok …)", รายการว่าง "ยังไม่มีคลิป วางลิงก์หรือเลือกไฟล์ด้านบน", ข้อความ `invalid_url`/`busy` ใหม่, งาน `failed` `duplicate` highlight แถว `error.clip_id`, แถวเว็บอื่น "{ช่อง} · {เว็บ} · {ความยาว}"
+- test: `test_spoil_mp4_check.py` (stderr จริงของ ffmpeg 7.1 + ffmpeg จริงบน lavfi), seam 1 ของลิงก์ id selector (รวม YoutubeDL จริงรัน selector บน info ปลอม ไม่ใช้ network) ไฟล์ไม่ใช่ mp4 การล้างตอน start; คลิป `facebook-123` ถอด ตัด บรรยายฉาก เล่น ลบได้; seam 4 ข้อลิงก์และแถวชื่อเว็บ
+- ลองก่อนเขียน: callable selector กับ YouTube จริง → combined format (240p) และ merge `312+258` ได้ mp4 h264 1920×1080 + aac
+- เช็คมือบน Mac ผ่าน API (root ชั่วคราว ไม่แตะ `media/temp/` ของผู้ใช้): TikTok NASA → `tiktok-7679483952507276558` 720×1280 h264 ตั้ง (เลือก h264 720p แทน HEVC 1080p), ซ้ำ → `duplicate`; Facebook NASA Langley → 1920×1080 h264/aac 136 วินาที (ผ่าน `hd` ที่ไม่บอก codec); Facebook CNN และ NASA Perseverance → `unsupported_format` ("ภาพเป็น vp9") `.partial/` ว่าง; `example.com` และ Facebook ที่ไม่ใช่วิดีโอ → `unsupported`; YouTube "Me at the zoo" ยัง `done`. ข้อความจริงจดใน `docs/library-notes/yt-dlp.md`
+
+**Decided:**
+- D56 — "No suitable extractor" เป็น `unsupported`, คำ login ของเว็บอื่น, format ไม่บอก codec ให้ตัวตรวจไฟล์ตัดสิน, ไฟล์ไม่ใช่ mp4, ขนาดภาพจากไฟล์, thumbnail `.image`, host hex, ข้อความ API ตรงหน้าเว็บ
+
+**For the next ticket:**
+- ไม่เจอ TikTok ที่มีแต่ HEVC ให้ลองจริง; TikTok มี format `download` ที่บอก `h264` แต่ไม่บอกขนาด จึงอาจถูกเลือกและได้ผลหลังโหลดแทน "ก่อนโหลด" ของ seam 2 — selector ครอบด้วย test
+- ไฟล์ของผู้ใช้ใน `media/temp/` ที่ชื่อมี `-` และไม่มี json ถูกลบตอน start (กฎของ D55); id คงตัวพิมพ์ (`BVabc`/`bvabc`) ชนกันบนดิสก์ที่ไม่สนตัวพิมพ์ของ Mac/Windows — feature review
+- TikTok โพสต์เก่าได้ "Your IP address is blocked" จากไทย แม้มี `curl_cffi`; ไม่ได้เพิ่ม dependency
+- review ที่ไม่ได้แก้: `site` เป็น string ที่มีค่าพิเศษ `Youtube`/`local` (frontend `YOUTUBE_SITE` ซ้ำกับ `links.YOUTUBE_KEY`); `links.py` ทั้งตรวจ host และสร้าง id; การ duplicate มีสองทาง (`409` และงาน `failed`) ตาม D51
+- ticket 10: แถว `site` `local` ยังแสดง "local" จนกว่าจะทำ "ไฟล์ในเครื่อง"
+
+**Checks:** `uv run pytest` — 760 passed; `npm --prefix frontend test` — 323 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### Feature review (ตัดช่วง) — done 2026-11-05
 
@@ -218,3 +304,4 @@
 | 4 | 05 | design: layout สองคอลัมน์ | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
 | 5 | 05 | design: กล่องถอดบทพูด | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
 | 6 | 07 | design: ส่วนตัดช่วง | `/warroom spoil` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/spoil/ui-prompt.md`) | done ([Figma 8094-49867](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8094-49867), D44) |
+| 7 | 10 | design: tab คลิป — ช่องลิงก์และการเลือกไฟล์ | `/warroom spoil` พร้อมลิงก์ Figma frame (จาก `docs/features/spoil/ui-prompt.md`) | done ([Figma 8113-60644](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8113-60644)) |

@@ -15,13 +15,16 @@ from backend import checks, gpu, paths, spoil
 from backend.app import app
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
-from backend.spoil import downloads
+from backend.spoil import downloads, links
+from backend.spoil.adapter import error_code, select_formats
 
 from .fakes import (
     FakeAdapter,
+    FakeMp4Check,
     ok_deno,
     ok_ffmpeg,
     ok_yt_dlp,
+    site_info,
     write_temp_clip,
     youtube_info,
     yt_dlp_error,
@@ -41,18 +44,23 @@ def adapter(monkeypatch) -> FakeAdapter:
 
 
 @pytest.fixture
+def mp4_check() -> FakeMp4Check:
+    return FakeMp4Check()
+
+
+@pytest.fixture
 def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
 
 
 @pytest.fixture
-def client(fake_root, adapter, monkeypatch):
+def client(fake_root, adapter, mp4_check, monkeypatch):
     monkeypatch.setattr(paths, "ROOT", fake_root)
     monkeypatch.setattr(checks, "probe_yt_dlp", ok_yt_dlp)
     monkeypatch.setattr(checks, "probe_deno", ok_deno)
     monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
     monkeypatch.setattr(spoil, "free_bytes", lambda path: 100 * GB)
-    monkeypatch.setattr(downloads, "downloads", downloads.Downloads())
+    monkeypatch.setattr(downloads, "downloads", downloads.Downloads(check_mp4=mp4_check))
     monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -109,17 +117,46 @@ def test_every_accepted_link_shape_starts_a_job(client, adapter, url):
 @pytest.mark.parametrize(
     "url",
     [
-        "https://vimeo.com/1",
         "https://www.youtube.com/playlist?list=x",
         "https://www.youtube.com/watch?v=short",
+        "https://youtu.be/",
         "ftp://youtu.be/dQw4w9WgXcQ",
+        "ftp://x.com/a",
+        "https:///a",
+        "not a link",
+        "http://localhost:8000/a",
+        "http://LOCALHOST./a",
+        "http://app.localhost/a",
+        "http://127.0.0.1/a",
+        "http://127.1/a",
+        "http://2130706433/a",
+        "http://192.168.1.5/a",
+        "http://10.0.0.1/a",
+        "http://[::1]/a",
+        "http://169.254.169.254/",
+        "http://0.0.0.0/a",
+        "http://0x7f000001/a",
+        "http://0x7f.0.0.1/a",
     ],
 )
-def test_links_outside_the_table_are_invalid_url(client, url):
+def test_links_that_are_not_a_youtube_clip_or_a_public_site_are_invalid_url(client, adapter, url):
     response = start(client, url)
 
     assert response.status_code == 400
-    assert response.json() == {"code": "invalid_url", "message": "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube"}
+    assert response.json() == {"code": "invalid_url", "message": "ลิงก์นี้ใช้ไม่ได้ วางลิงก์ http หรือ https ของคลิป"}
+    assert adapter.fetched_urls == []
+
+
+@pytest.mark.parametrize("url", ["https://vimeo.com/1", "https://www.facebook.com/watch/?v=123", "http://93.184.216.34/v"])
+def test_a_link_of_another_site_starts_a_job_whose_id_comes_later(client, adapter, url):
+    adapter.info = site_info()
+
+    response = start(client, url)
+
+    assert response.status_code == 202
+    assert response.json()["id"] is None
+    assert wait_for_end(client)["clip_id"] == "facebook-123"
+    assert adapter.fetched_urls == [url]
 
 
 # --- A job that succeeds ---
@@ -185,6 +222,7 @@ def test_done_job_leaves_mp4_thumbnail_and_complete_json(client, project):
         "file_bytes": 1234,
         "thumbnail": f"{VIDEO_ID}.webp",
         "yt_dlp_version": "2026.10.26",
+        "site": "Youtube",
         "trimmed": [],
         "trimmed_at": None,
     }
@@ -192,8 +230,9 @@ def test_done_job_leaves_mp4_thumbnail_and_complete_json(client, project):
     assert files_named(project.partial_dir) == []
 
 
-def test_a_taller_than_wide_video_is_portrait(client, adapter, project):
-    adapter.info["requested_formats"][0] |= {"width": 1080, "height": 1920}
+def test_the_size_comes_from_checking_the_file_and_taller_than_wide_is_portrait(client, mp4_check, project):
+    # A phone video stored 1920×1080 with a quarter turn shows 1080×1920 (D55).
+    mp4_check.width, mp4_check.height = 1080, 1920
 
     start(client)
     wait_for_end(client)
@@ -248,12 +287,12 @@ def test_percent_does_not_go_back_when_a_format_restarts(client, adapter):
     seen = []
     original = adapter.download
 
-    def download(info, project, on_progress):
+    def download(info, project, clip_id, on_progress):
         def record(event):
             on_progress(event)
             seen.append(current(client)["percent"])
 
-        return original(info, project, record)
+        return original(info, project, clip_id, record)
 
     adapter.download = download
     start(client)
@@ -303,7 +342,7 @@ def test_post_while_a_job_is_unfinished_is_busy(client, adapter):
     adapter.release("fetch")
 
     assert response.status_code == 409
-    assert response.json() == {"code": "busy", "message": "กำลังโหลดคลิปอื่นอยู่"}
+    assert response.json() == {"code": "busy", "message": "กำลังโหลดหรือเอาไฟล์อื่นเข้าอยู่"}
     assert wait_for_end(client)["state"] == "done"
 
 
@@ -459,6 +498,7 @@ def test_a_live_event_that_has_not_begun_fails_live(client, adapter):
         "message": "คลิปนี้เป็น live หรือยังไม่เริ่มฉาย โหลดไม่ได้",
         "yt_dlp_version": "2026.10.26",
         "fix": None,
+        "clip_id": None,
     }
 
 
@@ -479,6 +519,8 @@ def test_too_little_disk_fails_disk_full_without_downloading(client, adapter, mo
     [
         "[youtube] Tq92D6wQ1mg: Sign in to confirm your age. This video may be inappropriate",
         "[youtube] x: Sign in to confirm you're not a bot",
+        # Seen from Vimeo on 2026-11-07 (D56).
+        "[vimeo] 1: The web client only works when logged-in. Use --cookies, --cookies-from-browser",
     ],
 )
 def test_sign_in_errors_fail_login_required(client, adapter, message):
@@ -509,19 +551,20 @@ def test_private_or_removed_video_fails_unavailable(client, adapter):
     assert failed_error(client)["code"] == "unavailable"
 
 
-def test_any_other_error_fails_youtube_error_with_version_and_fix(client, adapter, project):
+def test_any_other_error_fails_download_error_with_version_and_fix(client, adapter, project):
     adapter.download_error = yt_dlp_error(RuntimeError("Unable to download webpage: HTTP Error 403"))
 
     start(client)
 
     assert failed_error(client) == {
-        "code": "youtube_error",
+        "code": "download_error",
         "message": (
             "โหลดไม่สำเร็จ (yt-dlp 2026.10.26). ถ้าเป็นทุกคลิป "
             "ให้อัปเดต yt-dlp ด้วยคำสั่งด้านล่างแล้วรัน Setup script"
         ),
         "yt_dlp_version": "2026.10.26",
         "fix": "uv lock --upgrade-package yt-dlp",
+        "clip_id": None,
     }
     assert files_named(project.partial_dir) == []
     assert files_named(project.media_temp_dir) == []
@@ -541,10 +584,278 @@ def test_a_job_whose_cleanup_fails_still_ends_and_frees_the_slot(client, adapter
 
     start(client)
 
-    assert failed_error(client)["code"] == "youtube_error"
+    assert failed_error(client)["code"] == "download_error"
     adapter.download_error = None
     assert start(client, "https://youtu.be/aaaaaaaaaaa").status_code == 202
     wait_for_end(client)
+
+
+# --- Other sites (D47, D51, D52, D54, D55) ---
+
+
+FACEBOOK_URL = "https://www.facebook.com/watch/?v=123"
+
+
+def test_another_sites_clip_is_named_by_site_and_id(client, adapter, project):
+    adapter.info = site_info()
+
+    start(client, FACEBOOK_URL)
+    job = wait_for_end(client)
+
+    assert (job["state"], job["id"], job["clip_id"]) == ("done", "facebook-123", "facebook-123")
+    assert adapter.clip_ids == ["facebook-123"]
+    clip = json.loads((project.media_temp_dir / "facebook-123.json").read_text(encoding="utf-8"))
+    downloaded_at = clip.pop("downloaded_at")
+    assert clip == {
+        "id": "facebook-123",
+        "title": "คลิปจากเว็บอื่น",
+        "channel": "เพจ",
+        "site": "Facebook",
+        "source_url": "https://www.facebook.com/watch/?v=123",
+        "duration_s": 30,
+        "width": 1920,
+        "height": 1080,
+        "orientation": "landscape",
+        "file_bytes": 1234,
+        "thumbnail": "facebook-123.webp",
+        "yt_dlp_version": "2026.10.26",
+        "trimmed": [],
+        "trimmed_at": None,
+    }
+    assert downloaded_at[:2] == "20"
+
+
+def test_the_same_link_of_another_site_again_fails_duplicate_without_downloading(client, adapter, project):
+    adapter.info = site_info()
+    start(client, FACEBOOK_URL)
+    wait_for_end(client)
+
+    assert start(client, FACEBOOK_URL).status_code == 202
+    error = failed_error(client)
+
+    assert (error["code"], error["message"], error["clip_id"]) == ("duplicate", "คลิปนี้โหลดไว้แล้ว", "facebook-123")
+    assert adapter.download_calls == 1
+    assert files_named(project.media_temp_dir, "facebook-123") == [
+        "facebook-123.json",
+        "facebook-123.mp4",
+        "facebook-123.webp",
+    ]
+
+
+def test_a_youtube_clip_found_through_another_link_is_duplicate_too(client, adapter, project):
+    write_temp_clip(project)
+
+    start(client, "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ")
+
+    assert failed_error(client)["clip_id"] == VIDEO_ID
+    assert adapter.download_calls == 0
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Unsupported URL: https://example.com/a",
+        # What yt-dlp says once the generic extractor is off; seen on 2026-11-07 (D56).
+        "No suitable extractor found for URL https://example.com/a",
+    ],
+)
+def test_a_site_yt_dlp_has_no_extractor_for_fails_unsupported(client, adapter, message):
+    adapter.fetch_error = yt_dlp_error(RuntimeError(message))
+
+    start(client, "https://example.com/a")
+
+    assert failed_error(client) == {
+        "code": "unsupported",
+        "message": 'เว็บนี้โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด "เลือกไฟล์ในเครื่อง"',
+        "yt_dlp_version": "2026.10.26",
+        "fix": None,
+        "clip_id": None,
+    }
+
+
+def test_login_required_points_to_the_file_picker(client, adapter):
+    adapter.fetch_error = yt_dlp_error(ExtractorError("[youtube] x: Sign in to confirm you're not a bot", expected=True))
+
+    start(client)
+
+    assert failed_error(client)["message"] == (
+        'เว็บนี้ขอให้ login หรือยืนยันว่าไม่ใช่ bot โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด "เลือกไฟล์ในเครื่อง"'
+    )
+
+
+def test_a_playlist_fails_playlist_without_downloading(client, adapter, project):
+    adapter.info = {"_type": "playlist", "id": "PL1", "extractor_key": "TikTokUser", "title": "user"}
+
+    start(client, "https://www.tiktok.com/@someone")
+
+    assert failed_error(client)["code"] == "playlist"
+    assert failed_error(client)["message"] == "ลิงก์นี้เป็น playlist วางลิงก์ของคลิปเดียว"
+    assert adapter.download_calls == 0
+    assert list(project.media_temp_dir.glob("*")) == []
+
+
+def test_no_h264_format_to_pick_fails_unsupported_format_before_downloading(client, adapter):
+    # The format selector yields nothing, so `extract_info` raises (D54).
+    adapter.fetch_error = yt_dlp_error(
+        ExtractorError("[TikTok] 7: Requested format is not available. Use --list-formats", expected=True)
+    )
+
+    start(client, "https://www.tiktok.com/@a/video/7")
+
+    error = failed_error(client)
+    assert (error["code"], error["message"]) == (
+        "unsupported_format",
+        'เว็บนี้ไม่มีไฟล์ H.264 ไม่เกิน 1080p ให้โหลด โหลดเองแล้วแปลง จากนั้นกด "เลือกไฟล์ในเครื่อง"',
+    )
+    assert adapter.download_calls == 0
+
+
+def test_a_merged_file_that_breaks_the_rule_fails_unsupported_format_and_is_removed(client, adapter, mp4_check, project):
+    adapter.info = site_info()
+    mp4_check.reason = "ภาพเป็น hevc"
+
+    start(client, FACEBOOK_URL)
+
+    assert failed_error(client)["code"] == "unsupported_format"
+    assert mp4_check.checked == [project.media_temp_dir / "facebook-123.mp4"]
+    assert files_named(project.media_temp_dir, "facebook-123") == []
+
+
+@pytest.mark.parametrize(
+    ("key", "raw_id", "expected"),
+    [
+        ("Youtube", "dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("Facebook", "123", "facebook-123"),
+        ("TikTok", "7123456789", "tiktok-7123456789"),
+        ("BiliBili", "bvabc", "bilibili-bvabc"),
+        ("Twitter", "a.b", "twitter-a_b-fb5b9332"),
+    ],
+)
+def test_clip_ids_by_site(key, raw_id, expected):
+    assert links.clip_id(key, raw_id) == expected
+
+
+def test_ids_that_would_look_alike_stay_apart():
+    assert links.clip_id("Twitter", "a.b") != links.clip_id("Twitter", "a_b")
+
+
+def test_ids_that_differ_only_in_case_stay_apart_on_a_disk_that_ignores_case():
+    # Mac and Windows disks take `x-BVabc.json` and `x-bvabc.json` for one file.
+    upper, lower = links.clip_id("BiliBili", "BVabc"), links.clip_id("BiliBili", "bvabc")
+
+    assert upper.lower() != lower.lower()
+    assert upper == upper.lower()
+    assert upper.startswith("bilibili-bvabc-")
+
+
+def test_a_long_id_is_cut_to_64_with_a_hash_and_still_a_clip_id():
+    long_id = links.clip_id("Facebook", "x" * 80)
+
+    assert len(long_id) == 64
+    assert links.CLIP_ID.fullmatch(long_id)
+    assert long_id != links.clip_id("Facebook", "x" * 81)
+
+
+def test_a_long_id_from_the_site_gives_a_64_character_clip(client, adapter, project):
+    adapter.info = site_info(video_id="x" * 80)
+
+    start(client, FACEBOOK_URL)
+    job = wait_for_end(client)
+
+    assert job["state"] == "done"
+    assert len(job["clip_id"]) == 64
+    assert links.CLIP_ID.fullmatch(job["clip_id"])
+    assert clip_list(client)[0]["id"] == job["clip_id"]
+
+
+def test_a_downloaded_file_that_is_not_mp4_fails_unsupported_format_and_is_removed(client, adapter, project):
+    # A format that named no extension is saved under its own, not merged into mp4 (D56).
+    adapter.info = site_info()
+    original = adapter.download
+
+    def download(info, project, clip_id, on_progress):
+        mp4 = original(info, project, clip_id, on_progress)
+        return mp4.rename(mp4.with_suffix(".unknown_video"))
+
+    adapter.download = download
+
+    start(client, FACEBOOK_URL)
+
+    assert failed_error(client)["code"] == "unsupported_format"
+    assert files_named(project.media_temp_dir, "facebook-123") == []
+
+
+AVC_1080x1920 = {"format_id": "v1", "vcodec": "avc1.640028", "acodec": "none", "width": 1080, "height": 1920, "tbr": 2000, "protocol": "https"}
+AVC_720 = {"format_id": "v0", "vcodec": "avc1.4d401f", "acodec": "none", "width": 720, "height": 1280, "tbr": 900, "protocol": "https"}
+AAC = {"format_id": "a1", "vcodec": "none", "acodec": "mp4a.40.2", "tbr": 128, "protocol": "https"}
+HEVC = {"format_id": "h1", "vcodec": "hvc1.1.6.L120.90", "acodec": "mp4a.40.2", "width": 1080, "height": 1920, "tbr": 1500, "protocol": "https"}
+AVC_1440 = {"format_id": "v2", "vcodec": "avc1.640032", "acodec": "none", "width": 1440, "height": 2560, "tbr": 6000, "protocol": "https"}
+COMBINED_480 = {"format_id": "c1", "vcodec": "h264", "acodec": "aac", "width": 480, "height": 854, "tbr": 800, "protocol": "https"}
+
+
+def pick(*formats: dict) -> list[dict]:
+    return list(select_formats({"formats": list(formats)}))
+
+
+@pytest.mark.parametrize("formats", [(HEVC,), (AVC_1440, AAC), (AVC_1080x1920,), (HEVC | {"format_id": "h2"}, AVC_1440)])
+def test_the_format_selector_yields_nothing_without_h264_at_most_1080_and_aac(formats):
+    assert pick(*formats) == []
+
+
+def test_the_format_selector_picks_the_largest_h264_with_aac():
+    [picked] = pick(AVC_720, AVC_1440, HEVC, AAC, AVC_1080x1920, COMBINED_480)
+
+    assert picked["format_id"] == "v1+a1"
+    assert picked["requested_formats"] == [AVC_1080x1920, AAC]
+    assert (picked["ext"], picked["width"], picked["height"]) == ("mp4", 1080, 1920)
+
+
+def test_the_format_selector_takes_a_combined_format_when_it_is_the_largest():
+    [picked] = pick(COMBINED_480, AVC_720 | {"width": 360, "height": 640}, AAC)
+
+    assert picked == COMBINED_480
+
+
+FB_HD = {"format_id": "hd", "vcodec": None, "acodec": None, "width": None, "height": None, "protocol": "https"}
+FB_SD = {"format_id": "sd", "vcodec": None, "acodec": None, "width": None, "height": None, "protocol": "https"}
+VP9 = {"format_id": "v9", "vcodec": "vp09.00.40.08", "acodec": "none", "width": 1080, "height": 1080, "tbr": 1872, "protocol": "https"}
+
+
+def test_the_format_selector_falls_back_to_a_format_that_names_no_codec_and_leaves_it_to_the_file_check():
+    # Facebook's progressive `hd`/`sd` say nothing; its DASH is VP9 (seen 2026-11-07, D56).
+    [picked] = pick(FB_SD, FB_HD, VP9, AAC)
+
+    assert picked["format_id"] == "hd"
+
+
+def test_the_format_selector_prefers_a_known_h264_to_one_that_names_no_codec():
+    [picked] = pick(FB_HD, COMBINED_480)
+
+    assert picked == COMBINED_480
+
+
+def test_the_format_selector_skips_a_10_bit_picture():
+    assert pick(AVC_720 | {"pix_fmt": "yuv420p10le"}, AAC) == []
+
+
+@pytest.mark.parametrize(
+    ("formats", "code"),
+    [((HEVC,), "unsupported_format"), ((AVC_1440, AAC), "unsupported_format"), ((AVC_1080x1920, AAC), None)],
+)
+def test_yt_dlp_itself_reports_a_selector_that_yields_nothing_as_unsupported_format(formats, code):
+    # The real YoutubeDL runs the selector on a made-up info dict; no network (D54).
+    import yt_dlp
+
+    info = {"id": "7", "title": "t", "extractor": "TikTok", "extractor_key": "TikTok", "webpage_url": "https://x/7",
+            "formats": [dict(f, url=f"https://x/{f['format_id']}", ext="mp4") for f in formats]}  # fmt: skip
+    with yt_dlp.YoutubeDL({"format": select_formats, "quiet": True, "no_warnings": True}) as ydl:
+        try:
+            picked = ydl.process_ie_result(info, download=False)
+        except yt_dlp.utils.YoutubeDLError as error:  # `extract_info` wraps it in DownloadError
+            assert error_code(error) == code
+        else:
+            assert code is None
+            assert picked["format_id"] == "v1+a1"
 
 
 # --- Temp clips ---
@@ -574,6 +885,7 @@ def test_a_done_job_is_in_the_list_with_every_field(client):
         "file_bytes": 1234,
         "thumbnail": f"{VIDEO_ID}.webp",
         "yt_dlp_version": "2026.10.26",
+        "site": "Youtube",
         "trimmed": [],
         "trimmed_at": None,
         "transcribed": False,
@@ -581,6 +893,32 @@ def test_a_done_job_is_in_the_list_with_every_field(client):
         "in_draft": False,
     }
     assert datetime.fromisoformat(downloaded_at).tzinfo is not None  # sortable as an instant
+
+
+def test_a_json_from_before_other_sites_lists_as_youtube(client, project):
+    write_temp_clip(project)  # has no `site`
+
+    assert clip_list(client)[0]["site"] == "Youtube"
+
+
+def test_a_clip_of_another_site_plays_and_deletes_like_a_youtube_one(client, project):
+    write_temp_clip(project, "facebook-123")
+
+    video = client.get("/api/spoil/clips/facebook-123/video", headers={"Range": "bytes=0-99"})
+    assert video.status_code == 206
+    assert client.get("/api/spoil/clips/facebook-123").json()["id"] == "facebook-123"
+    assert client.delete("/api/spoil/clips/facebook-123").status_code == 204
+    assert files_named(project.media_temp_dir, "facebook-123") == []
+
+
+def test_a_clip_without_channel_source_or_yt_dlp_version_lists(client, project):
+    clip = write_temp_clip(project, "local-0123456789ab")
+    clip |= {"channel": None, "source_url": None, "yt_dlp_version": None, "site": "local"}
+    (project.media_temp_dir / "local-0123456789ab.json").write_text(json.dumps(clip), encoding="utf-8")
+
+    [listed] = clip_list(client)
+
+    assert (listed["source_url"], listed["yt_dlp_version"], listed["site"]) == (None, None, "local")
 
 
 def test_an_empty_or_missing_media_folder_lists_nothing(client):
@@ -645,6 +983,20 @@ def test_thumbnail_is_the_file(client, project):
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/webp"
     assert response.content == b"thumb"
+
+
+@pytest.mark.parametrize(
+    ("head", "media_type"),
+    [(b"\xff\xd8\xff\xe0", "image/jpeg"), (b"\x89PNG\r\n\x1a\n", "image/png"), (b"RIFF\0\0\0\0WEBPVP8 ", "image/webp")],
+)
+def test_a_thumbnail_whose_extension_names_no_type_is_served_as_the_image_it_is(client, project, head, media_type):
+    # TikTok's thumbnail comes as `{id}.image` (seen 2026-11-07, D56).
+    write_temp_clip(project, "tiktok-7", thumbnail=False)
+    (project.media_temp_dir / "tiktok-7.image").write_bytes(head + b"rest")
+
+    response = client.get("/api/spoil/clips/tiktok-7/thumbnail")
+
+    assert response.headers["content-type"] == media_type
 
 
 NOT_FOUND = {"code": "not_found", "message": "ไม่พบคลิปนี้"}
@@ -762,19 +1114,23 @@ def test_backend_start_removes_partial_files_and_clips_without_json(fake_root, m
     (project.partial_dir / "aaaaaaaaaaa.f137.mp4.part").write_bytes(b"x")
     (project.media_temp_dir / "bbbbbbbbbbb.mp4").write_bytes(b"x")
     (project.media_temp_dir / "bbbbbbbbbbb.webp").write_bytes(b"x")
-    for name in ("ccccccccccc.mp4", "ccccccccccc.webp", "ccccccccccc.json", ".DS_Store"):
+    # Only names the app makes are its leftovers; a user's own file stays (D55).
+    for name in ("facebook-1.mp4", "facebook-1.jpg", "local-0123456789ab.mp4", "bilibili-bvabc-1a2b3c4d.mp4"):
+        (project.media_temp_dir / name).write_bytes(b"x")
+    kept = (
+        ".DS_Store", "notes.txt", "my_video.mp4", "ccccccccccc.mp4", "ccccccccccc.webp", "ccccccccccc.json",
+        "tiktok-7.mp4", "tiktok-7.json",
+        # A `-` alone doesn't make a name the app's: "my" is no site yt-dlp knows.
+        "my-video.mp4", "my-video.jpg", "local-notes-1.txt",
+    )  # fmt: skip
+    for name in kept:
         (project.media_temp_dir / name).write_bytes(b"x")
 
     with TestClient(app, base_url="http://127.0.0.1"):
         pass
 
     assert list(project.partial_dir.iterdir()) == []
-    assert sorted(p.name for p in project.media_temp_dir.iterdir() if p.is_file()) == [
-        ".DS_Store",
-        "ccccccccccc.json",
-        "ccccccccccc.mp4",
-        "ccccccccccc.webp",
-    ]
+    assert sorted(p.name for p in project.media_temp_dir.iterdir() if p.is_file()) == sorted(kept)
 
 
 def test_a_request_from_another_host_is_refused(client):

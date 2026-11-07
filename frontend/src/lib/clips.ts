@@ -6,8 +6,12 @@ export type Range = { start_s: number; end_s: number };
 export type TempClip = {
   id: string;
   title: string;
+  /** Null for a local file, and for a site that names no channel. */
   channel: string | null;
-  source_url: string;
+  /** yt-dlp's `extractor_key` ("Youtube", "Facebook", …) or "local" (D52). */
+  site: string;
+  /** Null for a local file (D52). */
+  source_url: string | null;
   duration_s: number | null;
   width: number | null;
   height: number | null;
@@ -15,7 +19,7 @@ export type TempClip = {
   file_bytes: number;
   thumbnail: string | null;
   downloaded_at: string;
-  yt_dlp_version: string;
+  yt_dlp_version: string | null;
   /** Has a Transcript (D23). */
   transcribed: boolean;
   /** Has Shots from a Describe job (spoil-maker D16). */
@@ -31,6 +35,12 @@ export type TempClip = {
 };
 
 export const CLIPS_PATH = "/api/spoil/clips";
+
+/** `site` of a YouTube clip, and of every clip from before other sites (D52). */
+export const YOUTUBE_SITE = "Youtube";
+
+/** `site` of a file imported from this computer: the backend's `links.LOCAL_SITE`, lower case (D52). */
+export const LOCAL_SITE = "local";
 
 /** One clip: `GET` answers it as a list item (404 `not_found` when gone), `DELETE` removes it. */
 export function clipPath(clipId: string): string {

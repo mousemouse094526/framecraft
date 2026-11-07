@@ -28,9 +28,11 @@ frontend/src/
 │                        Alert (the Figma toned box), ModalDialog (overlay, Esc,
 │                        focus kept inside), buttonStyles; assets/
 │                        holds the icons two features use (copy, trash, x, …)
-├── testing/          ← testBackend.ts: the fake backend every tab's tests answer `fetch` with
+├── testing/          ← testBackend.ts: the fake backend every tab's tests answer `fetch` with; fakeXhr.ts:
+│                        the `XMLHttpRequest` an upload test stubs (`sendFile`)
 └── lib/
-    ├── api.ts        ← getJson / sendJson, both with the 30 s timeout
+    ├── api.ts        ← getJson / sendJson, both with the 30 s timeout; sendFile (XHR upload with
+    │                   its %, no timeout, spoil D58)
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
     ├── useHash.ts    ← the URL hash (`useHash`), which top tab it opens (`tabOf`), and
     │                   `useLeaveGuard` (asks "ออกโดยไม่บันทึก?" before the hash moves, story-kb D18)
@@ -67,7 +69,8 @@ App → feature component → hook → lib/api → `/api/...`
 
 ## Never break
 
-- Every backend call goes through `lib/api.ts` with a timeout.
+- Every backend call goes through `lib/api.ts` with a timeout. The one exception is
+  `sendFile`, the file import's upload: no timeout, the user cancels it (spoil D50, D58).
 - UI text is Thai.
 - Styling is Tailwind classes; no separate CSS files except the Tailwind entry.
 
