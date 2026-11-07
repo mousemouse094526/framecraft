@@ -5,6 +5,7 @@ A YouTube link in the table gives its id at once. Any other `http(s)` link with 
 host is taken as another site's; its id is known only once yt-dlp has read it.
 """
 
+import functools
 import hashlib
 import ipaddress
 import re
@@ -20,6 +21,7 @@ PATH_ID_PREFIXES = ("/shorts/", "/live/")
 YOUTUBE_KEY = "Youtube"  # yt-dlp's `extractor_key` for a YouTube video
 LOCAL_SITE = "local"  # a Temp clip's `site` when it came from a file on this machine (D52)
 LOCAL_HASH_LENGTH = 12
+LOCAL_ID = re.compile(rf"{LOCAL_SITE}-[0-9a-f]{{{LOCAL_HASH_LENGTH}}}")
 
 MAX_ID = 64
 HASH_LENGTH = 8
@@ -83,15 +85,17 @@ def clip_id(extractor_key: str, video_id: str) -> str:
     """The Temp clip id of a video yt-dlp read (D51, D55).
 
     YouTube keeps its 11-character id, so clips from before other sites stay where they
-    are. Another site's is `{site}-{id}` with the id's case kept; a character outside
-    `A-Za-z0-9_-` becomes `_` and an id that is too long is cut, and either way a hash of
-    the original is added so two ids never end the same.
+    are. Another site's is `{site}-{id}` in lower case, since Mac and Windows disks take
+    `BVabc` and `bvabc` for one file name; a character outside `A-Za-z0-9_-` becomes `_` and
+    an id that is too long is cut. When the id had to change (case, a character, its length)
+    a hash of the original is added, so two ids never end the same.
     """
     if extractor_key == YOUTUBE_KEY and YOUTUBE_ID.fullmatch(video_id):
         return video_id
     digest = hashlib.sha1(f"{extractor_key}:{video_id}".encode()).hexdigest()[:HASH_LENGTH]
-    safe = f"{UNSAFE.sub('_', extractor_key.lower())}-{UNSAFE.sub('_', video_id)}"
-    if safe != f"{extractor_key.lower()}-{video_id}":
+    site = site_prefix(extractor_key)
+    safe = f"{site}-{UNSAFE.sub('_', video_id).lower()}"
+    if safe != f"{site}-{video_id}":
         safe = f"{safe}-{digest}"
     if len(safe) > MAX_ID:
         safe = f"{safe[: MAX_ID - HASH_LENGTH - 1]}-{digest}"
@@ -102,3 +106,26 @@ def local_id(name: str, size: int) -> str:
     """The Temp clip id of a local file: its name and size in bytes, so a file sent twice
     is found before its bytes are (D51)."""
     return "local-" + hashlib.sha1(f"{name}|{size}".encode()).hexdigest()[:LOCAL_HASH_LENGTH]
+
+
+def site_prefix(extractor_key: str) -> str:
+    """The part of another site's clip id before the first `-`."""
+    return UNSAFE.sub("_", extractor_key.lower())
+
+
+@functools.cache
+def _site_prefixes() -> frozenset[str]:
+    """The prefix of every site yt-dlp has an extractor for; read once, on first use."""
+    from yt_dlp.extractor import gen_extractor_classes
+
+    return frozenset(site_prefix(extractor.ie_key()) for extractor in gen_extractor_classes())
+
+
+def is_app_made(name: str) -> bool:
+    """Whether a file name (without its extension) is one the app gives a Temp clip: a
+    YouTube id, `local-{hash}`, or `{site}-…` of a site yt-dlp knows (D55). A user's
+    `notes.txt` or `my-video.mp4` in media/temp/ is not."""
+    if YOUTUBE_ID.fullmatch(name) or LOCAL_ID.fullmatch(name):
+        return True
+    site, dash, _ = name.partition("-")
+    return bool(dash) and CLIP_ID.fullmatch(name) is not None and site in _site_prefixes()

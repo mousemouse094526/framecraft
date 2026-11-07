@@ -157,32 +157,32 @@ class Describes(ModelJobSlot[DescribeJob]):
             raise Cancelled()
         return shots.plan_shots(cuts, duration)
 
-def _swap(project: ProjectPaths, video_id: str) -> None:
+def _swap(project: ProjectPaths, clip_id: str) -> None:
     """The new Shots replace the old ones only now, at the end (D51). The clip's EP cuts sit
     on the old Shots' edges, so they go under the same lock (spec › EP, D71)."""
-    target = project.clip_shots_dir(video_id)
+    target = project.clip_shots_dir(clip_id)
     with gpu.slot.clip_files_lock():
         shutil.rmtree(target, ignore_errors=True)
-        project.new_shots_dir(video_id).rename(target)
-        episodes.remove(project, video_id)
+        project.new_shots_dir(clip_id).rename(target)
+        episodes.remove(project, clip_id)
 
 
-def clip_shots(project: ProjectPaths, video_id: str) -> shots.ShotsFile:
+def clip_shots(project: ProjectPaths, clip_id: str) -> shots.ShotsFile:
     """A described clip's Shots. Raises `ApiError` 404 `not_found` for an unknown
     clip, `not_described` for one never described."""
-    clips.check_known(project, video_id)
-    found = shots.read_shots(project, video_id)
+    clips.check_known(project, clip_id)
+    found = shots.read_shots(project, clip_id)
     if found is None:
         raise ApiError(404, "not_described", "คลิปนี้ยังไม่ได้บรรยายฉาก")
     return found
 
 
-def shot_image(project: ProjectPaths, video_id: str, name: str) -> Path:
+def shot_image(project: ProjectPaths, clip_id: str, name: str) -> Path:
     """`{n}.jpg` of a described clip. Only a Shot number of that clip gets near the disk."""
-    clips.check_known(project, video_id)
-    found = shots.read_shots(project, video_id)
+    clips.check_known(project, clip_id)
+    found = shots.read_shots(project, clip_id)
     match = SHOT_IMAGE.fullmatch(name)
-    path = project.clip_shots_dir(video_id) / name
+    path = project.clip_shots_dir(clip_id) / name
     if found is None or match is None or int(match.group(1)) >= len(found.shots) or not path.is_file():
         raise ApiError(404, "not_found", "ไม่พบภาพนี้")
     return path

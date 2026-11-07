@@ -219,7 +219,7 @@ class Downloads(JobSlot[DownloadJob]):
         # `format` picks by what the site says; this is the file (D54). A format that named
         # no extension isn't merged into mp4 and keeps its own (D56).
         if mp4 != clips.video_path(project, clip_id):
-            raise NotPlayable(mp4check.NOT_MP4)
+            raise NotPlayable(mp4check.NOT_MP4_CONTAINER)
         shown = self._check_mp4(mp4)
         clips.write_clip(project, _temp_clip(project, info, clip_id, mp4, shown))
         return clip_id
@@ -317,7 +317,7 @@ def _temp_clip(
         # As shown, from the file: a phone video's turn is in the file, not the info (D55).
         width=shown.width,
         height=shown.height,
-        orientation="portrait" if shown.height > shown.width else "landscape",
+        orientation=shown.orientation,
         file_bytes=mp4.stat().st_size,
         thumbnail=clips.find_thumbnail(project, clip_id),
         downloaded_at=checks.now_iso(),

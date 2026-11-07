@@ -840,7 +840,7 @@
 
 **Why:** The Breaker เจอทางหลบการกัน host, คลิปเว็บที่ไม่ตรง D49 (→ D54), id ชนกัน, upload ค้างจน `busy` ตลอด, event loop ค้าง, ไฟล์ที่ผ่านตัวตรวจแต่เล่นไม่ได้, และโค้ดเดิมที่ผูก id 11 ตัว.
 
-**From:** red team · **Status:** active
+**From:** red team · **Status:** active (ข้อ id คงตัวพิมพ์ และชื่อที่การล้างตอน start ลบ → D59)
 
 ## D56: ทางเลือกเล็กตอน build ticket 08 (โหลดหลายเว็บ)
 
@@ -896,3 +896,16 @@
 **Why:** ทุกข้ออยู่ในสิ่งที่ spec › Frontend › เอาไฟล์เข้า และแบบใน Figma สัญญา; เลือกตามโค้ดเดิม (`Notice` ตัวเดียว, `ProgressCard`) และ docs/library-notes/web-platform.md.
 
 **From:** build ticket 10 · **Status:** active
+
+## D59: สิ่งที่แก้จาก feature review ของการโหลดหลายเว็บและการเอาไฟล์เข้า
+
+**Chosen:**
+- **id ของเว็บอื่นเป็นตัวเล็ก:** `{site}-{id ตัวเล็ก}` และต่อ sha1 8 ตัวเมื่อ id เดิมมีตัวพิมพ์ใหญ่ (นอกจากตัวที่ต้องแทนและความยาวเดิม) — แทนข้อ "id คงตัวพิมพ์" ของ D55. คลิป YouTube ยังใช้ id 11 ตัวเดิม; คลิปเว็บอื่นที่โหลดก่อนนี้ (id มีตัวใหญ่) ยังอยู่ในรายการ แต่โหลดลิงก์เดิมซ้ำจะได้คลิปใหม่หนึ่งครั้ง
+- **การล้างตอน start:** ไฟล์ที่ไม่มี json ถูกลบเฉพาะชื่อ 11 ตัวแบบ YouTube, `local-{12 hex}` หรือ `{site}-…` ที่ `{site}` เป็นเว็บที่ yt-dlp มีตัวโหลด (`links.is_app_made`) — `my-video.mp4` ของผู้ใช้อยู่. ไฟล์ของผู้ใช้ที่ชื่อยาว 11 ตัวพอดีจากตัวที่ YouTube ใช้ (เช่น `my-movie-01`) ยังถูกลบตามกฎเดิมของ D14
+- **ชื่อในโค้ด:** `ffmpeg.describe` → `ffmpeg.input_info` (ไม่ชนกับ Describe job); `NOT_MP4` สองตัว → `mp4check.NOT_MP4_CONTAINER` และ `imports.ONLY_MP4`; `video_id` ที่เหลือใน `paths.py` และ `spoil_maker` → `clip_id` (D55 "`CLIP_ID` ทุกที่"); `Mp4Info.orientation` แทนการคิดซ้ำสองที่; `imports._duplicate`; XHR ปลอมอยู่ที่ `frontend/src/testing/fakeXhr.ts`
+
+**Why:** review สามแกนบน ticket 08–10 (`d21804f..918c648`): id ต่างแค่ตัวพิมพ์ชนกันบนดิสก์ Mac/Windows จนคลิปที่สองได้ `duplicate` ที่ชี้แถวที่ไม่มี; การล้างตอน start ลบไฟล์ผู้ใช้ที่มี `-`; ชื่อซ้ำความหมาย. ผู้ใช้เลือกแก้ทั้งสี่กลุ่ม.
+
+**Supersedes:** D55 (ข้อ id คงตัวพิมพ์ และข้อชื่อที่การล้างตอน start ลบ)
+
+**From:** feature review · **Status:** active

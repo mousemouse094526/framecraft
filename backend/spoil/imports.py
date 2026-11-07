@@ -31,12 +31,17 @@ WRITE_BYTES = 2**20  # the body goes to its thread about a MiB at a time, not pe
 THUMBNAIL_AT = 0.1  # of the length (D52)
 SUFFIX = ".mp4"
 
-NOT_MP4 = "รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน"
+ONLY_MP4 = "รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน"
 DUPLICATE = "ไฟล์นี้เอาเข้าไว้แล้ว"
 SIZE_MISMATCH = "ได้ไฟล์ไม่ครบหรือเกินขนาดที่บอก ลองอีกครั้ง"
 # Names the app's limit; a test that shortens `stall_seconds` still gets these words.
 STALLED = f"ไม่ได้รับข้อมูลไฟล์นาน {STALL_SECONDS} วินาที ลองอีกครั้ง"
 CONVERT = "แปลงเป็น mp4 (H.264, AAC) ไม่เกิน 1080p ด้วยโปรแกรมอื่นแล้วลองอีกครั้ง"
+
+
+def _duplicate(clip_id: str) -> ApiError:
+    """The file is in the list already: the page points at its row (D51)."""
+    return ApiError(409, "duplicate", DUPLICATE, clip_id=clip_id)
 
 
 class ImportCheck(BaseModel):
@@ -79,7 +84,7 @@ class Imports:
             try:
                 # Again under the flag: the same file sent twice at once may have just come in.
                 if clips.has_clip(project, clip_id):
-                    raise ApiError(409, "duplicate", DUPLICATE, clip_id=clip_id)
+                    raise _duplicate(clip_id)
                 await anyio.to_thread.run_sync(_require_disk, project, expected)
                 partial = project.partial_dir / f"{clip_id}.import{SUFFIX}"
                 await self._write_body(body, partial, expected)
@@ -99,13 +104,13 @@ class Imports:
         if not name:
             raise invalid_request()
         if not name.lower().endswith(SUFFIX):
-            raise ApiError(400, "not_mp4", NOT_MP4)
+            raise ApiError(400, "not_mp4", ONLY_MP4)
         if not _title(name) or size is None or size <= 0:
             raise invalid_request()
         project = paths.project()
         clip_id = links.local_id(name, size)
         if clips.has_clip(project, clip_id):
-            raise ApiError(409, "duplicate", DUPLICATE, clip_id=clip_id)
+            raise _duplicate(clip_id)
         return project, clip_id
 
     async def _write_body(self, body: AsyncIterator[bytes], partial: Path, expected: int) -> None:
@@ -159,7 +164,7 @@ class Imports:
             duration_s=round(shown.duration_s),
             width=shown.width,
             height=shown.height,
-            orientation="portrait" if shown.height > shown.width else "landscape",
+            orientation=shown.orientation,
             file_bytes=mp4.stat().st_size,
             thumbnail=thumbnail,
             downloaded_at=checks.now_iso(),

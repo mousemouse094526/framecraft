@@ -56,10 +56,10 @@ def plan_shots(cuts: list[float], duration: float) -> list[tuple[float, float]]:
     return [(start, end) for start, end in merged]
 
 
-def read_shots(project: ProjectPaths, video_id: str) -> ShotsFile | None:
+def read_shots(project: ProjectPaths, clip_id: str) -> ShotsFile | None:
     """The clip's Shots, or None when it isn't described: no file, a file that
     can't be read, or one for another clip (spec › Describe job)."""
-    path = project.clip_shots_dir(video_id) / SHOTS_FILE
+    path = project.clip_shots_dir(clip_id) / SHOTS_FILE
     if not path.is_file():
         return None
     try:
@@ -67,11 +67,11 @@ def read_shots(project: ProjectPaths, video_id: str) -> ShotsFile | None:
     except (OSError, ValidationError):
         log.warning("skipping unreadable %s", path)
         return None
-    return shots if shots.clip_id == video_id else None
+    return shots if shots.clip_id == clip_id else None
 
 
-def is_described(project: ProjectPaths, video_id: str) -> bool:
-    return read_shots(project, video_id) is not None
+def is_described(project: ProjectPaths, clip_id: str) -> bool:
+    return read_shots(project, clip_id) is not None
 
 
 def clean_on_start(project: ProjectPaths, known_ids: set[str]) -> None:

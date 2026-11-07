@@ -727,7 +727,6 @@ def test_a_merged_file_that_breaks_the_rule_fails_unsupported_format_and_is_remo
         ("Youtube", "dQw4w9WgXcQ", "dQw4w9WgXcQ"),
         ("Facebook", "123", "facebook-123"),
         ("TikTok", "7123456789", "tiktok-7123456789"),
-        ("BiliBili", "BVabc", "bilibili-BVabc"),
         ("BiliBili", "bvabc", "bilibili-bvabc"),
         ("Twitter", "a.b", "twitter-a_b-fb5b9332"),
     ],
@@ -738,6 +737,15 @@ def test_clip_ids_by_site(key, raw_id, expected):
 
 def test_ids_that_would_look_alike_stay_apart():
     assert links.clip_id("Twitter", "a.b") != links.clip_id("Twitter", "a_b")
+
+
+def test_ids_that_differ_only_in_case_stay_apart_on_a_disk_that_ignores_case():
+    # Mac and Windows disks take `x-BVabc.json` and `x-bvabc.json` for one file.
+    upper, lower = links.clip_id("BiliBili", "BVabc"), links.clip_id("BiliBili", "bvabc")
+
+    assert upper.lower() != lower.lower()
+    assert upper == upper.lower()
+    assert upper.startswith("bilibili-bvabc-")
 
 
 def test_a_long_id_is_cut_to_64_with_a_hash_and_still_a_clip_id():
@@ -1107,11 +1115,13 @@ def test_backend_start_removes_partial_files_and_clips_without_json(fake_root, m
     (project.media_temp_dir / "bbbbbbbbbbb.mp4").write_bytes(b"x")
     (project.media_temp_dir / "bbbbbbbbbbb.webp").write_bytes(b"x")
     # Only names the app makes are its leftovers; a user's own file stays (D55).
-    for name in ("facebook-1.mp4", "facebook-1.jpg", "local-0123456789ab.mp4"):
+    for name in ("facebook-1.mp4", "facebook-1.jpg", "local-0123456789ab.mp4", "bilibili-bvabc-1a2b3c4d.mp4"):
         (project.media_temp_dir / name).write_bytes(b"x")
     kept = (
         ".DS_Store", "notes.txt", "my_video.mp4", "ccccccccccc.mp4", "ccccccccccc.webp", "ccccccccccc.json",
         "tiktok-7.mp4", "tiktok-7.json",
+        # A `-` alone doesn't make a name the app's: "my" is no site yt-dlp knows.
+        "my-video.mp4", "my-video.jpg", "local-notes-1.txt",
     )  # fmt: skip
     for name in kept:
         (project.media_temp_dir / name).write_bytes(b"x")

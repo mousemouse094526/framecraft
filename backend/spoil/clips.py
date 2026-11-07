@@ -253,13 +253,6 @@ def remove_unfinished(project: ProjectPaths, clip_id: str) -> None:
             log.exception("could not remove %s", path)
 
 
-def _app_named(name: str) -> bool:
-    """Whether `{name}.*` in media/temp/ has a name the app makes: a YouTube id, or a
-    `CLIP_ID` with a `-` (`{site}-…`, `local-…`, D55). A user's file named otherwise
-    (`notes.txt`) is never touched; one with a `-` in its name is taken for the app's."""
-    return bool(links.YOUTUBE_ID.fullmatch(name) or (links.CLIP_ID.fullmatch(name) and "-" in name))
-
-
 def clean_on_start(project: ProjectPaths) -> None:
     """Jobs don't survive a restart, so nothing they left is worth keeping."""
     shutil.rmtree(project.partial_dir, ignore_errors=True)
@@ -269,6 +262,6 @@ def clean_on_start(project: ProjectPaths) -> None:
         # A `.tmp` is a json write that never finished (D29); other than that, only
         # `{id}.*` with a name the app makes is ours, and anything else (.DS_Store, a
         # user's notes.txt) stays (D55).
-        unfinished = path.suffix == ".tmp" or (_app_named(clip_id) and not has_clip(project, clip_id))
+        unfinished = path.suffix == ".tmp" or (links.is_app_made(clip_id) and not has_clip(project, clip_id))
         if path.is_file() and unfinished:
             path.unlink(missing_ok=True)

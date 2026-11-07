@@ -8,13 +8,13 @@ It reads `ffmpeg -i` (no ffprobe, ADR 0005; docs/library-notes/ffmpeg.md).
 
 import re
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 from backend import ffmpeg
 
 MAX_SHORT_SIDE = 1080
 UNREADABLE = "อ่านไฟล์ไม่ได้"
-NOT_MP4 = "ไฟล์ไม่ใช่ mp4"
+NOT_MP4_CONTAINER = "ไฟล์ไม่ใช่ mp4"
 
 # "Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'a.mp4':" — ffmpeg names an mp4 by this family.
 CONTAINER = re.compile(r"^Input #0, (.+), from ", re.MULTILINE)
@@ -30,6 +30,10 @@ class Mp4Info(NamedTuple):
     # As the file is shown: a quarter turn swaps the stored width and height.
     width: int
     height: int
+
+    @property
+    def orientation(self) -> Literal["portrait", "landscape"]:
+        return "portrait" if self.height > self.width else "landscape"
 
 
 class NotPlayable(Exception):
@@ -48,14 +52,14 @@ class _Stream(NamedTuple):
 
 def check(path: Path) -> Mp4Info:
     """Runs `ffmpeg -i` on the file and reads it. Raises `NotPlayable`."""
-    return read_streams(ffmpeg.describe(path))
+    return read_streams(ffmpeg.input_info(path))
 
 
 def read_streams(stderr: str) -> Mp4Info:
     """The file's length, shown size and sound from `ffmpeg -i`'s output. Raises `NotPlayable`."""
     container = CONTAINER.search(stderr)
     if container and "mp4" not in container.group(1).split(","):
-        raise NotPlayable(NOT_MP4)
+        raise NotPlayable(NOT_MP4_CONTAINER)
     duration = ffmpeg.DURATION.search(stderr)
     streams = _streams(stderr)
     # A cover image is a video stream too; it is not the picture (D55).

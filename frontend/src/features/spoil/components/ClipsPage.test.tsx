@@ -8,6 +8,7 @@ import type { DownloadJob } from "../hooks/useSpoilDownload";
 import { LOCAL_SITE, type TempClip } from "../../../lib/clips";
 import type { TranscribeJob, Transcript } from "../hooks/useTranscribe";
 import type { TrimJob } from "../hooks/useTrim";
+import { FakeXhr } from "../../../testing/fakeXhr";
 import { sent } from "../../../testing/testBackend";
 import { ClipsPage } from "./ClipsPage";
 
@@ -2032,63 +2033,6 @@ describe("file import (D49–D52)", () => {
   const CHECK_PATH = "/api/spoil/imports/check";
   const check = (body: unknown, code = 200): Route => ({ method: "POST", path: CHECK_PATH, reply: () => jsonResponse(body, code) });
   const mp4 = (name = "a.mp4") => new File(["abcd"], name, { type: "video/mp4" });
-
-  /**
-   * The `XMLHttpRequest` the import sends its body with: jsdom's would go to the network
-   * (docs/library-notes/testing-library.md). The test fires its events.
-   */
-  class FakeXhr {
-    static sent: FakeXhr[] = [];
-    method = "";
-    url = "";
-    headers: Record<string, string> = {};
-    body: unknown = null;
-    // Not the browser's 0, so the test sees that `sendFile` sets no timeout itself.
-    timeout = -1;
-    status = 0;
-    responseText = "";
-    readonly upload = new EventTarget();
-    private readonly events = new EventTarget();
-    readonly abort = vi.fn(() => {
-      this.events.dispatchEvent(new Event("abort"));
-    });
-    addEventListener(type: string, listener: EventListener) {
-      this.events.addEventListener(type, listener);
-    }
-    open(method: string, url: string) {
-      this.method = method;
-      this.url = url;
-    }
-    setRequestHeader(name: string, value: string) {
-      this.headers[name] = value;
-    }
-    send(body: unknown) {
-      this.body = body;
-      FakeXhr.sent.push(this);
-    }
-    progress(loaded: number, total: number) {
-      act(() => {
-        this.upload.dispatchEvent(new ProgressEvent("progress", { loaded, total, lengthComputable: true }));
-      });
-    }
-    allSent() {
-      act(() => {
-        this.upload.dispatchEvent(new Event("load"));
-      });
-    }
-    async respond(status: number, body: unknown) {
-      this.status = status;
-      this.responseText = JSON.stringify(body);
-      await act(async () => {
-        this.events.dispatchEvent(new Event("load"));
-      });
-    }
-    async fail() {
-      await act(async () => {
-        this.events.dispatchEvent(new Event("error"));
-      });
-    }
-  }
 
   beforeEach(() => {
     FakeXhr.sent = [];
