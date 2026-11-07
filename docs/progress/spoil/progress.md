@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** change request หลายเว็บและไฟล์ในเครื่อง ตัด ticket 08–10 แล้ว (2026-11-07); ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** —
+**Next:** `/warroom-build spoil 08`
 
 ## Tickets
 
@@ -15,6 +15,9 @@
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
 | 06 | Backend Trim job และ API | done |
 | 07 | ส่วนตัดช่วงใน tab คลิป | done |
+| 08 | โหลดคลิปจากหลายเว็บ | ready |
+| 09 | Backend เอาไฟล์ mp4 ในเครื่องเข้า | ready |
+| 10 | ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป | ready |
 
 ## Log
 
@@ -218,3 +221,4 @@
 | 4 | 05 | design: layout สองคอลัมน์ | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
 | 5 | 05 | design: กล่องถอดบทพูด | `/warroom spoil` พร้อมลิงก์ Figma frame | done (Figma 8013-281, D33) |
 | 6 | 07 | design: ส่วนตัดช่วง | `/warroom spoil` พร้อมลิงก์ Figma frame (ทำจาก `docs/features/spoil/ui-prompt.md`) | done ([Figma 8094-49867](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8094-49867), D44) |
+| 7 | 10 | design: tab คลิป — ช่องลิงก์และการเลือกไฟล์ | `/warroom spoil` พร้อมลิงก์ Figma frame (จาก `docs/features/spoil/ui-prompt.md`) | open |
