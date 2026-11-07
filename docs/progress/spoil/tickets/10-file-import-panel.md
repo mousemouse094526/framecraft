@@ -9,7 +9,7 @@
 - ADR: 0028
 - Seams: 4 (ข้อของการเอาไฟล์เข้า)
 - User stories: 15
-- Screens: tab คลิป — ช่องลิงก์และการเลือกไฟล์ (Blocked #7: design)
+- Screens: tab คลิป — ช่องลิงก์และการเลือกไฟล์ ([Figma 8113-60644](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8113-60644))
 
 **Status:** ready
 
