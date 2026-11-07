@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** ready to merge — feature review ของโหลดหลายเว็บและเอาไฟล์เข้า (08–10) done 2026-11-07 (`198d118`); ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** merged — PR #9 (`1c6606d`) โหลดหลายเว็บและเอาไฟล์เข้า ticket 08–10; ก่อนหน้า: PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/pr-open`
+**Next:** —
 
 ## Tickets
 
