@@ -5,6 +5,7 @@ import { RefreshButton } from "../../../components/ui/RefreshButton";
 import { missingLabels, TRANSCRIBE_ITEMS, TRIM_ITEMS } from "../lib/gate";
 import { gpuBusyText } from "../../../lib/gpu";
 import { useDescribe } from "../hooks/useDescribe";
+import { useFileImport, type Upload } from "../hooks/useFileImport";
 import { useSpoilDownload } from "../hooks/useSpoilDownload";
 import { useTempClips } from "../hooks/useTempClips";
 import { useTranscribe, type TranscribeLoss } from "../hooks/useTranscribe";
@@ -15,8 +16,10 @@ import type { Range, TempClip } from "../../../lib/clips";
 import arrowDownIcon from "../assets/arrow-down.svg";
 import arrowRightIcon from "../assets/arrow-right.svg";
 import { DownloadProgress } from "./DownloadProgress";
+import { FileDropArea } from "./FileDropArea";
 import { LinkForm } from "./LinkForm";
 import { NoticeAlert } from "./NoticeAlert";
+import { ProgressCard } from "./ProgressCard";
 import { NotReady } from "./NotReady";
 import { TempClipList } from "./TempClipList";
 import { TranscriptPanel } from "./TranscriptPanel";
@@ -30,6 +33,7 @@ export function ClipsPage() {
   const transcribe = useTranscribe(list.refetch, download.recheckStatus);
   const describe = useDescribe(list.refetch, download.recheckStatus);
   const trim = useTrim(list.refetch, download.recheckStatus);
+  const fileImport = useFileImport({ onImported: list.refetch, onNotReady: download.recheckStatus });
   const video = useRef<HTMLVideoElement>(null);
   const states = [download.state, list.state, transcribe.state, describe.state, trim.state] as const;
 
@@ -46,6 +50,13 @@ export function ClipsPage() {
     if (clip) select(clip, false);
   });
 
+  // Behind the offline panel there is no ยกเลิก: an upload under way stops (D58).
+  const othersOffline = states.some((one) => one.kind === "offline");
+  const { reset: resetImport } = fileImport;
+  useEffect(() => {
+    if (othersOffline) resetImport();
+  }, [othersOffline, resetImport]);
+
   const refresh = () => {
     jobClipChecked.current = false;
     download.reload();
@@ -53,9 +64,10 @@ export function ClipsPage() {
     transcribe.reload();
     describe.reload();
     trim.reload();
+    fileImport.reset();
   };
 
-  if (states.some((one) => one.kind === "offline")) {
+  if (fileImport.state.kind === "offline" || othersOffline) {
     return (
       <PageLayout tab="clips" action={<RefreshButton onClick={refresh} />}>
         <OfflinePanel />
@@ -75,7 +87,10 @@ export function ClipsPage() {
   const clips = listed.clips;
   const selected = clips.find((clip) => clip.id === panel.selectedId) ?? null;
   const transcribingClip = panel.job ? clips.find((clip) => clip.id === panel.job?.clip_id) : undefined;
-  const notice = state.kind === "ready" ? state.notice : null;
+  const imported = fileImport.state.kind === "ready" ? fileImport.state : null;
+  const upload = imported?.upload ?? null;
+  // One message above the list: the import's or the download's, whichever came last (each clears the other).
+  const notice = imported?.notice ?? (state.kind === "ready" ? state.notice : null);
   const describing = described.job;
   // One GPU job at a time (spoil-maker D45): while one runs, บรรยายฉาก waits, saying for what.
   const gpuBusyReason = panel.job ? gpuBusyText("transcribe") : describing ? gpuBusyText("describe") : null;
@@ -123,9 +138,26 @@ export function ClipsPage() {
           {state.kind === "notReady" && <NotReady missing={state.missing} />}
           {state.kind === "ready" && (
             <>
-              <LinkForm busy={state.job !== null} onSubmit={download.start} />
-              {state.job && <DownloadProgress job={state.job} onCancel={download.cancel} />}
-              {notice && <NoticeAlert notice={notice} />}
+              <FileDropArea
+                disabled={state.job !== null || upload !== null}
+                emphasis={notice?.pickFile === true}
+                onFiles={(files) => {
+                  download.clearNotice();
+                  void fileImport.start(files);
+                }}
+              >
+                <LinkForm
+                  busy={state.job !== null || upload !== null}
+                  locked={upload !== null}
+                  onSubmit={(url) => {
+                    fileImport.clearNotice();
+                    void download.start(url);
+                  }}
+                />
+                {state.job && <DownloadProgress job={state.job} onCancel={download.cancel} />}
+                {upload && <ImportProgress upload={upload} onCancel={fileImport.cancel} />}
+                {notice && <NoticeAlert notice={notice} />}
+              </FileDropArea>
             </>
           )}
           {/* Shown when not ready too: the clips are still on disk (D9). */}
@@ -179,5 +211,20 @@ export function ClipsPage() {
         />
       </div>
     </PageLayout>
+  );
+}
+
+/** A file on its way in (Figma `Download progress` importing and checking file, spec › Frontend). */
+function ImportProgress({ upload, onCancel }: { upload: Upload; onCancel: () => void }) {
+  return upload.phase === "checking" ? (
+    <ProgressCard headline="กำลังตรวจไฟล์…" percent={null} bar="unknown" cancelling={false} />
+  ) : (
+    <ProgressCard
+      headline={`กำลังเอาไฟล์เข้า ${upload.name}`}
+      percent={upload.percent}
+      bar={upload.percent}
+      cancelling={false}
+      onCancel={onCancel}
+    />
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CLIPS_PATH, YOUTUBE_SITE, type TempClip } from "../../../lib/clips";
+import { CLIPS_PATH, LOCAL_SITE, YOUTUBE_SITE, type TempClip } from "../../../lib/clips";
 import { DescribeControls, type DescribeProps } from "./DescribeControls";
 import { DraftWarning } from "./DraftWarning";
 import { formatDuration } from "../../../lib/format";
@@ -185,9 +185,13 @@ function DoneBadge({ children }: { children: string }) {
   );
 }
 
-/** "ช่อง · 1:35:42", or "ช่อง · Facebook · 0:30" for another site's clip (spec › Frontend, D52). */
+/**
+ * "ช่อง · 1:35:42", "ช่อง · Facebook · 0:30" for another site's clip, or "ไฟล์ในเครื่อง · 0:30" for a
+ * file imported from this computer (spec › Frontend, D52).
+ */
 function sourceLine(clip: TempClip): string {
   const duration = clip.duration_s === null ? null : formatDuration(clip.duration_s);
+  if (clip.site === LOCAL_SITE) return ["ไฟล์ในเครื่อง", duration].filter(Boolean).join(" · ");
   const site = clip.site === YOUTUBE_SITE ? null : clip.site;
   return [clip.channel, site, duration].filter(Boolean).join(" · ");
 }

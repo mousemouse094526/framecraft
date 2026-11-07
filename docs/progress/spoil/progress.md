@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** 09 เอาไฟล์ mp4 เข้า (backend) done (2026-11-07); 10 แบบ Figma มาแล้ว (Blocked #7 done); ก่อนหน้า: 08 done; merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** ทุก ticket done — 10 ปุ่มเลือกไฟล์และลากไฟล์มาวาง done (2026-11-07); รอ feature review ของโหลดหลายเว็บและเอาไฟล์เข้า (08–10); ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom-build spoil 10`
+**Next:** `/warroom-build spoil --review-feature`
 
 ## Tickets
 
@@ -17,9 +17,29 @@
 | 07 | ส่วนตัดช่วงใน tab คลิป | done |
 | 08 | โหลดคลิปจากหลายเว็บ | done |
 | 09 | Backend เอาไฟล์ mp4 ในเครื่องเข้า | done |
-| 10 | ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป | ready |
+| 10 | ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป | done |
 
 ## Log
+
+### 10: ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป — done 2026-11-07
+
+**Built:**
+- `FileDropArea` (component `File drop` ใน Figma 8113-60644: default, drag-over, disabled, emphasis): ทั้งกล่องเป็นปุ่ม "เลือกไฟล์ในเครื่อง" ที่เปิด `<input type="file" accept="video/mp4,.mp4">` กดด้วยคีย์บอร์ดได้ คำใต้ปุ่มเป็น description; ลากไฟล์มาวางได้ทั้งกล่องลิงก์ แถบงาน ข้อความ และกล่อง; `window` กัน browser เปิดไฟล์ที่วางนอกกล่อง; icon `upload`, `file-video` จาก Figma
+- `useFileImport`: `POST /imports/check` ด้วย `sendJson` แล้ว `sendFile` (XHR ใหม่ใน `lib/api.ts`, `application/octet-stream`, ไม่มี timeout) พร้อม % จาก `upload.onprogress`, "กำลังตรวจไฟล์…" หลังส่งครบ (ไม่มียกเลิก), `abort()` ตอนยกเลิก unmount และเมื่องานอื่นทำให้ tab offline; ชื่อที่ไม่ลงท้าย `.mp4` ไม่ส่งอะไร; หลายไฟล์ → ไฟล์แรกกับ "เอาเข้าได้ทีละไฟล์"; `duplicate` highlight แถว; `400`/`408`/`409` อื่นเป็น `message`; XHR error → "เอาไฟล์เข้าไม่สำเร็จ ลองอีกครั้ง"; `503` → not ready; อื่น → offline. job ที่ Refresh หรือ offline ทิ้งไปแล้วไม่แตะหน้าอีก
+- `ClipsPage`: ช่องลิงก์ ปุ่มโหลด และกล่องไฟล์ disabled ระหว่างส่งไฟล์; ข้อความช่องเดียวที่การโหลดกับการเอาไฟล์เข้าล้างกัน; `File drop` เด่นหลังงานโหลด `failed` `unsupported`/`login_required`/`unsupported_format` (`Notice.pickFile`); แถว `site` `local` แสดง "ไฟล์ในเครื่อง · {ความยาว}" (`LOCAL_SITE`); `ProgressCard` ไม่มีแถวปุ่มเมื่อไม่มี `onCancel`; token `--color-border-disabled`
+- test: 30 ข้อใน `ClipsPage.test.tsx` (XHR ปลอมที่ยิง progress/load/error/abort เอง) ครบ seam 4 ข้อการเอาไฟล์เข้า; กฎ test ให้หา file input ที่ซ่อนด้วย `querySelector` ในกล่อง; note `docs/library-notes/web-platform.md` (XHR upload, drag and drop, file input) และ trap `applyAccept` ของ user-event
+- เช็คมือใน browser จริงบน Mac (backend :8010 บน root ชั่วคราว, Vite :5180 proxy แบบ `vite.config.ts`; ไม่แตะ `media/temp/` ของผู้ใช้; วางไฟล์ด้วย `DragEvent` ที่มี `DataTransfer` จริงบนหน้าจริง): mp4 h264/aac 65 นาที 180 MB → % เดิน 0→94 แล้ว "กำลังตรวจไฟล์…" → "เอาไฟล์เข้าเสร็จ" ใน 1.0 วินาที แถว "ไฟล์ในเครื่อง · 1:05:00" เล่นได้ที่นาที 50 (readyState 4); ยกเลิกที่ 11% → "ยกเลิกแล้ว", `.partial/` ว่าง, `check` ถัดไปได้ `200` (ไม่ `busy`); mp4 1080p 62 นาที **3.08 GB → 8.6 วินาที** (ส่งครบ 8.4 วินาที, % เดินทีละ 1); `.mkv` → "รับเฉพาะไฟล์ mp4…"; drag-over และ emphasis หลังลิงก์ `example.com` ตรง frame 2 และ 8a; 375px ไม่มี scroll แนวนอน กล่องกว้าง 343
+
+**Decided:**
+- D58 — ชื่อปุ่ม "เลือกไฟล์ในเครื่อง", ที่วางไฟล์ทั้งกล่องลิงก์ กัน browser เปิดไฟล์, ซ่อนเมื่อติดตั้งไม่ครบ, ข้อความช่องเดียว, tone, ยกเลิกระหว่าง `check`, หลายไฟล์ที่ไฟล์แรกไม่ใช่ mp4, offline หยุด upload, `emphasis` สามรหัส, `sendFile` ไม่มี timeout, token
+
+**For the next ticket:**
+- feature review: กฎ "ข้อความเดียวเหนือรายการ" กระจายอยู่ใน `ClipsPage` (เรียก `clearNotice` ของอีก hook และรวม `notice` เอง) — ถ้าเพิ่มงานที่สามควรย้ายเป็นที่เดียว
+- review ที่ไม่ได้แก้: test ของ `ClipsPage` ยังใช้ `backend()` ของไฟล์เองแทน `testing/testBackend.ts` (มีก่อน ticket นี้ ticket นี้เพิ่ม route `check`); `data-emphasis` เป็นทางเดียวที่ test เห็นความเด่นของกล่อง (jsdom ไม่มี style) — ดูด้วยมือแล้ว; `PICK_FILE_CODES` กับ status `400`/`408`/`409` เป็นค่าดิบ
+- vitest ข้อหนึ่งล้มครั้งหนึ่งระหว่าง ffmpeg encode ไฟล์ทดสอบ (เครื่องหนัก) ผ่านเมื่อรันใหม่ — ข้อเดิมจาก ticket 09
+- Figma MCP ของแอป Figma desktop ปิดอยู่; ใช้ Figma MCP ตัว remote แทน
+
+**Checks:** `uv run pytest` — 818 passed; `npm --prefix frontend test` — 353 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 09: Backend เอาไฟล์ mp4 ในเครื่องเข้า — done 2026-11-07
 

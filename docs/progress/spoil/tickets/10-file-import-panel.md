@@ -11,7 +11,7 @@
 - User stories: 15
 - Screens: tab คลิป — ช่องลิงก์และการเลือกไฟล์ ([Figma 8113-60644](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8113-60644))
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

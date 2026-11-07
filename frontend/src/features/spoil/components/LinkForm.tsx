@@ -4,10 +4,15 @@ import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 type Props = {
   /** A job is unfinished: โหลด waits for it (D6). */
   busy: boolean;
+  /**
+   * A file is being imported: the field waits too (spec › Frontend, เอาไฟล์เข้า). While a link
+   * downloads the field stays open, so the next link can be pasted ready (D6).
+   */
+  locked?: boolean;
   onSubmit: (url: string) => void;
 };
 
-export function LinkForm({ busy, onSubmit }: Props) {
+export function LinkForm({ busy, locked = false, onSubmit }: Props) {
   const [url, setUrl] = useState("");
   const inputId = useId();
 
@@ -27,8 +32,9 @@ export function LinkForm({ busy, onSubmit }: Props) {
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
+          disabled={locked}
           placeholder="วางลิงก์คลิป (YouTube, Facebook, TikTok …)"
-          className="h-10 rounded-lg border border-border bg-card px-3 font-button text-sm leading-5 text-foreground placeholder:text-muted-foreground"
+          className="h-10 rounded-lg border border-border bg-card px-3 font-button text-sm leading-5 text-foreground placeholder:text-muted-foreground disabled:bg-muted"
         />
       </div>
       <button

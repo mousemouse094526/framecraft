@@ -58,6 +58,9 @@ const whenReady = (change: (state: Ready) => SpoilState) => onlyWhen<SpoilState,
 
 const DUPLICATE_TEXT = "คลิปนี้โหลดไว้แล้ว";
 
+/** The failures whose message says to load the clip yourself and press เลือกไฟล์ในเครื่อง (D52, D54). */
+const PICK_FILE_CODES = ["unsupported", "login_required", "unsupported_format"];
+
 const LOST_JOB = notice("warning", "งานโหลดหายเพราะ backend เริ่มใหม่ ลองโหลดอีกครั้ง");
 
 /** What a finished job says (spec › Frontend, messages after a job). */
@@ -66,7 +69,13 @@ function resultNotice(job: DownloadJob): Notice {
   if (job.state === "cancelled") return notice("info", "ยกเลิกแล้ว");
   // Another site's link found a clip already in the list: point at it like a 409 (D51).
   if (job.error?.code === "duplicate") return notice("info", DUPLICATE_TEXT, job.error.clip_id);
-  return { tone: "error", text: job.error?.message ?? "โหลดไม่สำเร็จ", fix: job.error?.fix ?? null, clipId: null };
+  return {
+    tone: "error",
+    text: job.error?.message ?? "โหลดไม่สำเร็จ",
+    fix: job.error?.fix ?? null,
+    clipId: null,
+    pickFile: PICK_FILE_CODES.includes(job.error?.code ?? ""),
+  };
 }
 
 /** A refusal of POST /downloads; the text is the Frontend table's, not the API's. Unknown → undefined. */
@@ -178,6 +187,9 @@ export function useSpoilDownload(onJobEnd: () => void) {
     }
   }, [setIfMounted]);
 
+  /** Drops the last message: a file import is showing its own (one message above the list). */
+  const clearNotice = useCallback(() => setIfMounted(whenReady((s) => ({ ...s, notice: null }))), [setIfMounted]);
+
   const reload = useCallback(() => {
     setState({ kind: "loading" });
     void load();
@@ -203,5 +215,5 @@ export function useSpoilDownload(onJobEnd: () => void) {
     }
   }, [setIfMounted]);
 
-  return { state, start, cancel, reload, recheckStatus };
+  return { state, start, cancel, reload, recheckStatus, clearNotice };
 }

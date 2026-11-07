@@ -29,6 +29,8 @@
   --color-border-strong: #78716c;
   --color-surface-strong: #e7e5e4;
   --color-surface-inverse: #121110;
+  /* `stroke/input/disable`: the dashed edge of a disabled File drop (spoil D50). */
+  --color-border-disabled: #d6d3d1;
 
   --color-destructive: #dc2626;
   --color-error-surface: #fef2f2;

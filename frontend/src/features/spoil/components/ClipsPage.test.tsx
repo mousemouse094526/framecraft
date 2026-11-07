@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChecklistItem, StatusResponse } from "../../../lib/statusTypes";
 import type { DescribeJob } from "../hooks/useDescribe";
 import type { DownloadJob } from "../hooks/useSpoilDownload";
-import type { TempClip } from "../../../lib/clips";
+import { LOCAL_SITE, type TempClip } from "../../../lib/clips";
 import type { TranscribeJob, Transcript } from "../hooks/useTranscribe";
 import type { TrimJob } from "../hooks/useTrim";
+import { sent } from "../../../testing/testBackend";
 import { ClipsPage } from "./ClipsPage";
 
 const SHORTS_URL = "https://www.youtube.com/shorts/f7jkZXvaB4g";
@@ -2014,5 +2015,462 @@ describe("ตัดช่วง (D36–D41)", () => {
     await user.click(await screen.findByRole("button", { name: `ลบ ${RICK.title}` }));
 
     expect(await within(screen.getByRole("listitem", { name: RICK.title })).findByText(message)).toBeInTheDocument();
+  });
+});
+
+describe("file import (D49–D52)", () => {
+  const IMPORTED = clipOf({
+    id: "local-0123456789ab",
+    title: "a",
+    channel: null,
+    site: LOCAL_SITE,
+    source_url: null,
+    yt_dlp_version: null,
+    duration_s: 30,
+    thumbnail: null,
+  });
+  const CHECK_PATH = "/api/spoil/imports/check";
+  const check = (body: unknown, code = 200): Route => ({ method: "POST", path: CHECK_PATH, reply: () => jsonResponse(body, code) });
+  const mp4 = (name = "a.mp4") => new File(["abcd"], name, { type: "video/mp4" });
+
+  /**
+   * The `XMLHttpRequest` the import sends its body with: jsdom's would go to the network
+   * (docs/library-notes/testing-library.md). The test fires its events.
+   */
+  class FakeXhr {
+    static sent: FakeXhr[] = [];
+    method = "";
+    url = "";
+    headers: Record<string, string> = {};
+    body: unknown = null;
+    // Not the browser's 0, so the test sees that `sendFile` sets no timeout itself.
+    timeout = -1;
+    status = 0;
+    responseText = "";
+    readonly upload = new EventTarget();
+    private readonly events = new EventTarget();
+    readonly abort = vi.fn(() => {
+      this.events.dispatchEvent(new Event("abort"));
+    });
+    addEventListener(type: string, listener: EventListener) {
+      this.events.addEventListener(type, listener);
+    }
+    open(method: string, url: string) {
+      this.method = method;
+      this.url = url;
+    }
+    setRequestHeader(name: string, value: string) {
+      this.headers[name] = value;
+    }
+    send(body: unknown) {
+      this.body = body;
+      FakeXhr.sent.push(this);
+    }
+    progress(loaded: number, total: number) {
+      act(() => {
+        this.upload.dispatchEvent(new ProgressEvent("progress", { loaded, total, lengthComputable: true }));
+      });
+    }
+    allSent() {
+      act(() => {
+        this.upload.dispatchEvent(new Event("load"));
+      });
+    }
+    async respond(status: number, body: unknown) {
+      this.status = status;
+      this.responseText = JSON.stringify(body);
+      await act(async () => {
+        this.events.dispatchEvent(new Event("load"));
+      });
+    }
+    async fail() {
+      await act(async () => {
+        this.events.dispatchEvent(new Event("error"));
+      });
+    }
+  }
+
+  beforeEach(() => {
+    FakeXhr.sent = [];
+    vi.stubGlobal("XMLHttpRequest", FakeXhr);
+  });
+
+  /** The hidden `<input type="file">` behind เลือกไฟล์ในเครื่อง: it has no role (rules/testing.md). */
+  function fileInput(): HTMLInputElement {
+    const input = fileDrop().parentElement?.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("no file input");
+    return input;
+  }
+
+  function fileDrop(): HTMLElement {
+    return screen.getByRole("button", { name: "เลือกไฟล์ในเครื่อง" });
+  }
+
+  /** Picks `file` the way the dialog of เลือกไฟล์ในเครื่อง does; `accept` is only a hint there. */
+  async function pick(file: File) {
+    await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, applyAccept: false });
+    await user.upload(fileInput(), file);
+    return user;
+  }
+
+  function drop(files: File[]) {
+    fireEvent.drop(fileDrop(), { dataTransfer: { files, types: ["Files"] } });
+  }
+
+  it("shows where to pick or drop an mp4 and what it takes", async () => {
+    backend([status(), current(null)]);
+    render(<ClipsPage />);
+
+    expect(await screen.findByText("เลือกไฟล์ในเครื่อง")).toBeInTheDocument();
+    expect(screen.getByText("หรือลากไฟล์ mp4 มาวาง · รับ mp4 (H.264, AAC) ไม่เกิน 1080p")).toBeInTheDocument();
+    expect(fileDrop()).toBeEnabled();
+    expect(fileInput()).toHaveAttribute("accept", "video/mp4,.mp4");
+  });
+
+  it("opens the file dialog from the keyboard", async () => {
+    backend([status(), current(null)]);
+    render(<ClipsPage />);
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" });
+
+    fileDrop().focus();
+    await user.keyboard("{Enter}");
+
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks the file, sends it with its %, says กำลังตรวจไฟล์…, then เอาไฟล์เข้าเสร็จ with the new row", async () => {
+    backend([status(), current(null), clips([RICK]), clips([IMPORTED, RICK]), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await pick(mp4());
+
+    expect(sent(fetchMock, "POST", CHECK_PATH)).toEqual([{ name: "a.mp4", size: 4 }]);
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    const xhr = FakeXhr.sent[0];
+    expect(xhr.method).toBe("POST");
+    expect(xhr.url).toBe("/api/spoil/imports?name=a.mp4&size=4");
+    expect(xhr.headers).toEqual({ "Content-Type": "application/octet-stream" });
+    expect(xhr.timeout).toBe(0);
+    expect(xhr.body).toBeInstanceOf(File);
+
+    xhr.progress(2, 4);
+    expect(screen.getByText("กำลังเอาไฟล์เข้า a.mp4")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
+    expect(screen.getByLabelText("ลิงก์คลิป")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "โหลด" })).toBeDisabled();
+    expect(fileDrop()).toBeDisabled();
+
+    xhr.allSent();
+    expect(screen.getByText("กำลังตรวจไฟล์…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ยกเลิก" })).not.toBeInTheDocument();
+
+    await xhr.respond(201, IMPORTED);
+    expect(screen.getByText("เอาไฟล์เข้าเสร็จ: a")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    const row = await screen.findByRole("listitem", { name: "a" });
+    expect(row).toHaveAttribute("aria-current", "true");
+    expect(within(row).getByText("ไฟล์ในเครื่อง · 0:30")).toBeInTheDocument();
+    expect(fileDrop()).toBeEnabled();
+    expect(screen.getByLabelText("ลิงก์คลิป")).toBeEnabled();
+  });
+
+  it("encodes the file name in the query", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await pick(mp4("หนัง ตอน 1&2.MP4"));
+
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    expect(FakeXhr.sent[0].url).toBe(`/api/spoil/imports?name=${encodeURIComponent("หนัง ตอน 1&2.MP4")}&size=4`);
+  });
+
+  it("aborts on ยกเลิก and says ยกเลิกแล้ว", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    const user = await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    FakeXhr.sent[0].progress(1, 4);
+
+    await user.click(screen.getByRole("button", { name: "ยกเลิก" }));
+
+    expect(FakeXhr.sent[0].abort).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("ยกเลิกแล้ว")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(fileDrop()).toBeEnabled();
+  });
+
+  it("sends no file when ยกเลิก comes while the check is out", async () => {
+    let answer: (response: Response) => void = () => {};
+    backend([status(), current(null), { method: "POST", path: CHECK_PATH, reply: () => new Promise<Response>((r) => (answer = r)) }]);
+    render(<ClipsPage />);
+    const user = await pick(mp4());
+
+    await user.click(await screen.findByRole("button", { name: "ยกเลิก" }));
+    await act(async () => answer(jsonResponse({ clip_id: IMPORTED.id })));
+
+    expect(screen.getByText("ยกเลิกแล้ว")).toBeInTheDocument();
+    expect(FakeXhr.sent).toHaveLength(0);
+  });
+
+  it("says ยกเลิกแล้ว, not offline, when the check fails after ยกเลิก", async () => {
+    let fail: (error: Error) => void = () => {};
+    backend([status(), current(null), { method: "POST", path: CHECK_PATH, reply: () => new Promise<Response>((_, f) => (fail = f)) }]);
+    render(<ClipsPage />);
+    const user = await pick(mp4());
+
+    await user.click(await screen.findByRole("button", { name: "ยกเลิก" }));
+    await act(async () => fail(new TypeError("Failed to fetch")));
+
+    expect(screen.getByText("ยกเลิกแล้ว")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
+  });
+
+  it("stops the upload when the tab goes offline for another reason, and Refresh starts idle", async () => {
+    const transcribing: TranscribeJob = { clip_id: RICK.id, state: "transcribing", percent: 35, cancel_requested: false, error: null };
+    backend([
+      status(),
+      current(null),
+      clips([RICK]),
+      transcription(transcribing),
+      { path: TRANSCRIPTION_PATH, reply: () => Promise.reject(new TypeError("Failed to fetch")) },
+      transcription(null),
+      check({ clip_id: IMPORTED.id }),
+    ]);
+    render(<ClipsPage />);
+    await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    await nextPoll();
+    expect(await screen.findByRole("button", { name: "Refresh" })).toBeInTheDocument();
+    expect(FakeXhr.sent[0].abort).toHaveBeenCalledTimes(1);
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" })).toBeEnabled();
+    expect(screen.queryByText("ยกเลิกแล้ว")).not.toBeInTheDocument();
+  });
+
+  it("keeps the browser from opening a file dropped beside the box", async () => {
+    backend([status(), current(null)]);
+    render(<ClipsPage />);
+    await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" });
+
+    const event = new Event("drop", { cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [] } });
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("aborts the upload when the page goes away (the user leaves the คลิป tab)", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    const { unmount } = render(<ClipsPage />);
+    await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    unmount();
+
+    expect(FakeXhr.sent[0].abort).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a file that isn't .mp4 without sending anything", async () => {
+    backend([status(), current(null)]);
+    render(<ClipsPage />);
+    await pick(mp4("a.mkv"));
+
+    expect(await screen.findByText("รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน")).toBeInTheDocument();
+    expect(sent(fetchMock, "POST", CHECK_PATH)).toEqual([]);
+    expect(FakeXhr.sent).toHaveLength(0);
+  });
+
+  it("sends a dropped file the same way as a picked one", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" });
+
+    drop([mp4()]);
+
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    expect(sent(fetchMock, "POST", CHECK_PATH)).toEqual([{ name: "a.mp4", size: 4 }]);
+    expect(FakeXhr.sent[0].url).toBe("/api/spoil/imports?name=a.mp4&size=4");
+  });
+
+  it("takes a file dropped on the link field too", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+
+    fireEvent.drop(await screen.findByLabelText("ลิงก์คลิป"), { dataTransfer: { files: [mp4()], types: ["Files"] } });
+
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+  });
+
+  it("shows the drop look while a file is dragged over", async () => {
+    backend([status(), current(null)]);
+    render(<ClipsPage />);
+    await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" });
+
+    fireEvent.dragEnter(fileDrop(), { dataTransfer: { files: [], types: ["Files"] } });
+    expect(screen.getByText("วางไฟล์ mp4 ที่นี่")).toBeInTheDocument();
+
+    fireEvent.dragLeave(fileDrop(), { dataTransfer: { files: [], types: ["Files"] } });
+    expect(screen.queryByText("วางไฟล์ mp4 ที่นี่")).not.toBeInTheDocument();
+  });
+
+  it("takes the first of several dropped files and says one at a time", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" });
+
+    drop([mp4("a.mp4"), mp4("b.mp4")]);
+
+    expect(await screen.findByText("เอาเข้าได้ทีละไฟล์")).toBeInTheDocument();
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    expect(sent(fetchMock, "POST", CHECK_PATH)).toEqual([{ name: "a.mp4", size: 4 }]);
+  });
+
+  it("highlights the row on a duplicate from the check, sending no file", async () => {
+    backend([
+      status(),
+      current(null),
+      clips([IMPORTED, RICK]),
+      check({ code: "duplicate", message: "ไฟล์นี้เอาเข้าไว้แล้ว", clip_id: IMPORTED.id }, 409),
+    ]);
+    render(<ClipsPage />);
+    await pick(mp4());
+
+    expect(await screen.findByText("ไฟล์นี้เอาเข้าไว้แล้ว")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "a" })).toHaveAttribute("aria-current", "true");
+    expect(FakeXhr.sent).toHaveLength(0);
+  });
+
+  it("shows the API message of another refusal from the check", async () => {
+    const message = "ที่ว่างไม่พอ: ต้องการ 2.0 GB มี 1.0 GB";
+    backend([status(), current(null), check({ code: "disk_full", message }, 409)]);
+    render(<ClipsPage />);
+    await pick(mp4());
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(FakeXhr.sent).toHaveLength(0);
+  });
+
+  it("shows unsupported_file's message", async () => {
+    const message = "ภาพเป็น hevc. แปลงเป็น mp4 (H.264, AAC) ไม่เกิน 1080p ด้วยโปรแกรมอื่นแล้วลองอีกครั้ง";
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    await FakeXhr.sent[0].respond(400, { code: "unsupported_file", message });
+
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(fileDrop()).toBeEnabled();
+  });
+
+  it("highlights the row on a duplicate from the upload", async () => {
+    backend([status(), current(null), clips([IMPORTED, RICK]), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    // The page says it in its own words, as for a link (spec › Frontend), whatever the API's are.
+    await FakeXhr.sent[0].respond(409, { code: "duplicate", message: "x", clip_id: IMPORTED.id });
+
+    expect(screen.getByText("ไฟล์นี้เอาเข้าไว้แล้ว")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "a" })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("says stalled's message on 408", async () => {
+    const message = "ไม่ได้รับข้อมูลไฟล์นาน 60 วินาที ลองอีกครั้ง";
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    await FakeXhr.sent[0].respond(408, { code: "stalled", message });
+
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
+  it("says try again, not offline, when the upload errors (the server answered early, D55)", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    await FakeXhr.sent[0].fail();
+
+    expect(screen.getByText("เอาไฟล์เข้าไม่สำเร็จ ลองอีกครั้ง")).toBeInTheDocument();
+    expect(fileDrop()).toBeEnabled();
+  });
+
+  it("goes offline when the check gets no answer", async () => {
+    backend([status(), current(null), { method: "POST", path: CHECK_PATH, reply: () => Promise.reject(new TypeError("Failed to fetch")) }]);
+    render(<ClipsPage />);
+    await pick(mp4());
+
+    expect(await screen.findByRole("button", { name: "Refresh" })).toBeInTheDocument();
+  });
+
+  it("goes offline on an upload answer the API never sends", async () => {
+    backend([status(), current(null), check({ clip_id: IMPORTED.id })]);
+    render(<ClipsPage />);
+    await pick(mp4());
+    await vi.waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    await FakeXhr.sent[0].respond(500, null);
+
+    expect(await screen.findByRole("button", { name: "Refresh" })).toBeInTheDocument();
+  });
+
+  it("switches to not ready on 503 not_ready from the check", async () => {
+    const noFfmpeg = ITEMS.map((i) => (i.id === "ffmpeg" ? { ...i, status: "missing" as const } : i));
+    backend([status(), status(noFfmpeg), current(null), check({ code: "not_ready", message: "x" }, 503)]);
+    render(<ClipsPage />);
+    await pick(mp4());
+
+    expect(await screen.findByText("ยังติดตั้งไม่ครบ: ffmpeg")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "เลือกไฟล์ในเครื่อง" })).not.toBeInTheDocument();
+  });
+
+  it("disables เลือกไฟล์ในเครื่อง while a download runs", async () => {
+    backend([status(), current(DOWNLOADING_40)]);
+    render(<ClipsPage />);
+
+    expect(await screen.findByRole("button", { name: "เลือกไฟล์ในเครื่อง" })).toBeDisabled();
+  });
+
+  it("clears the import's message on the next โหลด", async () => {
+    backend([status(), current(null), post(jobOf({}))]);
+    render(<ClipsPage />);
+    await pick(mp4("a.mkv"));
+    expect(await screen.findByText("รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน")).toBeInTheDocument();
+
+    await startDownload();
+
+    expect(screen.queryByText("รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["unsupported", 'เว็บนี้โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด "เลือกไฟล์ในเครื่อง"'],
+    ["login_required", 'เว็บนี้ขอให้ login หรือยืนยันว่าไม่ใช่ bot โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด "เลือกไฟล์ในเครื่อง"'],
+    ["unsupported_format", 'เว็บนี้ไม่มีไฟล์ H.264 ไม่เกิน 1080p ให้โหลด โหลดเองแล้วแปลง จากนั้นกด "เลือกไฟล์ในเครื่อง"'],
+  ])("points at เลือกไฟล์ในเครื่อง after a link fails %s (D52)", async (code, message) => {
+    const failed = jobOf({ state: "failed", error: { code, message, yt_dlp_version: "2026.10.26", fix: null, clip_id: null } });
+    backend([status(), current(failed)]);
+    render(<ClipsPage />);
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(fileDrop()).toHaveAttribute("data-emphasis", "true");
+  });
+
+  it("doesn't point at the file button after another failure", async () => {
+    const failed = jobOf({ state: "failed", error: { code: "live", message: "live", yt_dlp_version: "2026.10.26", fix: null, clip_id: null } });
+    backend([status(), current(failed)]);
+    render(<ClipsPage />);
+
+    await screen.findByText("live");
+    expect(fileDrop()).not.toHaveAttribute("data-emphasis");
   });
 });

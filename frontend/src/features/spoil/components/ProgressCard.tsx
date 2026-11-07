@@ -9,14 +9,15 @@ type Props = {
   /** How full the bar is, or "unknown" for a segment with no size (Figma frame 5); left out → no bar. */
   bar?: number | "unknown";
   cancelling: boolean;
-  onCancel: () => void;
+  /** Left out → no ยกเลิก and no line for it, as while an imported file is checked (Figma frame 4). */
+  onCancel?: () => void;
   /** Why the job can't be cancelled, said in place of ยกเลิก (D18). */
   noCancelReason?: string;
 };
 
 /**
  * Figma component `Download progress`: what a job is doing, its bar, and
- * ยกเลิก. The download and the Transcribe job both use it (D33).
+ * ยกเลิก. The download, the file import and the Transcribe job use it (D33).
  */
 export function ProgressCard({ headline, percent, bar, cancelling, onCancel, noCancelReason }: Props) {
   return (
@@ -28,16 +29,18 @@ export function ProgressCard({ headline, percent, bar, cancelling, onCancel, noC
         )}
       </div>
       {bar !== undefined && <ProgressBar percent={bar} label="ความคืบหน้า" cancelling={cancelling} />}
-      <div className="flex justify-end">
-        {noCancelReason ? (
-          <p className="text-[13px] leading-[1.5] text-muted-foreground">{noCancelReason}</p>
-        ) : (
-          <button type="button" onClick={onCancel} disabled={cancelling} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
-            <img src={xIcon} alt="" width={16} height={16} />
-            ยกเลิก
-          </button>
-        )}
-      </div>
+      {(onCancel || noCancelReason) && (
+        <div className="flex justify-end">
+          {noCancelReason ? (
+            <p className="text-[13px] leading-[1.5] text-muted-foreground">{noCancelReason}</p>
+          ) : (
+            <button type="button" onClick={onCancel} disabled={cancelling} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
+              <img src={xIcon} alt="" width={16} height={16} />
+              ยกเลิก
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }

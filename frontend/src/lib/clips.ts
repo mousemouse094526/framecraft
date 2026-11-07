@@ -39,6 +39,9 @@ export const CLIPS_PATH = "/api/spoil/clips";
 /** `site` of a YouTube clip, and of every clip from before other sites (D52). */
 export const YOUTUBE_SITE = "Youtube";
 
+/** `site` of a file imported from this computer: the backend's `links.LOCAL_SITE`, lower case (D52). */
+export const LOCAL_SITE = "local";
+
 /** One clip: `GET` answers it as a list item (404 `not_found` when gone), `DELETE` removes it. */
 export function clipPath(clipId: string): string {
   return `${CLIPS_PATH}/${clipId}`;
