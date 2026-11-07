@@ -1,13 +1,14 @@
 from typing import Any
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from backend import paths
-from backend.spoil import clips, downloads, transcribe, trim
-from backend.spoil.clips import ListedClip
+from backend import body_types, paths
+from backend.spoil import clips, downloads, imports, transcribe, trim
+from backend.spoil.clips import ListedClip, TempClip
 from backend.spoil.downloads import DownloadJob
+from backend.spoil.imports import ImportCheck
 from backend.spoil.transcribe import TranscribeJob, Transcript, TranscriptLine
 from backend.spoil.trim import TrimJob
 
@@ -119,6 +120,18 @@ def get_current_download() -> DownloadJob | None:
 @router.delete("/downloads/current", status_code=202)
 def cancel_download() -> DownloadJob:
     return downloads.downloads.cancel()
+
+
+@router.post("/imports/check")
+def check_import(body: dict[str, Any]) -> ImportCheck:
+    return imports.imports.check(body)
+
+
+@router.post("/imports", status_code=201, dependencies=[Depends(body_types.require_octet_stream)])
+async def import_file(request: Request, name: str | None = None, size: str | None = None) -> TempClip:
+    """The body is the file itself, read as it comes (ADR 0028); `size` stays text so the
+    module answers a bad one with `invalid_request`, not FastAPI's 422."""
+    return await imports.imports.receive(name, size, request.stream())
 
 
 @router.post("/trims", status_code=202)

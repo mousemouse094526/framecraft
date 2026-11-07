@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** 08 โหลดหลายเว็บ done (2026-11-07); 09 พร้อม build, 10 รอแบบ Figma; ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** 09 เอาไฟล์ mp4 เข้า (backend) done (2026-11-07); 10 รอแบบ Figma (Blocked #7); ก่อนหน้า: 08 done; merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom-build spoil 09`
+**Next:** ออกแบบ "tab คลิป — ช่องลิงก์และการเลือกไฟล์" ใน Figma จาก `docs/features/spoil/ui-prompt.md` แล้ว `/warroom spoil` พร้อมลิงก์ frame; จากนั้น `/warroom-build spoil 10`
 
 ## Tickets
 
@@ -16,10 +16,30 @@
 | 06 | Backend Trim job และ API | done |
 | 07 | ส่วนตัดช่วงใน tab คลิป | done |
 | 08 | โหลดคลิปจากหลายเว็บ | done |
-| 09 | Backend เอาไฟล์ mp4 ในเครื่องเข้า | ready |
+| 09 | Backend เอาไฟล์ mp4 ในเครื่องเข้า | done |
 | 10 | ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป | ready |
 
 ## Log
+
+### 09: Backend เอาไฟล์ mp4 ในเครื่องเข้า — done 2026-11-07
+
+**Built:**
+- `backend/spoil/imports.py`: `POST /api/spoil/imports/check` (JSON `{name, size}` → `{"clip_id"}`) และ `POST /api/spoil/imports?name=…&size=…` (body ดิบ) ตาม spec › File import ขั้น 0–7: gate ffmpeg, `not_mp4`, `invalid_request`, `duplicate` กับ `clip_id` (เช็คซ้ำหลังได้ flag), `busy`, `disk_full`; เขียน `.partial/{id}.import.mp4` ทีละราว 1 MiB ใน thread, `408` `stalled` เมื่อไม่ได้ byte 60 วินาที, `size_mismatch` ทั้งเกินและขาด, ตัวตรวจ `mp4check` ใน thread → `unsupported_file` "{ข้อที่ไม่ตรง}. แปลงเป็น mp4 …", thumbnail ที่ 10% (`null` เมื่อไม่ได้เฟรม), `os.replace` แล้ว json ท้ายสุด → `201` Temp clip `site` `local`; ล้างไฟล์ใน `finally` แบบ shield
+- flag "กำลังรับไฟล์" ใน `Downloads` ใต้ lock เดียวกับงานโหลด (`receiving_file()`, `refuse_if_busy()`, `_require_free`); `downloads.require_disk` ใช้ร่วม; `links.local_id`, `links.LOCAL_SITE`
+- `backend/body_types.py`: `require_json` ย้ายจาก `app.py`, `require_octet_stream` ของ route; `require_json` ข้าม route ที่ list dependency นั้น (ADR-0028). handler `ClientDisconnect` ใน `app.py` ตอบ `400` เงียบๆ แทน 500
+- test: `test_spoil_import_api.py` 56 ข้อ — ffmpeg จริงบนไฟล์ lavfi (h264/aac, ไม่มีเสียง, hevc ด้วย libx265, 1920×1440, opus, mkv, ไฟล์ขยะ); body ที่หยุด รอ และหลุดกลางทางเล่นผ่าน ASGI ตรงๆ (`Upload`, `Gate`, `play`) ใน event loop เดียวกับ `httpx.ASGITransport` ที่ poll ระหว่างนั้น (< 1 วินาที ทั้งตอนรับ body และตอน ffmpeg ตรวจ); 415 ของทุก route; คลิป `local-…` ถอดและตัดได้ (parametrize ใน test ของ Transcribe และ Trim). mutation check: ffmpeg บน event loop และ flag ไม่ปล่อย → test แดง
+- เช็คมือบน Mac (backend :8010 บน root ชั่วคราว, Vite :5180 proxy เดียวกับ `vite.config.ts`; ไม่แตะ `media/temp/` ของผู้ใช้): mp4 65 นาที `curl --data-binary` → `201` ใน 0.3 วินาที, sha1 ต้นฉบับเดิม; ตัด 0–60 วินาที → `done` 63 วินาที (64:00); ถอด → `done` 349 วินาที; ไฟล์ 2.16 GB ผ่าน proxy → `201` **3.5 วินาที**, 4.32 GB → `201` 5.9 วินาที (ไม่ถึง 300 วินาที ไม่ต้องตั้ง `requestTimeout`); ระหว่างรับ 4 GB: poll 15 ms, `check` ได้ `busy`; ฆ่า curl กลางทาง → `.partial/` ว่าง, `check` ได้ `200`; Ctrl+C (SIGINT ทั้ง backend และ Vite) ระหว่างรับไฟล์ → backend ล้าง `.partial/` เองแล้วออก, start ใหม่ `.partial/` ว่าง และเอาไฟล์เดิมเข้าได้; ไฟล์ซ้ำ → `409` `duplicate`
+
+**Decided:**
+- D57 — ข้อความของ API, `name`/`size` ที่ไม่ถูก, `require_json` ข้าม route ที่มี `require_octet_stream`, `ClientDisconnect` ตอบเงียบ, flag ใน `Downloads`, เขียนทีละ 1 MiB, thumbnail ว่างเป็น `null`, เช็คซ้ำหลังได้ flag, ไม่ต้องตั้ง timeout ของ Vite
+
+**For the next ticket:**
+- ticket 10: `curl --data-binary` อ่านทั้งไฟล์เข้า memory (2 GB ได้ "out of memory") — ใช้ `-T` ตอนลองไฟล์ใหญ่; browser ส่งแบบ stream อยู่แล้ว. ระหว่างรับไฟล์ `GET /downloads/current` ยังเป็นงานเก่า/`null` — หน้าเว็บรู้ % จาก XHR เอง
+- ticket 10: `400` ของ `ClientDisconnect` ไม่มี body — XHR ที่ `abort()` เองไม่เห็นอยู่แล้ว
+- review ที่ไม่ได้แก้: `Downloads` ถือ flag ของ File import ด้วย (ชื่อ class ไม่บอก); `name, size` เดินด้วยกันหลายฟังก์ชัน; `size` เป็น text จาก route จนถึง module (ตาม `rules/routes.md`); test `stalled` ใช้เวลาจริง 0.2 วินาทีแทนเวลาปลอม; การเช็คซ้ำหลังได้ flag ไม่มี test (ต้องจับจังหวะสอง request)
+- vitest สองข้อล้มครั้งหนึ่งขณะ Whisper ถอดหนังอยู่ (เครื่องหนัก) ผ่านเมื่อรันใหม่ — ข้อเดิมจาก feature review ตัดช่วง
+
+**Checks:** `uv run pytest` — 818 passed; `npm --prefix frontend test` — 323 passed (รอบที่สอง); `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 08: โหลดคลิปจากหลายเว็บ — done 2026-11-07
 

@@ -11,7 +11,7 @@
 - User stories: 15 (ฝั่ง API)
 - Legal: 8
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

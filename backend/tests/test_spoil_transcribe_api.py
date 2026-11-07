@@ -92,13 +92,14 @@ TWO_SEGMENTS = [
 # --- A job from start to end ---
 
 
-def test_a_clip_of_another_site_is_transcribed_like_a_youtube_one(client, project, worker):
+@pytest.mark.parametrize("clip_id", ["facebook-123", "local-0123456789ab"])
+def test_a_clip_of_another_site_or_a_local_file_is_transcribed_like_a_youtube_one(client, project, worker, clip_id):
     # Ids are no longer 11 characters only (spoil D51).
-    write_temp_clip(project, "facebook-123")
+    write_temp_clip(project, clip_id)
 
-    assert start(client, "facebook-123").status_code == 202
+    assert start(client, clip_id).status_code == 202
     assert wait_for_end(client)["state"] == "done"
-    assert client.get("/api/spoil/clips/facebook-123/transcript").status_code == 200
+    assert client.get(f"/api/spoil/clips/{clip_id}/transcript").status_code == 200
 
 
 def test_a_job_runs_until_done_and_writes_every_segments_lines(client, project, worker):

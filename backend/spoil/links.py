@@ -18,6 +18,8 @@ YOUTUBE_ID = re.compile(r"[A-Za-z0-9_-]{11}")
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com"}
 PATH_ID_PREFIXES = ("/shorts/", "/live/")
 YOUTUBE_KEY = "Youtube"  # yt-dlp's `extractor_key` for a YouTube video
+LOCAL_SITE = "local"  # a Temp clip's `site` when it came from a file on this machine (D52)
+LOCAL_HASH_LENGTH = 12
 
 MAX_ID = 64
 HASH_LENGTH = 8
@@ -94,3 +96,9 @@ def clip_id(extractor_key: str, video_id: str) -> str:
     if len(safe) > MAX_ID:
         safe = f"{safe[: MAX_ID - HASH_LENGTH - 1]}-{digest}"
     return safe
+
+
+def local_id(name: str, size: int) -> str:
+    """The Temp clip id of a local file: its name and size in bytes, so a file sent twice
+    is found before its bytes are (D51)."""
+    return "local-" + hashlib.sha1(f"{name}|{size}".encode()).hexdigest()[:LOCAL_HASH_LENGTH]

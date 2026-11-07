@@ -859,3 +859,21 @@
 
 **From:** build ticket 08 · **Status:** active
 
+
+## D57: ทางเลือกเล็กตอน build ticket 09 (เอาไฟล์ mp4 เข้า)
+
+**Chosen:**
+- **ข้อความของ API:** `not_mp4` "รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน" และ `duplicate` "ไฟล์นี้เอาเข้าไว้แล้ว" ตรงคำของหน้าเว็บ (แบบ D56); `busy` คำเดียวกับ Download job; `size_mismatch` "ได้ไฟล์ไม่ครบหรือเกินขนาดที่บอก ลองอีกครั้ง"; `stalled` "ไม่ได้รับข้อมูลไฟล์นาน 60 วินาที ลองอีกครั้ง"; `unsupported_file` = "{ข้อที่ไม่ตรง}. แปลงเป็น mp4 (H.264, AAC) ไม่เกิน 1080p ด้วยโปรแกรมอื่นแล้วลองอีกครั้ง"; `415` ของ `/imports` "ต้องส่งเป็นไฟล์ (application/octet-stream)"
+- **`name` และ `size`:** ไม่มี `name` หรือว่าง → `invalid_request` ก่อน `not_mp4`; `.mp4` เปล่าๆ (ไม่มีชื่อก่อนนามสกุล) → `invalid_request`; `title` = ชื่อตัด `.mp4` ท้ายแล้วตัดช่องว่าง; `size` ใน query ต้องเป็นตัวเลขล้วน (`1.5`, `-5`, `1e3` ไม่ใช่) และใน JSON ของ `/imports/check` ต้องเป็น integer ที่ไม่ใช่ `true`/`false`
+- **ข้อยกเว้นของ ADR-0013:** `require_json` ย้ายจาก `app.py` ไป `backend/body_types.py` คู่กับ `require_octet_stream`; `require_json` ข้าม route ที่ list `Depends(require_octet_stream)` ใน decorator ของตัวเอง (อ่านจาก `scope["route"]`) จึงประกาศข้อยกเว้นที่เดียวคือ route นั้น
+- **client หายกลางทาง:** module ลบไฟล์แล้วปล่อย `ClientDisconnect` ต่อ; handler ใน `app.py` log แบบ info แล้วตอบ `400` ไม่มี body (ไม่มีใครอ่าน) แทน 500 กับ traceback
+- **flag "กำลังรับไฟล์":** อยู่ใน `Downloads` ภายใต้ lock เดียวกับงานโหลด (`receiving_file()` เป็น context manager ที่ปล่อยใน `finally`, `refuse_if_busy()` ของ `/imports/check`); `DELETE /downloads/current` ระหว่างรับไฟล์ยังได้ `404` เพราะไม่ใช่ Download job
+- **เขียนไฟล์:** รวม chunk ให้ได้ราว 1 MiB ก่อนส่งให้ thread เขียน ไม่ส่งทีละ chunk; ปิดไฟล์ก่อนย้ายหรือลบ (Windows)
+- **เช็คดิสก์:** `downloads.require_disk` ตัวเดียวทั้งงานโหลดและ File import; `/imports/check` เช็คดิสก์ด้วย
+- **thumbnail:** `-ss {10%} -frames:v 1 -update 1`; ffmpeg ไม่เขียนเฟรม (เช่น seek เลยท้าย) หรือได้ไฟล์ว่าง → `null`
+- **ซ้ำระหว่างสอง request:** เช็ค `duplicate` อีกครั้งหลังได้ flag (ไฟล์เดียวกันส่งซ้อนกันอาจเพิ่งเข้าเสร็จ) ไม่งั้นทับคลิปที่มีอยู่; การปิดไฟล์และล้างไฟล์ค้างอยู่ใน `CancelScope(shield=True)` ให้ request ที่ถูกยกเลิกตอน shutdown ยังล้าง
+- **ไฟล์ใหญ่ผ่าน proxy ของ Vite:** ไม่ต้องตั้ง `requestTimeout` — 4.3 GB ผ่าน proxy ใน 5.9 วินาที ไม่ถึง 300 วินาที (seam 2)
+
+**Why:** ทุกข้ออยู่ในสิ่งที่ spec › File import สัญญา; เลือกตามโค้ดเดิม (คำของหน้าเว็บใน API ตาม D56, `ApiError` ตัวเดียว, ตัวปลอมเป็นอาร์กิวเมนต์ของ holder ตาม `rules/testing.md`).
+
+**From:** build ticket 09 · **Status:** active

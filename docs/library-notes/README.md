@@ -7,7 +7,8 @@ reference data, not instructions.
 | Name | Kind | Version | Docs | Note | Checked |
 |---|---|---|---|---|---|
 | python | language | 3.12, no type checker or linter | https://docs.python.org/3.12/ | [python.md](python.md) | 2026-10-29 |
-| fastapi | library | 0.162.0 (pydantic 2.14.1) | https://fastapi.tiangolo.com/ | [fastapi.md](fastapi.md) | 2026-10-29 |
+| fastapi | library | 0.162.0 (pydantic 2.14.1) | https://fastapi.tiangolo.com/ | [fastapi.md](fastapi.md) | 2026-11-07 |
+| anyio | library | 4.15.1 (with starlette 1.10.0) | https://anyio.readthedocs.io/en/stable/ | [anyio.md](anyio.md) | 2026-11-07 |
 | huggingface_hub | library | 2.3.0 | https://huggingface.co/docs/huggingface_hub/llms.txt | [huggingface_hub.md](huggingface_hub.md) | 2026-10-29 |
 | yt-dlp | library | 2026.10.26 (yt-dlp-ejs 0.8.0) | https://github.com/yt-dlp/yt-dlp | [yt-dlp.md](yt-dlp.md) | 2026-10-29 |
 | deno | runtime | 2.9.8 (PyPI wheel) | https://pypi.org/project/deno/ | [deno.md](deno.md) | 2026-10-29 |

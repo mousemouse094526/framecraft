@@ -7,7 +7,8 @@ D47, D51, D52, D54).
 import logging
 import math
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -28,6 +29,7 @@ State = Literal["checking", "downloading", "merging", "done", "failed", "cancell
 UNFINISHED: frozenset[State] = frozenset({"checking", "downloading", "merging"})
 
 DISK_MARGIN_BYTES = 2**30
+BUSY_MESSAGE = "กำลังโหลดหรือเอาไฟล์อื่นเข้าอยู่"
 UPDATE_COMMAND = "uv lock --upgrade-package yt-dlp"  # then the Setup script installs it
 
 ERROR_MESSAGES: dict[ErrorCode, str] = {
@@ -92,7 +94,8 @@ class _ProgressCount:
 
 
 class Downloads(JobSlot[DownloadJob]):
-    """Holds the latest Download job. One lock guards every change to it."""
+    """Holds the latest Download job, and whether a File import is receiving a file: one
+    of the two at a time (D52). One lock guards every change to either."""
 
     unfinished = UNFINISHED
 
@@ -100,6 +103,32 @@ class Downloads(JobSlot[DownloadJob]):
         """`check_mp4` runs ffmpeg on the merged file; a test passes a stand-in (rules › testing)."""
         super().__init__()
         self._check_mp4 = check_mp4
+        self._receiving_file = False
+
+    def refuse_if_busy(self) -> None:
+        """Raises `ApiError` 409 `busy` while a download or a File import is unfinished."""
+        with self._lock:
+            self._require_free()
+
+    @contextmanager
+    def receiving_file(self) -> Iterator[None]:
+        """Holds the slot for a File import while its body comes in and is checked: no
+        Download job starts meanwhile, and no other import. The flag goes down however
+        the block ends (D55). Raises `ApiError` 409 `busy` when the slot is taken."""
+        with self._lock:
+            self._require_free()
+            self._receiving_file = True
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._receiving_file = False
+
+    def _require_free(self) -> None:
+        """Raises `ApiError` 409 `busy` while a Download job's thread runs or a File import
+        is receiving. Call with the lock held."""
+        if self._taken() or self._receiving_file:
+            raise ApiError(409, "busy", BUSY_MESSAGE)
 
     def start(self, url: str) -> DownloadJob:
         """Checks in spec order, then starts the job's thread. Raises `ApiError`."""
@@ -112,8 +141,7 @@ class Downloads(JobSlot[DownloadJob]):
             # Another site's clip is checked once its id is known (D51).
             if link.youtube_id and clips.has_clip(project, link.youtube_id):
                 raise ApiError(409, "duplicate", ERROR_MESSAGES["duplicate"], clip_id=link.youtube_id)
-            if self._taken():
-                raise ApiError(409, "busy", "กำลังโหลดหรือเอาไฟล์อื่นเข้าอยู่")
+            self._require_free()
             self._job = DownloadJob(url=link.url, id=link.youtube_id, state="checking")
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
@@ -184,14 +212,7 @@ class Downloads(JobSlot[DownloadJob]):
         if info.get("live_status") in ("is_live", "is_upcoming"):
             raise JobFailed("live", ERROR_MESSAGES["live"])
         estimate = estimate_bytes(info)
-        project.media_temp_dir.mkdir(parents=True, exist_ok=True)
-        free = spoil.free_bytes(project.media_temp_dir)
-        if free < estimate + DISK_MARGIN_BYTES:
-            raise JobFailed(
-                "disk_full",
-                f"ที่ว่างไม่พอ: ต้องการ {(estimate + DISK_MARGIN_BYTES) / 1e9:.1f} GB "
-                f"มี {free / 1e9:.1f} GB",
-            )
+        require_disk(project, estimate)
         self._update(state="downloading", title=info.get("title"))
         count = _ProgressCount(estimate, len(_formats(info)))
         mp4 = spoil.adapter.download(info, project, clip_id, lambda event: self._on_progress(count, event))
@@ -222,6 +243,18 @@ class Downloads(JobSlot[DownloadJob]):
                 percent = min(100, math.floor(done / count.estimate * 100))
                 # A format that restarts counts its bytes from 0 again.
                 self._job.percent = max(percent, self._job.percent or 0)
+
+
+def require_disk(project: ProjectPaths, needed: int) -> None:
+    """Raises `JobFailed` `disk_full` unless media/temp/ has `needed` bytes and 1 GiB more
+    free (D11); a File import checks its size the same way (D52)."""
+    project.media_temp_dir.mkdir(parents=True, exist_ok=True)
+    free = spoil.free_bytes(project.media_temp_dir)
+    if free < needed + DISK_MARGIN_BYTES:
+        raise JobFailed(
+            "disk_full",
+            f"ที่ว่างไม่พอ: ต้องการ {(needed + DISK_MARGIN_BYTES) / 1e9:.1f} GB มี {free / 1e9:.1f} GB",
+        )
 
 
 def _formats(info: dict) -> list[dict]:
