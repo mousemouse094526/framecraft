@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** change request หลายเว็บและไฟล์ในเครื่อง ตัด ticket 08–10 แล้ว (2026-11-07); ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** 08 โหลดหลายเว็บ done (2026-11-07); 09 พร้อม build, 10 รอแบบ Figma; ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom-build spoil 08`
+**Next:** `/warroom-build spoil 09`
 
 ## Tickets
 
@@ -15,11 +15,36 @@
 | 05 | หน้าสองคอลัมน์และกล่องถอดบทพูด | done |
 | 06 | Backend Trim job และ API | done |
 | 07 | ส่วนตัดช่วงใน tab คลิป | done |
-| 08 | โหลดคลิปจากหลายเว็บ | ready |
+| 08 | โหลดคลิปจากหลายเว็บ | done |
 | 09 | Backend เอาไฟล์ mp4 ในเครื่องเข้า | ready |
 | 10 | ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป | ready |
 
 ## Log
+
+### 08: โหลดคลิปจากหลายเว็บ — done 2026-11-07
+
+**Built:**
+- `links.parse`: ลิงก์ YouTube ตามตาราง (playlist และ host YouTube ที่ไม่มี id ยัง `invalid_url`) หรือ `http(s)` ของเว็บอื่นที่ host ไม่ใช่ localhost/`*.localhost`/loopback/private/link-local/unspecified และไม่ใช่ตัวเลขที่ไม่ใช่ IPv4 สี่ส่วน (`127.1`, `2130706433`, `0x7f000001`); `links.clip_id` (YouTube 11 ตัว, `{site}-{id}` คงตัวพิมพ์, แทนตัวนอก `A-Za-z0-9_-` แล้วต่อ sha1 8 ตัว, ตัดที่ 64); `CLIP_ID` ใน `check_known` (spoil_maker ใช้ผ่านตัวนี้) และการล้างตอน start ลบเฉพาะชื่อที่แอปสร้าง (`notes.txt` อยู่)
+- Download job: id และเช็คซ้ำหลัง `fetch_info` (`failed` `duplicate` พร้อม `error.clip_id`), `playlist`, `unsupported`, `unsupported_format`, `download_error` (เดิม `youtube_error`), ข้อความ `login_required` ชี้ปุ่มเลือกไฟล์; `DownloadJob.id` เป็น `null` จนรู้; ขนาดภาพจากไฟล์ (หมุนแล้ว)
+- adapter: `select_formats` (callable) h264 `yuv420p` ≤ 1080 + aac หรือ format รวม ใหญ่สุดก่อน, ทางสำรองคือ format ที่ไม่บอก codec; `allowed_extractors: ["default", "-generic"]`, `socket_timeout` 30, `outtmpl` จาก `clip_id`
+- `backend/spoil/mp4check.py`: ตัวตรวจ mp4 เดียวที่ ticket 09 ใช้ซ้ำ (container mp4, h264 `yuv420p`, ข้าม `attached_pic`, rotation ±90, ด้านสั้น ≤ 1080, เสียงทุก track aac); `ffmpeg.describe` ใช้ร่วมกับ `probe`; `Downloads(check_mp4=…)`
+- `TempClip`: `site` (json เดิม → `Youtube`), `source_url`/`yt_dlp_version` เป็น `null` ได้; thumbnail ที่นามสกุลไม่บอกชนิด (TikTok `.image`) ตอบ media type จาก byte แรก
+- หน้าเว็บ: ป้าย "ลิงก์คลิป", placeholder "วางลิงก์คลิป (YouTube, Facebook, TikTok …)", รายการว่าง "ยังไม่มีคลิป วางลิงก์หรือเลือกไฟล์ด้านบน", ข้อความ `invalid_url`/`busy` ใหม่, งาน `failed` `duplicate` highlight แถว `error.clip_id`, แถวเว็บอื่น "{ช่อง} · {เว็บ} · {ความยาว}"
+- test: `test_spoil_mp4_check.py` (stderr จริงของ ffmpeg 7.1 + ffmpeg จริงบน lavfi), seam 1 ของลิงก์ id selector (รวม YoutubeDL จริงรัน selector บน info ปลอม ไม่ใช้ network) ไฟล์ไม่ใช่ mp4 การล้างตอน start; คลิป `facebook-123` ถอด ตัด บรรยายฉาก เล่น ลบได้; seam 4 ข้อลิงก์และแถวชื่อเว็บ
+- ลองก่อนเขียน: callable selector กับ YouTube จริง → combined format (240p) และ merge `312+258` ได้ mp4 h264 1920×1080 + aac
+- เช็คมือบน Mac ผ่าน API (root ชั่วคราว ไม่แตะ `media/temp/` ของผู้ใช้): TikTok NASA → `tiktok-7679483952507276558` 720×1280 h264 ตั้ง (เลือก h264 720p แทน HEVC 1080p), ซ้ำ → `duplicate`; Facebook NASA Langley → 1920×1080 h264/aac 136 วินาที (ผ่าน `hd` ที่ไม่บอก codec); Facebook CNN และ NASA Perseverance → `unsupported_format` ("ภาพเป็น vp9") `.partial/` ว่าง; `example.com` และ Facebook ที่ไม่ใช่วิดีโอ → `unsupported`; YouTube "Me at the zoo" ยัง `done`. ข้อความจริงจดใน `docs/library-notes/yt-dlp.md`
+
+**Decided:**
+- D56 — "No suitable extractor" เป็น `unsupported`, คำ login ของเว็บอื่น, format ไม่บอก codec ให้ตัวตรวจไฟล์ตัดสิน, ไฟล์ไม่ใช่ mp4, ขนาดภาพจากไฟล์, thumbnail `.image`, host hex, ข้อความ API ตรงหน้าเว็บ
+
+**For the next ticket:**
+- ไม่เจอ TikTok ที่มีแต่ HEVC ให้ลองจริง; TikTok มี format `download` ที่บอก `h264` แต่ไม่บอกขนาด จึงอาจถูกเลือกและได้ผลหลังโหลดแทน "ก่อนโหลด" ของ seam 2 — selector ครอบด้วย test
+- ไฟล์ของผู้ใช้ใน `media/temp/` ที่ชื่อมี `-` และไม่มี json ถูกลบตอน start (กฎของ D55); id คงตัวพิมพ์ (`BVabc`/`bvabc`) ชนกันบนดิสก์ที่ไม่สนตัวพิมพ์ของ Mac/Windows — feature review
+- TikTok โพสต์เก่าได้ "Your IP address is blocked" จากไทย แม้มี `curl_cffi`; ไม่ได้เพิ่ม dependency
+- review ที่ไม่ได้แก้: `site` เป็น string ที่มีค่าพิเศษ `Youtube`/`local` (frontend `YOUTUBE_SITE` ซ้ำกับ `links.YOUTUBE_KEY`); `links.py` ทั้งตรวจ host และสร้าง id; การ duplicate มีสองทาง (`409` และงาน `failed`) ตาม D51
+- ticket 10: แถว `site` `local` ยังแสดง "local" จนกว่าจะทำ "ไฟล์ในเครื่อง"
+
+**Checks:** `uv run pytest` — 760 passed; `npm --prefix frontend test` — 323 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### Feature review (ตัดช่วง) — done 2026-11-05
 

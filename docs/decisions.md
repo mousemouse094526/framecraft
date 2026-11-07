@@ -82,6 +82,7 @@ question; the full entry is in the feature's decisions.md.
 | ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของเว็บอื่นและไฟล์ในเครื่องแบบ D13 (Accepted risk) | [spoil](features/spoil/decisions.md) | D53 | — | — | active |
 | คลิปจากเว็บต้อง h264/aac ด้านสั้น ≤ 1080 (format selector + ตรวจหลัง merge) ไม่งั้น `unsupported_format` | [spoil](features/spoil/decisions.md) | D54 | — | [0027](adr/0027-temp-clip-one-format-owned-copy.md) | active |
 | red team: ปิด generic extractor, id คงตัวพิมพ์+hash, upload ค้าง 60 วิ, thread, yuv420p/rotation, `CLIP_ID` ทุกที่, model nullable | [spoil](features/spoil/decisions.md) | D55 | — | [0028](adr/0028-raw-file-upload-per-route.md), [0029](adr/0029-media-links-dedicated-extractors-only.md) | active |
+| ทางเลือกเล็กตอน build โหลดหลายเว็บ: "No suitable extractor" เป็น `unsupported`, คำ login ของเว็บอื่น, format ไม่บอก codec ให้ตัวตรวจไฟล์ตัดสิน, ขนาดภาพจากไฟล์, thumbnail `.image` | [spoil](features/spoil/decisions.md) | D56 | — | [0027](adr/0027-temp-clip-one-format-owned-copy.md) | active |
 | โหลดทีละคลิปเป็นงานเบื้องหลัง, poll % ทุก 1 วินาที, ยกเลิกได้, ไม่มีคิว | [spoil](features/spoil/decisions.md) | D6 | — | [0010](adr/0010-long-jobs-in-process-thread.md) | active |
 | หน้าต่างรายการ temp clip: thumbnail, ชื่อ, ช่อง, ความยาว, ขนาดภาพ/แนว, ขนาดไฟล์, เวลาโหลด, ลบ, เล่นในหน้าเว็บ | [spoil](features/spoil/decisions.md) | D7 | — | — | extended by D25 |
 | ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของ YouTube; หารายได้ขัด ADR-0007 ต้องเปลี่ยน TTS ก่อน feature เสียง | [spoil](features/spoil/decisions.md) | D13 | — | — | active |

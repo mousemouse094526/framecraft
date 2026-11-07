@@ -16,11 +16,14 @@ export type JobError = {
   message: string;
   yt_dlp_version: string;
   fix: string | null;
+  /** The clip already in the list, on `duplicate`: another site's link is known only after checking (D51). */
+  clip_id: string | null;
 };
 
 export type DownloadJob = {
   url: string;
-  id: string;
+  /** The Temp clip id: a YouTube link's at once, another site's once checked (D51). */
+  id: string | null;
   state: JobState;
   title: string | null;
   percent: number | null;
@@ -53,12 +56,16 @@ type Ready = Extract<SpoilState, { kind: "ready" }>;
 /** Applies `change` only while the tab is ready. */
 const whenReady = (change: (state: Ready) => SpoilState) => onlyWhen<SpoilState, "ready">("ready", change);
 
+const DUPLICATE_TEXT = "คลิปนี้โหลดไว้แล้ว";
+
 const LOST_JOB = notice("warning", "งานโหลดหายเพราะ backend เริ่มใหม่ ลองโหลดอีกครั้ง");
 
 /** What a finished job says (spec › Frontend, messages after a job). */
 function resultNotice(job: DownloadJob): Notice {
-  if (job.state === "done") return notice("success", `โหลดเสร็จ: ${job.title ?? job.id}`, job.clip_id);
+  if (job.state === "done") return notice("success", `โหลดเสร็จ: ${job.title ?? job.clip_id}`, job.clip_id);
   if (job.state === "cancelled") return notice("info", "ยกเลิกแล้ว");
+  // Another site's link found a clip already in the list: point at it like a 409 (D51).
+  if (job.error?.code === "duplicate") return notice("info", DUPLICATE_TEXT, job.error.clip_id);
   return { tone: "error", text: job.error?.message ?? "โหลดไม่สำเร็จ", fix: job.error?.fix ?? null, clipId: null };
 }
 
@@ -67,12 +74,12 @@ function refusalNotice(body: unknown): Notice | undefined {
   const refusal = refusalOf(body);
   switch (refusal?.code) {
     case "invalid_url":
-      return notice("error", "ลิงก์นี้ไม่ใช่ลิงก์คลิป YouTube");
+      return notice("error", "ลิงก์นี้ใช้ไม่ได้ วางลิงก์ http หรือ https ของคลิป");
     case "busy":
-      return notice("warning", "กำลังโหลดคลิปอื่นอยู่");
+      return notice("warning", "กำลังโหลดหรือเอาไฟล์อื่นเข้าอยู่");
     case "duplicate":
       // Points at the clip already in the list (D12).
-      return notice("info", "คลิปนี้โหลดไว้แล้ว", refusal.clip_id ?? null);
+      return notice("info", DUPLICATE_TEXT, refusal.clip_id ?? null);
   }
   return undefined;
 }

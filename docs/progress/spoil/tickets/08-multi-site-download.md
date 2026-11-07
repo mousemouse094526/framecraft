@@ -11,7 +11,7 @@
 - User stories: 14
 - Legal: 7
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

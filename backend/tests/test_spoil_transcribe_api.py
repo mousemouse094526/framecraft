@@ -18,6 +18,7 @@ from backend.spoil.whisper import Done, WorkerError
 from .fakes import (
     poll_until,
     FakeAdapter,
+    FakeMp4Check,
     FakeWorker,
     cuda_device,
     ok_deno,
@@ -89,6 +90,15 @@ TWO_SEGMENTS = [
 
 
 # --- A job from start to end ---
+
+
+def test_a_clip_of_another_site_is_transcribed_like_a_youtube_one(client, project, worker):
+    # Ids are no longer 11 characters only (spoil D51).
+    write_temp_clip(project, "facebook-123")
+
+    assert start(client, "facebook-123").status_code == 202
+    assert wait_for_end(client)["state"] == "done"
+    assert client.get("/api/spoil/clips/facebook-123/transcript").status_code == 200
 
 
 def test_a_job_runs_until_done_and_writes_every_segments_lines(client, project, worker):
@@ -312,7 +322,7 @@ def test_post_while_a_download_is_unfinished_is_accepted(client, project, worker
     monkeypatch.setattr(spoil, "free_bytes", lambda path: 10**12)
     monkeypatch.setattr(checks, "probe_yt_dlp", ok_yt_dlp)
     monkeypatch.setattr(checks, "probe_deno", ok_deno)
-    monkeypatch.setattr(downloads, "downloads", downloads.Downloads())
+    monkeypatch.setattr(downloads, "downloads", downloads.Downloads(check_mp4=FakeMp4Check()))
     write_temp_clip(project, "aaaaaaaaaaa")
     adapter.pause_at("progress")
     client.post("/api/spoil/downloads", json={"url": f"https://youtu.be/{VIDEO_ID}"})

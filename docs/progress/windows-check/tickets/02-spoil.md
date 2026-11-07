@@ -22,6 +22,9 @@
 - Ctrl+C ระหว่างโหลด → ไม่มี process ค้าง
 - restart `npm run dev` → รายการเดิมอยู่ครบ
 
+- คลิป public ของ Facebook และ TikTok (spoil ticket 08 ใช้ `https://www.facebook.com/nasalarc/videos/coming-for-landing-watch-a-rocket-sled-test-of-nasa-technology/518525165385328/` และ `https://www.tiktok.com/@nasa/video/7679483952507276558`) → `done`, mp4 h264 ≤ 1080 เล่นได้, thumbnail ของ TikTok ขึ้นในแถว; ลิงก์ซ้ำ → `duplicate` ชี้แถวเดิม (spoil D51, D56)
+- ลิงก์ `https://example.com/a` → `unsupported`; `.partial/` ว่างหลังคลิป Facebook ที่ได้ `unsupported_format`
+
 ### ลบ
 
 - เล่นคลิปใน player แล้วกดลบ → player ปลดก่อน `DELETE` แล้วลบได้ หรือได้ `in_use` และแถวยังอยู่

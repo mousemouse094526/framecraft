@@ -56,7 +56,9 @@ backend/
 │                    checks, the Story block of the LLM prompts and its tokens;
 │                    its own lock is the innermost (story-kb D16)
 ├── spoil/        ← a feature with several modules gets a package (spoil D14):
-│                    links, adapter (the only yt-dlp import), clips,
+│                    links (accepted links, clip ids), adapter (the only
+│                    yt-dlp import), mp4check (the h264/aac ≤ 1080 rule
+│                    every Temp clip's mp4 meets, ADR 0027), clips,
 │                    downloads (Download job),
 │                    transcribe (Transcribe job, Transcript files),
 │                    trim (Trim job: cut ranges out of a clip's mp4, D41),

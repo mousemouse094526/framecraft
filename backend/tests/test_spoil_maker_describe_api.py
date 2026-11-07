@@ -146,6 +146,16 @@ def test_a_job_finds_three_shots_describes_each_and_lists_the_clip_as_described(
     assert listed(client)["described"] is True
 
 
+def test_a_clip_of_another_site_is_described_like_a_youtube_one(client, project, llm, three_colours):
+    # Ids are no longer 11 characters only (spoil D51).
+    add_clip(project, three_colours, "facebook-123")
+
+    assert start(client, "facebook-123").status_code == 202
+    assert wait_for_end(client)["state"] == "done"
+    assert [shot["n"] for shot in shots_of(client, "facebook-123")] == [0, 1, 2]
+    assert client.get("/api/spoil-maker/clips/facebook-123/shots/0.jpg").status_code == 200
+
+
 def test_the_llm_gets_a_448_frame_the_pinned_snapshot_and_the_generation_settings(client, project, llm, three_colours):
     add_clip(project, three_colours)
     widths = []

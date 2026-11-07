@@ -282,6 +282,15 @@ def test_a_described_cut_and_drafted_clip_loses_all_of_it(client, project):
 # --- A Trim job from start to end ---
 
 
+def test_a_clip_of_another_site_is_trimmed_like_a_youtube_one(client, project, ffmpeg_run):
+    # Ids are no longer 11 characters only (spoil D51).
+    write_temp_clip(project, "facebook-123", duration_s=100)
+
+    assert start(client, clip_id="facebook-123").status_code == 202
+    assert wait_for_end(client)["state"] == "done"
+    assert stored(project, "facebook-123")["duration_s"] == 80
+
+
 def test_a_done_job_replaces_the_mp4_and_writes_the_new_json(client, project, ffmpeg_run):
     started = start(client)
     job = wait_for_end(client)

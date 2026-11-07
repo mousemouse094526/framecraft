@@ -201,9 +201,9 @@ Adapter (ตัวเดียวที่ import yt-dlp, test แทนด้�
 | เมื่อ | `code` |
 |---|---|
 | upcoming (ข้อ 3): ข้อความ error มี "This live event will begin" หรือ "Premieres in" | `live` |
-| ข้อความ error มี "Sign in to confirm" หรือ "not a bot" | `login_required` |
+| ข้อความ error มี "Sign in to confirm", "not a bot", "logged-in", "registered users" หรือ "login required" | `login_required` (D56) |
 | `GeoRestrictedError` หรือข้อความมี "Private video", "unavailable", "removed" | `unavailable` |
-| ข้อความ error มี "Unsupported URL" (รวมลิงก์ที่ต้องใช้ generic extractor) | `unsupported` (D52, D55) |
+| ข้อความ error มี "Unsupported URL" หรือ "No suitable extractor found" (ลิงก์ที่ต้องใช้ generic extractor) | `unsupported` (D52, D55, D56) |
 | ข้อความ error มี "Requested format is not available" หรือ selector ไม่ yield | `unsupported_format` (D54) |
 | อื่นๆ ทั้งหมด รวม error ของ ffmpeg | `download_error` (เดิม `youtube_error`, D52) |
 
@@ -213,7 +213,7 @@ params ของ yt-dlp (adapter เดียวใน `backend.spoil` สร้
 
 | Key | ค่า |
 |---|---|
-| `format` | format selector (callable) ที่เลือกภาพ `vcodec` ขึ้นต้น `avc1` หรือ `h264`, `pix_fmt` ไม่ระบุหรือ `yuv420p`, `min(width, height)` ≤ 1080 กับเสียง `acodec` ขึ้นต้น `mp4a`; หรือ format รวมที่ตรงทั้งคู่; ใหญ่สุดก่อน; ไม่มีที่ตรง → ไม่ yield อะไร → `unsupported_format` (D5, D54) |
+| `format` | format selector (callable) ที่เลือกภาพ `vcodec` ขึ้นต้น `avc1` หรือ `h264`, `pix_fmt` ไม่ระบุหรือ `yuv420p`, `min(width, height)` ≤ 1080 กับเสียง `acodec` ขึ้นต้น `mp4a`; หรือ format รวมที่ตรงทั้งคู่; ใหญ่สุดก่อน; ไม่มีที่ตรง → format ที่ `vcodec` และ `acodec` เป็น `null` ตัวท้ายสุดของ list (ตัวตรวจไฟล์ตัดสินหลังโหลด, D56); ไม่มีเลย → ไม่ yield อะไร → `unsupported_format` (D5, D54) |
 | `allowed_extractors` | `["default", "-generic"]` (D55) |
 | `socket_timeout` | `30` (D55) |
 | `merge_output_format` | `"mp4"` (D5) |
@@ -422,7 +422,7 @@ Trim job:
 | `GET` | `/clips` | `200` `{"clips": [Temp clip + `transcribed`, ...]}` |
 | `GET` | `/clips/{id}` | `200` Temp clip หนึ่งคลิปรูปเดียวกับแถวของ `/clips`; ไม่มี → `404` `not_found` (D46) |
 | `GET` | `/clips/{id}/video` | `200` หรือ `206` ไฟล์ `video/mp4` รองรับ Range; ไม่มี → `404` `not_found`; query string ไม่มีผล (`?v=` ของ D41) |
-| `GET` | `/clips/{id}/thumbnail` | `200` ไฟล์ thumbnail; ไม่มี → `404` `not_found` |
+| `GET` | `/clips/{id}/thumbnail` | `200` ไฟล์ thumbnail; นามสกุลที่ไม่บอกชนิด (TikTok `.image`) → `Content-Type` จาก byte แรก (D56); ไม่มี → `404` `not_found` |
 | `DELETE` | `/clips/{id}` | `204`; ไม่มี → `404` `not_found`; ไฟล์ถูกเปิดอยู่ → `409` `in_use` "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"; กำลังถอดคลิปนี้ → `409` `transcribing` "กำลังถอดคลิปนี้อยู่ ยกเลิกก่อนแล้วลบ"; กำลังตัดคลิปนี้ → `409` `trimming` "กำลังตัดคลิปนี้อยู่ รอให้จบหรือยกเลิกก่อน" |
 | `GET` | `/clips/{id}/transcript` | `200` เนื้อ `{id}.transcript.json`; ไม่มี → `404` `not_found` |
 | `GET` | `/clips/{id}/transcript.txt`, `/clips/{id}/transcript.srt` | `200` `text/plain; charset=utf-8` หรือ `application/x-subrip`, `Content-Disposition: attachment; filename="{id}.txt"` หรือ `.srt`; ไม่มี → `404` `not_found` |
@@ -502,6 +502,7 @@ error ของ Download job (`failed`):
 | `unsupported` | ตารางแยก error | "เว็บนี้โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด \"เลือกไฟล์ในเครื่อง\"" (D52) |
 | `playlist` | ขั้น 3 | "ลิงก์นี้เป็น playlist วางลิงก์ของคลิปเดียว" |
 | `duplicate` | ขั้น 3 | "คลิปนี้โหลดไว้แล้ว"; `clip_id` ใน `error` (D51) |
+| `unsupported_format` | selector ไม่ yield หรือไฟล์หลัง merge ไม่ผ่านตัวตรวจ (ขั้น 8) | "เว็บนี้ไม่มีไฟล์ H.264 ไม่เกิน 1080p ให้โหลด โหลดเองแล้วแปลง จากนั้นกด \"เลือกไฟล์ในเครื่อง\"" (D54) |
 | `download_error` | ตารางแยก error | "โหลดไม่สำเร็จ (yt-dlp {version}). ถ้าเป็นทุกคลิป ให้อัปเดต yt-dlp ด้วยคำสั่งด้านล่างแล้วรัน Setup script"; `fix` = `uv lock --upgrade-package yt-dlp`; ข้อความเต็มจาก yt-dlp อยู่ใน log ของ `[api]` (D8) |
 
 ### Frontend

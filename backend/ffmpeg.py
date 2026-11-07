@@ -51,16 +51,22 @@ def seconds_of(found: re.Match) -> float:
     return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
 
 
-def probe(path: Path) -> Media:
-    """The file's length and whether it has sound. `ffmpeg -i` with no output exits 1
-    by design, so only a missing `Duration:` is a failure."""
+def describe(path: Path) -> str:
+    """What `ffmpeg -i` prints about the file: its container, length and streams. With no
+    output it exits 1 by design, so the exit code says nothing; callers read the text."""
     result = subprocess.run([exe(), "-hide_banner", "-nostdin", "-i", str(path)], capture_output=True, text=True, errors="replace")
-    found = DURATION.search(result.stderr)
+    return result.stderr
+
+
+def probe(path: Path) -> Media:
+    """The file's length and whether it has sound; only a missing `Duration:` is a failure."""
+    stderr = describe(path)
+    found = DURATION.search(stderr)
     if found is None:
-        lines = result.stderr.strip().splitlines()
+        lines = stderr.strip().splitlines()
         last_line = lines[-1] if lines else "no output"
         raise FfmpegFailed(f"no length for {path.name}: {last_line}", last_line)
-    return Media(duration_s=seconds_of(found), has_audio=re.search(r"Stream #\S+.*: Audio:", result.stderr) is not None)
+    return Media(duration_s=seconds_of(found), has_audio=re.search(r"Stream #\S+.*: Audio:", stderr) is not None)
 
 
 def kill_on_cancel(process: subprocess.Popen, cancel: threading.Event, finished: threading.Event) -> None:

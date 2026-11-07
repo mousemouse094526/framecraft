@@ -11,6 +11,7 @@ from backend.checks import FfmpegInfo, Probes
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 from backend.spoil import clips
+from backend.spoil.mp4check import Mp4Info, NotPlayable
 from backend.spoil.whisper import Done, Segment
 
 
@@ -117,6 +118,7 @@ def youtube_info(video_id: str = "dQw4w9WgXcQ", **overrides) -> dict:
     """An info dict shaped like yt-dlp's for a 1080p video with separate audio."""
     return {
         "id": video_id,
+        "extractor_key": "Youtube",
         "title": "ชื่อคลิป",
         "channel": "ชื่อช่อง",
         "webpage_url": f"https://www.youtube.com/watch?v={video_id}",
@@ -126,6 +128,23 @@ def youtube_info(video_id: str = "dQw4w9WgXcQ", **overrides) -> dict:
             {"format_id": "137", "width": 1920, "height": 1080, "vcodec": "avc1", "filesize": 1000},
             {"format_id": "140", "vcodec": "none", "acodec": "mp4a", "filesize": 100},
         ],
+    } | overrides
+
+
+def site_info(extractor_key: str = "Facebook", video_id: str = "123", **overrides) -> dict:
+    """An info dict of another site's video, one combined h264/aac format picked."""
+    return {
+        "id": video_id,
+        "extractor_key": extractor_key,
+        "title": "คลิปจากเว็บอื่น",
+        "uploader": "เพจ",
+        "webpage_url": f"https://www.facebook.com/watch/?v={video_id}",
+        "duration": 30,
+        "width": 720,
+        "height": 1280,
+        "vcodec": "avc1.64001F",
+        "acodec": "mp4a.40.2",
+        "filesize": 1000,
     } | overrides
 
 
@@ -163,6 +182,7 @@ class FakeAdapter:
         self.fetch_error = fetch_error
         self.download_error = download_error
         self.download_calls = 0
+        self.clip_ids: list[str] = []
         self.fetched_urls: list[str] = []
         self._paused: dict[str, threading.Event] = {}
         self._reached: dict[str, threading.Event] = {}
@@ -184,9 +204,10 @@ class FakeAdapter:
             raise self.fetch_error
         return self.info
 
-    def download(self, info: dict, project: ProjectPaths, on_progress) -> Path:
+    def download(self, info: dict, project: ProjectPaths, clip_id: str, on_progress) -> Path:
         self.download_calls += 1
-        video_id = info["id"]
+        self.clip_ids.append(clip_id)
+        video_id = clip_id  # the files are named by `outtmpl`, which is the clip id
         project.partial_dir.mkdir(parents=True, exist_ok=True)
         (project.partial_dir / f"{video_id}.f137.mp4.part").write_bytes(b"x" * 400)
         (project.partial_dir / f"{video_id}.webp").write_bytes(b"thumb")
@@ -208,6 +229,22 @@ class FakeAdapter:
         if point in self._paused:
             self._reached[point].set()
             assert self._paused[point].wait(5), f"test never released {point}"
+
+
+class FakeMp4Check:
+    """Stands in for the Download job's `check_mp4` (ffmpeg on the merged file): a
+    playable 1920×1080 file, unless the test sets the size, or a `reason` to refuse it."""
+
+    def __init__(self):
+        self.width, self.height = 1920, 1080
+        self.reason: str | None = None
+        self.checked: list[Path] = []
+
+    def __call__(self, path: Path) -> Mp4Info:
+        self.checked.append(path)
+        if self.reason:
+            raise NotPlayable(self.reason)
+        return Mp4Info(duration_s=213.0, width=self.width, height=self.height)
 
 
 def write_temp_clip(

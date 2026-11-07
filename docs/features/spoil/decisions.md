@@ -841,3 +841,21 @@
 **Why:** The Breaker เจอทางหลบการกัน host, คลิปเว็บที่ไม่ตรง D49 (→ D54), id ชนกัน, upload ค้างจน `busy` ตลอด, event loop ค้าง, ไฟล์ที่ผ่านตัวตรวจแต่เล่นไม่ได้, และโค้ดเดิมที่ผูก id 11 ตัว.
 
 **From:** red team · **Status:** active
+
+## D56: ทางเลือกเล็กตอน build ticket 08 (โหลดหลายเว็บ)
+
+**Chosen:**
+- **ลิงก์ที่ไม่มีตัวโหลด:** เมื่อปิด generic extractor, yt-dlp ตอบ "No suitable extractor found for URL" (ไม่ใช่ "Unsupported URL") → จับทั้งสองข้อความเป็น `unsupported`
+- **login ของเว็บอื่น:** เพิ่มข้อความ "logged-in", "registered users", "login required" ใน `login_required` (Vimeo: "only works when logged-in"); ไม่ใช้คำ "login" เปล่าๆ เพราะข้อความ error มักมีลิงก์ซึ่งอาจมีคำนี้
+- **format ที่ไม่บอก codec:** ไม่มี format ที่รู้ว่าเป็น h264/aac ≤ 1080 → ลอง format ที่ `vcodec` และ `acodec` เป็น `null` ตัวที่ดีสุด แล้วให้ตัวตรวจไฟล์หลังโหลดตัดสิน (D54). Facebook ให้ `hd`/`sd` แบบนี้ และ DASH เป็น VP9; ไม่มีทางนี้ Facebook ไม่ผ่านเลย. format ที่รู้ว่าดียังมาก่อนเสมอ. ราคา: คลิปแบบนี้ที่จริงเป็น VP9 ได้ `unsupported_format` หลังโหลด ไม่ใช่ก่อน. ไฟล์ที่ได้ไม่ใช่ `{id}.mp4` (format ที่ไม่บอกนามสกุลไม่ถูก merge เป็น mp4) → `unsupported_format`; ตัวตรวจไฟล์ดู container ว่าเป็นตระกูล mp4 ด้วย ("ไฟล์ไม่ใช่ mp4")
+- **ขนาดภาพจากไฟล์:** `width`/`height`/`orientation` ของคลิปที่โหลดอ่านจากตัวตรวจไฟล์ (หมุนแล้ว) ไม่ใช่จาก info; `duration_s` ยังจาก info ถ้ามี
+- **ตัวตรวจไฟล์:** `backend.spoil.mp4check` (`check`, `read_streams`) อ่าน `ffmpeg.describe` ตัวเดียวกับ `probe`; เหตุผลของ yuv ที่ไม่ใช่ `yuv420p` เขียนว่า "ภาพเป็น h264 แบบ {pix_fmt}"; test ส่งตัวปลอมผ่าน `Downloads(check_mp4=…)` ตาม `rules/testing.md`
+- **host แบบ hex:** `0x7f000001` และส่วนที่เป็น `0x…` นับเป็นตัวเลขแบบ `127.1` → `invalid_url`
+- **thumbnail ที่นามสกุลไม่บอกชนิด:** TikTok ให้ `{id}.image` (เป็น JPEG) → route ของ thumbnail บอก media type จาก byte แรก (jpeg, png, webp)
+- **ข้อความ:** `invalid_url` และ `busy` ของ API ใช้คำเดียวกับตาราง Frontend; `DownloadJob.id` เป็น `null` จนรู้ id ของเว็บอื่น; `error.clip_id` มีทุก error (`null` นอกจาก `duplicate`) แบบเดียวกับ `fix`
+- **แถว:** แถวของเว็บอื่นแสดง "{ช่อง} · {ชื่อเว็บ} · {ความยาว}"; แถว YouTube ไม่แสดงชื่อเว็บ (เหมือนเดิม)
+
+**Why:** ข้อความและ format จริงจาก yt-dlp 2026.10.26 ที่เช็คกับ Vimeo, Facebook และ TikTok วันที่ 2026-11-07 (docs/library-notes/yt-dlp.md › Traps). ทุกข้อยังคงสิ่งที่ spec สัญญา: Temp clip เป็น h264/aac ≤ 1080 เสมอ.
+
+**From:** build ticket 08 · **Status:** active
+

@@ -51,7 +51,8 @@ def get_video(clip_id: str) -> FileResponse:
 
 @router.get("/clips/{clip_id}/thumbnail")
 def get_thumbnail(clip_id: str) -> FileResponse:
-    return FileResponse(clips.thumbnail_file(paths.project(), clip_id))
+    thumbnail = clips.thumbnail(paths.project(), clip_id)
+    return FileResponse(thumbnail.path, media_type=thumbnail.media_type)
 
 
 @router.delete("/clips/{clip_id}", status_code=204)
@@ -83,7 +84,7 @@ def get_transcript_srt(clip_id: str) -> Response:
 
 
 def _download(text: str, media_type: str, filename: str) -> Response:
-    # `filename` is a checked 11-character id plus a suffix, so it needs no quoting.
+    # `filename` is a checked clip id (`CLIP_ID`) plus a suffix, so it needs no quoting.
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return Response(text.encode("utf-8"), media_type=media_type, headers=headers)
 

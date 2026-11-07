@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CLIPS_PATH, type TempClip } from "../../../lib/clips";
+import { CLIPS_PATH, YOUTUBE_SITE, type TempClip } from "../../../lib/clips";
 import { DescribeControls, type DescribeProps } from "./DescribeControls";
 import { DraftWarning } from "./DraftWarning";
 import { formatDuration } from "../../../lib/format";
@@ -44,7 +44,7 @@ export function TempClipList(props: Props) {
       </h2>
       {clips.length === 0 ? (
         <p className="border-t border-border pt-10 pb-11 text-center text-sm leading-[1.5] text-muted-foreground">
-          ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน
+          ยังไม่มีคลิป วางลิงก์หรือเลือกไฟล์ด้านบน
         </p>
       ) : (
         <ul>
@@ -185,10 +185,11 @@ function DoneBadge({ children }: { children: string }) {
   );
 }
 
-/** "ช่อง · 1:35:42" (spec › Frontend). */
+/** "ช่อง · 1:35:42", or "ช่อง · Facebook · 0:30" for another site's clip (spec › Frontend, D52). */
 function sourceLine(clip: TempClip): string {
   const duration = clip.duration_s === null ? null : formatDuration(clip.duration_s);
-  return [clip.channel, duration].filter(Boolean).join(" · ");
+  const site = clip.site === YOUTUBE_SITE ? null : clip.site;
+  return [clip.channel, site, duration].filter(Boolean).join(" · ");
 }
 
 /** "1920×1080 นอน · 1.6 GB · 29 ต.ค. 18:52" (spec › Frontend). */

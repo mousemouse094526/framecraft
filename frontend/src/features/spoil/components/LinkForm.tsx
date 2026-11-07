@@ -20,14 +20,14 @@ export function LinkForm({ busy, onSubmit }: Props) {
     <form onSubmit={submit} className="flex items-end gap-3">
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <label htmlFor={inputId} className="font-button text-sm leading-5 font-medium text-foreground">
-          ลิงก์ YouTube
+          ลิงก์คลิป
         </label>
         <input
           id={inputId}
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://www.youtube.com/watch?v=…"
+          placeholder="วางลิงก์คลิป (YouTube, Facebook, TikTok …)"
           className="h-10 rounded-lg border border-border bg-card px-3 font-button text-sm leading-5 text-foreground placeholder:text-muted-foreground"
         />
       </div>
