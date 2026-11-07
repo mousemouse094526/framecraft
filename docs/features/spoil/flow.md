@@ -1,11 +1,12 @@
 # Flow: spoil
 
-5 diagrams, read in this order:
+6 diagrams, read in this order:
 1. ผู้ใช้วางลิงก์จนได้ Temp clip: หน้าเว็บ, API, Download job และ yt-dlp คุยกันยังไง
 2. state ของ Download job และสิ่งที่เกิดกับไฟล์ในแต่ละทาง
 3. ผู้ใช้เลือกคลิปแล้วกดถอดจนเห็น Transcript
 4. state ของ Transcribe job และสิ่งที่เกิดกับ Transcript ในแต่ละทาง
 5. state ของ Trim job และสิ่งที่เกิดกับ mp4 และข้อมูลจากคลิปในแต่ละทาง — ตัดก่อนถอด แล้ว diagram 3 อ่านไฟล์ที่ตัดแล้ว
+6. ผู้ใช้เลือกไฟล์ mp4 ในเครื่องจนได้ Temp clip (File import) — ทางที่สองของ diagram 1
 
 All diagrams use the same names as [spec.md](spec.md).
 
@@ -21,7 +22,7 @@ sequenceDiagram
 
     U->>W: วางลิงก์ กด "โหลด"
     W->>A: POST /api/spoil/downloads
-    A->>A: เช็ค not_ready, invalid_url, duplicate, busy
+    A->>A: เช็ค not_ready, invalid_url, duplicate (YouTube), busy
     alt ไม่ผ่านข้อใดข้อหนึ่ง
         A-->>W: 503 / 400 / 409 พร้อม code
         W-->>U: ข้อความตาม code
@@ -30,7 +31,7 @@ sequenceDiagram
         A-->>W: 202 Download job
         J->>Y: extract_info(download=False)
         Y-->>J: metadata
-        J->>J: เช็ค live และดิสก์
+        J->>J: เช็ค playlist, duplicate (เว็บอื่น), live และดิสก์
         J->>Y: โหลดและ merge เป็น mp4
         loop ทุก 1 วินาทีจนงานจบ
             W->>A: GET /api/spoil/downloads/current
@@ -164,3 +165,42 @@ Trim job จาก `POST /trims` จนจบ: ยกเลิกได้เฉ
 - `cancelled` และ `failed`: mp4 และข้อมูลเดิมไม่ถูกแตะ; ไฟล์ใน `.partial/` ถูกลบ (D41)
 - ระหว่างงานยังไม่จบ ถอด แก้บรรทัด และลบคลิปนั้นได้ `409` `trimming`; งาน spoil-maker ของคลิปนั้นได้ `409` `clip_busy` (D41)
 - restart backend ระหว่าง `replacing` → marker `{id}.trimming.json` ทำให้ start ครั้งหน้าทำต่อหรือย้อนจนครบ (D41)
+
+## 6. เลือกไฟล์ในเครื่องจนได้ Temp clip
+
+```mermaid
+sequenceDiagram
+    actor U as ผู้ใช้
+    participant W as tab คลิป
+    participant A as Spoil API
+    participant F as ffmpeg
+
+    U->>W: เลือกหรือลากไฟล์ .mp4
+    W->>A: POST /api/spoil/imports/check {name, size}
+    A->>A: เช็ค not_ready, not_mp4, duplicate, busy, disk_full
+    alt ไม่ผ่าน
+        A-->>W: 400 / 409 / 503 พร้อม code
+        W-->>U: ข้อความตาม code, ไม่ส่งไฟล์
+    else ผ่าน
+        A-->>W: 200 {clip_id}
+        W->>A: POST /api/spoil/imports (body ไฟล์ดิบ)
+        A->>A: เช็คข้อเดิมซ้ำ แล้วเขียน .partial/ ทีละก้อน
+        W-->>U: % จาก upload progress
+        opt ผู้ใช้กดยกเลิก
+            W->>A: abort การเชื่อมต่อ
+            A->>A: ลบไฟล์ใน .partial/
+        end
+        A->>F: ffmpeg -i (อ่าน codec, ขนาดภาพ, ความยาว)
+        F-->>A: stderr
+        alt ไม่ใช่ h264/aac ≤ 1080
+            A->>A: ลบไฟล์ใน .partial/
+            A-->>W: 400 unsupported_file บอกข้อที่ไม่ตรง
+            W-->>U: ให้แปลงไฟล์เอง
+        else ตรง
+            A->>F: ดึงเฟรมที่ 10% เป็น thumbnail
+            A->>A: ย้าย mp4 เข้า media/temp/ แล้วเขียน {id}.json สุดท้าย
+            A-->>W: 201 Temp clip
+            W-->>U: แถวใหม่ "ไฟล์ในเครื่อง" ถูก highlight
+        end
+    end
+```

@@ -4,56 +4,49 @@
 
 | # | Screen | User stories | Decisions | Now |
 |---|---|---|---|---|
-| 1 | ส่วนตัดช่วง | 12, 13 | D36, D37, D38, D40, D41, D42 | new |
+| 1 | tab คลิป — ช่องลิงก์และการเลือกไฟล์ | 2, 3, 6, 7, 14, 15 | D47, D49, D50, D51, D52, D54, D55 | [redesign](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) |
 
 ```text
-Design one addition to framecraft, a local desktop web app that downloads YouTube videos and turns them into narrated vertical Thai recap videos for one creator: a trim section in the คลิป tab where the user marks time ranges (intro ads, opening and ending songs, next-episode previews) on the selected clip's timeline and cuts them out of the video file for good. Steps, in order: 1 Components, 2 Screens, 3 Preview.
+Design one change to framecraft, a local desktop web app where one Thai creator brings source videos in and turns them into narrated recap clips: the link area at the top of the คลิป tab now takes a video link from YouTube or any other site the app can download, and also lets the user pick or drag in an mp4 file from their computer. Steps, in order: 1 Components, 2 Screens, 3 Preview.
 
 Context
 - Platform: web app; breakpoints: mobile 375, desktop 1440.
-- Design system: the one already in the Figma file (React + Tailwind CSS in code); tokens: the file's variables on page ":: Token" (surface, border, text mid/subtle, accent, destructive); components there: Button, Field, Alert, Badge; icons: Lucide (scissors, plus, x, clock).
-- Figma file: https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft; the คลิป tab is frame "3 tab / คลิป" in section "framecraft — 3 tab" (https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633); components "Transcript panel" (all states), "Player", "Clip row" (property "Show transcribed"), "Download progress" are in section "framecraft — สปอย" (https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281).
-- Existing screens this connects to: "3 tab / คลิป" (clip selected, not transcribed) and "3 tab / คลิป" transcribed. Match their look.
+- Design system: the one already in the Figma file (React + Tailwind CSS in code); tokens: the file's variables on page ":: Token" (surface, border, text mid/subtle, accent, destructive); components there: Button, Field, Alert, Badge; icons: Lucide (link, upload, file-video, x).
+- Figma file: https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft. Current link area: section "framecraft — สปอย" (https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8013-281) frames 1–13 and component "Download progress"; the คลิป tab in "framecraft — 3 tab" (https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8071-18633). Component "Clip row".
+- What changes: the link field is no longer YouTube-only; a file picker and a drop area are added beside or under it; "Download progress" gains file-sending states; "Clip row" shows the site name or "ไฟล์ในเครื่อง". Everything else in the tab stays as it is.
 - Language on screen: Thai. Use the copy below exactly.
-- Accessibility: WCAG 2.2 AA contrast, visible focus, a label on every input and icon button, touch targets ≥ 44px; timeline handles are sliders reachable by keyboard.
+- Accessibility: WCAG 2.2 AA contrast, visible focus, a label on every input and icon button, touch targets ≥ 44px; the drop area is also a keyboard-reachable button.
 
 Step 1 — Components
-- Reuse: "Download progress" as is (with and without a number); "Alert" success, info, warning, error; "Button" primary, secondary, ghost, disabled; "Field" with error state.
-- Change: "Clip row" — new boolean property "Show trimmed": a Badge "ตัดแล้ว" placed before "ถอดแล้ว".
-- Change: "Transcript panel" — under the clip title and length a secondary button "ตัดช่วง" (scissors icon); new state "trim open" that holds the "Trim section" instance between the title block and the "ถอดบทพูด" button; in that state "ถอดบทพูด" is disabled with the helper text "กดตัดคลิปหรือยกเลิกก่อน".
-- New: "Trim timeline" — a full-width bar the length of the clip; marked ranges are filled blocks (accent at reduced opacity) with a handle at each end; a thin playhead marker; variants: empty, one range, several ranges, handle focused, handle dragging; properties: number of ranges, playhead position.
-- New: "Trim range row" — "{n}." then two time Fields "เริ่ม" and "จบ" (format h:mm:ss.s, e.g. "0:01:30.0"), ghost buttons "เริ่ม = ตอนนี้" and "จบ = ตอนนี้", icon button x (aria-label "ลบช่วง {n}"); variants: default, field error.
-- New: "Trim section" — heading "ตัดช่วง", "Trim timeline", the list of "Trim range row", button "+ เพิ่มช่วง", summary line "ตัดออก {x} · เหลือ {y}" (e.g. "ตัดออก 4:22 · เหลือ 1:53:40"), primary button "ตัดคลิป", secondary button "ยกเลิก"; variants: editing, editing with error (ตัดคลิป disabled), trimming, replacing.
-- Auto layout everywhere; colour, type, spacing and radius bound to the tokens; each state is a variant.
+- Field (existing): link input, placeholder "วางลิงก์คลิป (YouTube, Facebook, TikTok …)".
+- New "File drop": variants default, drag-over (accent border and fill), disabled. Content: icon upload, button "เลือกไฟล์ในเครื่อง", hint "หรือลากไฟล์ mp4 มาวาง · รับ mp4 (H.264, AAC) ไม่เกิน 1080p".
+- Download progress (existing): add variants importing ("กำลังเอาไฟล์เข้า {ชื่อไฟล์}", progress bar with %, button "ยกเลิก") and checking-file ("กำลังตรวจไฟล์…", indeterminate bar, no cancel button).
+- Clip row (existing): add property "Source" = site | local; site shows "{ชื่อช่อง} · {ชื่อเว็บ}", local shows "ไฟล์ในเครื่อง" in place of the channel.
 
-Step 2 — Screens
-Frame names: "คลิป — ตัดช่วง / {state} / {breakpoint}"; realistic sample data in Thai (a 1:58:02 film); instances only.
-
-Screen 1 — ส่วนตัดช่วง (new), inside the right-hand box of the คลิป tab, under the player
-- Goal: the creator wants to remove ads and opening or ending songs before transcribing. Comes from "3 tab / คลิป" via the "ตัดช่วง" button; returns to the same box when done or cancelled.
-- Content:
-  - Timeline: click an empty spot moves the playhead there; drag a handle to change a range end; handles never cross each other or a neighbouring range.
-  - Range rows: time Fields "เริ่ม" and "จบ" required, format h:mm:ss.s; a bad value shows the field error "เวลาไม่ถูกต้อง".
-  - Button "+ เพิ่มช่วง": adds a 30-second range at the playhead; disabled at 20 ranges or when no free space.
-  - Summary "ตัดออก {x} · เหลือ {y}".
-  - Button "ตัดคลิป": disabled when there is no range, a field is in error, or less than 10 seconds would remain.
-  - Button "ยกเลิก": closes the section and clears the ranges.
-- States: 1 Closed: the box with the "ตัดช่วง" button. 2 Empty: section open, no range yet, "ตัดคลิป" disabled. 3 Editing: two ranges 0:00:00.0–0:01:30.0 and 1:55:10.0–1:58:02.0, summary "ตัดออก 4:22 · เหลือ 1:53:40". 4 Field error: one field "1:99" with "เวลาไม่ถูกต้อง", "ตัดคลิป" disabled. 5 Confirm: browser confirm dialog shown over state 3 with "ตัดคลิปจะลบ Transcript (รวมบรรทัดที่แก้ไว้), ภาพฉากและการตัด EP, Spoil draft ของคลิปนี้ ตัดต่อไหม?" (draw it as a plain system-style dialog). 6 Trimming: the player is empty, "กำลังตัดคลิป" with "Download progress" at 37% and "37%" on the right, button "ยกเลิก". 7 Cancelling: "กำลังยกเลิก…", the cancel button disabled. 8 Replacing: "กำลังแทนไฟล์…" with "Download progress" without a number, no cancel button. 9 Done: Alert success "ตัดคลิปเสร็จ: เหลือ 1:53:40", the section closed, the player loaded again, the clip row shows "ตัดแล้ว". 10 Cancelled: Alert info "ยกเลิกแล้ว", the ranges still there. 11 Failed: Alert error "แทนไฟล์ไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง", the ranges still there. 12 Lost: Alert warning "งานตัดหายเพราะ backend เริ่มใหม่ ลองตัดอีกครั้ง". 13 Another clip trimming: "ตัดช่วง" disabled with "กำลังตัด {ชื่อคลิปนั้น}".
-- Mobile 375: the คลิป tab is stacked (list, arrow down, box); the trim section uses the full box width, range rows wrap the two fields onto one line and the three buttons onto the next, handles keep a 44px touch area. Draw states 3, 6 and 9 at 375.
+Step 2 — Screens (desktop 1440 and mobile 375 for each state; the clip list and transcript panel stay as they are below)
+1. Idle: link field with "โหลด" button, then File drop; list below. Empty list text "ยังไม่มีคลิป วางลิงก์หรือเลือกไฟล์ด้านบน".
+2. Drag-over: File drop in drag-over state.
+3. Importing at 42%: Download progress importing; link field, "โหลด" and File drop disabled.
+4. Checking file: Download progress checking-file.
+5. Import done: Alert success "เอาไฟล์เข้าเสร็จ: {title}"; new row on top with Source local, highlighted.
+6. File errors, one frame each as Alert error under the link area:
+   - "รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน"
+   - "ภาพเป็น hevc แปลงเป็น mp4 (H.264, AAC) ไม่เกิน 1080p ด้วยโปรแกรมอื่นแล้วลองอีกครั้ง"
+   - "เอาไฟล์เข้าไม่สำเร็จ ลองอีกครั้ง"
+   - "เอาเข้าได้ทีละไฟล์" (warning)
+7. File duplicate: Alert "ไฟล์นี้เอาเข้าไว้แล้ว" and the existing row highlighted.
+8. Link errors that point to the file picker, Alert error with the "เลือกไฟล์ในเครื่อง" button of File drop visually emphasised:
+   - "เว็บนี้โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด \"เลือกไฟล์ในเครื่อง\""
+   - "เว็บนี้ขอให้ login หรือยืนยันว่าไม่ใช่ bot โหลดอัตโนมัติไม่ได้ โหลดคลิปเองแล้วกด \"เลือกไฟล์ในเครื่อง\""
+   - "เว็บนี้ไม่มีไฟล์ H.264 ไม่เกิน 1080p ให้โหลด โหลดเองแล้วแปลง จากนั้นกด \"เลือกไฟล์ในเครื่อง\""
+9. Other link errors: "ลิงก์นี้ใช้ไม่ได้ วางลิงก์ http หรือ https ของคลิป", "ลิงก์นี้เป็น playlist วางลิงก์ของคลิปเดียว", "กำลังโหลดหรือเอาไฟล์อื่นเข้าอยู่".
+10. List with mixed sources: one YouTube row, one row "ชื่อช่อง · Facebook", one row "ไฟล์ในเครื่อง".
 
 Step 3 — Preview
-- On the existing preview page of the file, add the default frame of Screen 1 after "3 tab / คลิป", with its state frames under it, at both breakpoints.
-- Prototype links: "3 tab / คลิป" "ตัดช่วง" → state 2; state 2 "+ เพิ่มช่วง" → state 3; state 3 "ตัดคลิป" → state 5; state 5 OK → state 6; state 6 → state 8 → state 9; state 6 "ยกเลิก" → state 7 → state 10; state 3 "ยกเลิก" → "3 tab / คลิป"; state 9 → "3 tab / คลิป" with the "ตัดแล้ว" row.
-- Every action named in step 2 leads to a frame. The system's existing start frame stays the start.
+- Add these frames to the existing preview page and wire them: Idle → Drag-over → Importing → Checking file → Import done; Idle → each error frame and back on dismiss; link "โหลด" keeps its existing downloading frames.
 
 Do not include
-- Keeping the original video or undoing a cut.
-- Playing the video while skipping the marked ranges before cutting.
-- Automatic detection of ads or songs.
-- Hiding single Transcript lines.
-- Any other video editing (reordering, inserting, effects), or any field, step, screen or feature not listed above.
+- File conversion, multiple-file queues, cookies or login for sites, a list of supported sites, a copyright warning.
 
-Deliver: the components made or changed, the screen frames, and the preview's start link.
+Bring the Figma link back with /warroom spoil.
 ```
-
-นำลิงก์กลับมาด้วย `/warroom spoil`.
