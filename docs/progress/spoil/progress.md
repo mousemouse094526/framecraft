@@ -1,8 +1,8 @@
 # Progress: spoil
 
-**Now:** ทุก ticket done — 10 ปุ่มเลือกไฟล์และลากไฟล์มาวาง done (2026-11-07); รอ feature review ของโหลดหลายเว็บและเอาไฟล์เข้า (08–10); ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
+**Now:** ready to merge — feature review ของโหลดหลายเว็บและเอาไฟล์เข้า (08–10) done 2026-11-07 (`198d118`); ก่อนหน้า: merged — PR #7 (`899e9a1`) ตัดช่วง ticket 06–07; 01–05 merged (PR #2, `49ee6de`); เช็คบน Windows อยู่ที่ `windows-check` 02 (setup-status D25)
 
-**Next:** `/warroom-build spoil --review-feature`
+**Next:** `/pr-open`
 
 ## Tickets
 
@@ -20,6 +20,24 @@
 | 10 | ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป | done |
 
 ## Log
+
+### Feature review (โหลดหลายเว็บและเอาไฟล์เข้า) — done 2026-11-07
+
+**Built:**
+- review สามแกนบน ticket 08–10 (`d21804f..918c648`) แก้ทุกกลุ่มที่ผู้ใช้เลือกใน `198d118`
+- bug: id ของเว็บอื่นที่ต่างกันแค่ตัวพิมพ์ (`BVabc`/`bvabc`) เป็นไฟล์เดียวกันบนดิสก์ Mac/Windows → คลิปที่สองได้ `duplicate` ที่ชี้แถวที่ไม่มี; ตอนนี้ id เป็นตัวเล็กและต่อ hash เมื่อ id เดิมมีตัวใหญ่ (test แดงก่อนแก้)
+- bug: ตอน start ไฟล์ของผู้ใช้ใน `media/temp/` ที่ชื่อมี `-` และไม่มี json (`my-video.mp4`) ถูกลบ; ตอนนี้ลบเฉพาะ `{site}-…` ของเว็บที่ yt-dlp มีตัวโหลด (`links.is_app_made`, test แดงก่อนแก้)
+- ชื่อและโค้ดซ้ำ: `ffmpeg.input_info`, `NOT_MP4_CONTAINER`/`ONLY_MP4`, `clip_id` แทน `video_id` ใน `paths.py` และ `spoil_maker`, `Mp4Info.orientation`, `imports._duplicate`, `frontend/src/testing/fakeXhr.ts` (กฎ test และ SKILL.md ตาม)
+- spec ตามโค้ด: `emphasis` สามรหัส, `FileDropArea` ครอบ `LinkForm`, id ตัวเล็ก, กฎการล้างตอน start
+
+**Decided:**
+- D59 — id เว็บอื่นตัวเล็ก + hash, การล้างตอน start เฉพาะเว็บที่ yt-dlp รู้จัก, ชื่อในโค้ด (แทนสองข้อของ D55)
+
+**For the next ticket:**
+- ไม่ได้แก้ (ผู้ใช้เลือกแก้สี่กลุ่ม ข้อเล็กเหล่านี้ไม่ใช่สิ่งที่ spec สัญญา): ออกจาก tab ระหว่าง "กำลังตรวจไฟล์…" คลิปยังเข้าเงียบๆ (ตรง spec, ยกเลิกซ่อนในขั้นนั้น); ไฟล์ผู้ใช้ที่ชื่อยาว 11 ตัวแบบ YouTube id ยังถูกลบตอน start (กฎ D14 เดิม); id YouTube ที่ต่างแค่ตัวพิมพ์ยังชนกันบนดิสก์ (มีก่อน feature นี้); `site` เป็น string ที่มีค่าพิเศษทั้ง backend และ frontend; `name, size` เดินคู่; `Downloads` ถือ flag ของ File import; `refusalNotice` ของสอง hook คล้ายกัน; กฎ "ข้อความเดียวเหนือรายการ" อยู่ใน `ClipsPage`; test `stalled` ใช้เวลาจริง 0.2 วินาที; test `unsupported_format` ผ่าน adapter ปลอมไม่ผ่าน selector; `data-emphasis` มีไว้ให้ test; การเช็คซ้ำหลังได้ flag ไม่มี test
+- คลิปเว็บอื่นที่โหลดไว้ก่อน `198d118` และ id มีตัวใหญ่: โหลดลิงก์เดิมอีกครั้งได้คลิปใหม่หนึ่งครั้ง (D59)
+
+**Checks:** `uv run pytest` — 818 passed; `npm --prefix frontend test` — 353 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
 
 ### 10: ปุ่มเลือกไฟล์และลากไฟล์มาวางใน tab คลิป — done 2026-11-07
 
