@@ -35,9 +35,7 @@
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
-| ติดตั้ง (Status check) | 1, 5, 6 | แถว `device` ที่ไม่ `ok` บอกชื่อการ์ดกับ capability และ `hint` ว่าการ์ดเก่าเกินสำหรับ torch ที่ติดตั้ง (D8); บน Windows แถว `gpu` ชื่อ "GPU" ค่าเป็นชื่อการ์ด VRAM และ capability (D8); `gpu` เป็น `warning` พร้อม `hint` "Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB" (D9, D10); แถว `model_qwen` และ `bitsandbytes` เป็น `warning` ข้อความเดียวกันเมื่อ `gpu` ไม่ `ok` (D9); probe พัง → `gpu` `warning` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA" (D12); บน Windows แถว `bitsandbytes` แทน `mlx_vlm` (D6); แถว "Qwen3.5 9B model" แสดง revision ของ repo ของ OS (D6); Mac ไม่มีแถว `gpu` และ `bitsandbytes` (D6, D8) | pending |
-
-Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
+| ติดตั้ง (Status check) | 1, 5, 6 | แถว `device` ที่ไม่ `ok` บอกชื่อการ์ดกับ capability และ `hint` ว่าการ์ดเก่าเกินสำหรับ torch ที่ติดตั้ง (D8); บน Windows แถว `gpu` ชื่อ "GPU" ค่าเป็นชื่อการ์ด VRAM และ capability (D8); `gpu` เป็น `warning` พร้อม `hint` "Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB" (D9, D10); แถว `model_qwen` และ `bitsandbytes` เป็น `warning` ข้อความเดียวกันเมื่อ `gpu` ไม่ `ok` (D9); probe พัง → `gpu` `warning` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA" (D12); บน Windows แถว `bitsandbytes` แทน `mlx_vlm` (D6); แถว "Qwen3.5 9B model" แสดง revision ของ repo ของ OS (D6); Mac ไม่มีแถว `gpu` และ `bitsandbytes` (D6, D8) | [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588) |
 
 ## Expected Outcome
 
@@ -73,7 +71,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 - **`backend.checks`**
   - แถว `device` เช็ครุ่นการ์ด ดู ### Status check (D8).
   - แถว `gpu` หลังแถว `device` บน Windows เท่านั้น (D8).
-  - บน Windows แถว `bitsandbytes` แทนแถว `mlx_vlm` ในตำแหน่งเดียวกัน ใช้ `check_package("bitsandbytes")` (D6, D12).
+  - บน Windows แถว `bitsandbytes` แทนแถว `mlx_vlm` ในตำแหน่งเดียวกัน อ่านเวอร์ชันผ่าน probe `bitsandbytes` (D6, D12, D14).
   - แถว `model_qwen` เช็ค spec ของ OS นั้น (D6).
   - เลิกใช้ `MAC_ONLY_FIX` และ `UNSUPPORTED_HERE` กับแถว Qwen.
   - `Probes` เพิ่ม `gpu` ที่คืน `GpuInfo` ให้ test สลับได้ (setup-status D18).
@@ -120,7 +118,7 @@ probe `gpu` คืน `GpuInfo` หรือ raise; บน Mac ไม่ถู�
    - `load_in_4bit=True`
    - `bnb_4bit_quant_type="nf4"`
    - `bnb_4bit_compute_dtype=torch.bfloat16`
-   - `llm_int8_skip_modules=["visual", "lm_head"]`
+   - `llm_int8_skip_modules=["model.visual", "lm_head"]` (D16: `"visual"` อย่างเดียวไม่จับ `model.visual.*`)
 4. log ชื่อ module ที่ไม่ได้ย่อ และ VRAM ที่ใช้หลังโหลด (trial อ่านค่านี้).
 5. ส่ง `Ready`.
 6. ต่อ `Generate`: สร้างข้อความ chat ด้วย `processor.apply_chat_template(..., enable_thinking=False)` (spoil-maker D51) พร้อมภาพเมื่อมี แล้ว `generate` ด้วย `max_new_tokens` และ `temperature` ของคำขอ; `temperature` 0 = `do_sample=False`.
@@ -131,7 +129,7 @@ probe `gpu` คืน `GpuInfo` หรือ raise; บน Mac ไม่ถู�
 
 | Row | OS | `ok` เมื่อ | ไม่ `ok` |
 |---|---|---|---|
-| `device` | Windows | `cuda` และ `sm_{major}{minor}` อยู่ใน `arch_list` | `missing` `hint` "การ์ด {name} (sm_{xy}) เก่าเกินสำหรับ torch ที่ติดตั้ง" (D8) |
+| `device` | Windows | `cuda` และ `arch_list` มี `sm_` major เดียวกับการ์ด (D13) | `missing` `hint` "การ์ด {name} (sm_{xy}) เก่าเกินสำหรับ torch ที่ติดตั้ง" (D8) |
 | `device` | Mac | เหมือนเดิม (`mps`) | เหมือนเดิม |
 | `gpu` | Windows | capability ≥ (8, 0) และ `memory_bytes` ≥ 7.5 GiB | `warning` `hint` เป้าของ Qwen (D9, D10); probe raise → `warning` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA" (D12) |
 | `bitsandbytes` | Windows | `gpu` `ok` และติดตั้งแล้ว | `gpu` ไม่ `ok` → `warning` ข้อความของ `gpu`; ไม่ได้ติดตั้ง → `missing` คำสั่ง setup |
@@ -193,7 +191,7 @@ probe `gpu` คืน `GpuInfo` หรือ raise; บน Mac ไม่ถู�
    - ไม่มี marker ของ `Qwen/Qwen3.5-9B` → `GET .../episodes` ตอบ `503` `not_ready` ที่ `rows` มี `model_qwen`; มี marker → ตัวนับปลอมได้ snapshot ของ `Qwen/Qwen3.5-9B`.
 3. **timeout ต่อ OS** Describe job และ Draft job กับตาราง timeout ที่สลับเป็นค่าเล็ก (Mac 0.2 วินาที, Windows 1 วินาที) และ worker ปลอมที่ตอบใน 0.5 วินาที
    - ทั้งสี่ขั้น (บรรยาย, เขียน, เรียบเรียง, เลือก Shot) บน `win32` → `done`.
-   - ทั้งสี่ขั้นบน `darwin` → `model_failed` ข้อความบอกวินาทีจากตาราง.
+   - บรรยายและเลือก Shot บน `darwin` → `model_failed` ข้อความบอกวินาทีจากตาราง; เขียนบทและเรียบเรียง → การลองที่ไม่สำเร็จหนึ่งครั้งตามเดิม (D16).
 4. **หน้าติดตั้ง** `SetupStatusPage` กับ fetch ปลอม
    - status มีแถว `gpu` `warning` พร้อม `hint` → เห็นชื่อ "GPU", ค่า, และข้อความ hint ไม่มีปุ่ม copy.
 

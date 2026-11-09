@@ -10,7 +10,7 @@
 - Seams: 2 (งานเริ่มกับ snapshot ของ Windows), 3
 - User stories: 2, 3, 4
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 
@@ -23,7 +23,7 @@
 ### Worker ของ Windows
 
 - snapshot ไม่ใช่ folder → `FileNotFoundError` ก่อนเรียก transformers จึงไม่มีการโหลดจาก network
-- โหลดตาม spec › Windows worker: `local_files_only`, `cuda:0`, nf4, compute bfloat16, `llm_int8_skip_modules` `["visual", "lm_head"]`
+- โหลดตาม spec › Windows worker: `local_files_only`, `cuda:0`, nf4, compute bfloat16, `llm_int8_skip_modules` `["model.visual", "lm_head"]` (D16)
 - หลังโหลด → log ชื่อ module ที่ไม่ได้ย่อ และ VRAM ที่ใช้ แล้วส่ง `Ready`
 - `Generate` → chat template ด้วย `enable_thinking=False` พร้อมภาพเมื่อมี; `temperature` 0 → ไม่ sample; ส่ง `Generated` เป็นข้อความเฉพาะ token ใหม่ ไม่มี prompt และ special token
 - exception ใดๆ → `WorkerError("model_failed", …)` แล้วออก
@@ -32,5 +32,5 @@
 
 - ตาราง `Timeouts(describe, write, polish, pick)` อยู่ที่เดียว: Mac 60, 600, 300, 60 วินาที; Windows 300, 3000, 1500, 300 วินาที; อ่านตอนเริ่มงาน
 - ตารางสลับเป็น Mac 0.2 วินาที Windows 1 วินาที กับ worker ปลอมที่ตอบใน 0.5 วินาที → ทั้งสี่ขั้น (บรรยาย, เขียน, เรียบเรียง, เลือก Shot) บน `win32` จบ `done`
-- ตารางเดียวกันบน `darwin` → ทั้งสี่ขั้นจบ `model_failed` ข้อความบอกวินาทีจากตาราง
+- ตารางเดียวกันบน `darwin` → บรรยายและเลือก Shot จบ `model_failed` ข้อความบอกวินาทีจากตาราง; เขียนบทและเรียบเรียงเป็นการลองที่ไม่สำเร็จหนึ่งครั้งตามเดิม (D16)
 - test timeout เดิมสลับตารางแทนการ patch ค่าคงที่

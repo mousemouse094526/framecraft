@@ -20,16 +20,20 @@ from backend.checks import (
     StatusResponse,
     check_model,
     now_iso,
+    qwen_gpu_problem,
+    real_probes,
     run_checks,
 )
-from backend.models import MODELS, ModelSpec
+from backend.models import MODELS, ModelSpec, qwen_for
 from backend.paths import ROOT, ProjectPaths
 
 IS_WINDOWS = sys.platform == "win32"
 BACKEND_ADDRESS = ("127.0.0.1", 8000)
-# The models are about 11 GB with Qwen (Mac only) and 5 GB without; the rest is
-# headroom for partial downloads.
-REQUIRED_FREE_BYTES = {"darwin": 20_000_000_000, "win32": 15_000_000_000}
+# The models are about 11 GB on a Mac and 24 GB on Windows, whose Qwen is bf16 (19 GB);
+# the rest is headroom for partial downloads (windows-launch D12). A Windows card under
+# Qwen's target skips it, and needs only the 5 GB of the others (windows-launch D14).
+REQUIRED_FREE_BYTES = {"darwin": 20_000_000_000, "win32": 30_000_000_000}
+REQUIRED_FREE_BYTES_WITHOUT_QWEN = 15_000_000_000
 STATUS_ICONS = {"ok": "✓", "warning": "!", "missing": "✗"}
 
 Download = Callable[..., str]
@@ -52,6 +56,7 @@ def run_setup(
     fetch = fetch or fonts.fetch_https
     backend_running = backend_running or _backend_running
     free_bytes = free_bytes or disk.free_bytes
+    probes = probes or real_probes()
     project = ProjectPaths(root)
 
     # A running backend holds torch's files open, so Windows can't update them.
@@ -64,15 +69,22 @@ def run_setup(
         return 1
     step = "เช็คโมเดล"
     try:
-        # An MLX model doesn't run on Windows, so it isn't downloaded there (spoil-maker D50).
+        # Each OS downloads only its own models: the MLX one doesn't run on Windows (spoil-maker D50).
         to_download = [
             m for m in MODELS if sys_platform in m.platforms and check_model(project, m)[0] != "ok"
         ]
+        skip = _qwen_skip_reason(probes, sys_platform)
+        if skip:
+            qwen = qwen_for(sys_platform)
+            to_download = [m for m in to_download if m != qwen]
+            print(f"ข้าม {qwen.label}: {skip}")
         if to_download:
             step = "เช็คที่ว่างบนดิสก์"
             free = free_bytes(root)
             # Another OS (Linux, for tests) is held to the larger, Mac figure.
             required = REQUIRED_FREE_BYTES.get(sys_platform, REQUIRED_FREE_BYTES["darwin"])
+            if skip:
+                required = REQUIRED_FREE_BYTES_WITHOUT_QWEN
             if free < required:
                 print(f"ที่ว่างบนดิสก์ไม่พอ: มี {free / 1e9:.1f} GB ต้องการ {required // 1_000_000_000} GB")
                 return 1
@@ -108,6 +120,16 @@ def run_setup(
         return 1
     print("ขั้นต่อไป: รัน npm run dev แล้วเปิด http://localhost:5173")
     return 0
+
+
+def _qwen_skip_reason(probes: Probes, sys_platform: str) -> str | None:
+    """Why Qwen isn't downloaded here: on Windows, the gpu row's fix when the card misses
+    Qwen's target or nvidia-smi can't read it, so 19 GB it may not run never come down
+    (windows-launch D9). The rows warn, and setup still exits 0."""
+    if sys_platform != "win32":
+        return None
+    problem = qwen_gpu_problem(probes.gpu)
+    return problem.text if problem else None
 
 
 def _snapshot_download(repo_id: str, **kwargs) -> str:

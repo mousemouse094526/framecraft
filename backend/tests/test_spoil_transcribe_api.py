@@ -21,7 +21,9 @@ from .fakes import (
     FakeMp4Check,
     FakeWorker,
     cuda_device,
+    card,
     ok_deno,
+    on_windows,
     ok_ffmpeg,
     ok_yt_dlp,
     segment,
@@ -359,6 +361,23 @@ def test_a_cpu_device_is_not_ready(client, project, monkeypatch):
 
     assert response.status_code == 503
     assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Device", "rows": ["device"]}
+
+
+def test_on_windows_a_card_torch_has_no_kernels_for_is_not_ready(client, project, worker, monkeypatch):
+    write_temp_clip(project)
+    on_windows(monkeypatch, card("NVIDIA GeForce GTX 1050 Ti", 4, (6, 1)))
+
+    response = start(client)
+
+    assert response.status_code == 503
+    assert response.json() == {"code": "not_ready", "message": "ยังติดตั้งไม่ครบ: Device", "rows": ["device"]}
+
+
+def test_on_windows_a_card_under_qwen_s_target_still_transcribes(client, project, monkeypatch):
+    write_temp_clip(project)
+    on_windows(monkeypatch, card("NVIDIA GeForce RTX 2060", 6, (7, 5)))
+
+    assert start(client).status_code == 202
 
 
 def test_a_broken_ffmpeg_is_not_ready(client, project, monkeypatch):

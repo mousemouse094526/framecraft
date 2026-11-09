@@ -51,7 +51,7 @@ def require_rows(rows: Mapping[str, Row]) -> None:
     missing: dict[str, str] = {}
     for row_id, (label, check) in rows.items():
         try:
-            status, _ = check()
+            status = check()[0]
         except Exception:
             status = "missing"
         if status != "ok":

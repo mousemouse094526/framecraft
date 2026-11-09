@@ -7,6 +7,7 @@ Packages are checked through their installed metadata only.
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -14,12 +15,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
-from typing import Literal, get_args
+from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
 
 from backend import fonts, paths
-from backend.models import OMNIVOICE, QWEN, WHISPER, ModelSpec
+from backend.models import OMNIVOICE, WHISPER, ModelSpec, qwen_for
 from backend.paths import ProjectPaths
 
 ItemStatus = Literal["ok", "missing", "warning"]
@@ -49,9 +50,23 @@ class FixTexts:
 
 
 RUN_BACKEND_FIX = Fix("รัน backend ด้วย npm run dev", "hint")
-MAC_ONLY_FIX = Fix("ใช้ได้บน Mac เท่านั้น", "hint")
 # Only Mac and Windows are supported (ADR 0006), so "not here" means Windows.
 UNSUPPORTED_HERE = "ยังไม่รองรับบน Windows"
+
+# Qwen's target on Windows: bfloat16 in hardware (RTX 30xx, sm_80) and 8 GB, which a card
+# reports as a little under 8 GiB (windows-launch D9, D10).
+QWEN_MIN_CAPABILITY = (8, 0)
+QWEN_MIN_MEMORY_BYTES = 15 * 2**29  # 7.5 GiB
+QWEN_GPU_FIX = Fix("Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB", "hint")
+# A card nvidia-smi can't read isn't said to be too old (windows-launch D12).
+GPU_UNREADABLE_FIX = Fix("อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA", "hint")
+NVIDIA_SMI_QUERY = [
+    "nvidia-smi",
+    "--query-gpu=name,memory.total,compute_cap",
+    "--format=csv,noheader,nounits",
+    "-i",
+    "0",  # card 0, the one the workers load (`cuda:0`, windows-launch D8)
+]
 
 
 def _fix_texts(sys_platform: str) -> FixTexts:
@@ -97,6 +112,17 @@ class StatusResponse(BaseModel):
 class FfmpegInfo:
     version: str
     source: str
+
+
+class GpuInfo(NamedTuple):
+    name: str  # nvidia-smi name of GPU 0
+    memory_bytes: int  # nvidia-smi memory.total (MiB × 2**20)
+    capability: tuple[int, int]  # nvidia-smi compute_cap, e.g. "8.6" → (8, 6)
+    arch_list: tuple[str, ...]  # torch.cuda.get_arch_list(), e.g. ("sm_75", "sm_80", ...)
+
+    @property
+    def sm(self) -> str:
+        return f"sm_{self.capability[0]}{self.capability[1]}"
 
 
 class DeviceProbe:
@@ -176,6 +202,38 @@ def probe_mlx_vlm() -> str:
     return version
 
 
+def probe_gpu(
+    run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    arch_list: Callable[[], tuple[str, ...]] | None = None,
+) -> GpuInfo:
+    """Card 0 as nvidia-smi reads it, and what torch was built for; raises when nvidia-smi
+    fails. Never asks torch about the device: that makes a CUDA context in the backend
+    process, which holds VRAM next to the worker's (windows-launch D12). Windows only.
+    Tests pass `run` and `arch_list`."""
+    result = run(NVIDIA_SMI_QUERY, capture_output=True, text=True, timeout=VERSION_TIMEOUT_SECONDS)
+    if result.returncode != 0:
+        raise RuntimeError(f"nvidia-smi exited with {result.returncode}: {result.stderr.strip()}")
+    # "NVIDIA GeForce RTX 3060, 12288, 8.6": split from the right, a name may hold a comma.
+    name, mib, capability = (field.strip() for field in result.stdout.strip().rsplit(",", 2))
+    major, minor = capability.split(".")
+    return GpuInfo(name, int(mib) * 2**20, (int(major), int(minor)), (arch_list or torch_arch_list)())
+
+
+def torch_arch_list() -> tuple[str, ...]:
+    """The `sm_XY` targets this torch was built for; reads build flags, not the device."""
+    import torch  # takes seconds, so not imported until a check needs it
+
+    return tuple(torch.cuda.get_arch_list())
+
+
+def probe_bitsandbytes() -> str:
+    """The installed bitsandbytes version, from its metadata only. Raises when it isn't installed."""
+    try:
+        return metadata.version("bitsandbytes")
+    except metadata.PackageNotFoundError:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง") from None
+
+
 def probe_pythainlp() -> str:
     """The installed pythainlp version, from its metadata only: importing pythainlp may
     create its data folder (docs/library-notes/pythainlp.md). Raises when it isn't installed;
@@ -222,8 +280,10 @@ def now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
-# A check returns (status, detail) or raises; a raise makes the item `missing`.
-Check = Callable[[], tuple[ItemStatus, str]]
+# A check returns (status, detail) or raises; a raise makes the item `missing`. A third
+# value is the fix to show instead of the row's own, when the reason decides it.
+CheckResult = tuple[ItemStatus, str] | tuple[ItemStatus, str, Fix]
+Check = Callable[[], CheckResult]
 
 
 @dataclass(frozen=True)
@@ -236,6 +296,8 @@ class Probes:
     yt_dlp: Callable[[], str]
     mlx_vlm: Callable[[], str]
     pythainlp: Callable[[], str]
+    gpu: Callable[[], GpuInfo]  # Windows only
+    bitsandbytes: Callable[[], str]  # Windows only
 
 
 def real_probes() -> Probes:
@@ -247,7 +309,28 @@ def real_probes() -> Probes:
         yt_dlp=probe_yt_dlp,
         mlx_vlm=probe_mlx_vlm,
         pythainlp=probe_pythainlp,
+        gpu=probe_gpu,
+        bitsandbytes=probe_bitsandbytes,
     )
+
+
+def read_once(probe: Callable[[], GpuInfo]) -> Callable[[], GpuInfo]:
+    """`probe`, run at most once: every row of one check reads the same card, and
+    nvidia-smi runs once. What the first call raised is raised again on every later call
+    (hence a list, not `functools.cache`, which keeps only return values)."""
+    reading: list[GpuInfo | Exception] = []
+
+    def read() -> GpuInfo:
+        if not reading:
+            try:
+                reading.append(probe())
+            except Exception as error:
+                reading.append(error)
+        if isinstance(reading[0], Exception):
+            raise reading[0]
+        return reading[0]
+
+    return read
 
 
 def run_checks(
@@ -263,8 +346,12 @@ def run_checks(
     probes = probes or real_probes()
     sys_platform = sys_platform or this_platform()
     fixes = _fix_texts(sys_platform)
-    # The LLM runs on Apple Silicon only; Windows is the windows-launch feature (spoil-maker D50, ADR 0016).
-    llm_fix = fixes.setup if sys_platform in QWEN.platforms else MAC_ONLY_FIX
+    gpu = read_once(probes.gpu)
+    qwen = qwen_for(sys_platform)
+    qwen_rows = [
+        _item(row_id, label, check, fixes.setup, _license(qwen) if row_id == qwen.check_id else None)
+        for row_id, (label, check) in qwen_checks(project, probes, sys_platform, gpu).items()
+    ]
 
     items = [
         _item("python", "Python venv", lambda: _check_python(project), RUN_BACKEND_FIX),
@@ -278,10 +365,9 @@ def run_checks(
         _item("deno", "Deno", lambda: check_version(probes.deno), fixes.setup),
         _model_item(project, OMNIVOICE, fixes.setup, sys_platform),
         _model_item(project, WHISPER, fixes.setup, sys_platform),
-        _item("device", "Device", lambda: check_device(probes.device), fixes.device),
+        _item("device", "Device", device_check(probes.device, sys_platform, gpu), fixes.device),
         # spoil-maker's rows follow the older ones (spoil-maker spec › Status check).
-        _model_item(project, QWEN, llm_fix, sys_platform),
-        _item("mlx_vlm", "mlx-vlm", lambda: check_mlx_vlm(probes.mlx_vlm, sys_platform), llm_fix),
+        *qwen_rows,
         _item("pythainlp", "pythainlp", lambda: check_pinned(probes.pythainlp, PYTHAINLP_VERSION), fixes.setup),
         _item(fonts.CHECK_ID, fonts.LABEL, lambda: fonts.check_kanit(project), fixes.setup),
     ]
@@ -295,6 +381,35 @@ def run_checks(
         total=len(items),
         items=items,
     )
+
+
+def qwen_checks(
+    project: ProjectPaths, probes: Probes, sys_platform: str, gpu: Callable[[], GpuInfo]
+) -> dict[str, tuple[str, Check]]:
+    """Qwen's rows on this OS, id → (label, check), in checklist order: on a Mac its MLX
+    model and mlx-vlm; on Windows the gpu row, its model and bitsandbytes, which warn with
+    the gpu row's fix on a card under Qwen's target (windows-launch D6, D8, D9). The Status
+    check and the gate of a Qwen job both read them. `gpu` is called only on Windows."""
+    qwen = qwen_for(sys_platform)
+
+    def model() -> CheckResult:
+        return check_model(project, qwen)
+
+    if sys_platform != "win32":
+        return {
+            qwen.check_id: (qwen.label, model),
+            "mlx_vlm": ("mlx-vlm", lambda: check_pinned(probes.mlx_vlm, MLX_VLM_VERSION)),
+        }
+    return {
+        "gpu": ("GPU", lambda: check_gpu(gpu)),
+        qwen.check_id: (qwen.label, on_qwen_gpu(gpu, model)),
+        "bitsandbytes": ("bitsandbytes", on_qwen_gpu(gpu, lambda: check_version(probes.bitsandbytes))),
+    }
+
+
+def device_check(device: Callable[[], str], sys_platform: str, gpu: Callable[[], GpuInfo]) -> Check:
+    """The `device` row's check on this OS; on Windows it reads the card too (windows-launch D8)."""
+    return lambda: check_device(device, gpu if sys_platform == "win32" else None)
 
 
 def check_model(project: ProjectPaths, model: ModelSpec) -> tuple[ItemStatus, str]:
@@ -330,7 +445,8 @@ def _item(
     license: License | None = None,
 ) -> ChecklistItem:
     try:
-        status, detail = check()
+        status, detail, *own_fix = check()
+        fix = own_fix[0] if own_fix else fix
     except Exception as error:  # one broken check must not hide the others
         status, detail = "missing", str(error) or type(error).__name__
     return ChecklistItem(
@@ -344,19 +460,17 @@ def _item(
     )
 
 
+def _license(model: ModelSpec) -> License:
+    return License(name=model.license, url=model.license_url, author=model.author, model_url=model.model_url)
+
+
 def _model_item(project: ProjectPaths, model: ModelSpec, fix: Fix, sys_platform: str) -> ChecklistItem:
-    license = License(
-        name=model.license,
-        url=model.license_url,
-        author=model.author,
-        model_url=model.model_url,
-    )
     return _item(
         model.check_id,
         model.label,
         lambda: check_model_on_platform(project, model, sys_platform),
         fix,
-        license,
+        _license(model),
     )
 
 
@@ -365,14 +479,6 @@ def check_model_on_platform(project: ProjectPaths, model: ModelSpec, sys_platfor
     if sys_platform not in model.platforms:
         return "missing", UNSUPPORTED_HERE
     return check_model(project, model)
-
-
-def check_mlx_vlm(probe: Callable[[], str], sys_platform: str) -> tuple[ItemStatus, str]:
-    """Installed at the pinned version. MLX runs where Qwen runs (D50); a failing probe
-    raises, and _item turns that into `missing`."""
-    if sys_platform not in QWEN.platforms:
-        return "missing", UNSUPPORTED_HERE
-    return check_pinned(probe, MLX_VLM_VERSION)
 
 
 def check_pinned(probe: Callable[[], str], pinned: str) -> tuple[ItemStatus, str]:
@@ -412,6 +518,66 @@ def check_version(probe: Callable[[], str]) -> tuple[ItemStatus, str]:
     return "ok", probe()
 
 
-def check_device(device_probe: Callable[[], str]) -> tuple[ItemStatus, str]:
+def check_device(device_probe: Callable[[], str], gpu: Callable[[], GpuInfo] | None = None) -> CheckResult:
+    """`cpu` is a warning (ADR 0006). Given `gpu` (Windows), a CUDA card this torch has
+    no kernels for is missing: every GPU job would fail on it (windows-launch D8). The
+    detail is the device, or on that missing card the card itself (windows-launch D15)."""
     device = device_probe()
-    return ("warning" if device == "cpu" else "ok"), device
+    if device == "cpu":
+        return "warning", device
+    if device != "cuda" or gpu is None:
+        return "ok", device
+    try:
+        card = gpu()
+    except Exception:
+        return "ok", device  # the gpu row says it can't read the card (windows-launch D12)
+    if not torch_runs_on(card):
+        return "missing", f"{card.name} · {card.sm}", Fix(f"การ์ด {card.name} ({card.sm}) เก่าเกินสำหรับ torch ที่ติดตั้ง", "hint")
+    return "ok", device
+
+
+def torch_runs_on(card: GpuInfo) -> bool:
+    """CUDA kernels run on every later card of their major, so sm_86 covers an sm_89:
+    the rule torch's own `_check_cubins` uses (docs/library-notes/torch.md, windows-launch D13)."""
+    built = [int(re.sub(r"\D", "", arch.removeprefix("sm_"))) for arch in card.arch_list if arch.startswith("sm_")]
+    return any(sm // 10 == card.capability[0] for sm in built)
+
+
+def check_gpu(gpu: Callable[[], GpuInfo]) -> CheckResult:
+    """Windows: ok on a card that meets Qwen's target (windows-launch D9, D10); otherwise a
+    warning, which a Qwen job's gate refuses but which leaves `ready` true. A card
+    `nvidia-smi` can't read is a warning with an empty detail: the fix tells the user
+    what to do, and the error is dropped by design (windows-launch D12, D15)."""
+    try:
+        card = gpu()
+    except Exception:
+        return "warning", "", GPU_UNREADABLE_FIX
+    detail = f"{card.name} · {card.memory_bytes / 2**30:.0f} GB · {card.sm}"
+    if card.capability < QWEN_MIN_CAPABILITY or card.memory_bytes < QWEN_MIN_MEMORY_BYTES:
+        return "warning", detail, QWEN_GPU_FIX
+    return "ok", detail
+
+
+def qwen_gpu_problem(gpu: Callable[[], GpuInfo]) -> Fix | None:
+    """The gpu row's fix when Qwen can't run on this card — under its target, or
+    unreadable — else None. Setup skips Qwen's download on the same answer (windows-launch D9)."""
+    status, _, *fix = check_gpu(gpu)
+    return fix[0] if status != "ok" else None
+
+
+def on_qwen_gpu(gpu: Callable[[], GpuInfo], check: Check) -> Check:
+    """`check`, on a card Qwen runs on. Otherwise `check` still runs for its detail
+    alone — its status, even a raise, is dropped — and the row is a warning with the
+    gpu row's fix, so a weak card never makes `ready` false (windows-launch D9, D15)."""
+
+    def checked() -> CheckResult:
+        problem = qwen_gpu_problem(gpu)
+        if not problem:
+            return check()
+        try:
+            _, detail, *_ = check()
+        except Exception as error:  # bitsandbytes not installed, say
+            detail = str(error) or type(error).__name__
+        return "warning", detail, problem
+
+    return checked

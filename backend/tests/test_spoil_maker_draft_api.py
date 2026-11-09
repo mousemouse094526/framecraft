@@ -14,18 +14,22 @@ from fastapi.testclient import TestClient
 
 from backend import checks, gpu, paths, spoil, spoil_maker, stories
 from backend.app import app
-from backend.models import QWEN
+from backend.models import QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 from backend.spoil import transcribe
 from backend.spoil_maker import describe, draft, voices
 
 from .fakes import (
+    os_timeouts,
+    slow_first,
     poll_until,
     FakeLlm,
     FakeTts,
     FakeWorker,
     cuda_device,
+    card,
     make_test_clip,
+    on_windows,
     ok_ffmpeg,
     write_temp_clip,
     write_transcript,
@@ -122,6 +126,19 @@ def counted(monkeypatch) -> list[str]:
 
     monkeypatch.setattr(spoil_maker, "count_tokens", count)
     return texts
+
+
+@pytest.fixture
+def counted_in(monkeypatch) -> list[Path]:
+    """The fake token counter, keeping the snapshot each count read its tokenizer from."""
+    snapshots: list[Path] = []
+
+    def count(snapshot_dir: Path, text: str) -> int:
+        snapshots.append(snapshot_dir)
+        return len(text)
+
+    monkeypatch.setattr(spoil_maker, "count_tokens", count)
+    return snapshots
 
 
 @pytest.fixture
@@ -368,6 +385,92 @@ def test_with_qwens_snapshot_gone_tokens_are_null_and_a_draft_is_not_ready(clien
     assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["model_qwen"])
 
 
+def test_on_windows_a_card_under_qwen_s_target_refuses_a_draft_naming_the_gpu_row(client, ready, llm, monkeypatch):
+    on_windows(monkeypatch, card("NVIDIA GeForce RTX 2070", 8, (7, 5)))
+
+    response = start(client)
+
+    # The token count's gate refuses first: the card's model was never downloaded (D9).
+    assert (response.status_code, response.json()["code"]) == (503, "not_ready")
+    assert response.json()["rows"] == ["gpu", "model_qwen"]
+    assert llm.processes == []
+
+
+def test_on_windows_without_qwen_s_own_files_the_token_count_is_not_ready(client, project, ready, monkeypatch):
+    on_windows(monkeypatch)
+    project.marker(QWEN_WINDOWS).unlink()
+
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes").json()
+    response = start(client)
+
+    assert [ep["tokens"] for ep in listed["episodes"]] == [None]
+    assert listed["tokens_not_ready"] == "ยังติดตั้งไม่ครบ: Qwen3.5 9B model"
+    assert (response.status_code, response.json()["rows"]) == (503, ["model_qwen"])
+
+
+def test_on_windows_tokens_are_counted_with_qwen_s_own_tokenizer(client, project, ready, counted_in, monkeypatch):
+    on_windows(monkeypatch)
+
+    listed = client.get(f"/api/spoil-maker/clips/{EP1}/episodes").json()
+
+    assert listed["episodes"][0]["tokens"] is not None
+    assert set(counted_in) == {project.snapshot_dir(QWEN_WINDOWS, QWEN_WINDOWS.revision)}
+
+
+def slow_step(llm: FakeLlm, step: str) -> None:
+    """Makes the first answer of one step (`write`, `polish` or `pick`) slow."""
+    llm.scripts = [slow_first(passing_script()) if step == "write" else passing_script()]
+    if step == "polish":
+        llm.polishes = slow_first(unchanged)
+    if step == "pick":
+        llm.picks = slow_first('{"shots": [0, 1]}')
+
+
+@pytest.mark.parametrize("step", ["write", "polish", "pick"])
+def test_on_windows_a_step_slower_than_the_mac_s_timeout_finishes_in_one_try(step, client, ready, llm, monkeypatch):
+    on_windows(monkeypatch)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    slow_step(llm, step)
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"
+    assert len(llm.processes) == 1  # no try timed out
+
+
+@pytest.mark.parametrize("step", ["write", "polish"])
+def test_on_the_mac_the_same_slow_write_or_polish_is_a_timed_out_try(step, client, ready, llm, monkeypatch):
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    slow_step(llm, step)
+
+    start(client)
+
+    assert wait_for_end(client)["state"] == "done"  # the next try answers at once (windows-launch D16)
+    assert llm.processes[0].terminated is True
+    assert len(llm.processes) == 2
+
+
+def test_on_the_mac_the_same_slow_pick_fails_naming_the_mac_s_seconds(client, ready, llm, monkeypatch):
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
+    slow_step(llm, "pick")
+
+    start(client)
+    job = wait_for_end(client)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert "เลือกภาพเกิน 0.2 วินาที" in job["error"]["message"]
+
+
+def test_on_windows_a_ready_card_drafts_with_qwen_s_own_repo(client, project, ready, llm, monkeypatch):
+    on_windows(monkeypatch)
+    llm.scripts = [passing_script()]
+
+    assert start(client).status_code == 202
+    wait_for_end(client)
+
+    assert llm.processes[0].snapshot_dir == project.snapshot_dir(QWEN_WINDOWS, QWEN_WINDOWS.revision)
+
+
 def test_episodes_of_a_clip_not_transcribed_are_clip_not_ready(client, project, ready):
     write_temp_clip(project, "bbbbbbbbbbb")
     write_shots(project, "bbbbbbbbbbb")
@@ -402,7 +505,7 @@ def test_a_draft_already_there_without_replace_is_draft_exists(client, project, 
 
 
 def test_a_missing_qwen_marker_is_not_ready(client, project, ready):
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     response = start(client)
 
@@ -605,7 +708,7 @@ def test_asking_again_says_what_was_wrong_with_the_last_reply(client, project, r
 
 
 def test_a_reply_slower_than_the_timeout_counts_as_a_failed_try(client, project, ready, llm, monkeypatch):
-    monkeypatch.setattr(draft, "WRITE_TIMEOUT_SECONDS", 0.2)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
     llm.scripts = [FakeLlm.HANG, passing_script()]
 
     start(client)
@@ -722,7 +825,7 @@ def test_cancelling_while_writing_ends_cancelled_and_keeps_the_old_draft(client,
 
 
 def test_a_picking_timeout_fails_as_model_failed(client, project, ready, llm, monkeypatch):
-    monkeypatch.setattr(draft, "PICK_TIMEOUT_SECONDS", 0.2)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
     llm.scripts = [passing_script()]
     llm.picks = lambda request: FakeLlm.HANG
 
@@ -875,7 +978,7 @@ def test_a_polish_longer_than_the_target_allows_twice_keeps_the_written_text(cli
 
 
 def test_a_polish_slower_than_the_timeout_counts_as_a_failed_try(client, project, ready, llm, monkeypatch):
-    monkeypatch.setattr(draft, "POLISH_TIMEOUT_SECONDS", 0.2)
+    os_timeouts(monkeypatch, darwin=0.2, win32=1)
     llm.scripts = [passing_script()]
     replies = iter([FakeLlm.HANG])
     llm.polishes = lambda request: next(replies, None) or polished({i: "ข" * 30 for i in asked_to_polish(request)})
@@ -1047,7 +1150,7 @@ def test_polish_without_a_draft_is_no_draft_before_any_other_check(client, ready
 
 def test_polish_without_qwen_is_not_ready(client, project, ready):
     three_sentences(project)
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     response = polish(client)
 
@@ -1444,7 +1547,7 @@ def test_describing_a_clip_in_the_draft_without_qwen_is_not_ready_before_in_draf
     """The gate comes before `in_draft` (D60): no confirm is asked for a job that can't run."""
     shutil.copyfile(three_colours, project.media_temp_dir / f"{EP1}.mp4")
     write_draft(project)
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     response = client.post("/api/spoil-maker/describes", json={"clip_id": EP1})
 

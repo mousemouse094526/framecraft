@@ -184,6 +184,69 @@
 
 **From:** red team · **Status:** active
 
+## D13: แถว `device` ผ่านเมื่อ torch มี kernel ของ major เดียวกับการ์ด
+
+**Chosen:** บน Windows แถว `device` เป็น `ok` เมื่อ `torch.cuda.get_arch_list()` มี `sm_` ที่ major เท่ากับ compute capability ของการ์ด ตามกฎที่ torch เองใช้ (`_check_cubins`) แทนการหา `sm_{major}{minor}` ตรงตัว.
+
+**Why:** ผู้ใช้เลือกตัวเลือกที่แนะนำ: build cu128 ของ torch 2.8 ไม่มี `sm_89` แต่ RTX 40xx (เป้าของ D10) รัน kernel `sm_86` ได้; ถ้าเทียบตรงตัว RTX 40xx จะขึ้น "การ์ดเก่าเกิน".
+
+**Rejected:**
+- เทียบ `sm_{major}{minor}` ตรงตัวตาม spec เดิม — RTX 40xx ทุกใบขึ้นแถว Device สีแดง
+
+**Details:**
+- ยังตรง ADR-0026: "torch ที่ติดตั้งรันบนการ์ดนี้ได้"; GTX 10xx (sm_61) ยังเป็น `missing` เพราะ cu128 ไม่มี `sm_6x`
+- arch list ของ cu128: `7.0;7.5;8.0;8.6;9.0;10.0;12.0` ([docs/library-notes/torch.md](../../library-notes/torch.md))
+
+**Sources:** [torch/cuda/__init__.py v2.8.0](https://github.com/pytorch/pytorch/blob/v2.8.0/torch/cuda/__init__.py) · [build_cuda.sh v2.8.0](https://github.com/pytorch/pytorch/blob/v2.8.0/.ci/manywheel/build_cuda.sh)
+
+**From:** build ticket 01 · **Status:** active
+
+## D14: รายละเอียดแถว Qwen บน Windows ที่ build ticket 01 เลือก
+
+**Chosen:** ค่าเล็กๆ ของแถว `device`, `gpu`, `model_qwen`, `bitsandbytes` ที่ spec ไม่ได้กำหนด เลือกตามโค้ดเดิม.
+
+**Why:** อยู่ในขอบของ spec และไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Details:**
+- แถว `model_qwen` และ `bitsandbytes` ที่ `gpu` ไม่ `ok`: ค่าเป็น "ดูแถว GPU" และ `hint` เป็นข้อความของแถว `gpu`
+- probe `gpu` พัง: แถว `device` ยังดูแค่ `cuda` (`ok`) — ไม่บอกว่าการ์ดเก่าเมื่ออ่านการ์ดไม่ได้ (D12); ค่าของแถว `gpu` เป็นข้อความ error
+- VRAM ที่แสดงเป็น GiB ปัดเป็นจำนวนเต็ม: การ์ด 8 GB ที่รายงาน 7.6 GiB แสดง "8 GB"
+- อ่านการ์ดครั้งเดียวต่อ Status check และต่อ gate (`checks.read_once`): `nvidia-smi` รันครั้งเดียว
+- แถว `bitsandbytes` อ่านเวอร์ชันผ่าน probe `bitsandbytes` (metadata) แทน `check_package` ตรงๆ เพื่อให้ test ไม่ขึ้นกับเครื่อง (rules › testing); ผลเหมือน D12
+- gate ของตัวนับ token บน Windows มีแถว `gpu` ก่อน `model_qwen`: การ์ดต่ำกว่าเป้าไม่มีไฟล์ Qwen (D9) จึงบอกแถว GPU
+- Setup script พิมพ์ "ข้าม Qwen3.5 9B model: {hint ของแถว gpu}" ทั้งเมื่อการ์ดต่ำกว่าเป้าและเมื่อ `nvidia-smi` อ่านการ์ดไม่ได้; ที่ว่างบน Windows 30 GB เมื่อต้องโหลด Qwen, 15 GB เมื่อข้าม Qwen (โมเดลที่เหลือราว 5 GB)
+
+**From:** build ticket 01 · **Status:** changed by D15 (ค่าของแถว `model_qwen` และ `bitsandbytes` เมื่อ `gpu` ไม่ `ok`, ค่าของแถว `gpu` เมื่อ probe พัง)
+
+## D15: ค่าของแถว Windows ตามแบบ Figma
+
+**Chosen:** ค่าของแถวบน Windows ตาม [Figma 8111-60588](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8111-60588):
+- `model_qwen` และ `bitsandbytes` ที่ `gpu` ไม่ `ok`: ยังเป็น `warning` กับ `hint` ของแถว `gpu` แต่ค่าเป็นค่าของแถวเอง (revision, เวอร์ชัน, หรือ "ไม่พบ marker ใน models/.setup" เมื่อยังไม่โหลด) แทน "ดูแถว GPU"
+- probe `gpu` พัง: ค่าของแถว `gpu` ว่าง แสดงแค่ `hint` "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA"; หน้าเว็บไม่แสดงบรรทัดค่าที่ว่าง
+- `device` เป็น `missing` เพราะการ์ดเก่าเกิน: ค่าเป็น `{ชื่อการ์ด} · sm_{xy}` แทน `cuda`
+- ค่าของแถว `warning` ทุกแถว (Mac ด้วย) เป็นตัว mono 13px สีเหลือง เหมือนค่าของแถว `ok`; แถว `missing` คงตัวปกติ 14px สีแดง
+
+**Why:** ผู้ใช้เลือกตามแบบ (build ticket 01): เห็นค่าจริงของแต่ละแถว ไม่เห็น error ดิบ และแถว Device บอกการ์ดตรงๆ.
+
+**Rejected:**
+- คงข้อความเดิมของ D14 แก้แค่สีและฟอนต์ — ไม่ตรงแบบ
+
+**From:** build ticket 01 · **Status:** active
+
+## D16: รายละเอียด worker Windows และ timeout ที่ build ticket 02 เลือก
+
+**Chosen:** ค่าเล็กๆ ที่ spec ไม่ได้กำหนด หรือที่ spec เขียนไม่ตรงกับ library ที่ติดตั้ง:
+- `llm_int8_skip_modules` เป็น `["model.visual", "lm_head"]` แทน `["visual", "lm_head"]`: transformers 5.21.0 จับชื่อจากต้นชื่อเต็มหรือท้ายชื่อ `"visual"` จึงไม่จับ `model.visual.blocks.*` และ vision tower จะถูกย่อ ขัด D12 ([docs/library-notes/transformers.md](../../library-notes/transformers.md))
+- โหลดด้วย `dtype=torch.bfloat16` ด้วย นอกจาก compute dtype: ส่วนที่ไม่ย่อก็เป็น bfloat16 ตาม D10
+- log หลังโหลด: `[qwen] not quantized: model.visual (N), lm_head (1)` (นับ `Linear` ที่ไม่ย่อตามสองส่วนแรกของชื่อ) และ `[qwen] VRAM after load: {GiB} GiB` จาก `torch.cuda.max_memory_allocated`; ขึ้นใน terminal ของ `[api]`
+- ตาราง `Timeouts` อยู่ใน `backend.spoil_maker.llm` (`TIMEOUTS`, `timeouts()`); Draft job อ่านตอนเริ่มงานแต่ละครั้ง; OS อื่นได้ของ Mac
+- ขั้นเขียนบทและเรียบเรียงที่เกินเวลายังเป็น "ลองไม่สำเร็จหนึ่งครั้ง" ตาม spoil-maker เดิม ไม่ใช่ `model_failed`; บรรยายและเลือก Shot เป็น `model_failed` ที่บอกวินาทีจากตาราง — ticket เขียนว่า "ทั้งสี่ขั้นจบ `model_failed`" แต่ spec › ค่าต่อ OS เปลี่ยนแค่ค่า ไม่ได้เปลี่ยนพฤติกรรม
+- worker Windows มี unit test กับ `torch` และ `transformers` ปลอมใน `sys.modules` (ticket ระบุพฤติกรรมไว้); โมเดลจริงเช็คมือใน ticket 03
+
+**Why:** อยู่ในขอบของ spec และทำให้สิ่งที่ spec สัญญา (ไม่ย่อ `visual`, bfloat16 ทางเดียว, timeout ต่อ OS) เป็นจริงกับ library ที่ติดตั้ง.
+
+**From:** build ticket 02 · **Status:** active
+
 ## Sources
 
 - [PyTorch dev-discuss: Maxwell and Pascal support removed in CUDA 12.8 and 12.9 builds](https://dev-discuss.pytorch.org/t/cuda-toolkit-version-and-architecture-support-update-maxwell-and-pascal-architecture-support-removed-in-cuda-12-8-and-12-9-builds/3128) — D2 (accessed 2026-11-06)

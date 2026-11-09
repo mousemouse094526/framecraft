@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from backend import spoil_maker, stories
 from backend.app import app
-from backend.models import QWEN
+from backend.models import QWEN_MAC
 from backend.paths import ProjectPaths
 
 from .fakes import write_temp_clip
@@ -126,7 +126,7 @@ def test_the_list_is_newest_change_first_with_counts_and_tokens(client, project)
 
 def test_tokens_are_null_without_qwens_tokenizer(client, project):
     create(client)
-    project.marker(QWEN).unlink()
+    project.marker(QWEN_MAC).unlink()
 
     assert [row["tokens"] for row in client.get(STORIES).json()] == [None]
 

@@ -7,11 +7,11 @@ import pytest
 
 from backend import fonts
 from backend.checks import run_checks
-from backend.models import MODELS, OMNIVOICE, QWEN
+from backend.models import MODELS, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
-from .fakes import MODEL_FILES, fake_probes, item, write_snapshot
+from .fakes import MODEL_FILES, broken_gpu, card, fake_probes, item, write_snapshot
 
 GB = 1_000_000_000
 
@@ -84,6 +84,7 @@ def run_with_fakes(root, download, probes=None, **overrides):
         "backend_running": lambda: False,
         "free_bytes": lambda path: 100 * GB,
         "probes": probes or fake_probes(),
+        "sys_platform": "darwin",  # the machine running the tests never decides (rules › testing)
     }
     return run_setup(root, **(options | overrides))
 
@@ -139,7 +140,7 @@ def test_stale_lock_from_a_dead_process_is_taken_over(empty_root):
     assert not lock.exists()
 
 
-@pytest.mark.parametrize(("sys_platform", "required"), [("darwin", "20 GB"), ("win32", "15 GB")])
+@pytest.mark.parametrize(("sys_platform", "required"), [("darwin", "20 GB"), ("win32", "30 GB")])
 def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys, sys_platform, required):
     download = FakeDownload(empty_root)
 
@@ -210,7 +211,7 @@ def test_npm_install_runs_after_the_models_are_downloaded(empty_root):
     exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), npm_install=npm_install)
 
     assert exit_code == 0
-    assert len(markers_at_install) == len(MODELS)
+    assert len(markers_at_install) == len([m for m in MODELS if "darwin" in m.platforms])
 
 
 def test_failed_npm_install_removes_lock_and_exits_1(fake_root, capsys):
@@ -229,16 +230,70 @@ def test_mac_setup_downloads_qwen_too(empty_root):
     run_with_fakes(empty_root, download, sys_platform="darwin")
 
     assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo", "mlx-community/Qwen3.5-9B-MLX-4bit"]
-    assert ProjectPaths(empty_root).marker(QWEN).is_file()
+    assert ProjectPaths(empty_root).marker(QWEN_MAC).is_file()
 
 
-def test_windows_setup_skips_the_mlx_model(empty_root):
+def test_windows_setup_downloads_qwen_s_own_repo_on_a_card_that_meets_its_target(empty_root):
     download = FakeDownload(empty_root)
 
-    run_with_fakes(empty_root, download, sys_platform="win32")
+    exit_code = run_with_fakes(empty_root, download, sys_platform="win32")
 
+    assert exit_code == 0
+    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo", "Qwen/Qwen3.5-9B"]
+    assert ProjectPaths(empty_root).marker(QWEN_WINDOWS).is_file()
+    assert not ProjectPaths(empty_root).marker(QWEN_MAC).exists()
+
+
+@pytest.mark.parametrize(
+    ("card", "says"),
+    [
+        (card("NVIDIA GeForce RTX 2060", 6, (7, 5)), "Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB"),
+        (broken_gpu, "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA"),
+    ],
+)
+def test_windows_setup_skips_qwen_on_a_card_under_its_target_and_still_exits_0(empty_root, capsys, card, says):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download, probes=fake_probes(gpu=card), sys_platform="win32")
+
+    assert exit_code == 0
+    assert "Qwen/Qwen3.5-9B" not in download.calls
+    out = capsys.readouterr().out
+    assert f"ข้าม Qwen3.5 9B model: {says}" in out
+
+
+def test_windows_setup_wants_30_gb_free_to_download_qwen(empty_root, capsys):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 20 * GB, sys_platform="win32")
+
+    assert exit_code == 1
+    assert download.calls == []
+    assert "ที่ว่างบนดิสก์ไม่พอ: มี 20.0 GB ต้องการ 30 GB" in capsys.readouterr().out
+
+
+def test_windows_setup_that_skips_qwen_wants_only_15_gb_free(empty_root):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(
+        empty_root,
+        download,
+        probes=fake_probes(gpu=card("NVIDIA GeForce RTX 2060", 6, (7, 5))),
+        free_bytes=lambda path: 20 * GB,
+        sys_platform="win32",
+    )
+
+    assert exit_code == 0
     assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo"]
-    assert not ProjectPaths(empty_root).marker(QWEN).exists()
+
+
+def test_mac_setup_never_reads_the_card(empty_root):
+    def must_not_run():
+        raise AssertionError("the gpu probe ran on a Mac")
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), probes=fake_probes(gpu=must_not_run))
+
+    assert exit_code == 0
 
 
 def test_setup_fetches_kanit_at_the_pinned_commit_and_writes_its_marker(empty_root):

@@ -25,6 +25,9 @@ def test_missing_marker(tmp_path):
 - Tests never depend on the machine that runs them: what an installed package
   or the OS says goes through a probe or `checks.this_platform()`, and
   `fake_root` sets both to a Mac with everything installed (ADR 0016).
+- A Windows case: `run_checks(..., sys_platform="win32")` with `fake_probes(gpu=gpu(...))`,
+  or `on_windows(monkeypatch, gpu(...))` for an API test; `fake_root` holds both Qwen
+  models, and `gpu()` is an RTX 3060 against torch's cu128 arch list (`CU128_ARCHS`).
 - Each case asserts one exact count or status, never "8 or 9".
 - No browser e2e tool yet; UI is tested in the frontend with Vitest.
 - Background jobs are tested without sleeps on a timer: the fake pauses at a
@@ -51,7 +54,11 @@ def test_missing_marker(tmp_path):
   `FakeLlm.respond(request)` makes each reply, and `FakeModel.HANG` as a reply
   never comes, for a timeout in any process); Qwen's tokenizer neither (a
   `count_tokens` stand-in that counts characters);
-  the real `worker`s are checked by hand with the model (seam 3). Its pure helpers
+  the real `worker`s are checked by hand with the model (seam 3); the Windows
+  worker's steps are also tested against stand-in `torch` and `transformers`
+  modules put in `sys.modules` (`test_spoil_maker_llm_windows.py`). A timeout test
+  swaps the per-OS table with `os_timeouts(monkeypatch, darwin=…, win32=…)`, never
+  a constant. Its pure helpers
   (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
   `python -c` to prove importing the adapter loads neither torch nor
   transformers.

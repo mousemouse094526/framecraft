@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from backend.checks import FfmpegInfo, Probes
+from backend.checks import FfmpegInfo, GpuInfo, Probes
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 from backend.spoil import clips
@@ -102,12 +102,73 @@ def cuda_device() -> str:
     return "cuda"
 
 
+# What torch 2.8.0+cu128 was built for (docs/library-notes/torch.md): no sm_89, no Pascal.
+CU128_ARCHS = ("sm_70", "sm_75", "sm_80", "sm_86", "sm_90", "sm_100", "sm_120")
+
+
+def card(name: str = "NVIDIA GeForce RTX 3060", gib: float = 12, capability: tuple[int, int] = (8, 6)):
+    """A `gpu` probe that reads one card, as nvidia-smi and torch's arch list would report it."""
+    info = GpuInfo(name=name, memory_bytes=int(gib * 2**30), capability=capability, arch_list=CU128_ARCHS)
+    return lambda: info
+
+
+def broken_gpu() -> GpuInfo:
+    raise FileNotFoundError("nvidia-smi")
+
+
+def ok_bitsandbytes() -> str:
+    return "0.50.2"
+
+
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
     probes = Probes(
-        device=cuda_device, ffmpeg=ok_ffmpeg, deno=ok_deno, yt_dlp=ok_yt_dlp, mlx_vlm=ok_mlx_vlm, pythainlp=ok_pythainlp
+        device=cuda_device,
+        ffmpeg=ok_ffmpeg,
+        deno=ok_deno,
+        yt_dlp=ok_yt_dlp,
+        mlx_vlm=ok_mlx_vlm,
+        pythainlp=ok_pythainlp,
+        gpu=card(),
+        bitsandbytes=ok_bitsandbytes,
     )
     return dataclasses.replace(probes, **overrides)
+
+
+def on_windows(monkeypatch, gpu_probe=None) -> None:
+    """Makes the API's checks see a Windows machine with an RTX 3060 and bitsandbytes,
+    unless `gpu_probe` says otherwise; `fake_root` has every model of both OSes."""
+    from backend import checks
+
+    monkeypatch.setattr(checks, "this_platform", lambda: "win32")
+    monkeypatch.setattr(checks, "probe_device", cuda_device)
+    monkeypatch.setattr(checks, "probe_gpu", gpu_probe or card())
+    monkeypatch.setattr(checks, "probe_bitsandbytes", ok_bitsandbytes)
+
+
+def os_timeouts(monkeypatch, darwin: float, win32: float) -> None:
+    """Swaps `llm.TIMEOUTS` so every step of the Mac and of Windows has the given seconds."""
+    from backend.spoil_maker import llm
+
+    monkeypatch.setattr(llm, "TIMEOUTS", {"darwin": llm.Timeouts(*[darwin] * 4), "win32": llm.Timeouts(*[win32] * 4)})
+
+
+# A fake answer this slow outlasts a Mac timeout of 0.2 s and fits a Windows one of 1 s.
+SLOW_ANSWER_SECONDS = 0.5
+
+
+def slow_first(reply):
+    """`reply` (a text, or a function of the request) that takes `SLOW_ANSWER_SECONDS`
+    the first time only, so a retry after a timeout answers at once."""
+    asked = []
+
+    def respond(request):
+        if not asked:
+            time.sleep(SLOW_ANSWER_SECONDS)
+        asked.append(request)
+        return reply(request) if callable(reply) else reply
+
+    return respond
 
 
 def item(result, item_id: str):

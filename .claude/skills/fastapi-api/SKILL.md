@@ -71,7 +71,7 @@ backend/
 │                    transcribing; its `worker` runs in a child process)
 ├── spoil_maker/  ← the สปอย tab (spoil-maker D56, D59): shots (Shot files),
 │                    describe (Describe job), frames (ffmpeg for Shots),
-│                    llm (the only mlx-vlm import), tts (the only omnivoice
+│                    llm (the only mlx-vlm import; picks the child per OS), tts (the only omnivoice
 │                    import), voices (Saved voices, Voice job), thai
 │                    (numbers as words, letter count, the only pythainlp
 │                    import), json_values (int and number checks of a JSON
@@ -84,7 +84,10 @@ backend/
 │                    tokenizer), settings (what the tab remembers), render (the
 │                    Render job and the render files), compose (the ffmpeg
 │                    commands of a render), captions (the ASS file and the
-│                    `.srt`); llm's and tts's `worker` run in a child process
+│                    `.srt`), llm_windows (Qwen on Windows: the only
+│                    transformers VLM and bitsandbytes import, windows-launch
+│                    D3); llm's, llm_windows's and tts's `worker` run in a
+│                    child process; `llm.TIMEOUTS` holds each OS's timeouts
 ├── routes/       ← one router file per feature, e.g. setup_status.py, stories.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -149,6 +152,11 @@ through a queue; the thread writes the result file (ADR 0012).
   not see uv on PATH (D24).
 - The Status check never imports `omnivoice` or `transformers` and never uses
   the network.
+- The backend process never asks torch about a CUDA device (no CUDA context next to
+  a worker's VRAM): the Status check reads the card with `nvidia-smi` and only
+  `torch.cuda.get_arch_list()` from torch (windows-launch D12).
+- Qwen's spec comes from `models.qwen_for(checks.this_platform())` when it is used,
+  never `QWEN_MAC` or `QWEN_WINDOWS` directly (ADR 0025).
 - `setup.ps1` stays ASCII-only; Thai text is printed from Python.
 
 ## Rules by layer
