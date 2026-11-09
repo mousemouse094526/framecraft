@@ -2,6 +2,8 @@
 
 ค้นเมื่อ 2026-11-08 จาก model card บน Hugging Face, docs ของ diffusers และ HF API (`/api/models`) เพื่อเช็คว่า repo gated ไหม, license อะไร, ขนาดไฟล์เท่าไร. ยังไม่ได้ลองรันจริงสักตัว: เวลาต่อภาพทุกตัวเลขที่ไม่มีแหล่งอ้างเป็น **ค่าประมาณ** (เขียนว่า "ประมาณ") ต้องลองจริงก่อนตัดสิน.
 
+> **อัปเดต 2026-11-09 — ตัวเลือกที่ 1 (klein 4B) ลองจริงบน Mac แล้ว** ที่ 1024×576 4 steps bf16: 89.6 / 103.6 / 145.1 / 252.5 วิ ที่ภาพอ้างอิง 0/1/2/3 · peak MPS 14.96 GB (bf16) หรือ 11.2 GB (GGUF Q8_0) · รายละอียดทั้งหมดอยู่ที่ [trial-klein-mac-2026-11-09.md](trial-klein-mac-2026-11-09.md). ตัวเลขในหัวข้อ FLUX.2 klein ด้านล่างที่เขียนว่า "ประมาณ" ให้ใช้ค่าที่วัดได้แทน; **ตัวเลือก 2–5 ยังเป็นค่าประมาณเหมือนเดิม**
+
 ## ความต้องการที่ใช้กรอง
 
 - ภาพแนวนอนราว 16:9 แสดงกว้างราว 1080 px ในเฟรม 9:16 → สร้างที่ 1024×576 หรือ 1280×720 ก็พอ (ไม่ต้อง 1 MP เต็ม; จำนวน token น้อยลง = เร็วขึ้น)
@@ -26,8 +28,10 @@
 - **commit ณ วันค้น**: `e7b7dc27f91deacad38e78976d1f2b499d76a294`; ตัว base (undistilled สำหรับฝึก LoRA) `black-forest-labs/FLUX.2-klein-base-4B` `a3b4f4849157f664bdbc776fd7453c2783562f4d` (Apache, ไม่ gated)
 - **diffusers**: `Flux2KleinPipeline` (text encoder `Qwen3ForCausalLM`), รับ `image=` เป็น list ของภาพอ้างอิงได้ = **multi-reference editing ในโมเดลเดียว** ทั้ง text-to-image และแก้ภาพ. ตัว distilled ใช้ 4 steps, `guidance_scale=1.0`. ต้องใช้ diffusers เวอร์ชันใหม่ (main ตอนออก, ตอนนี้น่าจะอยู่ใน release แล้ว — ต้องเช็คเวอร์ชันตอน pin). มี `Flux2KleinKVPipeline` ที่ cache K/V ของภาพอ้างอิง แต่ repo `-kv` มีเฉพาะ 9B (gated, NC)
 - **quantize**: `black-forest-labs/FLUX.2-klein-4b-fp8` (4.07 GB, Apache, ไม่ gated — ใช้บน CUDA เท่านั้น), `black-forest-labs/FLUX.2-klein-4b-nvfp4` (Blackwell), `unsloth/FLUX.2-klein-4B-GGUF` (`a09d5bb51ac4000ccd9643d10e9db3ed14200508`, Q8_0 4.3 GB / Q6_K 3.4 GB / Q4_K_M 2.6 GB, Apache). บน Mac มี mlx 4-bit จากชุมชน (เช่น `ar9av/FLUX.2-klein-4B-mflux-4bit`) และ `mlx-community/FLUX.2-klein-4B-bf16`
-- **หน่วยความจำ**: BFL บอก ~13 GB (รวม text encoder อยู่พร้อมกัน), README GitHub บอก ~8 GB. แยกรัน text encoder → ปล่อย → transformer bf16 จะใช้ราว 9–11 GB ตอน denoise ที่ 1024×576 (ประมาณ) — **พอดีขอบ Mac 16 GB**; ใช้ GGUF Q8 แทนจะเหลือ ~6 GB. ภาพอ้างอิงแต่ละภาพเพิ่ม token (≈ 1 MP ต่อภาพ = ~4k token) → ย่อภาพอ้างอิงเหลือ ~512–768 px จะประหยัดทั้งเวลาและหน่วยความจำ
+- **หน่วยความจำ**: BFL บอก ~13 GB (รวม text encoder อยู่พร้อมกัน), README GitHub บอก ~8 GB. แยกรัน text encoder → ปล่อย → transformer bf16 จะใช้ราว 9–11 GB ตอน denoise ที่ 1024×576 (ประมาณ) — **พอดีขอบ Mac 16 GB**; ใช้ GGUF Q8 แทนจะเหลือ ~6 GB
+  · **วัดจริง M1 16 GB 2026-11-09**: peak MPS **14.96 GB** (bf16) · peak ทั้งระบบ 14.89/17.2 GB · GGUF Q8_0 (ไฟล์ 4.3 GB) peak **10.87–11.2 GB** และเร็วเท่า bf16 · encode prompt แยกขั้น peak 9.35 GB. ภาพอ้างอิงแต่ละภาพเพิ่ม token (≈ 1 MP ต่อภาพ = ~4k token) → ย่อภาพอ้างอิงเหลือ ~512–768 px จะประหยัดทั้งเวลาและหน่วยความจำ
 - **เวลา**: M1 Max 1024² 4 steps 30–40 วินาที (mflux/iris.c, lilting.ch); M4 Max ~17 วินาทีรวมโหลด (Core AI conversion). M2 ธรรมดา GPU 8–10 core ช้ากว่า M1 Max ราว 2–3 เท่า → **ประมาณ 60–120 วินาทีต่อภาพ 1024×576 พร้อมภาพอ้างอิง 1–2 ภาพ**. RTX 3060 Ti 8 GB Q4_K_M 1024² 4 steps 15–30 วินาที (localaimaster); RTX 3060 12 GB bf16 **ประมาณ 6–12 วินาที**
+  · **วัดจริง M1 16 GB 2026-11-09** (1024×576, 4 steps, bf16): 89.6 วิ ไม่มีภาพอ้างอิง · 103.6 วิ อ้างอิง 1 · 145.1 วิ อ้างอิง 2 · 252.5 วิ อ้างอิง 3 · สองตัวในภาพเดียว 228–286 วิ ([trial](trial-klein-mac-2026-11-09.md))
 - **ความเหมือนตัวละคร**: ใส่ภาพตัวละคร (character sheet) เป็น reference แล้วสั่งฉากใหม่ใน prompt. BFL โฆษณา consistency ของตระกูล FLUX.2 สูง แต่ยังไม่พบรีวิวอิสระที่ทดสอบ klein 4B กับการ์ตูนแบน → ต้องลองเอง. LoRA ตัวละคร/สไตล์ฝึกบน base 4B ได้ และใช้ร่วมกับ reference ได้
 - **เหมาะกับสไตล์**: เป็นโมเดลทั่วไป ทำการ์ตูนแบนได้จาก prompt + ภาพอ้างอิงสไตล์; ฉากมืดที่มีแหล่งแสงน่าจะทำได้ดีเพราะเป็น flow model รุ่นใหม่ (ต้องลอง)
 
