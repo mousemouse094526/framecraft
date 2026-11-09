@@ -10,3 +10,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [spoil-maker](spoil-maker/progress.md) | false | done | 🎨 8/8 | ✅ 83821a9 | — | — |
 | [story-kb](story-kb/progress.md) | false | done | 🎨 4/4 | ✅ d75f574 | — | — |
 | [windows-launch](windows-launch/progress.md) | false | blocked | 🎨 1/1 | 2/3 | 03 ลองบนเครื่อง Windows RTX 30xx (รอเครื่อง) | `/warroom-build windows-launch 03` (บนเครื่อง Windows) |
+| [toon](toon/map.md) | false | mapping | — | — | 6 คำถาม รอลอง klein บน Mac | `/warroom toon` |

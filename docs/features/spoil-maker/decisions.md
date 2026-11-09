@@ -680,7 +680,7 @@
 **Details:**
 - ปิดคำถามของ D35 › Details เรื่องเปลี่ยน speed
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by toon D25
 
 ## D44: กฎอ่านตัวเลขที่ไม่ใช่จำนวนเต็ม 4 ข้อ เขียนเองไม่ใช้ num2words
 
