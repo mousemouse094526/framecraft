@@ -6,13 +6,15 @@
 - ผู้ใช้เป็นคนเผยแพร่คลิปเอง แอปจบที่ไฟล์ mp4 (D2)
 - เสียงเล่า OmniVoice โดยไม่มีเครดิตตรวจแล้วใน [spoil-maker legal.md](../spoil-maker/legal.md) ข้อ 2; Qwen3.5, pythainlp, Kanit ในข้อ 4 — toon ใช้ตัวเดิม ไม่ตรวจซ้ำ
 
-## 1. ใช้ FLUX.2 klein 4B (ไฟล์ GGUF ของ unsloth และ text encoder Qwen3-4B) สร้างภาพในคลิปที่เผยแพร่ (D6, D34)
+## 1. ใช้ FLUX.2 klein 4B (ไฟล์ GGUF ของ unsloth และ text encoder Qwen3-4B) สร้างภาพในคลิปที่เผยแพร่ (D6, D34, D49)
 
 **Verdict: CONDITIONAL**
 
 **Required to be allowed:**
 - คง license Apache-2.0 ของทั้งสาม repo ไว้ใน `NOTICE.md` และหน้า Setup status [1][2][3]
 - ไม่ใช้สร้างเนื้อหาที่ model card ห้าม: ผิดกฎหมาย หลอกลวง เกี่ยวกับผู้เยาว์ในทางเพศ คุกคาม หรือภาพลับไม่ยินยอม [1]
+
+ใช้ได้กับทุกไฟล์ GGUF ใน repo เดียวกัน (Q8_0, Q6_K, Q4_K_M ของ D49): license ระดับ repo เป็น Apache-2.0 [2]
 
 ## 2. เอาไฟล์ภาพของผู้ใช้เข้าเป็นภาพอ้างอิงตัวละคร แล้วเผยแพร่คลิปที่มีตัวละครนั้น (D31)
 

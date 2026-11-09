@@ -400,7 +400,7 @@
 **Details:**
 - 3 แบบ ≈ 4.5 นาทีบน M1 (t2i ~90 วิต่อภาพ)
 
-**From:** interview (auto mode) · **Status:** active
+**From:** interview (auto mode) · **Status:** changed by D49
 
 ## D32: เปลี่ยนภาพอ้างอิงได้เสมอ ภาพการ์ดเดิมได้ป้าย "ภาพอ้างอิงเปลี่ยน"
 
@@ -441,7 +441,7 @@
 
 **Sources:** [trial-klein-mac-2026-11-09.md](trial-klein-mac-2026-11-09.md) ข้อ 1, 3
 
-**From:** interview (auto mode) · **Status:** active
+**From:** interview (auto mode) · **Status:** changed by D49
 
 ## D35: klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda เช็คใน windows-check
 
@@ -610,6 +610,37 @@
 
 **From:** build ticket 01 · **Status:** active
 
+## D49: klein ให้ peak MPS ไม่เกิน 12 GB ด้วยขั้นที่ลองตามลำดับ
+
+**Chosen:** เกณฑ์ memory ของงานภาพคือ peak `torch.mps.driver_allocated_memory()` ของ process ลูก klein ไม่เกิน 12 GB ที่กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพติดกันใน process ลูกเดียว) และ peak ของภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2. ticket 01 ลองขั้นต่อไปนี้ตามลำดับ และหยุดที่ขั้นแรกที่ผ่าน:
+1. `torch.mps.empty_cache()` หลังทุกภาพ และภาพอ้างอิงย่อด้านยาว ≤ 512 px (แทน 768 ของ D31) โดยใช้ Q8_0 เหมือนเดิม
+2. ข้อ 1 + transformer เป็น `flux-2-klein-4b-Q6_K.gguf` (3.4 GB)
+3. ข้อ 1 + transformer เป็น `flux-2-klein-4b-Q4_K_M.gguf` (2.6 GB)
+
+ทุกขั้นต้องผ่านการลองคงตัวละครด้วย เพราะภาพอ้างอิง 512 ก็ลดรายละเอียดหน้า: 10 ภาพจากตัวละคร 1 ตัว ดูด้วยตาแบบ [trial-klein-mac-2026-11-09.md](trial-klein-mac-2026-11-09.md) ข้อ 4 ว่าหน้าตาไม่หลุด. ไม่มีขั้นไหนผ่าน → Blocked row และ `/warroom toon` อีกรอบ.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: peak รอบ 2 สูงกว่ารอบ 1 ใน process เดียว (13.09 → 13.98 GB) จึงน่าจะมี cache ของ MPS ค้างอยู่ และจำนวน token ของภาพอ้างอิงลดราว 2.25 เท่าเมื่อย่อจาก 768 เป็น 512 (attention โตตามกำลังสองของ token ทั้งหมด); ขั้นที่ถูกสุดลองก่อน และเปลี่ยนไฟล์เมื่อจำเป็น. ส่วนเกณฑ์ "ทั้งระบบ" วัดไม่ได้เพราะรวมแอปอื่นที่เปิดอยู่.
+
+**Rejected:**
+- Q4_K_M ทันที — ลด memory แน่กว่า แต่คุณภาพยังไม่ได้วัด และอาจไม่ต้องเสียคุณภาพเลย
+- ภาพอ้างอิงสูงสุด 2 ภาพ — ขัด D29/D30 (ฉากสองคนไม่มีฉากหลัง); ถ้าสามขั้นไม่ผ่าน เป็นตัวเลือกใน `/warroom toon` รอบหน้า
+- ยอมรับ 13–14 GB — swap และเครื่องช้าตอนเปิดแอปอื่น
+- torch รุ่นใหม่ — torch 2.8.0 ใช้ร่วมกับทุกโมเดลของ project (ADR-0006), เปลี่ยนแล้วกระทบ TTS และ Qwen
+
+**Details:**
+- changes D34 (ไฟล์ GGUF อาจเปลี่ยนเป็น Q6_K หรือ Q4_K_M) และ D31 (ภาพอ้างอิงด้านยาว ≤ 512 แทน 768)
+- ทั้งสามไฟล์อยู่ใน revision ที่ pin แล้ว `a09d5bb51ac4000ccd9643d10e9db3ed14200508`
+- วิธีวัด: seed และคำสั่งตายตัว, ปิดแอปอื่นนอกจาก backend, วัด 3 รอบเอาค่าสูงสุด, จด swap ก่อนและหลัง; ขั้น 1 จด `empty_cache` อย่างเดียว และภาพอ้างอิง 512 อย่างเดียวด้วย เพื่อรู้ว่าอะไรช่วย
+- เปลี่ยนไฟล์ใน revision เดิม: เครื่องที่มี marker ของ Q8_0 แล้วต้องเห็นแถว `model_klein_gguf` เป็น `missing` — `check_model` เทียบทุก pattern ใน `allow_patterns` กับไฟล์ใน marker ด้วย ไม่ใช่แค่ revision
+- ไฟล์ที่เลือกใช้ทั้งสอง OS (D35); windows-check วัด VRAM ขั้นต่ำกับไฟล์นั้น
+- ภาพอ้างอิงที่เก็บยังเป็นขนาดเดิม (ตัวละคร ≤ 1536, ฉากหลังเท่าแบบจอ) ย่อเป็น 512 เฉพาะตอนส่งเข้า klein
+- ขั้นที่ใช้จริงจดเป็น `D{n}` ตอน build (`From: build ticket 01`) พร้อมตัวเลขใน `progress.md`; เปลี่ยนไฟล์ → แก้ `allow_patterns`, `GGUF_FILE`, ขนาดดิสก์ใน spec
+
+**Sources:** [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ Q8_0 / Q6_K / Q4_K_M (accessed 2026-11-09)
+
+**From:** blocked #10 (auto mode) · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)
+- [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ GGUF ทุกระดับ (accessed 2026-11-09)

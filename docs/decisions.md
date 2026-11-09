@@ -282,7 +282,7 @@ question; the full entry is in the feature's decisions.md.
 | Series เก็บชื่อช่อง สไตล์ ตัวละคร ฉากหลัง; EP อยู่ใน Series เลข EP เดินต่อเอง | [toon](features/toon/decisions.md) | D3 | — | [0032](adr/0032-series-owns-characters.md) | active |
 | ภาพขยับต่อการ์ด: นิ่ง/ซูมเข้า/ซูมออก/เลื่อนซ้าย/ขวา + ไฟกะพริบทั้งภาพ, จางระหว่างการ์ด, ด้วย ffmpeg | [toon](features/toon/decisions.md) | D4 | — | — | active |
 | คลังเสียง (ไฟล์หรือลิงก์) AI เลือกตามชื่อต่อฉาก ผู้ใช้ปรับได้; AI สร้างเสียงที่ขาดเป็นรอบสอง | [toon](features/toon/decisions.md) | D5 | — | — | active |
-| สร้างภาพด้วย FLUX.2 klein 4B (Apache-2.0) ทั้งสอง OS พร้อมภาพอ้างอิง; ลองบน Mac ก่อนสร้าง tab | [toon](features/toon/decisions.md) | D6 | — | [0030](adr/0030-image-model-klein-gguf.md) | active |
+| สร้างภาพด้วย FLUX.2 klein 4B (Apache-2.0) ทั้งสอง OS พร้อมภาพอ้างอิง; ลองบน Mac ก่อนสร้าง tab | [toon](features/toon/decisions.md) | D6 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
 | แบบจอสองแบบเลือกต่อ Series: กรอบดำ (ภาพแนวนอน + ชื่อเรื่อง EP ชื่อช่อง) หรือเต็มจอ (ภาพ 9:16 + ซับทับภาพ) | [toon](features/toon/decisions.md) | D7 | — | — | active |
 | เสียงเล่าหลักหนึ่ง Saved voice ต่อ Series, EP เปลี่ยนเป็นเสียงอื่นได้; ไม่มีเสียงต่อตัวละคร | [toon](features/toon/decisions.md) | D8 | — | — | active |
 | เส้นเรื่อง องก์ → ช่วง → การ์ด; ช่วง = การ์ดติดกันในฉากหลังเดียว เสียงพื้นต่อช่วง; ไม่ใช้คำ "ฉาก" | [toon](features/toon/decisions.md) | D9 | — | — | active |
@@ -307,11 +307,11 @@ question; the full entry is in the feature's decisions.md.
 | สไตล์ภาพของ Series เป็นข้อความอังกฤษช่องเดียวต่อท้ายทุกคำสั่งภาพ; สไตล์ตั้งต้น "หลอนมืด" / "ตลกสว่าง"; ไม่มีภาพตัวอย่างสไตล์ | [toon](features/toon/decisions.md) | D28 | — | — | active |
 | ภาพการ์ดสร้างครั้งเดียวด้วย klein โดยส่งภาพฉากหลังคู่ภาพตัวละครเป็นภาพอ้างอิง; ไม่ตัดพื้นไม่ซ้อนภาพ | [toon](features/toon/decisions.md) | D29 | — | [0031](adr/0031-consistency-by-reference-images.md) | active |
 | ตัวละครในภาพการ์ด 0–2 ตัว (ภาพอ้างอิงต่อการ์ดสูงสุด 3) | [toon](features/toon/decisions.md) | D30 | — | — | active |
-| ภาพอ้างอิงหนึ่งภาพต่อตัวละคร (เต็มตัว หน้าตรง พื้นเรียบ) หรือฉากหลัง (ไม่มีคน); สร้าง 3 แบบให้เลือก หรือเอาไฟล์ PNG/JPG เข้า | [toon](features/toon/decisions.md) | D31 | — | [0031](adr/0031-consistency-by-reference-images.md) | active |
+| ภาพอ้างอิงหนึ่งภาพต่อตัวละคร (เต็มตัว หน้าตรง พื้นเรียบ) หรือฉากหลัง (ไม่มีคน); สร้าง 3 แบบให้เลือก หรือเอาไฟล์ PNG/JPG เข้า | [toon](features/toon/decisions.md) | D31 | — | [0031](adr/0031-consistency-by-reference-images.md) | changed by toon D49 |
 | เปลี่ยนภาพอ้างอิงได้เสมอ; ภาพการ์ดเดิมคงอยู่พร้อมป้าย "ภาพอ้างอิงเปลี่ยน" | [toon](features/toon/decisions.md) | D32 | — | [0034](adr/0034-derived-media-records-inputs.md) | changed by toon D44 |
 | การ์ดละหนึ่งภาพ; ปุ่มสร้างทีละการ์ด + "สร้างภาพที่ขาดทั้งหมด" เป็นงานเดียวหยุดได้; เก็บภาพก่อนหน้าหนึ่งภาพให้สลับกลับ | [toon](features/toon/decisions.md) | D33 | — | — | active |
-| klein บน Mac: transformer GGUF Q8_0 (unsloth) + text encoder/vae จาก repo BFL pin commit; แยกขั้น encode → ปล่อย → transformer; เพิ่ม `diffusers`, `gguf` | [toon](features/toon/decisions.md) | D34 | — | [0030](adr/0030-image-model-klein-gguf.md) | active |
-| klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda; เช็คเครื่องจริงและ VRAM ขั้นต่ำใน windows-check | [toon](features/toon/decisions.md) | D35 | — | [0030](adr/0030-image-model-klein-gguf.md) | active |
+| klein บน Mac: transformer GGUF Q8_0 (unsloth) + text encoder/vae จาก repo BFL pin commit; แยกขั้น encode → ปล่อย → transformer; เพิ่ม `diffusers`, `gguf` | [toon](features/toon/decisions.md) | D34 | — | [0035](adr/0035-klein-gguf-within-memory.md) | changed by toon D49 |
+| klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda; เช็คเครื่องจริงและ VRAM ขั้นต่ำใน windows-check | [toon](features/toon/decisions.md) | D35 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
 | คำสั่งภาพ: Qwen แปลคำบรรยายภาพเป็นอังกฤษตอนเริ่มงานภาพ แอปต่อแม่แบบ (ตัวละคร↔ภาพอ้างอิง N, ฉากหลัง, สไตล์, ห้ามตัวหนังสือ) | [toon](features/toon/decisions.md) | D36 | — | — | active |
 | ภาพการ์ดขนาดเท่าภาพฉากหลัง (1024×576 / 576×1024) ขยายด้วย lanczos ตอน render | [toon](features/toon/decisions.md) | D37 | — | — | active |
 | render สร้างเสียงเล่าที่ขาดหรือไม่ตรงให้ก่อน แบบ spoil-maker D30 | [toon](features/toon/decisions.md) | D38 | — | — | active |
@@ -325,3 +325,4 @@ question; the full entry is in the feature's decisions.md.
 | ยอมรับความเสี่ยง legal ข้อ 5 (ป้ายคลิป AI) ที่ยังไม่ได้เช็คจากราชกิจจานุเบกษา | [toon](features/toon/decisions.md) | D46 | — | — | active |
 | gguf pin 0.19.0 แทน 0.10.0: 0.10.0 อ่าน GGUF ไม่ได้บน numpy 2 | [toon](features/toon/decisions.md) | D47 | — | — | active |
 | ค่าเล็กของ Series และ Ref job: ความยาว style/tone, `file_too_large`, `item_id`, ค่าสำรองของคำแปลภาพอ้างอิง, `backend/uploads.py` | [toon](features/toon/decisions.md) | D48 | — | — | active |
+| klein: peak MPS ≤ 12 GB ที่กรณีหนักสุด; ลองตามลำดับ empty_cache + ภาพอ้างอิง ≤ 512 → Q6_K → Q4_K_M | [toon](features/toon/decisions.md) | D49 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |

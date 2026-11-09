@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** 01 หยุดกลางทาง: klein บน torch 2.8.0 กรณีหนักสุดใช้ memory เกินเกณฑ์ ~12 GB (Blocked #10); ต้องเลือกทางแก้ใน `/warroom toon`
+**Now:** 01 ทำต่อ: ลด memory ของ klein ตามขั้นของ D49 ก่อน แล้วกลุ่ม Ref job (หน้าเว็บรอแบบ: Blocked #1–4)
 
 **Next:**
 
 ```
-/warroom toon
+/warroom-build toon 01
 ```
 
 ## Tickets
@@ -66,4 +66,4 @@
 | 7 | 02 | design: เส้นเรื่อง (การ์ด) | `/warroom toon` พร้อมลิงก์แบบจาก [ui-prompt.md](../../features/toon/ui-prompt.md) | open |
 | 8 | 04 | design: คลังเสียงพื้น | `/warroom toon` พร้อมลิงก์แบบจาก [ui-prompt.md](../../features/toon/ui-prompt.md) | open |
 | 9 | 04 | design: render และผล | `/warroom toon` พร้อมลิงก์แบบจาก [ui-prompt.md](../../features/toon/ui-prompt.md) | open |
-| 10 | 01 | klein บน torch 2.8.0 กรณีหนักสุด (GGUF Q8_0, 3 ภาพอ้างอิง, 576×1024) peak MPS 13.1–14.0 GB เกิน ~12 GB ของ D34 และ swap; ต้องเลือก: ภาพอ้างอิงเล็กลง, GGUF ที่เล็กกว่า (Q6_K/Q4_K_M), ภาพอ้างอิงสูงสุดน้อยลง, torch รุ่นใหม่ หรือยอมรับ | `/warroom toon` | open |
+| 10 | 01 | klein บน torch 2.8.0 กรณีหนักสุด (GGUF Q8_0, 3 ภาพอ้างอิง, 576×1024) peak MPS 13.1–14.0 GB เกิน ~12 GB ของ D34 และ swap; ต้องเลือก: ภาพอ้างอิงเล็กลง, GGUF ที่เล็กกว่า (Q6_K/Q4_K_M), ภาพอ้างอิงสูงสุดน้อยลง, torch รุ่นใหม่ หรือยอมรับ | `/warroom toon` | → D49 |

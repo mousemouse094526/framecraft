@@ -1,12 +1,12 @@
 # 01: ติดตั้ง klein, Series และภาพอ้างอิง
 
-**What to build:** Setup script โหลด FLUX.2 klein 4B (GGUF Q8_0 กับ text encoder และ vae) และ Status check มีแถวของ klein. ผู้ใช้เปิด tab ที่ห้า "การ์ตูนเล่า" สร้าง Series แบบหลอนหรือตลก แก้ค่าของ Series เพิ่มตัวละครและฉากหลัง แล้วสร้างภาพอ้างอิง 3 แบบให้เลือกหนึ่ง หรือเอาไฟล์ภาพเข้า. ลบ Series ได้หลังยืนยัน.
+**What to build:** Setup script โหลด FLUX.2 klein 4B (transformer GGUF ตาม D49 กับ text encoder และ vae) และ Status check มีแถวของ klein. ผู้ใช้เปิด tab ที่ห้า "การ์ตูนเล่า" สร้าง Series แบบหลอนหรือตลก แก้ค่าของ Series เพิ่มตัวละครและฉากหลัง แล้วสร้างภาพอ้างอิง 3 แบบให้เลือกหนึ่ง หรือเอาไฟล์ภาพเข้า. ลบ Series ได้หลังยืนยัน.
 
 **Blocked by:** None (can start immediately)
 
 **Covers:**
-- Decisions: D1, D3, D6, D7, D8 (`voice_id` ของ Series), D10, D11, D13 (`ref_rev` 0), D25 (ตัวละคร ฉากหลัง Saved voice ของ Series), D26, D28, D29, D31, D32 (เปลี่ยนภาพอ้างอิง `ref_rev`), D34, D35, D36 (คำสั่งภาพของตัวละครและฉากหลัง), D41, D42, D46, setup-status D9, setup-status D11, spoil-maker D32–D37
-- ADR: 0002, 0003, 0004, 0008, 0009, 0010, 0012, 0013, 0015, 0019, 0025, 0026, 0028, 0030, 0031, 0032, 0033
+- Decisions: D1, D3, D6, D7, D8 (`voice_id` ของ Series), D10, D11, D13 (`ref_rev` 0), D25 (ตัวละคร ฉากหลัง Saved voice ของ Series), D26, D28, D29, D31, D32 (เปลี่ยนภาพอ้างอิง `ref_rev`), D34, D35, D36 (คำสั่งภาพของตัวละครและฉากหลัง), D41, D42, D46, D47, D48, D49, setup-status D9, setup-status D11, spoil-maker D32–D37
+- ADR: 0002, 0003, 0004, 0008, 0009, 0010, 0012, 0013, 0015, 0019, 0025, 0026, 0028, 0031, 0035, 0032, 0033
 - Screens: รายการ Series (หน้าแรกของ tab), ตั้งค่า Series, ตัวละครและฉากหลัง, เลือกภาพอ้างอิง
 - Seams: 1 (Series, ลบ Series, Ref job, `ref/pick`, upload, `not_ready` ของ klein, `voice_in_use` ของ Series, `gpu_busy` ระหว่าง Describe job), 3 (คำเตือนก่อนเลือกไฟล์ภาพ)
 - User stories: 1, 2, 3 (เปลี่ยนภาพอ้างอิง), 12 (ลบ Series)
@@ -16,11 +16,16 @@
 
 ## Acceptance criteria
 
-### ลองจริงก่อน (Open Question 1)
+### ลด memory ของ klein ก่อน (D49)
 
-- ก่อนเขียน worker จริง ลอง klein ผ่าน diffusers 0.42.1 บน torch 2.8.0 ที่ project pin ที่กรณีหนักสุด (GGUF, 3 ภาพอ้างอิง, 576×1024) บน Mac M1 16 GB → จด peak memory และเวลาต่อภาพใน `progress.md` แบบ trial-klein-mac
+- ผลลองบน torch 2.8.0 อยู่ใน `progress.md` แล้ว: Q8_0 + ภาพอ้างอิง 768 ได้ peak MPS 13.1–14.0 GB
+- ลองตามลำดับของ D49 ที่กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพติดกันใน process ลูกเดียว, seed และคำสั่งตายตัว, ปิดแอปอื่น, 3 รอบเอาค่าสูงสุด, วัด `torch.mps.driver_allocated_memory()` ทุก 0.25 วิ, จด swap ก่อนและหลัง) แล้วหยุดที่ขั้นแรกที่ peak ≤ 12 GB และภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2: (1) `empty_cache` หลังทุกภาพ + ภาพอ้างอิง ≤ 512 บน Q8_0, (2) + Q6_K, (3) + Q4_K_M
+- ขั้น 1 จด `empty_cache` อย่างเดียว และภาพอ้างอิง 512 อย่างเดียวด้วย
+- ทุกขั้นที่ผ่าน memory: ลองคงตัวละคร 10 ภาพจากตัวละคร 1 ตัวแบบ trial-klein-mac ข้อ 4 ดูด้วยตาว่าหน้าตาไม่หลุด
+- ขั้น 2 หรือ 3: เปลี่ยน `allow_patterns`, `GGUF_FILE`, ที่ว่างที่ต้องการ และขนาดใน spec; marker ของ Q8_0 กับ spec Q6_K → แถว `model_klein_gguf` `missing` (test)
+- จดตัวเลขทุกขั้นที่ลองใน `progress.md` และขั้นที่ใช้เป็น `D{n}` (`From: build ticket 01`)
 - ลองคำบรรยายไทยตรงเข้า klein สองสามภาพ → จดผลใน `progress.md` เป็นข้อมูลให้ D36
-- peak ทั้งระบบเกิน ~12 GB หรือรันไม่ได้ → หยุด เพิ่ม Blocked row ที่ Needs `/warroom toon` เรื่อง pin
+- ไม่มีขั้นไหนผ่าน → หยุด เพิ่ม Blocked row ที่ Needs `/warroom toon`
 
 ### ติดตั้งและ Status check
 

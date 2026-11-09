@@ -65,7 +65,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 - คลิปที่ render ยาวเท่าผลรวมความยาวการ์ด (±0.1 วินาที) และ `ffmpeg -i` อ่านได้ h264 1080×1920 30 fps กับ aac (ไม่มี ffprobe, ADR-0005).
 - ทุกการ์ดในคลิปเป็นภาพการ์ดปัจจุบันของการ์ดนั้นตามลำดับ.
 - ปิด backend ระหว่าง "สร้างภาพที่ขาดทั้งหมด" แล้วเปิดใหม่: ภาพที่เสร็จก่อนปิดยังอยู่ กดใหม่สร้างเฉพาะที่เหลือ.
-- งานภาพบน M1 16 GB ไม่ swap: peak ทั้งระบบไม่เกิน ~12 GB ต่อภาพ ที่กรณีหนักสุด 3 ภาพอ้างอิง (D34).
+- งานภาพบน M1 16 GB: peak `torch.mps.driver_allocated_memory()` ของ process ลูก klein ไม่เกิน 12 GB ที่กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพติดกันใน process เดียว, seed และคำสั่งตายตัว, ปิดแอปอื่น) และภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2 (D49).
 - ลองด้วยมือ: ตัวละครหนึ่งตัวใน ~5 การ์ดของ EP แรกและ EP ที่สอง ดูด้วยตาว่าหน้าเหมือนภาพอ้างอิง จดผลใน `progress.md` (แบบ trial-klein-mac).
 
 ## Implementation
@@ -73,9 +73,10 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 ### Modules touched
 
 - **`backend.models`**
+  - `backend.checks.check_model` ได้ `missing` เมื่อ pattern ใดใน `allow_patterns` ไม่ตรงไฟล์ใดใน marker (D49: เปลี่ยนไฟล์ใน revision เดิมต้องโหลดใหม่)
   - เพิ่ม `KLEIN` และ `KLEIN_GGUF` ใน `MODELS` (D34, ADR-0004):
     - `KLEIN`: `check_id` `model_klein`, `label` `FLUX.2 klein 4B model`, `repo_id` `black-forest-labs/FLUX.2-klein-4B`, `revision` `e7b7dc27f91deacad38e78976d1f2b499d76a294`, `allow_patterns` `model_index.json`, `text_encoder/*`, `tokenizer/*`, `vae/*`, `scheduler/*`, `transformer/config.json` (ไม่โหลด `transformer/*.safetensors`), `license` `Apache-2.0`, `license_url` `https://www.apache.org/licenses/LICENSE-2.0`, `author` `Black Forest Labs`
-    - `KLEIN_GGUF`: `check_id` `model_klein_gguf`, `label` `FLUX.2 klein 4B GGUF`, `repo_id` `unsloth/FLUX.2-klein-4B-GGUF`, `revision` pin ตอน build ticket 01 (D34 › Details), `allow_patterns` `flux-2-klein-4b-Q8_0.gguf`, `license` `Apache-2.0`, `license_url` `https://www.apache.org/licenses/LICENSE-2.0`, `author` `Unsloth`
+    - `KLEIN_GGUF`: `check_id` `model_klein_gguf`, `label` `FLUX.2 klein 4B GGUF`, `repo_id` `unsloth/FLUX.2-klein-4B-GGUF`, `revision` pin ตอน build ticket 01 (D34 › Details), `allow_patterns` `flux-2-klein-4b-Q8_0.gguf` (หรือ Q6_K / Q4_K_M ถ้าขั้นของ D49 ต้องเปลี่ยน; ใช้ทั้งสอง OS), `license` `Apache-2.0`, `license_url` `https://www.apache.org/licenses/LICENSE-2.0`, `author` `Unsloth`
     - ทั้งคู่ `platforms` ทั้งสอง OS (D35); spec เดียวต่อแถวบนทุก OS จึงไม่ต้องใช้ตัวเลือกต่อ OS แบบ `qwen_for` (ADR-0025)
     - `from_single_file` ได้ `config=` เป็น path ของ snapshot ในเครื่องเสมอ ไม่ให้ diffusers ไปหา Hub ตอนรัน (ADR-0008, trial › ข้อ 3)
 - **`backend.setup`**
@@ -364,7 +365,8 @@ media/toon/
 - Qwen แปลคำบรรยายภาพ (หรือคำอธิบาย) ทีละรายการ: คำสั่งบอกให้ใช้ `character 1`, `character 2` เป็นประธาน และบอกท่าทาง สีหน้า มุมกล้องและระยะ แสง (trial › ข้อ 4); คำตอบ JSON `{"scene": "..."}`; `temperature` 0, `max_tokens` 200, timeout `llm.timeouts().pick`
 - JSON พัง, `scene` ว่าง หรือ timeout ต่อรายการ → `{scene}` = `character 1 in a medium shot.` (0 ตัวละคร: `A medium shot.`) ต่อด้วยคำบรรยายเดิม; timeout ทำให้ process ลูกเริ่มใหม่แบบ Draft job
 - คำบรรยายภาพว่าง → ใช้ค่าในข้อก่อนโดยไม่ถาม Qwen
-- ภาพอ้างอิงย่อด้านยาว ≤ 768 px ตอนส่งเข้า klein (D31)
+- ภาพอ้างอิงย่อด้านยาว ≤ 512 px ตอนส่งเข้า klein (D49, เดิม 768 ของ D31); ไฟล์ที่เก็บคงขนาดเดิม ย่อเฉพาะตอนส่ง
+- `torch.mps.empty_cache()` หลังทุกภาพ (`cuda`: `torch.cuda.empty_cache()`) (D49)
 - ขนาด: ภาพการ์ดและฉากหลัง 1024×576 (`frame`) หรือ 576×1024 (`full`) (D31, D37); ตัวละคร 576×1024 เสมอ
 - seed สุ่มต่อภาพ เก็บในชื่อไฟล์
 
@@ -386,7 +388,7 @@ media/toon/
 
 1. ตอนเริ่ม copy ภาพอ้างอิงที่งานใช้ลง `media/toon/.image-job/` เพื่อให้เปลี่ยนหรือลบภาพอ้างอิงระหว่างงานได้; เก็บ `ref_rev` ที่ copy ไว้ลง `image.refs`
 2. state `translating` (`done` / `total`): Qwen แปลคำบรรยายภาพของทุกการ์ดในงาน ณ ตอนเริ่ม แล้ว process ลูกของ Qwen จบ (D36)
-3. state `drawing` (`done` / `total`): process ลูกของ klein: โหลด text encoder ด้วย `device_map` → encode ทุกคำสั่งใต้ `torch.no_grad()` → ปล่อย text encoder → โหลด transformer GGUF กับ vae → สร้างทีละการ์ด (D34)
+3. state `drawing` (`done` / `total`): process ลูกของ klein: โหลด text encoder ด้วย `device_map` → encode ทุกคำสั่งใต้ `torch.no_grad()` → ปล่อย text encoder → โหลด transformer GGUF กับ vae → สร้างทีละการ์ด ล้าง cache หลังทุกภาพ (D34, D49)
 4. ได้ภาพหนึ่งใบ thread ของ backend เขียนตามลำดับ (D33): เขียน PNG ใหม่ → ใต้ lock เขียน `ep.json` ที่ `image` เดิมเป็น `previous_image` และภาพใหม่เป็น `image` → ลบไฟล์ของ `previous_image` เดิม; การ์ดที่ถูกลบหรือองก์ที่แตกใหม่ระหว่างงาน → ทิ้งภาพนั้น
 5. `Draw` ของการ์ดหนึ่งล้มด้วย `WorkerError` → การ์ดนั้นนับใน `failed_cards` แล้วไปการ์ดถัดไป; process ลูก crash หรือ timeout → งาน `failed`
 6. ยกเลิก: หยุดหลังภาพที่กำลังสร้าง (ทิ้งภาพนั้น) ภาพที่เสร็จแล้วอยู่ (D33)
@@ -491,7 +493,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 
 ### Ops
 
-- Setup script โหลดเพิ่มราว 12 GB (GGUF 4.3 GB + text encoder และ vae ~8 GB, D34)
+- Setup script โหลดเพิ่มราว 12 GB (GGUF 4.3 GB + text encoder และ vae ~8 GB, D34); Q6_K 3.4 GB หรือ Q4_K_M 2.6 GB ถ้า D49 เปลี่ยนไฟล์
 - `NOTICE.md` และหน้า Setup status แสดง license ของ klein ทั้งสอง repo และ Qwen3-4B text encoder (setup-status D11, legal ข้อ 1)
 
 ## Seams
@@ -555,13 +557,12 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 
 ## Open Questions
 
-1. klein ผ่าน diffusers 0.42.1 รันบน torch 2.8.0 ที่ project pin (trial วัดบน 2.15.0) ได้เวลาและ memory ใกล้ผลลองไหม ที่กรณีหนักสุด (GGUF, 3 ภาพอ้างอิง, 576×1024) — non-blocking: ticket 01 ลองภาพกรณีนี้ก่อนทำอย่างอื่น จด peak และเวลา และลองคำบรรยายไทยตรงเข้า klein สองสามภาพเป็นข้อมูลให้ D36; ไม่ผ่านคือ Blocked row และเปิด `/warroom toon` ใหม่เรื่อง pin.
-2. legal ข้อ 5 เป็น UNVERIFIED: ยังไม่ได้เช็คในราชกิจจานุเบกษาว่าร่าง พ.ร.บ. ว่าด้วยปัญญาประดิษฐ์ ยังไม่ผ่าน — non-blocking: ผู้ใช้ยอมรับความเสี่ยงใน D46.
+1. legal ข้อ 5 เป็น UNVERIFIED: ยังไม่ได้เช็คในราชกิจจานุเบกษาว่าร่าง พ.ร.บ. ว่าด้วยปัญญาประดิษฐ์ ยังไม่ผ่าน — non-blocking: ผู้ใช้ยอมรับความเสี่ยงใน D46.
 
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — repo, license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-09)
-- [unsloth/FLUX.2-klein-4B-GGUF](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF) — ไฟล์ Q8_0 และ license (accessed 2026-11-09)
+- [unsloth/FLUX.2-klein-4B-GGUF](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF) — ไฟล์ Q8_0, Q6_K, Q4_K_M และ license (accessed 2026-11-09)
 - [diffusers Flux2 pipelines](https://huggingface.co/docs/diffusers/v0.42.1/en/api/pipelines/flux2) — `Flux2KleinPipeline`, `encode_prompt` (accessed 2026-11-09)
 - [diffusers GGUF](https://huggingface.co/docs/diffusers/v0.42.1/en/quantization/gguf) — `from_single_file` กับ `GGUFQuantizationConfig` (accessed 2026-11-09)
 - [PyTorch MPS backend](https://docs.pytorch.org/docs/2.8/notes/mps.html) — MPS ใน torch 2.8 (accessed 2026-11-09)
