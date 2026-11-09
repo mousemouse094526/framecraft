@@ -133,6 +133,32 @@ class ProjectPaths:
         """Written by setup once both Kanit files match their sha256."""
         return self.markers_dir / "font_kanit"
 
+    @property
+    def toon_dir(self) -> Path:
+        """Everything the การ์ตูนเล่า tab keeps (toon spec › ข้อมูล, ADR 0003)."""
+        return self.root / "media" / "toon"
+
+    @property
+    def toon_series_dir(self) -> Path:
+        return self.toon_dir / "series"
+
+    def series_dir(self, series_id: str) -> Path:
+        """A Series' `series.json`, its reference images and its EPs."""
+        return self.toon_series_dir / series_id
+
+    def refs_dir(self, series_id: str) -> Path:
+        """The current reference image of each character and background, `{id}-{rev}.png`."""
+        return self.series_dir(series_id) / "refs"
+
+    def pending_refs_dir(self, series_id: str) -> Path:
+        """The three pictures of a Ref job not picked yet, `{id}-{1..3}.png`; emptied on every start."""
+        return self.refs_dir(series_id) / ".pending"
+
+    @property
+    def toon_partial_dir(self) -> Path:
+        """Uploads not received in full yet; emptied on every start."""
+        return self.toon_dir / ".partial"
+
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"
 

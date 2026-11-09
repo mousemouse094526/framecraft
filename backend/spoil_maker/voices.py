@@ -27,7 +27,7 @@ from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil_maker import draft_file, thai
 from backend.spoil_maker.draft_file import Audio, Draft
-from backend.spoil_maker.json_values import is_number
+from backend.json_values import is_number
 from backend.spoil_maker.tts import Design, Designed, Ready, Speak, Spoken, WorkerError
 
 log = logging.getLogger(__name__)
@@ -232,8 +232,9 @@ _files_lock = threading.Lock()
 
 voice_users: list[Callable[[str], bool]] = []
 """Checks that answer True while a job will write a draft with that voice, so it can't be
-deleted (`voice_in_use`, D87). `spoil_maker.draft` adds the Draft job's when it is imported.
-Each reads its job without taking a lock, so it may run under `gpu.slot.draft_lock`."""
+deleted (`voice_in_use`, D87). `spoil_maker.draft` adds the Draft job's when it is imported,
+`toon.series` its Series' (toon D25). Each runs under `gpu.slot.draft_lock`, so it takes no
+lock but one that comes after it (the Draft job's none, `toon.store.lock`)."""
 
 
 def _job_uses(voice_id: str) -> bool:
@@ -326,7 +327,7 @@ def delete(project: ProjectPaths, voice_id: str) -> None:
     with gpu.slot.draft_lock, _files_lock:
         info = _voice_file(project, voice_id, ".json")
         if _job_uses(voice_id) or draft_file.uses_voice(project, voice_id):
-            raise ApiError(409, "voice_in_use", "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท")
+            raise ApiError(409, "voice_in_use", "เสียงนี้ใช้อยู่ใน Spoil draft งานร่างบท หรือ Series ของการ์ตูนเล่า")
         for suffix in (".pt", ".wav"):
             (project.voices_dir / f"{voice_id}{suffix}").unlink(missing_ok=True)
         info.unlink()

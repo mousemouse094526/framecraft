@@ -15,10 +15,12 @@ from starlette.requests import ClientDisconnect
 from backend import body_types, errors, files, paths, stories
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
-from backend.routes import setup_status, spoil, spoil_maker
+from backend.routes import setup_status, spoil, spoil_maker, toon
 from backend.routes import stories as stories_routes
 from backend.spoil import clips, downloads, transcribe, trim
 from backend.spoil_maker import describe, draft, episodes, render, shots, voices
+from backend.toon import jobs as toon_jobs
+from backend.toon import series as toon_series
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ JOB_HOLDERS = (
     JobEntry(lambda: draft.draft_jobs),
     JobEntry(lambda: voices.voice_jobs, voices.clean_on_start),
     JobEntry(lambda: render.render_jobs, render.clean_on_start),
+    JobEntry(lambda: toon_jobs.toon_jobs, toon_series.clean_on_start),
 )
 
 
@@ -77,6 +80,7 @@ async def lifespan(app: FastAPI):
             job.clean_on_start(project)
     # Half-written `draft.json`, `settings.json`, voice files (spoil-maker spec › Ops).
     files.remove_unfinished(project.spoil_maker_dir)
+    files.remove_unfinished(project.toon_dir)
     # After the clips' clean: a key of a clip start-up removed goes too (story-kb spec › Ops).
     stories.clean_on_start(project)
     yield
@@ -121,3 +125,4 @@ app.include_router(spoil.router, prefix="/api")
 app.include_router(spoil_maker.router, prefix="/api")
 app.include_router(stories_routes.router, prefix="/api")
 app.include_router(stories_routes.clips_router, prefix="/api")
+app.include_router(toon.router, prefix="/api")

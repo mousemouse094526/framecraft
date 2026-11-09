@@ -16,7 +16,7 @@ from backend import files
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.spoil_maker import thai
-from backend.spoil_maker.json_values import is_int
+from backend.json_values import is_int
 
 log = logging.getLogger(__name__)
 

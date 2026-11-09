@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from backend.checks import FfmpegInfo, GpuInfo, Probes
+from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
 from backend.spoil import clips
@@ -31,13 +31,20 @@ MODEL_FILES = {"config.json": 120, "model.safetensors": 4096}
 
 
 def write_snapshot(root: Path, model: ModelSpec, revision: str | None = None) -> Path:
-    """Create the files snapshot_download would leave for one model."""
+    """Create the files snapshot_download would leave for one model: `MODEL_FILES`, and
+    one file for each of its patterns that names a folder or a file (`text_encoder/*`)."""
     snapshot = ProjectPaths(root).snapshot_dir(model, revision or model.revision)
-    for name, size in MODEL_FILES.items():
+    for name, size in snapshot_files(model).items():
         path = snapshot / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"x" * size)
     return snapshot
+
+
+def snapshot_files(model: ModelSpec) -> dict[str, int]:
+    """Path → size of the files `write_snapshot` leaves and `write_marker` lists."""
+    named = {pattern.replace("*", "model.safetensors"): 64 for pattern in named_patterns(model)}
+    return MODEL_FILES | named
 
 
 def write_marker(root: Path, model: ModelSpec, revision: str | None = None) -> Path:
@@ -48,8 +55,8 @@ def write_marker(root: Path, model: ModelSpec, revision: str | None = None) -> P
             {
                 "repo_id": model.repo_id,
                 "revision": revision or model.revision,
-                "files": [{"path": n, "size": s} for n, s in MODEL_FILES.items()],
-                "size_bytes": sum(MODEL_FILES.values()),
+                "files": [{"path": n, "size": s} for n, s in snapshot_files(model).items()],
+                "size_bytes": sum(snapshot_files(model).values()),
                 "finished_at": "2026-10-29T10:00:00+07:00",
             }
         ),
@@ -120,6 +127,14 @@ def ok_bitsandbytes() -> str:
     return "0.50.2"
 
 
+def ok_diffusers() -> str:
+    return "0.42.1"
+
+
+def ok_gguf() -> str:
+    return "0.19.0"
+
+
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
     probes = Probes(
@@ -131,6 +146,8 @@ def fake_probes(**overrides) -> Probes:
         pythainlp=ok_pythainlp,
         gpu=card(),
         bitsandbytes=ok_bitsandbytes,
+        diffusers=ok_diffusers,
+        gguf=ok_gguf,
     )
     return dataclasses.replace(probes, **overrides)
 
@@ -471,7 +488,7 @@ class FakeModel:
     """Stands in for a model's child process that answers requests from a queue
     (`spoil_maker.start_worker`, `spoil_maker.start_tts_worker`).
 
-    Each start runs a thread that says `ready()`, then one `answer(request, index)`
+    Each start runs a thread that says `ready()` (unless it is None), then one `answer(request, index)`
     per request, `index` counting that process's requests from 0. It can pause
     before answering request `index` until the test calls
     `release` (or the process is terminated) with `pause_at`, never answer it
@@ -564,6 +581,28 @@ class FakeTts(FakeModel):
         return Designed(audio=audio, sample_rate=self.SAMPLE_RATE, prompt=prompt)
 
 
+class FakeKlein(FakeModel):
+    """The klein child (`toon.start_klein_worker`): no word until `Encode`, then `Encoded`,
+    and one `Drawn` per `Draw` with the bytes `b"png {seed}"`. `fail_at` answers that request
+    with a `WorkerError` instead."""
+
+    def __init__(self):
+        super().__init__()
+        self.fail_at: int | None = None
+
+    def ready(self):
+        return None
+
+    def answer(self, request, index: int):
+        from backend.toon.klein import Drawn, Encode, Encoded, WorkerError
+
+        if index == self.fail_at:
+            return WorkerError("model_failed", "RuntimeError: MPS out of memory")
+        if isinstance(request, Encode):
+            return Encoded(len(request.prompts))
+        return Drawn(f"png {request.seed}".encode())
+
+
 class FakeModelProcess(FakeProcess):
     """The `multiprocessing.Process` surface, answering requests from a thread."""
 
@@ -579,7 +618,8 @@ class FakeModelProcess(FakeProcess):
         from queue import Empty
 
         model = self._model
-        self._replies.put(model.ready())
+        if (ready := model.ready()) is not None:
+            self._replies.put(ready)
         index = 0
         while not self._killed.is_set():
             try:

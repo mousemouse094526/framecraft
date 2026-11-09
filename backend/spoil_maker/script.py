@@ -14,7 +14,7 @@ from backend import clock, stories
 from backend.spoil.transcribe import Transcript, TranscriptLine
 from backend.spoil_maker import thai
 from backend.spoil_maker.draft_file import Layout, Ref, Sentence, Style
-from backend.spoil_maker.json_values import is_int
+from backend.json_values import is_int
 from backend.spoil_maker.shots import Shot
 from backend.stories import Story
 

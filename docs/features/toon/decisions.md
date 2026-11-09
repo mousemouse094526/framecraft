@@ -638,7 +638,37 @@
 
 **Sources:** [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ Q8_0 / Q6_K / Q4_K_M (accessed 2026-11-09)
 
-**From:** blocked #10 (auto mode) · **Status:** active
+**From:** blocked #10 (auto mode) · **Status:** active (ขั้นที่ใช้: D51)
+
+## D50: Status check เทียบเฉพาะ pattern ที่ระบุไฟล์หรือ folder กับไฟล์ใน marker
+
+**Chosen:** `checks.check_model` ได้ `missing` ("ไม่มีไฟล์ {pattern} ใน marker") เมื่อ pattern ใน `allow_patterns` ที่ส่วนแรกไม่มี `*` (ไฟล์อย่าง `flux-2-klein-4b-Q8_0.gguf`, `model_index.json` หรือ folder อย่าง `text_encoder/*`) ไม่ตรงไฟล์ใดใน marker. pattern ที่บอกชนิดไฟล์ (`*.json`, `*.jinja`) ไม่เทียบ.
+
+**Why:** D49 ต้องให้เครื่องที่โหลด Q8_0 แล้วเห็น `missing` เมื่อ spec เปลี่ยนไฟล์ใน revision เดิม; แต่ pattern ชนิดไฟล์ของ Qwen และ Whisper ไม่จำเป็นต้องมีไฟล์ตรงใน repo (`*.jinja`, `*.txt`) จะทำให้ model ที่โหลดครบแล้วกลายเป็น `missing`. กฎเดียวกับที่ setup ตรวจ folder หลังโหลด และที่ `write_snapshot` ของ test ใช้.
+
+**Rejected:**
+- ทุก pattern — Qwen ที่ไม่มีไฟล์ `.jinja` ใน revision จะ `missing` ตลอด
+
+**From:** build ticket 01 · **Status:** active
+
+## D51: transformer ของ klein เป็น Q4_K_M (ขั้น 3 ของ D49)
+
+**Chosen:** `KLEIN_GGUF.allow_patterns` และ `klein.GGUF_FILE` เป็น `flux-2-klein-4b-Q4_K_M.gguf` (2.6 GB) ใน revision เดิม `a09d5bb`, ทั้งสอง OS (D35). ภาพอ้างอิงย่อด้านยาว ≤ 512 และ `empty_cache` หลังทุกภาพตาม D49 ข้อ 1. `REQUIRED_FREE_BYTES` Mac 32 GB, Windows 42 GB, ไม่มี Qwen 27 GB (klein ราว 11 GB แทน 12).
+
+**Why:** ลองตาม D49 บน M1 16 GB, torch 2.8.0, กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพต่อ process): ขั้น 1 (Q8_0) peak MPS 13.08 GB และขั้น 2 (Q6_K) 12.88 GB เกิน 12 GB ทุกภาพ; ขั้น 3 (Q4_K_M) 11.83 GB ทุกภาพทั้ง 3 รอบ และภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2. ตัวเลขทุกขั้นอยู่ใน `progress.md` (ticket 01).
+
+**Rejected:**
+- Q8_0 กับภาพอ้างอิง 512 + `empty_cache` (ขั้น 1) — 13.08 GB
+- Q6_K (ขั้น 2) — 12.88 GB
+
+**Details:**
+- peak คงที่ทุกภาพเมื่อมี `empty_cache` และแทบไม่ขึ้นกับขนาดภาพอ้างอิง (768 → 512 ไม่ลด); ลดไฟล์ Q8_0 → Q6_K (−0.9 GB) ลด peak แค่ 0.2 GB แต่ Q6_K → Q4_K_M (−0.8 GB) ลด 1.05 GB
+- เครื่องที่โหลด Q8_0 ไว้แล้ว: แถว `model_klein_gguf` `missing` (D50) และ setup โหลด Q4_K_M ใหม่; ไฟล์ Q8_0 เดิมยังอยู่ใน `models/hub` (ราว 4.3 GB) จนกว่าผู้ใช้ลบเอง
+- windows-check วัด VRAM ขั้นต่ำกับไฟล์นี้ (D35)
+- วัดแยกของขั้น 1 (`empty_cache` อย่างเดียว, ref 512 อย่างเดียว) ไม่ครบ: Q8_0 thrash จน 10 นาทีต่อ step; ใช้ผลรอบก่อน (ref 768 ไม่มี `empty_cache`: 13.09 → 13.98 GB) เทียบแทน
+- คงตัวละคร 10 ภาพผ่าน (`progress.md`, trial-images/consistency-10-q4km.png)
+
+**From:** build ticket 01 (auto mode) · **Status:** active
 
 ## Sources
 

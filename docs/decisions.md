@@ -326,3 +326,5 @@ question; the full entry is in the feature's decisions.md.
 | gguf pin 0.19.0 แทน 0.10.0: 0.10.0 อ่าน GGUF ไม่ได้บน numpy 2 | [toon](features/toon/decisions.md) | D47 | — | — | active |
 | ค่าเล็กของ Series และ Ref job: ความยาว style/tone, `file_too_large`, `item_id`, ค่าสำรองของคำแปลภาพอ้างอิง, `backend/uploads.py` | [toon](features/toon/decisions.md) | D48 | — | — | active |
 | klein: peak MPS ≤ 12 GB ที่กรณีหนักสุด; ลองตามลำดับ empty_cache + ภาพอ้างอิง ≤ 512 → Q6_K → Q4_K_M | [toon](features/toon/decisions.md) | D49 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
+| Status check: pattern ใน `allow_patterns` ที่ระบุไฟล์หรือ folder ต้องตรงไฟล์ใน marker; pattern ชนิดไฟล์ไม่เทียบ | [toon](features/toon/decisions.md) | D50 | — | — | active |
+| klein transformer เป็น GGUF Q4_K_M (Q8_0 13.08 GB, Q6_K 12.88 GB เกิน; Q4_K_M 11.83 GB) + ภาพอ้างอิง ≤ 512 + `empty_cache` ทุกภาพ | [toon](features/toon/decisions.md) | D51 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |

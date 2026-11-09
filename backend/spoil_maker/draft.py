@@ -24,7 +24,7 @@ from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, episodes, script, settings, shots, thai, voices
 from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef, Style
-from backend.spoil_maker.json_values import is_int
+from backend.json_values import is_int
 from backend.spoil_maker.llm import Generate, Generated, Ready, Timeouts, WorkerError, timeouts
 from backend.spoil_maker.script import Brief
 from backend.spoil_maker.shots import ShotsFile

@@ -74,8 +74,7 @@ backend/
 │                    llm (the only mlx-vlm import; picks the child per OS), tts (the only omnivoice
 │                    import), voices (Saved voices, Voice job), thai
 │                    (numbers as words, letter count, the only pythainlp
-│                    import), json_values (int and number checks of a JSON
-│                    value), draft_file (the Spoil draft on disk; spoil
+│                    import), draft_file (the Spoil draft on disk; spoil
 │                    imports it), draft (the draft's view and edits, the
 │                    Draft job), episodes (a clip's EP cuts on disk, the
 │                    EP list and its token count, D66), script (the
@@ -88,6 +87,17 @@ backend/
 │                    transformers VLM and bitsandbytes import, windows-launch
 │                    D3); llm's, llm_windows's and tts's `worker` run in a
 │                    child process; `llm.TIMEOUTS` holds each OS's timeouts
+├── toon/         ← the การ์ตูนเล่า tab (toon spec): store (`series.json` on
+│                    disk, the tab's one lock), series (Series, characters,
+│                    backgrounds, reference pictures and their uploads),
+│                    prompts (the picture prompts and the reading of Qwen's
+│                    scene), jobs (the Toon job slot: Ref job, Qwen then
+│                    klein), klein (the only diffusers import; its `worker`
+│                    runs in a child process, D34)
+├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
+│                    File import and toon's reference uploads share it
+├── json_values.py← int and number checks of a JSON value (JSON `true` is an
+│                    int to Python): spoil_maker and toon share it
 ├── routes/       ← one router file per feature, e.g. setup_status.py, stories.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -120,16 +130,18 @@ through a queue; the thread writes the result file (ADR 0012).
 - Only one module per library that talks to the outside world (the yt-dlp
   adapter, the Whisper adapter in `backend.spoil`, the mlx-vlm adapter
   `spoil_maker.llm`, the OmniVoice adapter `spoil_maker.tts`, the tokenizer
-  `spoil_maker.tokens`); tests replace it with a fake (`spoil.adapter`,
-  `spoil.start_worker`, `spoil_maker.start_worker`, `spoil_maker.start_tts_worker`,
-  `spoil_maker.count_tokens`).
-- torch, transformers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
+  `spoil_maker.tokens`, the diffusers adapter `toon.klein`); tests replace it with a
+  fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
+  `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.start_klein_worker`).
+- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
 - Locks are taken in one order: a job slot's, then `spoil.clips.files_lock`
   (a Temp clip's mp4 and Transcript, spoil D46), then `gpu.slot.draft_lock`,
   then the GPU slot's own (inside `GpuSlot`); never the other way round.
+  `toon.store.lock` comes after `draft_lock` and before the GPU slot's own (a
+  Series' `voice_id` is written under `draft_lock`, toon D25).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).

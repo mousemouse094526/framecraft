@@ -22,6 +22,31 @@ and you can add one yourself, for example as a watermark.
 - **License:** [MIT](https://opensource.org/license/mit)
 - **Model:** <https://huggingface.co/openai/whisper-large-v3-turbo>
 
+## FLUX.2 klein 4B
+
+The การ์ตูนเล่า tab draws its pictures with FLUX.2 klein 4B: the text encoder (Qwen3-4B),
+vae and configs from Black Forest Labs, and the transformer as Unsloth's GGUF (Q4_K_M).
+The model card forbids using it for illegal or deceptive content, sexual content
+involving minors, harassment, or non-consensual intimate images.
+
+- **Creator:** Black Forest Labs
+- **License:** [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- **Model:** <https://huggingface.co/black-forest-labs/FLUX.2-klein-4B>
+
+## FLUX.2 klein 4B GGUF
+
+- **Creator:** Unsloth
+- **License:** [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- **Model:** <https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF>
+
+## Qwen3-4B (klein's text encoder)
+
+Shipped inside the FLUX.2 klein 4B repository (`text_encoder/`).
+
+- **Creator:** Qwen
+- **License:** [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- **Model:** <https://huggingface.co/Qwen/Qwen3-4B>
+
 ## ffmpeg
 
 The ffmpeg binary comes from the [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg)

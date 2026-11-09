@@ -76,15 +76,15 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
   - `backend.checks.check_model` ได้ `missing` เมื่อ pattern ใดใน `allow_patterns` ไม่ตรงไฟล์ใดใน marker (D49: เปลี่ยนไฟล์ใน revision เดิมต้องโหลดใหม่)
   - เพิ่ม `KLEIN` และ `KLEIN_GGUF` ใน `MODELS` (D34, ADR-0004):
     - `KLEIN`: `check_id` `model_klein`, `label` `FLUX.2 klein 4B model`, `repo_id` `black-forest-labs/FLUX.2-klein-4B`, `revision` `e7b7dc27f91deacad38e78976d1f2b499d76a294`, `allow_patterns` `model_index.json`, `text_encoder/*`, `tokenizer/*`, `vae/*`, `scheduler/*`, `transformer/config.json` (ไม่โหลด `transformer/*.safetensors`), `license` `Apache-2.0`, `license_url` `https://www.apache.org/licenses/LICENSE-2.0`, `author` `Black Forest Labs`
-    - `KLEIN_GGUF`: `check_id` `model_klein_gguf`, `label` `FLUX.2 klein 4B GGUF`, `repo_id` `unsloth/FLUX.2-klein-4B-GGUF`, `revision` pin ตอน build ticket 01 (D34 › Details), `allow_patterns` `flux-2-klein-4b-Q8_0.gguf` (หรือ Q6_K / Q4_K_M ถ้าขั้นของ D49 ต้องเปลี่ยน; ใช้ทั้งสอง OS), `license` `Apache-2.0`, `license_url` `https://www.apache.org/licenses/LICENSE-2.0`, `author` `Unsloth`
+    - `KLEIN_GGUF`: `check_id` `model_klein_gguf`, `label` `FLUX.2 klein 4B GGUF`, `repo_id` `unsloth/FLUX.2-klein-4B-GGUF`, `revision` pin ตอน build ticket 01 (D34 › Details), `allow_patterns` `flux-2-klein-4b-Q4_K_M.gguf` (D51: Q8_0 และ Q6_K เกิน 12 GB; ใช้ทั้งสอง OS), `license` `Apache-2.0`, `license_url` `https://www.apache.org/licenses/LICENSE-2.0`, `author` `Unsloth`
     - ทั้งคู่ `platforms` ทั้งสอง OS (D35); spec เดียวต่อแถวบนทุก OS จึงไม่ต้องใช้ตัวเลือกต่อ OS แบบ `qwen_for` (ADR-0025)
     - `from_single_file` ได้ `config=` เป็น path ของ snapshot ในเครื่องเสมอ ไม่ให้ diffusers ไปหา Hub ตอนรัน (ADR-0008, trial › ข้อ 3)
 - **`backend.setup`**
   - โหลดทั้งสอง spec ตาม ADR-0004 ต่อท้ายลำดับเดิม (หลัง Qwen ก่อน Kanit ตามลำดับ `MODELS`); หลังโหลดตรวจว่าทุก folder ใน `allow_patterns` มีไฟล์จริง ไม่เชื่อ exit code (trial › ข้อ 5.3)
-  - `REQUIRED_FREE_BYTES` เพิ่ม 13 GB: Mac 33 GB, Windows 43 GB; `REQUIRED_FREE_BYTES_WITHOUT_QWEN` 28 GB
+  - `REQUIRED_FREE_BYTES` เพิ่ม 12 GB: Mac 32 GB, Windows 42 GB; `REQUIRED_FREE_BYTES_WITHOUT_QWEN` 27 GB (D51)
   - klein โหลดไม่สำเร็จเป็นเหมือนโมเดลอื่น: Setup script ล้มและรันซ้ำแล้วโหลดต่อ (ADR-0002)
 - **`backend.checks`, `backend.gate_rows`**
-  - แถวใหม่: Status check ด้านล่าง; `gate_rows.KLEIN` รวมสี่แถวของ klein
+  - แถวใหม่: Status check ด้านล่าง; `gate_rows.klein(project)` รวมสี่แถวของ klein (ฟังก์ชัน: แถว model ต้องรู้ project)
 - **`backend.gpu`**
   - `Kind` เพิ่ม `toon_write` ("ร่างการ์ตูนเล่า"), `toon_image` ("สร้างภาพ"), `toon_voice` ("สร้างเสียงเล่า"), `toon_render` ("render การ์ตูนเล่า") ใน `RUNNING_NAMES`
 - **`backend.app`**
@@ -493,7 +493,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 
 ### Ops
 
-- Setup script โหลดเพิ่มราว 12 GB (GGUF 4.3 GB + text encoder และ vae ~8 GB, D34); Q6_K 3.4 GB หรือ Q4_K_M 2.6 GB ถ้า D49 เปลี่ยนไฟล์
+- Setup script โหลดเพิ่มราว 11 GB (GGUF Q4_K_M 2.6 GB + text encoder และ vae ~8 GB, D34, D51); เครื่องที่โหลด Q8_0 ไว้แล้วเห็นแถว `model_klein_gguf` `missing` และ setup โหลดใหม่ (D50)
 - `NOTICE.md` และหน้า Setup status แสดง license ของ klein ทั้งสอง repo และ Qwen3-4B text encoder (setup-status D11, legal ข้อ 1)
 
 ## Seams
