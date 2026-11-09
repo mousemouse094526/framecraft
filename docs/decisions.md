@@ -168,7 +168,7 @@ question; the full entry is in the feature's decisions.md.
 | ผลลัพธ์เป็น mp4 1080×1920 กับ `.srt` ของบทบรรยาย แก้ในแอปแล้ว render ใหม่ | [spoil-maker](features/spoil-maker/decisions.md) | D10 | — | — | active |
 | บทบรรยายและเสียงบรรยายเป็นภาษาไทยอย่างเดียว ต้นฉบับภาษาอะไรก็ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D11 | — | — | active |
 | LLM รันด้วย library ใน `.venv`, โมเดล pin จาก Hugging Face ลง `models/` ผ่าน Setup script, ไม่ใช้ Ollama | [spoil-maker](features/spoil-maker/decisions.md) | D12 | — | [0003](adr/0003-everything-inside-project.md), [0004](adr/0004-pinned-model-registry.md), [0008](adr/0008-runtime-media-download.md) | active |
-| LLM คือ Qwen3.5 9B 4-bit (`mlx-community/Qwen3.5-9B-MLX-4bit`) Apache-2.0, ใช้ memory ราว 10 GB รันทีละงาน GPU | [spoil-maker](features/spoil-maker/decisions.md) | D13 | — | [0015](adr/0015-one-gpu-slot.md) | active |
+| LLM คือ Qwen3.5 9B 4-bit (`mlx-community/Qwen3.5-9B-MLX-4bit`) Apache-2.0, ใช้ memory ราว 10 GB รันทีละงาน GPU | [spoil-maker](features/spoil-maker/decisions.md) | D13 | toon | [0015](adr/0015-one-gpu-slot.md) | active |
 | LLM รันด้วย mlx-vlm บน Mac หลัง interface ที่เปลี่ยน backend ได้; backend บน Windows ตัดสินใน `windows-check` | [spoil-maker](features/spoil-maker/decisions.md) | D14 | — | [0016](adr/0016-single-os-library-ports-separately.md) | changed by spoil-maker D50 |
 | LLM เลือก shot ให้ประโยคจาก Transcript กับคำบรรยายภาพของทุก shot ที่ทำครั้งเดียวต่อ Temp clip | [spoil-maker](features/spoil-maker/decisions.md) | D15 | — | — | active |
 | Describe job เริ่มเมื่อผู้ใช้กดต่อคลิป เห็น % ยกเลิกได้; คลิปที่ใช้ทำสปอยต้องถอดแล้วและดูภาพแล้ว | [spoil-maker](features/spoil-maker/decisions.md) | D16 | — | — | active |
@@ -180,7 +180,7 @@ question; the full entry is in the feature's decisions.md.
 | หน้าตรวจแก้: แก้ ลบ แทรกประโยคได้ (ประโยคแทรกเลือก Shot เอง) ไม่มีลากสลับลำดับ | [spoil-maker](features/spoil-maker/decisions.md) | D27 | — | — | active |
 | Spoil draft (บท, Shot, เสียง, ค่าตั้ง) เก็บเป็นไฟล์ใน `media/` งานเดียว ร่างใหม่ทับหลังยืนยัน | [spoil-maker](features/spoil-maker/decisions.md) | D28 | — | — | active |
 | ลบ Temp clip ที่ Spoil draft ใช้: เตือน ยืนยันแล้วลบทั้งคลิปและ Spoil draft | [spoil-maker](features/spoil-maker/decisions.md) | D29 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
-| เสียง: ปุ่มสร้างทั้งหมด (เฉพาะที่ขาด) + ฟังและสร้างใหม่ทีละประโยค; แก้ข้อความ = ต้องสร้างใหม่; render สร้างส่วนที่ขาดให้ | [spoil-maker](features/spoil-maker/decisions.md) | D30 | toon | — | active |
+| เสียง: ปุ่มสร้างทั้งหมด (เฉพาะที่ขาด) + ฟังและสร้างใหม่ทีละประโยค; แก้ข้อความ = ต้องสร้างใหม่; render สร้างส่วนที่ขาดให้ | [spoil-maker](features/spoil-maker/decisions.md) | D30 | toon | [0034](adr/0034-derived-media-records-inputs.md) | active |
 | render: เสียงประโยคแบ่งครึ่งให้ 2 Shot เล่นจากต้น Shot, Shot สั้นเล่นเลยท้ายต่อในต้นฉบับ | [spoil-maker](features/spoil-maker/decisions.md) | D31 | — | — | active |
 | เสียงตัวอย่าง = Saved voice ที่ผู้ใช้ออกแบบ (เพศ วัย ระดับเสียง → สุ่ม → ฟัง → บันทึก) เก็บเป็น clone prompt อยู่รายการเดียวกับเสียง clone | [spoil-maker](features/spoil-maker/decisions.md) | D32 | toon | [0019](adr/0019-saved-voice-tied-to-tts-model.md) | changed by spoil-maker D48 |
 | clone: สร้างประโยคตัวอย่างให้ฟังก่อนบันทึกเป็น Saved voice ไม่มีตรวจอัตโนมัติ | [spoil-maker](features/spoil-maker/decisions.md) | D33 | — | — | superseded by spoil-maker D48 |
@@ -192,7 +192,7 @@ question; the full entry is in the feature's decisions.md.
 | ความยาวเป้าหมาย 30–180 วินาที ค่าตั้งต้น 60 | [spoil-maker](features/spoil-maker/decisions.md) | D39 | — | — | active |
 | เสียงต้นฉบับ 0–100% ทีละ 5 ตั้งต้น 20% จำค่าล่าสุด | [spoil-maker](features/spoil-maker/decisions.md) | D40 | — | — | active |
 | ผล render เก็บทุกครั้งใน `media/spoil-maker/renders/` มีรายการเล่น โหลด ลบ | [spoil-maker](features/spoil-maker/decisions.md) | D42 | — | — | active |
-| Saved voice เปลี่ยนชื่อและลบได้ (ยกเว้นที่ Spoil draft ใช้) speed แก้ไม่ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D43 | toon | — | changed by toon D25 |
+| Saved voice เปลี่ยนชื่อและลบได้ (ยกเว้นที่ Spoil draft ใช้) speed แก้ไม่ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D43 | toon | [0033](adr/0033-saved-voice-delete-guard.md) | changed by toon D25 |
 | อ่านตัวเลข: เลขไทยเป็นอารบิก, ทศนิยม `จุด`, เวลา `นาฬิกา…นาที`, `%` เปอร์เซ็นต์, อื่นๆ อ่านทีละกลุ่ม; เขียนเอง | [spoil-maker](features/spoil-maker/decisions.md) | D44 | — | — | active |
 | ข้อตัดสินทางเทคนิค: งาน GPU ทีละงานทั้ง project (`gpu_busy`), Kanit Bold pin commit, ภาพเล็ก Shot 320 px, ค่าที่จำไว้ใน `settings.json`, clone เป็น base64 ≤ 20 MB, `pythainlp` newmm | [spoil-maker](features/spoil-maker/decisions.md) | D45 | — | [0015](adr/0015-one-gpu-slot.md) | active |
 | Transcript รวมของ EP ที่เลือกไม่เกิน 32,000 token (tokenizer ของ Qwen นับข้อความที่แก้แล้ว D54) เกินไม่ให้ร่าง `transcript_too_long` | [spoil-maker](features/spoil-maker/decisions.md) | D46 | story-kb, windows-launch | — | active |
@@ -279,19 +279,19 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | การ์ตูนเล่าเป็น feature ใหม่ `toon` ใน tab "การ์ตูนเล่า" มีข้อมูลของตัวเอง ไม่ใช้ Temp clip | [toon](features/toon/decisions.md) | D1 | — | — | active |
 | รอบแรกทำครบทางแต่บาง: บท → การ์ด → ภาพ → เสียงเล่า → ซับ → render mp4 | [toon](features/toon/decisions.md) | D2 | — | — | active |
-| Series เก็บชื่อช่อง สไตล์ ตัวละคร ฉากหลัง; EP อยู่ใน Series เลข EP เดินต่อเอง | [toon](features/toon/decisions.md) | D3 | — | — | active |
+| Series เก็บชื่อช่อง สไตล์ ตัวละคร ฉากหลัง; EP อยู่ใน Series เลข EP เดินต่อเอง | [toon](features/toon/decisions.md) | D3 | — | [0032](adr/0032-series-owns-characters.md) | active |
 | ภาพขยับต่อการ์ด: นิ่ง/ซูมเข้า/ซูมออก/เลื่อนซ้าย/ขวา + ไฟกะพริบทั้งภาพ, จางระหว่างการ์ด, ด้วย ffmpeg | [toon](features/toon/decisions.md) | D4 | — | — | active |
 | คลังเสียง (ไฟล์หรือลิงก์) AI เลือกตามชื่อต่อฉาก ผู้ใช้ปรับได้; AI สร้างเสียงที่ขาดเป็นรอบสอง | [toon](features/toon/decisions.md) | D5 | — | — | active |
-| สร้างภาพด้วย FLUX.2 klein 4B (Apache-2.0) ทั้งสอง OS พร้อมภาพอ้างอิง; ลองบน Mac ก่อนสร้าง tab | [toon](features/toon/decisions.md) | D6 | — | — | active |
+| สร้างภาพด้วย FLUX.2 klein 4B (Apache-2.0) ทั้งสอง OS พร้อมภาพอ้างอิง; ลองบน Mac ก่อนสร้าง tab | [toon](features/toon/decisions.md) | D6 | — | [0030](adr/0030-image-model-klein-gguf.md) | active |
 | แบบจอสองแบบเลือกต่อ Series: กรอบดำ (ภาพแนวนอน + ชื่อเรื่อง EP ชื่อช่อง) หรือเต็มจอ (ภาพ 9:16 + ซับทับภาพ) | [toon](features/toon/decisions.md) | D7 | — | — | active |
 | เสียงเล่าหลักหนึ่ง Saved voice ต่อ Series, EP เปลี่ยนเป็นเสียงอื่นได้; ไม่มีเสียงต่อตัวละคร | [toon](features/toon/decisions.md) | D8 | — | — | active |
 | เส้นเรื่อง องก์ → ช่วง → การ์ด; ช่วง = การ์ดติดกันในฉากหลังเดียว เสียงพื้นต่อช่วง; ไม่ใช้คำ "ฉาก" | [toon](features/toon/decisions.md) | D9 | — | — | active |
 | โครงองก์ตั้งต้นที่ Series (แบบหลอน / แบบตลก); AI ร่างตามโครง; EP เพิ่ม ลบ เปลี่ยนชื่อองก์ได้ | [toon](features/toon/decisions.md) | D10 | — | — | active |
 | โครงแบบตลก ตั้งเรื่อง / ปั่น / พลิก / ตบมุก; แก้โครงของ Series ได้ มีผลกับ EP ใหม่เท่านั้น | [toon](features/toon/decisions.md) | D11 | — | — | active |
 | AI ร่าง EP สองขั้น: ไอเดีย → พล็อต (สรุปต่อองก์ + ตัวละคร ฉากหลังที่ใช้) ผู้ใช้แก้ → ช่วงและการ์ด | [toon](features/toon/decisions.md) | D12 | — | — | active |
-| ตัวละครและฉากหลังใหม่ที่พล็อตเสนอเข้า Series ตอนยืนยันพล็อต (ยังไม่มีภาพ); การ์ดที่ใช้ของไม่มีภาพอ้างอิงสร้างภาพไม่ได้ | [toon](features/toon/decisions.md) | D13 | — | — | active |
-| ความยาวการ์ด = เสียงเล่าจริง + เว้นสั้น, ผู้ใช้เพิ่มวินาทีค้างได้, การ์ดไม่มีเสียงเล่าได้; ก่อนมีเสียงประมาณตาม spoil-maker D35 | [toon](features/toon/decisions.md) | D14 | — | — | active |
-| แก้พล็อตแล้วแตกใหม่เฉพาะองก์ที่พล็อตเปลี่ยน; การ์ดป้าย "แก้เอง" ต้องยืนยันก่อนทับ; องก์ที่แตกใหม่เสียภาพการ์ด | [toon](features/toon/decisions.md) | D15 | — | — | active |
+| ตัวละครและฉากหลังใหม่ที่พล็อตเสนอเข้า Series ตอนยืนยันพล็อต (ยังไม่มีภาพ); การ์ดที่ใช้ของไม่มีภาพอ้างอิงสร้างภาพไม่ได้ | [toon](features/toon/decisions.md) | D13 | — | [0032](adr/0032-series-owns-characters.md) | active |
+| ความยาวการ์ด = เสียงเล่าจริง + เว้นสั้น, ผู้ใช้เพิ่มวินาทีค้างได้, การ์ดไม่มีเสียงเล่าได้; ก่อนมีเสียงประมาณตาม spoil-maker D35 | [toon](features/toon/decisions.md) | D14 | — | [0034](adr/0034-derived-media-records-inputs.md) | active |
+| แก้พล็อตแล้วแตกใหม่เฉพาะองก์ที่พล็อตเปลี่ยน; การ์ดป้าย "แก้เอง" ต้องยืนยันก่อนทับ; องก์ที่แตกใหม่เสียภาพการ์ด | [toon](features/toon/decisions.md) | D15 | — | — | changed by toon D43 |
 | คลังเสียงพื้นเป็นคลังกลางของ tab การ์ตูนเล่า ทุก Series ใช้ร่วม | [toon](features/toon/decisions.md) | D16 | — | — | active |
 | เสียงพื้นเดียวกันข้ามช่วงเล่นต่อ; ต่างกันผสมทับราว 1 วินาที; สั้นกว่าช่วงวนซ้ำ | [toon](features/toon/decisions.md) | D17 | — | — | active |
 | ไม่มีดูตัวอย่างทั้ง EP ก่อน render ในรอบแรก; render mp4 จริงแล้วดูผล | [toon](features/toon/decisions.md) | D18 | — | — | active |
@@ -301,6 +301,25 @@ question; the full entry is in the feature's decisions.md.
 | ตำแหน่งแบบจอตาม layout-sketch: กรอบดำ (ชื่อตอน + ป้าย EP บน, ภาพ 1080×608 กลาง, ซับใต้ภาพ, ชื่อช่องล่าง), เต็มจอ (ซับขาวขอบดำ ~60%); Kanit; ไม่มีสีเน้นคำ | [toon](features/toon/decisions.md) | D22 | — | — | active |
 | ป้ายชื่อ "ชื่อ / คำสั้น" (คำสั้นใส่หรือไม่ก็ได้) ขึ้นตลอดการ์ดแรกที่ตัวละครอยู่ในภาพ | [toon](features/toon/decisions.md) | D23 | — | — | active |
 | ชื่อตอนของ EP AI เสนอพร้อมพล็อต ผู้ใช้แก้ได้ก่อน render; แสดงเฉพาะแบบกรอบดำ | [toon](features/toon/decisions.md) | D24 | — | — | active |
-| ตัวละคร ฉากหลัง และ Saved voice ที่การ์ตูนเล่าใช้อยู่ลบไม่ได้ (ขยาย spoil-maker D43) | [toon](features/toon/decisions.md) | D25 | — | — | active |
-| ลบ Series ลบทุก EP ตัวละคร ฉากหลัง ภาพ เสียง คลิป หลังยืนยัน; Saved voice และคลังเสียงพื้นคงอยู่ | [toon](features/toon/decisions.md) | D26 | — | — | active |
+| ตัวละคร ฉากหลัง และ Saved voice ที่การ์ตูนเล่าใช้อยู่ลบไม่ได้ (ขยาย spoil-maker D43) | [toon](features/toon/decisions.md) | D25 | — | [0033](adr/0033-saved-voice-delete-guard.md) | active |
+| ลบ Series ลบทุก EP ตัวละคร ฉากหลัง ภาพ เสียง คลิป หลังยืนยัน; Saved voice และคลังเสียงพื้นคงอยู่ | [toon](features/toon/decisions.md) | D26 | — | [0032](adr/0032-series-owns-characters.md) | active |
 | ภาพการ์ดที่เสียแก้ด้วยการสร้างใหม่ทั้งภาพ; ไม่มีแก้เฉพาะจุดในรอบแรก | [toon](features/toon/decisions.md) | D27 | — | — | active |
+| สไตล์ภาพของ Series เป็นข้อความอังกฤษช่องเดียวต่อท้ายทุกคำสั่งภาพ; สไตล์ตั้งต้น "หลอนมืด" / "ตลกสว่าง"; ไม่มีภาพตัวอย่างสไตล์ | [toon](features/toon/decisions.md) | D28 | — | — | active |
+| ภาพการ์ดสร้างครั้งเดียวด้วย klein โดยส่งภาพฉากหลังคู่ภาพตัวละครเป็นภาพอ้างอิง; ไม่ตัดพื้นไม่ซ้อนภาพ | [toon](features/toon/decisions.md) | D29 | — | [0031](adr/0031-consistency-by-reference-images.md) | active |
+| ตัวละครในภาพการ์ด 0–2 ตัว (ภาพอ้างอิงต่อการ์ดสูงสุด 3) | [toon](features/toon/decisions.md) | D30 | — | — | active |
+| ภาพอ้างอิงหนึ่งภาพต่อตัวละคร (เต็มตัว หน้าตรง พื้นเรียบ) หรือฉากหลัง (ไม่มีคน); สร้าง 3 แบบให้เลือก หรือเอาไฟล์ PNG/JPG เข้า | [toon](features/toon/decisions.md) | D31 | — | [0031](adr/0031-consistency-by-reference-images.md) | active |
+| เปลี่ยนภาพอ้างอิงได้เสมอ; ภาพการ์ดเดิมคงอยู่พร้อมป้าย "ภาพอ้างอิงเปลี่ยน" | [toon](features/toon/decisions.md) | D32 | — | [0034](adr/0034-derived-media-records-inputs.md) | changed by toon D44 |
+| การ์ดละหนึ่งภาพ; ปุ่มสร้างทีละการ์ด + "สร้างภาพที่ขาดทั้งหมด" เป็นงานเดียวหยุดได้; เก็บภาพก่อนหน้าหนึ่งภาพให้สลับกลับ | [toon](features/toon/decisions.md) | D33 | — | — | active |
+| klein บน Mac: transformer GGUF Q8_0 (unsloth) + text encoder/vae จาก repo BFL pin commit; แยกขั้น encode → ปล่อย → transformer; เพิ่ม `diffusers`, `gguf` | [toon](features/toon/decisions.md) | D34 | — | [0030](adr/0030-image-model-klein-gguf.md) | active |
+| klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda; เช็คเครื่องจริงและ VRAM ขั้นต่ำใน windows-check | [toon](features/toon/decisions.md) | D35 | — | [0030](adr/0030-image-model-klein-gguf.md) | active |
+| คำสั่งภาพ: Qwen แปลคำบรรยายภาพเป็นอังกฤษตอนเริ่มงานภาพ แอปต่อแม่แบบ (ตัวละคร↔ภาพอ้างอิง N, ฉากหลัง, สไตล์, ห้ามตัวหนังสือ) | [toon](features/toon/decisions.md) | D36 | — | — | active |
+| ภาพการ์ดขนาดเท่าภาพฉากหลัง (1024×576 / 576×1024) ขยายด้วย lanczos ตอน render | [toon](features/toon/decisions.md) | D37 | — | — | active |
+| render สร้างเสียงเล่าที่ขาดหรือไม่ตรงให้ก่อน แบบ spoil-maker D30 | [toon](features/toon/decisions.md) | D38 | — | — | active |
+| เสียงในคลังเสียงพื้นแปลงเป็น m4a (aac) ตอนเอาเข้า ทั้งไฟล์และลิงก์ | [toon](features/toon/decisions.md) | D39 | — | — | active |
+| เลข EP ใหม่ = เลขสูงสุดที่ Series เคยมี + 1; แก้เลขเองได้ ไม่ซ้ำใน Series | [toon](features/toon/decisions.md) | D40 | — | — | active |
+| น้ำเสียงเล่าเป็นข้อความไทยช่องเดียวของ Series ตั้งต้นตามแบบหลอน/ตลก แก้ได้ | [toon](features/toon/decisions.md) | D41 | — | — | active |
+| test ของ toon: API กับโมเดลปลอม + render ด้วย ffmpeg จริง (`ffmpeg -i`) + หน้าเว็บผ่าน `App` แบบ story-kb D18; klein จริงลองมือ | [toon](features/toon/decisions.md) | D42 | — | — | active |
+| แตกองก์ใหม่ต้องยืนยันเมื่อจะเสียการ์ดแก้เอง ภาพ หรือเสียง พร้อมจำนวนต่อองก์ | [toon](features/toon/decisions.md) | D43 | — | — | active |
+| ปุ่ม "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน" เป็น Image job เดียวทั้ง EP | [toon](features/toon/decisions.md) | D44 | — | — | active |
+| Render job ของการ์ตูนเล่ามี slot ของตัวเอง render ได้ระหว่างงานภาพ; ต้องสร้างเสียงก่อนยังจองช่อง GPU | [toon](features/toon/decisions.md) | D45 | — | — | active |
+| ยอมรับความเสี่ยง legal ข้อ 5 (ป้ายคลิป AI) ที่ยังไม่ได้เช็คจากราชกิจจานุเบกษา | [toon](features/toon/decisions.md) | D46 | — | — | active |
