@@ -125,7 +125,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 | Package | Version | Marker | ใช้ทำอะไร |
 |---|---|---|---|
 | `diffusers` | `==0.42.1` | — | `Flux2KleinPipeline`, `from_single_file` GGUF (D34) |
-| `gguf` | `==0.10.0` | — | อ่านไฟล์ GGUF (diffusers ไม่ดึงมาให้, trial › ข้อ 3); pin ตรงตัวในช่วง `>=0.10.0` ของ D34 เพื่อให้แถว Status check เทียบได้ |
+| `gguf` | `==0.19.0` | — | อ่านไฟล์ GGUF (diffusers ไม่ดึงมาให้, trial › ข้อ 3); pin ตรงตัวในช่วง `>=0.10.0` ของ D34 เพื่อให้แถว Status check เทียบได้; 0.10.0 ใช้กับ numpy 2 ไม่ได้ (D47) |
 | `Pillow` | ตามที่ diffusers ดึงมา | — | อ่านและย่อภาพอ้างอิงที่เอาเข้า |
 
 ### Library assumptions

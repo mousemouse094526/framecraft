@@ -586,6 +586,30 @@
 
 **From:** gate (auto mode) · **Status:** active
 
+## D47: gguf pin 0.19.0 แทน 0.10.0
+
+**Chosen:** `gguf==0.19.0` (ล่าสุด, 2026-05-06) ยังอยู่ในช่วง `>=0.10.0` ของ D34; แถว Status check `gguf` เทียบกับ 0.19.0.
+
+**Why:** ลองจริงใน ticket 01: gguf 0.10.0 อ่านไฟล์ GGUF ไม่ได้บน numpy 2.5.4 ของ project (`AttributeError: 'memmap' object has no attribute 'newbyteorder'` ตอน `from_single_file`); numpy 2 เอา `ndarray.newbyteorder` ออก และ gguf แก้ตั้งแต่ราว 0.17. auto mode เลือกตัวเลือกที่แนะนำ.
+
+**Rejected:**
+- 0.17.1 — แก้แล้วเหมือนกันแต่เก่ากว่า; dep `requests` ที่ 0.19.0 เพิ่มมีอยู่แล้วผ่าน huggingface_hub
+
+**From:** build ticket 01 (auto mode) · **Status:** active
+
+## D48: ค่าเล็กของ Series และ Ref job ที่ build เลือกเอง
+
+**Chosen:**
+- `style` 1–500 ตัวอักษร, `tone` 0–300
+- upload ภาพอ้างอิงเกิน 20 MB → `400` `file_too_large` (ที่ `check` และตอนรับ body)
+- Toon job มี `item_id`: ตัวละครหรือฉากหลังที่ Ref job สร้าง; body ของ Ref job คือ `{"kind": "ref", "series_id", "item_kind": "characters" | "backgrounds", "item_id"}`
+- Qwen แปลคำอธิบายของภาพอ้างอิงไม่ได้ (JSON พัง, `scene` ว่าง, timeout) → `{scene}` คือคำอธิบายไทยเดิม (ว่าง → ชื่อ) แทนค่าสำรอง "medium shot" ของภาพการ์ด ซึ่งขัดกับแม่แบบ "Full body" ของตัวละคร
+- body ที่รับ upload เขียนผ่าน `backend/uploads.py` ที่ย้ายออกมาจาก `spoil.imports` (ผู้ใช้คนที่สองตาม conventions)
+
+**Why:** ค่าในขอบของ feature ที่ spec ไม่ได้กำหนด; เลือกตามแบบของโค้ดเดิม (spoil-maker `NAME_MAX`, spoil `size_mismatch`).
+
+**From:** build ticket 01 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

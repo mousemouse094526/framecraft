@@ -323,3 +323,5 @@ question; the full entry is in the feature's decisions.md.
 | ปุ่ม "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน" เป็น Image job เดียวทั้ง EP | [toon](features/toon/decisions.md) | D44 | — | — | active |
 | Render job ของการ์ตูนเล่ามี slot ของตัวเอง render ได้ระหว่างงานภาพ; ต้องสร้างเสียงก่อนยังจองช่อง GPU | [toon](features/toon/decisions.md) | D45 | — | — | active |
 | ยอมรับความเสี่ยง legal ข้อ 5 (ป้ายคลิป AI) ที่ยังไม่ได้เช็คจากราชกิจจานุเบกษา | [toon](features/toon/decisions.md) | D46 | — | — | active |
+| gguf pin 0.19.0 แทน 0.10.0: 0.10.0 อ่าน GGUF ไม่ได้บน numpy 2 | [toon](features/toon/decisions.md) | D47 | — | — | active |
+| ค่าเล็กของ Series และ Ref job: ความยาว style/tone, `file_too_large`, `item_id`, ค่าสำรองของคำแปลภาพอ้างอิง, `backend/uploads.py` | [toon](features/toon/decisions.md) | D48 | — | — | active |

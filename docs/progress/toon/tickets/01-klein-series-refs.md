@@ -12,7 +12,7 @@
 - User stories: 1, 2, 3 (เปลี่ยนภาพอ้างอิง), 12 (ลบ Series)
 - Legal: 1, 2, 3 (ข้อ 3 และข้อห้ามของ model card ในข้อ 1 เป็นหน้าที่ของผู้ใช้ ไม่มีของต้องสร้าง)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Acceptance criteria
 
