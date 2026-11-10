@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ทุก ticket เสร็จ (06 ปิด Blocked #15–18); ต่อ feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** feature review รอบสองเสร็จ (D60); smell ที่ค้างเป็น Blocked #19–21 รอตัด ticket; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon --review-feature
+/warroom tickets toon
 ```
 
 ## Tickets
@@ -20,6 +20,25 @@
 | 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | done |
 
 ## Log
+
+### Feature review (รอบสอง) — done 2026-11-10
+
+**Built:**
+- Render job ของ toon `zip` ตัวพูดก่อนการ์ด: OmniVoice ได้ `None` แล้วออกเอง (เดิมถูกหยุดด้วย `_free_gpu`); test ดูว่า child ถูกขอให้ออก (`asked_to_end` ใน `fakes.py`)
+- `renders.finish` (srt, json, เอา `.partial` ออก json ท้าย), `renders.listed`, `Stored`: render ของสปอยและการ์ตูนเล่าใช้ร่วม; `gate_rows.voice` แทน `voices.needed_rows`, `gate_rows.render(project, voices_first)`
+- ชื่อ: `ToonRenderJobError`, `_cards_to_voice`, `ToonJobs.use_child`, `speaking.Voice`; `episodes._use` สามค่าเป็น `_jobs_on`/`_locked`; คอมเมนต์ของ `work.plan` สองรอบ, `clean_up`, `done` ที่นับต่อ state
+- หน้าเว็บ: `cancelToonJob` ข้าง `useToonJobPoll`, `useEp` ใช้ `NOT_NOW`, ชนิดและ path ของ Render job ย้ายเป็น `features/toon/lib/render.ts`, token `--color-info` (Alert แบบ info ไม่ใช้สีขอบเป็นสีตัวหนังสือ)
+- test: `series_busy` ของ Plot, Cards, Voice job; Image job กับ `diffusers` รุ่นอื่น `503` `not_ready` (แทน test ที่เทียบ `gate_rows.klein` ตรง); test วน import นับ `from backend import toon`
+- spec: ตาราง API มี `PATCH …/acts/{aid}`, `gpu_kind` คงทั้งงาน, Modules touched › `backend.renders`; D59 แก้ชื่อ; `fastapi-api` SKILL.md
+
+**Decided:**
+- D60 — render จบที่ `backend.renders`, `gate_rows.voice`, ตัวพูดถูกถามก่อนใน `zip`, `gpu_kind` คงทั้งงาน
+
+**For the next ticket:**
+- ไม่แก้ (ตั้งใจ): `renders._is_name` ใช้ `strptime` ทั้งสอง feature (D59 บันทึกไว้); test วน import อยู่นอก seam (D59 เลือก); test `in_use` patch `Path.unlink` ทั้ง process (Mac เปิดไฟล์ค้างให้ลบไม่ได้ไม่ได้); path ใน `lib/gpu.ts` เป็น string แบบเดียวกับทุก feature (lib ไม่ import feature)
+- smell ใหญ่ → Blocked #19–21
+
+**Checks:** `uv run pytest` 1041 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 401 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `912c7c4`: Standards ไม่มีข้อผิดกติกา + smell 6 (หนักสุด การจบ render ซ้ำสองฝั่ง), Spec 15 (หนักสุด `zip` ที่ถามการ์ดก่อน), Newcomer 12 (หนักสุด `work.plan` สองรอบ, `Kind`/`JobKind`)
 
 ### 06: ส่วนที่ซ้ำและช่องโหว่เล็ก — done 2026-11-10
 
@@ -255,3 +274,6 @@
 | 16 | review | หน้าเว็บ: poll `JOB_PATH` ซ้ำ 3 hook (`useCast`, `usePickRef`, `useEp`) ควรเป็น hook เดียว; `GENRE_DEFAULTS` ซ้ำ `DEFAULTS` ของ backend ไม่มี test เทียบ; ปุ่ม "ฟัง" ไม่มี test | `/warroom tickets toon` | done (ticket 06) |
 | 17 | review | แถว `diffusers`/`gguf` เขียนทั้งใน `checks.run_checks` และ `gate_rows.klein` | `/warroom tickets toon` | done (ticket 06) |
 | 18 | review | ไฟล์เสียงที่หน้าเว็บหายไประหว่างแปลง ffmpeg ยังแปลงจนจบและเข้าคลัง (`_take_in` ได้ `threading.Event()` ใหม่); `DELETE …/renders/{name}` มี `409` `in_use` ที่ spec ไม่ได้เขียน | `/warroom tickets toon` | done (ticket 06) |
+| 19 | review | smell ที่ค้างจาก 05: `cards.run` สร้างตัวละครและฉากหลังใหม่เอง (ควรอยู่ `series`); `plot.writable` อ่าน `render.render_jobs.ep_use()` ตรงแทน `episodes.ep_jobs`; `process, requests, replies` เดินด้วยกัน (Data Clump); `ToonJobs.update`/`track`/`reply` แค่ส่งต่อ (Middle Man); เปิด klein (`Encode` แล้ว `Draw`) ซ้ำใน `refs.run` กับ `images.run`; `_running`/`series_use` ซ้ำระหว่าง `ToonJobs` กับ `RenderJobs` | `/warroom tickets toon` | open |
+| 20 | review | ซ้ำ: เริ่ม child (start, `track`, `Ready`) ใน `start_qwen`/`start_klein`/`Speaker.start` และหยุด (`track(None)`, `stop_process`) 3 ที่ใน `steps.py` + `_free_gpu`; `on_progress` และ `_free_gpu` ของสอง render; map `ref_rev` สร้าง 3 ที่ (`images._ref_revs`, `render._cards_to_voice`, `cards.run`); `_plot_items` สองตัวที่ทำต่างกัน (`writer` ตัดทิ้ง, `episodes` raise); `(folder, name)` ใน `backend.renders` | `/warroom tickets toon` | open |
+| 21 | review | ชื่อ: `kinds.Kind` (characters/backgrounds) ชนกับ `JobKind` จน body ต้องใช้ `item_kind` และ `{kind}` ใน route เป็นชนิดของ item; ตัวพูดเป็น `speaker` ใน `ToonJobs` แต่ `_speaker` ใน `RenderJobs`/`SentenceVoicer`; คอมเมนต์ "Step 1", "Steps 2–3" ไม่บอกว่าขั้นของ spec ส่วนไหน; `toon/__init__.py` re-export ไว้ให้ test patch | `/warroom tickets toon` | open |
