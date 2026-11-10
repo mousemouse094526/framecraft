@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket ครบ 10/10; ต่อ feature review (รอบสี่); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ticket ครบ 10/10 และ feature review รอบสี่จบ (`a1655db`); เหลือ Blocked #11, #12 (เช็คมือบน Mac, owner) และ smell ใหญ่ #25–28 (`/warroom tickets toon`)
 
 **Next:**
 
 ```
-/warroom-build toon --review-feature
+/warroom tickets toon
 ```
 
 ## Tickets
@@ -58,6 +58,27 @@
 - review ไม่แก้ (ตั้งใจ): `refs.run`/`WORK.ready`/`clean_up` ยังรับ `project` แยกจาก `plan.item_ref.project` (รูปของ `steps.Work` ที่ทุก kind ใช้); `uses=` ของ `toon_api` เป็นชื่อ fixture แบบ string (`getfixturevalue`, docstring บอก); path ของภาพอ้างอิงยังต่อสตริงใน `series` ไม่ได้เป็น method ของ `ItemRef`; `ItemRef` คู่กับ `EpRef` ชื่อคล้ายกัน (ticket ตั้งชื่อ `ItemRef`, docstring บอกว่าเป็นที่อยู่ของ item ไม่ใช่ภาพอ้างอิง)
 
 **Checks:** `uv run pytest` 1055 passed (+7 test ใหม่); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 401 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `3a639c3`: Standards 2 ข้อผิดกติกา (แก้: `test_toon_series_api.py` ใช้ `toon_api`, คำว่า "plain helpers" ใน testing.md) + smell (แก้: `_require_item` แทนเจ็ดที่, `_find` → `_item_or_none`, อ่าน field แทนแกะ tuple ตามลำดับ, type ของ `toon_api`), Spec ไม่มีข้อหนัก (แก้: test อ่านภาพที่รอเลือกผ่าน API ไม่ผ่าน `ItemRef`, D64 บอกที่ที่แปดคือ `refs.plan`), Newcomer สรุปตรง What to build (แก้: docstring `ItemRef` ว่าเป็นที่อยู่ ไม่ใช่ภาพอ้างอิงและไม่ใช่แค่จาก path, ชื่อ `_item_or_none`/`_require_item`, docstring `toon_api` ว่าต้องคงชื่อ fixture, ตัด "`series` the stored one")
+
+### Feature review (รอบสี่) — done 2026-11-10
+
+**Built:**
+- `klein.DRAW_TIMEOUTS` ของ Windows = 900 × `llm.WINDOWS_START`; `llm.TIMEOUTS["win32"]` สร้างจากค่า Mac × ตัวเดียวกัน
+- `gate_rows.LINK_TOOLS` (yt-dlp, Deno): `spoil.downloads` และ `toon.sounds.link_rows` ใช้ร่วม
+- `useSeriesForm` ใช้ `useReadyState`
+- `episodes._editing` (ล็อก, เขียน EP, ลบไฟล์การ์ดที่เอาออก) ในการแก้ act/segment/card เก้าตัว; `_require_background`, `_placed_segments`; `card_seconds(status: AudioStatus)`
+- ชื่อและคอมเมนต์: `folder` ใน `refs.run`, `choose`/`pick` ของ `usePickRef`, `nothing_to_draw` ใน `useEp.start`
+- spec › Modules touched, `fastapi-api` SKILL.md
+
+**Decided:**
+- D66 — timeout ของ klein จาก `llm`, `gate_rows.LINK_TOOLS`, `useSeriesForm` ใช้ `useReadyState`, `episodes._editing`
+
+**For the next ticket:**
+- ไม่แก้ (ตั้งใจ, บันทึกในรอบก่อนแล้ว): `plan` สองรอบ, `running()` อ่านไม่ล็อก, registry `ep_jobs`/`series_jobs`, test นอก seam (`test_toon_klein.py`, `test_toon_modules.py`, D59), `sendItem`/`edit` ต่างที่ field (D65), `job` ของ `steps.Run` ทุก `run` (D66)
+- ค่าที่คงไว้ตอนโหลดใหม่ (`notice: s.kind === "ready" ? …`) ต่างกันทุก hook จึงไม่รวม (D66); `pending: int` (0 หรือ 3) มีคอมเมนต์อยู่แล้ว; `speaking.speak` ต้องดึงอีกครั้งจึงปิด child (docstring บอก)
+- test ที่ล้มครั้งเดียวของ ticket 10 (`EpPage.test.tsx` แก้ข้อความการ์ด): รัน `EpPage` ซ้ำ 3 รอบและทั้งชุด 2 รอบผ่าน
+- smell ใหญ่ → Blocked #25–28
+
+**Checks:** `uv run pytest` 1055 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 409 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `912c7c4`: Standards ไม่มีข้อผิดกติกา + smell 6 (หนักสุด Duplicated ของการแก้ EP เก้าตัวใน `episodes.py`), Spec ไม่มี gap ที่ขวาง + 6 (หนักสุด แถว gate yt-dlp/Deno สองที่ ขัด D59; timeout ของ klein บน Windows ไม่ผูก `llm`), Newcomer สรุปตรง spec › Solution + เดา 16 จุด (หนักสุด `useEp.start` ที่ไปต่อหลัง `nothing_to_draw`)
 
 ### Feature review (รอบสาม) — done 2026-11-10
 
@@ -373,3 +394,7 @@
 | 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | done (ticket 10) |
 | 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | done (ticket 09) |
 | 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | done (ticket 09) |
+| 25 | review | หน้าเว็บยังส่ง `(sid, kind, id)` สามค่าใน `itemPath`, `pickHash`, `startRefJob` (`lib/series.ts`) ขณะ backend ใช้ `ItemRef` (D64); ชื่อ `sid`/`eid` ของ hook และ lib → `seriesId`/`epId` | `/warroom tickets toon` | open |
+| 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | open |
+| 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | open |
+| 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | open |
