@@ -4,15 +4,15 @@
 
 | # | Screen | User stories | Decisions | Now |
 |---|---|---|---|---|
-| 1 | รายการ Series | 1, 12 | D3, D26 | new |
-| 2 | ตั้งค่า Series | 1 | D7, D8, D10, D11, D19, D28, D41 | new |
-| 3 | ตัวละครและฉากหลัง | 2, 3, 12 | D13, D23, D25, D31, D32 | new |
-| 4 | เลือกภาพอ้างอิง | 2 | D31 | new |
-| 5 | รายการ EP ใน Series | 4, 12 | D26, D40 | new |
-| 6 | พล็อต | 4, 7 | D12, D13, D15, D24, D43 | new |
-| 7 | เส้นเรื่อง (การ์ด) | 5, 6, 8, 9, 10 | D4, D9, D13, D14, D15, D20, D21, D30, D32, D33, D44 | new |
-| 8 | คลังเสียงพื้น | 10 | D5, D16, D17, D39 | new |
-| 9 | render และผล | 11 | D18, D38, D45 | new |
+| 1 | รายการ Series | 1, 12 | D3, D26 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8121-65674) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8121-65178) |
+| 2 | ตั้งค่า Series | 1 | D7, D8, D10, D11, D19, D28, D41 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8122-66685) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8122-65920) |
+| 3 | ตัวละครและฉากหลัง | 2, 3, 12 | D13, D23, D25, D31, D32 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8123-68692) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8123-66916) |
+| 4 | เลือกภาพอ้างอิง | 2 | D31 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8124-70163) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8124-69800) |
+| 5 | รายการ EP ใน Series | 4, 12 | D26, D40 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8126-71235) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8126-70489) |
+| 6 | พล็อต | 4, 7 | D12, D13, D15, D24, D43 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8127-72204) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8127-71600) |
+| 7 | เส้นเรื่อง (การ์ด) | 5, 6, 8, 9, 10 | D4, D9, D13, D14, D15, D20, D21, D30, D32, D33, D44 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8128-76737) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8128-72085) |
+| 8 | คลังเสียงพื้น | 10 | D5, D16, D17, D39 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8129-80163) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8129-79456) |
+| 9 | render และผล | 11 | D18, D38, D45 | [section](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8130-81152) · [default 1440](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8130-80526) |
 
 ```text
 Design the "การ์ตูนเล่า" (toon) tab of framecraft, a local desktop web app that turns an idea into a vertical 1080×1920 narrated cartoon clip: the user sets up a Series, AI drafts a plot and cards, a local model draws one image per card, and the app renders an mp4. Steps, in order: 1 Components, 2 Screens, 3 Preview.
@@ -113,3 +113,9 @@ Deliver: the components made or changed, the screen frames, and the preview's st
 ```
 
 เอาลิงก์ Figma กลับมาด้วย `/warroom toon`.
+
+**แบบเสร็จ 2026-11-10** — 9 จอ ทุก state สองขนาด (1440/1024) อยู่ในหน้า `:: Website` ใต้ section components ของ toon
+
+- Components: https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8118-64964
+- Prototype (เริ่มที่จอ 1): https://www.figma.com/proto/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8121-65178&starting-point-node-id=8121-65178
+- หมายเหตุจากคนออกแบบ: ภาพในแบบเป็น placeholder วาดด้วย vector (ไม่ใช้ Figma AI); tab bar เพิ่มแท็บ "การ์ตูนเล่า" ทุก variant; จุดที่ควรแก้ — จอ 6 state "Failed" ควรเป็นการ์ดว่าง ไม่ใช่การ์ดพล็อตจาง
