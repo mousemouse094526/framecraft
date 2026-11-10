@@ -8,7 +8,7 @@
 - Decisions: D63, D64, D65
 - Blocked: #25, #28 (feature review รอบสี่)
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

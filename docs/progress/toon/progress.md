@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket 11 done (`EpAddress`, helper ของ test toon ใน `fakes`); เหลือ ticket 12 (Blocked #25, #28); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ticket 12 done (`ItemRef`, `ITEM_KINDS`, `sendChecked` ของหน้าเว็บ); ทุก ticket done รอ feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 12
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -23,9 +23,28 @@
 | 09 | ItemRef และ fixture ของ test ที่ใช้ร่วม | done |
 | 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | done |
 | 11 | ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม | done |
-| 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | ready |
+| 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | done |
 
 ## Log
+
+### 12: ItemRef และ ITEM_KINDS ของหน้าเว็บ toon — done 2026-11-10
+
+**Built:**
+- `lib/series.ItemRef { seriesId, itemKind, itemId }`: `itemPath`, `refUrl(ref, rev)`, `pendingUrl(ref, n)`, `pickHash`, `startRefJob` รับค่าเดียว; `Page` ของ pick เป็น `{ kind: "pick", itemRef }`; `usePickRef(itemRef)`, `PickPage({ itemRef })`, `RefTile` ได้ `itemRef`; `useCast.refOf`
+- `sid`/`eid`/`kid` → `seriesId`/`epId`/`cardId` ทุกที่ใน `features/toon/` (test: `SERIES_ID`/`EP_ID`)
+- `ITEM_KINDS`: `add`, `empty`, `form`, `tagged`, `tileSlot`, `pickSlot`, `fileNotice` (ข้อความ legal item 2 เดิมทุกตัวอักษร); `SECTION`, `CHARACTER_FILE_NOTICE` และกิ่ง `kind === "characters"` ใน `CastPage`/`PickPage` หมด
+- `lib/upload.sendChecked` (`FileToSend`): check แล้ว `sendFile`, `sent`/`refused`/`aborted`; `useCast.upload` และ `useSounds.uploadFile` ใช้ทางเดียว; `upload.test.ts`
+- test ใหม่: path และ hash ของ `ItemRef` (`series.test.ts`); ฉากหลังเปิดเลือกไฟล์ทันที; กล่องภาพตัวละคร/ฉากหลังของสองหน้า; ภาพอ้างอิงที่ check ปฏิเสธไม่ส่งและ upload ล้มบอกเหตุ; คลังเสียงพื้น ยกเลิกระหว่างส่งและ check ปฏิเสธ (ผ่านกับ `useSounds` ก่อนแก้ด้วย)
+- spec › Modules touched
+
+**Decided:**
+- D68 — `ItemRef`, action ของ `useCast` คง `(kind, item)`, `ITEM_KINDS` ที่ขยาย, `sendChecked` (200/201 ทั้งสอง hook, abort ไม่มี notice), test class ของกล่องภาพ
+
+**For the next ticket:**
+- review ไม่แก้ (ตั้งใจ): action ของ `useCast`/`Actions` ของ `CastPage` ยังรับ `(kind, item)` (D68 Rejected); บรรทัดท้ายของ `upload`/`uploadFile` ต่างกันที่ field (`series`/`notice` กับ `sounds`/`importNotice`, แบบ D65); `KindLook` มีทั้งข้อความ, class ของ Tailwind และข้อความ legal ในตารางเดียว (ตารางต่อชนิดตามตั๋ว); `started` ของ `useCast` ไม่ใช้ `FileUpload`; ชื่อพารามิเตอร์ `kind` ของ hook คู่กับ field `itemKind`
+- test ของกล่องภาพเช็ค class ของ Tailwind (jsdom ไม่มี layout, D68)
+
+**Checks:** `uv run pytest` 1075 passed (backend ไม่ได้แตะ); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 423 passed (+14); `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `c140492`: Standards ไม่มีข้อผิดกติกา + smell (แก้: `FileToSend` รับ `path`/`query` แทน path สองตัวที่ซ้ำ, ชื่อ `checked` สองความหมาย, `URL` ที่บัง global, `kid` → `cardId`, `refOf` สองครั้งใน `startRef`), Spec ไม่มีข้อขาด + (c) 200/201 และ abort ของภาพอ้างอิง (บันทึกใน D68), (d) test class (คงไว้ ไม่พึ่ง `firstElementChild` แล้ว), Newcomer สรุปตรง What to build (แก้: docstring ของ `FileToSend`/`SendReply`/`FileNotice`/`KindLook`, คอมเมนต์ `onSent` ของ `sendFile`, `started` มาก่อน `progress`, ชื่อ test `%%`, test ใช้ `NOT_NOW`, `text` → `look` ใน `CastPage`)
 
 ### 11: ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม — done 2026-11-10
 
@@ -415,7 +434,7 @@
 | 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | done (ticket 10) |
 | 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | done (ticket 09) |
 | 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | done (ticket 09) |
-| 25 | review | หน้าเว็บยังส่ง `(sid, kind, id)` สามค่าใน `itemPath`, `pickHash`, `startRefJob` (`lib/series.ts`) ขณะ backend ใช้ `ItemRef` (D64); ชื่อ `sid`/`eid` ของ hook และ lib → `seriesId`/`epId` | `/warroom tickets toon` | → ticket 12 |
+| 25 | review | หน้าเว็บยังส่ง `(sid, kind, id)` สามค่าใน `itemPath`, `pickHash`, `startRefJob` (`lib/series.ts`) ขณะ backend ใช้ `ItemRef` (D64); ชื่อ `sid`/`eid` ของ hook และ lib → `seriesId`/`epId` | `/warroom tickets toon` | done (ticket 12) |
 | 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | done (ticket 11) |
 | 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | done (ticket 11) |
-| 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | → ticket 12 |
+| 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | done (ticket 12) |

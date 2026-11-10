@@ -20,9 +20,9 @@ import { NoticeLine } from "./NoticeLine";
 
 const FAILED_TITLE = "render ไม่สำเร็จ";
 
-/** `#/toon/eps/{eid}/render`: render the EP and its clips (Figma toon / 9, D38, D45). */
-export function RenderPage({ eid }: { eid: string }) {
-  const { state, reload, start, cancel, remove } = useRender(eid);
+/** `#/toon/eps/{epId}/render`: render the EP and its clips (Figma toon / 9, D38, D45). */
+export function RenderPage({ epId }: { epId: string }) {
+  const { state, reload, start, cancel, remove } = useRender(epId);
 
   if (state.kind === "offline") {
     return (
@@ -46,12 +46,12 @@ export function RenderPage({ eid }: { eid: string }) {
   const missing = notReady ?? cards.filter(cannotRender).map((c) => c.id);
   const blocked = ep.stage !== "cards" || cards.length === 0 || missing.length > 0;
   const running = job !== null && isRendering(job) ? job : null;
-  const own = job?.ep_id === eid ? job : null;
+  const own = job?.ep_id === epId ? job : null;
 
   return (
     <PageLayout tab="toon" wide>
       <div className="flex flex-wrap items-center gap-2">
-        <a href={epHash(eid)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+        <a href={epHash(epId)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
           เส้นเรื่อง
         </a>
@@ -76,10 +76,10 @@ export function RenderPage({ eid }: { eid: string }) {
             render
           </button>
         </div>
-        {running && running.ep_id === eid && (
+        {running && running.ep_id === epId && (
           <JobBanner kind="running" {...runningText(running)} stopping={running.cancel_requested} onStop={() => void cancel()} />
         )}
-        {running && running.ep_id !== eid && (
+        {running && running.ep_id !== epId && (
           <Alert tone="warning" title="มี render ของ EP อื่นอยู่">
             รอให้เสร็จก่อน แล้วจึง render EP นี้
           </Alert>
@@ -96,7 +96,7 @@ export function RenderPage({ eid }: { eid: string }) {
               {numbered
                 .filter(({ card }) => missing.includes(card.id))
                 .map(({ card, number }) => (
-                  <a key={card.id} href={epHash(eid)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+                  <a key={card.id} href={epHash(epId)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
                     <img src={chevronRightIcon} alt="" width={16} height={16} />
                     ไปที่การ์ด {number}
                   </a>
@@ -118,7 +118,7 @@ export function RenderPage({ eid }: { eid: string }) {
         ) : (
           <ul className="flex flex-col gap-1">
             {renders.map((result) => (
-              <ClipRow key={result.name} eid={eid} result={result} onDelete={() => void remove(result)} />
+              <ClipRow key={result.name} epId={epId} result={result} onDelete={() => void remove(result)} />
             ))}
           </ul>
         )}
@@ -157,9 +157,9 @@ function downloadName(result: RenderResult): string {
 }
 
 /** Figma `Toon/ClipRow`: a 9:16 thumbnail, the file name, length and time; เล่น, ดาวน์โหลด, ลบ. */
-function ClipRow({ eid, result, onDelete }: { eid: string; result: RenderResult; onDelete: () => void }) {
+function ClipRow({ epId, result, onDelete }: { epId: string; result: RenderResult; onDelete: () => void }) {
   const [playing, setPlaying] = useState(false);
-  const file = renderFilePath(eid, result.name);
+  const file = renderFilePath(epId, result.name);
   const name = downloadName(result);
   return (
     <li aria-label={name} className="flex flex-col gap-2 rounded-xl px-4 py-2.5">

@@ -13,19 +13,19 @@ export type EpListState =
 
 /** รายการ EP ใน Series: the list, a new EP from an idea that goes straight to a Plot job, and
  * delete after the user confirmed (D12, D26, D40). */
-export function useEpList(sid: string) {
+export function useEpList(seriesId: string) {
   const [state, , setState] = useMountedState<EpListState>({ kind: "loading" });
 
   const load = useCallback(
     async (notice: Notice | null = null) => {
       try {
-        const [series, eps] = await Promise.all([getJson<Series>(seriesPath(sid)), getJson<ListedEp[]>(seriesEpsPath(sid))]);
+        const [series, eps] = await Promise.all([getJson<Series>(seriesPath(seriesId)), getJson<ListedEp[]>(seriesEpsPath(seriesId))]);
         setState({ kind: "ready", series, eps, notice });
       } catch {
         setState({ kind: "offline" });
       }
     },
-    [sid, setState],
+    [seriesId, setState],
   );
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function useEpList(sid: string) {
   const create = async (idea: string): Promise<boolean> => {
     const title = "สร้าง EP ไม่ได้";
     try {
-      const created = await sendJson<Ep | Refusal>("POST", seriesEpsPath(sid), { idea });
+      const created = await sendJson<Ep | Refusal>("POST", seriesEpsPath(seriesId), { idea });
       if (created.status !== 201) {
         await load(notice(title, created.body));
         return false;

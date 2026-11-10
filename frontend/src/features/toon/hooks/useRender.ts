@@ -33,15 +33,15 @@ export type RenderState =
     };
 
 /** render และผล: the EP's summary, its Render job polled while it runs, and its clips. */
-export function useRender(eid: string) {
+export function useRender(epId: string) {
   const [state, setState, update] = useReadyState<RenderState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
       const [ep, job, renders] = await Promise.all([
-        getJson<Ep>(epPath(eid)),
+        getJson<Ep>(epPath(epId)),
         getJson<RenderJob | null>(RENDER_JOB_PATH),
-        getJson<RenderResult[]>(rendersPath(eid)),
+        getJson<RenderResult[]>(rendersPath(epId)),
       ]);
       const series = await getJson<Series>(seriesPath(ep.series_id));
       setState((s) => ({
@@ -56,7 +56,7 @@ export function useRender(eid: string) {
     } catch {
       setState({ kind: "offline" });
     }
-  }, [eid, setState]);
+  }, [epId, setState]);
 
   useEffect(() => {
     void load();
@@ -79,7 +79,7 @@ export function useRender(eid: string) {
   const start = async () => {
     const title = "ยัง render ไม่ได้";
     try {
-      const reply = await sendJson<RenderJob | (Refusal & { card_ids?: string[] })>("POST", RENDER_PATH, { ep_id: eid });
+      const reply = await sendJson<RenderJob | (Refusal & { card_ids?: string[] })>("POST", RENDER_PATH, { ep_id: epId });
       if (reply.status === 202) {
         update((s) => ({ ...s, job: reply.body as RenderJob, notice: null, notReady: null }));
         return;
@@ -103,7 +103,7 @@ export function useRender(eid: string) {
   const remove = async (result: RenderResult) => {
     const title = `ลบคลิป ${result.name} ไม่ได้`;
     try {
-      const reply = await sendJson<Refusal>("DELETE", renderFilePath(eid, result.name));
+      const reply = await sendJson<Refusal>("DELETE", renderFilePath(epId, result.name));
       if (reply.status === 204) {
         update((s) => ({ ...s, notice: null, renders: s.renders.filter((r) => r.name !== result.name) }));
         return;

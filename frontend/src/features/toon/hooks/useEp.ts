@@ -35,13 +35,13 @@ export type EpState =
  * Plot job, › Cards job, › Image job, › Voice job). While a Plot or Cards job of this EP runs,
  * the page closes every field; a job that ends reads the EP again, and so does each picture drawn.
  */
-export function useEp(eid: string) {
+export function useEp(epId: string) {
   const [state, setState, update] = useReadyState<EpState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
       const [ep, job, sounds] = await Promise.all([
-        getJson<Ep>(epPath(eid)),
+        getJson<Ep>(epPath(epId)),
         getJson<ToonJob | null>(JOB_PATH),
         getJson<Sound[]>(SOUNDS_PATH),
       ]);
@@ -60,7 +60,7 @@ export function useEp(eid: string) {
     } catch {
       setState({ kind: "offline" });
     }
-  }, [eid, setState]);
+  }, [epId, setState]);
 
   useEffect(() => {
     void load();
@@ -72,13 +72,13 @@ export function useEp(eid: string) {
     (next) => {
       // A picture of this EP is written as soon as it is drawn: read the EP for it (spec › Frontend).
       // `job` is the previous poll's answer, so a `done` that moved means one more picture.
-      const drew = next.kind === "image" && next.ep_id === eid && next.state === "drawing" && next.done !== job?.done;
+      const drew = next.kind === "image" && next.ep_id === epId && next.state === "drawing" && next.done !== job?.done;
       update((s) => ({ ...s, job: next }));
       if (drew) void load();
     },
     (next) => {
       // A Cards job of this EP that is done opens the storyline (the plot page may be open).
-      if (next?.kind === "cards" && next.ep_id === eid && next.state === "done") window.location.hash = epHash(eid);
+      if (next?.kind === "cards" && next.ep_id === epId && next.state === "done") window.location.hash = epHash(epId);
       void load();
     },
     () => setState({ kind: "offline" }),
@@ -90,14 +90,14 @@ export function useEp(eid: string) {
 
   /** An edit: its answer is the EP as it is now; a refusal becomes the notice. */
   const edit = async (method: string, path: string, body: unknown, title = "บันทึกไม่ได้") => {
-    const reply = await sendEdit<Ep>(method, `${epPath(eid)}${path}`, body, title);
+    const reply = await sendEdit<Ep>(method, `${epPath(epId)}${path}`, body, title);
     update((s) => (reply.kind === "saved" ? { ...s, ep: reply.value, notice: null } : { ...s, notice: reply.notice }));
     return reply.kind === "saved";
   };
 
   const start = async (body: Record<string, unknown>, title: string) => {
     try {
-      const reply = await sendJson<ToonJob | Refusal>("POST", JOBS_PATH, { ep_id: eid, ...body });
+      const reply = await sendJson<ToonJob | Refusal>("POST", JOBS_PATH, { ep_id: epId, ...body });
       if (reply.status === 202) {
         update((s) => ({ ...s, job: reply.body as ToonJob, notice: null, lost: null, missing: null }));
         void load(); // the EP reads as locked now

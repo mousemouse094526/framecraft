@@ -107,7 +107,7 @@ export function StorylineView({ ep, series, sounds, locked, edit, job, busy, mis
           missing={missing}
           // `nothing_to_draw` says what is missing, not how many cards: those are the EP's `no_ref` ones.
           skipped={skipped ?? cards.filter((card) => card.image_status === "no_ref").length}
-          sid={series.id}
+          seriesId={series.id}
         />
       )}
       {ep.acts.map((act, index) => (
@@ -180,7 +180,7 @@ export function StorylineView({ ep, series, sounds, locked, edit, job, busy, mis
                     card={card}
                     number={number}
                     series={series}
-                    eid={ep.id}
+                    epId={ep.id}
                     version={version}
                     locked={locked}
                     busy={busy}
@@ -237,7 +237,7 @@ function cardWork(job: ToonJob | null): { cardId: string; work: CardWork } | nul
 
 /** Figma `ต้องสร้างภาพอ้างอิงก่อน`: each character and background with no reference image yet,
  * how many cards it holds back, and a link to the page that makes one (D13). */
-function MissingRefs({ missing, skipped, sid }: { missing: MissingRef[]; skipped: number; sid: string }) {
+function MissingRefs({ missing, skipped, seriesId }: { missing: MissingRef[]; skipped: number; seriesId: string }) {
   return (
     <section
       aria-label="ต้องสร้างภาพอ้างอิงก่อน"
@@ -257,7 +257,7 @@ function MissingRefs({ missing, skipped, sid }: { missing: MissingRef[]; skipped
             </span>
             <span className="font-mono text-xs leading-[1.5] font-medium text-mid">{item.cards} การ์ด</span>
             <span className="flex-1" />
-            <a href={castHash(sid)} className={`h-8 px-3 ${GHOST_BUTTON} text-brand`}>
+            <a href={castHash(seriesId)} className={`h-8 px-3 ${GHOST_BUTTON} text-brand`}>
               <img src={chevronRightIcon} alt="" width={16} height={16} />
               ไปสร้างภาพอ้างอิง
             </a>

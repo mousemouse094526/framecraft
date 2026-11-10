@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, sendFile, sendJson, type FileUpload } from "../../../lib/api";
+import { getJson, sendJson, type FileUpload } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isImporting, SOUND_IMPORT_PATH, SOUNDS_PATH, soundPath, type Sound, type SoundImport } from "../lib/sounds";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
+import { sendChecked } from "../lib/upload";
 import { useReadyState } from "./useReadyState";
 
 /** The EPs a sound plays in, as `in_use` names them. */
@@ -104,30 +105,24 @@ export function useSounds() {
 
   /** `/imports/check` first, then the file as the raw body (ADR 0028); the answer is the new sound. */
   const uploadFile = async (file: File) => {
-    const title = `เอาไฟล์ ${file.name} เข้าไม่ได้`;
-    try {
-      const checked = await sendJson<Refusal>("POST", `${SOUNDS_PATH}/imports/check`, { name: file.name, size: file.size });
-      if (checked.status !== 200) return update((s) => ({ ...s, importNotice: lineOf(title, checked.body) }));
-    } catch {
-      return update((s) => ({ ...s, importNotice: lineOf(title, null) }));
-    }
-    update((s) => ({ ...s, importNotice: null, upload: { name: file.name, percent: 0 } }));
-    const query = `name=${encodeURIComponent(file.name)}&size=${file.size}`;
-    sending.current = sendFile<Sound | Refusal>(
-      `${SOUNDS_PATH}/imports?${query}`,
-      file,
-      (percent) => update((s) => ({ ...s, upload: s.upload && { ...s.upload, percent } })),
-      () => {},
-    );
-    const reply = await sending.current.reply;
+    const toSend = {
+      path: `${SOUNDS_PATH}/imports`,
+      checkBody: { name: file.name, size: file.size },
+      query: `name=${encodeURIComponent(file.name)}&size=${file.size}`,
+    };
+    const reply = await sendChecked<Sound>({ ...toSend, file, title: `เอาไฟล์ ${file.name} เข้าไม่ได้`, warnings: NOT_NOW }, {
+      started: (upload) => {
+        sending.current = upload;
+        update((s) => ({ ...s, importNotice: null, upload: { name: file.name, percent: 0 } }));
+      },
+      progress: (percent) => update((s) => ({ ...s, upload: s.upload && { ...s.upload, percent } })),
+    });
     sending.current = null;
-    update((s) => ({ ...s, upload: null }));
-    if (reply.kind === "answer" && reply.status === 201) {
-      const added = reply.body as Sound;
-      update((s) => ({ ...s, sounds: [...s.sounds, added] }));
-    } else if (reply.kind !== "aborted") {
-      update((s) => ({ ...s, importNotice: lineOf(title, reply.kind === "answer" ? reply.body : null) }));
-    }
+    update((s) => {
+      const done = { ...s, upload: null };
+      if (reply.kind === "sent") return { ...done, sounds: [...s.sounds, reply.value] };
+      return reply.kind === "refused" ? { ...done, importNotice: reply.notice } : done;
+    });
   };
 
   const cancelUpload = () => sending.current?.abort();

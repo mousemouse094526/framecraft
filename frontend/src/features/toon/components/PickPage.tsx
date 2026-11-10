@@ -11,17 +11,18 @@ import loader24Icon from "../assets/loader-24.svg";
 import radio18Icon from "../assets/radio-18.svg";
 import radioSelected18Icon from "../assets/radio-selected-18.svg";
 import { usePickRef } from "../hooks/usePickRef";
-import { castHash, isRunning, pendingUrl, REF_PICTURES, type Item, type ItemKind, type ToonJob } from "../lib/series";
+import { castHash, isRunning, pendingUrl, REF_PICTURES, type Item, type ItemKind, type ItemRef, type ToonJob } from "../lib/series";
+import { ITEM_KINDS } from "../lib/kinds";
 import { JobBanner } from "./JobBanner";
 
 const PICTURES = Array.from({ length: REF_PICTURES }, (_, i) => i + 1);
 
-type Props = { sid: string; kind: ItemKind; id: string };
+type Props = { itemRef: ItemRef };
 
-/** `#/toon/series/{sid}/{kind}/{id}/pick`: เลือกภาพอ้างอิง (Figma toon / 4). */
-export function PickPage({ sid, kind, id }: Props) {
-  const { state, choose, pick, retry, cancel, reload } = usePickRef(sid, kind, id);
-  const back = castHash(sid);
+/** `#/toon/series/{seriesId}/{itemKind}/{itemId}/pick`: เลือกภาพอ้างอิง (Figma toon / 4). */
+export function PickPage({ itemRef }: Props) {
+  const { state, choose, pick, retry, cancel, reload } = usePickRef(itemRef);
+  const back = castHash(itemRef.seriesId);
 
   const title = (
     <div className="flex items-center gap-2">
@@ -98,12 +99,12 @@ export function PickPage({ sid, kind, id }: Props) {
             <Option
               key={n}
               n={n}
-              kind={kind}
+              kind={itemRef.itemKind}
               selected={choice === n}
               onChoose={ready ? () => choose(n) : undefined}
             >
               {ready ? (
-                <img src={pendingUrl(sid, kind, id, n)} alt="" className="size-full rounded-xl bg-accent-subtle object-contain" />
+                <img src={pendingUrl(itemRef, n)} alt="" className="size-full rounded-xl bg-accent-subtle object-contain" />
               ) : (
                 <Waiting n={n} job={running ?? job} />
               )}
@@ -161,7 +162,7 @@ function Option({ n, kind, selected, onChoose, children }: OptionProps) {
         selected ? "border-3 border-brand-accent" : "border border-border"
       }`}
     >
-      <div className={kind === "characters" ? "aspect-square w-full sm:size-[300px]" : "aspect-video w-full sm:w-[300px]"}>
+      <div className={ITEM_KINDS[kind].pickSlot}>
         {children}
       </div>
       <span className="flex items-center gap-2 px-1">

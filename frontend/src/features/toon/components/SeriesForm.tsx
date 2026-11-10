@@ -36,10 +36,10 @@ const INPUT =
 const LABEL = "text-sm leading-[1.5] font-medium text-foreground";
 const HINT = "text-xs leading-[1.5] text-muted-foreground";
 
-/** `#/toon/new` and `#/toon/series/{sid}/settings`: ตั้งค่า Series (Figma toon / 2). */
-export function SeriesForm({ sid }: { sid: string | null }) {
-  const { state, save } = useSeriesForm(sid);
-  const back = sid === null ? LIST_HASH : seriesHash(sid);
+/** `#/toon/new` and `#/toon/series/{seriesId}/settings`: ตั้งค่า Series (Figma toon / 2). */
+export function SeriesForm({ seriesId }: { seriesId: string | null }) {
+  const { state, save } = useSeriesForm(seriesId);
+  const back = seriesId === null ? LIST_HASH : seriesHash(seriesId);
 
   return (
     <PageLayout tab="toon" wide>
@@ -48,7 +48,7 @@ export function SeriesForm({ sid }: { sid: string | null }) {
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
           กลับ
         </a>
-        <h2 className="text-xl leading-[1.5] font-semibold text-foreground">{sid === null ? "สร้าง Series" : "ตั้งค่า Series"}</h2>
+        <h2 className="text-xl leading-[1.5] font-semibold text-foreground">{seriesId === null ? "สร้าง Series" : "ตั้งค่า Series"}</h2>
       </div>
       {state.kind === "offline" ? (
         <OfflinePanel />
@@ -56,7 +56,7 @@ export function SeriesForm({ sid }: { sid: string | null }) {
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
       ) : (
         <Form
-          creating={sid === null}
+          creating={seriesId === null}
           initial={state.initial}
           voices={state.voices}
           saving={state.saving}

@@ -6,10 +6,10 @@ import { get, phased, send, sent, serve, type Route } from "../../../testing/tes
 import type { Card, Ep, ListedEp } from "../lib/episodes";
 import { GENRE_DEFAULTS, type Item, type Series, type ToonJob } from "../lib/series";
 
-const SID = "s_1a2b3c4d";
-const EID = "e_5e6f7a8b";
-const EP_PATH = `/api/toon/eps/${EID}`;
-const SERIES_PATH = `/api/toon/series/${SID}`;
+const SERIES_ID = "s_1a2b3c4d";
+const EP_ID = "e_5e6f7a8b";
+const EP_PATH = `/api/toon/eps/${EP_ID}`;
+const SERIES_PATH = `/api/toon/series/${SERIES_ID}`;
 const JOBS_PATH = "/api/toon/jobs";
 const JOB_PATH = "/api/toon/jobs/current";
 const SOUNDS_PATH = "/api/toon/sounds";
@@ -21,7 +21,7 @@ const mind: Item = { id: "c_02", name: "มายด์", tag: "", description: 
 const camp: Item = { id: "b_01", name: "กองไฟในป่า", description: "", ref_rev: 1, pending: 0 };
 
 const series: Series = {
-  id: SID,
+  id: SERIES_ID,
   name: "รุ่นพี่เล่าว่า…",
   channel_name: "",
   layout: "frame",
@@ -61,8 +61,8 @@ function epOf(change: Partial<Ep> = {}): Ep {
     segments: [{ id: `g_0${n}`, background_id: "b_01", sound: null, cards: [cardOf({ id: `k_0${n}` })] }],
   });
   return {
-    id: EID,
-    series_id: SID,
+    id: EP_ID,
+    series_id: SERIES_ID,
     n: 4,
     idea: "ห้องน้ำชั้นสาม",
     title: "ห้องน้ำชั้นสาม",
@@ -77,7 +77,7 @@ function epOf(change: Partial<Ep> = {}): Ep {
 }
 
 function cardsJob(change: Partial<ToonJob> = {}): ToonJob {
-  return { kind: "cards", state: "writing", series_id: SID, ep_id: EID, item_id: null, done: 0, total: 1, error: null, cancel_requested: false, ...change };
+  return { kind: "cards", state: "writing", series_id: SERIES_ID, ep_id: EP_ID, item_id: null, done: 0, total: 1, error: null, cancel_requested: false, ...change };
 }
 
 beforeEach(() => vi.stubGlobal("fetch", fetchMock));
@@ -101,22 +101,22 @@ function open(hash: string, routes: Route[]) {
 }
 
 describe("รายการ EP ใน Series", () => {
-  const listed: ListedEp = { id: EID, n: 4, title: "ห้องน้ำชั้นสาม", stage: "plot", cards: 0, images: 0, rendered_at: null };
+  const listed: ListedEp = { id: EP_ID, n: 4, title: "ห้องน้ำชั้นสาม", stage: "plot", cards: 0, images: 0, rendered_at: null };
 
-  it("#/toon/series/{sid} lists the EPs with their number, title, stage and images", async () => {
-    open(`#/toon/series/${SID}`, [get(`${SERIES_PATH}/eps`, [listed])]);
+  it("#/toon/series/{seriesId} lists the EPs with their number, title, stage and images", async () => {
+    open(`#/toon/series/${SERIES_ID}`, [get(`${SERIES_PATH}/eps`, [listed])]);
 
     const row = await screen.findByRole("listitem");
     expect(row).toHaveTextContent("EP04");
     expect(row).toHaveTextContent("ห้องน้ำชั้นสาม");
     expect(row).toHaveTextContent("ภาพ 0/0");
     expect(row).toHaveTextContent("พล็อต");
-    expect(within(row).getAllByRole("link")[0]).toHaveAttribute("href", `#/toon/eps/${EID}`);
-    expect(screen.getByRole("link", { name: "ตัวละครและฉากหลัง" })).toHaveAttribute("href", `#/toon/series/${SID}/cast`);
+    expect(within(row).getAllByRole("link")[0]).toHaveAttribute("href", `#/toon/eps/${EP_ID}`);
+    expect(screen.getByRole("link", { name: "ตัวละครและฉากหลัง" })).toHaveAttribute("href", `#/toon/series/${SERIES_ID}/cast`);
   });
 
   it("a new EP sends its idea, starts its Plot job and opens its page", async () => {
-    const user = open(`#/toon/series/${SID}`, [
+    const user = open(`#/toon/series/${SERIES_ID}`, [
       get(`${SERIES_PATH}/eps`, []),
       send("POST", `${SERIES_PATH}/eps`, epOf({ stage: "plot" }), 201),
       send("POST", JOBS_PATH, { ...cardsJob(), kind: "plot" }, 202),
@@ -126,14 +126,14 @@ describe("รายการ EP ใน Series", () => {
     await user.type(screen.getByRole("textbox", { name: "ไอเดียของ EP ใหม่" }), "เสียงร้องไห้ในห้องน้ำ");
     await user.click(screen.getByRole("button", { name: "ให้ AI ร่างพล็อต" }));
 
-    await waitFor(() => expect(window.location.hash).toBe(`#/toon/eps/${EID}`));
+    await waitFor(() => expect(window.location.hash).toBe(`#/toon/eps/${EP_ID}`));
     expect(sent(fetchMock, "POST", `${SERIES_PATH}/eps`)).toEqual([{ idea: "เสียงร้องไห้ในห้องน้ำ" }]);
-    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ kind: "plot", ep_id: EID }]);
+    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ kind: "plot", ep_id: EP_ID }]);
   });
 
   it("an EP whose job runs can't be deleted: the refusal shows", async () => {
     const busy = { code: "ep_busy", message: "EP นี้มีงานที่ยังไม่จบ" };
-    const user = open(`#/toon/series/${SID}`, [get(`${SERIES_PATH}/eps`, [listed]), send("DELETE", EP_PATH, busy, 409)]);
+    const user = open(`#/toon/series/${SERIES_ID}`, [get(`${SERIES_PATH}/eps`, [listed]), send("DELETE", EP_PATH, busy, 409)]);
 
     await user.click(await screen.findByRole("button", { name: "ลบ EP04" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "ลบ EP" }));
@@ -156,7 +156,7 @@ describe("พล็อต", () => {
   });
 
   it("a new character shows ใหม่ and switches to one of the Series' (e2e)", async () => {
-    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, drafted), send("PATCH", EP_PATH, drafted, 200)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, drafted), send("PATCH", EP_PATH, drafted, 200)]);
 
     expect(await screen.findByText("ใหม่")).toBeInTheDocument();
     expect(screen.getByText("ลุงยาม")).toBeInTheDocument();
@@ -168,11 +168,11 @@ describe("พล็อต", () => {
   });
 
   it("ยืนยันพล็อต starts the Cards job", async () => {
-    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, drafted), send("POST", JOBS_PATH, cardsJob(), 202)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, drafted), send("POST", JOBS_PATH, cardsJob(), 202)]);
 
     await user.click(await screen.findByRole("button", { name: "ยืนยันพล็อต" }));
 
-    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ kind: "cards", ep_id: EID, confirm_loss: false }]);
+    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ kind: "cards", ep_id: EP_ID, confirm_loss: false }]);
   });
 
   it("cards_will_be_lost shows what each act loses before the user confirms (e2e)", async () => {
@@ -182,7 +182,7 @@ describe("พล็อต", () => {
       message: "การ์ดที่แก้เอง ภาพ หรือเสียงขององก์ที่แตกใหม่จะหาย",
       acts: [{ id: "a_02", name: "ปม", edited: 2, images: 7, audio: 7 }],
     };
-    const user = open(`#/toon/eps/${EID}/plot`, [
+    const user = open(`#/toon/eps/${EP_ID}/plot`, [
       get(EP_PATH, changed),
       send("POST", JOBS_PATH, lost, 409),
       send("POST", JOBS_PATH, cardsJob(), 202),
@@ -197,15 +197,15 @@ describe("พล็อต", () => {
     await user.click(within(dialog).getByRole("button", { name: "แตกการ์ดใหม่" }));
 
     expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([
-      { kind: "cards", ep_id: EID, confirm_loss: false },
-      { kind: "cards", ep_id: EID, confirm_loss: true },
+      { kind: "cards", ep_id: EP_ID, confirm_loss: false },
+      { kind: "cards", ep_id: EP_ID, confirm_loss: true },
     ]);
   });
 });
 
 describe("เส้นเรื่อง", () => {
-  it("#/toon/eps/{eid} opens the storyline of a confirmed EP with its acts, segments and cards", async () => {
-    open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf())]);
+  it("#/toon/eps/{epId} opens the storyline of a confirmed EP with its acts, segments and cards", async () => {
+    open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf())]);
 
     expect(await screen.findByRole("heading", { name: "EP04 — เส้นเรื่อง" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "องก์ 1 เปิด" })).toBeInTheDocument();
@@ -217,7 +217,7 @@ describe("เส้นเรื่อง", () => {
 
   it("closes every card field while a Cards job of this EP runs (e2e)", async () => {
     // The EP was read before the job started: the running job alone closes the fields.
-    open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf({ locked: false })), get(JOB_PATH, cardsJob())]);
+    open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf({ locked: false })), get(JOB_PATH, cardsJob())]);
 
     const card = await screen.findByRole("article", { name: "การ์ด 1" });
     expect(within(card).getByRole("textbox", { name: "ข้อความเล่า" })).toBeDisabled();
@@ -227,7 +227,7 @@ describe("เส้นเรื่อง", () => {
   });
 
   it("a storyline of 130 s says it runs past the 60–120 s target (e2e)", async () => {
-    open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf({ duration_s: 130 }))]);
+    open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf({ duration_s: 130 }))]);
 
     const meter = await screen.findByRole("meter", { name: "ความยาวรวม" });
     expect(meter).toHaveTextContent("130 วิ");
@@ -237,7 +237,7 @@ describe("เส้นเรื่อง", () => {
 
   it("an act's name is renamed in its header; left empty it goes back to its name", async () => {
     const renamed = epOf({ acts: epOf().acts.map((act, i) => (i === 0 ? { ...act, name: "เปิดเรื่อง" } : act)) });
-    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf()), send("PATCH", `${EP_PATH}/acts/a_01`, renamed, 200)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf()), send("PATCH", `${EP_PATH}/acts/a_01`, renamed, 200)]);
 
     const name = await screen.findByRole("textbox", { name: "ชื่อองก์ 2" });
     await user.clear(name);
@@ -254,7 +254,7 @@ describe("เส้นเรื่อง", () => {
 
   it("a changed text is sent when the field is left; the answer shows the card as แก้เอง", async () => {
     const answer = epOf({ acts: epOf().acts.map((act, i) => (i === 0 ? { ...act, segments: [{ ...act.segments[0], cards: [cardOf({ text: "ข้อความใหม่", edited: true })] }] } : act)) });
-    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf()), send("PATCH", `${EP_PATH}/cards/k_01`, answer, 200)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf()), send("PATCH", `${EP_PATH}/cards/k_01`, answer, 200)]);
 
     const field = within(await screen.findByRole("article", { name: "การ์ด 1" })).getByRole("textbox", { name: "ข้อความเล่า" });
     await user.clear(field);
@@ -268,7 +268,7 @@ describe("เส้นเรื่อง", () => {
   it("a refused edit says บันทึกไม่ได้ and the card stays; sent again and taken, the notice goes", async () => {
     const answer = epOf({ acts: epOf().acts.map((act, i) => (i === 0 ? { ...act, segments: [{ ...act.segments[0], cards: [cardOf({ text: "ข้อความใหม่", edited: true })] }] } : act)) });
     const locked = { code: "ep_busy", message: "EP นี้มีงานทำอยู่" };
-    const user = open(`#/toon/eps/${EID}`, [
+    const user = open(`#/toon/eps/${EP_ID}`, [
       get(EP_PATH, epOf()),
       send("PATCH", `${EP_PATH}/cards/k_01`, locked, 409),
       send("PATCH", `${EP_PATH}/cards/k_01`, answer, 200),
@@ -314,7 +314,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
     // A third card keeps the job drawing once the second picture is in.
     const job = phased(JOB_PATH, imageJob(), imageJob({ done: 2, total: 3, card_ids: ["k_01", "k_02", "k_03"] }));
     const ep = phased(EP_PATH, drawn("k_01"), drawn("k_01", "k_02"));
-    open(`#/toon/eps/${EID}`, [job.route, ep.route]);
+    open(`#/toon/eps/${EP_ID}`, [job.route, ep.route]);
 
     const second = await screen.findByRole("article", { name: "การ์ด 2" });
     expect(screen.getByRole("img", { name: "ภาพการ์ด 1" })).toBeInTheDocument();
@@ -340,7 +340,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
       missing_refs: [{ item_kind: "characters", id: "c_03", name: "ลุงยาม", cards: 1 }],
     });
     const job = phased(JOB_PATH, null, skipping); // the page reads the job again once it started
-    const user = open(`#/toon/eps/${EID}`, [job.route, get(EP_PATH, epOf()), send("POST", JOBS_PATH, skipping, 202)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [job.route, get(EP_PATH, epOf()), send("POST", JOBS_PATH, skipping, 202)]);
 
     const button = await screen.findByRole("button", { name: "สร้างภาพที่ขาดทั้งหมด" });
     job.phases.at = 1;
@@ -350,13 +350,13 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
     const needs = screen.getByRole("region", { name: "ต้องสร้างภาพอ้างอิงก่อน" });
     expect(needs).toHaveTextContent("การ์ด 1 ใบยังวาดไม่ได้");
     expect(needs).toHaveTextContent("ตัวละคร ลุงยาม");
-    expect(within(needs).getByRole("link", { name: "ไปสร้างภาพอ้างอิง" })).toHaveAttribute("href", `#/toon/series/${SID}/cast`);
-    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ ep_id: EID, kind: "image", scope: "missing" }]);
+    expect(within(needs).getByRole("link", { name: "ไปสร้างภาพอ้างอิง" })).toHaveAttribute("href", `#/toon/series/${SERIES_ID}/cast`);
+    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ ep_id: EP_ID, kind: "image", scope: "missing" }]);
   });
 
   it("nothing_to_draw lists what needs a reference image first", async () => {
     const refusal = { code: "nothing_to_draw", message: "ไม่มีการ์ดให้สร้างภาพ", missing_refs: [{ item_kind: "backgrounds", id: "b_02", name: "ห้องน้ำ", cards: 2 }] };
-    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf()), send("POST", JOBS_PATH, refusal, 400)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf()), send("POST", JOBS_PATH, refusal, 400)]);
 
     await user.click(await screen.findByRole("button", { name: "สร้างภาพที่ขาดทั้งหมด" }));
 
@@ -375,7 +375,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
     });
     const voicing: ToonJob = { ...imageJob(), kind: "voice", state: "voicing", scope: null, card_ids: ["k_01"], done: 0, total: 1 };
     const job = phased(JOB_PATH, null, voicing);
-    const user = open(`#/toon/eps/${EID}`, [job.route, get(EP_PATH, voiced), send("POST", JOBS_PATH, voicing, 202)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [job.route, get(EP_PATH, voiced), send("POST", JOBS_PATH, voicing, 202)]);
 
     const first = await screen.findByRole("article", { name: "การ์ด 1" });
     job.phases.at = 1;
@@ -384,7 +384,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
     expect(within(second).getByRole("button", { name: "สร้างใหม่" })).toBeInTheDocument();
     await user.click(within(first).getByRole("button", { name: "สร้างเสียง" }));
 
-    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ ep_id: EID, kind: "voice", card_id: "k_01" }]);
+    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ ep_id: EP_ID, kind: "voice", card_id: "k_01" }]);
     expect(await within(first).findByText("กำลังสร้างเสียง…")).toBeInTheDocument();
   });
 
@@ -399,19 +399,19 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
         })),
       })),
     });
-    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, voiced)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, voiced)]);
 
     const second = await screen.findByRole("article", { name: "การ์ด 2" });
     await user.click(within(second).getByRole("button", { name: "ฟัง" }));
 
     expect(play).toHaveBeenCalledOnce();
-    expect((play.mock.contexts[0] as HTMLAudioElement).src).toContain(`/api/toon/eps/${EID}/cards/k_02/audio?v=`);
+    expect((play.mock.contexts[0] as HTMLAudioElement).src).toContain(`/api/toon/eps/${EP_ID}/cards/k_02/audio?v=`);
   });
 
   it("สลับภาพก่อนหน้า swaps the card's picture back", async () => {
     const withPrevious = drawn("k_01");
     withPrevious.acts[0].segments[0].cards[0].has_previous_image = true;
-    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, withPrevious), send("POST", `${EP_PATH}/cards/k_01/swap-image`, withPrevious, 200)]);
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, withPrevious), send("POST", `${EP_PATH}/cards/k_01/swap-image`, withPrevious, 200)]);
 
     const before = (await screen.findByRole("img", { name: "ภาพการ์ด 1" })).getAttribute("src");
     await user.click(screen.getByRole("button", { name: "สลับภาพก่อนหน้า" }));

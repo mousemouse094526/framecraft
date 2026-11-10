@@ -18,9 +18,9 @@ import { ToonDialog } from "./ToonDialog";
 
 const STAGE_LABELS: Record<ListedEp["stage"], string> = { plot: "พล็อต", cards: "การ์ด" };
 
-/** `#/toon/series/{sid}`: a Series' EPs, a new EP from an idea, delete behind a confirm (Figma toon / 5). */
-export function EpListPage({ sid }: { sid: string }) {
-  const { state, create, remove, reload } = useEpList(sid);
+/** `#/toon/series/{seriesId}`: a Series' EPs, a new EP from an idea, delete behind a confirm (Figma toon / 5). */
+export function EpListPage({ seriesId }: { seriesId: string }) {
+  const { state, create, remove, reload } = useEpList(seriesId);
   const [writing, setWriting] = useState(false);
   const [confirming, setConfirming] = useState<ListedEp | null>(null);
 

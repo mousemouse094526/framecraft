@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, sendFile, sendJson } from "../../../lib/api";
-import type { Refusal } from "../../../lib/refusal";
+import { getJson } from "../../../lib/api";
 import { useLeaveGuard } from "../../../lib/useHash";
 import {
   itemPath,
@@ -10,10 +9,12 @@ import {
   startRefJob,
   type Item,
   type ItemKind,
+  type ItemRef,
   type Series,
   type ToonJob,
 } from "../lib/series";
 import { sendEdit } from "../lib/edit";
+import { sendChecked } from "../lib/upload";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
 import { useReadyState } from "./useReadyState";
@@ -37,13 +38,13 @@ export type CastState =
  * ตัวละครและฉากหลัง: a Series' two lists, add and delete, a Ref job (its banner while it runs;
  * started, the pick page opens), and a reference image from a file (spec › Ref job, D31).
  */
-export function useCast(sid: string) {
+export function useCast(seriesId: string) {
   const [state, setState, update] = useReadyState<CastState>({ kind: "loading" });
   const uploading = useRef(false);
 
   const load = useCallback(async () => {
     try {
-      const [series, job] = await Promise.all([getJson<Series>(seriesPath(sid)), getJson<ToonJob | null>(JOB_PATH)]);
+      const [series, job] = await Promise.all([getJson<Series>(seriesPath(seriesId)), getJson<ToonJob | null>(JOB_PATH)]);
       setState((s) => ({
         kind: "ready",
         series,
@@ -54,7 +55,7 @@ export function useCast(sid: string) {
     } catch {
       setState({ kind: "offline" });
     }
-  }, [sid, setState]);
+  }, [seriesId, setState]);
 
   useEffect(() => {
     void load();
@@ -82,18 +83,21 @@ export function useCast(sid: string) {
     return reply.kind === "saved";
   };
 
+  const refOf = (kind: ItemKind, item: Item): ItemRef => ({ seriesId, itemKind: kind, itemId: item.id });
+
   const add = (kind: ItemKind, fields: ItemFields) =>
-    sendItem("POST", `${seriesPath(sid)}/${kind}`, fields, `เพิ่ม ${fields.name} ไม่ได้`);
+    sendItem("POST", `${seriesPath(seriesId)}/${kind}`, fields, `เพิ่ม ${fields.name} ไม่ได้`);
 
   const remove = (kind: ItemKind, item: Item) =>
-    void sendItem("DELETE", itemPath(sid, kind, item.id), undefined, `ลบ ${item.name} ไม่ได้`);
+    void sendItem("DELETE", itemPath(refOf(kind, item)), undefined, `ลบ ${item.name} ไม่ได้`);
 
   const startRef = async (kind: ItemKind, item: Item) => {
     const title = "ยังสร้างภาพอ้างอิงไม่ได้";
     try {
-      const reply = await startRefJob(sid, kind, item.id);
+      const ref = refOf(kind, item);
+      const reply = await startRefJob(ref);
       if (reply.status === 202) {
-        window.location.hash = pickHash(sid, kind, item.id);
+        window.location.hash = pickHash(ref);
         return;
       }
       refused(title, reply.body, NOT_NOW);
@@ -106,27 +110,21 @@ export function useCast(sid: string) {
 
   /** `/ref/upload/check` first, then the file as the raw body (ADR 0028); the answer is the Series. */
   const upload = async (kind: ItemKind, item: Item, file: File) => {
+    const path = `${itemPath(refOf(kind, item))}/ref/upload`;
     const title = `เอาไฟล์ ${file.name} เข้าไม่ได้`;
-    const path = `${itemPath(sid, kind, item.id)}/ref/upload`;
-    try {
-      const checked = await sendJson<Refusal>("POST", `${path}/check`, { size: file.size });
-      if (checked.status !== 200) return refused(title, checked.body);
-    } catch {
-      return refused(title, null);
-    }
-    uploading.current = true;
-    update((s) => ({ ...s, notice: null, upload: { id: item.id, percent: 0 } }));
-    const sending = sendFile<Series | Refusal>(
-      `${path}?size=${file.size}`,
-      file,
-      (percent) => update((s) => ({ ...s, upload: { id: item.id, percent } })),
-      () => {},
-    );
-    const reply = await sending.reply;
+    const reply = await sendChecked<Series>({ path, checkBody: { size: file.size }, query: `size=${file.size}`, file, title }, {
+      started: () => {
+        uploading.current = true;
+        update((s) => ({ ...s, notice: null, upload: { id: item.id, percent: 0 } }));
+      },
+      progress: (percent) => update((s) => ({ ...s, upload: { id: item.id, percent } })),
+    });
     uploading.current = false;
-    update((s) => ({ ...s, upload: null }));
-    if (reply.kind === "answer" && reply.status === 200) update((s) => ({ ...s, series: reply.body as Series }));
-    else refused(title, reply.kind === "answer" ? reply.body : null);
+    update((s) => {
+      const done = { ...s, upload: null };
+      if (reply.kind === "sent") return { ...done, series: reply.value };
+      return reply.kind === "refused" ? { ...done, notice: reply.notice } : done;
+    });
   };
 
   return { state, add, remove, startRef, cancelJob, upload, reload: load };

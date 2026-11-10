@@ -24,6 +24,7 @@ import {
   TAG_MAX,
   type Item,
   type ItemKind,
+  type ItemRef,
   type Series,
   type ToonJob,
 } from "../lib/series";
@@ -31,15 +32,11 @@ import { ITEM_KINDS } from "../lib/kinds";
 import { JobBanner } from "./JobBanner";
 import { ToonDialog } from "./ToonDialog";
 
-/** Legal item 2: shown before the file picker every time, nothing to accept (spec › Frontend). */
-const CHARACTER_FILE_NOTICE =
-  "ใช้ภาพหรือตัวละครที่คุณวาดเองหรือได้รับอนุญาต และอย่าใช้ภาพคนจริงในเรื่องที่ทำให้เขาเสียชื่อเสียง";
-
 const SECONDS_PER_PICTURE = 90; // a Ref job's picture on an M1, ~4.5 min for three (D31)
 
-/** `#/toon/series/{sid}`: ตัวละครและฉากหลัง of a Series (Figma toon / 3). */
-export function CastPage({ sid }: { sid: string }) {
-  const { state, add, remove, startRef, cancelJob, upload, reload } = useCast(sid);
+/** `#/toon/series/{seriesId}`: ตัวละครและฉากหลัง of a Series (Figma toon / 3). */
+export function CastPage({ seriesId }: { seriesId: string }) {
+  const { state, add, remove, startRef, cancelJob, upload, reload } = useCast(seriesId);
 
   if (state.kind === "offline") {
     return (
@@ -57,7 +54,7 @@ export function CastPage({ sid }: { sid: string }) {
   }
 
   const { series, job, notice, upload: sending } = state;
-  const running = job !== null && isRunning(job) && job.series_id === sid ? job : null;
+  const running = job !== null && isRunning(job) && job.series_id === seriesId ? job : null;
   const actions = {
     running,
     sending,
@@ -69,14 +66,14 @@ export function CastPage({ sid }: { sid: string }) {
   return (
     <PageLayout tab="toon" wide>
       <div className="flex flex-wrap items-center gap-2">
-        <a href={seriesHash(sid)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+        <a href={seriesHash(seriesId)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
           กลับไปที่ชุด
         </a>
         <h2 className="min-w-0 flex-1 text-xl leading-[1.5] font-semibold text-foreground">
           ตัวละครและฉากหลัง — {series.name}
         </h2>
-        <a href={settingsHash(sid)} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
+        <a href={settingsHash(seriesId)} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
           ตั้งค่า Series
         </a>
       </div>
@@ -111,11 +108,6 @@ type Actions = {
   onUpload: (kind: ItemKind, item: Item, file: File) => void;
 };
 
-const SECTION = {
-  characters: { add: "เพิ่มตัวละคร", empty: "ยังไม่มีตัวละคร" },
-  backgrounds: { add: "เพิ่มฉากหลัง", empty: "ยังไม่มีฉากหลัง" },
-};
-
 type SectionProps = Actions & {
   kind: ItemKind;
   series: Series;
@@ -125,29 +117,29 @@ type SectionProps = Actions & {
 function ItemSection({ kind, series, onAdd, ...actions }: SectionProps) {
   const [adding, setAdding] = useState(false);
   const items = series[kind];
-  const text = { ...SECTION[kind], title: ITEM_KINDS[kind].name, icon: ITEM_KINDS[kind].icon };
+  const look = ITEM_KINDS[kind];
 
   return (
-    <section aria-label={text.title} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
+    <section aria-label={look.name} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
       <div className="flex items-center gap-2">
-        <h3 className="text-base leading-[1.5] font-semibold text-foreground">{text.title}</h3>
+        <h3 className="text-base leading-[1.5] font-semibold text-foreground">{look.name}</h3>
         <span className="font-mono text-xs text-mid">{items.length}</span>
         <div className="flex-1" />
         <button type="button" disabled={adding} onClick={() => setAdding(true)} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
           <img src={plusIcon} alt="" width={16} height={16} />
-          {text.add}
+          {look.add}
         </button>
       </div>
       {items.length === 0 && !adding ? (
         <div className="flex flex-col items-center gap-2 rounded-xl bg-muted py-8 text-center leading-[1.5]">
-          <img src={text.icon} alt="" width={24} height={24} />
-          <p className="text-sm font-medium text-foreground">{text.empty}</p>
-          <p className="text-[13px] text-mid">AI จะเสนอ{text.title}ให้ตอนร่างพล็อต หรือเพิ่มเองได้</p>
+          <img src={look.icon} alt="" width={24} height={24} />
+          <p className="text-sm font-medium text-foreground">{look.empty}</p>
+          <p className="text-[13px] text-mid">AI จะเสนอ{look.name}ให้ตอนร่างพล็อต หรือเพิ่มเองได้</p>
         </div>
       ) : (
         <ul className="flex flex-wrap gap-4">
           {items.map((item) => (
-            <RefTile key={item.id} kind={kind} sid={series.id} item={item} {...actions} />
+            <RefTile key={item.id} itemRef={{ seriesId: series.id, itemKind: kind, itemId: item.id }} item={item} {...actions} />
           ))}
           {adding && (
             <ItemForm
@@ -164,20 +156,21 @@ function ItemSection({ kind, series, onAdd, ...actions }: SectionProps) {
   );
 }
 
-type TileProps = Actions & { kind: ItemKind; sid: string; item: Item };
+type TileProps = Actions & { itemRef: ItemRef; item: Item };
 
 /** Figma `Toon/RefTile`: the reference image (or why there is none), name, tag, description, actions. */
-function RefTile({ kind, sid, item, running, sending, onRemove, onStartRef, onUpload }: TileProps) {
+function RefTile({ itemRef, item, running, sending, onRemove, onStartRef, onUpload }: TileProps) {
+  const kind = itemRef.itemKind;
+  const { tileSlot: slot, fileNotice } = ITEM_KINDS[kind];
   const file = useRef<HTMLInputElement>(null);
   const [noticing, setNoticing] = useState(false);
   const generating = running?.item_id === item.id ? running : null;
   const upload = sending?.id === item.id ? sending : null;
   // A set waiting to be picked doesn't lock the item: a new Ref job or a file replaces it (spec › Ref job).
   const busy = generating !== null || upload !== null;
-  const slot = kind === "characters" ? "size-[264px]" : "h-[148px] w-[264px]";
 
-  // A character's file asks first (legal item 2); a background's opens the picker at once.
-  const pickFile = () => (kind === "characters" ? setNoticing(true) : file.current?.click());
+  // A character's file asks first, every time, nothing to accept (legal item 2); a background's opens the picker at once.
+  const pickFile = () => (fileNotice ? setNoticing(true) : file.current?.click());
 
   return (
     <li aria-label={item.name} className="flex w-full flex-col gap-3 rounded-2xl border border-border bg-card p-3 sm:w-[288px]">
@@ -206,13 +199,13 @@ function RefTile({ kind, sid, item, running, sending, onRemove, onStartRef, onUp
           <span className="rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
             3 แบบรอเลือก
           </span>
-          <a href={pickHash(sid, kind, item.id)} className={`flex h-8 items-center px-3 ${PRIMARY_BUTTON}`}>
+          <a href={pickHash(itemRef)} className={`flex h-8 items-center px-3 ${PRIMARY_BUTTON}`}>
             เลือกภาพ
           </a>
         </Slot>
       ) : item.ref_rev > 0 ? (
         <img
-          src={refUrl(sid, kind, item)}
+          src={refUrl(itemRef, item.ref_rev)}
           alt={`ภาพอ้างอิง ${item.name}`}
           className={`${slot} rounded-xl bg-accent-subtle object-contain`}
         />
@@ -268,10 +261,10 @@ function RefTile({ kind, sid, item, running, sending, onRemove, onStartRef, onUp
           }}
         />
       </div>
-      {noticing && (
+      {noticing && fileNotice && (
         <ToonDialog
-          title="ก่อนเอาไฟล์ภาพตัวละครเข้า"
-          message={CHARACTER_FILE_NOTICE}
+          title={fileNotice.title}
+          message={fileNotice.message}
           confirmLabel="เลือกไฟล์"
           onClose={() => setNoticing(false)}
           onConfirm={() => {
@@ -295,15 +288,15 @@ function ItemForm({ kind, onCancel, onAdd }: { kind: ItemKind; onCancel: () => v
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
   const [description, setDescription] = useState("");
-  const character = kind === "characters";
+  const { form, tagged } = ITEM_KINDS[kind];
 
   return (
     <li className="w-full sm:w-[288px]">
       <form
-        aria-label={character ? "ตัวละครใหม่" : "ฉากหลังใหม่"}
+        aria-label={form}
         onSubmit={(event) => {
           event.preventDefault();
-          onAdd(character ? { name: name.trim(), tag: tag.trim(), description } : { name: name.trim(), description });
+          onAdd(tagged ? { name: name.trim(), tag: tag.trim(), description } : { name: name.trim(), description });
         }}
         className="flex flex-col gap-3 rounded-2xl border-2 border-brand-accent bg-card p-3"
       >
@@ -311,7 +304,7 @@ function ItemForm({ kind, onCancel, onAdd }: { kind: ItemKind; onCancel: () => v
           <span className={LABEL}>ชื่อ</span>
           <input value={name} maxLength={ITEM_NAME_MAX} onChange={(e) => setName(e.target.value)} className={INPUT} />
         </label>
-        {character && (
+        {tagged && (
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-2">
               <span className={LABEL}>คำสั้น (ไม่บังคับ)</span>

@@ -33,7 +33,7 @@ type Props = {
   /** The card's number in the EP, from 1. */
   number: number;
   series: Series;
-  eid: string;
+  epId: string;
   /** Goes up with each read of the EP: a picture or narration made since loads again. */
   version: number;
   locked: boolean;
@@ -56,7 +56,7 @@ const ACTION = "h-8 px-3";
 /** Figma `Toon/Card`: the fields of one card (card-sketch, D20, D21, D30), its picture with
  * สร้างภาพใหม่ and สลับภาพก่อนหน้า (D27, D33), and its narration's buttons (D21). */
 export function CardEditor(props: Props) {
-  const { card, number, series, eid, version, locked, busy, work, jobs, onChange, onDelete } = props;
+  const { card, number, series, epId, version, locked, busy, work, jobs, onChange, onDelete } = props;
   const named = (id: string) => series.characters.find((c) => c.id === id)?.name ?? id;
   const addable = series.characters.filter((c) => !card.character_ids.includes(c.id));
   const full = card.character_ids.length >= CARD_CHARACTERS_MAX;
@@ -64,7 +64,7 @@ export function CardEditor(props: Props) {
   return (
     <article aria-label={`การ์ด ${number}`} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:flex-row">
       <div className="flex shrink-0 flex-col gap-2">
-        <CardPicture card={card} number={number} src={cardImagePath(eid, card.id, version)} drawing={work === "drawing"} full={series.layout === "full"} />
+        <CardPicture card={card} number={number} src={cardImagePath(epId, card.id, version)} drawing={work === "drawing"} full={series.layout === "full"} />
         <div className="flex flex-wrap gap-1">
           <button
             type="button"
@@ -217,7 +217,7 @@ export function CardEditor(props: Props) {
         {card.audio_status !== "silent" && (
           <Narration
             card={card}
-            src={cardAudioPath(eid, card.id, version)}
+            src={cardAudioPath(epId, card.id, version)}
             disabled={busy || locked}
             voicing={work === "voicing"}
             onVoice={() => void jobs.startVoice(card.id)}

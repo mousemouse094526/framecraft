@@ -3,8 +3,8 @@ import { epPath } from "./episodes";
 
 export const RENDER_PATH = "/api/toon/render";
 export const RENDER_JOB_PATH = "/api/toon/render/current";
-export const rendersPath = (eid: string) => `${epPath(eid)}/renders`;
-export const renderFilePath = (eid: string, name: string) => `${rendersPath(eid)}/${name}`;
+export const rendersPath = (epId: string) => `${epPath(epId)}/renders`;
+export const renderFilePath = (epId: string, name: string) => `${rendersPath(epId)}/${name}`;
 
 /** The Render job as `/render/current` sends it (spec › Render job, D38, D45). */
 export type RenderJob = {

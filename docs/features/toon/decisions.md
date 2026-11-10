@@ -963,6 +963,25 @@
 
 **From:** build ticket 11 · **Status:** active
 
+## D68: `ItemRef`, `ITEM_KINDS` และ `sendChecked` ของหน้าเว็บ ticket 12
+
+**Chosen:**
+- `lib/series.ItemRef = { seriesId, itemKind, itemId }` ค่าเดียวของตัวละครหรือฉากหลังหนึ่งตัวแบบ `series.ItemRef` ของ backend (D64): `itemPath(ref)`, `refUrl(ref, rev)`, `pendingUrl(ref, n)`, `pickHash(ref)`, `startRefJob(ref)`; `Page` ของหน้าเลือกภาพเป็น `{ kind: "pick", itemRef }`; `usePickRef(itemRef)`, `PickPage({ itemRef })`, `RefTile` ได้ `itemRef`
+- action ของ `useCast` (`remove`, `startRef`, `upload`) ยังรับ `(kind, item)`: `seriesId` เป็นของ hook อยู่แล้ว และ `item` ต้องมีชื่อให้ notice; hook สร้าง `ItemRef` เองที่ `refOf`
+- ชื่อ `sid`/`eid` ทุกที่ใน `features/toon/` (hook, lib, component, test รวมค่าคงที่ `SID`/`EID` ของ test) → `seriesId`/`epId` (`SERIES_ID`/`EP_ID`)
+- `ITEM_KINDS` (D58) มี `add`, `empty`, `form` (ข้อความของรายการ), `tagged`, `tileSlot`, `pickSlot` (กล่องภาพของสองหน้า) และ `fileNotice` (ข้อความ legal item 2 ก่อนเลือกไฟล์ตัวละคร; `null` = เปิดเลือกไฟล์ทันที); `SECTION` และ `CHARACTER_FILE_NOTICE` ของ `CastPage` ย้ายเข้าไป
+- `features/toon/lib/upload.sendChecked<T>(FileToSend, { started, progress })`: `FileToSend` = `path`, `checkBody`, `query`, `file`, `title`, `warnings`; `{path}/check` ก่อน แล้ว `sendFile` ไป `{path}?{query}`; คืน `sent` (200 หรือ 201 แบบ `sendEdit`: ภาพอ้างอิงตอบ 200, คลังเสียงพื้น 201 — เดิมแต่ละ hook รับแค่ของตัวเอง) / `refused` (notice, `warnings` = `NOT_NOW` ของคลังเสียงพื้น, ไม่มีของภาพอ้างอิงเหมือนเดิม) / `aborted` (ไม่มี notice; ภาพอ้างอิงไม่มีปุ่มยกเลิก เดิม abort ที่ไม่มีทางเกิดตกไปเป็น notice ติดต่อ backend ไม่ได้); `started` ได้ `FileUpload` ก่อน `progress` แรก (คลังเสียงพื้นเก็บไว้ `abort()`); อยู่ใน `lib/` ของ toon แบบ `sendEdit` (D65) และมี `upload.test.ts`
+- test ของกล่องภาพสองชนิด (ticket: "มี test ทั้งสองชนิด") เช็ค class ของ Tailwind ผ่านหน้า: jsdom ไม่มี layout จึงเป็นทางเดียวที่เห็นรูปกล่อง (คอมเมนต์ใน test บอก)
+
+**Why:** Blocked #25, #28: หน้าเว็บส่งสามค่าคู่กันขณะ backend ใช้ `ItemRef`; กิ่ง `kind === "characters"` สามที่ใน `CastPage` และหนึ่งที่ใน `PickPage`; flow เช็คแล้วส่งซ้ำใน `useCast` กับ `useSounds`.
+
+**Rejected:**
+- action ของ `useCast` รับ `(ItemRef, Item)` — `itemId` ซ้ำกับ `item.id`
+- `sendChecked` ใน `src/lib/` ชั้นบน — feature อื่นยังไม่ใช้ (spoil เอาไฟล์เข้าด้วย flow ของตัวเอง)
+- test ของกล่องภาพผ่าน class อย่างเดียวใน `kinds` — test ผ่านหน้าแทน (ตัวละคร/ฉากหลังทั้งสองหน้า)
+
+**From:** build ticket 12 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

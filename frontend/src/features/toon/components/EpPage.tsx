@@ -21,8 +21,8 @@ const FAILED_TITLES: Record<EpJobKind, string> = {
 };
 
 /** The latest job of this EP, or null. */
-function epJobOf(job: ToonJob | null, eid: string): EpJob | null {
-  if (job === null || job.ep_id !== eid || job.kind === "ref") return null;
+function epJobOf(job: ToonJob | null, epId: string): EpJob | null {
+  if (job === null || job.ep_id !== epId || job.kind === "ref") return null;
   return { ...job, kind: job.kind }; // the copy carries `kind` narrowed past "ref"
 }
 
@@ -41,10 +41,10 @@ function runningText(job: EpJob): { title: string; detail: string } {
   };
 }
 
-/** `#/toon/eps/{eid}`: the plot until it is confirmed, then the storyline; `/plot` opens the
+/** `#/toon/eps/{epId}`: the plot until it is confirmed, then the storyline; `/plot` opens the
  * plot either way (Figma toon / 6, 7). A Plot or Cards job of this EP closes every field. */
-export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
-  const { state, reload, edit, startPlot, startCards, closeLost, cancelJob, ...cardJobs } = useEp(eid);
+export function EpPage({ epId, plot }: { epId: string; plot: boolean }) {
+  const { state, reload, edit, startPlot, startCards, closeLost, cancelJob, ...cardJobs } = useEp(epId);
 
   if (state.kind === "offline") {
     return (
@@ -62,7 +62,7 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
   }
 
   const { ep, series, sounds, job, notice, lost, missing, version } = state;
-  const own = epJobOf(job, eid);
+  const own = epJobOf(job, epId);
   const running = own !== null && isRunning(own) ? own : null;
   const locked = ep.locked || (running !== null && (running.kind === "plot" || running.kind === "cards"));
   const failedCards = own?.kind === "image" && own.state === "done" ? (own.failed_cards ?? []) : [];
@@ -88,7 +88,7 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
           {epLabel(ep.n)} — {showPlot ? "พล็อต" : "เส้นเรื่อง"}
         </h2>
         {ep.stage === "cards" && (
-          <a href={showPlot ? epHash(eid) : plotHash(eid)} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
+          <a href={showPlot ? epHash(epId) : plotHash(epId)} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
             {showPlot ? "ไปเส้นเรื่อง" : "แก้พล็อต"}
           </a>
         )}

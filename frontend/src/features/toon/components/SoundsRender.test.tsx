@@ -10,20 +10,20 @@ import type { Card, Ep } from "../lib/episodes";
 import { GENRE_DEFAULTS, type Series } from "../lib/series";
 import type { Sound } from "../lib/sounds";
 
-const SID = "s_1a2b3c4d";
-const EID = "e_5e6f7a8b";
+const SERIES_ID = "s_1a2b3c4d";
+const EP_ID = "e_5e6f7a8b";
 const SOUNDS = "/api/toon/sounds";
 const IMPORT = "/api/toon/sounds/import/current";
 const RENDER = "/api/toon/render";
 const RENDER_JOB = "/api/toon/render/current";
-const RENDERS = `/api/toon/eps/${EID}/renders`;
+const RENDERS = `/api/toon/eps/${EP_ID}/renders`;
 
 const fetchMock = vi.fn<typeof fetch>();
 
 const rain: Sound = { id: "m_01", name: "ฝนตกในป่า", duration_s: 222, source: "file" };
 
 const series: Series = {
-  id: SID,
+  id: SERIES_ID,
   name: "รุ่นพี่เล่าว่า…",
   channel_name: "รุ่นพี่เล่าว่า",
   layout: "frame",
@@ -56,8 +56,8 @@ function cardOf(id: string, change: Partial<Card> = {}): Card {
 
 function epOf(cards: Card[], sound: Sound | null = null): Ep {
   return {
-    id: EID,
-    series_id: SID,
+    id: EP_ID,
+    series_id: SERIES_ID,
     n: 3,
     idea: "ไฟดับ",
     title: "คืนที่ไฟดับ",
@@ -82,8 +82,8 @@ function renderJob(change: Partial<RenderJob>): RenderJob {
   return {
     kind: "render",
     state: "voicing",
-    series_id: SID,
-    ep_id: EID,
+    series_id: SERIES_ID,
+    ep_id: EP_ID,
     percent: null,
     done: 0,
     total: 1,
@@ -120,7 +120,7 @@ afterEach(() => {
 function open(hash: string, routes: Route[]) {
   serve(fetchMock, routes, [
     ["/api/toon/jobs/current", null],
-    [`/api/toon/series/${SID}`, series],
+    [`/api/toon/series/${SERIES_ID}`, series],
     [SOUNDS, [rain]],
     [IMPORT, null],
     [RENDER_JOB, null],
@@ -180,6 +180,30 @@ describe("คลังเสียงพื้น", () => {
     expect(await screen.findByRole("listitem", { name: "ลม" })).toHaveTextContent("1:01");
   });
 
+  it("ยกเลิก while a file is sent stops it: no notice, nothing comes in", async () => {
+    const user = open("#/toon/sounds", [send("POST", `${SOUNDS}/imports/check`, { size: 3 }, 200)]);
+    await user.upload(await screen.findByLabelText("เลือกไฟล์เสียง"), new File(["wav"], "ลม.wav", { type: "audio/wav" }));
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: "ยกเลิก" }));
+
+    expect(FakeXhr.sent[0].abort).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "ยกเลิก" })).not.toBeInTheDocument());
+    expect(screen.queryByText("เอาไฟล์ ลม.wav เข้าไม่ได้")).not.toBeInTheDocument();
+    expect(screen.queryByRole("listitem", { name: "ลม" })).not.toBeInTheDocument();
+  });
+
+  it("a file the check refuses is not sent and says why", async () => {
+    const busy = { code: "busy", message: "มีงานเอาเสียงเข้าอยู่" };
+    const user = open("#/toon/sounds", [send("POST", `${SOUNDS}/imports/check`, busy, 409)]);
+
+    await user.upload(await screen.findByLabelText("เลือกไฟล์เสียง"), new File(["wav"], "ลม.wav", { type: "audio/wav" }));
+
+    expect(await screen.findByText("เอาไฟล์ ลม.wav เข้าไม่ได้")).toBeInTheDocument();
+    expect(screen.getByText("มีงานเอาเสียงเข้าอยู่")).toBeInTheDocument();
+    expect(FakeXhr.sent).toHaveLength(0);
+  });
+
   it("a link loads with its % and its sound comes in; a refused one says why", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const loading = { url: "https://youtu.be/x", state: "downloading", title: "ลม", percent: 63, error: null, cancel_requested: false, sound_id: null };
@@ -234,19 +258,19 @@ describe("คลังเสียงพื้น", () => {
 
 describe("เสียงพื้นของช่วง", () => {
   it("a segment's sound is picked from the library or turned off, and its volume set", async () => {
-    const user = open(`#/toon/eps/${EID}`, [
-      get(`/api/toon/eps/${EID}`, epOf([cardOf("k_01")], rain)),
-      send("PATCH", `/api/toon/eps/${EID}/segments/g_01`, epOf([cardOf("k_01")]), 200),
+    const user = open(`#/toon/eps/${EP_ID}`, [
+      get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")], rain)),
+      send("PATCH", `/api/toon/eps/${EP_ID}/segments/g_01`, epOf([cardOf("k_01")]), 200),
     ]);
 
     const select = await screen.findByRole("combobox", { name: "เสียงพื้นของช่วง 1" });
     expect(select).toHaveValue("m_01");
     expect(screen.getByRole("slider", { name: "ความดังของช่วง 1" })).toHaveValue("30");
-    expect(screen.getByRole("link", { name: "ไปหน้า render" })).toHaveAttribute("href", `#/toon/eps/${EID}/render`);
+    expect(screen.getByRole("link", { name: "ไปหน้า render" })).toHaveAttribute("href", `#/toon/eps/${EP_ID}/render`);
 
     await user.selectOptions(select, "ไม่มีเสียงพื้น");
 
-    expect(sent(fetchMock, "PATCH", `/api/toon/eps/${EID}/segments/g_01`)).toEqual([{ sound: null }]);
+    expect(sent(fetchMock, "PATCH", `/api/toon/eps/${EP_ID}/segments/g_01`)).toEqual([{ sound: null }]);
     await waitFor(() => expect(screen.getByRole("slider", { name: "ความดังของช่วง 1" })).toBeDisabled());
   });
 });
@@ -260,8 +284,8 @@ describe("render และผล", () => {
       renderJob({ state: "rendering", percent: 64, done: null, total: null }),
       renderJob({ state: "done", percent: 100, name: clip.name }),
     );
-    const user = open(`#/toon/eps/${EID}/render`, [
-      get(`/api/toon/eps/${EID}`, epOf([cardOf("k_01"), cardOf("k_02", { audio_status: "ready" })])),
+    const user = open(`#/toon/eps/${EP_ID}/render`, [
+      get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01"), cardOf("k_02", { audio_status: "ready" })])),
       get(RENDER_JOB, null),
       get(RENDERS, []),
       send("POST", RENDER, renderJob({ total: 2 }), 202),
@@ -284,22 +308,22 @@ describe("render และผล", () => {
 
     const row = await screen.findByRole("listitem", { name: "ep03-คืนที่ไฟดับ-20261108-214000.mp4" });
     expect(within(row).getByRole("link", { name: "ดาวน์โหลด" })).toHaveAttribute("href", `${RENDERS}/${clip.name}`);
-    expect(sent(fetchMock, "POST", RENDER)).toEqual([{ ep_id: EID }]);
+    expect(sent(fetchMock, "POST", RENDER)).toEqual([{ ep_id: EP_ID }]);
   });
 
   it("cards with no picture keep render off and link to them", async () => {
-    open(`#/toon/eps/${EID}/render`, [
-      get(`/api/toon/eps/${EID}`, epOf([cardOf("k_01"), cardOf("k_02", { image_status: "no_image", has_image: false })])),
+    open(`#/toon/eps/${EP_ID}/render`, [
+      get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01"), cardOf("k_02", { image_status: "no_image", has_image: false })])),
     ]);
 
     expect(await screen.findByText("การ์ด 1 ใบยังไม่มีภาพ")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
-    expect(screen.getByRole("link", { name: "ไปที่การ์ด 2" })).toHaveAttribute("href", `#/toon/eps/${EID}`);
+    expect(screen.getByRole("link", { name: "ไปที่การ์ด 2" })).toHaveAttribute("href", `#/toon/eps/${EP_ID}`);
   });
 
   it("a clip is deleted from the list", async () => {
-    const user = open(`#/toon/eps/${EID}/render`, [
-      get(`/api/toon/eps/${EID}`, epOf([cardOf("k_01")])),
+    const user = open(`#/toon/eps/${EP_ID}/render`, [
+      get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])),
       get(RENDERS, [clip]),
       send("DELETE", `${RENDERS}/${clip.name}`, null, 204),
     ]);

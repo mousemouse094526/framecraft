@@ -32,24 +32,24 @@ function newSeries(voices: SavedVoice[]): SeriesFields {
 }
 
 /**
- * ตั้งค่า Series: a new one (`sid` null) or an existing one's fields, the Saved voices to pick
+ * ตั้งค่า Series: a new one (`seriesId` null) or an existing one's fields, the Saved voices to pick
  * from, and save. A new one is sent whole: style, tone and acts start as its genre's and the
  * user may change them before saving (D52).
  */
-export function useSeriesForm(sid: string | null) {
+export function useSeriesForm(seriesId: string | null) {
   const [state, setState, update] = useReadyState<SeriesFormState>({ kind: "loading" });
 
   useEffect(() => {
     void (async () => {
       try {
         const voices = await getJson<SavedVoice[]>(VOICES_PATH);
-        const initial = sid === null ? newSeries(voices) : await getJson<Series>(seriesPath(sid));
+        const initial = seriesId === null ? newSeries(voices) : await getJson<Series>(seriesPath(seriesId));
         setState({ kind: "ready", initial, voices, saving: false, error: null });
       } catch {
         setState({ kind: "offline" });
       }
     })();
-  }, [sid, setState]);
+  }, [seriesId, setState]);
 
   const save = useCallback(
     async (fields: SeriesFields) => {
@@ -57,9 +57,9 @@ export function useSeriesForm(sid: string | null) {
       let error = OFFLINE_TEXT;
       try {
         const reply =
-          sid === null
+          seriesId === null
             ? await sendJson<Series | Refusal>("POST", SERIES_PATH, fields)
-            : await sendJson<Series | Refusal>("PATCH", seriesPath(sid), editable(fields));
+            : await sendJson<Series | Refusal>("PATCH", seriesPath(seriesId), editable(fields));
         if (reply.status === 200 || reply.status === 201) {
           window.location.hash = seriesHash((reply.body as Series).id);
           return;
@@ -70,7 +70,7 @@ export function useSeriesForm(sid: string | null) {
       }
       update((s) => ({ ...s, saving: false, error }));
     },
-    [sid, update],
+    [seriesId, update],
   );
 
   return { state, save };

@@ -2,12 +2,12 @@
 // card's state and length (toon spec › ข้อมูล, › สถานะการ์ด, › API, D9, D13–D15, D21).
 
 export const EPS_PATH = "/api/toon/eps";
-export const epPath = (eid: string) => `${EPS_PATH}/${eid}`;
-const cardPath = (eid: string, kid: string) => `${epPath(eid)}/cards/${kid}`;
+export const epPath = (epId: string) => `${EPS_PATH}/${epId}`;
+const cardPath = (epId: string, cardId: string) => `${epPath(epId)}/cards/${cardId}`;
 /** A card's image, previous image or narration; `version` makes a picture drawn since load again. */
-export const cardImagePath = (eid: string, kid: string, version: number) => `${cardPath(eid, kid)}/image?v=${version}`;
-export const cardAudioPath = (eid: string, kid: string, version: number) => `${cardPath(eid, kid)}/audio?v=${version}`;
-export const seriesEpsPath = (sid: string) => `/api/toon/series/${sid}/eps`;
+export const cardImagePath = (epId: string, cardId: string, version: number) => `${cardPath(epId, cardId)}/image?v=${version}`;
+export const cardAudioPath = (epId: string, cardId: string, version: number) => `${cardPath(epId, cardId)}/audio?v=${version}`;
+export const seriesEpsPath = (seriesId: string) => `/api/toon/series/${seriesId}/eps`;
 
 export type Motion = "still" | "zoom_in" | "zoom_out" | "pan_left" | "pan_right";
 
@@ -19,7 +19,7 @@ export const MOTION_LABELS: Record<Motion, string> = {
   pan_right: "เลื่อนขวา",
 };
 
-/** A row of `GET /series/{sid}/eps`. */
+/** A row of `GET /series/{seriesId}/eps`. */
 export type ListedEp = {
   id: string;
   n: number;

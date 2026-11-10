@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson, type JsonReply } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
-import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type ItemKind, type Series, type ToonJob } from "../lib/series";
+import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type ItemRef, type Series, type ToonJob } from "../lib/series";
 import { refusalTextOf } from "../lib/notice";
 import { useToonJobPoll } from "./useToonJobPoll";
 import { useReadyState } from "./useReadyState";
@@ -22,19 +22,20 @@ export type PickState =
     };
 
 /** เลือกภาพอ้างอิง: follows the item's Ref job, then one of its three pictures becomes the reference image (D31, D32). */
-export function usePickRef(sid: string, kind: ItemKind, id: string) {
+export function usePickRef(itemRef: ItemRef) {
+  const { seriesId, itemKind, itemId } = itemRef;
   const [state, setState, update] = useReadyState<PickState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
       const [series, job] = await Promise.all([
         // A reply, not getJson: a Series deleted meanwhile is `missing`, not offline.
-        sendJson<Series>("GET", seriesPath(sid)),
+        sendJson<Series>("GET", seriesPath(seriesId)),
         getJson<ToonJob | null>(JOB_PATH),
       ]);
-      const item = series.status === 200 ? series.body?.[kind].find((i) => i.id === id) : undefined;
+      const item = series.status === 200 ? series.body?.[itemKind].find((i) => i.id === itemId) : undefined;
       if (!item) return setState({ kind: "missing" });
-      const own = job !== null && job.series_id === sid && job.item_id === id ? job : null;
+      const own = job !== null && job.series_id === seriesId && job.item_id === itemId ? job : null;
       setState((s) => ({
         kind: "ready",
         item,
@@ -46,7 +47,7 @@ export function usePickRef(sid: string, kind: ItemKind, id: string) {
     } catch {
       setState({ kind: "offline" });
     }
-  }, [sid, kind, id, setState]);
+  }, [seriesId, itemKind, itemId, setState]);
 
   useEffect(() => {
     void load();
@@ -77,18 +78,18 @@ export function usePickRef(sid: string, kind: ItemKind, id: string) {
 
   /** ใช้ภาพนี้: picture `n` becomes the item's reference image, then back to the lists. */
   const pick = (n: number) =>
-    send(() => sendJson("POST", `${itemPath(sid, kind, id)}/ref/pick`, { n }), 200, () => {
-      window.location.hash = castHash(sid);
+    send(() => sendJson("POST", `${itemPath(itemRef)}/ref/pick`, { n }), 200, () => {
+      window.location.hash = castHash(seriesId);
     });
 
   /** ลองอีกครั้ง: a new Ref job for the same item. */
   const retry = () =>
-    send(() => startRefJob(sid, kind, id), 202, () => void load());
+    send(() => startRefJob(itemRef), 202, () => void load());
 
   /** ยกเลิก stops a running job; with nothing running it goes back to the lists. */
   const cancel = async () => {
     if (job === null || !isRunning(job)) {
-      window.location.hash = castHash(sid);
+      window.location.hash = castHash(seriesId);
       return;
     }
     const reply = await cancelCurrent<ToonJob>(JOB_PATH);

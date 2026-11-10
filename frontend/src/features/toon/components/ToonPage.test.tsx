@@ -6,22 +6,22 @@ import { FakeXhr } from "../../../testing/fakeXhr";
 import { get, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import { GENRE_DEFAULTS, type Item, type ListedSeries, type Series, type ToonJob } from "../lib/series";
 
-const SID = "s_1a2b3c4d";
+const SERIES_ID = "s_1a2b3c4d";
 const SERIES_PATH = "/api/toon/series";
-const ONE_PATH = `${SERIES_PATH}/${SID}`;
+const ONE_PATH = `${SERIES_PATH}/${SERIES_ID}`;
 const JOB_PATH = "/api/toon/jobs/current";
 const VOICES_PATH = "/api/spoil-maker/voices";
 
 const fetchMock = vi.fn<typeof fetch>();
 
-const listed: ListedSeries = { id: SID, name: "รุ่นพี่เล่าว่า…", channel_name: "ช่อง เล่าก่อนนอน", layout: "frame", genre: "horror", ep_count: 12 };
+const listed: ListedSeries = { id: SERIES_ID, name: "รุ่นพี่เล่าว่า…", channel_name: "ช่อง เล่าก่อนนอน", layout: "frame", genre: "horror", ep_count: 12 };
 
 const peak: Item = { id: "c_01", name: "พีค", tag: "สายแฟ", description: "ผู้ชายผมสั้น เสื้อฮาวาย", ref_rev: 0, pending: 0 };
 const camp: Item = { id: "b_01", name: "กองไฟในป่า", description: "ลานโล่งกลางป่า", ref_rev: 1, pending: 0 };
 
 function seriesOf(change: Partial<Series> = {}): Series {
   return {
-    id: SID,
+    id: SERIES_ID,
     name: "รุ่นพี่เล่าว่า…",
     channel_name: "ช่อง เล่าก่อนนอน",
     layout: "frame",
@@ -39,7 +39,7 @@ function jobOf(change: Partial<ToonJob> = {}): ToonJob {
   return {
     kind: "ref",
     state: "drawing",
-    series_id: SID,
+    series_id: SERIES_ID,
     ep_id: null,
     item_id: "c_01",
     done: 1,
@@ -75,7 +75,7 @@ describe("รายการ Series", () => {
     open("#/toon", [get(SERIES_PATH, [listed])]);
 
     const row = await screen.findByRole("listitem");
-    expect(within(row).getByRole("link")).toHaveAttribute("href", `#/toon/series/${SID}`);
+    expect(within(row).getByRole("link")).toHaveAttribute("href", `#/toon/series/${SERIES_ID}`);
     expect(row).toHaveTextContent("รุ่นพี่เล่าว่า…");
     expect(row).toHaveTextContent("ช่อง เล่าก่อนนอน");
     expect(row).toHaveTextContent("12 EP");
@@ -130,7 +130,7 @@ describe("ตั้งค่า Series", () => {
     await user.type(screen.getByLabelText("ชื่อองก์ 4"), "จบ");
     await user.click(screen.getByRole("button", { name: "บันทึก" }));
 
-    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SID}`));
+    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SERIES_ID}`));
     expect(sent(fetchMock, "POST", SERIES_PATH)).toEqual([
       expect.objectContaining({
         name: "แก๊งป่วน",
@@ -152,7 +152,7 @@ describe("ตั้งค่า Series", () => {
   });
 
   it("an existing Series keeps its layout and genre: the PATCH leaves them out (D7, D10)", async () => {
-    const user = open(`#/toon/series/${SID}/settings`, [
+    const user = open(`#/toon/series/${SERIES_ID}/settings`, [
       get(VOICES_PATH, [{ id: "v_01", name: "พี่โอ๊ต" }]),
       get(ONE_PATH, seriesOf()),
       send("PATCH", ONE_PATH, seriesOf({ name: "ใหม่" }), 200),
@@ -177,14 +177,14 @@ describe("ตั้งค่า Series", () => {
 describe("ตัวละครและฉากหลัง", () => {
   it("shows ยังไม่มีภาพ, the reference image, and a set waiting to be picked", async () => {
     const mind: Item = { ...peak, id: "c_02", name: "มายด์", pending: 3 };
-    open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf({ characters: [peak, mind] }))]);
+    open(`#/toon/series/${SERIES_ID}/cast`, [get(ONE_PATH, seriesOf({ characters: [peak, mind] }))]);
 
     const characters = await screen.findByRole("region", { name: "ตัวละคร" });
     expect(within(characters).getByRole("listitem", { name: "พีค" })).toHaveTextContent("ยังไม่มีภาพ");
     const waiting = within(characters).getByRole("listitem", { name: "มายด์" });
     expect(within(waiting).getByRole("link", { name: "เลือกภาพ" })).toHaveAttribute(
       "href",
-      `#/toon/series/${SID}/characters/c_02/pick`,
+      `#/toon/series/${SERIES_ID}/characters/c_02/pick`,
     );
     expect(within(waiting).getByRole("button", { name: "สร้างภาพ 3 แบบ" })).toBeEnabled();
     const background = within(screen.getByRole("region", { name: "ฉากหลัง" })).getByRole("img", { name: "ภาพอ้างอิง กองไฟในป่า" });
@@ -192,7 +192,7 @@ describe("ตัวละครและฉากหลัง", () => {
   });
 
   it("เอาไฟล์เข้า of a character shows the legal notice before the file picker (e2e)", async () => {
-    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf())]);
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [get(ONE_PATH, seriesOf())]);
     const tile = await screen.findByRole("listitem", { name: "พีค" });
     const picker = vi.spyOn(within(tile).getByLabelText<HTMLInputElement>("ไฟล์ภาพ พีค"), "click");
 
@@ -207,9 +207,28 @@ describe("ตัวละครและฉากหลัง", () => {
     expect(picker).toHaveBeenCalledOnce();
   });
 
+  it("เอาไฟล์เข้า of a background opens the file picker at once", async () => {
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [get(ONE_PATH, seriesOf())]);
+    const tile = await screen.findByRole("listitem", { name: "กองไฟในป่า" });
+    const picker = vi.spyOn(within(tile).getByLabelText<HTMLInputElement>("ไฟล์ภาพ กองไฟในป่า"), "click");
+
+    await user.click(within(tile).getByRole("button", { name: "เอาไฟล์เข้า" }));
+
+    expect(picker).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // jsdom has no layout: the image's Tailwind classes are the one sign of its shape.
+  it("a character's reference image is square, a background's 16:9", async () => {
+    open(`#/toon/series/${SERIES_ID}/cast`, [get(ONE_PATH, seriesOf({ characters: [{ ...peak, ref_rev: 1 }] }))]);
+
+    expect(await screen.findByRole("img", { name: "ภาพอ้างอิง พีค" })).toHaveClass("size-[264px]");
+    expect(screen.getByRole("img", { name: "ภาพอ้างอิง กองไฟในป่า" })).toHaveClass("h-[148px]", "w-[264px]");
+  });
+
   it("a picked file is checked, then sent as the raw body; the answer's reference image shows", async () => {
     const check = `${ONE_PATH}/characters/c_01/ref/upload/check`;
-    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", check, { size: 3 }, 200)]);
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", check, { size: 3 }, 200)]);
     const tile = await screen.findByRole("listitem", { name: "พีค" });
 
     await user.upload(within(tile).getByLabelText("ไฟล์ภาพ พีค"), new File(["png"], "peak.png", { type: "image/png" }));
@@ -227,33 +246,59 @@ describe("ตัวละครและฉากหลัง", () => {
     );
   });
 
+  it("a picked file the check refuses is not sent and says why; a failed upload says why too", async () => {
+    const check = `${ONE_PATH}/characters/c_01/ref/upload/check`;
+    const tooBig = { code: "invalid_request", message: "ไฟล์ใหญ่เกิน 20 MB" };
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [
+      get(ONE_PATH, seriesOf()),
+      send("POST", check, tooBig, 400),
+      send("POST", check, { size: 3 }, 200),
+    ]);
+    const tile = await screen.findByRole("listitem", { name: "พีค" });
+    const png = new File(["png"], "peak.png", { type: "image/png" });
+
+    await user.upload(within(tile).getByLabelText("ไฟล์ภาพ พีค"), png);
+
+    expect(await screen.findByText("เอาไฟล์ peak.png เข้าไม่ได้")).toBeInTheDocument();
+    expect(screen.getByText("ไฟล์ใหญ่เกิน 20 MB")).toBeInTheDocument();
+    expect(FakeXhr.sent).toHaveLength(0);
+
+    await user.upload(within(tile).getByLabelText("ไฟล์ภาพ พีค"), png);
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    expect(screen.queryByText("ไฟล์ใหญ่เกิน 20 MB")).not.toBeInTheDocument();
+    await FakeXhr.sent[0].fail();
+
+    expect(await screen.findByText("ติดต่อ backend ไม่ได้")).toBeInTheDocument();
+    expect(within(tile).getByText("ยังไม่มีภาพ")).toBeInTheDocument();
+  });
+
   it("a Ref job refused with gpu_busy names the running job from RUNNING_NAMES (e2e)", async () => {
     const busy = { code: "gpu_busy", message: "GPU busy", running: "describe" };
-    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", busy, 409)]);
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", busy, 409)]);
 
     await user.click(within(await screen.findByRole("listitem", { name: "พีค" })).getByRole("button", { name: "สร้างภาพ 3 แบบ" }));
 
     expect(await screen.findByText("ยังสร้างภาพอ้างอิงไม่ได้")).toBeInTheDocument();
     expect(screen.getByText("รอให้งานบรรยายฉากเสร็จก่อน")).toBeInTheDocument();
     expect(sent(fetchMock, "POST", "/api/toon/jobs")).toEqual([
-      { kind: "ref", series_id: SID, item_kind: "characters", item_id: "c_01" },
+      { kind: "ref", series_id: SERIES_ID, item_kind: "characters", item_id: "c_01" },
     ]);
   });
 
   it("a started Ref job opens เลือกภาพอ้างอิง", async () => {
-    const user = open(`#/toon/series/${SID}/cast`, [
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [
       get(ONE_PATH, seriesOf()),
       send("POST", "/api/toon/jobs", jobOf({ state: "translating", done: null, total: null }), 202),
     ]);
 
     await user.click(within(await screen.findByRole("listitem", { name: "พีค" })).getByRole("button", { name: "สร้างภาพ 3 แบบ" }));
 
-    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SID}/characters/c_01/pick`));
+    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SERIES_ID}/characters/c_01/pick`));
   });
 
   it("not_ready links to ติดตั้ง", async () => {
     const missing = { code: "not_ready", message: "ยังติดตั้ง FLUX.2 klein ไม่ครบ" };
-    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", missing, 503)]);
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", missing, 503)]);
 
     await user.click(within(await screen.findByRole("listitem", { name: "พีค" })).getByRole("button", { name: "สร้างภาพ 3 แบบ" }));
 
@@ -262,7 +307,7 @@ describe("ตัวละครและฉากหลัง", () => {
 
   it("เพิ่มตัวละคร sends name, tag and description and shows the new tile", async () => {
     const mind: Item = { id: "c_02", name: "มายด์", tag: "ขี้กลัว", description: "", ref_rev: 0, pending: 0 };
-    const user = open(`#/toon/series/${SID}/cast`, [
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [
       get(ONE_PATH, seriesOf()),
       send("POST", `${ONE_PATH}/characters`, seriesOf({ characters: [peak, mind] }), 201),
     ]);
@@ -280,7 +325,7 @@ describe("ตัวละครและฉากหลัง", () => {
   it("a refused เพิ่ม says why and adds nothing; sent again and taken, the notice goes", async () => {
     const mind: Item = { id: "c_02", name: "มายด์", tag: "", description: "", ref_rev: 0, pending: 0 };
     const taken = { code: "invalid_request", message: "มีตัวละครชื่อนี้แล้ว" };
-    const user = open(`#/toon/series/${SID}/cast`, [
+    const user = open(`#/toon/series/${SERIES_ID}/cast`, [
       get(ONE_PATH, seriesOf()),
       send("POST", `${ONE_PATH}/characters`, taken, 400),
       send("POST", `${ONE_PATH}/characters`, seriesOf({ characters: [peak, mind] }), 201),
@@ -304,7 +349,7 @@ describe("ตัวละครและฉากหลัง", () => {
 });
 
 describe("เลือกภาพอ้างอิง", () => {
-  const PICK_HASH = `#/toon/series/${SID}/characters/c_01/pick`;
+  const PICK_HASH = `#/toon/series/${SERIES_ID}/characters/c_01/pick`;
 
   it("follows the job, then shows the three pictures; ใช้ภาพนี้ sends the chosen one", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -326,8 +371,21 @@ describe("เลือกภาพอ้างอิง", () => {
     expect(screen.getByRole("radio", { name: "แบบ 2" })).toHaveAttribute("aria-checked", "true");
     await user.click(screen.getByRole("button", { name: "ใช้ภาพนี้" }));
 
-    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SID}/cast`));
+    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SERIES_ID}/cast`));
     expect(sent(fetchMock, "POST", `${ONE_PATH}/characters/c_01/ref/pick`)).toEqual([{ n: 2 }]);
+  });
+
+  it.each([
+    ["characters", "c_01", "aspect-square"],
+    ["backgrounds", "b_01", "aspect-video"],
+  ])("the pictures of %s (%s) sit in an %s box", async (kind, id, aspect) => {
+    const waiting = seriesOf({ characters: [{ ...peak, pending: 3 }], backgrounds: [{ ...camp, pending: 3 }] });
+    open(`#/toon/series/${SERIES_ID}/${kind}/${id}/pick`, [get(ONE_PATH, waiting)]);
+
+    const option = await screen.findByRole("radio", { name: "แบบ 1" });
+    // jsdom has no layout: the box's Tailwind class is the one sign of its shape.
+    const picture = option.querySelector(`img[src="${ONE_PATH}/${kind}/${id}/ref/pending/1"]`);
+    expect(picture?.parentElement).toHaveClass(aspect);
   });
 
   it("a failed job says why and offers ลองอีกครั้ง", async () => {
