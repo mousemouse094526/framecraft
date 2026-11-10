@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** feature review รอบห้าเสร็จ (`d30d863`); เปิด Blocked #29 (หน้าเว็บส่งแล้วเช็ค status ซ้ำราว 10 ที่: `/warroom tickets toon`) และ #30 (`sounds.json` อ่านไม่ได้แล้วการ import เขียนทับคลังเสียง: `/warroom toon`); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** Blocked #30 ตัดสินเป็น D70 (คลังเสียงพื้นตรงกับไฟล์ m4a); re-cut ticket 13 (D70) และ 14 (#29); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom toon
+/warroom-build toon 13
 ```
 
 ## Tickets
@@ -24,6 +24,8 @@
 | 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | done |
 | 11 | ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม | done |
 | 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | done |
+| 13 | คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย | ready |
+| 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | ready |
 
 ## Log
 
@@ -457,5 +459,5 @@
 | 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | done (ticket 11) |
 | 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | done (ticket 11) |
 | 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | done (ticket 12) |
-| 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | open |
-| 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | open |
+| 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | → ticket 14 |
+| 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | → D70 (ticket 13) |

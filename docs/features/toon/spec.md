@@ -278,6 +278,12 @@ media/toon/
 
 `sounds.json`: `{"version": 1, "sounds": [{"id": "m_01", "name": "ฝนตกในป่า", "duration_s": 62.4, "source": "file"}]}`; `source` `file` หรือ `link`.
 
+- ตรวจคลังตอน start (`sounds.clean_on_start`, ภายใต้ `store.lock`, D70):
+  - ทั้งไฟล์อ่านไม่ได้ (JSON เสีย, ไม่มี list `sounds`, `version` ≠ 1) → rename เป็น `sounds.json.bad-{YYYYMMDD-HHMMSS}-{4 hex}` (UTC, ไม่ลบเอง) เริ่มจากไม่มีรายการ
+  - เก็บรายการที่ผ่าน schema, `id` fullmatch `SOUND_ID`, ไม่ซ้ำ และมี `{id}.m4a`; ที่เหลือทิ้งพร้อม log
+  - `{id}.m4a` ที่ไม่มีรายการ → เพิ่มเรียงตาม id: `name` = id, `duration_s` จาก `ffmpeg.probe` timeout 10 วินาที (ล้ม → `0`), `source` `file`; เขียนเมื่อมีอะไรเปลี่ยน
+- ระหว่างทำงาน `read_sounds` ถือ `store.lock` เอง; ไฟล์อ่านไม่ได้ → ตรวจแบบเดียวกันไม่ probe (`duration_s` `0`); เขียนล้ม → log คืนรายการในหน่วยความจำ (D70)
+
 ### สถานะการ์ด
 
 คำนวณตอนอ่าน ไม่เก็บ. การ์ดหนึ่งใบมีสถานะภาพและสถานะเสียงแยกกัน.
@@ -417,7 +423,9 @@ klein worker (`toon.klein`): request `Encode(prompts)` → reply `Encoded(count)
   - ลิงก์: `POST /api/toon/sounds/downloads {"url": "..."}` ทำตามขั้นของ Download job ของ spoil (อ่าน info → เช็คความยาวจาก info ก่อนโหลด → โหลดพร้อม % → `stalled`) ใน `toon.sounds` ด้วย adapter options ของ Modules touched ลง `media/toon/.partial/`; ใช้ error code ของลิงก์เดิม (`invalid_url`, `login_required`, `download_error`, `disk_full`) กติกาลิงก์ของ spoil (ADR-0029)
   - ffmpeg แปลงเป็น m4a aac 192k 48 kHz stereo ไม่มีภาพ; ffmpeg อ่านเสียงไม่ได้ → `400` `unsupported_file`; ยาวเกิน 20 นาที → `400` `too_long`
   - ชื่อตั้งต้น = ชื่อไฟล์ไม่มีนามสกุล หรือชื่อคลิปของลิงก์ ตัดเหลือ 60 ตัวอักษร (ชื่อคลิปว่าง → id ของเสียง, D69); แก้ชื่อได้ 1–60; ชื่อซ้ำได้
+  - จบ import ถือ `store.lock` ตั้งแต่อ่าน `sounds.json` ถึง `os.replace` ของ m4a และเขียน; id เดียวกันแทนรายการเดิม ไม่เพิ่มซ้ำ (D70)
 - ลบเสียงที่ช่วงของ EP ใดใช้ → `409` `in_use` พร้อม `eps` (แนวเดียวกับ D25)
+- ลบเสียง: ลบ `{id}.m4a` ก่อน แล้วเขียน `sounds.json` (D70)
 - AI เลือกเสียงจากชื่อตอน Cards job (D5); ผู้ใช้เปลี่ยน ปิด (`sound: null`) หรือตั้ง `volume` 0–100 ต่อช่วง
 
 ### Render job
@@ -521,6 +529,9 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
    - เริ่ม Image job ใหม่หลัง app ใหม่ (`paths.ROOT` เดิม) → สร้างเฉพาะการ์ดที่ยังไม่มีภาพ
    - Voice job → การ์ดมี `audio`; `PATCH` EP `voice_id` → การ์ดนั้น `stale_audio`
    - Sound import ไฟล์ wav → เสียงใน `sounds.json` เป็น m4a; ลบเสียงที่ช่วงใช้ → `409` `in_use`; `PATCH` ช่วง `sound: null` → ไม่มีเสียงพื้น
+   - `sounds.json` เป็นข้อความเสียขณะมีเสียงสองตัว แล้ว start ใหม่ → `GET /sounds` ได้สองตัว ชื่อเป็น id, มี `sounds.json.bad-*`; ช่วงที่ใช้เสียงเดิมยังชี้ถูก (D70)
+   - ไม่มี `sounds.json` → import หนึ่งไฟล์ → หนึ่งเสียง ไม่มี id ซ้ำ; เขียนข้อความเสียทับระหว่างทำงาน แล้ว import → สองเสียง (D70)
+   - รายการหนึ่งตัว `source` ผิด → start ใหม่ รายการอื่นชื่อเดิม; รายการที่ไม่มี m4a หาย; m4a ที่ ffmpeg อ่านไม่ได้ → `duration_s` `0` (D70)
    - ลบตัวละครที่การ์ดใช้ → `409` `in_use` พร้อม `eps`; ลบ Saved voice ที่ Series ใช้ → `409` `voice_in_use`
    - ลบ EP แล้วสร้าง EP ใหม่ → เลขเท่ากับเลขสูงสุดที่เคยมี + 1
    - แก้การ์ดระหว่าง Cards job → `409` `ep_locked`; Toon job ระหว่าง Describe job → `409` `gpu_busy`; Render job ของ EP ที่เสียงครบระหว่าง Image job → `202`

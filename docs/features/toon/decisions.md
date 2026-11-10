@@ -1001,6 +1001,30 @@
 
 **From:** feature review รอบห้า · **Status:** active
 
+## D70: คลังเสียงพื้นตรงกับไฟล์ m4a เสมอ: `sounds.json` ที่อ่านไม่ได้ไม่ถูกเขียนทับ
+
+**Chosen:**
+- ตรวจคลัง (`sounds.reconcile`) ภายใต้ `store.lock` ทำครั้งเดียวใน `sounds.clean_on_start` ก่อนรับ request:
+  - `sounds.json` อ่านไม่ได้ทั้งไฟล์ (JSON เสีย, ไม่มี list `sounds`, `version` ≠ `VERSION`) → rename เป็น `sounds.json.bad-{YYYYMMDD-HHMMSS}-{4 hex}` (UTC, ไม่ลบเอง) แล้วเริ่มจากไม่มีรายการ
+  - ทีละรายการ: เก็บรายการที่ผ่าน `StoredSound`, `id` fullmatch `SOUND_ID`, id ไม่ซ้ำ และมี `{id}.m4a`; รายการอื่นทิ้งพร้อม log
+  - `sounds/*.m4a` ที่ stem fullmatch `SOUND_ID` และไม่มีรายการ → เพิ่มต่อท้ายเรียงตาม id: `name` = id, `duration_s` จาก `ffmpeg.probe` timeout 10 วินาทีต่อไฟล์ (ล้มหรือเกิน → `0`), `source` `file`
+  - เขียน `sounds.json` เฉพาะเมื่อมีอะไรเปลี่ยน; log warning หนึ่งบรรทัดบอกจำนวนที่ทิ้งและที่เพิ่ม
+- ระหว่างทำงาน `store.read_sounds` ถือ `store.lock` เอง (RLock); เจอไฟล์อ่านไม่ได้ (แก้มือขณะ app เปิด) → ตรวจคลังแบบเดียวกันแต่ไม่ probe (`duration_s` `0`); เขียนไม่สำเร็จ → log แล้วคืนรายการในหน่วยความจำ ไม่ raise
+- Sound import ถือ `store.lock` ตั้งแต่ `read_sounds` ถึง `os.replace` ของ m4a และ `write_sounds`; การเพิ่มแทนรายการ id เดียวกัน ไม่เพิ่มซ้ำ
+- ลบเสียง: ลบ `{id}.m4a` ก่อน แล้วเขียน `sounds.json` (crash ระหว่างนั้น → รายการไม่มีไฟล์ ถูกทิ้งตอน start ใหม่; เสียงที่ลบไม่กลับมา)
+- ไม่มี error code ใหม่ ไม่มีอะไรเปลี่ยนบนจอ: เสียงที่กู้ได้ชื่อเป็น id ผู้ใช้แก้ชื่อได้ตามเดิม
+
+**Why:** Blocked #30: เดิม `read_sounds` คืน `[]` แล้ว import ครั้งถัดไปเขียนทับ คลังหายขณะไฟล์ m4a ยังอยู่. m4a คือข้อมูลจริง `sounds.json` เก็บแค่ชื่อและความยาว (ความยาวใช้แสดงอย่างเดียว). Breaker: ตรวจตอน read ทุกครั้งทำให้ import แรกได้ id ซ้ำ (m4a ถูก replace ก่อนเขียน json), probe ระหว่างถือ `store.lock` หยุดทั้ง tab, รายการเสียตัวเดียวไม่ควรล้างชื่อทั้งคลัง, crash กลาง import หรือลบทิ้งไฟล์กำพร้า. `.bad-*` เก็บไว้ให้กู้ชื่อเองได้.
+
+**Rejected:**
+- ย้ายไฟล์เสียแล้วเริ่มคลังว่าง — m4a กำพร้า ทุกช่วงที่ใช้เสียงเดิม render `CHANGED`
+- ปฏิเสธการเขียนด้วย `409` code ใหม่จนผู้ใช้แก้ไฟล์ — ผู้ใช้ทั่วไปแก้ JSON ไม่เป็น คลังใช้ไม่ได้ไปตลอด
+- กติกาแบบ `settings.json`/`clip-stories.json` (อ่านเป็นว่างแล้วเขียนใหม่) — สองไฟล์นั้นเสียแค่ค่าจำ; ไฟล์นี้เสียเสียงที่ผู้ใช้เอาเข้า
+- `version` ที่ใหม่กว่า (ใช้ app เก่ากับข้อมูลของ app ใหม่) อ่านอย่างเดียว — ต้องมีสถานะและข้อความใหม่บนจอเพื่อกรณีที่แอปเครื่องเดียวแทบไม่เกิด; ยอมเสียชื่อ ไฟล์เดิมอยู่ใน `.bad-*`
+- probe ทุกไฟล์ตอนกู้ระหว่างทำงาน — ถือ `store.lock` ที่ทุก request ของ tab รอ
+
+**From:** blocked #30 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)
