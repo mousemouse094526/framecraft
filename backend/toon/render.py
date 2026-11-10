@@ -9,7 +9,6 @@ The EP is read once as rendering starts, its pictures, narration and sounds copi
 reference picture renders with it (D32).
 """
 
-import json
 import logging
 import os
 import shutil
@@ -25,7 +24,7 @@ from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
 from backend.jobs import ModelJobSlot, short, stop_process
 from backend.paths import ProjectPaths
-from backend.spoil_maker import tts, voices
+from backend.spoil_maker import tts
 from backend.subtitles import Timed
 from backend.toon import compose, episodes, series, store, voicing
 from backend.toon.compose import Narrated, Placed, SoundRun, Tagged
@@ -47,7 +46,7 @@ SILENT_RATE = 24_000  # the narration's rate when no card speaks: OmniVoice's ow
 CHANGED = "EP เปลี่ยนระหว่าง render: กด render ใหม่"
 
 
-class RenderJobError(BaseModel):
+class ToonRenderJobError(BaseModel):
     code: ErrorCode
     message: str
 
@@ -61,7 +60,7 @@ class ToonRenderJob(BaseModel):
     done: int | None = None
     total: int | None = None
     name: str | None = None  # the clip it wrote, once `done`
-    error: RenderJobError | None = None
+    error: ToonRenderJobError | None = None
     cancel_requested: bool = False
     started_at: str
 
@@ -83,7 +82,7 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
 
     unfinished = UNFINISHED
     gpu_kind = "toon_render"
-    error_type = RenderJobError
+    error_type = ToonRenderJobError
     nothing_to_cancel = "ไม่มีงาน render การ์ตูนเล่าที่ยังไม่จบ"
     worker_error = tts.WorkerError
     child_name = "ตัวสร้างเสียง"
@@ -117,8 +116,8 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
         project, ep_id = paths.project(), body.get("ep_id")
         with self._lock, gpu.slot.draft_lock, store.lock:
             series_now, ep = episodes.find(project, ep_id)
-            to_voice = _checks(project, series_now, ep)
-            require_rows(gate_rows.render(project) | (voices.needed_rows(project) if to_voice else {}))
+            to_voice = _cards_to_voice(project, series_now, ep)
+            require_rows(gate_rows.render(project, voices_first=bool(to_voice)))
             if self._taken():
                 raise ApiError(409, "busy", "กำลัง render การ์ตูนเล่าอยู่")
             plans = []
@@ -151,7 +150,8 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
     def _voice_and_render(self, project: ProjectPaths, series_id: str, ep_id: str, plans: list[VoicePlan]) -> dict:
         if plans:
             spoken_all = self._speaker.speak(project, [plan.tts_text for plan in plans], plans[0].voice)
-            for done, (plan, spoken) in enumerate(zip(plans, spoken_all), start=1):
+            # The speaker first: `zip` asks it once more after the last text, so it ends its child.
+            for done, (spoken, plan) in enumerate(zip(spoken_all, plans), start=1):
                 if not voicing.put_audio(project, plan, spoken):
                     log.info("the narration of card %s is dropped: the card went", plan.card_id)
                 self._update(done=done)
@@ -225,17 +225,11 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
             "duration_s": round(probe(mp4_partial).duration_s, 2),
             "created_at": checks.now_iso(),
         }
-        srt_partial = folder / f"{name}.srt.partial"
-        srt_partial.write_text(subtitles.srt_file([Timed(*n) for n in narrated]), encoding="utf-8")
-        json_partial = folder / f"{name}.json.partial"
-        json_partial.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
-        # The json goes last: a name is listed once all three are there.
-        for written in (srt_partial, mp4_partial, json_partial):
-            os.replace(written, written.with_suffix(""))
+        renders.finish(folder, name, subtitles.srt_file([Timed(*n) for n in narrated]), info)
         return name
 
 
-def _checks(project: ProjectPaths, series_now: Series, ep: Ep) -> list[store.Card]:
+def _cards_to_voice(project: ProjectPaths, series_now: Series, ep: Ep) -> list[store.Card]:
     """Step 1 up to the gate; returns the cards to voice first (D38). Call under the store's lock."""
     # An EP still at its plot has no cards to render either (spec › Render job step 1).
     if ep.stage != "cards" or not any(True for _ in episodes.placed_cards(ep)):
@@ -352,13 +346,7 @@ def _write_narration(work: Path, placed: list[Placed]) -> None:
 
 def list_results(project: ProjectPaths, ep_id: str) -> list[RenderResult]:
     """Every complete render of the EP, newest first."""
-    found = []
-    for name, info, size in renders.results(_renders_dir(project, ep_id)):
-        try:
-            found.append(RenderResult(name=name, size_bytes=size, **info))
-        except (ValueError, TypeError):
-            log.warning("skipping unreadable render %s", name)
-    return found
+    return renders.listed(_renders_dir(project, ep_id), RenderResult)
 
 
 def result_file(project: ProjectPaths, ep_id: str, name: str) -> Path:

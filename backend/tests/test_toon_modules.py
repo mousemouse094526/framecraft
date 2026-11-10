@@ -11,7 +11,9 @@ def toon_imports(path: Path) -> set[str]:
     """The `backend.toon` modules a file imports, anywhere in it."""
     found = set()
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.ImportFrom) and node.module == "backend.toon":
+        if isinstance(node, ast.ImportFrom) and node.module == "backend":
+            found |= {"__init__" for alias in node.names if alias.name == "toon"}  # the package itself
+        elif isinstance(node, ast.ImportFrom) and node.module == "backend.toon":
             found |= {alias.name for alias in node.names}
         elif isinstance(node, ast.ImportFrom) and (node.module or "").startswith("backend.toon."):
             found.add(node.module.split(".")[2])

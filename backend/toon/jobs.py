@@ -82,7 +82,7 @@ class ToonJobs(ModelJobSlot[ToonJob]):
         if work is None:
             raise ApiError(400, "invalid_request", "ไม่รู้จักงานแบบนี้")
         project = paths.project()
-        work.plan(project, body)  # its refusals first; the plan the job takes is read again below
+        work.plan(project, body)  # refused before the gate and `busy`; read again under the locks below
         require_rows(work.rows(project))
         with self._lock:
             if self._taken():
@@ -90,7 +90,7 @@ class ToonJobs(ModelJobSlot[ToonJob]):
             with work.locks(), store.lock:
                 plan_now = work.plan(project, body)
                 gpu.slot.take(work.gpu_kind)
-                self.use(work.gpu_kind, work.child)
+                self.use_child(work.gpu_kind, work.child)
                 if work.ready is not None:
                     try:
                         work.ready(project, plan_now)
@@ -101,7 +101,7 @@ class ToonJobs(ModelJobSlot[ToonJob]):
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
 
-        def clean_up(state: str) -> None:
+        def clean_up(state: str) -> None:  # however it ended
             if work.clean_up is not None:
                 work.clean_up(project, plan_now)
 
@@ -132,8 +132,9 @@ class ToonJobs(ModelJobSlot[ToonJob]):
     def update(self, **fields) -> None:
         self._update(**fields)
 
-    def use(self, gpu_kind: gpu.Kind, child: Child) -> None:
-        """The GPU slot's kind this job holds, and the child `reply` reads from now."""
+    def use_child(self, gpu_kind: gpu.Kind, child: Child) -> None:
+        """The GPU slot's kind this job holds, and which child `reply` reads from now (and
+        names in a failure): an Image job moves from Qwen to klein."""
         self.gpu_kind = gpu_kind
         self.worker_error, self.child_name, self.failure = child
 

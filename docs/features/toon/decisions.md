@@ -801,7 +801,7 @@
 ## D59: ส่วนที่ซ้ำและช่องโหว่เล็ก ticket 06: `backend.renders`, หน้าเว็บหายระหว่างแปลงเสียง, ค่าตั้งต้นของแนวเทียบผ่านไฟล์เดียว
 
 **Chosen:**
-- ส่วนกลางของผล render อยู่ module ใหม่ `backend/renders.py` (ชื่อว่าง `free_name`, `names` ผลที่ครบ, `latest_at`, `delete` mp4 ก่อน json ท้าย `409` `in_use`, `remove_partials`, `needed_rows`); `spoil_maker.render` และ `toon.render` ถือ folder ของตัวเองแล้วเรียกตัวนี้; ชื่อที่ถูกเช็คด้วยรูปวันเวลาจริง (`strptime`) ทั้งสอง feature แทน regex ของ spoil-maker (ชื่อแบบ `20261399-000000` ที่ `free_name` ไม่มีวันสร้าง ไม่ขึ้นรายการของสปอยแล้ว); แถว gate ของ render อยู่ `gate_rows.render` ไม่ใช่ `backend.renders` เพื่อให้ module กลางไม่ import `spoil_maker`
+- ส่วนกลางของผล render อยู่ module ใหม่ `backend/renders.py` (ชื่อว่าง `free_name`, `complete_names`/`results` ผลที่ครบ, `latest_at`, `delete` mp4 ก่อน json ท้าย `409` `in_use`, `remove_partials`); `spoil_maker.render` และ `toon.render` ถือ folder ของตัวเองแล้วเรียกตัวนี้; ชื่อที่ถูกเช็คด้วยรูปวันเวลาจริง (`strptime`) ทั้งสอง feature แทน regex ของ spoil-maker (ชื่อแบบ `20261399-000000` ที่ `free_name` ไม่มีวันสร้าง ไม่ขึ้นรายการของสปอยแล้ว); แถว gate ของ render อยู่ `gate_rows.render` ไม่ใช่ `backend.renders` เพื่อให้ module กลางไม่ import `spoil_maker`
 - `episodes.list_for` อ่าน `renders.latest_at` จาก folder ของ EP: ไม่ import `toon.render` อีก; test อ่าน import ทุก module ของ `backend.toon` แล้วไม่เจอวง
 - แถว `diffusers` และ `gguf` อยู่ใน `checks.klein_packages(probes)` ที่ Status check และ `gate_rows.klein` อ่าน (แบบ `qwen_checks`)
 - Sound import ไฟล์: ระหว่างแปลง ffmpeg ถาม `request.is_disconnected()` ทุก 0.25 วินาที; หน้าเว็บหาย → ตั้ง `cancel` ของ ffmpeg, ไม่เขียน `sounds.json`, ลบ `.m4a.partial` และไฟล์ใน `.partial/`; หลัง ffmpeg จบถามหน้าเว็บอีกครั้ง (`anyio.from_thread.run`) ก่อนเสียงเข้าคลัง; ลิงก์ไม่เปลี่ยน (ยกเลิกหลัง ffmpeg จบยัง `done`)
@@ -815,6 +815,22 @@
 - รอ `receive()` ค้างไว้แทนการถามเป็นระยะ — อ่าน ASGI ตรง ไม่ผ่าน API ของ Starlette
 
 **From:** build ticket 06 · **Status:** active
+
+## D60: feature review รอบสอง: render จบที่ `backend.renders`, แถวของ Voice job ที่ `gate_rows.voice`, ตัวพูดถูกถามก่อน
+
+**Chosen:**
+- render ของทั้งสอง feature จบด้วย `renders.finish(folder, name, srt, info)` (srt และ json ข้าง `.mp4.partial` แล้วเอา `.partial` ออก json ท้าย) และอ่านรายการด้วย `renders.listed(folder, RenderResult)`; `renders.results` ให้ `Stored(name, info, size_bytes)` แทน tuple
+- แถวของ Voice job ย้ายจาก `spoil_maker.voices.needed_rows` เป็น `gate_rows.voice`; `gate_rows.render(project, voices_first)` เพิ่มแถวนั้นเองเมื่อ render ต้องพูดก่อน (เดิมทั้งสอง render เขียน `|` เอง)
+- Render job ของ toon `zip` ตัวพูดก่อนการ์ด (แบบ `SentenceVoicer`): ตัวพูดถูกถามอีกครั้งหลังข้อความสุดท้าย จึงส่ง `None` ให้ OmniVoice ออกเอง; `speaking.Voice` (Protocol) เป็นชนิดของ `voice`
+- `gpu_kind` ของงานสองขั้น (Qwen แล้ว klein) คงเป็น `toon_image` ทั้งงาน: เปลี่ยนแค่ child ที่ `reply` อ่าน (`ToonJobs.use_child`); spec เขียนตามนี้
+- ชื่อ: `ToonRenderJobError` (ไม่ซ้ำ `RenderJobError` ของ spoil-maker ใน OpenAPI), `_cards_to_voice`; หน้าเว็บ: `cancelToonJob` ข้าง `useToonJobPoll`, ชนิดและ path ของ Render job อยู่ `features/toon/lib/render.ts`, token `--color-info` สำหรับตัวหนังสือของ Alert แบบ info
+
+**Why:** feature review รอบสอง: สองฝั่งของ render เขียนการจบและรายการซ้ำกัน; `zip` ที่ถามการ์ดก่อนทำให้ OmniVoice ถูกหยุดแทนที่จะออกเอง.
+
+**Rejected:**
+- `gate_rows` import `spoil_maker.voices` — วน import (`voices` import `gate_rows`)
+
+**From:** feature review · **Status:** active
 
 ## Sources
 

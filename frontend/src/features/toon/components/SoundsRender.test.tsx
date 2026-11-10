@@ -5,7 +5,7 @@ import { App } from "../../../App";
 import { GPU_JOB_PATHS } from "../../../lib/gpu";
 import { FakeXhr } from "../../../testing/fakeXhr";
 import { get, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
-import type { RenderJob, RenderResult } from "../hooks/useRender";
+import type { RenderJob, RenderResult } from "../lib/render";
 import type { Card, Ep } from "../lib/episodes";
 import { GENRE_DEFAULTS, type Series } from "../lib/series";
 import type { Sound } from "../lib/sounds";

@@ -1,3 +1,4 @@
+import { cancelCurrent } from "../../../lib/job";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isRunning, JOB_PATH, type ToonJob } from "../lib/series";
 
@@ -17,4 +18,10 @@ export function useToonJobPoll(
     (next) => (next !== null && isRunning(next) ? onRunning(next) : onEnd(next)),
     onFail,
   );
+}
+
+/** หยุด: the job, now `cancel_requested`, goes to `onCancelling` until the poll sees it end. */
+export async function cancelToonJob(onCancelling: (job: ToonJob) => void) {
+  const reply = await cancelCurrent<ToonJob>(JOB_PATH);
+  if (reply.kind === "cancelling") onCancelling(reply.job);
 }

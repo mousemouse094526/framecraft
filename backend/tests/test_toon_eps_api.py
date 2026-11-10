@@ -544,6 +544,25 @@ def test_editing_a_card_during_its_ep_s_cards_job_is_ep_locked_and_deleting_the_
     assert client.get(f"/api/toon/eps/{ep['id']}").json()["locked"] is False
 
 
+@pytest.mark.parametrize("kind", ["plot", "cards"])
+def test_deleting_a_series_during_its_plot_or_cards_job_is_series_busy(client, llm, kind):
+    if kind == "plot":
+        series_id, _, _ = with_series(client, llm)
+        ep = new_ep(client, series_id)
+    else:
+        series_id, ep = with_cards(client, llm)
+        client.patch(f"/api/toon/eps/{ep['id']}/acts/{ep['acts'][0]['id']}", json={"summary": "สรุปใหม่"})
+    llm.pause_at(0)
+    assert start(client, kind, ep["id"]).status_code == 202
+    llm.wait_until(0)
+
+    response = client.request("DELETE", f"{SERIES}/{series_id}", json={"confirm_eps": 1})
+
+    assert (response.status_code, response.json()["code"]) == (409, "series_busy")
+    llm.release(0)
+    wait_for_end(client)
+
+
 def test_deleting_a_character_a_card_or_plot_uses_is_in_use_with_the_eps(client, llm):
     series_id, character, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]

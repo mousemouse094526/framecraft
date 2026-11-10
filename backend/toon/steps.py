@@ -50,7 +50,7 @@ class Run(Protocol):
 
     def update(self, **fields) -> None: ...
 
-    def use(self, gpu_kind: gpu.Kind, child: Child) -> None: ...
+    def use_child(self, gpu_kind: gpu.Kind, child: Child) -> None: ...
 
     def track(self, process) -> None: ...
 
@@ -126,7 +126,7 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
     None for an ask that is None (nothing to translate), an answer that isn't one, or one
     that takes too long, after which the next ask starts a new child. `counted`: the job's
     `done` counts the asks answered (an Image job's `translating`; a Ref job has one ask)."""
-    run.use("toon_image", TRANSLATOR)
+    run.use_child("toon_image", TRANSLATOR)
     # A scene is one short answer: it may take as long as a sentence's Shots take to pick.
     timeout, found = llm.timeouts().pick, []
     process = requests = replies = None  # Qwen's child, started at the first ask it answers
@@ -151,7 +151,7 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
                 run.update(done=done)
     finally:
         # klein's names again, however Qwen's step ended: a failure names the child that ran.
-        run.use("toon_image", DRAWER)
+        run.use_child("toon_image", DRAWER)
     if process is not None:
         run.track(None)
         stop_process(process)

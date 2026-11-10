@@ -1,13 +1,12 @@
 import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
-import { cancelCurrent } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, type Ep, type LostCards } from "../lib/episodes";
 import { SOUNDS_PATH, type Sound } from "../lib/sounds";
 import { epHash, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
-import { refusalTextOf, type Notice } from "../lib/notice";
-import { useToonJobPoll } from "./useToonJobPoll";
+import { NOT_NOW, refusalTextOf, type Notice } from "../lib/notice";
+import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
 
 export type EpState =
   | { kind: "loading" }
@@ -78,6 +77,7 @@ export function useEp(eid: string) {
     job,
     (next) => {
       // A picture of this EP is written as soon as it is drawn: read the EP for it (spec › Frontend).
+      // `job` is the previous poll's answer, so a `done` that moved means one more picture.
       const drew = next.kind === "image" && next.ep_id === eid && next.state === "drawing" && next.done !== job?.done;
       update((s) => ({ ...s, job: next }));
       if (drew) void load();
@@ -120,18 +120,14 @@ export function useEp(eid: string) {
       const refusal = refusalOf(reply.body) as (Refusal & { acts?: LostCards[]; missing_refs?: MissingRef[] }) | null;
       if (refusal?.code === "cards_will_be_lost") return update((s) => ({ ...s, lost: refusal.acts ?? [] }));
       if (refusal?.code === "nothing_to_draw") update((s) => ({ ...s, missing: refusal.missing_refs ?? [] }));
-      const busy = ["busy", "gpu_busy", "not_ready", "nothing_to_split", "nothing_to_draw"].includes(refusal?.code ?? "");
+      const busy = [...NOT_NOW, "nothing_to_split", "nothing_to_draw"].includes(refusal?.code ?? "");
       refused(title, reply.body, busy ? "warning" : "error");
     } catch {
       refused(title, null);
     }
   };
 
-  /** หยุด: the job shows `cancel_requested` until the poll sees it end. */
-  const cancelJob = async () => {
-    const reply = await cancelCurrent<ToonJob>(JOB_PATH);
-    if (reply.kind === "cancelling") update((s) => ({ ...s, job: reply.job }));
-  };
+  const cancelJob = () => cancelToonJob((job) => update((s) => ({ ...s, job })));
 
   return {
     state,

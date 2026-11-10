@@ -8,7 +8,7 @@ export type Tone = "success" | "info" | "warning" | "error";
 
 const TONE_LOOK: Record<Tone, { icon: string; boxClass: string; titleClass: string }> = {
   success: { icon: successIcon, boxClass: "border-success-border bg-success-surface", titleClass: "text-success" },
-  info: { icon: infoIcon, boxClass: "border-info-border bg-info-surface", titleClass: "text-info-border" },
+  info: { icon: infoIcon, boxClass: "border-info-border bg-info-surface", titleClass: "text-info" },
   warning: { icon: warningIcon, boxClass: "border-warning-border bg-warning-surface", titleClass: "text-warning" },
   error: { icon: errorIcon, boxClass: "border-error-border bg-error-surface", titleClass: "text-destructive" },
 };

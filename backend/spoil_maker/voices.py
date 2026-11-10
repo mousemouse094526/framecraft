@@ -20,9 +20,8 @@ from typing import Literal, NamedTuple
 from pydantic import BaseModel
 
 from backend import checks, files, gate_rows, gpu, paths
-from backend.errors import ApiError, Row, require_rows
+from backend.errors import ApiError, require_rows
 from backend.jobs import Job, ModelJobSlot
-from backend.models import OMNIVOICE
 from backend.speaking import NUM_STEP, Speaker, wav_seconds, write_wav
 from backend.paths import ProjectPaths
 from backend.spoil_maker import draft_file, thai
@@ -161,7 +160,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
         """Checks the body, then the gate, `busy`, `gpu_busy`, and starts the job's thread."""
         instruct, speed = _design_choices(body)
         project = paths.project()
-        require_rows(needed_rows(project))
+        require_rows(gate_rows.voice(project))
         with self._lock:
             if self._taken():
                 raise ApiError(409, "busy", "กำลังสร้างเสียงอยู่")
@@ -193,7 +192,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
                 ):
                     raise ApiError(400, "invalid_request", "เลือกประโยคที่มีใน Spoil draft โดยไม่ซ้ำ")
                 plan = plan_sentences(project, draft, sentence_ids)
-                require_rows(needed_rows(project))
+                require_rows(gate_rows.voice(project))
                 gpu.slot.take("voice", [plan.clip_id], locks_draft=True)
             self._job = VoiceJob(
                 kind="sentences", state="voicing", done=0, total=len(plan.sentences), started_at=checks.now_iso()
@@ -406,12 +405,6 @@ def _voice(voice_id: str, stored: dict, in_use: bool) -> Voice:
 
 def _json(content: dict) -> str:
     return json.dumps(content, ensure_ascii=False, indent=2)
-
-
-def needed_rows(project: ProjectPaths) -> dict[str, Row]:
-    """The Status check rows a Voice job needs, by id (spec › Status check)."""
-    omnivoice: dict[str, Row] = {OMNIVOICE.check_id: (OMNIVOICE.label, lambda: checks.check_model(project, OMNIVOICE))}
-    return gate_rows.DEVICE | omnivoice | gate_rows.PYTHAINLP
 
 
 voice_jobs = VoiceJobs()

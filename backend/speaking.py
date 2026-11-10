@@ -6,6 +6,7 @@ the wav files they write.
 import wave
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Protocol
 
 from backend import checks, spoil_maker
 from backend.models import OMNIVOICE
@@ -13,6 +14,13 @@ from backend.paths import ProjectPaths
 from backend.spoil_maker.tts import Designed, Ready, Speak, Spoken
 
 NUM_STEP = 16  # spoil-maker D37
+
+
+class Voice(Protocol):
+    """What speaking needs of a Saved voice (`voices.SavedVoice`)."""
+
+    speed: float
+    prompt: bytes
 
 
 class Speaker:
@@ -33,10 +41,10 @@ class Speaker:
         self._reply(process, replies, (Ready,))
         return process, requests, replies
 
-    def speak(self, project: ProjectPaths, texts: list[str], voice) -> Iterator[Spoken]:
-        """Each text (numbers already words) spoken in one child in `voice` (a
-        `voices.SavedVoice`), in order, as soon as it is: the caller writes it before the next
-        is asked for, so a cancel keeps the finished ones."""
+    def speak(self, project: ProjectPaths, texts: list[str], voice: Voice) -> Iterator[Spoken]:
+        """Each text (numbers already words) spoken in one child in `voice`, in order, as
+        soon as it is: the caller writes it before the next is asked for, so a cancel keeps
+        the finished ones. Ask once more after the last text and it ends its child."""
         process, requests, replies = self.start(project)
         for text in texts:
             requests.put(Speak(text=text, prompt=voice.prompt, speed=voice.speed, num_step=NUM_STEP))

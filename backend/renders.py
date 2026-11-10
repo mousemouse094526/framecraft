@@ -6,9 +6,11 @@ their Render jobs gate on are `gate_rows.render`."""
 
 import json
 import logging
-from collections.abc import Iterator
+import os
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import NamedTuple
 
 from backend.errors import ApiError
 
@@ -37,20 +39,53 @@ def complete_names(folder: Path) -> list[str]:
     return sorted((name for name in found if _is_name(name) and _complete(folder, name)), reverse=True)
 
 
-def results(folder: Path) -> Iterator[tuple[str, dict, int]]:
-    """Each complete render's name, its json and its mp4's size, newest first; an
-    unreadable one is logged and skipped."""
+class Stored(NamedTuple):
+    """A complete render on disk: its name, what its json says, and its mp4's size."""
+
+    name: str
+    info: dict
+    size_bytes: int
+
+
+def results(folder: Path) -> Iterator[Stored]:
+    """Each complete render, newest first; an unreadable one is logged and skipped."""
     for name in complete_names(folder):
         try:
             info = json.loads((folder / f"{name}.json").read_text(encoding="utf-8"))
-            yield name, info, (folder / f"{name}.mp4").stat().st_size
+            yield Stored(name, info, (folder / f"{name}.mp4").stat().st_size)
         except (OSError, ValueError):
             log.warning("skipping unreadable render %s", name)
 
 
+def listed[Result](folder: Path, result: Callable[..., Result]) -> list[Result]:
+    """Each complete render as `result(name=, size_bytes=, **its json)`, newest first; one
+    whose json doesn't fit `result` is logged and skipped."""
+    found = []
+    for stored in results(folder):
+        try:
+            found.append(result(name=stored.name, size_bytes=stored.size_bytes, **stored.info))
+        except (ValueError, TypeError):
+            log.warning("skipping unreadable render %s", stored.name)
+    return found
+
+
 def latest_at(folder: Path) -> str | None:
     """When the folder's newest readable render was made."""
-    return next((info["created_at"] for _, info, _ in results(folder) if isinstance(info, dict) and "created_at" in info), None)
+    return next(
+        (stored.info["created_at"] for stored in results(folder) if isinstance(stored.info, dict) and "created_at" in stored.info),
+        None,
+    )
+
+
+def finish(folder: Path, name: str, srt: str, info: dict) -> None:
+    """Writes the srt and the json beside `{name}.mp4.partial`, then drops the three
+    `.partial`s, the json last: a name is listed once all three are there."""
+    srt_partial = folder / f"{name}.srt.partial"
+    srt_partial.write_text(srt, encoding="utf-8")
+    json_partial = folder / f"{name}.json.partial"
+    json_partial.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+    for written in (srt_partial, folder / f"{name}.mp4.partial", json_partial):
+        os.replace(written, written.with_suffix(""))
 
 
 def require(folder: Path, name: str) -> None:

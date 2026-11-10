@@ -2,6 +2,7 @@
 
 import dataclasses
 import json
+import queue
 import threading
 import time
 from collections.abc import Callable
@@ -526,14 +527,25 @@ class FakeModel:
         self._paused[index].set()
 
     def __call__(self, snapshot_dir: Path, *args):
-        import queue
-
-        requests: queue.Queue = queue.Queue()
+        requests = _EndNoted()
         replies: queue.Queue = queue.Queue()
         process = FakeModelProcess(self, snapshot_dir, args, requests, replies)
         self.processes.append(process)
         process.start()
         return process, requests, replies
+
+
+class _EndNoted(queue.Queue):
+    """A request queue that notes the `None` asking its child to exit, read or not."""
+
+    def __init__(self):
+        super().__init__()
+        self.asked_to_end = False
+
+    def put(self, item, block=True, timeout=None):
+        if item is None:
+            self.asked_to_end = True
+        super().put(item, block, timeout)
 
 
 class FakeLlm(FakeModel):
@@ -647,6 +659,10 @@ class FakeModelProcess(FakeProcess):
             self._replies.put(answer)
             index += 1
         self.exitcode = -15 if self._killed.is_set() else 0
+
+    @property
+    def asked_to_end(self) -> bool:
+        return self._requests.asked_to_end
 
 
 def jpeg_width(path: Path) -> int:

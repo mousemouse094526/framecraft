@@ -259,6 +259,7 @@ def test_cards_with_no_narration_are_voiced_first_then_rendered_with_the_gpu_fre
     assert poll_until(client, CURRENT, lambda job: job["state"] in FINISHED, timeout_s=60)["state"] == "done"
     statuses = [card["audio_status"] for card in cards_of(client.get(f"{EPS}/{ep['id']}").json())]
     assert statuses == ["ready", "silent", "ready"]
+    assert tts.processes[0].asked_to_end  # OmniVoice is told to exit, not only stopped
 
 
 def test_a_cancel_while_voicing_stops_omnivoice_and_keeps_the_narration_already_spoken(client, llm, project, tts):

@@ -7,7 +7,6 @@ Steps and rules are in docs/features/spoil-maker/spec.md › Render job (D9, D10
 D30, D31, D40–D42, D45, D51).
 """
 
-import json
 import logging
 import os
 import shutil
@@ -106,7 +105,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             if disk.free_bytes(project.root) < MIN_FREE_BYTES:
                 raise ApiError(507, "disk_full", "ที่ว่างดิสก์ไม่ถึง 1 GiB")
             unvoiced = [sid for sid, status in statuses.items() if status != "ready"]
-            require_rows(gate_rows.render(project) | (voices.needed_rows(project) if unvoiced else {}))
+            require_rows(gate_rows.render(project, voices_first=bool(unvoiced)))
             if self._taken():
                 raise ApiError(409, "busy", "กำลัง render อยู่")
             plan = voices.plan_sentences(project, found, unvoiced) if unvoiced else None
@@ -203,13 +202,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             "start_s": drawn.ep.start_s,
             "end_s": drawn.ep.end_s,
         }
-        srt_partial = project.renders_dir / f"{name}.srt.partial"
-        srt_partial.write_text(captions.srt_file(timed), encoding="utf-8")
-        json_partial = project.renders_dir / f"{name}.json.partial"
-        json_partial.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
-        # The json goes last: a name is listed once all three are there (spec › Render job).
-        for written in (srt_partial, mp4_partial, json_partial):
-            os.replace(written, written.with_suffix(""))
+        renders.finish(project.renders_dir, name, captions.srt_file(timed), info)  # spec › Render job
         return name
 
 
@@ -265,13 +258,7 @@ def _write_narration(project: ProjectPaths, drawn: Draft, target: Path) -> None:
 
 def list_results(project: ProjectPaths) -> list[RenderResult]:
     """Every name with its mp4, `.srt` and `.json` and no `.partial`, newest first."""
-    found = []
-    for name, info, size in renders.results(project.renders_dir):
-        try:
-            found.append(RenderResult(name=name, size_bytes=size, **info))
-        except (ValueError, TypeError):
-            log.warning("skipping unreadable render %s", name)
-    return found
+    return renders.listed(project.renders_dir, RenderResult)
 
 
 def result_file(project: ProjectPaths, name: str, suffix: str) -> Path:

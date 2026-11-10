@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from backend import gpu, speaking
+from backend import gate_rows, gpu, speaking
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.spoil_maker import thai, voices
@@ -99,7 +99,7 @@ WORK = steps.Work(
     gpu_kind="toon_voice",
     child=steps.VOICER,
     plan=plan,
-    rows=voices.needed_rows,
+    rows=gate_rows.voice,
     locks=lambda: gpu.slot.draft_lock,  # before the store's: a Saved voice delete can't slip in (D25)
     job=lambda plan: {
         "state": "voicing",

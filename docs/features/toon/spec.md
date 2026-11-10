@@ -84,7 +84,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 - **`backend.checks`, `backend.gate_rows`**
   - แถวใหม่: Status check ด้านล่าง; `gate_rows.klein(project)` รวมสี่แถวของ klein (ฟังก์ชัน: แถว model ต้องรู้ project); แถว `diffusers` และ `gguf` เขียนที่เดียวใน `checks.klein_packages` ที่ Status check อ่านด้วย (D59)
 - **`backend.renders`** (ใหม่, D59)
-  - ส่วนกลางของผล render ที่ `spoil_maker.render` และ `toon.render` ใช้ร่วม: ชื่อว่าง ผลที่ครบ `latest_at` การลบ (mp4 ก่อน json ท้าย, `409` `in_use`) `.partial` ที่ค้าง; แถว gate ของ render เป็น `gate_rows.render`; `toon.episodes` อ่าน `latest_at` จากตัวนี้ จึงไม่ import `toon.render`
+  - ส่วนกลางของผล render ที่ `spoil_maker.render` และ `toon.render` ใช้ร่วม: ชื่อว่าง ผลที่ครบ (`results`, `listed`) `latest_at` การจบ render (`finish`: srt และ json แล้วเอา `.partial` ออก json ท้าย) การลบ (mp4 ก่อน json ท้าย, `409` `in_use`) `.partial` ที่ค้าง; แถว gate ของ render เป็น `gate_rows.render(project, voices_first)` ที่เพิ่มแถวของ Voice job (`gate_rows.voice`) เมื่อต้องพูดก่อน (D60); `toon.episodes` อ่าน `latest_at` จากตัวนี้ จึงไม่ import `toon.render`
 - **`backend.gpu`**
   - `Kind` เพิ่ม `toon_write` ("ร่างการ์ตูนเล่า"), `toon_image` ("สร้างภาพ"), `toon_voice` ("สร้างเสียงเล่า"), `toon_render` ("render การ์ตูนเล่า") ใน `RUNNING_NAMES`
 - **`backend.app`**
@@ -314,7 +314,7 @@ media/toon/
 
 ### Toon job
 
-ทุกงานของ tab ยกเว้น render ใช้ slot เดียว `toon.jobs` (subclass ของ `ModelJobSlot`, ADR-0010): ชนกับ Toon job ที่ยังไม่จบ → `409` `busy`. `gpu_kind`, `child_name`, `worker_error` ตั้งต่องานตอนเริ่ม และเปลี่ยนตามขั้นในงานที่มีสองขั้น (Qwen แล้ว klein); `_finish` คืนช่อง GPU ตาม kind ของงานนั้น. Render job มี slot ของตัวเอง (D45) route `/api/toon/render` แยก. state, `percent`, `done`, `total`, `error`, `cancel_requested` ตามรูปของ Voice job เดิม พร้อม `kind`, `series_id`, `ep_id`, `skipped`. route `POST /api/toon/jobs` (202), `GET /api/toon/jobs/current`, `DELETE /api/toon/jobs/current`.
+ทุกงานของ tab ยกเว้น render ใช้ slot เดียว `toon.jobs` (subclass ของ `ModelJobSlot`, ADR-0010): ชนกับ Toon job ที่ยังไม่จบ → `409` `busy`. `gpu_kind`, `child_name`, `worker_error` ตั้งต่องานตอนเริ่ม; `child_name` กับ `worker_error` เปลี่ยนตามขั้นในงานที่มีสองขั้น (Qwen แล้ว klein) แต่ `gpu_kind` คงเดิมทั้งงาน (Image job และ Ref job เป็น `toon_image` ทั้งสองขั้น, D60); `_finish` คืนช่อง GPU ตาม kind ของงานนั้น. Render job มี slot ของตัวเอง (D45) route `/api/toon/render` แยก. state, `percent`, `done`, `total`, `error`, `cancel_requested` ตามรูปของ Voice job เดิม พร้อม `kind`, `series_id`, `ep_id`, `skipped`. route `POST /api/toon/jobs` (202), `GET /api/toon/jobs/current`, `DELETE /api/toon/jobs/current`.
 
 | `kind` | ช่อง GPU | ล็อก EP | ทำอะไร |
 |---|---|---|---|
@@ -465,7 +465,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 | POST | `/series/{sid}/{characters\|backgrounds}/{id}/ref/upload?size=` | เอาไฟล์เข้า (body ดิบ) |
 | GET, POST | `/series/{sid}/eps` | รายการ EP, สร้าง EP `{"idea": "..."}` (ได้เลข `max_ep + 1`, D40) |
 | GET, PATCH, DELETE | `/eps/{eid}` | อ่าน แก้ (`title`, `n`, `voice_id`, พล็อต) หรือลบ EP |
-| POST, DELETE | `/eps/{eid}/acts`, `/eps/{eid}/acts/{aid}` | เพิ่มหรือลบองก์ (D10) |
+| POST, PATCH, DELETE | `/eps/{eid}/acts`, `/eps/{eid}/acts/{aid}` | เพิ่ม แก้ (สรุป, ชื่อองก์ D54) หรือลบองก์ (D10) |
 | POST, PATCH, DELETE | `/eps/{eid}/segments…`, `/eps/{eid}/cards…` | เพิ่ม แก้ ลบ ช่วงและการ์ด (`after` บอกตำแหน่ง) |
 | POST | `/eps/{eid}/cards/{kid}/swap-image` | สลับภาพก่อนหน้า |
 | GET | `/eps/{eid}/cards/{kid}/image`, `/previous-image`, `/audio` | ไฟล์ |

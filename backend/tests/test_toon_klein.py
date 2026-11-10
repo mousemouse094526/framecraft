@@ -12,8 +12,8 @@ from backend.models import KLEIN, KLEIN_GGUF, QWEN_MAC
 from backend.toon import prompts
 
 
-def test_importing_the_adapter_loads_neither_torch_nor_diffusers():
-    # The backend imports it on every start; torch takes seconds.
+def test_importing_the_toon_jobs_and_their_klein_adapter_loads_neither_torch_nor_diffusers():
+    # The backend imports them on every start; torch takes seconds.
     code = "import sys, backend.toon.jobs; sys.exit(bool({'torch', 'diffusers'} & set(sys.modules)))"
     root = Path(__file__).resolve().parents[2]
 
@@ -46,4 +46,4 @@ def test_status_check_compares_the_named_files_and_folders_of_a_model_and_skips_
         "transformer/config.json",
     ]
     assert named_patterns(KLEIN_GGUF) == ["flux-2-klein-4b-Q4_K_M.gguf"]
-    assert named_patterns(QWEN_MAC) == []
+    assert named_patterns(QWEN_MAC) == []  # the Qwen an Image job translates with: the same rule

@@ -4,7 +4,7 @@ Each check looks its probe and the OS up when it runs, so a test's fakes are the
 
 from backend import checks, fonts
 from backend.errors import Row
-from backend.models import KLEIN, KLEIN_GGUF
+from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE
 from backend.paths import ProjectPaths
 
 FFMPEG: dict[str, Row] = {"ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg))}
@@ -53,8 +53,14 @@ def klein(project: ProjectPaths) -> dict[str, Row]:
     } | checks.klein_packages(checks.real_probes())
 
 
-def render(project: ProjectPaths) -> dict[str, Row]:
+def voice(project: ProjectPaths) -> dict[str, Row]:
+    """What a Voice job needs: the device, OmniVoice and pythainlp (spoil-maker spec › Status check)."""
+    omnivoice: dict[str, Row] = {OMNIVOICE.check_id: (OMNIVOICE.label, lambda: checks.check_model(project, OMNIVOICE))}
+    return DEVICE | omnivoice | PYTHAINLP
+
+
+def render(project: ProjectPaths, voices_first: bool) -> dict[str, Row]:
     """What every Render job's ffmpeg needs: ffmpeg, Kanit and pythainlp (each spec › Status
     check); a job that voices first adds the Voice job's rows."""
     kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
-    return FFMPEG | kanit | PYTHAINLP
+    return FFMPEG | kanit | PYTHAINLP | (voice(project) if voices_first else {})

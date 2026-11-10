@@ -361,6 +361,16 @@ def test_an_image_job_without_klein_s_marker_is_not_ready_naming_the_row(client,
     assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["model_klein"])
 
 
+def test_an_image_job_with_another_diffusers_version_is_not_ready_naming_the_row(client, llm, monkeypatch):
+    # The same `diffusers` row as the Status check's (toon spec › Status check).
+    _, _, _, ep = with_cards(client, llm)
+    monkeypatch.setattr(checks, "probe_diffusers", lambda: "0.43.0")
+
+    response = start_image(client, ep["id"], scope="missing")
+
+    assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["diffusers"])
+
+
 def test_an_image_job_during_a_describe_job_is_gpu_busy(client, llm):
     _, _, _, ep = with_cards(client, llm)
     gpu.slot.take("describe")
@@ -397,6 +407,19 @@ def test_a_voice_job_speaks_a_card_in_the_ep_s_voice_and_its_wav_is_served(clien
     assert (speak.text, speak.prompt, speak.speed) == (card["text"], b"pt", 1.0)
     audio = client.get(f"{EPS}/{ep['id']}/cards/{card['id']}/audio")
     assert (audio.status_code, audio.content[:4]) == (200, b"RIFF")
+
+
+def test_deleting_a_series_during_its_voice_job_is_series_busy(client, llm, tts):
+    series_id, _, _, ep = with_cards(client, llm)
+    tts.pause_at(0)
+    assert start_voice(client, ep["id"], cards_of(ep)[0]["id"]).status_code == 202
+    tts.wait_until(0)
+
+    response = client.request("DELETE", f"/api/toon/series/{series_id}", json={"confirm_eps": 1})
+
+    assert (response.status_code, response.json()["code"]) == (409, "series_busy")
+    tts.release(0)
+    wait_for_end(client)
 
 
 def test_a_voice_job_on_a_silent_card_is_refused_and_a_card_with_no_audio_has_none_to_serve(client, llm):

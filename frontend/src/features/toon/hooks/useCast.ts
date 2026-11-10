@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendFile, sendJson } from "../../../lib/api";
-import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
@@ -16,7 +15,7 @@ import {
   type ToonJob,
 } from "../lib/series";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
-import { useToonJobPoll } from "./useToonJobPoll";
+import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
 
 export type ItemFields = { name: string; tag?: string; description: string };
 
@@ -116,11 +115,7 @@ export function useCast(sid: string) {
     }
   };
 
-  /** หยุด: the job shows `cancel_requested` until the poll sees it end. */
-  const cancelJob = async () => {
-    const reply = await cancelCurrent<ToonJob>(JOB_PATH);
-    if (reply.kind === "cancelling") update((s) => ({ ...s, job: reply.job }));
-  };
+  const cancelJob = () => cancelToonJob((job) => update((s) => ({ ...s, job })));
 
   /** `/ref/upload/check` first, then the file as the raw body (ADR 0028); the answer is the Series. */
   const upload = async (kind: Kind, item: Item, file: File) => {

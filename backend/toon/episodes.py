@@ -179,7 +179,7 @@ def view(project: ProjectPaths, ep_id: str) -> EpView:
             plot=ep.plot,
             acts=acts,
             duration_s=round(sum(card.duration_s for act in acts for s in act.segments for card in s.cards), 1),
-            locked=_use(ep.id) is True,
+            locked=_locked(ep.id),
         )
 
 
@@ -208,7 +208,7 @@ def delete(project: ProjectPaths, ep_id: str) -> None:
     Characters and backgrounds it added stay in the Series."""
     with store.lock:
         series, ep = find(project, ep_id)
-        if _use(ep_id) is not None:
+        if _jobs_on(ep_id):
             raise ApiError(409, "ep_busy", "EP นี้มีงานที่ยังไม่จบ")
         shutil.rmtree(project.ep_dir(series.id, ep_id))
     log.info("deleted EP %s of %s", ep_id, series.id)
@@ -500,17 +500,20 @@ def _ep_number(project: ProjectPaths, series: Series, ep: Ep, value: object) -> 
     return value
 
 
-def _use(ep_id: str) -> bool | None:
-    """True when a job locks the EP, False when one only works on it, None when none does."""
-    locks = [use[1] for current in ep_jobs if (use := current()) is not None and use[0] == ep_id]
-    return any(locks) if locks else None
+def _jobs_on(ep_id: str) -> list[bool]:
+    """One entry per unfinished job working on the EP: whether that job locks it."""
+    return [use[1] for current in ep_jobs if (use := current()) is not None and use[0] == ep_id]
+
+
+def _locked(ep_id: str) -> bool:
+    return any(_jobs_on(ep_id))
 
 
 def editable(project: ProjectPaths, ep_id: str) -> tuple[Series, Ep]:
     """The EP to change; `ep_locked` while a Plot or Cards job works on it. Call with the
     store's lock held."""
     found = find(project, ep_id)
-    if _use(ep_id) is True:
+    if _locked(ep_id):
         raise ApiError(409, "ep_locked", "AI กำลังเขียน EP นี้: แก้ได้อีกครั้งเมื่องานจบ")
     return found
 
