@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendFile, sendJson } from "../../../lib/api";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
-import { useMountedState } from "../../../lib/useMountedState";
 import {
   itemPath,
   JOB_PATH,
@@ -14,8 +13,10 @@ import {
   type Series,
   type ToonJob,
 } from "../lib/series";
+import { sendEdit } from "../lib/edit";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
+import { useReadyState } from "./useReadyState";
 
 export type ItemFields = { name: string; tag?: string; description: string };
 
@@ -37,14 +38,8 @@ export type CastState =
  * started, the pick page opens), and a reference image from a file (spec › Ref job, D31).
  */
 export function useCast(sid: string) {
-  const [state, , setState] = useMountedState<CastState>({ kind: "loading" });
+  const [state, setState, update] = useReadyState<CastState>({ kind: "loading" });
   const uploading = useRef(false);
-
-  const update = useCallback(
-    (change: (s: Extract<CastState, { kind: "ready" }>) => CastState) =>
-      setState((s) => (s.kind === "ready" ? change(s) : s)),
-    [setState],
-  );
 
   const load = useCallback(async () => {
     try {
@@ -82,17 +77,9 @@ export function useCast(sid: string) {
 
   /** Answers that carry the Series as it is now replace it; others become the notice. */
   const sendItem = async (method: string, path: string, body: unknown, title: string) => {
-    try {
-      const reply = await sendJson<Series | Refusal>(method, path, body);
-      if (reply.status === 200 || reply.status === 201) {
-        update((s) => ({ ...s, series: reply.body as Series, notice: null }));
-        return true;
-      }
-      refused(title, reply.body);
-    } catch {
-      refused(title, null);
-    }
-    return false;
+    const reply = await sendEdit<Series>(method, path, body, title);
+    update((s) => (reply.kind === "saved" ? { ...s, series: reply.value, notice: null } : { ...s, notice: reply.notice }));
+    return reply.kind === "saved";
   };
 
   const add = (kind: ItemKind, fields: ItemFields) =>

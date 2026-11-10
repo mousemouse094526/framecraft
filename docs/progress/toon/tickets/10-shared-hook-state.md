@@ -8,7 +8,7 @@
 - Decisions: D63
 - Blocked: #22 (feature review รอบสาม)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

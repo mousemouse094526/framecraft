@@ -3,10 +3,10 @@ import { getJson, sendFile, sendJson, type FileUpload } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
-import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isImporting, SOUND_IMPORT_PATH, SOUNDS_PATH, soundPath, type Sound, type SoundImport } from "../lib/sounds";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
+import { useReadyState } from "./useReadyState";
 
 /** The EPs a sound plays in, as `in_use` names them. */
 type SoundUser = { series_name: string; n: number; title: string };
@@ -27,18 +27,11 @@ export type SoundsState =
       upload: { name: string; percent: number } | null;
     };
 
-type Ready = Extract<SoundsState, { kind: "ready" }>;
-
 /** คลังเสียงพื้น: the library, renaming, deleting, a file's import with its % out, and a link's
  * import polled while it runs (spec › คลังเสียงพื้น, ADR 0028). */
 export function useSounds() {
-  const [state, , setState] = useMountedState<SoundsState>({ kind: "loading" });
+  const [state, setState, update] = useReadyState<SoundsState>({ kind: "loading" });
   const sending = useRef<FileUpload<Sound | Refusal> | null>(null);
-
-  const update = useCallback(
-    (change: (s: Ready) => SoundsState) => setState((s) => (s.kind === "ready" ? change(s) : s)),
-    [setState],
-  );
 
   const load = useCallback(async () => {
     try {

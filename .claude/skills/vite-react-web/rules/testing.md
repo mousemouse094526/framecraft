@@ -15,6 +15,7 @@ expect(await screen.findByText("พร้อมใช้งาน")).toBeInTheDo
 ## Rules
 
 - Runner: `npm --prefix frontend test`. Tests sit beside the component as `*.test.tsx`.
+- A hook or `lib/` helper that several hooks share gets its own test beside it as `*.test.ts`: a hook through `renderHook`, a request through `testBackend` (toon D65).
 - Query by visible text or role, the way the user sees it.
 - The tabs' tests answer `fetch` through `src/testing/testBackend.ts` (`serve`, `get`, `send`, `phased`, `sent`); a new test uses it, not a copy.
 - An upload (`sendFile`) is answered by `src/testing/fakeXhr.ts`: `vi.stubGlobal("XMLHttpRequest", FakeXhr)`, then fire `progress`, `allSent`, `respond`, `fail` from the test.

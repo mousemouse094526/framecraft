@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson, type JsonReply } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
-import { useMountedState } from "../../../lib/useMountedState";
 import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type ItemKind, type Series, type ToonJob } from "../lib/series";
 import { refusalTextOf } from "../lib/notice";
 import { useToonJobPoll } from "./useToonJobPoll";
+import { useReadyState } from "./useReadyState";
 
 export type PickState =
   | { kind: "loading" }
@@ -23,13 +23,7 @@ export type PickState =
 
 /** เลือกภาพอ้างอิง: follows the item's Ref job, then one of its three pictures becomes the reference image (D31, D32). */
 export function usePickRef(sid: string, kind: ItemKind, id: string) {
-  const [state, , setState] = useMountedState<PickState>({ kind: "loading" });
-
-  const update = useCallback(
-    (change: (s: Extract<PickState, { kind: "ready" }>) => PickState) =>
-      setState((s) => (s.kind === "ready" ? change(s) : s)),
-    [setState],
-  );
+  const [state, setState, update] = useReadyState<PickState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {

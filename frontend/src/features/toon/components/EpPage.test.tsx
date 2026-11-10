@@ -264,6 +264,32 @@ describe("เส้นเรื่อง", () => {
     expect(sent(fetchMock, "PATCH", `${EP_PATH}/cards/k_01`)).toEqual([{ text: "ข้อความใหม่" }]);
     expect(await within(screen.getByRole("article", { name: "การ์ด 1" })).findByText("แก้เอง")).toBeInTheDocument();
   });
+
+  it("a refused edit says บันทึกไม่ได้ and the card stays; sent again and taken, the notice goes", async () => {
+    const answer = epOf({ acts: epOf().acts.map((act, i) => (i === 0 ? { ...act, segments: [{ ...act.segments[0], cards: [cardOf({ text: "ข้อความใหม่", edited: true })] }] } : act)) });
+    const locked = { code: "ep_busy", message: "EP นี้มีงานทำอยู่" };
+    const user = open(`#/toon/eps/${EID}`, [
+      get(EP_PATH, epOf()),
+      send("PATCH", `${EP_PATH}/cards/k_01`, locked, 409),
+      send("PATCH", `${EP_PATH}/cards/k_01`, answer, 200),
+    ]);
+
+    const field = within(await screen.findByRole("article", { name: "การ์ด 1" })).getByRole("textbox", { name: "ข้อความเล่า" });
+    await user.clear(field);
+    await user.type(field, "ข้อความใหม่");
+    await user.tab();
+
+    expect(await screen.findByText("บันทึกไม่ได้")).toBeInTheDocument();
+    expect(screen.getByText("EP นี้มีงานทำอยู่")).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "การ์ด 1" })).queryByText("แก้เอง")).not.toBeInTheDocument();
+
+    // The field still differs from the card, so leaving it again sends again; the second answer takes it.
+    await user.type(field, "!");
+    await user.tab();
+
+    expect(await within(screen.getByRole("article", { name: "การ์ด 1" })).findByText("แก้เอง")).toBeInTheDocument();
+    expect(screen.queryByText("บันทึกไม่ได้")).not.toBeInTheDocument();
+  });
 });
 
 describe("ภาพการ์ดและเสียงเล่า", () => {

@@ -2,7 +2,6 @@ import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
-import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { epPath, type Ep } from "../lib/episodes";
 import {
@@ -16,6 +15,7 @@ import {
 } from "../lib/render";
 import { seriesPath, type Series } from "../lib/series";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
+import { useReadyState } from "./useReadyState";
 
 export type RenderState =
   | { kind: "loading" }
@@ -32,16 +32,9 @@ export type RenderState =
       notReady: string[] | null;
     };
 
-type Ready = Extract<RenderState, { kind: "ready" }>;
-
 /** render และผล: the EP's summary, its Render job polled while it runs, and its clips. */
 export function useRender(eid: string) {
-  const [state, , setState] = useMountedState<RenderState>({ kind: "loading" });
-
-  const update = useCallback(
-    (change: (s: Ready) => RenderState) => setState((s) => (s.kind === "ready" ? change(s) : s)),
-    [setState],
-  );
+  const [state, setState, update] = useReadyState<RenderState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {

@@ -1,12 +1,13 @@
 import { useCallback, useEffect } from "react";
 import { getJson, sendJson } from "../../../lib/api";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
-import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, type Ep, type LostCards } from "../lib/episodes";
 import { SOUNDS_PATH, type Sound } from "../lib/sounds";
 import { epHash, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
+import { sendEdit } from "../lib/edit";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
+import { useReadyState } from "./useReadyState";
 
 export type EpState =
   | { kind: "loading" }
@@ -28,8 +29,6 @@ export type EpState =
       version: number;
     };
 
-type Ready = Extract<EpState, { kind: "ready" }>;
-
 /**
  * An EP: its plot (Plot job, edits, confirm), its storyline (acts, segments, cards and their
  * edits), the Cards job that splits the plot, and the Image and Voice jobs of its cards (spec ›
@@ -37,12 +36,7 @@ type Ready = Extract<EpState, { kind: "ready" }>;
  * the page closes every field; a job that ends reads the EP again, and so does each picture drawn.
  */
 export function useEp(eid: string) {
-  const [state, , setState] = useMountedState<EpState>({ kind: "loading" });
-
-  const update = useCallback(
-    (change: (s: Ready) => EpState) => setState((s) => (s.kind === "ready" ? change(s) : s)),
-    [setState],
-  );
+  const [state, setState, update] = useReadyState<EpState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
@@ -96,17 +90,9 @@ export function useEp(eid: string) {
 
   /** An edit: its answer is the EP as it is now; a refusal becomes the notice. */
   const edit = async (method: string, path: string, body: unknown, title = "บันทึกไม่ได้") => {
-    try {
-      const reply = await sendJson<Ep | Refusal>(method, `${epPath(eid)}${path}`, body);
-      if (reply.status === 200 || reply.status === 201) {
-        update((s) => ({ ...s, ep: reply.body as Ep, notice: null }));
-        return true;
-      }
-      refused(title, reply.body);
-    } catch {
-      refused(title, null);
-    }
-    return false;
+    const reply = await sendEdit<Ep>(method, `${epPath(eid)}${path}`, body, title);
+    update((s) => (reply.kind === "saved" ? { ...s, ep: reply.value, notice: null } : { ...s, notice: reply.notice }));
+    return reply.kind === "saved";
   };
 
   const start = async (body: Record<string, unknown>, title: string) => {

@@ -276,6 +276,31 @@ describe("ตัวละครและฉากหลัง", () => {
     expect(await screen.findByRole("listitem", { name: "มายด์" })).toBeInTheDocument();
     expect(sent(fetchMock, "POST", `${ONE_PATH}/characters`)).toEqual([{ name: "มายด์", tag: "ขี้กลัว", description: "" }]);
   });
+
+  it("a refused เพิ่ม says why and adds nothing; sent again and taken, the notice goes", async () => {
+    const mind: Item = { id: "c_02", name: "มายด์", tag: "", description: "", ref_rev: 0, pending: 0 };
+    const taken = { code: "invalid_request", message: "มีตัวละครชื่อนี้แล้ว" };
+    const user = open(`#/toon/series/${SID}/cast`, [
+      get(ONE_PATH, seriesOf()),
+      send("POST", `${ONE_PATH}/characters`, taken, 400),
+      send("POST", `${ONE_PATH}/characters`, seriesOf({ characters: [peak, mind] }), 201),
+    ]);
+
+    await user.click(await screen.findByRole("button", { name: "เพิ่มตัวละคร" }));
+    const form = screen.getByRole("form", { name: "ตัวละครใหม่" });
+    await user.type(within(form).getByLabelText("ชื่อ"), "มายด์");
+    await user.click(within(form).getByRole("button", { name: "เพิ่ม" }));
+
+    expect(await screen.findByText("เพิ่ม มายด์ ไม่ได้")).toBeInTheDocument();
+    expect(screen.getByText("มีตัวละครชื่อนี้แล้ว")).toBeInTheDocument();
+    expect(screen.queryByRole("listitem", { name: "มายด์" })).not.toBeInTheDocument();
+
+    // The form stays open with the name, so เพิ่ม sends it again.
+    await user.click(within(form).getByRole("button", { name: "เพิ่ม" }));
+
+    expect(await screen.findByRole("listitem", { name: "มายด์" })).toBeInTheDocument();
+    expect(screen.queryByText("เพิ่ม มายด์ ไม่ได้")).not.toBeInTheDocument();
+  });
 });
 
 describe("เลือกภาพอ้างอิง", () => {

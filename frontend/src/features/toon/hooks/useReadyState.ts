@@ -1,0 +1,21 @@
+import { useCallback } from "react";
+import { useMountedState } from "../../../lib/useMountedState";
+
+type Ready<S> = Extract<S, { kind: "ready" }>;
+
+/**
+ * A page's state with `[state, setState, update]`. `setState` is `useMountedState`'s
+ * `setIfMounted`: it sets a whole state (e.g. after a read) and drops it once the component
+ * is gone. `update` changes the `ready` state only and leaves `loading`, `offline` and the
+ * rest as they are. Every toon hook that has a `ready` state uses it (toon D65).
+ */
+export function useReadyState<S extends { kind: string }>(initial: S) {
+  const [state, , setState] = useMountedState<S>(initial);
+
+  const update = useCallback(
+    (change: (s: Ready<S>) => S) => setState((s) => (s.kind === "ready" ? change(s as Ready<S>) : s)),
+    [setState],
+  );
+
+  return [state, setState, update] as const;
+}

@@ -908,6 +908,23 @@
 
 **From:** build ticket 09 · **Status:** active
 
+## D65: `useReadyState` และ `sendEdit` ของหน้าเว็บ ticket 10
+
+**Chosen:**
+- `features/toon/hooks/useReadyState(initial)` คืน `[state, setState, update]`: `useMountedState` ของ state บวก `update` ที่แก้แค่ state `ready` (`loading`, `offline`, `missing` คงเดิม); `useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp` ใช้ตัวนี้แทน `update` ที่เขียนเองห้าที่
+- `features/toon/lib/edit.sendEdit<T>(method, path, body, title)` คืน `EditReply`: `{ kind: "saved", value }` เมื่อได้ 200/201 หรือ `{ kind: "refused", notice }` (`noticeOf(title, …)` แบบ `error` เสมอ, ไม่มี backend = `OFFLINE_TEXT`); union มี `kind` แบบ `FileReply` ของ `sendFile`; `useCast.sendItem` และ `useEp.edit` แทนค่า (`series`, `ep`) และล้าง notice หรือตั้ง notice ใน `update` เดียว
+- `useReadyState` ตำแหน่งที่สองคือ `setIfMounted` ของ `useMountedState` (ชื่อ `setState` ใน hook ทั้งห้าเหมือนเดิม)
+- ทั้งสองอยู่ใน `features/toon`: ผู้ใช้คือ hook ของ toon อย่างเดียว ("Where shared code goes"); test ของตัวเองข้างไฟล์ (`useReadyState.test.ts` ผ่าน `renderHook`, `edit.test.ts` ผ่าน `testBackend`); `rules/testing.md` เขียนกติกานี้ให้ทุก feature (เดิมไม่มีกติกาของ test hook หรือ `lib/` ที่ใช้ร่วม)
+
+**Why:** Blocked #22: `update` รูปเดียวกันห้า hook; `sendItem` กับ `edit` ทำเหมือนกันต่างแค่ field. `sendEdit` คืนค่าแทนรับ callback จึงไม่มี React และ test ได้ตรง.
+
+**Rejected:**
+- `sendEdit` รับ `update` และชื่อ field — ต้องรู้รูปของ state ทุก hook และ type ของ field ยาก; สองบรรทัดที่เหลือใน `sendItem`/`edit` ต่างกันที่ field (`series`, `ep`)
+- `useSeriesForm` ใช้ `sendEdit` ด้วย — 200/201 ของมันเปิดหน้าใหม่และตั้งข้อความ error ของฟอร์ม ไม่ใช่ notice
+- `useReadyState` ใน `lib/` ชั้นบน — feature อื่นยังไม่ใช้
+
+**From:** build ticket 10 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

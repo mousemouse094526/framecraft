@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** 09 จบ (`ItemRef`, `toon_api`); ต่อ 10 (state ที่ใช้ร่วมของ hook หน้าเว็บ, Blocked #22); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ticket ครบ 10/10; ต่อ feature review (รอบสี่); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 10
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -21,9 +21,26 @@
 | 07 | โครงงานของ toon และชื่อที่ชนกัน | done |
 | 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | done |
 | 09 | ItemRef และ fixture ของ test ที่ใช้ร่วม | done |
-| 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | ready |
+| 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | done |
 
 ## Log
+
+### 10: state ที่ใช้ร่วมของ hook หน้าเว็บ toon — done 2026-11-10
+
+**Built:**
+- `features/toon/hooks/useReadyState`: `useMountedState` บวก `update` ที่แก้แค่ state `ready`; `useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp` ใช้แทน `update` ที่เขียนเองห้าที่
+- `features/toon/lib/edit.sendEdit`: 200/201 เป็น `{ kind: "saved", value }` ไม่งั้น `{ kind: "refused", notice }`; `useCast.sendItem` และ `useEp.edit` ใช้ทางเดียว
+- test: `useReadyState.test.ts` (`renderHook`), `edit.test.ts`; หน้า: เพิ่มตัวละครที่ถูกปฏิเสธแล้วส่งใหม่ผ่าน, แก้การ์ดที่ถูกปฏิเสธแล้วส่งใหม่ผ่าน (ผ่านกับโค้ดก่อนแก้ด้วย)
+- spec › Modules touched, `rules/testing.md`
+
+**Decided:**
+- D65 — `useReadyState`, `sendEdit`
+
+**For the next ticket:**
+- review ไม่แก้ (ตั้งใจ): สองบรรทัดท้าย `sendItem`/`edit` ต่างกันที่ field; `useSeriesForm` คง 200/201 ของตัวเอง (เปิดหน้าใหม่ ไม่ใช่ notice); `refused` ของ `useCast` ยังใช้ใน `startRef`, `upload`; `edit.test.ts` เทียบ `Notice` ทั้งก้อน (`tone: "error"` เป็นสัญญาของ `sendEdit`)
+- test ที่ล้มครั้งเดียว: `EpPage.test.tsx` › "a changed text is sent when the field is left…" (test เดิม ไม่ได้แก้) ล้มหนึ่งรอบขณะ reviewer รัน vitest พร้อมกัน; รันซ้ำ 4 รอบเฉพาะไฟล์และ 4 รอบทั้งชุดผ่าน — ถ้าล้มอีกเมื่อไม่มีงานอื่น → `/kiki-debug EpPage card text edit test flaky`
+
+**Checks:** `uv run pytest` 1055 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 409 passed (+8); `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `71afff8`: Standards ไม่มีข้อผิดกติกา + smell (แก้: union ของ `sendEdit` มี `kind`, `sendJson<T | Refusal>`, test เรียกตามชื่อไม่ใช่ index), Spec ไม่มีพฤติกรรมเปลี่ยน (แก้: ลบ test หลัง unmount ที่ผ่านเสมอ; กติกาใน testing.md คงไว้ให้ทุก feature, D65), Newcomer สรุปตรง What to build (แก้: docstring ตำแหน่ง `setState` ของ `useReadyState`, `sendEdit` ครอบการเพิ่มและการลบ และ `error` เสมอ, คอมเมนต์ใน test ว่าส่งซ้ำได้เพราะอะไร)
 
 ### 09: ItemRef และ fixture ของ test ที่ใช้ร่วม — done 2026-11-10
 
@@ -353,6 +370,6 @@
 | 19 | review | smell ที่ค้างจาก 05: `cards.run` สร้างตัวละครและฉากหลังใหม่เอง (ควรอยู่ `series`); `plot.writable` อ่าน `render.render_jobs.ep_use()` ตรงแทน `episodes.ep_jobs`; `process, requests, replies` เดินด้วยกัน (Data Clump); `ToonJobs.update`/`track`/`reply` แค่ส่งต่อ (Middle Man); เปิด klein (`Encode` แล้ว `Draw`) ซ้ำใน `refs.run` กับ `images.run`; `_running`/`series_use` ซ้ำระหว่าง `ToonJobs` กับ `RenderJobs` | `/warroom tickets toon` | done (ticket 07) |
 | 20 | review | ซ้ำ: เริ่ม child (start, `track`, `Ready`) ใน `start_qwen`/`start_klein`/`Speaker.start` และหยุด (`track(None)`, `stop_process`) 3 ที่ใน `steps.py` + `_free_gpu`; `on_progress` และ `_free_gpu` ของสอง render; map `ref_rev` สร้าง 3 ที่ (`images._ref_revs`, `render._cards_to_voice`, `cards.run`); `_plot_items` สองตัวที่ทำต่างกัน (`writer` ตัดทิ้ง, `episodes` raise); `(folder, name)` ใน `backend.renders` | `/warroom tickets toon` | done (ticket 08) |
 | 21 | review | ชื่อ: `kinds.Kind` (characters/backgrounds) ชนกับ `JobKind` จน body ต้องใช้ `item_kind` และ `{kind}` ใน route เป็นชนิดของ item; ตัวพูดเป็น `speaker` ใน `ToonJobs` แต่ `_speaker` ใน `RenderJobs`/`SentenceVoicer`; คอมเมนต์ "Step 1", "Steps 2–3" ไม่บอกว่าขั้นของ spec ส่วนไหน; `toon/__init__.py` re-export ไว้ให้ test patch | `/warroom tickets toon` | done (ticket 07) |
-| 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | → ticket 10 |
+| 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | done (ticket 10) |
 | 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | done (ticket 09) |
 | 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | done (ticket 09) |
