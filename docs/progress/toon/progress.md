@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** feature review เสร็จ (`506e629`), CI เขียวทั้งหมด; ยังไม่พร้อม merge: เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) รอ owner, และ smell ใหญ่จาก review 6 แถว (Blocked #13–18) รอตัดเป็น ticket
+**Now:** smell จาก feature review (Blocked #13–18) ตัดเป็น ticket 05, 06; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom tickets toon
+/warroom-build toon 05
 ```
 
 ## Tickets
@@ -16,6 +16,8 @@
 | 02 | EP, พล็อต และเส้นเรื่อง | done |
 | 03 | ภาพการ์ดและเสียงเล่า | done |
 | 04 | คลังเสียงพื้นและ render | done |
+| 05 | แยกงานของ toon ออกเป็นส่วน | ready |
+| 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | ready |
 
 ## Log
 
@@ -207,9 +209,9 @@
 | 10 | 01 | klein บน torch 2.8.0 กรณีหนักสุด (GGUF Q8_0, 3 ภาพอ้างอิง, 576×1024) peak MPS 13.1–14.0 GB เกิน ~12 GB ของ D34 และ swap; ต้องเลือก: ภาพอ้างอิงเล็กลง, GGUF ที่เล็กกว่า (Q6_K/Q4_K_M), ภาพอ้างอิงสูงสุดน้อยลง, torch รุ่นใหม่ หรือยอมรับ | `/warroom toon` | done (this ticket, D51) |
 | 11 | 03 | เช็คมือบน Mac M1 16 GB: Image job `scope: missing` ~20 การ์ด 3 ภาพอ้างอิง (peak ทั้งระบบ ≤ ~12 GB ไม่ swap, จดเวลาต่อภาพ), หน้าตัวละครใน ~5 การ์ดของ EP แรกและ EP ที่สอง, ปิด backend กลาง "สร้างภาพที่ขาดทั้งหมด" แล้วเปิดใหม่; เครื่องที่ build ยังไม่ได้รัน setup (ไม่มี Qwen, OmniVoice) | owner รัน `./setup.sh` แล้วทำตามรายการใน ticket 03 › เช็คมือ และจดผลใน `progress.md` | open |
 | 12 | 04 | เช็คมือบน Mac: render EP แรกของ Series หลอนแบบกรอบดำ ดูด้วยตาว่าตำแหน่งชื่อตอน ภาพ ซับ ชื่อช่อง ตรง layout-sketch และขนาดตัวหนังสือ (ค่าจาก layout A, D56) | owner รัน `./setup.sh` แล้ว render EP จริง และจดผลใน `progress.md` | open |
-| 13 | review | `ToonJobs` และ `RenderJobs` สืบทอด `speaking.Speaker` เพื่อใช้ `_speak` (Refused Bequest): เปลี่ยนเป็น composition | `/warroom tickets toon` | open |
-| 14 | review | `toon/jobs.py` 608 บรรทัดทำหลายเรื่อง (Plot, Cards, Ref, Image, Voice, child ของ klein, `delete_series`, `image_rows`); แตกกิ่ง `kind == "characters"` 22 ที่ใน `toon/`: แยก module และตารางต่อ kind | `/warroom tickets toon` | open |
-| 15 | review | `toon.render` กับ `spoil_maker.render` ซ้ำ `_free_name`, `_needed_rows`, การลบผล; `episodes.list_for` import `render` ในฟังก์ชัน (วนกัน) | `/warroom tickets toon` | open |
-| 16 | review | หน้าเว็บ: poll `JOB_PATH` ซ้ำ 3 hook (`useCast`, `usePickRef`, `useEp`) ควรเป็น hook เดียว; `GENRE_DEFAULTS` ซ้ำ `DEFAULTS` ของ backend ไม่มี test เทียบ; ปุ่ม "ฟัง" ไม่มี test | `/warroom tickets toon` | open |
-| 17 | review | แถว `diffusers`/`gguf` เขียนทั้งใน `checks.run_checks` และ `gate_rows.klein` | `/warroom tickets toon` | open |
-| 18 | review | ไฟล์เสียงที่หน้าเว็บหายไประหว่างแปลง ffmpeg ยังแปลงจนจบและเข้าคลัง (`_take_in` ได้ `threading.Event()` ใหม่); `DELETE …/renders/{name}` มี `409` `in_use` ที่ spec ไม่ได้เขียน | `/warroom tickets toon` | open |
+| 13 | review | `ToonJobs` และ `RenderJobs` สืบทอด `speaking.Speaker` เพื่อใช้ `_speak` (Refused Bequest): เปลี่ยนเป็น composition | `/warroom tickets toon` | → ticket 05 |
+| 14 | review | `toon/jobs.py` 608 บรรทัดทำหลายเรื่อง (Plot, Cards, Ref, Image, Voice, child ของ klein, `delete_series`, `image_rows`); แตกกิ่ง `kind == "characters"` 22 ที่ใน `toon/`: แยก module และตารางต่อ kind | `/warroom tickets toon` | → ticket 05 |
+| 15 | review | `toon.render` กับ `spoil_maker.render` ซ้ำ `_free_name`, `_needed_rows`, การลบผล; `episodes.list_for` import `render` ในฟังก์ชัน (วนกัน) | `/warroom tickets toon` | → ticket 06 |
+| 16 | review | หน้าเว็บ: poll `JOB_PATH` ซ้ำ 3 hook (`useCast`, `usePickRef`, `useEp`) ควรเป็น hook เดียว; `GENRE_DEFAULTS` ซ้ำ `DEFAULTS` ของ backend ไม่มี test เทียบ; ปุ่ม "ฟัง" ไม่มี test | `/warroom tickets toon` | → ticket 06 |
+| 17 | review | แถว `diffusers`/`gguf` เขียนทั้งใน `checks.run_checks` และ `gate_rows.klein` | `/warroom tickets toon` | → ticket 06 |
+| 18 | review | ไฟล์เสียงที่หน้าเว็บหายไประหว่างแปลง ffmpeg ยังแปลงจนจบและเข้าคลัง (`_take_in` ได้ `threading.Event()` ใหม่); `DELETE …/renders/{name}` มี `409` `in_use` ที่ spec ไม่ได้เขียน | `/warroom tickets toon` | → ticket 06 |
