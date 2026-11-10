@@ -5,7 +5,7 @@ import { formatDuration } from "../../../lib/format";
 import { useCopy } from "../../../lib/useCopy";
 import checkIcon from "../assets/check-link.svg";
 import copyIcon from "../../../components/ui/assets/copy.svg";
-import downloadIcon from "../assets/download.svg";
+import downloadIcon from "../../../components/ui/assets/download.svg";
 import pauseIcon from "../assets/pause-white-14.svg";
 import playIcon from "../assets/play-white-14.svg";
 import trashConfirmIcon from "../assets/trash-confirm.svg";

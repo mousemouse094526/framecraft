@@ -51,7 +51,7 @@ class ListedEp(BaseModel):
     stage: Stage
     cards: int
     images: int  # cards with a card image
-    rendered_at: str | None = None  # the latest render (ticket 04)
+    rendered_at: str | None = None  # the latest render
 
 
 class CardView(BaseModel):
@@ -106,6 +106,8 @@ class EpView(BaseModel):
 
 def list_for(project: ProjectPaths, series_id: str) -> list[ListedEp]:
     """The Series' EPs, newest number first."""
+    from backend.toon import render  # `render` reads EPs through this module
+
     with store.lock:
         series_module.view(project, series_id)  # `not_found`
         eps = store.list_eps(project, series_id)
@@ -117,6 +119,7 @@ def list_for(project: ProjectPaths, series_id: str) -> list[ListedEp]:
             stage=ep.stage,
             cards=sum(1 for card in _cards(ep)),
             images=sum(1 for card in _cards(ep) if card.image is not None),
+            rendered_at=render.latest_at(project, series_id, ep.id),
         )
         for ep in reversed(eps)
     ]

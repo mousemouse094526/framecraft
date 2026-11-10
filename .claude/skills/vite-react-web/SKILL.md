@@ -52,7 +52,7 @@ frontend/src/
 No router library and no `routes/`: `App` picks the page from the hash
 (`#/setup`, `#/clips`, `#/stories`, `#/spoil`, spoil D10, spoil-maker D53, story-kb D9); a page with
 steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
-`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59); `#/toon/…` pages are picked by `pageOf` in `features/toon/lib/series.ts` (toon D52, D53: a Series' EPs, its `/cast`, an EP's plot or storyline); `#/stories/new` and `#/stories/{id}` open แก้ Story (story-kb);
+`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59); `#/toon/…` pages are picked by `pageOf` in `features/toon/lib/series.ts` (toon D52, D53, D56: a Series' EPs, its `/cast`, an EP's plot, storyline or `/render`, and `#/toon/sounds`); `#/stories/new` and `#/stories/{id}` open แก้ Story (story-kb);
 the สปอย tab's hashes, the Draft job's shapes, the styles and `sendDraft` (the one `POST` of a whole new draft, step 1 and step 2 both send it) live in `features/spoil-maker/lib/draft.ts`, the voice and render API shapes and `startJob` in `lib/render.ts` — a `lib/` module may call `lib/api` when two hooks send the same request. The tab's steps share one state (`useStepStatus`): `StepsRefreshContext` reads it again, `DraftRunContext` gives the latest Draft job to step 1 (locked while it runs) and step 2 (its progress card). Each page wraps itself in `PageLayout`,
 whose tabs are plain `#/…` links, so clicks and the back button both just
 change the hash.

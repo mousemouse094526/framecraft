@@ -5,6 +5,7 @@ import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { epPath, type Ep, type LostCards } from "../lib/episodes";
+import { SOUNDS_PATH, type Sound } from "../lib/sounds";
 import { epHash, isRunning, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
 import type { Notice } from "./useCast";
 
@@ -15,6 +16,8 @@ export type EpState =
       kind: "ready";
       ep: Ep;
       series: Series;
+      /** The background sound library, for each segment's sound (D16). */
+      sounds: Sound[];
       /** The latest Toon job, whatever it works on: a running one disables every start. */
       job: ToonJob | null;
       notice: Notice | null;
@@ -44,12 +47,17 @@ export function useEp(eid: string) {
 
   const load = useCallback(async () => {
     try {
-      const [ep, job] = await Promise.all([getJson<Ep>(epPath(eid)), getJson<ToonJob | null>(JOB_PATH)]);
+      const [ep, job, sounds] = await Promise.all([
+        getJson<Ep>(epPath(eid)),
+        getJson<ToonJob | null>(JOB_PATH),
+        getJson<Sound[]>(SOUNDS_PATH),
+      ]);
       const series = await getJson<Series>(seriesPath(ep.series_id));
       setState((s) => ({
         kind: "ready",
         ep,
         series,
+        sounds,
         job,
         notice: s.kind === "ready" ? s.notice : null,
         lost: s.kind === "ready" ? s.lost : null,

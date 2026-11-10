@@ -12,7 +12,7 @@
 - User stories: 10, 11
 - Legal: 4
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 
@@ -47,7 +47,7 @@
 - กดเอาเสียงเข้า (ไฟล์หรือลิงก์) → เห็นคำเตือนของ legal ข้อ 4 ก่อนช่องเลือกไฟล์ (e2e)
 - กด render → เห็น `voicing` แล้ว `rendering` พร้อม % แล้วคลิปขึ้นในรายการ (e2e)
 - `useLeaveGuard` ระหว่าง upload เสียง
-- หน้าตาตรงแบบของจอคลังเสียงพื้นและ render และผล (Source ยัง `pending`: Blocked #8–9)
+- หน้าตาตรงแบบของจอคลังเสียงพื้นและ render และผล (Blocked #8–9 done)
 
 ### เช็คมือบน Mac
 

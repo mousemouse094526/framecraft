@@ -136,7 +136,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 | diffusers | 0.42.1 | `encode_prompt` แยกจากการ denoise; pipeline ที่โหลดด้วย `text_encoder=None` รับ `prompt_embeds` (และ `negative_prompt_embeds` ที่ encode จาก `""` ในขั้นเดียวกัน) โดยไม่เรียก text encoder — หน้า docs ไม่ได้เขียนไว้ อิงโค้ดที่ tag กับผลลอง (trial › ข้อ 1) | [pipeline_flux2_klein.py v0.42.1](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/pipelines/flux2/pipeline_flux2_klein.py) |
 | torch | 2.8.0 (pin ของ project) | MPS รัน pipeline ข้างบนได้; trial วัดบน 2.15.0 — Open Question 1 | [MPS backend](https://docs.pytorch.org/docs/2.8/notes/mps.html) |
 | omnivoice, Qwen, pythainlp, Kanit, libass | ตาม spoil-maker | เหมือน [spoil-maker spec](../spoil-maker/spec.md) › Library assumptions | ตาม spoil-maker |
-| ffmpeg (imageio-ffmpeg 0.7.0) | 7.1 | `scale=…:flags=lanczos`, `zoompan`, `eq=brightness` แบบ expression ตามเวลา, `xfade`, `aloop`, `acrossfade`, `amix`, `ass` | [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) |
+| ffmpeg (imageio-ffmpeg 0.7.0) | 7.1 | `scale=…:flags=lanczos`, `zoompan`, `eq=brightness` แบบ expression ตามเวลา, `xfade`, `acrossfade`, `amix`, `ass` | [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) |
 | yt-dlp | ตาม pin | format `bestaudio` โหลดเสียงอย่างเดียว | [yt-dlp format selection](https://github.com/yt-dlp/yt-dlp#format-selection) |
 
 ### Status check
@@ -434,7 +434,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 
 เสียง (D17):
 - เสียงเล่า: wav ของแต่ละการ์ดต่อกัน ตามด้วยเงียบ 0.3 + `hold_s` วินาที; การ์ดเงียบเป็นเงียบ `hold_s`
-- เสียงพื้น: ช่วงที่ติดกันและ `sound_id` เดียวกันรวมเป็นหนึ่งท่อน ความดังของช่วงแรกในท่อน; ท่อนที่สั้นกว่าวนด้วย `aloop`; เปลี่ยนเสียงผสม `acrossfade` 1 วินาที; ช่วง `sound: null` เงียบ
+- เสียงพื้น: ช่วงที่ติดกันและ `sound_id` เดียวกันรวมเป็นหนึ่งท่อน ความดังของช่วงแรกในท่อน; ท่อนที่สั้นกว่าวนจากต้นไฟล์ (`-stream_loop`, D56); เปลี่ยนเสียงผสม `acrossfade` 1 วินาที; ช่วง `sound: null` เงียบ
 - ผสม `amix` `normalize=0`; output aac 192k, h264 crf 20 `yuv420p` 30 fps `+faststart`
 
 - ยกเลิก: ลบ `.partial` และ `.render/`; restart ล้าง `.render/` กับ `*.partial`
@@ -564,5 +564,5 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 - [diffusers Flux2 pipelines](https://huggingface.co/docs/diffusers/v0.42.1/en/api/pipelines/flux2) — `Flux2KleinPipeline`, `encode_prompt` (accessed 2026-11-09)
 - [diffusers GGUF](https://huggingface.co/docs/diffusers/v0.42.1/en/quantization/gguf) — `from_single_file` กับ `GGUFQuantizationConfig` (accessed 2026-11-09)
 - [PyTorch MPS backend](https://docs.pytorch.org/docs/2.8/notes/mps.html) — MPS ใน torch 2.8 (accessed 2026-11-09)
-- [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) — `zoompan`, `eq`, `xfade`, `aloop`, `acrossfade`, `amix`, `ass` (accessed 2026-11-09)
+- [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) — `zoompan`, `eq`, `xfade`, `acrossfade`, `amix`, `ass` (accessed 2026-11-09)
 - [yt-dlp format selection](https://github.com/yt-dlp/yt-dlp#format-selection) — `bestaudio` (accessed 2026-11-09)

@@ -16,6 +16,7 @@
 - YouTube needs a JavaScript runtime; `js_runtimes: {"deno": {"path": ...}}` points at a Deno that is not on `PATH`. Without the key only `deno` on `PATH` is tried — [YoutubeDL.py](https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/yt_dlp/YoutubeDL.py), [EJS wiki](https://github.com/yt-dlp/yt-dlp/wiki/EJS)
 - `ffmpeg_location` takes the binary itself or its folder — [YoutubeDL.py](https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/yt_dlp/YoutubeDL.py)
 - `paths: {"home": ..., "temp": ...}` keeps files being written apart from finished ones — [YoutubeDL.py](https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/yt_dlp/YoutubeDL.py)
+- `format: "bestaudio"` picks the best format with sound and no picture (falls back to none if a site has only combined formats: then it fails "Requested format is not available"); with no `merge_output_format` and `writethumbnail: False` the file keeps the site's own extension (`.webm`, `.m4a`) — [README › Format selection](https://github.com/yt-dlp/yt-dlp#format-selection)
 - **Avoid:** `remote_components`; it fetches JavaScript from npm or GitHub at runtime. The `default` extra ships the matching `yt-dlp-ejs` instead — [YoutubeDL.py](https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/yt_dlp/YoutubeDL.py)
 
 ## Pattern

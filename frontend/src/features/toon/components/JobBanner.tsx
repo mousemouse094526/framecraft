@@ -7,7 +7,17 @@ import loaderIcon from "../assets/loader.svg";
 import squareIcon from "../assets/square.svg";
 
 type Props =
-  | { kind: "running"; title: string; detail: string; done: number; total: number; stopping: boolean; onStop: () => void }
+  | {
+      kind: "running";
+      title: string;
+      detail: string;
+      done: number;
+      total: number;
+      stopping: boolean;
+      onStop: () => void;
+      /** What the count says instead of `done/total` (a render's percent). */
+      count?: string;
+    }
   | { kind: "done"; title: string; detail: string }
   | { kind: "failed"; title: string; detail: string; onRetry: () => void };
 
@@ -37,9 +47,7 @@ export function JobBanner(props: Props) {
         </div>
         {props.kind === "running" && (
           <>
-            <p className="font-mono text-sm text-foreground">
-              {props.done}/{props.total}
-            </p>
+            <p className="font-mono text-sm text-foreground">{props.count ?? `${props.done}/${props.total}`}</p>
             <button type="button" disabled={props.stopping} onClick={props.onStop} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
               <img src={squareIcon} alt="" width={16} height={16} />
               {props.stopping ? "กำลังหยุด…" : "หยุด"}

@@ -4,8 +4,10 @@ import { CastPage } from "./CastPage";
 import { EpListPage } from "./EpListPage";
 import { EpPage } from "./EpPage";
 import { PickPage } from "./PickPage";
+import { RenderPage } from "./RenderPage";
 import { SeriesForm } from "./SeriesForm";
 import { SeriesList } from "./SeriesList";
+import { SoundsPage } from "./SoundsPage";
 
 /** The การ์ตูนเล่า tab: the hash picks the page (D52). `key` gives each Series a fresh page. */
 export function ToonPage() {
@@ -14,6 +16,8 @@ export function ToonPage() {
   if (page.kind === "settings") return <SeriesForm key={page.sid} sid={page.sid} />;
   if (page.kind === "eps") return <EpListPage key={page.sid} sid={page.sid} />;
   if (page.kind === "ep") return <EpPage key={page.eid} eid={page.eid} plot={page.plot} />;
+  if (page.kind === "render") return <RenderPage key={page.eid} eid={page.eid} />;
+  if (page.kind === "sounds") return <SoundsPage />;
   if (page.kind === "cast") return <CastPage key={page.sid} sid={page.sid} />;
   if (page.kind === "pick") return <PickPage key={`${page.sid}/${page.itemKind}/${page.id}`} sid={page.sid} kind={page.itemKind} id={page.id} />;
   return <SeriesList />;

@@ -93,17 +93,20 @@ export const itemPath = (sid: string, kind: Kind, id: string) => `${seriesPath(s
 export const refUrl = (sid: string, kind: Kind, item: Item) => `${itemPath(sid, kind, item.id)}/ref?rev=${item.ref_rev}`;
 export const pendingUrl = (sid: string, kind: Kind, id: string, n: number) => `${itemPath(sid, kind, id)}/ref/pending/${n}`;
 
-// The tab's pages (D52, D53): the Series list, a new Series, a Series' EPs, its characters and
-// backgrounds, its settings, the pick of a reference image, and an EP: its plot, or its storyline
-// once the plot is confirmed (`/plot` opens the plot either way).
+// The tab's pages (D52, D53, D56): the Series list, a new Series, a Series' EPs, its characters and
+// backgrounds, its settings, the pick of a reference image, an EP: its plot, or its storyline
+// once the plot is confirmed (`/plot` opens the plot either way), its render, and the background
+// sound library.
 export const LIST_HASH = "#/toon";
 export const NEW_HASH = "#/toon/new";
+export const SOUNDS_HASH = "#/toon/sounds";
 export const seriesHash = (sid: string) => `#/toon/series/${sid}`;
 export const castHash = (sid: string) => `#/toon/series/${sid}/cast`;
 export const settingsHash = (sid: string) => `#/toon/series/${sid}/settings`;
 export const pickHash = (sid: string, kind: Kind, id: string) => `#/toon/series/${sid}/${kind}/${id}/pick`;
 export const epHash = (eid: string) => `#/toon/eps/${eid}`;
 export const plotHash = (eid: string) => `#/toon/eps/${eid}/plot`;
+export const renderHash = (eid: string) => `#/toon/eps/${eid}/render`;
 
 export type Page =
   | { kind: "list" }
@@ -112,12 +115,16 @@ export type Page =
   | { kind: "cast"; sid: string }
   | { kind: "settings"; sid: string }
   | { kind: "pick"; sid: string; itemKind: Kind; id: string }
-  | { kind: "ep"; eid: string; plot: boolean };
+  | { kind: "ep"; eid: string; plot: boolean }
+  | { kind: "render"; eid: string }
+  | { kind: "sounds" };
 
 /** The page a `#/toon…` hash opens; anything else under the tab is the Series list. */
 export function pageOf(hash: string): Page {
   if (hash === NEW_HASH) return { kind: "new" };
+  if (hash === SOUNDS_HASH) return { kind: "sounds" };
   const parts = hash.split("/").slice(2); // after "#", "toon"
+  if (parts[0] === "eps" && parts[1] && parts.length === 3 && parts[2] === "render") return { kind: "render", eid: parts[1] };
   if (parts[0] === "eps" && parts[1] && (parts.length === 2 || (parts.length === 3 && parts[2] === "plot"))) {
     return { kind: "ep", eid: parts[1], plot: parts.length === 3 };
   }

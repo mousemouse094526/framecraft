@@ -12,6 +12,7 @@ const EP_PATH = `/api/toon/eps/${EID}`;
 const SERIES_PATH = `/api/toon/series/${SID}`;
 const JOBS_PATH = "/api/toon/jobs";
 const JOB_PATH = "/api/toon/jobs/current";
+const SOUNDS_PATH = "/api/toon/sounds";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -91,6 +92,7 @@ function open(hash: string, routes: Route[]) {
   serve(fetchMock, routes, [
     [JOB_PATH, null],
     [SERIES_PATH, series],
+    [SOUNDS_PATH, []],
   ]);
   window.location.hash = hash;
   render(<App />);

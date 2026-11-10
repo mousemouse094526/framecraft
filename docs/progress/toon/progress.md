@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** 03 done (Image job, Voice job, ภาพการ์ดและปุ่มเสียงบนเส้นเรื่อง); เช็คมือบน M1 ของ 03 ค้าง (Blocked #11). ต่อ 04 คลังเสียงพื้นและ render
+**Now:** ทุก ticket done (04 คลังเสียงพื้นและ render); เช็คมือบน Mac ของ 03 และ 04 ค้าง (Blocked #11, #12). ต่อ feature review
 
 **Next:**
 
 ```
-/warroom-build toon 04
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -15,9 +15,28 @@
 | 01 | ติดตั้ง klein, Series และภาพอ้างอิง | done |
 | 02 | EP, พล็อต และเส้นเรื่อง | done |
 | 03 | ภาพการ์ดและเสียงเล่า | done |
-| 04 | คลังเสียงพื้นและ render | ready |
+| 04 | คลังเสียงพื้นและ render | done |
 
 ## Log
+
+### 04: คลังเสียงพื้นและ render — done 2026-11-10
+
+**Built:**
+- backend: `toon/sounds.py` (คลังเสียงพื้น: รายการ แก้ชื่อ ลบ `in_use` พร้อม `eps`, ไฟล์ m4a; Sound import slot: ไฟล์เป็น request เดียว `check` + body ดิบ, ลิงก์เป็นงาน `checking`/`downloading`/`converting` ผ่าน adapter ของ spoil ด้วย `LINK_OPTIONS`; ffmpeg แปลงเป็น aac 192k 48 kHz stereo, `unsupported_file`, `too_long`, `file_too_large`), `toon/render.py` (Render job slot ของตัวเอง, `voicing` ผ่าน `speaking.Speaker` แล้วคืน GPU, `rendering` อ่าน EP ครั้งเดียวและ copy ลง `.render/`, ผล `renders/{name}.mp4|.srt|.json`, รายการ ไฟล์ ลบ, `ep_use` ใน `episodes.ep_jobs`, `series_busy`, start ใหม่ล้าง `.render/` และ `.partial`), `toon/compose.py` (timeline เป็นเฟรม, piece ต่อการ์ด `zoompan`/`eq`/layout, `xfade` 0.3 วิ, ท่อนเสียงพื้น `-stream_loop` + `acrossfade` 1 วิ, `amix normalize=0`, ASS: ชื่อตอน ≤ 2 บรรทัด ป้าย `EP{n:02}` ชื่อช่อง ซับทีละท่อน ป้ายชื่อการ์ดแรก)
+- `YtDlpAdapter.download`/`fetch_info` รับ `DownloadOptions` (ค่าตั้งต้นของ Temp clip); `gpu.Kind` มี `toon_render`; `JOB_HOLDERS` มี Render job และ Sound import; `ListedEp.rendered_at`; `ProjectPaths.ep_renders_dir`, `toon_sounds_dir`, `toon_render_dir`; `spoil_maker.captions` เปิด `chunks`, `split_time`, `cut_lines`, `event`, `ass_time`; `voicing.ep_voice`, `plan_card`
+- หน้าเว็บ: `#/toon/sounds` (คำเตือน legal ข้อ 4, เอาไฟล์เข้าพร้อม %, ลิงก์พร้อม % และยกเลิก, แถวเสียง แก้ชื่อ ฟัง ลบ, `useLeaveGuard` ระหว่างส่งไฟล์), `#/toon/eps/{eid}/render` (สรุป EP, render, banner `voicing`/`rendering` %, การ์ดที่ยังไม่มีภาพพร้อมลิงก์, รายการคลิป เล่น ดาวน์โหลด ลบ); ปุ่ม "คลังเสียงพื้น" บนรายการ Series และ toolbar เส้นเรื่อง, "ไปหน้า render"; หัวช่วงมีเสียงพื้นและ slider ความดัง; `GPU_JOB_PATHS` มี `toon_voice`, `toon_render`; icon จาก Figma (`download`, `download-white`, `film-white`, `arrow-right`, `volume`)
+- test: `backend/tests/test_toon_sounds_api.py` (14), `test_toon_render_api.py` (14, render จริงด้วย ffmpeg), `SoundsRender.test.tsx` (11, e2e 2)
+
+**Decided:**
+- D56 — Sound import ไฟล์ request เดียว ลิงก์เป็นงาน, `DownloadOptions`, `in_use` ของเสียง, `-stream_loop` แทน `aloop`, ไฟกะพริบสอง sine, ขนาดตัวหนังสือจาก layout A, หน้า `#/toon/sounds` และ `/render`
+
+**For the next ticket:**
+- feature review: เช็คมือบน Mac ของ 04 (Blocked #12) ยังไม่ทำ; ขนาดและตำแหน่งตัวหนังสือในคลิปเป็นค่าตั้งต้นจาก layout A (D56) รอผลเช็คมือ
+- review ไม่ได้แก้: ไฟล์เสียงที่หน้าเว็บหายไประหว่างแปลง ffmpeg ยังแปลงจนจบและเข้าคลัง (ส่ง `threading.Event()` ใหม่ให้ `_take_in`); test adapter เรียก `_params` ตรง; `DELETE …/renders/{name}` มี `409` `in_use` แบบ spoil-maker ที่ spec ไม่ได้เขียน
+- smell ที่ค้าง: `RenderJobs` สืบทอด `speaking.Speaker` เพื่อใช้ `_speak` แบบ `ToonJobs`; `toon.render` กับ `spoil_maker.render` มี `_free_name`, `_needed_rows`, การลบผลคล้ายกัน; `episodes.list_for` import `render` ในฟังก์ชัน (วนกัน)
+- ของค้างจาก 01–03 ยังค้าง (`GENRE_DEFAULTS`, `useCast` / `usePickRef` poll ซ้ำ, ตารางต่อ kind, ปุ่ม "ฟัง" ไม่มี test)
+
+**Checks:** `uv run pytest` 1024 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 398 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). e2e = Vitest ผ่าน `App`. Review สามแกน: แก้ icon ซ้ำ (`download.svg` ย้ายไป `components/ui/assets`), ส่วนกลางของซับย้ายเป็น `backend/subtitles.py`, `is_int`, `noticeOf`/`NOT_NOW`, `cardsOf`/`cannotRender`, test ยกเลิกช่วง encode สุดท้าย, test ชื่อตอนยาวผ่าน ASS จริง, spec บรรทัด `aloop` → D56. เช็คมือบน Mac ยังไม่ได้ทำ → Blocked #12
 
 ### 03: ภาพการ์ดและเสียงเล่า — done 2026-11-10
 
@@ -171,3 +190,4 @@
 | 9 | 04 | design: render และผล | `/warroom toon` พร้อมลิงก์แบบ (ทำจาก `docs/features/toon/ui-prompt.md`) | done ([แบบ](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8130-81152)) |
 | 10 | 01 | klein บน torch 2.8.0 กรณีหนักสุด (GGUF Q8_0, 3 ภาพอ้างอิง, 576×1024) peak MPS 13.1–14.0 GB เกิน ~12 GB ของ D34 และ swap; ต้องเลือก: ภาพอ้างอิงเล็กลง, GGUF ที่เล็กกว่า (Q6_K/Q4_K_M), ภาพอ้างอิงสูงสุดน้อยลง, torch รุ่นใหม่ หรือยอมรับ | `/warroom toon` | done (this ticket, D51) |
 | 11 | 03 | เช็คมือบน Mac M1 16 GB: Image job `scope: missing` ~20 การ์ด 3 ภาพอ้างอิง (peak ทั้งระบบ ≤ ~12 GB ไม่ swap, จดเวลาต่อภาพ), หน้าตัวละครใน ~5 การ์ดของ EP แรกและ EP ที่สอง, ปิด backend กลาง "สร้างภาพที่ขาดทั้งหมด" แล้วเปิดใหม่; เครื่องที่ build ยังไม่ได้รัน setup (ไม่มี Qwen, OmniVoice) | owner รัน `./setup.sh` แล้วทำตามรายการใน ticket 03 › เช็คมือ และจดผลใน `progress.md` | open |
+| 12 | 04 | เช็คมือบน Mac: render EP แรกของ Series หลอนแบบกรอบดำ ดูด้วยตาว่าตำแหน่งชื่อตอน ภาพ ซับ ชื่อช่อง ตรง layout-sketch และขนาดตัวหนังสือ (ค่าจาก layout A, D56) | owner รัน `./setup.sh` แล้ว render EP จริง และจดผลใน `progress.md` | open |

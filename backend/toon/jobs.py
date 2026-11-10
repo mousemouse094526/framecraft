@@ -28,7 +28,7 @@ from backend.models import KLEIN, KLEIN_GGUF, qwen_for
 from backend.paths import ProjectPaths
 from backend.spoil_maker import llm, tts, voices
 from backend.spoil_maker.llm import Generate, Generated, Ready
-from backend.toon import episodes, images, klein, prompts, series, store, voicing, writer
+from backend.toon import episodes, images, klein, prompts, render, series, store, voicing, writer
 from backend.toon.klein import Draw, Drawn, Encode, Encoded
 from backend.toon.store import Background, Character, Ep, Plot, Series
 
@@ -129,10 +129,13 @@ class ToonJobs(speaking.Speaker[ToonJob]):
         return job.ep_id, job.kind in LOCKS_EP
 
     def delete_series(self, project: ProjectPaths, series_id: str, body: dict | None) -> None:
-        """Deletes the Series unless an unfinished job works on it (D26). Holds the slot's
-        lock throughout, so no job can start on the Series halfway."""
+        """Deletes the Series unless an unfinished job or render works on it (D26). Holds the
+        slot's lock throughout, so no Toon job can start on the Series halfway. A render takes
+        its own lock, not this one: it reads the EP under the store's lock, which the delete
+        holds too, so it finds the EP either whole or gone (`not_found`)."""
         with self._lock:
             busy = {self._job.series_id} if self._taken() else set()
+            busy |= {render.render_jobs.series_use()} - {None}
             series.delete(project, series_id, body, busy)
 
     def _start_plot(self, body: dict) -> ToonJob:

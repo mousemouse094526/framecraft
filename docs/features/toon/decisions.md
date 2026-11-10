@@ -742,6 +742,31 @@
 
 **From:** build ticket 03 · **Status:** active
 
+## D56: คลังเสียงพื้นและ render ticket 04: ค่าเล็กที่ build เลือกเอง
+
+**Chosen:**
+- Sound import ไฟล์เป็น request เดียวแบบ File import ของ spoil (`201` พร้อมเสียง, ไม่ขึ้นใน `/sounds/import/current`); ลิงก์เป็นงานที่ poll ได้ (`202`, state `checking` → `downloading` → `converting`); ไฟล์กับลิงก์ใช้ slot เดียวกัน (`busy`); เกิน 200 MB → `400` `file_too_large` ที่ `check`; ลิงก์ที่ info บอกว่ายาวเกิน 20 นาที → งาน `failed` `too_long` ก่อนโหลด; error ของลิงก์อื่นจาก yt-dlp → `login_required` หรือ `download_error`
+- ลิงก์ไม่มี state `stalled` (Download job ของ spoil ก็ไม่มี): โหลดที่ค้างจบเองด้วย `socket_timeout` 30 วินาทีของ adapter เป็น `download_error`; ไฟล์ที่ body ค้างได้ `408` `stalled` ของ `uploads`
+- `YtDlpAdapter.download` และ `fetch_info` รับ `DownloadOptions` (`format`, `folder`, `name`, `thumbnail`, `merge_mp4`); ค่าตั้งต้นคือของ Temp clip
+- `in_use` ของเสียงส่ง `eps` เป็น `series_name`, `n`, `title` (เสียงเป็นของทั้ง tab จึงบอกชื่อ Series ด้วย)
+- เสียงพื้นวนด้วย `-stream_loop -1` ที่ input แทน `aloop`: `aloop` เก็บเสียงทั้งไฟล์ไว้ใน memory (ยาวได้ถึง 20 นาที); ผลเหมือน spec (วนจากต้นไฟล์)
+- `acrossfade` ระหว่างท่อนเสียงยาว 1 วินาที หรือสั้นกว่าเมื่อท่อนใดสั้นกว่า 1 วินาที; ท่อนก่อนหน้ายืดเท่าความยาวที่ผสม ความยาวรวมจึงไม่เปลี่ยน (แบบเดียวกับ `xfade` ระหว่างการ์ด)
+- ไฟกะพริบ: `eq` brightness = −0.03 + คลื่น sine สองลูก (2.9 และ 4.3 Hz) ที่เฟสสุ่มจาก `card_id`; อยู่ในช่วง −0.06–0 เปลี่ยนเรียบราว 6 ครั้งต่อวินาที; `zoompan` ทำที่ 2 เท่าของขนาดภาพบนจอ ไม่ให้ซูมช้าสั่น
+- ขนาดและตำแหน่งตัวหนังสือในคลิป (ชื่อตอน 76, ป้าย EP 48 พื้นแดง, ซับ 72 ใต้ภาพ / 84 ที่ 60%, ชื่อช่อง 40 เทา, ป้ายชื่อ 44 กล่องดำโปร่ง) ตั้งจาก spoil-maker layout A จนกว่าเช็คมือบน Mac จะบอกให้แก้ (D22)
+- ความยาวการ์ดใน render ปัดเป็นเฟรม (30 fps) แล้วต่อกัน; เสียงเล่าของการ์ดเติมเงียบถึงเฟรมสุดท้ายของการ์ด
+- Render job มี `name` (คลิปที่เขียน) เมื่อ `done`; ลบ Series ระหว่าง render → `series_busy`; `ListedEp.rendered_at` คือ `created_at` ของคลิปล่าสุด
+- หน้าเว็บ: `#/toon/sounds` (ลิงก์จากรายการ Series และ toolbar เส้นเรื่อง), `#/toon/eps/{eid}/render` (ลิงก์ "ไปหน้า render"); คำเตือน legal ข้อ 4 แสดงตลอดบนหน้าคลังเสียงพื้นเหนือช่องไฟล์และลิงก์; หน้า render รู้การ์ดที่ไม่มีภาพจาก EP ก่อนกด และ "ไปที่การ์ด N" ไปหน้าเส้นเรื่อง; ชื่อไฟล์ดาวน์โหลด `ep03-{ชื่อตอน}-{name}.mp4`; "เล่น" เปิด video ใต้แถว; หัวช่วงมีเสียงพื้น ("ไม่มีเสียงพื้น") และ slider ความดังที่ส่งเมื่อปล่อย
+- `GPU_JOB_PATHS` มี `toon_voice` และ `toon_render`; `RUNNING_NAMES` ของหน้าเว็บมี `toon_voice` และ `toon_render`
+- สิ่งที่ซับของทุก render ใช้ร่วม (header ASS, `event`, `chunks`, `split_time`, `cut_lines`, `.srt`) ย้ายจาก `spoil_maker.captions` เป็น `backend/subtitles.py` (ผู้ใช้คนที่สองคือ `toon.compose`); ASS กับ filter graph ของการ์ตูนเล่าอยู่ใน `toon.compose`, งานและผลใน `toon.render`, slot ของ Sound import ใน `toon.sounds` (spec › Modules touched วางไว้ใน `jobs`)
+
+**Why:** spec ไม่ได้กำหนด หรือกำหนดวิธีที่ใช้ memory เกิน (`aloop`); เลือกตามโค้ดที่มี (File import, Download job, render ของ spoil-maker) และแบบใน Figma โดยไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Rejected:**
+- ไฟล์เสียงเป็นงาน poll แบบลิงก์ — File import ของ spoil เป็น request เดียวอยู่แล้ว (ADR 0028)
+- `aloop` ตาม spec — เสียง 20 นาทีที่ 48 kHz stereo ใช้ memory ราว 460 MB
+
+**From:** build ticket 04 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

@@ -98,7 +98,17 @@ export const TARGET_MIN_S = 60;
 export const TARGET_MAX_S = 120;
 
 /** `EP04`: how the design names an EP. */
+/** Every card of the EP in order. */
+export const cardsOf = (ep: Ep) => ep.acts.flatMap((act) => act.segments.flatMap((segment) => segment.cards));
+
+/** A card that can't render: it has no picture, or a reference image is missing (spec › Render job). */
+export const cannotRender = (card: Card) => card.image_status === "no_image" || card.image_status === "no_ref";
+
 export const epLabel = (n: number) => `EP${String(n).padStart(2, "0")}`;
+
+/** "8 พ.ย. 21:40": when a render was made. */
+export const madeAt = (iso: string) =>
+  new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 /** Acts a Cards job would split now: every act the first time, then those whose summary changed (D15). */
 export function actsToSplit(ep: Ep): Act[] {

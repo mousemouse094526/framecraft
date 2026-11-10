@@ -61,7 +61,7 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
     );
   }
 
-  const { ep, series, job, notice, lost, missing, version } = state;
+  const { ep, series, sounds, job, notice, lost, missing, version } = state;
   const own = epJobOf(job, eid);
   const running = own !== null && isRunning(own) ? own : null;
   const locked = ep.locked || (running !== null && (running.kind === "plot" || running.kind === "cards"));
@@ -138,6 +138,7 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
         <StorylineView
           ep={ep}
           series={series}
+          sounds={sounds}
           locked={locked}
           edit={edit}
           job={own}

@@ -9,6 +9,8 @@ const RUNNING_NAMES: Record<string, string> = {
   render: "render",
   toon_write: "ร่างการ์ตูนเล่า",
   toon_image: "สร้างภาพ",
+  toon_voice: "สร้างเสียงเล่า",
+  toon_render: "render การ์ตูนเล่า",
 };
 
 /** The `…/current` of each GPU job the Saved voice page polls to see it end. A render holds
@@ -19,6 +21,8 @@ export const GPU_JOB_PATHS: Record<string, string> = {
   draft: "/api/spoil-maker/draft-jobs/current",
   toon_write: "/api/toon/jobs/current",
   toon_image: "/api/toon/jobs/current",
+  toon_voice: "/api/toon/jobs/current",
+  toon_render: "/api/toon/render/current",
 };
 
 /** "รอให้งาน{running}เสร็จก่อน": why a GPU job can't start while `running` holds the GPU (spoil-maker D45). */

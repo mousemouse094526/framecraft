@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 
 VERSION = 1
 SERIES_ID = re.compile(r"s_[0-9a-f]{8}")
+SOUND_ID = re.compile(r"m_[0-9a-f]{8}")
 CHARACTER_ID = re.compile(r"c_[0-9a-f]{8}")
 BACKGROUND_ID = re.compile(r"b_[0-9a-f]{8}")
 EP_ID = re.compile(r"e_[0-9a-f]{8}")
@@ -235,7 +236,7 @@ def write_ep(project: ProjectPaths, series_id: str, ep: Ep) -> None:
 
 
 def read_sounds(project: ProjectPaths) -> list[StoredSound]:
-    """The background sound library; empty until a sound is imported (ticket 04)."""
+    """The background sound library; empty until a sound is imported."""
     path = project.toon_sounds_file
     if not path.is_file():
         return []
@@ -244,3 +245,9 @@ def read_sounds(project: ProjectPaths) -> list[StoredSound]:
     except (ValueError, KeyError, TypeError, ValidationError) as error:
         log.warning("skipped %s: %s", path, str(error).splitlines()[0])
         return []
+
+
+def write_sounds(project: ProjectPaths, sounds: list[StoredSound]) -> None:
+    project.toon_sounds_dir.mkdir(parents=True, exist_ok=True)
+    body = {"version": VERSION, "sounds": [sound.model_dump() for sound in sounds]}
+    files.write_atomic(project.toon_sounds_file, json.dumps(body, ensure_ascii=False, indent=2), unique=True)

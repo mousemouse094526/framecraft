@@ -101,10 +101,18 @@ backend/
 │                    Plot and Cards jobs on Qwen, Ref and Image jobs, Qwen
 │                    then klein, Voice job on OmniVoice through
 │                    `speaking.Speaker`), klein (the only diffusers import;
-│                    its `worker` runs in a child process, D34)
+│                    its `worker` runs in a child process, D34), sounds (the
+│                    background sound library and its Sound import slot: a
+│                    file in one request, a link through spoil's adapter with
+│                    `LINK_OPTIONS`), render (the Render job, its own slot,
+│                    and an EP's renders), compose (a render's timeline, its
+│                    ffmpeg commands and its ASS file, through `subtitles`)
 ├── speaking.py   ← `Speaker`, the job slot base that speaks texts in a Saved
 │                    voice in an OmniVoice child, and the wav it writes:
 │                    spoil_maker's Voice and Render jobs and toon's Voice job
+├── subtitles.py  ← what every render's text shares: the ASS header, a Dialogue line,
+│                    Thai text cut into lines or short chunks and their times, the
+│                    `.srt`; spoil_maker's captions and toon's compose lay them out
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
 │                    File import and toon's reference uploads share it
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an

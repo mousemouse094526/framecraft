@@ -40,17 +40,27 @@ def plan(project: ProjectPaths, body: dict) -> VoicePlan:
         card = episodes.card_of(ep, card_id)
         if not card.text:
             raise ApiError(400, "silent_card", "การ์ดเงียบไม่มีเสียงเล่า")
-        voice = voices.saved_voice(project, ep.voice_id)
-        if voice is None:
-            raise ApiError(400, "voice_not_found", "ไม่พบเสียงเล่าของ EP นี้: เลือกเสียงที่บันทึกไว้")
-        return VoicePlan(
-            series_id=series_now.id,
-            ep_id=ep.id,
-            card_id=card.id,
-            tts_text=thai.spoken(card.text),
-            voice_id=ep.voice_id,
-            voice=voice,
-        )
+        return plan_card(series_now.id, ep, card, ep_voice(project, ep))
+
+
+def ep_voice(project: ProjectPaths, ep: store.Ep) -> voices.SavedVoice:
+    """The EP's Saved voice. Raises `voice_not_found`. Call with the draft's lock held (D25)."""
+    voice = voices.saved_voice(project, ep.voice_id)
+    if voice is None:
+        raise ApiError(400, "voice_not_found", "ไม่พบเสียงเล่าของ EP นี้: เลือกเสียงที่บันทึกไว้")
+    return voice
+
+
+def plan_card(series_id: str, ep: store.Ep, card: store.Card, voice: voices.SavedVoice) -> VoicePlan:
+    """What speaking the card now means: its text as spoken, in the EP's voice."""
+    return VoicePlan(
+        series_id=series_id,
+        ep_id=ep.id,
+        card_id=card.id,
+        tts_text=thai.spoken(card.text),
+        voice_id=ep.voice_id,
+        voice=voice,
+    )
 
 
 def put_audio(project: ProjectPaths, plan: VoicePlan, spoken: Spoken) -> bool:

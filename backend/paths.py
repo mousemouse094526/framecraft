@@ -166,10 +166,23 @@ class ProjectPaths:
         """Each card's narration, `{card_id}.wav`."""
         return self.ep_dir(series_id, ep_id) / "audio"
 
+    def ep_renders_dir(self, series_id: str, ep_id: str) -> Path:
+        """Each finished render of the EP: `{name}.mp4`, `.srt` and `.json`."""
+        return self.ep_dir(series_id, ep_id) / "renders"
+
+    @property
+    def toon_sounds_dir(self) -> Path:
+        """The background sound library of the whole tab (toon D16): `sounds.json` and `{sound_id}.m4a`."""
+        return self.toon_dir / "sounds"
+
     @property
     def toon_sounds_file(self) -> Path:
-        """The background sound library of the whole tab (toon D16)."""
-        return self.toon_dir / "sounds" / "sounds.json"
+        return self.toon_sounds_dir / "sounds.json"
+
+    @property
+    def toon_render_dir(self) -> Path:
+        """The running Render job's copies, ASS file and narration; removed when it ends."""
+        return self.toon_dir / ".render"
 
     @property
     def toon_partial_dir(self) -> Path:

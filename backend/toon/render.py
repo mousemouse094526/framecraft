@@ -1,0 +1,459 @@
+"""The Render job of the การ์ตูนเล่า tab and its results (toon spec › Render job, D4, D17, D19,
+D22, D23, D32, D37, D38, D45): one at a time in its own slot, so an EP whose narration is all
+there renders during an Image job. A card with no narration, or a stale one, is voiced first
+(`voicing`, holding the GPU as `toon_render`); then ffmpeg runs without it (`rendering`) and
+writes `eps/{ep_id}/renders/{name}.mp4`, `.srt` and `.json`.
+
+The EP is read once as rendering starts, its pictures, narration and sounds copied into
+`.render/`: edits after that don't reach this clip (as ADR 0024). A card drawn with an older
+reference picture renders with it (D32).
+"""
+
+import json
+import logging
+import os
+import shutil
+import threading
+import wave
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel
+
+from backend import checks, ffmpeg, fonts, gate_rows, gpu, paths, speaking, subtitles
+from backend.errors import ApiError, JobFailed, Row, require_rows
+from backend.ffmpeg import FfmpegFailed, Runner, probe
+from backend.jobs import short, stop_process
+from backend.paths import ProjectPaths
+from backend.spoil_maker import tts, voices
+from backend.subtitles import Timed
+from backend.toon import compose, episodes, series, store, voicing
+from backend.toon.compose import Narrated, Placed, SoundRun, Tagged
+from backend.toon.store import Ep, Series
+from backend.toon.voicing import VoicePlan
+
+log = logging.getLogger(__name__)
+
+State = Literal["voicing", "rendering", "done", "failed", "cancelled"]
+UNFINISHED: frozenset[State] = frozenset({"voicing", "rendering"})
+ErrorCode = Literal["crashed", "model_failed", "ffmpeg_failed", "internal"]
+
+NAME_FORMAT = "%Y%m%d-%H%M%S"
+PIECES_SHARE = 50  # `percent` 0–50 while the cards' pieces are made, 50–100 for the whole clip
+RESULT_SUFFIXES = (".mp4", ".srt", ".json")
+NOT_READY = ("no_image", "no_ref")  # a card that can't render (spec › Render job step 1)
+NEEDS_VOICE = ("no_audio", "stale_audio")
+CAPTIONS, NARRATION = "captions.ass", "narration.wav"
+SILENT_RATE = 24_000  # the narration's rate when no card speaks: OmniVoice's own
+
+CHANGED = "EP เปลี่ยนระหว่าง render: กด render ใหม่"
+
+
+class RenderJobError(BaseModel):
+    code: ErrorCode
+    message: str
+
+
+class ToonRenderJob(BaseModel):
+    kind: Literal["render"] = "render"
+    state: State
+    series_id: str
+    ep_id: str
+    percent: int | None = None
+    done: int | None = None
+    total: int | None = None
+    name: str | None = None  # the clip it wrote, once `done`
+    error: RenderJobError | None = None
+    cancel_requested: bool = False
+    started_at: str
+
+
+class RenderResult(BaseModel):
+    """One finished render of an EP, as `GET /eps/{eid}/renders` lists it."""
+
+    name: str
+    title: str
+    n: int
+    duration_s: float
+    created_at: str
+    size_bytes: int
+
+
+class RenderJobs(speaking.Speaker[ToonRenderJob]):
+    """Holds the latest Render job. `run_ffmpeg` runs each ffmpeg command; a test passes one
+    that pauses (`fastapi-api` › testing)."""
+
+    unfinished = UNFINISHED
+    gpu_kind = "toon_render"
+    error_type = RenderJobError
+    nothing_to_cancel = "ไม่มีงาน render การ์ตูนเล่าที่ยังไม่จบ"
+    worker_error = tts.WorkerError
+    child_name = "ตัวสร้างเสียง"
+    failure = "render ไม่สำเร็จ"
+
+    def __init__(self, run_ffmpeg: Runner = ffmpeg.run):
+        super().__init__()
+        self._run_ffmpeg = run_ffmpeg
+
+    def ep_use(self) -> tuple[str, bool] | None:
+        """The EP an unfinished render works on; it never locks it (`episodes.ep_jobs`)."""
+        job = self._running()
+        return (job.ep_id, False) if job else None
+
+    def series_use(self) -> str | None:
+        """The Series of an unfinished render, which can't be deleted meanwhile (D26)."""
+        job = self._running()
+        return job.series_id if job else None
+
+    def _running(self) -> ToonRenderJob | None:
+        """The unfinished job. One attribute read, without the slot's lock (as `ToonJobs.ep_use`):
+        callers ask under the store's lock or the Toon job slot's."""
+        job = self._job
+        return job if job is not None and job.state in UNFINISHED else None
+
+    def start(self, body: dict) -> ToonRenderJob:
+        """Step 1 in spec order: the EP and its cards, `ep_locked`, `disk_full`, the gate,
+        `busy`, and `gpu_busy` when cards need their narration. The draft's lock and the
+        store's cover the checks and the start, so no edit or voice delete slips between."""
+        project, ep_id = paths.project(), body.get("ep_id")
+        with self._lock, gpu.slot.draft_lock, store.lock:
+            series_now, ep = episodes.find(project, ep_id)
+            to_voice = _checks(project, series_now, ep)
+            require_rows(_needed_rows(project, voicing=bool(to_voice)))
+            if self._taken():
+                raise ApiError(409, "busy", "กำลัง render การ์ตูนเล่าอยู่")
+            plans = []
+            if to_voice:
+                voice = voicing.ep_voice(project, ep)
+                plans = [voicing.plan_card(series_now.id, ep, card, voice) for card in to_voice]
+                gpu.slot.take("toon_render")
+                self._job = ToonRenderJob(
+                    state="voicing", series_id=series_now.id, ep_id=ep.id, done=0, total=len(plans), started_at=checks.now_iso()
+                )
+            else:
+                self._job = ToonRenderJob(
+                    state="rendering", series_id=series_now.id, ep_id=ep.id, percent=0, started_at=checks.now_iso()
+                )
+            self._cancel.clear()
+            job = self._job.model_copy(deep=True)
+        threading.Thread(target=self._run, args=(project, series_now.id, ep.id, plans), daemon=True).start()
+        return job
+
+    def _run(self, project: ProjectPaths, series_id: str, ep_id: str, plans: list[VoicePlan]) -> None:
+        """A cancel keeps the narration already made in the EP."""
+
+        def clean_up(state: str) -> None:  # however it ended
+            shutil.rmtree(project.toon_render_dir, ignore_errors=True)
+            _remove_partials(project.ep_renders_dir(series_id, ep_id))
+
+        what = f"toon render {ep_id}"
+        self._run_job(what, lambda: self._voice_and_render(project, series_id, ep_id, plans), clean_up)
+
+    def _voice_and_render(self, project: ProjectPaths, series_id: str, ep_id: str, plans: list[VoicePlan]) -> dict:
+        if plans:
+            spoken_all = self._speak(project, [plan.tts_text for plan in plans], plans[0].voice)
+            for done, (plan, spoken) in enumerate(zip(plans, spoken_all), start=1):
+                if not voicing.put_audio(project, plan, spoken):
+                    log.info("the narration of card %s is dropped: the card went", plan.card_id)
+                self._update(done=done)
+            self._free_gpu()
+        self._update(state="rendering", percent=0, done=None, total=None)
+        try:
+            name = self._render(project, series_id, ep_id)
+        except FfmpegFailed as error:
+            raise JobFailed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}") from None
+        log.info("render of %s wrote %s", ep_id, name)
+        return {"percent": 100, "name": name}
+
+    def _free_gpu(self) -> None:
+        """Voicing is over: the OmniVoice child goes and the GPU is free while ffmpeg runs."""
+        process = self._child()
+        if process is not None:
+            stop_process(process)
+            self._track(None)
+        gpu.slot.release("toon_render")
+
+    def _render(self, project: ProjectPaths, series_id: str, ep_id: str) -> str:
+        """Step 3: the EP read and copied once, each card's piece, then the whole clip."""
+        work = project.toon_render_dir
+        shutil.rmtree(work, ignore_errors=True)
+        work.mkdir(parents=True)
+        with store.lock:
+            series_now = store.read_series(project, series_id)
+            ep = store.read_ep(project, series_id, ep_id)
+            if series_now is None or ep is None:
+                raise JobFailed("internal", "อ่าน EP นี้ไม่ได้แล้ว")
+            placed, runs = _copy_in(project, series_now, ep, work)
+        total_frames = placed[-1].start_frame + placed[-1].frames
+        total = total_frames / compose.FPS
+        narrated = [
+            Narrated(text=card.text, start=p.start_frame / compose.FPS, end=p.start_frame / compose.FPS + p.narration_s)
+            for p, card in zip(placed, _cards(ep), strict=True)
+            if p.narration is not None
+        ]
+        (work / CAPTIONS).write_text(
+            compose.ass_file(
+                project, series_now.layout, ep.title, ep.n, series_now.channel_name, narrated,
+                _tags(series_now, ep, placed), total,
+            ),
+            encoding="utf-8",
+        )  # fmt: skip
+        _write_narration(work, placed)
+        pieces = []
+        fade_frames = compose.frames_of(compose.FADE_S)
+        for index, card in enumerate(placed):
+            frames = card.frames + (fade_frames if index < len(placed) - 1 else 0)
+            piece = f"{index}.mkv"
+            self._run_ffmpeg(compose.piece_command(card, series_now.layout, frames, piece), work, self._cancel)
+            pieces.append(piece)
+            self._update(percent=PIECES_SHARE * (index + 1) // len(placed))
+        folder = project.ep_renders_dir(series_id, ep_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        name = _free_name(folder)
+        mp4_partial = folder / f"{name}.mp4.partial"
+        command = compose.final_command(
+            pieces, placed, NARRATION, runs, CAPTIONS, os.path.relpath(project.kanit_dir, work), total_frames, str(mp4_partial)
+        )
+
+        def on_progress(seconds: float) -> None:
+            share = 100 - PIECES_SHARE
+            self._update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
+
+        self._run_ffmpeg(command, work, self._cancel, on_progress)
+        info = {
+            "title": ep.title,
+            "n": ep.n,
+            "duration_s": round(probe(mp4_partial).duration_s, 2),
+            "created_at": checks.now_iso(),
+        }
+        srt_partial = folder / f"{name}.srt.partial"
+        srt_partial.write_text(subtitles.srt_file([Timed(*n) for n in narrated]), encoding="utf-8")
+        json_partial = folder / f"{name}.json.partial"
+        json_partial.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+        # The json goes last: a name is listed once all three are there.
+        for written in (srt_partial, mp4_partial, json_partial):
+            os.replace(written, written.with_suffix(""))
+        return name
+
+
+def _checks(project: ProjectPaths, series_now: Series, ep: Ep) -> list[store.Card]:
+    """Step 1 up to the gate; returns the cards to voice first (D38). Call under the store's lock."""
+    # An EP still at its plot has no cards to render either (spec › Render job step 1).
+    if ep.stage != "cards" or not any(True for _ in episodes.placed_cards(ep)):
+        raise ApiError(400, "cards_not_ready", "EP นี้ยังไม่มีการ์ด", card_ids=[])
+    episodes.editable(project, ep.id)  # `ep_locked`
+    refs = {item.id: item.ref_rev for item in [*series_now.characters, *series_now.backgrounds]}
+    missing = [card.id for segment, card in episodes.placed_cards(ep) if episodes.image_status(card, segment, refs) in NOT_READY]
+    if missing:
+        raise ApiError(400, "cards_not_ready", "ทุกการ์ดต้องมีภาพก่อน render", card_ids=missing)
+    series.require_free_disk(project)
+    return [card for card in _cards(ep) if episodes.audio_status(card, ep) in NEEDS_VOICE]
+
+
+def _copy_in(project: ProjectPaths, series_now: Series, ep: Ep, work: Path) -> tuple[list[Placed], list[SoundRun]]:
+    """Every card's picture and narration, and every sound played, into the work folder; the
+    cards on the timeline (each card's length on whole frames, D14) and the sound runs (D17).
+    Call under the store's lock."""
+    images = project.card_images_dir(series_now.id, ep.id)
+    audio = project.card_audio_dir(series_now.id, ep.id)
+    placed: list[Placed] = []
+    runs: list[SoundRun] = []
+    frame = 0
+    for act in ep.acts:
+        for segment in act.segments:
+            segment_start = frame
+            for card in segment.cards:
+                status = episodes.audio_status(card, ep)
+                picture = images / card.image.file if card.image else None
+                if picture is None or not picture.is_file() or status not in ("ready", "silent"):
+                    raise JobFailed("internal", CHANGED)
+                index = len(placed)
+                shutil.copyfile(picture, work / f"{index}.png")
+                narration = None
+                if status == "ready":
+                    narration = f"{index}.wav"
+                    shutil.copyfile(audio / f"{card.id}.wav", work / narration)
+                # A card heard or silent has its length; the voice's speed only guesses the others.
+                frames = compose.frames_of(episodes.card_seconds(card, status, chars_per_s=0.0))
+                placed.append(
+                    Placed(
+                        card_id=card.id,
+                        picture=f"{index}.png",
+                        narration=narration,
+                        narration_s=card.audio.duration_s if narration else 0.0,
+                        start_frame=frame,
+                        frames=frames,
+                        motion=card.motion,
+                        flicker=card.flicker,
+                    )
+                )
+                frame += frames
+            seconds = (frame - segment_start) / compose.FPS
+            sound = None
+            if segment.sound is not None:
+                sound = f"{segment.sound.sound_id}.m4a"
+                if not (work / sound).is_file():
+                    source = project.toon_sounds_dir / sound
+                    if not source.is_file():
+                        raise JobFailed("internal", CHANGED)
+                    shutil.copyfile(source, work / sound)
+            if runs and runs[-1].sound == sound:
+                runs[-1] = runs[-1]._replace(seconds=runs[-1].seconds + seconds)
+            else:
+                volume = segment.sound.volume if segment.sound else 0
+                runs.append(SoundRun(sound=sound, volume=volume, seconds=seconds))
+    if not placed:
+        raise JobFailed("internal", CHANGED)
+    return placed, runs
+
+
+def _tags(series_now: Series, ep: Ep, placed: list[Placed]) -> list[Tagged]:
+    """Each character's name tag over the first card it is in, when the Series shows them (D19, D23)."""
+    if not series_now.name_tags:
+        return []
+    names = {c.id: f"{c.name} / {c.tag}" if c.tag else c.name for c in series_now.characters}
+    seen: set[str] = set()
+    tagged = []
+    for card, at in zip(_cards(ep), placed, strict=True):
+        new = [i for i in card.character_ids if i not in seen and i in names]
+        seen.update(card.character_ids)
+        if new:
+            start = at.start_frame / compose.FPS
+            tagged.append(Tagged(tags=[names[i] for i in new], start=start, end=start + at.frames / compose.FPS))
+    return tagged
+
+
+def _write_narration(work: Path, placed: list[Placed]) -> None:
+    """Every card's wav, then silence to the card's end, as one wav: the gap and the hold
+    (D14, D21); a silent card is silence. OmniVoice speaks every card at one rate."""
+    params = None
+    for card in placed:
+        if card.narration:
+            with wave.open(str(work / card.narration), "rb") as part:
+                found = (part.getframerate(), part.getnchannels(), part.getsampwidth())
+                if params is not None and found != params:
+                    raise JobFailed("internal", "เสียงเล่าของการ์ดไม่เข้ากัน: สร้างเสียงเล่าใหม่")
+                params = found
+    rate, channels, width = params or (SILENT_RATE, 1, 2)
+    with wave.open(str(work / NARRATION), "wb") as out:
+        out.setframerate(rate)
+        out.setnchannels(channels)
+        out.setsampwidth(width)
+        for card in placed:
+            samples = round(card.frames / compose.FPS * rate)
+            frames = b""
+            if card.narration:
+                with wave.open(str(work / card.narration), "rb") as part:
+                    frames = part.readframes(min(part.getnframes(), samples))
+            out.writeframes(frames + b"\0" * (samples * channels * width - len(frames)))
+
+
+def _cards(ep: Ep):
+    return (card for _, card in episodes.placed_cards(ep))
+
+
+def _free_name(folder: Path) -> str:
+    """`YYYYMMDD-HHMMSS` now, or the next free second."""
+    moment = datetime.now()
+    while any(folder.glob(f"{moment.strftime(NAME_FORMAT)}.*")):
+        moment += timedelta(seconds=1)
+    return moment.strftime(NAME_FORMAT)
+
+
+# --- the results ---
+
+
+def list_results(project: ProjectPaths, ep_id: str) -> list[RenderResult]:
+    """Every name of the EP with its mp4, `.srt` and `.json` and no `.partial`, newest first."""
+    with store.lock:
+        series_now, ep = episodes.find(project, ep_id)
+        folder = project.ep_renders_dir(series_now.id, ep.id)
+    found = []
+    for name in _names(folder):
+        try:
+            info = json.loads((folder / f"{name}.json").read_text(encoding="utf-8"))
+            found.append(RenderResult(name=name, size_bytes=(folder / f"{name}.mp4").stat().st_size, **info))
+        except (OSError, ValueError, TypeError):
+            log.warning("skipping unreadable render %s", name)
+    return found
+
+
+def latest_at(project: ProjectPaths, series_id: str, ep_id: str) -> str | None:
+    """When the EP's newest complete render was made, for the EP list."""
+    folder = project.ep_renders_dir(series_id, ep_id)
+    for name in _names(folder):
+        try:
+            return json.loads((folder / f"{name}.json").read_text(encoding="utf-8"))["created_at"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return None
+
+
+def result_file(project: ProjectPaths, ep_id: str, name: str) -> Path:
+    """The mp4 of a complete render of the EP. Raises `ApiError` 404 `not_found`."""
+    with store.lock:
+        series_now, ep = episodes.find(project, ep_id)
+        folder = project.ep_renders_dir(series_now.id, ep.id)
+    if name not in _names(folder):
+        raise ApiError(404, "not_found", "ไม่พบผล render นี้")
+    return folder / f"{name}.mp4"
+
+
+def delete_result(project: ProjectPaths, ep_id: str, name: str) -> None:
+    """mp4 first (a player may hold it open: `409` `in_use`), the json last."""
+    folder = result_file(project, ep_id, name).parent
+    try:
+        (folder / f"{name}.mp4").unlink(missing_ok=True)
+    except PermissionError:
+        raise ApiError(409, "in_use", "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง") from None
+    (folder / f"{name}.srt").unlink(missing_ok=True)
+    (folder / f"{name}.json").unlink(missing_ok=True)
+    log.info("deleted render %s of %s", name, ep_id)
+
+
+def clean_on_start(project: ProjectPaths) -> None:
+    """Jobs don't survive a restart: the work folder goes, and every half-written result."""
+    shutil.rmtree(project.toon_render_dir, ignore_errors=True)
+    if project.toon_series_dir.is_dir():
+        for folder in project.toon_series_dir.glob("*/eps/*/renders"):
+            _remove_partials(folder)
+
+
+def _names(folder: Path) -> list[str]:
+    """The complete renders in the folder, newest first."""
+    if not folder.is_dir():
+        return []
+    names = {path.name.split(".")[0] for path in folder.glob("*.json")}
+    complete = [
+        name
+        for name in names
+        if _is_name(name)
+        and all((folder / f"{name}{suffix}").is_file() for suffix in RESULT_SUFFIXES)
+        and not any(folder.glob(f"{name}.*.partial"))
+    ]
+    return sorted(complete, reverse=True)
+
+
+def _is_name(name: str) -> bool:
+    try:
+        return datetime.strptime(name, NAME_FORMAT).strftime(NAME_FORMAT) == name
+    except ValueError:
+        return False
+
+
+def _remove_partials(folder: Path) -> None:
+    if folder.is_dir():
+        for leftover in folder.glob("*.partial"):
+            leftover.unlink(missing_ok=True)
+
+
+def _needed_rows(project: ProjectPaths, voicing: bool) -> dict[str, Row]:
+    """`ffmpeg`, `font_kanit`, `pythainlp`; voicing first adds the Voice job's (spec › Status check)."""
+    kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
+    rows = gate_rows.FFMPEG | kanit | gate_rows.PYTHAINLP
+    return rows | voices.needed_rows(project) if voicing else rows
+
+
+render_jobs = RenderJobs()
+episodes.ep_jobs.append(lambda: render_jobs.ep_use())

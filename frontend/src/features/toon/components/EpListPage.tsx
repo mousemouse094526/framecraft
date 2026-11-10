@@ -11,7 +11,7 @@ import film24Icon from "../assets/film-24.svg";
 import usersIcon from "../assets/users.svg";
 import wandWhiteIcon from "../assets/wand-white.svg";
 import { useEpList } from "../hooks/useEpList";
-import { epLabel, IDEA_MAX, type ListedEp } from "../lib/episodes";
+import { epLabel, IDEA_MAX, madeAt, type ListedEp } from "../lib/episodes";
 import { castHash, epHash, GENRE_LABELS, LAYOUT_LABELS, LIST_HASH, settingsHash, type Series } from "../lib/series";
 import { NoticeLine } from "./NoticeLine";
 import { ToonDialog } from "./ToonDialog";
@@ -193,7 +193,7 @@ function EpRow({ ep, onDelete }: { ep: ListedEp; onDelete: () => void }) {
               ภาพ {ep.images}/{ep.cards}
             </span>
             <span className="text-[13px] text-muted-foreground">·</span>
-            <span className="text-[13px] text-mid">{ep.rendered_at ? `render ล่าสุด ${ep.rendered_at}` : "ยังไม่เคย render"}</span>
+            <span className="text-[13px] text-mid">{ep.rendered_at ? `render ล่าสุด ${madeAt(ep.rendered_at)}` : "ยังไม่เคย render"}</span>
           </span>
         </span>
         <span className="shrink-0 rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
