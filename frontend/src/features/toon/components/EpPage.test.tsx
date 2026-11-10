@@ -2,6 +2,8 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
+import { OFFLINE_TEXT } from "../../../lib/api";
+import { findStatusWith } from "../../../testing/statusBox";
 import { get, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import type { Card, Ep, ListedEp } from "../lib/episodes";
 import { GENRE_DEFAULTS, type Item, type Series, type ToonJob } from "../lib/series";
@@ -129,6 +131,56 @@ describe("รายการ EP ใน Series", () => {
     await waitFor(() => expect(window.location.hash).toBe(`#/toon/eps/${EP_ID}`));
     expect(sent(fetchMock, "POST", `${SERIES_PATH}/eps`)).toEqual([{ idea: "เสียงร้องไห้ในห้องน้ำ" }]);
     expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ kind: "plot", ep_id: EP_ID }]);
+  });
+
+  it("a new EP whose Plot job is refused stays in the list with the reason as a warning", async () => {
+    const busy = { code: "gpu_busy", message: "มีงานอื่นใช้การ์ดจออยู่", running: "spoil_voice" };
+    const user = open(`#/toon/series/${SERIES_ID}`, [
+      get(`${SERIES_PATH}/eps`, []),
+      send("POST", `${SERIES_PATH}/eps`, epOf({ stage: "plot" }), 201),
+      send("POST", JOBS_PATH, busy, 409),
+      get(`${SERIES_PATH}/eps`, [listed]),
+    ]);
+
+    await user.click((await screen.findAllByRole("button", { name: "EP ใหม่" }))[0]);
+    await user.type(screen.getByRole("textbox", { name: "ไอเดียของ EP ใหม่" }), "เสียงร้องไห้ในห้องน้ำ");
+    await user.click(screen.getByRole("button", { name: "ให้ AI ร่างพล็อต" }));
+
+    // jsdom has no colour: the Alert's Tailwind class is the one sign of its tone.
+    expect(await findStatusWith("ยังร่างพล็อตไม่ได้")).toHaveClass("bg-warning-surface");
+    expect(await screen.findByRole("listitem")).toHaveTextContent("ห้องน้ำชั้นสาม");
+    expect(window.location.hash).toBe(`#/toon/series/${SERIES_ID}`);
+  });
+
+  it("a new EP whose Plot job gets no answer stays in the list with a warning", async () => {
+    const user = open(`#/toon/series/${SERIES_ID}`, [
+      get(`${SERIES_PATH}/eps`, []),
+      send("POST", `${SERIES_PATH}/eps`, epOf({ stage: "plot" }), 201),
+      { method: "POST", path: JOBS_PATH, reply: () => Promise.reject(new TypeError("Failed to fetch")) },
+      get(`${SERIES_PATH}/eps`, [listed]),
+    ]);
+
+    await user.click((await screen.findAllByRole("button", { name: "EP ใหม่" }))[0]);
+    await user.type(screen.getByRole("textbox", { name: "ไอเดียของ EP ใหม่" }), "เสียงร้องไห้ในห้องน้ำ");
+    await user.click(screen.getByRole("button", { name: "ให้ AI ร่างพล็อต" }));
+
+    expect(await findStatusWith(OFFLINE_TEXT)).toHaveClass("bg-warning-surface");
+    expect(screen.getByText("ยังร่างพล็อตไม่ได้")).toBeInTheDocument();
+    expect(await screen.findByRole("listitem")).toHaveTextContent("ห้องน้ำชั้นสาม");
+    expect(screen.queryByRole("textbox", { name: "ไอเดียของ EP ใหม่" })).not.toBeInTheDocument();
+  });
+
+  it("a refused new EP says why and starts no job", async () => {
+    const refused = { code: "invalid_idea", message: "ไอเดียยาวได้ไม่เกิน 500 ตัวอักษร" };
+    const user = open(`#/toon/series/${SERIES_ID}`, [get(`${SERIES_PATH}/eps`, []), send("POST", `${SERIES_PATH}/eps`, refused, 400)]);
+
+    await user.click((await screen.findAllByRole("button", { name: "EP ใหม่" }))[0]);
+    await user.type(screen.getByRole("textbox", { name: "ไอเดียของ EP ใหม่" }), "เสียง");
+    await user.click(screen.getByRole("button", { name: "ให้ AI ร่างพล็อต" }));
+
+    expect(await findStatusWith("สร้าง EP ไม่ได้")).toHaveClass("bg-error-surface");
+    expect(screen.getByText(refused.message)).toBeInTheDocument();
+    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([]);
   });
 
   it("an EP whose job runs can't be deleted: the refusal shows", async () => {

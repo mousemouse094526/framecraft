@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket 13 done (คลังเสียงกู้จาก m4a, D70/D71); ถัดไป 14 (#29); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ticket 14 done (`sendEdit` ทางเดียว, D72): ทุก ticket done; ถัดไป feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 14
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -25,9 +25,26 @@
 | 11 | ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม | done |
 | 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | done |
 | 13 | คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย | done |
-| 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | ready |
+| 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | done |
 
 ## Log
+
+### 14: ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon — done 2026-11-10
+
+**Built:**
+- `lib/edit.sendEdit<T, R>(method, path, body, title, { ok, warnings })`: status ที่ ok (ตั้งต้น 200/201), code ที่เป็น `warning`, คืน `ok` (value, `null` เมื่อ 204) หรือ `refused` (notice และ `refusal` พร้อม field ของ code); `startToonJob`/`startRefJob` คืนผลเดียวกัน (`ok` 202); `sendChecked` เช็คไฟล์ผ่าน `sendEdit`
+- ย้ายมาใช้ `sendEdit`: `useSounds` (เปลี่ยนชื่อ, ลบรวม `in_use`, โหลดจากลิงก์), `useRender` (เริ่ม, ลบคลิป), `useEp.start`, `useCast.startRef`, `useEpList` (สร้าง, ลบ), `usePickRef` (ใช้ภาพนี้, สร้างใหม่), `useSeriesForm`, `useSeriesList`; ไม่มี hook ของ toon อ่าน `status` ของคำขอที่เปลี่ยนของเอง
+- `usePickRef`, `useSeriesForm`, `useSeriesList` เก็บ `Notice`; หน้าเลือกภาพและฟอร์มแสดงแค่ข้อความเหมือนเดิม, รายการ Series ใช้ `NoticeLine`; `refusalTextOf` รวมเข้า `noticeOf`
+- test: `edit.test.ts` (+4); หน้า: ฟอร์ม Series, ใช้ภาพนี้, สร้างภาพ 3 แบบ (ปฏิเสธ, ไม่มี backend), เปลี่ยนชื่อเสียง, ลบคลิป, render `busy`, EP ใหม่ (ปฏิเสธ, Plot job ถูกปฏิเสธ, Plot job ไม่ได้คำตอบ) — ทุกตัวยกเว้นตัวสุดท้ายผ่านกับโค้ดก่อนแก้ด้วย; `src/testing/statusBox.findStatusWith`
+- spec › Modules touched, `rules/testing.md`
+
+**Decided:**
+- D72 — `sendEdit` (`ok`, `warnings`, `refusal`, kind `saved` → `ok`), `startRefJob` ถือ title เอง, `Notice` ทุก hook, title ที่ไม่แสดง, EP ใหม่ที่ Plot job ไม่ได้คำตอบเป็น `warning` และ EP อยู่ในรายการ (เดิม "สร้าง EP ไม่ได้" ทั้งที่สร้างแล้ว; auto mode เลือกตัวเลือกที่แนะนำ)
+
+**For the next ticket:**
+- review ไม่แก้ (ตั้งใจ): `Alert` ไม่มี title สองที่ (หน้าเลือกภาพ, ฟอร์ม) แทน `NoticeLine` (จอจะเปลี่ยน); ชุด `ok` เป็นเลข HTTP ตรงๆ; `usePickRef.cancel` และ `in_use` สร้าง/แก้ `Notice` ในตัว hook; `sendChecked` ยังเช็ค 200/201 ของ `sendFile` เอง (XHR); ชื่อ `sendEdit` คงไว้ (ticket ตั้ง)
+
+**Checks:** `uv run pytest` 1094 passed (backend ไม่ได้แตะ); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 436 passed (+13); `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `599eca0`: Standards 1 ข้อผิดกติกา (แก้: test เดินขึ้นจากข้อความด้วย `closest` → `findStatusWith`) + smell (แก้: `startRefJob` ถือ title; ไม่แก้ดูข้างบน), Spec 1 (EP ใหม่ที่ Plot job ไม่ได้คำตอบเปลี่ยนจอ → ถาม, เลือกแบบใหม่, test ใหม่; ลิงก์ติดตั้งของ `NoticeLine` บันทึกใน D72), Newcomer สรุปตรง What to build (แก้: `saved` → `ok`, `sendEdit<unknown>` ของ check, คอมเมนต์ 200 นอก `ok`, `NOT_NOW` ที่ไม่มีผลของหน้าเลือกภาพ, `missing` ที่คงเดิม, `tone` ซ้ำของ `in_use`, tone ของ EP ใหม่, แยก test ไม่มี backend, tone ของลบคลิป)
 
 ### 13: คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย — done 2026-11-10
 
@@ -478,5 +495,5 @@
 | 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | done (ticket 11) |
 | 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | done (ticket 11) |
 | 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | done (ticket 12) |
-| 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | → ticket 14 |
+| 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | done (ticket 14) |
 | 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | done (ticket 13) |

@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from "react";
-import { getJson, sendJson } from "../../../lib/api";
-import type { Refusal } from "../../../lib/refusal";
+import { getJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, seriesEpsPath, type Ep, type ListedEp } from "../lib/episodes";
 import { epHash, seriesPath, startToonJob, type Series } from "../lib/series";
-import { noticeOf, type Notice } from "../lib/notice";
+import { sendEdit } from "../lib/edit";
+import type { Notice } from "../lib/notice";
 
 export type EpListState =
   | { kind: "loading" }
@@ -32,40 +32,28 @@ export function useEpList(seriesId: string) {
     void load();
   }, [load]);
 
-  const notice = (title: string, body: unknown): Notice => noticeOf(title, body);
-
   /** The EP, then its Plot job; started, the plot page opens and shows the job. A refused
    * job leaves the EP in the list with the reason: its plot page starts it again. */
   const create = async (idea: string): Promise<boolean> => {
-    const title = "สร้าง EP ไม่ได้";
-    try {
-      const created = await sendJson<Ep | Refusal>("POST", seriesEpsPath(seriesId), { idea });
-      if (created.status !== 201) {
-        await load(notice(title, created.body));
-        return false;
-      }
-      const ep = created.body as Ep;
-      const started = await startToonJob({ kind: "plot", ep_id: ep.id });
-      if (started.status === 202) {
-        window.location.hash = epHash(ep.id);
-        return true;
-      }
-      await load({ ...notice("ยังร่างพล็อตไม่ได้", started.body), tone: "warning" });
-      return true;
-    } catch {
-      await load(notice(title, null));
+    const created = await sendEdit<Ep>("POST", seriesEpsPath(seriesId), { idea }, "สร้าง EP ไม่ได้");
+    if (created.kind === "refused") {
+      await load(created.notice);
       return false;
     }
+    const started = await startToonJob({ kind: "plot", ep_id: created.value.id }, "ยังร่างพล็อตไม่ได้");
+    if (started.kind === "ok") {
+      window.location.hash = epHash(created.value.id);
+      return true;
+    }
+    // The EP is made either way: whatever stopped its Plot job is a warning.
+    await load({ ...started.notice, tone: "warning" });
+    return true;
   };
 
   const remove = async (ep: ListedEp) => {
-    try {
-      const reply = await sendJson("DELETE", epPath(ep.id));
-      // The list is read again either way: a refused delete may mean it changed.
-      await load(reply.status === 204 ? null : notice(`ลบ ${ep.title || `EP ${ep.n}`} ไม่ได้`, reply.body));
-    } catch {
-      await load(notice(`ลบ ${ep.title || `EP ${ep.n}`} ไม่ได้`, null));
-    }
+    const reply = await sendEdit<null>("DELETE", epPath(ep.id), undefined, `ลบ ${ep.title || `EP ${ep.n}`} ไม่ได้`, { ok: [204] });
+    // The list is read again either way: a refused delete may mean it changed.
+    await load(reply.kind === "ok" ? null : reply.notice);
   };
 
   return { state, create, remove, reload: () => load() };

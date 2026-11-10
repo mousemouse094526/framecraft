@@ -14,6 +14,7 @@ import radioSelected18Icon from "../assets/radio-selected-18.svg";
 import radioIcon from "../assets/radio.svg";
 import { VOICES_HASH, type SavedVoice } from "../../../lib/voices";
 import { useSeriesForm } from "../hooks/useSeriesForm";
+import type { Notice } from "../lib/notice";
 import {
   ACT_NAME_MAX,
   ACTS_MAX,
@@ -60,7 +61,7 @@ export function SeriesForm({ seriesId }: { seriesId: string | null }) {
           initial={state.initial}
           voices={state.voices}
           saving={state.saving}
-          error={state.error}
+          notice={state.notice}
           back={back}
           onSave={(fields) => void save(fields)}
         />
@@ -74,12 +75,12 @@ type FormProps = {
   initial: SeriesFields;
   voices: SavedVoice[];
   saving: boolean;
-  error: string | null;
+  notice: Notice | null;
   back: string;
   onSave: (fields: SeriesFields) => void;
 };
 
-function Form({ creating, initial, voices, saving, error, back, onSave }: FormProps) {
+function Form({ creating, initial, voices, saving, notice, back, onSave }: FormProps) {
   const [fields, setFields] = useState<SeriesFields>(() => ({
     name: initial.name,
     channel_name: initial.channel_name,
@@ -104,7 +105,8 @@ function Form({ creating, initial, voices, saving, error, back, onSave }: FormPr
       }}
       className="flex w-full max-w-[720px] flex-col gap-5 rounded-2xl border border-border bg-card p-4 sm:p-6"
     >
-      {error && <Alert tone="error">{error}</Alert>}
+      {/* Only the line: the form's error box has no title. */}
+      {notice && <Alert tone="error">{notice.text}</Alert>}
       <TextField
         label="ชื่อชุด"
         hint={`จำเป็น 1–${NAME_MAX} ตัวอักษร`}

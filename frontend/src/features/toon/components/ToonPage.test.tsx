@@ -2,7 +2,9 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
+import { OFFLINE_TEXT } from "../../../lib/api";
 import { FakeXhr } from "../../../testing/fakeXhr";
+import { findStatusWith } from "../../../testing/statusBox";
 import { get, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import { GENRE_DEFAULTS, type Item, type ListedSeries, type Series, type ToonJob } from "../lib/series";
 
@@ -171,6 +173,22 @@ describe("ตั้งค่า Series", () => {
     expect(patch.name).toBe("ใหม่");
     expect(patch).not.toHaveProperty("layout");
     expect(patch).not.toHaveProperty("genre");
+  });
+  it("a refused save says why in a line with no title, and the form stays to send again", async () => {
+    const refused = { code: "invalid_series", message: "ต้องเลือกเสียงพากย์" };
+    const user = open(`#/toon/series/${SERIES_ID}/settings`, [
+      get(VOICES_PATH, [{ id: "v_01", name: "พี่โอ๊ต" }]),
+      get(ONE_PATH, seriesOf()),
+      send("PATCH", ONE_PATH, refused, 400),
+    ]);
+
+    await screen.findByLabelText("ชื่อชุด");
+    await user.click(screen.getByRole("button", { name: "บันทึก" }));
+
+    // the box holds the line alone: no title above it
+    expect(await findStatusWith(refused.message)).toHaveTextContent(new RegExp(`^${refused.message}$`));
+    expect(screen.getByRole("button", { name: "บันทึก" })).toBeEnabled();
+    expect(window.location.hash).toBe(`#/toon/series/${SERIES_ID}/settings`);
   });
 });
 
@@ -394,5 +412,39 @@ describe("เลือกภาพอ้างอิง", () => {
 
     expect(await screen.findByText("หน่วยความจำการ์ดจอไม่พอ")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ลองอีกครั้ง" })).toBeInTheDocument();
+  });
+  it("a refused ใช้ภาพนี้ says why in a line with no title and stays on the page", async () => {
+    const gone = { code: "no_pending", message: "ไม่มีภาพรอเลือกแล้ว" };
+    const user = open(PICK_HASH, [
+      get(ONE_PATH, seriesOf({ characters: [{ ...peak, pending: 3 }] })),
+      send("POST", `${ONE_PATH}/characters/c_01/ref/pick`, gone, 409),
+    ]);
+
+    await user.click(await screen.findByRole("radio", { name: "แบบ 1" }));
+    await user.click(screen.getByRole("button", { name: "ใช้ภาพนี้" }));
+
+    // the box holds the line alone: no title above it
+    expect(await findStatusWith(gone.message)).toHaveTextContent(new RegExp(`^${gone.message}$`));
+    expect(window.location.hash).toBe(PICK_HASH);
+    expect(screen.getByRole("button", { name: "ใช้ภาพนี้" })).toBeEnabled();
+  });
+
+  it("a refused สร้างภาพ 3 แบบ says why", async () => {
+    const busy = { code: "busy", message: "มีงานอื่นทำอยู่" };
+    const user = open(PICK_HASH, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", busy, 409)]);
+
+    await user.click(await screen.findByRole("button", { name: "สร้างภาพ 3 แบบ" }));
+
+    expect(await screen.findByText(busy.message)).toBeInTheDocument();
+  });
+
+  it("สร้างภาพ 3 แบบ with no backend says so", async () => {
+    const user = open(PICK_HASH, [get(ONE_PATH, seriesOf())]);
+    await screen.findByRole("button", { name: "สร้างภาพ 3 แบบ" });
+
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await user.click(screen.getByRole("button", { name: "สร้างภาพ 3 แบบ" }));
+
+    expect(await screen.findByText(OFFLINE_TEXT)).toBeInTheDocument();
   });
 });

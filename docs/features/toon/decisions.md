@@ -920,7 +920,7 @@
 
 **Rejected:**
 - `sendEdit` รับ `update` และชื่อ field — ต้องรู้รูปของ state ทุก hook และ type ของ field ยาก; สองบรรทัดที่เหลือใน `sendItem`/`edit` ต่างกันที่ field (`series`, `ep`)
-- `useSeriesForm` ใช้ `sendEdit` ด้วย — 200/201 ของมันเปิดหน้าใหม่และตั้งข้อความ error ของฟอร์ม ไม่ใช่ notice
+- `useSeriesForm` ใช้ `sendEdit` ด้วย — 200/201 ของมันเปิดหน้าใหม่และตั้งข้อความ error ของฟอร์ม ไม่ใช่ notice (เปลี่ยนใน D72: ticket 14 ให้ทุก hook ใช้)
 - `useReadyState` ใน `lib/` ชั้นบน — feature อื่นยังไม่ใช้
 
 **From:** build ticket 10 · **Status:** active
@@ -1045,6 +1045,29 @@
 - เช็ค m4a ทุก `read_sounds` — สแกน folder ทุก request ของ tab
 
 **From:** build ticket 13 · **Status:** active
+
+## D72: `sendEdit` ทางเดียวของทุกคำขอที่เปลี่ยนของ ticket 14
+
+**Chosen:**
+- `lib/edit.sendEdit<T, R extends Refusal = Refusal>(method, path, body, title, { ok, warnings })`: `ok` = status ที่ถือว่าสำเร็จ (ตั้งต้น 200, 201; ลบ 204, เริ่มงาน 202), `warnings` = code ที่ notice เป็น `warning` แบบ `noticeOf`; คืน `{ kind: "ok", value }` (เดิม `saved`: ตอนนี้รวมการลบและการเริ่มงาน) (`null` เมื่อ 204) หรือ `{ kind: "refused", notice, refusal }` — `refusal` เป็น `R` ที่มี field ของ code (`card_ids`, `eps`, `acts`, `missing_refs`) หรือ `null` เมื่อไม่มี refusal กลับมา
+- `lib/series.startToonJob(body, title, warnings)` และ `startRefJob(ref, warnings)` (title "ยังสร้างภาพอ้างอิงไม่ได้" ของทั้งสองหน้า) คืน `EditReply` ผ่าน `sendEdit` (`ok` 202); `sendChecked` เช็คไฟล์ผ่าน `sendEdit` (`ok` 200) — ส่งไฟล์ยังผ่าน `sendFile` (XHR ไม่ใช่ `sendJson`)
+- hook ที่ย้ายมา: `useSounds` (เปลี่ยนชื่อ, ลบ, โหลดจากลิงก์; `in_use` แทน `text` ของ notice ด้วยชื่อ EP), `useRender` (เริ่ม, ลบคลิป), `useEp.start`, `useCast.startRef`, `useEpList` (สร้าง, ลบ), `usePickRef` (ใช้ภาพนี้, สร้างใหม่), `useSeriesForm`, `useSeriesList`; ไม่มี hook ของ toon ที่อ่าน `status` ของคำขอที่เปลี่ยนของเอง (`usePickRef.load` อ่าน `getReply` ของ GET)
+- `usePickRef`, `useSeriesForm`, `useSeriesList` เก็บ `notice: Notice | null` แทน `error`/`refusal`; หน้าเลือกภาพและฟอร์ม Series แสดง `Alert` `error` ที่มีแค่ `notice.text` ไม่มี title เหมือนเดิม; รายการ Series ใช้ `NoticeLine` (title "ลบ {ชื่อ} ไม่ได้" เดิม); title ที่ไม่แสดง: "ใช้ภาพนี้ไม่ได้", "ยังสร้างภาพอ้างอิงไม่ได้", "หยุดงานไม่ได้", "บันทึก Series ไม่ได้"; `NoticeLine` ของรายการ Series จะมีลิงก์ ไปที่ ติดตั้ง ถ้าการลบได้ `not_ready` (ไม่มีทางเกิดในตอนนี้)
+- `refusalTextOf` รวมเข้า `noticeOf` (ไม่มีผู้ใช้อื่นแล้ว)
+- test หาค่า `Alert` ด้วย `src/testing/statusBox.findStatusWith(text)` (role `status`) และอ่าน tone จาก class (`rules/testing.md`)
+- EP ใหม่ที่สร้างแล้วแต่เริ่ม Plot job ไม่ได้รับคำตอบ (backend หายระหว่างสองคำขอ): notice `warning` "ยังร่างพล็อตไม่ได้" ติดต่อ backend ไม่ได้ และ EP อยู่ในรายการ แบบ Plot job ที่ถูกปฏิเสธ; เดิมได้ "สร้าง EP ไม่ได้" ทั้งที่ EP ถูกสร้างแล้ว และ dialog ค้าง — ถาม owner แล้ว (auto mode เลือกตัวเลือกที่แนะนำ: แบบใหม่); มี test
+- test: `edit.test.ts` (status ใน `ok`, 204, 200 ที่ไม่อยู่ใน `ok`, `warnings`, `refusal` พร้อม field); หน้า: ฟอร์ม Series และใช้ภาพนี้ที่ถูกปฏิเสธ (ไม่มี title), สร้างภาพ 3 แบบที่ถูกปฏิเสธและไม่มี backend, เปลี่ยนชื่อเสียงที่ถูกปฏิเสธ, ลบคลิปที่ถูกปฏิเสธ, render ที่ `busy` เป็น `warning`, EP ใหม่ที่ Plot job ถูกปฏิเสธ (`warning`) และ EP ที่ถูกปฏิเสธ — ทั้งหมดผ่านกับโค้ดก่อนแก้ด้วย
+
+**Why:** Blocked #29 (feature review รอบห้า): ราว 10 ที่ส่งแล้วเช็ค status แล้วสร้างข้อความเอง ขณะ `sendEdit` รับแค่ 200/201; สาม hook เก็บข้อความล้วน.
+
+**Rejected:**
+- เปลี่ยนชื่อ `sendEdit` (ตอนนี้รวมการเริ่มงาน) — ticket ตั้งชื่อนี้ และผู้เรียกเดิมไม่ต้องเปลี่ยน
+- หน้าเลือกภาพและฟอร์ม Series ใช้ `NoticeLine` ที่มี title — จอเปลี่ยน (ticket: "จอแสดงเหมือนเดิม")
+- ชุด `ok` ที่ตั้งชื่อ (`DELETED`, `STARTED`) — status ของ HTTP อ่านได้ตรงอยู่แล้ว
+- `NoticeLine` แบบไม่มี title แทน `Alert` สองที่ของหน้าเลือกภาพและฟอร์ม — tone และลิงก์ติดตั้งของ notice จะแสดง จอเปลี่ยน
+- `refused` บอกแยกว่าไม่มี backend เพื่อคงข้อความเดิมของ EP ใหม่ที่ Plot job ไม่ได้คำตอบ — ข้อความเดิมผิด (EP ถูกสร้างแล้ว) และต้องเพิ่ม field ที่ผู้เรียกอื่นไม่ใช้
+
+**From:** build ticket 14 · **Status:** active
 
 ## Sources
 

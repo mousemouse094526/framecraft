@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { getJson, sendJson } from "../../../lib/api";
+import { getJson } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -14,7 +14,8 @@ import {
   type RenderResult,
 } from "../lib/render";
 import type { Series } from "../lib/series";
-import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
+import { sendEdit } from "../lib/edit";
+import { NOT_NOW, type Notice } from "../lib/notice";
 import { useReadyState } from "./useReadyState";
 
 export type RenderState =
@@ -73,25 +74,15 @@ export function useRender(epId: string) {
     () => setState({ kind: "offline" }),
   );
 
-  const refused = (title: string, body: unknown) => update((s) => ({ ...s, notice: noticeOf(title, body, NOT_NOW) }));
-
   const start = async () => {
-    const title = "ยัง render ไม่ได้";
-    try {
-      const reply = await sendJson<RenderJob | (Refusal & { card_ids?: string[] })>("POST", RENDER_PATH, { ep_id: epId });
-      if (reply.status === 202) {
-        update((s) => ({ ...s, job: reply.body as RenderJob, notice: null, notReady: null }));
-        return;
-      }
-      const body = reply.body as Refusal & { card_ids?: string[] };
-      if (body?.code === "cards_not_ready" && body.card_ids?.length) {
-        update((s) => ({ ...s, notice: null, notReady: body.card_ids ?? [] }));
-        return;
-      }
-      refused(title, reply.body);
-    } catch {
-      refused(title, null);
-    }
+    const reply = await sendEdit<RenderJob, Refusal & { card_ids?: string[] }>("POST", RENDER_PATH, { ep_id: epId }, "ยัง render ไม่ได้", {
+      ok: [202],
+      warnings: NOT_NOW,
+    });
+    if (reply.kind === "ok") return update((s) => ({ ...s, job: reply.value, notice: null, notReady: null }));
+    const cardIds = reply.refusal?.code === "cards_not_ready" ? reply.refusal.card_ids : undefined;
+    if (cardIds?.length) return update((s) => ({ ...s, notice: null, notReady: cardIds }));
+    update((s) => ({ ...s, notice: reply.notice }));
   };
 
   const cancel = async () => {
@@ -100,17 +91,15 @@ export function useRender(epId: string) {
   };
 
   const remove = async (result: RenderResult) => {
-    const title = `ลบคลิป ${result.name} ไม่ได้`;
-    try {
-      const reply = await sendJson<Refusal>("DELETE", renderFilePath(epId, result.name));
-      if (reply.status === 204) {
-        update((s) => ({ ...s, notice: null, renders: s.renders.filter((r) => r.name !== result.name) }));
-        return;
-      }
-      refused(title, reply.body);
-    } catch {
-      refused(title, null);
-    }
+    const reply = await sendEdit<null>("DELETE", renderFilePath(epId, result.name), undefined, `ลบคลิป ${result.name} ไม่ได้`, {
+      ok: [204],
+      warnings: NOT_NOW,
+    });
+    update((s) =>
+      reply.kind === "ok"
+        ? { ...s, notice: null, renders: s.renders.filter((r) => r.name !== result.name) }
+        : { ...s, notice: reply.notice },
+    );
   };
 
   return { state, reload: load, start, cancel, remove };

@@ -8,7 +8,7 @@
 - Decisions: D65, D68
 - Blocked: #29 (feature review รอบห้า)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

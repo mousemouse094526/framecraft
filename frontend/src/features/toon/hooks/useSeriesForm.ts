@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
-import type { Refusal } from "../../../lib/refusal";
+import { getJson } from "../../../lib/api";
 import { VOICES_PATH, type SavedVoice } from "../../../lib/voices";
 import {
   GENRE_DEFAULTS,
@@ -10,14 +9,17 @@ import {
   type Series,
   type SeriesFields,
 } from "../lib/series";
-import { refusalTextOf } from "../lib/notice";
+import { sendEdit } from "../lib/edit";
+import type { Notice } from "../lib/notice";
 import { useReadyState } from "./useReadyState";
 
 export type SeriesFormState =
   | { kind: "loading" }
   | { kind: "offline" }
-  /** `saving` while the request is out; `error` is the refusal of the last one. */
-  | { kind: "ready"; initial: SeriesFields; voices: SavedVoice[]; saving: boolean; error: string | null };
+  /** `saving` while the request is out; `notice` is the refusal of the last one (the form shows its text only, untitled). */
+  | { kind: "ready"; initial: SeriesFields; voices: SavedVoice[]; saving: boolean; notice: Notice | null };
+
+const SAVE_REFUSED = "บันทึก Series ไม่ได้";
 
 function newSeries(voices: SavedVoice[]): SeriesFields {
   return {
@@ -44,7 +46,7 @@ export function useSeriesForm(seriesId: string | null) {
       try {
         const voices = await getJson<SavedVoice[]>(VOICES_PATH);
         const initial = seriesId === null ? newSeries(voices) : await getJson<Series>(seriesPath(seriesId));
-        setState({ kind: "ready", initial, voices, saving: false, error: null });
+        setState({ kind: "ready", initial, voices, saving: false, notice: null });
       } catch {
         setState({ kind: "offline" });
       }
@@ -53,22 +55,16 @@ export function useSeriesForm(seriesId: string | null) {
 
   const save = useCallback(
     async (fields: SeriesFields) => {
-      update((s) => ({ ...s, saving: true, error: null }));
-      let error = OFFLINE_TEXT;
-      try {
-        const reply =
-          seriesId === null
-            ? await sendJson<Series | Refusal>("POST", SERIES_PATH, fields)
-            : await sendJson<Series | Refusal>("PATCH", seriesPath(seriesId), editable(fields));
-        if (reply.status === 200 || reply.status === 201) {
-          window.location.hash = seriesHash((reply.body as Series).id);
-          return;
-        }
-        error = refusalTextOf(reply.body).text;
-      } catch {
-        // no answer: OFFLINE_TEXT
+      update((s) => ({ ...s, saving: true, notice: null }));
+      const reply =
+        seriesId === null
+          ? await sendEdit<Series>("POST", SERIES_PATH, fields, SAVE_REFUSED)
+          : await sendEdit<Series>("PATCH", seriesPath(seriesId), editable(fields), SAVE_REFUSED);
+      if (reply.kind === "ok") {
+        window.location.hash = seriesHash(reply.value.id);
+        return;
       }
-      update((s) => ({ ...s, saving: false, error }));
+      update((s) => ({ ...s, saving: false, notice: reply.notice }));
     },
     [seriesId, update],
   );

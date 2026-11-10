@@ -1,8 +1,9 @@
 import { useCallback, useEffect } from "react";
-import { getJson, getReply, OFFLINE_TEXT, sendJson, type JsonReply } from "../../../lib/api";
+import { getJson, getReply, OFFLINE_TEXT } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type ItemRef, type Series, type ToonJob } from "../lib/series";
-import { refusalTextOf } from "../lib/notice";
+import { sendEdit, type EditReply } from "../lib/edit";
+import type { Notice } from "../lib/notice";
 import { useToonJobPoll } from "./useToonJobPoll";
 import { useReadyState } from "./useReadyState";
 
@@ -18,8 +19,11 @@ export type PickState =
       job: ToonJob | null;
       choice: number | null;
       sending: boolean;
-      error: string | null;
+      /** Why the last pick, retry or stop didn't happen; the page shows its text only, untitled. */
+      notice: Notice | null;
     };
+
+const STOP_REFUSED = "หยุดงานไม่ได้";
 
 /** เลือกภาพอ้างอิง: follows the item's Ref job, then one of its three pictures becomes the reference image (D31, D32). */
 export function usePickRef(itemRef: ItemRef) {
@@ -42,7 +46,7 @@ export function usePickRef(itemRef: ItemRef) {
         job: own,
         choice: s.kind === "ready" ? s.choice : null,
         sending: false,
-        error: null,
+        notice: null,
       }));
     } catch {
       setState({ kind: "offline" });
@@ -62,15 +66,11 @@ export function usePickRef(itemRef: ItemRef) {
     () => setState({ kind: "offline" }),
   );
 
-  const send = async (request: () => Promise<JsonReply<unknown>>, ok: number, then: () => void) => {
-    update((s) => ({ ...s, sending: true, error: null }));
-    try {
-      const reply = await request();
-      if (reply.status === ok) return then();
-      update((s) => ({ ...s, sending: false, error: refusalTextOf(reply.body).text }));
-    } catch {
-      update((s) => ({ ...s, sending: false, error: OFFLINE_TEXT }));
-    }
+  const send = async (request: () => Promise<EditReply<unknown>>, then: () => void) => {
+    update((s) => ({ ...s, sending: true, notice: null }));
+    const reply = await request();
+    if (reply.kind === "ok") return then();
+    update((s) => ({ ...s, sending: false, notice: reply.notice }));
   };
 
   /** Marks picture `n` on the page only; nothing is sent until `pick`. */
@@ -78,13 +78,13 @@ export function usePickRef(itemRef: ItemRef) {
 
   /** ใช้ภาพนี้: picture `n` becomes the item's reference image, then back to the lists. */
   const pick = (n: number) =>
-    send(() => sendJson("POST", `${itemPath(itemRef)}/ref/pick`, { n }), 200, () => {
+    send(() => sendEdit("POST", `${itemPath(itemRef)}/ref/pick`, { n }, "ใช้ภาพนี้ไม่ได้"), () => {
       window.location.hash = castHash(seriesId);
     });
 
   /** ลองอีกครั้ง: a new Ref job for the same item. */
   const retry = () =>
-    send(() => startRefJob(itemRef), 202, () => void load());
+    send(() => startRefJob(itemRef), () => void load());
 
   /** ยกเลิก stops a running job; with nothing running it goes back to the lists. */
   const cancel = async () => {
@@ -95,7 +95,10 @@ export function usePickRef(itemRef: ItemRef) {
     const reply = await cancelCurrent<ToonJob>(JOB_PATH);
     if (reply.kind === "cancelling") update((s) => ({ ...s, job: reply.job }));
     else if (reply.kind === "ended") void load();
-    else update((s) => ({ ...s, error: reply.kind === "offline" ? OFFLINE_TEXT : "หยุดงานไม่ได้" }));
+    else {
+      const text = reply.kind === "offline" ? OFFLINE_TEXT : STOP_REFUSED;
+      update((s) => ({ ...s, notice: { tone: "error", title: STOP_REFUSED, text, setupLink: false } }));
+    }
   };
 
   return { state, choose, pick, retry, cancel, reload: load };

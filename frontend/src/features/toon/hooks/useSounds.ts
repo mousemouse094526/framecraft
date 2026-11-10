@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, sendJson, type FileUpload } from "../../../lib/api";
+import { getJson, type FileUpload } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isImporting, SOUND_IMPORT_PATH, SOUNDS_PATH, soundPath, type Sound, type SoundImport } from "../lib/sounds";
-import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
+import { sendEdit } from "../lib/edit";
+import { NOT_NOW, type Notice } from "../lib/notice";
 import { sendChecked } from "../lib/upload";
 import { useReadyState } from "./useReadyState";
 
@@ -67,40 +68,33 @@ export function useSounds() {
 
   useLeaveGuard(useCallback(() => sending.current !== null, []));
 
-  const lineOf = (title: string, body: unknown) => noticeOf(title, body, NOT_NOW);
-
   const rename = async (sound: Sound, name: string) => {
-    try {
-      const reply = await sendJson<Sound | Refusal>("PATCH", soundPath(sound.id), { name });
-      if (reply.status === 200) {
-        const renamed = reply.body as Sound;
-        update((s) => ({ ...s, listNotice: null, sounds: s.sounds.map((x) => (x.id === renamed.id ? renamed : x)) }));
-        return true;
-      }
-      update((s) => ({ ...s, listNotice: lineOf(`เปลี่ยนชื่อ ${sound.name} ไม่ได้`, reply.body) }));
-    } catch {
-      update((s) => ({ ...s, listNotice: lineOf(`เปลี่ยนชื่อ ${sound.name} ไม่ได้`, null) }));
+    const reply = await sendEdit<Sound>("PATCH", soundPath(sound.id), { name }, `เปลี่ยนชื่อ ${sound.name} ไม่ได้`, {
+      warnings: NOT_NOW,
+    });
+    if (reply.kind === "refused") {
+      update((s) => ({ ...s, listNotice: reply.notice }));
+      return false;
     }
-    return false;
+    const renamed = reply.value;
+    update((s) => ({ ...s, listNotice: null, sounds: s.sounds.map((x) => (x.id === renamed.id ? renamed : x)) }));
+    return true;
   };
 
   const remove = async (sound: Sound) => {
     const title = `ลบ ${sound.name} ไม่ได้`;
-    try {
-      const reply = await sendJson<Refusal & { eps?: SoundUser[] }>("DELETE", soundPath(sound.id));
-      if (reply.status === 204) {
-        update((s) => ({ ...s, listNotice: null, sounds: s.sounds.filter((x) => x.id !== sound.id) }));
-        return;
-      }
-      const eps = reply.body?.eps;
-      const notice =
-        eps && eps.length > 0
-          ? { tone: "error" as const, title, text: `ยังใช้อยู่ใน ${eps.map(epName).join(", ")}`, setupLink: false }
-          : lineOf(title, reply.body);
-      update((s) => ({ ...s, listNotice: notice }));
-    } catch {
-      update((s) => ({ ...s, listNotice: lineOf(title, null) }));
+    const reply = await sendEdit<null, Refusal & { eps?: SoundUser[] }>("DELETE", soundPath(sound.id), undefined, title, {
+      ok: [204],
+      warnings: NOT_NOW,
+    });
+    if (reply.kind === "ok") {
+      update((s) => ({ ...s, listNotice: null, sounds: s.sounds.filter((x) => x.id !== sound.id) }));
+      return;
     }
+    // `in_use` names the EPs that still play it
+    const eps = reply.refusal?.eps;
+    const notice = eps?.length ? { ...reply.notice, text: `ยังใช้อยู่ใน ${eps.map(epName).join(", ")}` } : reply.notice;
+    update((s) => ({ ...s, listNotice: notice }));
   };
 
   /** `/imports/check` first, then the file as the raw body (ADR 0028); the answer is the new sound. */
@@ -128,18 +122,12 @@ export function useSounds() {
   const cancelUpload = () => sending.current?.abort();
 
   const download = async (url: string) => {
-    const title = "โหลดเสียงจากลิงก์นี้ไม่ได้";
-    try {
-      const reply = await sendJson<SoundImport | Refusal>("POST", `${SOUNDS_PATH}/downloads`, { url });
-      if (reply.status === 202) {
-        update((s) => ({ ...s, importNotice: null, job: reply.body as SoundImport }));
-        return true;
-      }
-      update((s) => ({ ...s, importNotice: lineOf(title, reply.body) }));
-    } catch {
-      update((s) => ({ ...s, importNotice: lineOf(title, null) }));
-    }
-    return false;
+    const reply = await sendEdit<SoundImport>("POST", `${SOUNDS_PATH}/downloads`, { url }, "โหลดเสียงจากลิงก์นี้ไม่ได้", {
+      ok: [202],
+      warnings: NOT_NOW,
+    });
+    update((s) => (reply.kind === "ok" ? { ...s, importNotice: null, job: reply.value } : { ...s, importNotice: reply.notice }));
+    return reply.kind === "ok";
   };
 
   const cancelDownload = async () => {

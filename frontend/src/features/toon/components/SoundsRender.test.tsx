@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import { GPU_JOB_PATHS } from "../../../lib/gpu";
 import { FakeXhr } from "../../../testing/fakeXhr";
+import { findStatusWith } from "../../../testing/statusBox";
 import { get, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import type { RenderJob, RenderResult } from "../lib/render";
 import type { Card, Ep } from "../lib/episodes";
@@ -240,6 +241,21 @@ describe("คลังเสียงพื้น", () => {
     expect(screen.getByRole("listitem", { name: "ฝนตกในป่า" })).toBeInTheDocument();
   });
 
+  it("a refused rename says why and the name stays", async () => {
+    const refused = { code: "invalid_name", message: "ชื่อยาวได้ไม่เกิน 60 ตัวอักษร" };
+    const user = open("#/toon/sounds", [send("PATCH", `${SOUNDS}/m_01`, refused, 400)]);
+    const field = await screen.findByRole("textbox", { name: "ชื่อเสียง ฝนตกในป่า" });
+
+    await user.tripleClick(field);
+    await user.keyboard("ฝน");
+    await user.tab();
+
+    expect(await screen.findByText("เปลี่ยนชื่อ ฝนตกในป่า ไม่ได้")).toBeInTheDocument();
+    expect(screen.getByText(refused.message)).toBeInTheDocument();
+    expect(sent(fetchMock, "PATCH", `${SOUNDS}/m_01`)).toEqual([{ name: "ฝน" }]);
+    expect(screen.getByRole("listitem", { name: "ฝนตกในป่า" })).toBeInTheDocument();
+  });
+
   it("asks before leaving while a file is sent", async () => {
     const user = open("#/toon/sounds", [send("POST", `${SOUNDS}/imports/check`, { size: 3 }, 200)]);
     await user.upload(await screen.findByLabelText("เลือกไฟล์เสียง"), new File(["wav"], "ลม.wav", { type: "audio/wav" }));
@@ -331,6 +347,35 @@ describe("render และผล", () => {
     await user.click(await screen.findByRole("button", { name: "ลบคลิป ep03-คืนที่ไฟดับ-20261108-214000.mp4" }));
 
     expect(await screen.findByText("ยังไม่มีคลิปของ EP นี้")).toBeInTheDocument();
+  });
+
+  it("a refused clip delete says why and the clip stays", async () => {
+    const refused = { code: "busy", message: "กำลัง render อยู่" };
+    const user = open(`#/toon/eps/${EP_ID}/render`, [
+      get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])),
+      get(RENDERS, [clip]),
+      send("DELETE", `${RENDERS}/${clip.name}`, refused, 409),
+    ]);
+
+    const button = `ลบคลิป ep03-คืนที่ไฟดับ-${clip.name}.mp4`;
+    await user.click(await screen.findByRole("button", { name: button }));
+
+    // jsdom has no colour: the Alert's Tailwind class is the one sign of its tone.
+    expect(await findStatusWith(`ลบคลิป ${clip.name} ไม่ได้`)).toHaveClass("bg-warning-surface");
+    expect(screen.getByText(refused.message)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: button })).toBeInTheDocument();
+  });
+
+  it("a render refused as not now says why as a warning", async () => {
+    const busy = { code: "busy", message: "มีงานอื่นทำอยู่" };
+    const user = open(`#/toon/eps/${EP_ID}/render`, [get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])), send("POST", RENDER, busy, 409)]);
+
+    await user.click(await screen.findByRole("button", { name: "render" }));
+
+    // jsdom has no colour: the Alert's Tailwind class is the one sign of its tone.
+    expect(await findStatusWith("ยัง render ไม่ได้")).toHaveClass("bg-warning-surface");
+    expect(screen.getByText(busy.message)).toBeInTheDocument();
+    expect(sent(fetchMock, "POST", RENDER)).toEqual([{ ep_id: EP_ID }]);
   });
 
   it("the Saved voice page waits on a render through its own current", () => {

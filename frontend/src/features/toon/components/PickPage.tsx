@@ -51,7 +51,7 @@ export function PickPage({ itemRef }: Props) {
     );
   }
 
-  const { item, job, choice, sending, error } = state;
+  const { item, job, choice, sending, notice } = state;
   const running = job !== null && isRunning(job) ? job : null;
   const ready = item.pending > 0 && running === null;
   const retryButton = (
@@ -91,7 +91,8 @@ export function PickPage({ itemRef }: Props) {
           ยังไม่มีภาพรอเลือก
         </Alert>
       )}
-      {error && <Alert tone="error">{error}</Alert>}
+      {/* Only the line: this page's error box has no title. */}
+      {notice && <Alert tone="error">{notice.text}</Alert>}
       <section className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <Subject item={item} />
         <div role="radiogroup" aria-label="เลือกภาพอ้างอิง" className="flex flex-wrap gap-4">

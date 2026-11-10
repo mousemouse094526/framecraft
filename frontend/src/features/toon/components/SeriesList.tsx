@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Alert } from "../../../components/ui/Alert";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
@@ -12,6 +11,7 @@ import film24Icon from "../assets/film-24.svg";
 import filmIcon from "../assets/film.svg";
 import { useSeriesList } from "../hooks/useSeriesList";
 import { LAYOUT_LABELS, NEW_HASH, seriesHash, SOUNDS_HASH, type ListedSeries } from "../lib/series";
+import { NoticeLine } from "./NoticeLine";
 import { ToonDialog } from "./ToonDialog";
 
 /** `#/toon`: the Series, each a link to its page, with delete behind a confirm (Figma toon / 1). */
@@ -37,11 +37,7 @@ export function SeriesList() {
         </a>
         <NewSeriesLink />
       </div>
-      {state.kind === "result" && state.refusal && (
-        <Alert tone="error" title={`ลบ ${state.refusal.name} ไม่ได้`}>
-          {state.refusal.text}
-        </Alert>
-      )}
+      {state.kind === "result" && state.notice && <NoticeLine notice={state.notice} />}
       {state.kind === "loading" ? (
         <Loading />
       ) : state.series.length === 0 ? (

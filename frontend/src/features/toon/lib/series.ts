@@ -1,4 +1,4 @@
-import { sendJson, type JsonReply } from "../../../lib/api";
+import { sendEdit, type EditReply } from "./edit";
 import { isUnfinishedIn } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 
@@ -176,14 +176,20 @@ export const UNFINISHED_JOB = ["writing", "translating", "drawing", "voicing"] a
 
 export const isRunning = isUnfinishedIn<ToonJob["state"]>(UNFINISHED_JOB);
 
-/** `POST /jobs`: starts a Toon job of any kind; `202` with the job, else a refusal. */
-export function startToonJob(body: Record<string, unknown>): Promise<JsonReply<ToonJob | Refusal>> {
-  return sendJson("POST", JOBS_PATH, body);
+/** `POST /jobs`: starts a Toon job of any kind; `ok` with the job (`202`), else `refused`
+ * with the notice titled `title` (`warnings` as `sendEdit`'s). */
+export function startToonJob<R extends Refusal = Refusal>(
+  body: Record<string, unknown>,
+  title: string,
+  warnings: readonly string[] = [],
+): Promise<EditReply<ToonJob, R>> {
+  return sendEdit<ToonJob, R>("POST", JOBS_PATH, body, title, { ok: [202], warnings });
 }
 
 /** A Ref job of one item; both the lists and the pick page start one. */
-export function startRefJob({ seriesId, itemKind, itemId }: ItemRef): Promise<JsonReply<ToonJob | Refusal>> {
-  return startToonJob({ kind: "ref", series_id: seriesId, item_kind: itemKind, item_id: itemId });
+export function startRefJob({ seriesId, itemKind, itemId }: ItemRef, warnings: readonly string[] = []) {
+  const body = { kind: "ref", series_id: seriesId, item_kind: itemKind, item_id: itemId };
+  return startToonJob(body, "ยังสร้างภาพอ้างอิงไม่ได้", warnings);
 }
 
 /** A Ref job draws three pictures to pick from (D31). */

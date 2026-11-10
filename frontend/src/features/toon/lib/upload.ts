@@ -1,5 +1,6 @@
-import { sendFile, sendJson, type FileUpload } from "../../../lib/api";
+import { sendFile, type FileUpload } from "../../../lib/api";
 import type { Refusal } from "../../../lib/refusal";
+import { sendEdit } from "./edit";
 import { noticeOf, type Notice } from "./notice";
 
 /** A file the tab takes in through `{path}/check` (its `checkBody`), then `{path}?{query}` (ADR 0028). */
@@ -28,12 +29,8 @@ export async function sendChecked<T>(
   on: { started: (upload: FileUpload<T | Refusal>) => void; progress: (percent: number) => void },
 ): Promise<SendReply<T>> {
   const refused = (body: unknown): SendReply<T> => ({ kind: "refused", notice: noticeOf(title, body, warnings) });
-  try {
-    const check = await sendJson<Refusal>("POST", `${path}/check`, checkBody);
-    if (check.status !== 200) return refused(check.body);
-  } catch {
-    return refused(null);
-  }
+  const check = await sendEdit<unknown>("POST", `${path}/check`, checkBody, title, { ok: [200], warnings });
+  if (check.kind === "refused") return { kind: "refused", notice: check.notice };
   // Nothing to do once the whole body is out: the answer ends it.
   const upload = sendFile<T | Refusal>(`${path}?${query}`, file, on.progress, () => {});
   on.started(upload);

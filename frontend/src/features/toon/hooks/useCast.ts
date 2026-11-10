@@ -15,7 +15,7 @@ import {
 } from "../lib/series";
 import { sendEdit } from "../lib/edit";
 import { sendChecked } from "../lib/upload";
-import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
+import { NOT_NOW, type Notice } from "../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
 import { useReadyState } from "./useReadyState";
 
@@ -72,15 +72,11 @@ export function useCast(seriesId: string) {
 
   useLeaveGuard(useCallback(() => uploading.current, []));
 
-  const notify = (notice: Notice | null) => update((s) => ({ ...s, notice }));
-  const refused = (title: string, body: unknown, warnings: readonly string[] = []) =>
-    notify(noticeOf(title, body, warnings));
-
   /** Answers that carry the Series as it is now replace it; others become the notice. */
   const sendItem = async (method: string, path: string, body: unknown, title: string) => {
     const reply = await sendEdit<Series>(method, path, body, title);
-    update((s) => (reply.kind === "saved" ? { ...s, series: reply.value, notice: null } : { ...s, notice: reply.notice }));
-    return reply.kind === "saved";
+    update((s) => (reply.kind === "ok" ? { ...s, series: reply.value, notice: null } : { ...s, notice: reply.notice }));
+    return reply.kind === "ok";
   };
 
   const refOf = (kind: ItemKind, item: Item): ItemRef => ({ seriesId, itemKind: kind, itemId: item.id });
@@ -92,18 +88,10 @@ export function useCast(seriesId: string) {
     void sendItem("DELETE", itemPath(refOf(kind, item)), undefined, `ลบ ${item.name} ไม่ได้`);
 
   const startRef = async (kind: ItemKind, item: Item) => {
-    const title = "ยังสร้างภาพอ้างอิงไม่ได้";
-    try {
-      const ref = refOf(kind, item);
-      const reply = await startRefJob(ref);
-      if (reply.status === 202) {
-        window.location.hash = pickHash(ref);
-        return;
-      }
-      refused(title, reply.body, NOT_NOW);
-    } catch {
-      refused(title, null);
-    }
+    const ref = refOf(kind, item);
+    const reply = await startRefJob(ref, NOT_NOW);
+    if (reply.kind === "ok") window.location.hash = pickHash(ref);
+    else update((s) => ({ ...s, notice: reply.notice }));
   };
 
   const cancelJob = () => cancelToonJob((job) => update((s) => ({ ...s, job })));
