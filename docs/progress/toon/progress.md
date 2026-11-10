@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** feature review รอบสามจบ; smell ใหญ่สามข้อ (Blocked #22–24) รอตั๋วใหม่; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ตัด ticket 09 (Blocked #23, #24) และ 10 (Blocked #22) จาก smell ของ feature review รอบสาม; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom tickets toon
+/warroom-build toon 09
 ```
 
 ## Tickets
@@ -20,6 +20,8 @@
 | 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | done |
 | 07 | โครงงานของ toon และชื่อที่ชนกัน | done |
 | 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | done |
+| 09 | ItemRef และ fixture ของ test ที่ใช้ร่วม | ready |
+| 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | ready |
 
 ## Log
 
@@ -334,6 +336,6 @@
 | 19 | review | smell ที่ค้างจาก 05: `cards.run` สร้างตัวละครและฉากหลังใหม่เอง (ควรอยู่ `series`); `plot.writable` อ่าน `render.render_jobs.ep_use()` ตรงแทน `episodes.ep_jobs`; `process, requests, replies` เดินด้วยกัน (Data Clump); `ToonJobs.update`/`track`/`reply` แค่ส่งต่อ (Middle Man); เปิด klein (`Encode` แล้ว `Draw`) ซ้ำใน `refs.run` กับ `images.run`; `_running`/`series_use` ซ้ำระหว่าง `ToonJobs` กับ `RenderJobs` | `/warroom tickets toon` | done (ticket 07) |
 | 20 | review | ซ้ำ: เริ่ม child (start, `track`, `Ready`) ใน `start_qwen`/`start_klein`/`Speaker.start` และหยุด (`track(None)`, `stop_process`) 3 ที่ใน `steps.py` + `_free_gpu`; `on_progress` และ `_free_gpu` ของสอง render; map `ref_rev` สร้าง 3 ที่ (`images._ref_revs`, `render._cards_to_voice`, `cards.run`); `_plot_items` สองตัวที่ทำต่างกัน (`writer` ตัดทิ้ง, `episodes` raise); `(folder, name)` ใน `backend.renders` | `/warroom tickets toon` | done (ticket 08) |
 | 21 | review | ชื่อ: `kinds.Kind` (characters/backgrounds) ชนกับ `JobKind` จน body ต้องใช้ `item_kind` และ `{kind}` ใน route เป็นชนิดของ item; ตัวพูดเป็น `speaker` ใน `ToonJobs` แต่ `_speaker` ใน `RenderJobs`/`SentenceVoicer`; คอมเมนต์ "Step 1", "Steps 2–3" ไม่บอกว่าขั้นของ spec ส่วนไหน; `toon/__init__.py` re-export ไว้ให้ test patch | `/warroom tickets toon` | done (ticket 07) |
-| 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | open |
-| 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | open |
-| 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | open |
+| 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | → ticket 10 |
+| 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | → ticket 09 |
+| 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | → ticket 09 |
