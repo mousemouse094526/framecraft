@@ -11,6 +11,7 @@ import secrets
 import shutil
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import NamedTuple
 
 import anyio
 from pydantic import BaseModel
@@ -49,6 +50,17 @@ DEFAULTS: dict[str, dict] = {
         "tone": "เล่ากวนๆ จังหวะเร็ว มีมุกตบท้าย ประโยคสั้น",
     },
 }
+
+class ItemRef(NamedTuple):
+    """Which character or background of which Series: the address of one item (not its
+    reference picture) that each function of one item takes instead of its four parts.
+    Whether the item exists is checked by the function, under the store's lock."""
+
+    project: ProjectPaths
+    series_id: str
+    item_kind: ItemKind
+    item_id: str
+
 
 series_jobs: list[Callable[[], JobSlot]] = []
 """Each job slot of the tab, looked up as it is asked: the Series of its running job
@@ -236,28 +248,27 @@ def _taken_ids(series: Series) -> set[str]:
     return {item.id for item in [*series.characters, *series.backgrounds]}
 
 
-def change_item(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, body: dict) -> SeriesView:
-    fields = _item_fields(body, item_kind, partial=True)
+def change_item(item_ref: ItemRef, body: dict) -> SeriesView:
+    fields = _item_fields(body, item_ref.item_kind, partial=True)
     with store.lock:
-        series = require_series(project, series_id)
-        item = _item(series, item_kind, item_id)
+        series, item = _require_item(item_ref)
         for name, value in fields.items():
             setattr(item, name, value)
-        store.write_series(project, series)
-    return view(project, series_id)
+        store.write_series(item_ref.project, series)
+    return view(item_ref.project, item_ref.series_id)
 
 
-def delete_item(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str) -> SeriesView:
+def delete_item(item_ref: ItemRef) -> SeriesView:
     """An item a card, a segment or a plot of an EP uses can't go: `in_use` with those EPs (D25)."""
+    project, series_id = item_ref.project, item_ref.series_id
     with store.lock:
-        series = require_series(project, series_id)
-        item = _item(series, item_kind, item_id)
-        users = [EpRef(n=ep.n, title=ep.title) for ep in store.list_eps(project, series_id) if item_id in _used_items(ep)]
+        series, item = _require_item(item_ref)
+        users = [EpRef(n=ep.n, title=ep.title) for ep in store.list_eps(project, series_id) if item.id in _used_items(ep)]
         if users:
             raise ApiError(409, "in_use", "ยังมี EP ที่ใช้อยู่ ลบไม่ได้", eps=[ep.model_dump() for ep in users])
-        getattr(series, item_kind).remove(item)
+        getattr(series, item_ref.item_kind).remove(item)
         store.write_series(project, series)
-        _remove_ref_files(project, series_id, item_id)
+        _remove_ref_files(item_ref)
     return view(project, series_id)
 
 
@@ -274,30 +285,26 @@ def ref_revs(series: Series) -> dict[str, int]:
 class RefPlan(BaseModel):
     """What a Ref job draws, read once when it starts (spec › Ref job)."""
 
-    series_id: str
-    item_kind: ItemKind
-    item_id: str
+    item_ref: ItemRef
     name: str
     description: str
     style: str
     size: tuple[int, int]
 
 
-def ref_plan(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str) -> RefPlan:
+def ref_plan(item_ref: ItemRef) -> RefPlan:
     """Raises `ApiError` 404 `not_found` when the Series or the item isn't there."""
     with store.lock:
-        series = store.read_series(project, series_id)
-        item = find_item(series, item_kind, item_id) if series else None
+        series = store.read_series(item_ref.project, item_ref.series_id)
+        item = _item_or_none(series, item_ref) if series else None
         if item is None:
             raise ApiError(404, "not_found", "ไม่พบตัวละครหรือฉากหลังนี้")
         return RefPlan(
-            series_id=series_id,
-            item_kind=item_kind,
-            item_id=item_id,
+            item_ref=item_ref,
             name=item.name,
             description=item.description,
             style=series.style,
-            size=picture_size(series, item_kind),
+            size=picture_size(series, item_ref.item_kind),
         )
 
 
@@ -309,71 +316,68 @@ def picture_size(series: Series, item_kind: ItemKind) -> tuple[int, int]:
 # --- reference images ---
 
 
-def ref_image(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str) -> Path:
+def ref_image(item_ref: ItemRef) -> Path:
     with store.lock:
-        item = _item(require_series(project, series_id), item_kind, item_id)
-        path = project.refs_dir(series_id) / f"{item_id}-{item.ref_rev}.png"
+        _, item = _require_item(item_ref)
+        path = item_ref.project.refs_dir(item_ref.series_id) / f"{item.id}-{item.ref_rev}.png"
         if item.ref_rev == 0 or not path.is_file():
             raise ApiError(404, "not_found", "ยังไม่มีภาพอ้างอิง")
         return path
 
 
-def pending_image(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, n: int) -> Path:
+def pending_image(item_ref: ItemRef, n: int) -> Path:
     with store.lock:
-        _item(require_series(project, series_id), item_kind, item_id)
-        if not 1 <= n <= PICTURES or not _pending_complete(project, series_id, item_id):
+        _require_item(item_ref)
+        if not 1 <= n <= PICTURES or not _pending_complete(item_ref):
             raise ApiError(404, "no_pending", "ไม่มีภาพที่รอเลือก")
-        return pending_path(project, series_id, item_id, n)
+        return pending_path(item_ref, n)
 
 
-def pending_path(project: ProjectPaths, series_id: str, item_id: str, n: int) -> Path:
-    return project.pending_refs_dir(series_id) / f"{item_id}-{n}.png"
+def pending_path(item_ref: ItemRef, n: int) -> Path:
+    return item_ref.project.pending_refs_dir(item_ref.series_id) / f"{item_ref.item_id}-{n}.png"
 
 
-def put_pending(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, pictures: list[Path]) -> bool:
+def put_pending(item_ref: ItemRef, pictures: list[Path]) -> bool:
     """Moves a finished Ref job's pictures in as the item's one waiting set, replacing an
     older one. False when the item went meanwhile: the pictures are dropped."""
     with store.lock:
-        series = store.read_series(project, series_id)
-        if series is None or find_item(series, item_kind, item_id) is None:
+        series = store.read_series(item_ref.project, item_ref.series_id)
+        if series is None or _item_or_none(series, item_ref) is None:
             return False
-        project.pending_refs_dir(series_id).mkdir(parents=True, exist_ok=True)
+        item_ref.project.pending_refs_dir(item_ref.series_id).mkdir(parents=True, exist_ok=True)
         for n, picture in enumerate(pictures, start=1):
-            picture.replace(pending_path(project, series_id, item_id, n))
+            picture.replace(pending_path(item_ref, n))
         return True
 
 
-def pick(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, body: dict) -> SeriesView:
+def pick(item_ref: ItemRef, body: dict) -> SeriesView:
     """The picked picture becomes the reference image, `ref_rev` + 1; the old one and the
     rest of the set go (D31, D32)."""
     n = body.get("n")
     if not is_int(n) or not 1 <= n <= PICTURES:
         raise ApiError(400, "invalid_request", f"เลือกภาพที่ 1–{PICTURES}")
     with store.lock:
-        series = require_series(project, series_id)
-        _item(series, item_kind, item_id)
-        if not _pending_complete(project, series_id, item_id):
+        series, _ = _require_item(item_ref)
+        if not _pending_complete(item_ref):
             raise ApiError(404, "no_pending", "ไม่มีภาพที่รอเลือก")
-        _set_ref(project, series, item_kind, item_id, pending_path(project, series_id, item_id, n))
-    return view(project, series_id)
+        _set_ref(item_ref, series, pending_path(item_ref, n))
+    return view(item_ref.project, item_ref.series_id)
 
 
-def check_upload(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, body: dict) -> uploads.UploadCheck:
+def check_upload(item_ref: ItemRef, body: dict) -> uploads.UploadCheck:
     """The upload's checks before the page sends the body (ADR 0028)."""
-    return uploads.UploadCheck(size=_upload_checks(project, series_id, item_kind, item_id, body.get("size")))
+    return uploads.UploadCheck(size=_upload_checks(item_ref, body.get("size")))
 
 
-async def receive_upload(
-    project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, size: str | None, body: AsyncIterator[bytes]
-) -> SeriesView:
+async def receive_upload(item_ref: ItemRef, size: str | None, body: AsyncIterator[bytes]) -> SeriesView:
     """A PNG or JPEG of the user's becomes the reference image like a picked one (D31): a
     background cropped to its layout and sized as a card, a character's long side ≤ 1536."""
     expected = uploads.whole_number(size)
-    await anyio.to_thread.run_sync(_upload_checks, project, series_id, item_kind, item_id, expected)
-    partial = project.toon_partial_dir / f"{item_id}.{secrets.token_hex(4)}.upload"  # one per request
+    await anyio.to_thread.run_sync(_upload_checks, item_ref, expected)
+    partial = item_ref.project.toon_partial_dir / f"{item_ref.item_id}.{secrets.token_hex(4)}.upload"  # one per request
     try:
         await uploads.receive(body, partial, expected)
-        return await anyio.to_thread.run_sync(_take_upload, project, series_id, item_kind, item_id, partial)
+        return await anyio.to_thread.run_sync(_take_upload, item_ref, partial)
     finally:
         with anyio.CancelScope(shield=True):
             await anyio.to_thread.run_sync(lambda: partial.unlink(missing_ok=True))
@@ -391,15 +395,15 @@ def clean_on_start(project: ProjectPaths) -> None:
 # --- helpers ---
 
 
-def _upload_checks(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, size: object) -> int:
+def _upload_checks(item_ref: ItemRef, size: object) -> int:
     size = uploads.require_size(size, UPLOAD_MAX_BYTES, "ไฟล์ภาพใหญ่เกิน 20 MB")
     with store.lock:
-        _item(require_series(project, series_id), item_kind, item_id)
-    disk.require_free(project.root, size)
+        _require_item(item_ref)
+    disk.require_free(item_ref.project.root, size)
     return size
 
 
-def _take_upload(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, partial: Path) -> SeriesView:
+def _take_upload(item_ref: ItemRef, partial: Path) -> SeriesView:
     """In a thread: read the file with Pillow, size it, then set it as the reference."""
     from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -410,53 +414,54 @@ def _take_upload(project: ProjectPaths, series_id: str, item_kind: ItemKind, ite
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
         raise ApiError(400, "unsupported_file", "รับเฉพาะไฟล์ภาพ PNG หรือ JPEG") from None
     with store.lock:
-        series = require_series(project, series_id)
-        _item(series, item_kind, item_id)
-        side = KINDS[item_kind].upload_side
+        series, _ = _require_item(item_ref)
+        side = KINDS[item_ref.item_kind].upload_side
         if side is None:
-            image = ImageOps.fit(image, picture_size(series, item_kind), Image.Resampling.LANCZOS)
+            image = ImageOps.fit(image, picture_size(series, item_ref.item_kind), Image.Resampling.LANCZOS)
         else:
             image.thumbnail((side, side), Image.Resampling.LANCZOS)
         png = partial.with_suffix(".png")
         buffer = io.BytesIO()
         image.save(buffer, "PNG")
         png.write_bytes(buffer.getvalue())
-        _set_ref(project, series, item_kind, item_id, png)
-    log.info("uploaded the reference image of %s in %s", item_id, series_id)
-    return view(project, series_id)
+        _set_ref(item_ref, series, png)
+    log.info("uploaded the reference image of %s in %s", item_ref.item_id, item_ref.series_id)
+    return view(item_ref.project, item_ref.series_id)
 
 
-def _set_ref(project: ProjectPaths, series: Series, item_kind: ItemKind, item_id: str, picture: Path) -> None:
+def _set_ref(item_ref: ItemRef, series: Series, picture: Path) -> None:
     """`picture` becomes `{id}-{rev + 1}.png`; the old reference and any waiting set go.
     Call with the store's lock held."""
-    item = find_item(series, item_kind, item_id)
-    refs = project.refs_dir(series.id)
+    item = _item_or_none(series, item_ref)
+    refs = item_ref.project.refs_dir(series.id)
     refs.mkdir(parents=True, exist_ok=True)
-    old = refs / f"{item_id}-{item.ref_rev}.png"
+    old = refs / f"{item.id}-{item.ref_rev}.png"
     item.ref_rev += 1
-    picture.replace(refs / f"{item_id}-{item.ref_rev}.png")
-    store.write_series(project, series)
+    picture.replace(refs / f"{item.id}-{item.ref_rev}.png")
+    store.write_series(item_ref.project, series)
     old.unlink(missing_ok=True)
     for n in range(1, PICTURES + 1):
-        pending_path(project, series.id, item_id, n).unlink(missing_ok=True)
+        pending_path(item_ref, n).unlink(missing_ok=True)
 
 
-def _remove_ref_files(project: ProjectPaths, series_id: str, item_id: str) -> None:
+def _remove_ref_files(item_ref: ItemRef) -> None:
+    project, series_id = item_ref.project, item_ref.series_id
     for folder in (project.refs_dir(series_id), project.pending_refs_dir(series_id)):
         if folder.is_dir():
-            for path in folder.glob(f"{item_id}-*.png"):
+            for path in folder.glob(f"{item_ref.item_id}-*.png"):
                 path.unlink(missing_ok=True)
 
 
-def _pending_complete(project: ProjectPaths, series_id: str, item_id: str) -> bool:
-    return all(pending_path(project, series_id, item_id, n).is_file() for n in range(1, PICTURES + 1))
+def _pending_complete(item_ref: ItemRef) -> bool:
+    return all(pending_path(item_ref, n).is_file() for n in range(1, PICTURES + 1))
 
 
 def _pending_counts(project: ProjectPaths, series: Series) -> dict[str, int]:
     return {
         item.id: PICTURES
-        for item in [*series.characters, *series.backgrounds]
-        if _pending_complete(project, series.id, item.id)
+        for item_kind in KINDS
+        for item in getattr(series, item_kind)
+        if _pending_complete(ItemRef(project, series.id, item_kind, item.id))
     }
 
 
@@ -484,11 +489,18 @@ def require_series(project: ProjectPaths, series_id: str) -> Series:
     return series
 
 
-def _item(series: Series, item_kind: ItemKind, item_id: str) -> Character | Background:
-    item = find_item(series, item_kind, item_id)
+def _item_or_none(series: Series, item_ref: ItemRef) -> Character | Background | None:
+    return find_item(series, item_ref.item_kind, item_ref.item_id)
+
+
+def _require_item(item_ref: ItemRef) -> tuple[Series, Character | Background]:
+    """The stored Series and the item in it, or `ApiError` 404 `not_found` naming which
+    isn't there. Call with the store's lock held."""
+    series = require_series(item_ref.project, item_ref.series_id)
+    item = _item_or_none(series, item_ref)
     if item is None:
         raise ApiError(404, "not_found", "ไม่พบตัวละครหรือฉากหลังนี้")
-    return item
+    return series, item
 
 
 def _item_fields(body: dict, item_kind: ItemKind, partial: bool) -> dict:

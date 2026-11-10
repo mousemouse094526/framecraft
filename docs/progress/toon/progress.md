@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ตัด ticket 09 (Blocked #23, #24) และ 10 (Blocked #22) จาก smell ของ feature review รอบสาม; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** 09 จบ (`ItemRef`, `toon_api`); ต่อ 10 (state ที่ใช้ร่วมของ hook หน้าเว็บ, Blocked #22); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 09
+/warroom-build toon 10
 ```
 
 ## Tickets
@@ -20,10 +20,27 @@
 | 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | done |
 | 07 | โครงงานของ toon และชื่อที่ชนกัน | done |
 | 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | done |
-| 09 | ItemRef และ fixture ของ test ที่ใช้ร่วม | ready |
+| 09 | ItemRef และ fixture ของ test ที่ใช้ร่วม | done |
 | 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | ready |
 
 ## Log
+
+### 09: ItemRef และ fixture ของ test ที่ใช้ร่วม — done 2026-11-10
+
+**Built:**
+- `series.ItemRef(project, series_id, item_kind, item_id)`: `change_item`, `delete_item`, `ref_plan`, `ref_image`, `pending_image`, `pending_path`, `put_pending`, `pick`, `check_upload`, `receive_upload` และ helper รับค่าเดียว; `_require_item` (Series และ item หรือ `404` เดิม) แทน `_item(require_series(...))` เจ็ดที่; `RefPlan.item_ref`
+- `routes/toon.py`: dependency `item_ref` สร้าง `ItemRef` จาก path ครั้งเดียวใน 7 route ที่มี `{item_id}`; `refs.plan` สร้างจาก body
+- test: `fakes.toon_api(answers, tts_seconds=, uses=)` คืน `llm`, `klein`, `tts`, `client` ของไฟล์ test API ของ toon ทั้งหก; `TOON_VOICE`, `write_toon_voice` ย้ายไป `fakes.py`; probe yt-dlp/Deno อยู่ใน fixture `adapter`; conftest มีแค่ `fake_root`
+- test ใหม่: 7 route ของ item หนึ่งตัว `404` ข้อความเดิมเมื่อไม่มี Series หรือไม่มี item (ผ่านกับโค้ดก่อนแก้ด้วย); ภาพที่รอเลือกใน test อ่านผ่าน API
+- spec › Modules touched, `fastapi-api` SKILL.md, `rules/testing.md`
+
+**Decided:**
+- D64 — `series.ItemRef`, dependency `item_ref`, `_require_item`, `fakes.toon_api`
+
+**For the next ticket:**
+- review ไม่แก้ (ตั้งใจ): `refs.run`/`WORK.ready`/`clean_up` ยังรับ `project` แยกจาก `plan.item_ref.project` (รูปของ `steps.Work` ที่ทุก kind ใช้); `uses=` ของ `toon_api` เป็นชื่อ fixture แบบ string (`getfixturevalue`, docstring บอก); path ของภาพอ้างอิงยังต่อสตริงใน `series` ไม่ได้เป็น method ของ `ItemRef`; `ItemRef` คู่กับ `EpRef` ชื่อคล้ายกัน (ticket ตั้งชื่อ `ItemRef`, docstring บอกว่าเป็นที่อยู่ของ item ไม่ใช่ภาพอ้างอิง)
+
+**Checks:** `uv run pytest` 1055 passed (+7 test ใหม่); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 401 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `3a639c3`: Standards 2 ข้อผิดกติกา (แก้: `test_toon_series_api.py` ใช้ `toon_api`, คำว่า "plain helpers" ใน testing.md) + smell (แก้: `_require_item` แทนเจ็ดที่, `_find` → `_item_or_none`, อ่าน field แทนแกะ tuple ตามลำดับ, type ของ `toon_api`), Spec ไม่มีข้อหนัก (แก้: test อ่านภาพที่รอเลือกผ่าน API ไม่ผ่าน `ItemRef`, D64 บอกที่ที่แปดคือ `refs.plan`), Newcomer สรุปตรง What to build (แก้: docstring `ItemRef` ว่าเป็นที่อยู่ ไม่ใช่ภาพอ้างอิงและไม่ใช่แค่จาก path, ชื่อ `_item_or_none`/`_require_item`, docstring `toon_api` ว่าต้องคงชื่อ fixture, ตัด "`series` the stored one")
 
 ### Feature review (รอบสาม) — done 2026-11-10
 
@@ -337,5 +354,5 @@
 | 20 | review | ซ้ำ: เริ่ม child (start, `track`, `Ready`) ใน `start_qwen`/`start_klein`/`Speaker.start` และหยุด (`track(None)`, `stop_process`) 3 ที่ใน `steps.py` + `_free_gpu`; `on_progress` และ `_free_gpu` ของสอง render; map `ref_rev` สร้าง 3 ที่ (`images._ref_revs`, `render._cards_to_voice`, `cards.run`); `_plot_items` สองตัวที่ทำต่างกัน (`writer` ตัดทิ้ง, `episodes` raise); `(folder, name)` ใน `backend.renders` | `/warroom tickets toon` | done (ticket 08) |
 | 21 | review | ชื่อ: `kinds.Kind` (characters/backgrounds) ชนกับ `JobKind` จน body ต้องใช้ `item_kind` และ `{kind}` ใน route เป็นชนิดของ item; ตัวพูดเป็น `speaker` ใน `ToonJobs` แต่ `_speaker` ใน `RenderJobs`/`SentenceVoicer`; คอมเมนต์ "Step 1", "Steps 2–3" ไม่บอกว่าขั้นของ spec ส่วนไหน; `toon/__init__.py` re-export ไว้ให้ test patch | `/warroom tickets toon` | done (ticket 07) |
 | 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | → ticket 10 |
-| 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | → ticket 09 |
-| 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | → ticket 09 |
+| 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | done (ticket 09) |
+| 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | done (ticket 09) |

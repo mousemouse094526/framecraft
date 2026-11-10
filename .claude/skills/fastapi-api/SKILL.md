@@ -100,6 +100,8 @@ backend/
 │                    one row each: code that handles both reads it, never
 │                    `kind == "characters"`), series (Series, characters,
 │                    backgrounds, reference pictures and their uploads,
+│                    `ItemRef` (one item: project, Series, kind, id; what
+│                    every function of one item and its routes take),
 │                    `in_use`, `new_items` of a plot, `ref_revs`; `series_jobs`, each job
 │                    slot, whose running job's Series can't go), episodes
 │                    (EPs, their plot (`plot_items`, the user's or Qwen's),

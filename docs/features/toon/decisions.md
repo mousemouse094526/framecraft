@@ -891,6 +891,23 @@
 
 **From:** feature review · **Status:** active
 
+## D64: `series.ItemRef` และ `toon_api` ของ test ticket 09
+
+**Chosen:**
+- `series.ItemRef(project, series_id, item_kind, item_id)` (`NamedTuple`) ค่าเดียวของตัวละครหรือฉากหลังหนึ่งตัว: `change_item`, `delete_item`, `ref_plan`, `ref_image`, `pending_image`, `pending_path`, `put_pending`, `pick`, `check_upload`, `receive_upload` และ helper ข้างในรับตัวนี้; `RefPlan.item_ref` แทน `series_id`/`item_kind`/`item_id`; ไม่เช็คว่ามีอยู่ตอนสร้าง (ฟังก์ชันเช็คเองใต้ `store.lock` เหมือนเดิม)
+- `routes/toon.py` สร้าง `ItemRef` จาก path ครั้งเดียวด้วย dependency `item_ref` (`Depends`) ใน 7 route ที่มี `{item_id}`; ที่ที่แปดที่สร้างคือ `refs.plan` จาก body ของ Ref job (ticket เขียน 8 route; `add_item` ไม่มี `item_id`); helper `_require_item` คืน Series และ item หรือ `404` ข้อความเดิม
+- `ItemRef` อยู่ใน `toon/series.py`: ผู้ใช้คือ `series`, `refs` และ route ของ toon feature เดียว ("Where shared code goes")
+- test: `fakes.toon_api(answers, tts_seconds=, uses=)` คืน fixture `llm`, `klein`, `tts`, `client` ที่ไฟล์ test API ของ toon ทั้งหกใช้ (ห้าไฟล์ของตั๋ว และ `test_toon_series_api.py`; `answers` None = คำตอบเดิมของ `FakeLlm`) (`llm, klein, tts, client = toon_api(...)`); `uses` คือ fixture ของไฟล์เองที่ client ต้องตั้งก่อน (`renderer`, `adapter`); `client` ตั้ง `sound_imports` ใหม่ทุกไฟล์; probe ของ yt-dlp และ Deno ย้ายเข้า fixture `adapter`; `TOON_VOICE` และ `write_toon_voice` ย้ายจาก `test_toon_series_api.py` ไป `fakes.py`
+
+**Why:** Blocked #23, #24: Data Clump สี่ค่าเดินด้วยกันใน 10 ฟังก์ชันและ 7 route; fixture เกือบซ้ำห้าไฟล์ ต่างกันแค่คำตอบของ Qwen, ความยาวเสียง และ fixture ที่ต้องมีก่อน. `NamedTuple` เหมือน `EpUse`, `KindRow`.
+
+**Rejected:**
+- fixture ใน `conftest.py` — conftest มีแค่ `fake_root` (rules › testing)
+- `ItemRef` ไม่มี `project` — ticket ให้สี่ค่าเป็นค่าเดียว และ route อ่าน `paths.project()` ทุก request อยู่แล้ว
+- `ItemRef` ที่ `backend/` ชั้นบน — ไม่มี feature ที่สองใช้
+
+**From:** build ticket 09 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

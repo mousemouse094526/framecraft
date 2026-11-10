@@ -7,18 +7,18 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import checks, gpu, paths, spoil_maker
+from backend import checks, gpu
 from backend.app import app
 from backend.errors import ApiError
 from backend.models import KLEIN, OMNIVOICE
 from backend.paths import ProjectPaths
-from backend.toon import images, jobs, series
+from backend.toon import images, series
 from backend.toon.klein import Draw, Encode
 
-from .fakes import FakeKlein, FakeLlm, FakeTts, cuda_device, ok_ffmpeg, poll_until
+from .fakes import FakeKlein, poll_until, toon_api, write_toon_voice
 from .test_toon_eps_api import Writer, cards_of, new_ep, run
 from .test_toon_ref_api import png, upload
-from .test_toon_series_api import create, write_voice
+from .test_toon_series_api import create
 
 SERIES = "/api/toon/series"
 EPS = "/api/toon/eps"
@@ -33,6 +33,9 @@ def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
 
 
+llm, klein, tts, client = toon_api(lambda: Translator().respond)
+
+
 class Translator(Writer):
     """Qwen as the Plot and Cards jobs ask it, and as the Image job asks for a card's scene."""
 
@@ -44,39 +47,6 @@ class Translator(Writer):
         if '"scene"' in request.prompt:
             return self.scene(request)
         return super().respond(request)
-
-
-@pytest.fixture
-def llm(monkeypatch) -> FakeLlm:
-    fake = FakeLlm()
-    fake.respond = Translator().respond
-    monkeypatch.setattr(spoil_maker, "start_worker", fake)
-    return fake
-
-
-@pytest.fixture
-def klein(monkeypatch) -> FakeKlein:
-    fake = FakeKlein()
-    monkeypatch.setattr("backend.toon.klein.start_worker", fake)
-    return fake
-
-
-@pytest.fixture
-def tts(monkeypatch) -> FakeTts:
-    fake = FakeTts()
-    monkeypatch.setattr(spoil_maker, "start_tts_worker", fake)
-    return fake
-
-
-@pytest.fixture
-def client(fake_root, llm, klein, tts, monkeypatch):
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
-    monkeypatch.setattr(checks, "probe_device", cuda_device)
-    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
-    monkeypatch.setattr(jobs, "toon_jobs", jobs.ToonJobs())
-    write_voice(ProjectPaths(fake_root))
-    return TestClient(app, base_url="http://127.0.0.1")
 
 
 def add(client, series_id: str, kind: str, name: str, with_ref: bool = True) -> str:
@@ -449,7 +419,7 @@ def test_a_new_voice_for_the_ep_or_a_changed_text_makes_a_card_s_audio_stale(cli
     first, _, third, *_ = cards_of(ep)
     voice(client, ep["id"], first["id"])
     voice(client, ep["id"], third["id"])
-    write_voice(project, "v_00000002")
+    write_toon_voice(project, "v_00000002")
 
     client.patch(f"{EPS}/{ep['id']}/cards/{third['id']}", json={"text": "คืนนั้นฝนตก"})
     after_text = cards_of(get_ep(client, ep["id"]))

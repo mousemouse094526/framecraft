@@ -1,4 +1,5 @@
-"""Fake project roots and probes shared by the backend tests."""
+"""Fake project roots, probes and models shared by the backend tests, and the fixtures
+of the toon API tests (`toon_api`)."""
 
 import dataclasses
 import json
@@ -10,7 +11,11 @@ from pathlib import Path
 
 import anyio
 import httpx
+import pytest
+from fastapi.testclient import TestClient
 
+from backend import checks, gpu, paths, spoil_maker
+from backend.app import app
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
@@ -18,6 +23,7 @@ from backend.workers import Worker
 from backend.spoil import clips
 from backend.spoil.mp4check import Mp4Info, NotPlayable
 from backend.spoil.whisper import Done, Segment
+from backend.toon import jobs, sounds
 
 
 
@@ -814,3 +820,62 @@ async def play(upload: Upload, name: str, size: int, path: str = "/api/spoil/imp
     status = next((m["status"] for m in sent if m["type"] == "http.response.start"), None)
     body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
     return status, json.loads(body) if body else None
+
+
+# --- toon API tests ---
+
+TOON_VOICE = "v_8f2c01ab"
+
+
+def write_toon_voice(project: ProjectPaths, voice_id: str = TOON_VOICE) -> None:
+    """A Saved voice a Series can be made with."""
+    project.voices_dir.mkdir(parents=True, exist_ok=True)
+    stored = {"name": "เสียง", "kind": "design", "speed": 1.0, "chars_per_s": 15.0, "created_at": "2026-11-02T10:00:00+07:00"}
+    (project.voices_dir / f"{voice_id}.json").write_text(json.dumps(stored), encoding="utf-8")
+    (project.voices_dir / f"{voice_id}.wav").write_bytes(b"wav")
+    (project.voices_dir / f"{voice_id}.pt").write_bytes(b"pt")
+
+
+def toon_api(
+    answers: Callable[[], Callable[[object], str]] | None = None, *, tts_seconds: float = 2.0, uses: tuple[str, ...] = ()
+) -> tuple[Callable, Callable, Callable, Callable]:
+    """The `llm`, `klein`, `tts` and `client` fixtures of a toon API test file. The file keeps
+    them under those names, as pytest finds a fixture by its module-level name:
+    `llm, klein, tts, client = toon_api(...)`. `answers()` makes a fresh `FakeLlm.respond` for
+    each test (None: FakeLlm's own); `uses` names fixtures of the file itself that `client`
+    sets up first (`renderer`, a stand-in ffmpeg; `adapter`, yt-dlp)."""
+    @pytest.fixture(name="llm")
+    def llm_fixture(monkeypatch) -> FakeLlm:
+        fake = FakeLlm()
+        if answers is not None:
+            fake.respond = answers()
+        monkeypatch.setattr(spoil_maker, "start_worker", fake)
+        return fake
+
+    @pytest.fixture(name="klein")
+    def klein_fixture(monkeypatch) -> FakeKlein:
+        fake = FakeKlein()
+        monkeypatch.setattr("backend.toon.klein.start_worker", fake)
+        return fake
+
+    @pytest.fixture(name="tts")
+    def tts_fixture(monkeypatch) -> FakeTts:
+        fake = FakeTts()
+        fake.seconds = tts_seconds
+        monkeypatch.setattr(spoil_maker, "start_tts_worker", fake)
+        return fake
+
+    @pytest.fixture(name="client")
+    def client_fixture(fake_root, llm, klein, tts, monkeypatch, request) -> TestClient:
+        for name in uses:
+            request.getfixturevalue(name)
+        monkeypatch.setattr(paths, "ROOT", fake_root)
+        monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
+        monkeypatch.setattr(checks, "probe_device", cuda_device)
+        monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
+        monkeypatch.setattr(jobs, "toon_jobs", jobs.ToonJobs())
+        monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports())
+        write_toon_voice(ProjectPaths(fake_root))
+        return TestClient(app, base_url="http://127.0.0.1")
+
+    return llm_fixture, klein_fixture, tts_fixture, client_fixture

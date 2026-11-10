@@ -7,15 +7,15 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend import checks, gpu, paths, spoil_maker
+from backend import gpu
 from backend.app import app
 from backend.models import KLEIN
 from backend.paths import ProjectPaths
-from backend.toon import jobs, series
+from backend.toon import series
 from backend.toon.klein import Draw, Encode
 
-from .fakes import FakeKlein, FakeLlm, cuda_device, ok_ffmpeg, poll_until
-from .test_toon_series_api import create, write_voice
+from .fakes import poll_until, toon_api
+from .test_toon_series_api import create
 
 SERIES = "/api/toon/series"
 JOBS = "/api/toon/jobs"
@@ -28,30 +28,11 @@ def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
 
 
-@pytest.fixture
-def llm(monkeypatch) -> FakeLlm:
-    fake = FakeLlm()
-    fake.respond = lambda request: '{"scene": "A boy with short black hair in a navy shirt."}'
-    monkeypatch.setattr(spoil_maker, "start_worker", fake)
-    return fake
+def scene(request) -> str:
+    return '{"scene": "A boy with short black hair in a navy shirt."}'
 
 
-@pytest.fixture
-def klein(monkeypatch) -> FakeKlein:
-    fake = FakeKlein()
-    monkeypatch.setattr("backend.toon.klein.start_worker", fake)
-    return fake
-
-
-@pytest.fixture
-def client(fake_root, llm, klein, monkeypatch):
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
-    monkeypatch.setattr(checks, "probe_device", cuda_device)
-    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
-    monkeypatch.setattr(jobs, "toon_jobs", jobs.ToonJobs())
-    write_voice(ProjectPaths(fake_root))
-    return TestClient(app, base_url="http://127.0.0.1")
+llm, klein, tts, client = toon_api(lambda: scene)
 
 
 def add_item(client, series_id: str, kind: str = "characters", **body) -> dict:
@@ -75,6 +56,13 @@ def gpu_is_free() -> bool:
         return False
     gpu.slot.release("describe")
     return True
+
+
+def waiting_picture(client, series_id: str, item_id: str, n: int) -> bytes:
+    """Picture `n` of a character's waiting set, as the page gets it."""
+    response = client.get(f"{SERIES}/{series_id}/characters/{item_id}/ref/pending/{n}")
+    assert response.status_code == 200, response.json()
+    return response.content
 
 
 def with_pending(client) -> tuple[str, str]:
@@ -227,6 +215,26 @@ def test_a_ref_job_on_a_full_disk_while_the_gpu_is_taken_is_gpu_busy(client, mon
     assert (response.status_code, response.json()["code"]) == (409, "gpu_busy")
 
 
+ITEM_ROUTES = [
+    ("patch", "", {"json": {"name": "พี่ต้น"}}),
+    ("delete", "", {}),
+    ("get", "/ref", {}),
+    ("get", "/ref/pending/1", {}),
+    ("post", "/ref/pick", {"json": {"n": 1}}),
+    ("post", "/ref/upload/check", {"json": {"size": 10}}),
+    ("post", "/ref/upload?size=10", {"content": b"x" * 10, "headers": {"Content-Type": "application/octet-stream"}}),
+]
+
+
+@pytest.mark.parametrize(("method", "tail", "send"), ITEM_ROUTES)
+def test_every_route_of_one_item_is_not_found_for_a_series_or_an_item_that_isn_t_there(client, method, tail, send):
+    series_id = create(client)["id"]
+    no_series = client.request(method, f"{SERIES}/s_00000000/characters/c_00000000{tail}", **send)
+    no_item = client.request(method, f"{SERIES}/{series_id}/characters/c_00000000{tail}", **send)
+    assert (no_series.status_code, no_series.json()) == (404, {"code": "not_found", "message": "ไม่พบ Series นี้"})
+    assert (no_item.status_code, no_item.json()) == (404, {"code": "not_found", "message": "ไม่พบตัวละครหรือฉากหลังนี้"})
+
+
 def test_a_ref_job_for_an_item_that_isn_t_there_is_not_found(client):
     series_id = create(client)["id"]
 
@@ -271,7 +279,7 @@ def test_a_new_ref_job_of_the_same_item_replaces_the_waiting_set(client, klein, 
     start_ref(client, series_id, item_id)
     wait_for_end(client)
 
-    waiting = [series.pending_path(project, series_id, item_id, n).read_bytes() for n in (1, 2, 3)]
+    waiting = [waiting_picture(client, series_id, item_id, n) for n in (1, 2, 3)]
 
     second_job = [f"png {draw.seed}".encode() for draw in klein.requests[5:]]
     assert waiting == second_job
@@ -283,7 +291,7 @@ def test_a_new_ref_job_of_the_same_item_replaces_the_waiting_set(client, klein, 
 
 def test_picking_makes_the_picture_the_reference_and_clears_the_set(client, project):
     series_id, item_id = with_pending(client)
-    second = series.pending_path(project, series_id, item_id, 2).read_bytes()
+    second = waiting_picture(client, series_id, item_id, 2)
 
     response = client.post(f"{SERIES}/{series_id}/characters/{item_id}/ref/pick", json={"n": 2})
 
@@ -324,12 +332,13 @@ def test_picking_outside_one_to_three_is_invalid_request(client, n):
     assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
 
 
-def test_a_waiting_picture_is_served_by_its_number(client, project):
+def test_a_waiting_picture_is_served_by_its_number(client, klein):
     series_id, item_id = with_pending(client)
 
     response = client.get(f"{SERIES}/{series_id}/characters/{item_id}/ref/pending/3")
 
-    assert response.content == series.pending_path(project, series_id, item_id, 3).read_bytes()
+    draws = [request for request in klein.requests if isinstance(request, Draw)]
+    assert response.content == f"png {draws[2].seed}".encode()
 
 
 def test_a_backend_start_clears_every_waiting_set(client, project):

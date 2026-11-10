@@ -10,17 +10,14 @@ import anyio
 import deno
 import imageio_ffmpeg
 import pytest
-from fastapi.testclient import TestClient
 
-from backend import checks, ffmpeg, gpu, paths, spoil, spoil_maker
-from backend.app import app
+from backend import checks, ffmpeg, spoil
 from backend.paths import ProjectPaths
 from backend.spoil.adapter import DownloadOptions, YtDlpAdapter, select_formats
-from backend.toon import jobs, sounds, store
+from backend.toon import sounds, store
 
-from .fakes import FakeAdapter, FakeLlm, Upload, cuda_device, ok_deno, ok_ffmpeg, ok_yt_dlp, play, poll_until, youtube_info
+from .fakes import FakeAdapter, Upload, ok_deno, ok_yt_dlp, play, poll_until, toon_api, youtube_info
 from .test_toon_eps_api import Writer, cards_of, new_ep, run, start, with_series
-from .test_toon_series_api import write_voice
 
 SOUNDS = "/api/toon/sounds"
 IMPORT = "/api/toon/sounds/import/current"
@@ -32,33 +29,17 @@ def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
 
 
-@pytest.fixture
-def llm(monkeypatch) -> FakeLlm:
-    fake = FakeLlm()
-    fake.respond = Writer().respond
-    monkeypatch.setattr(spoil_maker, "start_worker", fake)
-    return fake
+llm, klein, tts, client = toon_api(lambda: Writer().respond, uses=("adapter",))
 
 
 @pytest.fixture
 def adapter(monkeypatch, tmp_path_factory) -> FakeAdapter:
+    """yt-dlp, and the Status check rows a link needs, ready."""
     fake = LinkAdapter(tone(tmp_path_factory.mktemp("link") / "tone.webm", 2))
     monkeypatch.setattr(spoil, "adapter", fake)
-    return fake
-
-
-@pytest.fixture
-def client(fake_root, llm, adapter, monkeypatch):
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
     monkeypatch.setattr(checks, "probe_yt_dlp", ok_yt_dlp)
     monkeypatch.setattr(checks, "probe_deno", ok_deno)
-    monkeypatch.setattr(checks, "probe_device", cuda_device)
-    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
-    monkeypatch.setattr(jobs, "toon_jobs", jobs.ToonJobs())
-    monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports())
-    write_voice(ProjectPaths(fake_root))
-    return TestClient(app, base_url="http://127.0.0.1")
+    return fake
 
 
 class LinkAdapter(FakeAdapter):

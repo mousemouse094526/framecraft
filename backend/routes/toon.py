@@ -9,11 +9,16 @@ from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
 from backend.toon.render import RenderResult, ToonRenderJob
 from backend.toon.kinds import ItemKind
-from backend.toon.series import ListedSeries, SeriesView
+from backend.toon.series import ItemRef, ListedSeries, SeriesView
 from backend.toon.sounds import SoundImport, SoundView
 from backend.uploads import UploadCheck
 
 router = APIRouter(prefix="/toon")
+
+
+def item_ref(series_id: str, item_kind: ItemKind, item_id: str) -> ItemRef:
+    """The character or background a `/series/{series_id}/{item_kind}/{item_id}` path names."""
+    return ItemRef(paths.project(), series_id, item_kind, item_id)
 
 
 @router.get("/series")
@@ -59,40 +64,40 @@ def add_item(series_id: str, item_kind: ItemKind, body: dict[str, Any]) -> Serie
 
 
 @router.patch("/series/{series_id}/{item_kind}/{item_id}")
-def change_item(series_id: str, item_kind: ItemKind, item_id: str, body: dict[str, Any]) -> SeriesView:
-    return series.change_item(paths.project(), series_id, item_kind, item_id, body)
+def change_item(body: dict[str, Any], item: ItemRef = Depends(item_ref)) -> SeriesView:
+    return series.change_item(item, body)
 
 
 @router.delete("/series/{series_id}/{item_kind}/{item_id}")
-def delete_item(series_id: str, item_kind: ItemKind, item_id: str) -> SeriesView:
-    return series.delete_item(paths.project(), series_id, item_kind, item_id)
+def delete_item(item: ItemRef = Depends(item_ref)) -> SeriesView:
+    return series.delete_item(item)
 
 
 @router.get("/series/{series_id}/{item_kind}/{item_id}/ref")
-def get_ref(series_id: str, item_kind: ItemKind, item_id: str) -> FileResponse:
-    return FileResponse(series.ref_image(paths.project(), series_id, item_kind, item_id), media_type="image/png")
+def get_ref(item: ItemRef = Depends(item_ref)) -> FileResponse:
+    return FileResponse(series.ref_image(item), media_type="image/png")
 
 
 @router.get("/series/{series_id}/{item_kind}/{item_id}/ref/pending/{n}")
-def get_pending_ref(series_id: str, item_kind: ItemKind, item_id: str, n: int) -> FileResponse:
-    return FileResponse(series.pending_image(paths.project(), series_id, item_kind, item_id, n), media_type="image/png")
+def get_pending_ref(n: int, item: ItemRef = Depends(item_ref)) -> FileResponse:
+    return FileResponse(series.pending_image(item, n), media_type="image/png")
 
 
 @router.post("/series/{series_id}/{item_kind}/{item_id}/ref/pick")
-def pick_ref(series_id: str, item_kind: ItemKind, item_id: str, body: dict[str, Any]) -> SeriesView:
-    return series.pick(paths.project(), series_id, item_kind, item_id, body)
+def pick_ref(body: dict[str, Any], item: ItemRef = Depends(item_ref)) -> SeriesView:
+    return series.pick(item, body)
 
 
 @router.post("/series/{series_id}/{item_kind}/{item_id}/ref/upload/check")
-def check_ref_upload(series_id: str, item_kind: ItemKind, item_id: str, body: dict[str, Any]) -> UploadCheck:
-    return series.check_upload(paths.project(), series_id, item_kind, item_id, body)
+def check_ref_upload(body: dict[str, Any], item: ItemRef = Depends(item_ref)) -> UploadCheck:
+    return series.check_upload(item, body)
 
 
 @router.post("/series/{series_id}/{item_kind}/{item_id}/ref/upload", dependencies=[Depends(body_types.require_octet_stream)])
-async def upload_ref(request: Request, series_id: str, item_kind: ItemKind, item_id: str, size: str | None = None) -> SeriesView:
+async def upload_ref(request: Request, size: str | None = None, item: ItemRef = Depends(item_ref)) -> SeriesView:
     """The body is the picture itself (ADR 0028); `size` stays text so the module answers a
     bad one with `invalid_request`."""
-    return await series.receive_upload(paths.project(), series_id, item_kind, item_id, size, request.stream())
+    return await series.receive_upload(item, size, request.stream())
 
 
 @router.get("/eps/{ep_id}")

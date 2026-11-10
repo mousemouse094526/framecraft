@@ -5,15 +5,12 @@ import logging
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from backend import gpu, paths
-from backend.app import app
 from backend.paths import ProjectPaths
-from backend.toon import jobs
+
+from .fakes import TOON_VOICE, toon_api
 
 GOLDEN = Path(__file__).parent / "golden"
-VOICE = "v_8f2c01ab"
 SERIES = "/api/toon/series"
 
 
@@ -22,25 +19,11 @@ def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
 
 
-@pytest.fixture
-def client(fake_root, monkeypatch):
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
-    monkeypatch.setattr(jobs, "toon_jobs", jobs.ToonJobs())
-    write_voice(ProjectPaths(fake_root))
-    return TestClient(app, base_url="http://127.0.0.1")
-
-
-def write_voice(project: ProjectPaths, voice_id: str = VOICE) -> None:
-    project.voices_dir.mkdir(parents=True, exist_ok=True)
-    stored = {"name": "เสียง", "kind": "design", "speed": 1.0, "chars_per_s": 15.0, "created_at": "2026-11-02T10:00:00+07:00"}
-    (project.voices_dir / f"{voice_id}.json").write_text(json.dumps(stored), encoding="utf-8")
-    (project.voices_dir / f"{voice_id}.wav").write_bytes(b"wav")
-    (project.voices_dir / f"{voice_id}.pt").write_bytes(b"pt")
+llm, klein, tts, client = toon_api()
 
 
 def create(client, **changes) -> dict:
-    body = {"name": "รุ่นพี่เล่าว่า…", "channel_name": "รุ่นพี่เล่าว่า", "layout": "frame", "genre": "horror", "voice_id": VOICE}
+    body = {"name": "รุ่นพี่เล่าว่า…", "channel_name": "รุ่นพี่เล่าว่า", "layout": "frame", "genre": "horror", "voice_id": TOON_VOICE}
     response = client.post(SERIES, json=body | changes)
     assert response.status_code == 201, response.json()
     return response.json()
@@ -49,7 +32,7 @@ def create(client, **changes) -> dict:
 def write_ep(project: ProjectPaths, series_id: str, ep_id: str, n: int, title: str) -> None:
     folder = project.series_dir(series_id) / "eps" / ep_id
     folder.mkdir(parents=True)
-    ep = {"version": 1, "id": ep_id, "n": n, "idea": "ไอเดีย", "title": title, "voice_id": VOICE, "acts": []}
+    ep = {"version": 1, "id": ep_id, "n": n, "idea": "ไอเดีย", "title": title, "voice_id": TOON_VOICE, "acts": []}
     (folder / "ep.json").write_text(json.dumps(ep), encoding="utf-8")
 
 
@@ -79,7 +62,7 @@ def test_a_new_series_takes_the_style_tone_and_acts_it_is_sent_in_place_of_its_g
 
 
 def test_a_new_series_with_no_acts_is_invalid_request(client):
-    response = client.post(SERIES, json={"name": "ช่อง", "layout": "frame", "genre": "horror", "voice_id": VOICE, "acts": []})
+    response = client.post(SERIES, json={"name": "ช่อง", "layout": "frame", "genre": "horror", "voice_id": TOON_VOICE, "acts": []})
 
     assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
 
@@ -147,7 +130,7 @@ def test_a_confirmed_delete_removes_the_series_folder_and_keeps_the_saved_voice_
 
     assert response.status_code == 204
     assert not project.series_dir(series["id"]).exists()
-    assert (project.voices_dir / f"{VOICE}.json").is_file()
+    assert (project.voices_dir / f"{TOON_VOICE}.json").is_file()
     assert sound.read_bytes() == b"sound"
     assert client.get(f"{SERIES}/{series['id']}").status_code == 404
 
@@ -155,7 +138,7 @@ def test_a_confirmed_delete_removes_the_series_folder_and_keeps_the_saved_voice_
 def test_a_saved_voice_a_series_uses_can_t_be_deleted(client):
     create(client)
 
-    response = client.delete(f"/api/spoil-maker/voices/{VOICE}")
+    response = client.delete(f"/api/spoil-maker/voices/{TOON_VOICE}")
 
     assert (response.status_code, response.json()["code"]) == (409, "voice_in_use")
 

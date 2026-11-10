@@ -5,19 +5,17 @@ import json
 import threading
 
 import pytest
-from fastapi.testclient import TestClient
 
-from backend import checks, gpu, paths, spoil_maker
-from backend.app import app
+from backend import gpu
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.spoil_maker import thai
-from backend.toon import jobs, store
+from backend.toon import store
 from backend.toon.series import DESCRIPTION_MAX
 from backend.toon.store import Audio, CardImage
 
-from .fakes import FakeLlm, cuda_device, ok_ffmpeg, os_timeouts, poll_until
-from .test_toon_series_api import VOICE, create, write_voice
+from .fakes import TOON_VOICE, os_timeouts, poll_until, toon_api, write_toon_voice
+from .test_toon_series_api import create
 
 SERIES = "/api/toon/series"
 JOBS = "/api/toon/jobs"
@@ -30,23 +28,7 @@ def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
 
 
-@pytest.fixture
-def llm(monkeypatch) -> FakeLlm:
-    fake = FakeLlm()
-    fake.respond = Writer().respond
-    monkeypatch.setattr(spoil_maker, "start_worker", fake)
-    return fake
-
-
-@pytest.fixture
-def client(fake_root, llm, monkeypatch):
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
-    monkeypatch.setattr(checks, "probe_device", cuda_device)
-    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
-    monkeypatch.setattr(jobs, "toon_jobs", jobs.ToonJobs())
-    write_voice(ProjectPaths(fake_root))
-    return TestClient(app, base_url="http://127.0.0.1")
+llm, klein, tts, client = toon_api(lambda: Writer().respond)
 
 
 class Writer:
@@ -156,7 +138,7 @@ def test_the_first_ep_is_1_and_a_new_one_after_a_delete_is_past_the_highest_ever
     assert client.delete(f"/api/toon/eps/{second['id']}").status_code == 204
     third = new_ep(client, series_id)
 
-    assert (first["n"], first["stage"], first["voice_id"], third["n"]) == (1, "plot", VOICE, 3)
+    assert (first["n"], first["stage"], first["voice_id"], third["n"]) == (1, "plot", TOON_VOICE, 3)
     assert [act["name"] for act in first["acts"]] == ["เปิด", "ปม", "หักมุม", "จบหลอน"]
     assert [ep["n"] for ep in client.get(f"{SERIES}/{series_id}/eps").json()] == [3, 1]
 
@@ -437,7 +419,7 @@ def test_re_splitting_an_act_with_edited_cards_or_images_without_confirm_loss_is
     def draw(stored):
         card = stored.acts[0].segments[0].cards[1]
         card.image = CardImage(file=f"{card.id}-1.png", refs={})
-        card.audio = Audio(tts_text="x", voice_id=VOICE, duration_s=1)
+        card.audio = Audio(tts_text="x", voice_id=TOON_VOICE, duration_s=1)
 
     edit_stored(project, series_id, ep["id"], draw)
     client.patch(f"/api/toon/eps/{ep['id']}/acts/{act['id']}", json={"summary": "สรุปใหม่"})
@@ -561,7 +543,7 @@ def test_get_ep_gives_each_card_its_states_and_length_and_the_total(client, llm,
 
     def heard(stored):
         card = stored.acts[0].segments[0].cards[0]
-        card.audio = Audio(tts_text=thai.spoken(card.text), voice_id=VOICE, duration_s=3.1)
+        card.audio = Audio(tts_text=thai.spoken(card.text), voice_id=TOON_VOICE, duration_s=3.1)
         card.hold_s = 0.5
 
     edit_stored(project, series_id, ep["id"], heard)
@@ -587,10 +569,10 @@ def test_a_card_drawn_before_its_reference_changed_is_stale_ref_and_a_new_voice_
         store.write_series(project, series_now)
         card = stored.acts[0].segments[0].cards[0]
         card.image = CardImage(file=f"{card.id}-1.png", refs={background: 1})
-        card.audio = Audio(tts_text=thai.spoken(card.text), voice_id=VOICE, duration_s=1)
+        card.audio = Audio(tts_text=thai.spoken(card.text), voice_id=TOON_VOICE, duration_s=1)
 
     edit_stored(project, series_id, ep["id"], drawn)
-    write_voice(project, "v_00000002")
+    write_toon_voice(project, "v_00000002")
     ep = client.patch(f"/api/toon/eps/{ep['id']}", json={"voice_id": "v_00000002"}).json()
 
     card = cards_of(ep)[0]
@@ -682,12 +664,12 @@ def test_deleting_a_background_only_a_segment_uses_is_in_use(client, llm, projec
 def test_deleting_the_saved_voice_an_ep_narrates_with_is_voice_in_use(client, llm, project):
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
-    write_voice(project, "v_00000002")
+    write_toon_voice(project, "v_00000002")
     client.patch(f"{SERIES}/{series_id}", json={"voice_id": "v_00000002"})
-    client.patch(f"/api/toon/eps/{ep_id}", json={"voice_id": VOICE})
+    client.patch(f"/api/toon/eps/{ep_id}", json={"voice_id": TOON_VOICE})
     client.patch(f"{SERIES}/{series_id}", json={"voice_id": "v_00000002"})
 
-    response = client.delete(f"/api/spoil-maker/voices/{VOICE}")
+    response = client.delete(f"/api/spoil-maker/voices/{TOON_VOICE}")
 
     assert (response.status_code, response.json()["code"]) == (409, "voice_in_use")
 
@@ -695,7 +677,7 @@ def test_deleting_the_saved_voice_an_ep_narrates_with_is_voice_in_use(client, ll
 def test_changing_an_ep_s_voice_waits_for_the_draft_s_lock(client, llm, project):
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
-    write_voice(project, "v_00000002")
+    write_toon_voice(project, "v_00000002")
     answers = []
 
     with gpu.slot.draft_lock:

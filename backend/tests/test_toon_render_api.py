@@ -9,20 +9,18 @@ from pathlib import Path
 
 import imageio_ffmpeg
 import pytest
-from fastapi.testclient import TestClient
 from PIL import Image
 
 from backend import app as app_module
-from backend import checks, ffmpeg, gpu, paths, spoil_maker
-from backend.app import app
+from backend import ffmpeg, gpu
 from backend.paths import ProjectPaths
-from backend.toon import jobs, render, sounds
+from backend.toon import render, sounds
 from backend.toon.store import CardImage
 
-from .fakes import FakeFfmpeg, FakeKlein, FakeLlm, FakeTts, cuda_device, ok_ffmpeg, poll_until
+from .fakes import FakeFfmpeg, poll_until, toon_api
 from .test_toon_eps_api import Writer, cards_of, edit_stored, gpu_refusal, new_ep, run, start
 from .test_toon_images_api import add
-from .test_toon_series_api import create, write_voice
+from .test_toon_series_api import create
 from .test_toon_sounds_api import import_tone
 
 EPS = "/api/toon/eps"
@@ -37,27 +35,7 @@ def project(fake_root) -> ProjectPaths:
     return ProjectPaths(fake_root)
 
 
-@pytest.fixture
-def llm(monkeypatch) -> FakeLlm:
-    fake = FakeLlm()
-    fake.respond = Writer().respond
-    monkeypatch.setattr(spoil_maker, "start_worker", fake)
-    return fake
-
-
-@pytest.fixture
-def tts(monkeypatch) -> FakeTts:
-    fake = FakeTts()
-    fake.seconds = 1.0
-    monkeypatch.setattr(spoil_maker, "start_tts_worker", fake)
-    return fake
-
-
-@pytest.fixture
-def klein(monkeypatch) -> FakeKlein:
-    fake = FakeKlein()
-    monkeypatch.setattr("backend.toon.klein.start_worker", fake)
-    return fake
+llm, klein, tts, client = toon_api(lambda: Writer().respond, tts_seconds=1.0, uses=("renderer",))
 
 
 @pytest.fixture
@@ -66,18 +44,6 @@ def renderer(monkeypatch) -> FakeFfmpeg:
     fake = FakeFfmpeg(progress=(), then=ffmpeg.run)
     monkeypatch.setattr(render, "render_jobs", render.RenderJobs(run_ffmpeg=fake))
     return fake
-
-
-@pytest.fixture
-def client(fake_root, llm, tts, klein, renderer, monkeypatch):
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    monkeypatch.setattr(checks, "probe_ffmpeg", ok_ffmpeg)
-    monkeypatch.setattr(checks, "probe_device", cuda_device)
-    monkeypatch.setattr(gpu, "slot", gpu.GpuSlot())
-    monkeypatch.setattr(jobs, "toon_jobs", jobs.ToonJobs())
-    monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports())
-    write_voice(ProjectPaths(fake_root))
-    return TestClient(app, base_url="http://127.0.0.1")
 
 
 def three_cards(client, llm, project, layout: str = "frame", channel_name: str = "รุ่นพี่เล่าว่า", sounds=(None, None)):
