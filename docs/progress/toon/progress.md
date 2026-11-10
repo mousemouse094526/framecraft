@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket 12 done (`ItemRef`, `ITEM_KINDS`, `sendChecked` ของหน้าเว็บ); ทุก ticket done รอ feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** feature review รอบห้าเสร็จ (`d30d863`); เปิด Blocked #29 (หน้าเว็บส่งแล้วเช็ค status ซ้ำราว 10 ที่: `/warroom tickets toon`) และ #30 (`sounds.json` อ่านไม่ได้แล้วการ import เขียนทับคลังเสียง: `/warroom toon`); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon --review-feature
+/warroom toon
 ```
 
 ## Tickets
@@ -26,6 +26,25 @@
 | 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | done |
 
 ## Log
+
+### Feature review (รอบห้า) — done 2026-11-10
+
+**Built:**
+- Cards job: ค่าที่ไม่ใช่ข้อความ (list, object) ใน `background`, `sound`, `characters`, `motion` ของคำตอบ Qwen ทิ้งแบบค่าที่ไม่รู้จัก (`writer._one_of`); เดิม `TypeError` แล้ว `failed` `internal`; test ใหม่
+- `sounds._first_name` ตัดชื่อตั้งต้นที่เดียว (ไฟล์และลิงก์); ชื่อคลิปที่มีแต่ช่องว่าง → id ของเสียง; test ใหม่
+- `compose.AUDIO_RATE`/`AUDIO_BITRATE` ที่เดียว; `Run.use_child(child)` ไม่เขียน `gpu_kind` ทับ
+- หน้าเว็บ: `startToonJob`, `readEpAndSeries`, `usePickRef` ใช้ `getReply`
+- docstring/คอมเมนต์: `.new-{id}/`, การเพิ่มใน `ep_jobs`/`series_jobs`, `Speaker.speak`, `Draw(index=0)`, timeout ของ scene, `QWEN_MAC`; spec › คลังเสียงพื้น
+
+**Decided:**
+- D69 — ข้างบนทั้งหมด และที่ไม่แก้ (`draft_lock`, `done` สองความหมาย, `scope: missing`, `pending: int`, `how="works"`, `reply` กับ `worker_error`)
+
+**For the next ticket:**
+- smell ใหญ่ → Blocked #29; ข้อที่ spec ไม่มีกติกา → Blocked #30
+- `kind` คู่ characters/backgrounds และ `PLOT_*_MAX` เขียนแยกใน `episodes.plot_items`, `writer`, `cards.known` (Standards 4): รวมกับ #29 ได้ถ้า re-cut
+- test `EpPage` ที่เคยล้มครั้งเดียว: รอบนี้รันไฟล์ toon 6 รอบและทั้งชุด 2 รอบ ผ่านทุกรอบ
+
+**Checks:** `uv run pytest` 1077 passed (+2); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 423 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `912c7c4`: Standards ไม่มีข้อผิดกติกา + smell 6 (หนักสุด ส่งแล้วเช็ค status ซ้ำราว 10 ที่ใน 8 hook), Spec 5 (หนักสุด `TypeError` ของ Cards job เมื่อ Qwen ส่ง list), Newcomer สรุปตรง spec › Solution + เดา 13 จุด (หนักสุด `use_child` เขียน `gpu_kind` ทับ)
 
 ### 12: ItemRef และ ITEM_KINDS ของหน้าเว็บ toon — done 2026-11-10
 
@@ -438,3 +457,5 @@
 | 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | done (ticket 11) |
 | 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | done (ticket 11) |
 | 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | done (ticket 12) |
+| 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | open |
+| 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | open |
