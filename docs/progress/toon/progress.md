@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket ครบ 10/10 และ feature review รอบสี่จบ (`a1655db`); เหลือ Blocked #11, #12 (เช็คมือบน Mac, owner) และ smell ใหญ่ #25–28 (`/warroom tickets toon`)
+**Now:** ตัด ticket 11 (Blocked #26, #27) และ 12 (Blocked #25, #28) จาก smell ของ feature review รอบสี่; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom tickets toon
+/warroom-build toon 11
 ```
 
 ## Tickets
@@ -22,6 +22,8 @@
 | 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | done |
 | 09 | ItemRef และ fixture ของ test ที่ใช้ร่วม | done |
 | 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | done |
+| 11 | ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม | ready |
+| 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | ready |
 
 ## Log
 
@@ -394,7 +396,7 @@
 | 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | done (ticket 10) |
 | 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | done (ticket 09) |
 | 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | done (ticket 09) |
-| 25 | review | หน้าเว็บยังส่ง `(sid, kind, id)` สามค่าใน `itemPath`, `pickHash`, `startRefJob` (`lib/series.ts`) ขณะ backend ใช้ `ItemRef` (D64); ชื่อ `sid`/`eid` ของ hook และ lib → `seriesId`/`epId` | `/warroom tickets toon` | open |
-| 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | open |
-| 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | open |
-| 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | open |
+| 25 | review | หน้าเว็บยังส่ง `(sid, kind, id)` สามค่าใน `itemPath`, `pickHash`, `startRefJob` (`lib/series.ts`) ขณะ backend ใช้ `ItemRef` (D64); ชื่อ `sid`/`eid` ของ hook และ lib → `seriesId`/`epId` | `/warroom tickets toon` | → ticket 12 |
+| 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | → ticket 11 |
+| 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | → ticket 11 |
+| 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | → ticket 12 |
