@@ -4,7 +4,7 @@ A picture's prompt is the app's fixed template around `{scene}`, the English Qwe
 a Thai description, and `{style}`, the Series' style.
 """
 
-import json
+from backend import llm_reply
 
 SCENE_MAX_TOKENS = 200
 SCENE_TEMPERATURE = 0.0
@@ -39,14 +39,8 @@ def ref_scene_prompt(kind: str, name: str, description: str) -> str:
 def parse_scene(reply: str) -> str | None:
     """`scene` of the JSON object in a reply, inside a code fence or not; None when there is
     none or it is empty."""
-    start, end = reply.find("{"), reply.rfind("}")
-    if start < 0 or end < start:
-        return None
-    try:
-        found = json.loads(reply[start : end + 1])
-    except json.JSONDecodeError:
-        return None
-    scene = found.get("scene") if isinstance(found, dict) else None
+    found = llm_reply.json_object(reply)
+    scene = found.get("scene") if found is not None else None
     scene = " ".join(scene.split()) if isinstance(scene, str) else ""
     return scene or None
 

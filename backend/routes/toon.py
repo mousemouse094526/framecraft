@@ -8,8 +8,9 @@ from backend.toon import episodes, images, jobs, render, series, sounds, voicing
 from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
 from backend.toon.render import RenderResult, ToonRenderJob
-from backend.toon.series import Kind, ListedSeries, SeriesView, UploadCheck
+from backend.toon.series import Kind, ListedSeries, SeriesView
 from backend.toon.sounds import SoundImport, SoundView
+from backend.uploads import UploadCheck
 
 router = APIRouter(prefix="/toon")
 
@@ -231,7 +232,7 @@ def get_sound_file(sound_id: str) -> FileResponse:
 # A Sound import (spec › API): a file is `/imports` (one request), a link `/downloads` (a job);
 # `/import/current` is the latest link's, the only one that runs on after its request.
 @router.post("/sounds/imports/check")
-def check_sound_import(body: dict[str, Any]) -> sounds.UploadCheck:
+def check_sound_import(body: dict[str, Any]) -> UploadCheck:
     return sounds.sound_imports.check(body)
 
 

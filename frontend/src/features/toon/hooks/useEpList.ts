@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from "react";
-import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
-import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
+import { getJson, sendJson } from "../../../lib/api";
+import type { Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, seriesEpsPath, type Ep, type ListedEp } from "../lib/episodes";
 import { epHash, JOBS_PATH, seriesPath, type Series, type ToonJob } from "../lib/series";
-import type { Notice } from "./useCast";
+import { noticeOf, type Notice } from "../lib/notice";
 
 export type EpListState =
   | { kind: "loading" }
@@ -32,11 +32,7 @@ export function useEpList(sid: string) {
     void load();
   }, [load]);
 
-  const notice = (title: string, body: unknown): Notice => {
-    const refusal = refusalOf(body);
-    const line = refusal ? refusalLine(refusal) : { text: OFFLINE_TEXT, setupLink: false };
-    return { tone: "error", title, text: line.text, setupLink: line.setupLink };
-  };
+  const notice = (title: string, body: unknown): Notice => noticeOf(title, body);
 
   /** The EP, then its Plot job; started, the plot page opens and shows the job. A refused
    * job leaves the EP in the list with the reason: its plot page starts it again. */

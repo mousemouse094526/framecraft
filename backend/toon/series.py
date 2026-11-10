@@ -81,12 +81,6 @@ class ListedSeries(BaseModel):
     ep_count: int
 
 
-class UploadCheck(BaseModel):
-    """The size an upload's body must have, once its checks pass."""
-
-    size: int
-
-
 class EpRef(BaseModel):
     """An EP named in a refusal: its number and title (D25, D26)."""
 
@@ -345,10 +339,9 @@ def pick(project: ProjectPaths, series_id: str, kind: Kind, item_id: str, body: 
     return view(project, series_id)
 
 
-def check_upload(project: ProjectPaths, series_id: str, kind: Kind, item_id: str, body: dict) -> UploadCheck:
+def check_upload(project: ProjectPaths, series_id: str, kind: Kind, item_id: str, body: dict) -> uploads.UploadCheck:
     """The upload's checks before the page sends the body (ADR 0028)."""
-    _upload_checks(project, series_id, kind, item_id, body.get("size"))
-    return UploadCheck(size=body["size"])
+    return uploads.UploadCheck(size=_upload_checks(project, series_id, kind, item_id, body.get("size")))
 
 
 async def receive_upload(
@@ -385,14 +378,12 @@ def require_free_disk(project: ProjectPaths, incoming: int = 0) -> None:
 # --- helpers ---
 
 
-def _upload_checks(project: ProjectPaths, series_id: str, kind: Kind, item_id: str, size: object) -> None:
-    if not is_int(size) or size <= 0:
-        raise invalid_request()
-    if size > UPLOAD_MAX_BYTES:
-        raise ApiError(400, "file_too_large", "ไฟล์ภาพใหญ่เกิน 20 MB")
+def _upload_checks(project: ProjectPaths, series_id: str, kind: Kind, item_id: str, size: object) -> int:
+    size = uploads.require_size(size, UPLOAD_MAX_BYTES, "ไฟล์ภาพใหญ่เกิน 20 MB")
     with store.lock:
         _item(_series(project, series_id), kind, item_id)
     require_free_disk(project, size)
+    return size
 
 
 def _take_upload(project: ProjectPaths, series_id: str, kind: Kind, item_id: str, partial: Path) -> SeriesView:

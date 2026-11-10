@@ -189,7 +189,7 @@ class RenderJobs(speaking.Speaker[ToonRenderJob]):
         total = total_frames / compose.FPS
         narrated = [
             Narrated(text=card.text, start=p.start_frame / compose.FPS, end=p.start_frame / compose.FPS + p.narration_s)
-            for p, card in zip(placed, _cards(ep), strict=True)
+            for p, card in zip(placed, episodes.ep_cards(ep), strict=True)
             if p.narration is not None
         ]
         (work / CAPTIONS).write_text(
@@ -248,7 +248,7 @@ def _checks(project: ProjectPaths, series_now: Series, ep: Ep) -> list[store.Car
     if missing:
         raise ApiError(400, "cards_not_ready", "ทุกการ์ดต้องมีภาพก่อน render", card_ids=missing)
     series.require_free_disk(project)
-    return [card for card in _cards(ep) if episodes.audio_status(card, ep) in NEEDS_VOICE]
+    return [card for card in episodes.ep_cards(ep) if episodes.audio_status(card, ep) in NEEDS_VOICE]
 
 
 def _copy_in(project: ProjectPaths, series_now: Series, ep: Ep, work: Path) -> tuple[list[Placed], list[SoundRun]]:
@@ -315,7 +315,7 @@ def _tags(series_now: Series, ep: Ep, placed: list[Placed]) -> list[Tagged]:
     names = {c.id: f"{c.name} / {c.tag}" if c.tag else c.name for c in series_now.characters}
     seen: set[str] = set()
     tagged = []
-    for card, at in zip(_cards(ep), placed, strict=True):
+    for card, at in zip(episodes.ep_cards(ep), placed, strict=True):
         new = [i for i in card.character_ids if i not in seen and i in names]
         seen.update(card.character_ids)
         if new:
@@ -342,15 +342,11 @@ def _write_narration(work: Path, placed: list[Placed]) -> None:
         out.setsampwidth(width)
         for card in placed:
             samples = round(card.frames / compose.FPS * rate)
-            frames = b""
+            audio = b""  # the card's narration, cut to the card's length; silence fills the rest
             if card.narration:
                 with wave.open(str(work / card.narration), "rb") as part:
-                    frames = part.readframes(min(part.getnframes(), samples))
-            out.writeframes(frames + b"\0" * (samples * channels * width - len(frames)))
-
-
-def _cards(ep: Ep):
-    return (card for _, card in episodes.placed_cards(ep))
+                    audio = part.readframes(min(part.getnframes(), samples))
+            out.writeframes(audio + b"\0" * (samples * channels * width - len(audio)))
 
 
 def _free_name(folder: Path) -> str:

@@ -1,13 +1,13 @@
 import { useCallback, useEffect } from "react";
-import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
+import { getJson, sendJson } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
-import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
+import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { epPath, type Ep, type LostCards } from "../lib/episodes";
 import { SOUNDS_PATH, type Sound } from "../lib/sounds";
 import { epHash, isRunning, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
-import type { Notice } from "./useCast";
+import { refusalTextOf, type Notice } from "../lib/notice";
 
 export type EpState =
   | { kind: "loading" }
@@ -93,9 +93,7 @@ export function useEp(eid: string) {
   );
 
   const refused = (title: string, body: unknown, tone: Notice["tone"] = "error") => {
-    const refusal = refusalOf(body);
-    const line = refusal ? refusalLine(refusal) : { text: OFFLINE_TEXT, setupLink: false };
-    update((s) => ({ ...s, notice: { tone, title, text: line.text, setupLink: line.setupLink } }));
+    update((s) => ({ ...s, notice: { tone, title, ...refusalTextOf(body) } }));
   };
 
   /** An edit: its answer is the EP as it is now; a refusal becomes the notice. */

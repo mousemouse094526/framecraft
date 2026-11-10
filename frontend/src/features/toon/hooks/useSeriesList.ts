@@ -1,8 +1,8 @@
 import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
-import { refusalLine, refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { SERIES_PATH, seriesPath, type ListedSeries } from "../lib/series";
+import { refusalTextOf } from "../lib/notice";
 
 /** A delete that didn't happen: which Series, and why (`series_busy`, offline…). */
 export type DeleteRefusal = { name: string; text: string };
@@ -38,8 +38,7 @@ export function useSeriesList() {
       try {
         const reply = await sendJson("DELETE", seriesPath(series.id), { confirm_eps: series.ep_count });
         if (reply.status === 204) return load();
-        const refusal = refusalOf(reply.body);
-        text = refusal ? refusalLine(refusal).text : OFFLINE_TEXT;
+        text = refusalTextOf(reply.body).text;
       } catch {
         // no answer: the line says so
       }

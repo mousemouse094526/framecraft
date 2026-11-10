@@ -6,8 +6,10 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import anyio
+from pydantic import BaseModel
 
-from backend.errors import ApiError
+from backend.errors import ApiError, invalid_request
+from backend.json_values import is_int
 
 STALL_SECONDS = 60  # no new byte this long → `stalled` (spoil D55)
 WRITE_BYTES = 2**20
@@ -15,6 +17,22 @@ WRITE_BYTES = 2**20
 SIZE_MISMATCH = "ได้ไฟล์ไม่ครบหรือเกินขนาดที่บอก ลองอีกครั้ง"
 # Names the app's limit; a test that shortens `stall_seconds` still gets these words.
 STALLED = f"ไม่ได้รับข้อมูลไฟล์นาน {STALL_SECONDS} วินาที ลองอีกครั้ง"
+
+
+class UploadCheck(BaseModel):
+    """The size an upload's body must have, once its checks pass."""
+
+    size: int
+
+
+def require_size(size: object, max_bytes: int, too_large: str) -> int:
+    """The size a page says it will send: a whole number of bytes from 1 to `max_bytes`.
+    Raises `invalid_request`, or 400 `file_too_large` with `too_large`."""
+    if not is_int(size) or size <= 0:
+        raise invalid_request()
+    if size > max_bytes:
+        raise ApiError(400, "file_too_large", too_large)
+    return size
 
 
 def whole_number(text: str | None) -> int | None:

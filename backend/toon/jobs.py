@@ -52,6 +52,7 @@ class Child(NamedTuple):
 
 
 WRITER = Child(llm.WorkerError, "ตัวร่างการ์ตูนเล่า", "ร่างการ์ตูนเล่าไม่สำเร็จ")
+# Translating is the first step of making a picture: the user sees the picture fail.
 TRANSLATOR = Child(llm.WorkerError, "ตัวแปลคำบรรยาย", "สร้างภาพไม่สำเร็จ")
 DRAWER = Child(klein.WorkerError, "ตัวสร้างภาพ", "สร้างภาพไม่สำเร็จ")
 VOICER = Child(tts.WorkerError, "ตัวสร้างเสียง", "สร้างเสียงไม่สำเร็จ")
@@ -445,7 +446,7 @@ class ToonJobs(speaking.Speaker[ToonJob]):
         that takes too long, after which the next ask starts a new child. `counted`: the job's
         `done` counts the asks answered (an Image job's `translating`; a Ref job has one ask)."""
         self._use("toon_image", TRANSLATOR)
-        timeout, scenes = llm.timeouts().pick, []
+        timeout, scenes = llm.timeouts().pick, []  # one short answer, as long as a sentence's Shots
         process = requests = replies = None  # Qwen's child, started at the first ask it answers
         try:
             for done, ask in enumerate(asks, start=1):
@@ -568,11 +569,15 @@ def _cards_checks(project: ProjectPaths, ep_id: object, confirm_loss: bool) -> C
 
 
 def _writable(project: ProjectPaths, ep_id: object) -> Writable:
-    """The EP with its Series, and its voice's speed. Raises `not_found`, `invalid_request`
-    for an idea out of 1–500, `voice_not_found`."""
+    """The EP with its Series, and its voice's speed. Raises `not_found`, `ep_busy` while a
+    render works on the EP (a Plot or Cards job would lock it, D57), `invalid_request` for an
+    idea out of 1–500, `voice_not_found`."""
     found = store.find_ep(project, ep_id) if isinstance(ep_id, str) else None
     if found is None:
         raise ApiError(404, "not_found", "ไม่พบ EP นี้")
+    rendering = render.render_jobs.ep_use()
+    if rendering is not None and rendering[0] == found[1].id:
+        raise ApiError(409, "ep_busy", "กำลัง render EP นี้: เขียนใหม่ได้เมื่อ render จบ")
     if not 1 <= len(found[1].idea) <= episodes.IDEA_MAX:
         raise ApiError(400, "invalid_request", f"ไอเดียต้องยาว 1–{episodes.IDEA_MAX} ตัวอักษร")
     chars_per_s = voices.chars_per_s(project, found[1].voice_id)

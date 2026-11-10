@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson, type JsonReply } from "../../../lib/api";
-import { refusalLine, refusalOf } from "../../../lib/refusal";
 import { cancelCurrent } from "../../../lib/job";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type Kind, type Series, type ToonJob } from "../lib/series";
+import { refusalTextOf } from "../lib/notice";
 
 export type PickState =
   | { kind: "loading" }
@@ -75,8 +75,7 @@ export function usePickRef(sid: string, kind: Kind, id: string) {
     try {
       const reply = await request();
       if (reply.status === ok) return then();
-      const refusal = refusalOf(reply.body);
-      update((s) => ({ ...s, sending: false, error: refusal ? refusalLine(refusal).text : OFFLINE_TEXT }));
+      update((s) => ({ ...s, sending: false, error: refusalTextOf(reply.body).text }));
     } catch {
       update((s) => ({ ...s, sending: false, error: OFFLINE_TEXT }));
     }

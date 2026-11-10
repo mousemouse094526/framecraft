@@ -117,8 +117,8 @@ def list_for(project: ProjectPaths, series_id: str) -> list[ListedEp]:
             n=ep.n,
             title=ep.title,
             stage=ep.stage,
-            cards=sum(1 for card in _cards(ep)),
-            images=sum(1 for card in _cards(ep) if card.image is not None),
+            cards=sum(1 for card in ep_cards(ep)),
+            images=sum(1 for card in ep_cards(ep) if card.image is not None),
             rendered_at=render.latest_at(project, series_id, ep.id),
         )
         for ep in reversed(eps)
@@ -503,12 +503,8 @@ def _ep_number(project: ProjectPaths, series: Series, ep: Ep, value: object) -> 
 
 def _use(ep_id: str) -> bool | None:
     """True when a job locks the EP, False when one only works on it, None when none does."""
-    found = None
-    for current in ep_jobs:
-        use = current()
-        if use is not None and use[0] == ep_id:
-            found = found or use[1]
-    return found
+    locks = [use[1] for current in ep_jobs if (use := current()) is not None and use[0] == ep_id]
+    return any(locks) if locks else None
 
 
 def editable(project: ProjectPaths, ep_id: str) -> tuple[Series, Ep]:
@@ -535,7 +531,8 @@ def _series(project: ProjectPaths, series_id: str) -> Series:
     return series
 
 
-def _cards(ep: Ep):
+def ep_cards(ep: Ep):
+    """Every card of the EP in order."""
     return (card for _, card in placed_cards(ep))
 
 
@@ -561,7 +558,7 @@ def _segment(ep: Ep, segment_id: object) -> Segment:
 
 def card_of(ep: Ep, card_id: object) -> Card:
     """Raises `ApiError` 404 `not_found` when the EP has no such card."""
-    return _find(list(_cards(ep)), card_id)
+    return _find(list(ep_cards(ep)), card_id)
 
 
 def _insert(items: list, item, body: dict) -> None:

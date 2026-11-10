@@ -570,6 +570,23 @@ def test_deleting_a_character_only_a_card_uses_is_in_use(client, llm, project):
     assert (response.status_code, response.json()["code"], [e["n"] for e in response.json()["eps"]]) == (409, "in_use", [1])
 
 
+def test_deleting_a_background_only_a_segment_uses_is_in_use(client, llm, project):
+    series_id, ep = with_cards(client, llm)
+    background = client.get(f"{SERIES}/{series_id}").json()["backgrounds"][0]["id"]
+
+    def segment_only(stored):
+        stored.plot.backgrounds = [item for item in stored.plot.backgrounds if item.id != background]
+        for act in stored.acts:
+            for segment in act.segments:
+                segment.background_id = background
+
+    edit_stored(project, series_id, ep["id"], segment_only)
+
+    response = client.delete(f"{SERIES}/{series_id}/backgrounds/{background}")
+
+    assert (response.status_code, response.json()["code"], [e["n"] for e in response.json()["eps"]]) == (409, "in_use", [1])
+
+
 def test_deleting_the_saved_voice_an_ep_narrates_with_is_voice_in_use(client, llm, project):
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]

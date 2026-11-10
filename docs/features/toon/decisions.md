@@ -767,6 +767,20 @@
 
 **From:** build ticket 04 · **Status:** active
 
+## D57: Plot job และ Cards job บน EP ที่กำลัง render เป็น `ep_busy`
+
+**Chosen:**
+- เริ่ม Plot job หรือ Cards job บน EP ที่ Render job ยังไม่จบ → `409` `ep_busy` ("กำลัง render EP นี้: เขียนใหม่ได้เมื่อ render จบ") เช็คใน `jobs._writable` ทั้งก่อนและใต้ lock ของ store
+- ขาเดียวกับที่ Render job เช็ค `ep_locked` ตอนเริ่ม: spec › Toon job "ใช้ EP เดียวกันพร้อมกันได้ เฉพาะเมื่อไม่มีฝ่ายใดล็อก EP"
+
+**Why:** feature review พบว่า Render job คืนช่อง GPU หลัง `voicing` แล้ว Cards job เริ่มได้และล็อก EP ระหว่าง render; ใช้ `ep_busy` ที่มีอยู่แล้ว (ลบ EP ระหว่างงาน) แทนการตั้ง code ใหม่.
+
+**Rejected:**
+- `ep_locked` — หมายถึง EP ถูกล็อกโดย Plot หรือ Cards job; render ไม่ล็อก EP
+- `busy` — หมายถึงชนงานใน slot เดียวกัน
+
+**From:** feature review · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

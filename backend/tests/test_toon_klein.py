@@ -35,7 +35,8 @@ def test_parse_scene_reads_the_scene_of_qwen_s_json(reply, scene):
     assert prompts.parse_scene(reply) == scene
 
 
-def test_named_patterns_are_files_and_folders_not_kinds_of_file():
+def test_status_check_compares_the_named_files_and_folders_of_a_model_and_skips_file_types():
+    # D50: a pattern like `*.safetensors` names no file, so setup can't check it is there.
     assert named_patterns(KLEIN) == [
         "model_index.json",
         "text_encoder/*",

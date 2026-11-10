@@ -132,15 +132,19 @@ def test_deleting_a_series_without_confirm_eps_is_confirm_needed_with_its_eps(cl
     assert response.json()["eps"] == [{"n": 1, "title": "ตอนหนึ่ง"}, {"n": 2, "title": "ตอนสอง"}]
 
 
-def test_a_confirmed_delete_removes_the_series_folder_and_keeps_the_saved_voice(client, project):
+def test_a_confirmed_delete_removes_the_series_folder_and_keeps_the_saved_voice_and_the_sounds(client, project):
     series = create(client)
     write_ep(project, series["id"], "e_00000001", 1, "ตอนหนึ่ง")
+    sound = project.toon_sounds_dir / "m_00000001.m4a"  # the tab's library, not the Series'
+    sound.parent.mkdir(parents=True)
+    sound.write_bytes(b"sound")
 
     response = client.request("DELETE", f"{SERIES}/{series['id']}", json={"confirm_eps": 1})
 
     assert response.status_code == 204
     assert not project.series_dir(series["id"]).exists()
     assert (project.voices_dir / f"{VOICE}.json").is_file()
+    assert sound.read_bytes() == b"sound"
     assert client.get(f"{SERIES}/{series['id']}").status_code == 404
 
 

@@ -6,7 +6,7 @@ import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { epPath, type Ep } from "../lib/episodes";
 import { seriesPath, type Series } from "../lib/series";
-import { noticeOf, NOT_NOW, type Notice } from "./useCast";
+import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 
 export const RENDER_PATH = "/api/toon/render";
 export const RENDER_JOB_PATH = "/api/toon/render/current";

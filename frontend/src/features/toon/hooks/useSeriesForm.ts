@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
-import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
+import type { Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { VOICES_PATH, type SavedVoice } from "../../../lib/voices";
 import {
@@ -11,6 +11,7 @@ import {
   type Series,
   type SeriesFields,
 } from "../lib/series";
+import { refusalTextOf } from "../lib/notice";
 
 export type SeriesFormState =
   | { kind: "loading" }
@@ -63,8 +64,7 @@ export function useSeriesForm(sid: string | null) {
           window.location.hash = seriesHash((reply.body as Series).id);
           return;
         }
-        const refusal = refusalOf(reply.body);
-        error = refusal ? refusalLine(refusal).text : OFFLINE_TEXT;
+        error = refusalTextOf(reply.body).text;
       } catch {
         // no answer: OFFLINE_TEXT
       }

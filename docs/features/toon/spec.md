@@ -99,13 +99,14 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `store`: อ่านเขียน `series.json`, `ep.json`, `sounds.json` ผ่าน `.tmp` แล้ว rename ใต้ lock ของ toon
   - `series`: Series ตัวละคร ฉากหลัง ภาพอ้างอิง การลบ
   - `episodes`: EP พล็อต การ์ด การแก้ สถานะการ์ด
-  - `writer`: Plot job และ Cards job (ใช้ worker ของ `spoil_maker.llm`)
+  - `writer`: คำสั่งและการอ่านคำตอบของ Plot job และ Cards job (ใช้ worker ของ `spoil_maker.llm`)
+  - `prompts`: คำสั่งภาพ, คำสั่งแปลคำบรรยาย และการอ่านคำตอบ
   - `klein`: worker ของ klein ใน process ลูก `spawn` (ADR-0012)
-  - `images`: Ref job และ Image job
-  - `voicing`: Voice job ของการ์ด (ใช้ worker ของ `spoil_maker.tts`)
-  - `sounds`: คลังเสียงพื้น, Sound import
-  - `render`: Render job, ASS, filter graph
-  - `jobs`: Toon job slot (ทุกงานยกเว้น render), Render slot (D45), Sound import slot
+  - `images`: แผน ไฟล์ และการเขียนภาพของ Ref job และ Image job
+  - `voicing`: แผนและการเขียนเสียงเล่าของการ์ด (ใช้ worker ของ `spoil_maker.tts`)
+  - `sounds`: คลังเสียงพื้น, Sound import slot
+  - `render`: Render slot (D45), Render job; `compose`: timeline, ASS, filter graph
+  - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่รันขั้นของ `writer`, `images`, `voicing`
 - **`backend.routes`**
   - router ใหม่ `toon` prefix `/toon`
 - **`NOTICE.md`**
@@ -321,7 +322,7 @@ media/toon/
 - แก้ EP ที่ถูกล็อก → `409` `ep_locked`
 - ทุกงานคืนช่อง GPU เมื่อจบทุกแบบ (ADR-0015); restart แล้วงานหาย ผลที่เขียนไปแล้วอยู่ (ADR-0010)
 - `failed` `error.code`: `crashed`, `model_failed`, `write_failed`, `ffmpeg_failed`, `internal`
-- Toon job กับ Render job ใช้ EP เดียวกันพร้อมกันได้ เฉพาะเมื่อไม่มีฝ่ายใดล็อก EP
+- Toon job กับ Render job ใช้ EP เดียวกันพร้อมกันได้ เฉพาะเมื่อไม่มีฝ่ายใดล็อก EP: Plot job หรือ Cards job บน EP ที่ Render job ยังไม่จบ → `409` `ep_busy` (D57)
 - ทุกงานรันใน thread ของ backend; โมเดลรันใน process ลูก `spawn`; thread ของ backend เขียนไฟล์ผลคนเดียว (ADR-0012)
 - ดิสก์ว่างน้อยกว่า 1 GiB → `507` `disk_full` ก่อนเริ่ม `ref`, `image`, `render`
 

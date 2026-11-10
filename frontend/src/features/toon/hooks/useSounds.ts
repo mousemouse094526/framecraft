@@ -6,7 +6,7 @@ import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isImporting, SOUND_IMPORT_PATH, SOUNDS_PATH, soundPath, type Sound, type SoundImport } from "../lib/sounds";
-import { noticeOf, NOT_NOW, type Notice } from "./useCast";
+import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 
 /** The EPs a sound plays in, as `in_use` names them. */
 type SoundUser = { series_name: string; n: number; title: string };

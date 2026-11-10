@@ -26,7 +26,6 @@ from backend import checks, ffmpeg, gate_rows, paths, spoil, uploads
 from backend.errors import ApiError, JobFailed, Row, invalid_request, require_rows
 from backend.ffmpeg import FfmpegFailed
 from backend.jobs import Cancelled, JobSlot
-from backend.json_values import is_int
 from backend.paths import ProjectPaths
 from backend.spoil import links
 from backend.spoil.adapter import DownloadCancelled, DownloadOptions, error_code
@@ -77,10 +76,6 @@ class SoundView(BaseModel):
     source: Source
 
 
-class UploadCheck(BaseModel):
-    size: int
-
-
 class SoundImportError(BaseModel):
     code: ErrorCode
     message: str
@@ -113,13 +108,13 @@ class SoundImports(JobSlot[SoundImport]):
 
     # --- a file ---
 
-    def check(self, body: dict) -> UploadCheck:
+    def check(self, body: dict) -> uploads.UploadCheck:
         """Every check of the file but its body's, before the page sends it (ADR 0028)."""
         project = paths.project()
-        _file_checks(project, body.get("name"), body.get("size"))
+        size = _file_checks(project, body.get("name"), body.get("size"))
         with self._lock:
             self._require_free()
-        return UploadCheck(size=body["size"])
+        return uploads.UploadCheck(size=size)
 
     async def receive(self, name: str | None, size: str | None, body: AsyncIterator[bytes]) -> SoundView:
         """Checks again, writes `body` to `.partial/`, converts it into the library. Raises
@@ -355,13 +350,13 @@ def link_rows() -> dict[str, Row]:
 # --- helpers ---
 
 
-def _file_checks(project: ProjectPaths, name: object, size: object) -> None:
+def _file_checks(project: ProjectPaths, name: object, size: object) -> int:
     require_rows(gate_rows.FFMPEG)
-    if not isinstance(name, str) or not _file_title(name) or not is_int(size) or size <= 0:
+    if not isinstance(name, str) or not _file_title(name):
         raise invalid_request()
-    if size > UPLOAD_MAX_BYTES:
-        raise ApiError(400, "file_too_large", f"ไฟล์เสียงใหญ่เกิน {UPLOAD_MAX_BYTES // 1024**2} MB")
+    size = uploads.require_size(size, UPLOAD_MAX_BYTES, f"ไฟล์เสียงใหญ่เกิน {UPLOAD_MAX_BYTES // 1024**2} MB")
     series.require_free_disk(project, size)
+    return size
 
 
 def _file_title(name: str | None) -> str:

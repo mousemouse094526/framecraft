@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, OFFLINE_TEXT, sendFile, sendJson } from "../../../lib/api";
+import { getJson, sendFile, sendJson } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
-import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
+import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -17,21 +17,7 @@ import {
   type Series,
   type ToonJob,
 } from "../lib/series";
-
-/** A line above the lists: why an action was refused (Figma toon / 3, states 3–6). */
-export type Notice = { tone: "warning" | "error"; title: string; text: string; setupLink: boolean };
-
-/** The notice of a refused or failed request: the API's refusal line (none: no backend); a
- * `warning` for the codes that mean "not now". */
-export function noticeOf(title: string, body: unknown, warnings: readonly string[] = []): Notice {
-  const refusal = refusalOf(body);
-  const line = refusal ? refusalLine(refusal) : { text: OFFLINE_TEXT, setupLink: false };
-  const tone = refusal && warnings.includes(refusal.code) ? "warning" : "error";
-  return { tone, title, text: line.text, setupLink: line.setupLink };
-}
-
-/** "Not now: another job has it, or a model isn't installed." */
-export const NOT_NOW = ["gpu_busy", "busy", "not_ready"] as const;
+import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 
 export type ItemFields = { name: string; tag?: string; description: string };
 

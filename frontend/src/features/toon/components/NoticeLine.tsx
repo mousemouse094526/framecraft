@@ -1,6 +1,6 @@
 import { Alert } from "../../../components/ui/Alert";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import type { Notice } from "../hooks/useCast";
+import type { Notice } from "../lib/notice";
 
 /** A refusal or failure of the tab's pages, with a link to ติดตั้ง when a model is missing. */
 export function NoticeLine({ notice }: { notice: Notice }) {
