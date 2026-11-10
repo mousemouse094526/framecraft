@@ -387,11 +387,7 @@ def clean_on_start(project: ProjectPaths) -> None:
 
 def link_rows() -> dict[str, Row]:
     """What a link's Sound import needs (spec › Status check); a file's needs `ffmpeg` alone."""
-    tools: dict[str, Row] = {
-        "yt_dlp": ("yt-dlp", lambda: checks.check_version(checks.probe_yt_dlp)),
-        "deno": ("Deno", lambda: checks.check_version(checks.probe_deno)),
-    }
-    return gate_rows.FFMPEG | tools
+    return gate_rows.FFMPEG | gate_rows.LINK_TOOLS
 
 
 # --- helpers ---

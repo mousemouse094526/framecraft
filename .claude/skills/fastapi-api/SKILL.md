@@ -33,7 +33,7 @@ backend/
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
-│                    `PYTHAINLP`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
+│                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
 │                    shutdown, `_run_job`, the one ending of every job's thread

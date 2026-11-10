@@ -53,11 +53,13 @@ class Timeouts(NamedTuple):
     pick: float  # one sentence's Shots
 
 
-# Windows starts at the Mac's × 5; the trial on a Windows card (windows-launch ticket 03)
+# Windows starts at the Mac's × WINDOWS_START; the trial on a Windows card (windows-launch ticket 03)
 # measures each step and replaces these with max(this, longest × 3 in whole minutes) (D7).
+WINDOWS_START = 5
+_MAC = Timeouts(describe=60, write=600, polish=300, pick=60)
 TIMEOUTS = {
-    "darwin": Timeouts(describe=60, write=600, polish=300, pick=60),
-    "win32": Timeouts(describe=300, write=3000, polish=1500, pick=300),
+    "darwin": _MAC,
+    "win32": Timeouts(*(seconds * WINDOWS_START for seconds in _MAC)),
 }
 
 

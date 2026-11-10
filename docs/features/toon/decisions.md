@@ -925,6 +925,23 @@
 
 **From:** build ticket 10 · **Status:** active
 
+## D66: feature review รอบสี่ของ toon
+
+**Chosen:**
+- `klein.DRAW_TIMEOUTS` ของ Windows = 900 × `llm.WINDOWS_START` (5); `llm.TIMEOUTS["win32"]` สร้างจากค่า Mac × ตัวเดียวกัน (spec › Image job "Windows ตาม `llm.timeouts` คูณเดียวกัน")
+- แถว gate `yt_dlp`, `deno` ของลิงก์เป็น `gate_rows.LINK_TOOLS` ที่เดียว: `spoil.downloads` และ `toon.sounds.link_rows` ใช้ร่วม (D59)
+- `useSeriesForm` ใช้ `useReadyState` ด้วย: hook ของ toon ที่มี state `ready` ทั้งหกใช้ตัวนี้ (D65 เดิมห้า)
+- `episodes._editing(project, ep_id)` (context manager): ล็อก, `editable`, เขียน EP เมื่อจบ block แล้วลบไฟล์ของการ์ดที่เอาออก (`removed`); การแก้ act/segment/card เก้าตัวใช้ตัวนี้; `_require_background`, `_placed_segments` (act, segment) แทนลูปซ้อนที่ซ้ำ; `card_seconds(status: AudioStatus)`
+- ชื่อ: `work` → `folder` ใน `refs.run`; คอมเมนต์ `choose`/`pick` ของ `usePickRef`, `nothing_to_draw` ที่ไปต่อแสดง notice ใน `useEp.start`
+
+**Why:** review รอบสี่: Spec (c) timeout ของ klein ไม่ผูกกับ `llm`, (e) แถว gate เขียนสองที่และ docstring ของ `useReadyState` ไม่ตรง; Standards: Duplicated ใน `episodes.py`; Newcomer เดาจุดเหล่านี้.
+
+**Rejected:**
+- ชื่อ `job` ของพารามิเตอร์ `steps.Run` ใน `refs.run` — ทุก `run` ของ toon (plot, cards, images, voicing) ใช้ชื่อนี้; เปลี่ยนที่เดียวเป็นสองแบบ
+- ย้ายค่าที่ "คงไว้ตอนโหลดใหม่" (`notice: s.kind === "ready" ? s.notice : null`) เข้า `useReadyState` — field ที่คงต่างกันทุก hook
+
+**From:** feature review รอบสี่ · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

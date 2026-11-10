@@ -105,6 +105,7 @@ export function useEp(eid: string) {
       }
       const refusal = refusalOf(reply.body) as (Refusal & { acts?: LostCards[]; missing_refs?: MissingRef[] }) | null;
       if (refusal?.code === "cards_will_be_lost") return update((s) => ({ ...s, lost: refusal.acts ?? [] }));
+      // `nothing_to_draw` lists the missing references and shows its notice too
       if (refusal?.code === "nothing_to_draw") update((s) => ({ ...s, missing: refusal.missing_refs ?? [] }));
       refused(title, reply.body, [...NOT_NOW, "nothing_to_split", "nothing_to_draw"]);
     } catch {

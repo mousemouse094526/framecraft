@@ -8,7 +8,8 @@ delete `ep_busy` while any job works on it: each job slot of the tab adds a chec
 
 import logging
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
@@ -232,34 +233,28 @@ def add_act(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
     """An act the user adds: never split, so a Cards job counts it as changed (D10, D15)."""
     name = series_module.checked_text(body.get("name"), 1, series_module.ACT_NAME_MAX)
     summary = series_module.checked_text(body.get("summary", ""), 0, SUMMARY_MAX)
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (_, ep, _):
         act = Act(id=store.new_id("a", {a.id for a in ep.acts}), name=name, summary=summary)
         _insert(ep.acts, act, body)
-        store.write_ep(project, series.id, ep)
     return view(project, ep_id)
 
 
 def change_act(project: ProjectPaths, ep_id: str, act_id: str, body: dict) -> EpView:
     """The act's `name` and `summary` (D10, D15); a changed summary marks it to split again."""
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (_, ep, _):
         act = _find(ep.acts, act_id)
         if "name" in body:
             act.name = series_module.checked_text(body["name"], 1, series_module.ACT_NAME_MAX)
         if "summary" in body:
             act.summary = series_module.checked_text(body["summary"], 0, SUMMARY_MAX)
-        store.write_ep(project, series.id, ep)
     return view(project, ep_id)
 
 
 def delete_act(project: ProjectPaths, ep_id: str, act_id: str) -> EpView:
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (_, ep, removed):
         act = _find(ep.acts, act_id)
         ep.acts.remove(act)
-        store.write_ep(project, series.id, ep)
-        remove_card_files(project, series.id, ep.id, [card for segment in act.segments for card in segment.cards])
+        removed.extend(card for segment in act.segments for card in segment.cards)
     return view(project, ep_id)
 
 
@@ -269,43 +264,33 @@ def delete_act(project: ProjectPaths, ep_id: str, act_id: str) -> EpView:
 def add_segment(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
     """A segment needs a background of the Series and one card: a silent card the user
     fills, counted as written by them (spec › API, spoil-maker D74)."""
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (series, ep, _):
         act = _find(ep.acts, body.get("act_id"))
-        background_id = body.get("background_id")
-        if series_module.find_item(series, "backgrounds", background_id) is None:
-            raise ApiError(400, "invalid_request", "เลือกฉากหลังของช่วง")
+        background_id = _require_background(series, body.get("background_id"))
         taken = _ids(ep)
         card = Card(id=store.new_id("k", taken), hold_s=SILENT_HOLD, edited=True)
         segment = Segment(id=store.new_id("g", taken), background_id=background_id, cards=[card])
         _insert(act.segments, segment, body)
-        store.write_ep(project, series.id, ep)
     return view(project, ep_id)
 
 
 def change_segment(project: ProjectPaths, ep_id: str, segment_id: str, body: dict) -> EpView:
     """The segment's background (cards drawn on the old one go `stale_ref`, D32) and its
     background sound: off (`null`), another from the library, or its volume (D5)."""
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (series, ep, _):
         segment = _segment(ep, segment_id)
         if "background_id" in body:
-            if series_module.find_item(series, "backgrounds", body["background_id"]) is None:
-                raise ApiError(400, "invalid_request", "เลือกฉากหลังของช่วง")
-            segment.background_id = body["background_id"]
+            segment.background_id = _require_background(series, body["background_id"])
         if "sound" in body:
             segment.sound = _sound(project, body["sound"], segment.sound)
-        store.write_ep(project, series.id, ep)
     return view(project, ep_id)
 
 
 def delete_segment(project: ProjectPaths, ep_id: str, segment_id: str) -> EpView:
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (_, ep, removed):
         segment = _segment(ep, segment_id)
-        next(act for act in ep.acts if segment in act.segments).segments.remove(segment)
-        store.write_ep(project, series.id, ep)
-        remove_card_files(project, series.id, ep.id, segment.cards)
+        next(act for act, placed in _placed_segments(ep) if placed is segment).segments.remove(segment)
+        removed.extend(segment.cards)
     return view(project, ep_id)
 
 
@@ -314,8 +299,7 @@ def delete_segment(project: ProjectPaths, ep_id: str, segment_id: str) -> EpView
 
 def add_card(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
     """A card the user inserts is `edited` (spoil-maker D74); a silent one holds 2 s (D21)."""
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (series, ep, _):
         segment = _segment(ep, body.get("segment_id"))
         card = Card(id=store.new_id("k", _ids(ep)), edited=True)
         _apply_card(series, card, body)
@@ -323,38 +307,30 @@ def add_card(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
             card.hold_s = SILENT_HOLD
         _check_card(card)
         _insert(segment.cards, card, body)
-        store.write_ep(project, series.id, ep)
     return view(project, ep_id)
 
 
 def change_card(project: ProjectPaths, ep_id: str, card_id: str, body: dict) -> EpView:
     """A changed `text` or `description` makes the card `edited` (spoil-maker D74)."""
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (series, ep, _):
         card = card_of(ep, card_id)
         before = (card.text, card.description)
         _apply_card(series, card, body)
         _check_card(card)
         if (card.text, card.description) != before:
             card.edited = True
-        store.write_ep(project, series.id, ep)
     return view(project, ep_id)
 
 
 def delete_card(project: ProjectPaths, ep_id: str, card_id: str) -> EpView:
     """The last card of a segment takes the segment with it (spec › API)."""
-    with store.lock:
-        series, ep = editable(project, ep_id)
+    with _editing(project, ep_id) as (_, ep, removed):
         card = card_of(ep, card_id)
-        for act in ep.acts:
-            for segment in act.segments:
-                if card in segment.cards:
-                    segment.cards.remove(card)
-                    if not segment.cards:
-                        act.segments.remove(segment)
-                    break
-        store.write_ep(project, series.id, ep)
-        remove_card_files(project, series.id, ep.id, [card])
+        act, segment = next((act, segment) for act, segment in _placed_segments(ep) if card in segment.cards)
+        segment.cards.remove(card)
+        if not segment.cards:
+            act.segments.remove(segment)
+        removed.append(card)
     return view(project, ep_id)
 
 
@@ -393,7 +369,7 @@ def audio_status(card: Card, ep: Ep) -> AudioStatus:
     return "ready"
 
 
-def card_seconds(card: Card, status: str, chars_per_s: float) -> float:
+def card_seconds(card: Card, status: AudioStatus, chars_per_s: float) -> float:
     """The narration (heard, or guessed from the voice's speed), the gap, and the hold (D14, D21)."""
     if status == "silent":
         return card.hold_s
@@ -549,6 +525,25 @@ def rendering(ep_id: str) -> bool:
     return any(use.how == "renders" for use in _jobs_on(ep_id))
 
 
+@contextmanager
+def _editing(project: ProjectPaths, ep_id: str) -> Iterator[tuple[Series, Ep, list[Card]]]:
+    """An edit of the EP under the store's lock: the Series, the EP to change, and a list for
+    the cards it takes out. The EP is written when the block ends, then those cards' files go."""
+    with store.lock:
+        series, ep = editable(project, ep_id)
+        removed: list[Card] = []
+        yield series, ep, removed
+        store.write_ep(project, series.id, ep)
+        remove_card_files(project, series.id, ep.id, removed)
+
+
+def _require_background(series: Series, background_id: object) -> str:
+    """A segment's background is one of the Series'; raises `ApiError` 400 `invalid_request`."""
+    if series_module.find_item(series, "backgrounds", background_id) is None:
+        raise ApiError(400, "invalid_request", "เลือกฉากหลังของช่วง")
+    return background_id
+
+
 def editable(project: ProjectPaths, ep_id: str) -> tuple[Series, Ep]:
     """The EP to change; `ep_locked` while a Plot or Cards job works on it. Call with the
     store's lock held."""
@@ -573,11 +568,16 @@ def ep_cards(ep: Ep):
 
 def placed_cards(ep: Ep):
     """Every card of the EP in order, with the segment it is in (its background)."""
-    return ((segment, card) for act in ep.acts for segment in act.segments for card in segment.cards)
+    return ((segment, card) for _, segment in _placed_segments(ep) for card in segment.cards)
+
+
+def _placed_segments(ep: Ep) -> Iterator[tuple[Act, Segment]]:
+    """Every segment of the EP in order, with the act it is in."""
+    return ((act, segment) for act in ep.acts for segment in act.segments)
 
 
 def _ids(ep: Ep) -> set[str]:
-    return {item.id for act in ep.acts for segment in act.segments for item in [segment, *segment.cards]}
+    return {item.id for _, segment in _placed_segments(ep) for item in [segment, *segment.cards]}
 
 
 def _find(items: list, item_id: object):
@@ -588,7 +588,7 @@ def _find(items: list, item_id: object):
 
 
 def _segment(ep: Ep, segment_id: object) -> Segment:
-    return _find([segment for act in ep.acts for segment in act.segments], segment_id)
+    return _find([segment for _, segment in _placed_segments(ep)], segment_id)
 
 
 def card_of(ep: Ep, card_id: object) -> Card:

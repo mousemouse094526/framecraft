@@ -72,8 +72,10 @@ export function usePickRef(sid: string, kind: ItemKind, id: string) {
     }
   };
 
+  /** Marks picture `n` on the page only; nothing is sent until `pick`. */
   const choose = (n: number) => update((s) => ({ ...s, choice: n }));
 
+  /** ใช้ภาพนี้: picture `n` becomes the item's reference image, then back to the lists. */
   const pick = (n: number) =>
     send(() => sendJson("POST", `${itemPath(sid, kind, id)}/ref/pick`, { n }), 200, () => {
       window.location.hash = castHash(sid);

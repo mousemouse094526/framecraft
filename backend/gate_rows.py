@@ -16,6 +16,11 @@ DEVICE: dict[str, Row] = {
         lambda: checks.device_check(checks.probe_device, checks.this_platform(), checks.probe_gpu)(),
     )
 }
+# A link's download: yt-dlp and the JS runtime it solves YouTube's challenge with.
+LINK_TOOLS: dict[str, Row] = {
+    "yt_dlp": ("yt-dlp", lambda: checks.check_version(checks.probe_yt_dlp)),
+    "deno": ("Deno", lambda: checks.check_version(checks.probe_deno)),
+}
 PYTHAINLP: dict[str, Row] = {
     "pythainlp": ("pythainlp", lambda: checks.check_pinned(checks.probe_pythainlp, checks.PYTHAINLP_VERSION))
 }

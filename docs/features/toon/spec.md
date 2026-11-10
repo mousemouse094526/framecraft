@@ -82,7 +82,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `REQUIRED_FREE_BYTES` เพิ่ม 12 GB: Mac 32 GB, Windows 42 GB; `REQUIRED_FREE_BYTES_WITHOUT_QWEN` 27 GB (D51)
   - klein โหลดไม่สำเร็จเป็นเหมือนโมเดลอื่น: Setup script ล้มและรันซ้ำแล้วโหลดต่อ (ADR-0002)
 - **`backend.checks`, `backend.gate_rows`**
-  - แถวใหม่: Status check ด้านล่าง; `gate_rows.klein(project)` รวมสี่แถวของ klein (ฟังก์ชัน: แถว model ต้องรู้ project); แถว `diffusers` และ `gguf` เขียนที่เดียวใน `checks.klein_packages` ที่ Status check อ่านด้วย (D59)
+  - แถวใหม่: Status check ด้านล่าง; `gate_rows.klein(project)` รวมสี่แถวของ klein (ฟังก์ชัน: แถว model ต้องรู้ project); แถว `diffusers` และ `gguf` เขียนที่เดียวใน `checks.klein_packages` ที่ Status check อ่านด้วย (D59); แถว `yt_dlp`, `deno` ของลิงก์เป็น `gate_rows.LINK_TOOLS` ที่ Sound import ของลิงก์และ download ของสปอยใช้ร่วม (D66)
 - **`backend.renders`** (ใหม่, D59)
   - ส่วนกลางของผล render ที่ `spoil_maker.render` และ `toon.render` ใช้ร่วม: ชื่อว่าง ผลที่ครบ (`results`, `listed`) `latest_at` การจบ render (`finish`: srt และ json แล้วเอา `.partial` ออก json ท้าย) การลบ (mp4 ก่อน json ท้าย, `409` `in_use`) `.partial` ที่ค้าง; แถว gate ของ render เป็น `gate_rows.render(project, voices_first)` ที่เพิ่มแถวของ Voice job (`gate_rows.voice`) เมื่อต้องพูดก่อน (D60); `toon.episodes` อ่าน `latest_at` จากตัวนี้ จึงไม่ import `toon.render`; render หนึ่งชิ้นเป็น `Render(folder, name)` (`next_free` ให้ตัวนี้; `finish`, `require`, `delete` เป็น method) และ `percent` ของการตัดชิ้นและการต่อชิ้นเป็น `pieces_percent`, `encode_progress` (D62)
 - **`backend.jobs`, `backend.workers`**

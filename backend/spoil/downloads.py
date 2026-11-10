@@ -275,11 +275,7 @@ def estimate_bytes(info: dict) -> int:
 def _needed_rows() -> dict[str, Row]:
     """The Status check rows a download needs (D9), by id; the frontend's
     `DOWNLOAD_ITEMS` gates on the same rows."""
-    tools: dict[str, Row] = {
-        "yt_dlp": ("yt-dlp", lambda: checks.check_version(checks.probe_yt_dlp)),
-        "deno": ("Deno", lambda: checks.check_version(checks.probe_deno)),
-    }
-    return tools | gate_rows.FFMPEG
+    return gate_rows.LINK_TOOLS | gate_rows.FFMPEG
 
 
 def _yt_dlp_version() -> str:

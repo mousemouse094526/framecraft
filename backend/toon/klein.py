@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Literal, NamedTuple
 
 from backend import checks
+from backend.spoil_maker import llm
 from backend.workers import Worker
 
 GGUF_FILE = "flux-2-klein-4b-Q4_K_M.gguf"  # Q8_0 and Q6_K peak over 12 GB on a 16 GB Mac (D51)
@@ -22,8 +23,9 @@ GUIDANCE = 1.0
 REF_SIDE = 512  # a reference image's long side as it goes in (D49; D31 had 768)
 
 # Seconds one picture may take before its child is stopped (spec › Image job): the Mac's
-# 15 minutes, and Windows at the same × 5 as `llm.TIMEOUTS`.
-DRAW_TIMEOUTS = {"darwin": 900, "win32": 4500}
+# 15 minutes, and Windows at the same multiple as `llm.TIMEOUTS` starts from.
+_MAC_DRAW = 900
+DRAW_TIMEOUTS = {"darwin": _MAC_DRAW, "win32": _MAC_DRAW * llm.WINDOWS_START}
 
 
 def draw_timeout() -> float:

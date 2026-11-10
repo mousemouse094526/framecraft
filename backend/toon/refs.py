@@ -40,15 +40,15 @@ def run(job: steps.Run, project: ProjectPaths, plan: series.RefPlan) -> None:
     prompt = prompts.ref_prompt(plan.item_ref.item_kind, scene, plan.style)
     job.update(state="drawing", done=0, total=series.PICTURES)
     drawer = steps.open_klein(job, project, [prompt])
-    work = _pictures_dir(project, plan)
-    work.mkdir(parents=True, exist_ok=True)
+    folder = _pictures_dir(project, plan)
+    folder.mkdir(parents=True, exist_ok=True)
     pictures = []
     width, height = plan.size
     for n in range(1, series.PICTURES + 1):
         seed = random.randint(0, steps.SEED_MAX)
         request = Draw(index=0, ref_paths=[], width=width, height=height, seed=seed)
         drawn = steps.draw(job, drawer, request, (Drawn,))
-        picture = work / f"{n}.png"
+        picture = folder / f"{n}.png"
         picture.write_bytes(drawn.png)
         pictures.append(picture)
         job.update(done=n)

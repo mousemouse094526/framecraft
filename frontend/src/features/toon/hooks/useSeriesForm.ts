@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import type { Refusal } from "../../../lib/refusal";
-import { useMountedState } from "../../../lib/useMountedState";
 import { VOICES_PATH, type SavedVoice } from "../../../lib/voices";
 import {
   GENRE_DEFAULTS,
@@ -12,6 +11,7 @@ import {
   type SeriesFields,
 } from "../lib/series";
 import { refusalTextOf } from "../lib/notice";
+import { useReadyState } from "./useReadyState";
 
 export type SeriesFormState =
   | { kind: "loading" }
@@ -37,7 +37,7 @@ function newSeries(voices: SavedVoice[]): SeriesFields {
  * user may change them before saving (D52).
  */
 export function useSeriesForm(sid: string | null) {
-  const [state, , setState] = useMountedState<SeriesFormState>({ kind: "loading" });
+  const [state, setState, update] = useReadyState<SeriesFormState>({ kind: "loading" });
 
   useEffect(() => {
     void (async () => {
@@ -53,7 +53,7 @@ export function useSeriesForm(sid: string | null) {
 
   const save = useCallback(
     async (fields: SeriesFields) => {
-      setState((s) => (s.kind === "ready" ? { ...s, saving: true, error: null } : s));
+      update((s) => ({ ...s, saving: true, error: null }));
       let error = OFFLINE_TEXT;
       try {
         const reply =
@@ -68,9 +68,9 @@ export function useSeriesForm(sid: string | null) {
       } catch {
         // no answer: OFFLINE_TEXT
       }
-      setState((s) => (s.kind === "ready" ? { ...s, saving: false, error } : s));
+      update((s) => ({ ...s, saving: false, error }));
     },
-    [sid, setState],
+    [sid, update],
   );
 
   return { state, save };
