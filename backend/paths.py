@@ -158,6 +158,14 @@ class ProjectPaths:
         """An EP's `ep.json`, its card images and narration, and its renders."""
         return self.series_dir(series_id) / "eps" / ep_id
 
+    def card_images_dir(self, series_id: str, ep_id: str) -> Path:
+        """Each card's image and previous image, `{card_id}-{seed}.png`."""
+        return self.ep_dir(series_id, ep_id) / "images"
+
+    def card_audio_dir(self, series_id: str, ep_id: str) -> Path:
+        """Each card's narration, `{card_id}.wav`."""
+        return self.ep_dir(series_id, ep_id) / "audio"
+
     @property
     def toon_sounds_file(self) -> Path:
         """The background sound library of the whole tab (toon D16)."""
@@ -167,6 +175,11 @@ class ProjectPaths:
     def toon_partial_dir(self) -> Path:
         """Uploads not received in full yet; emptied on every start."""
         return self.toon_dir / ".partial"
+
+    @property
+    def image_job_dir(self) -> Path:
+        """The reference images an Image job draws with, copied as it starts; emptied on every start."""
+        return self.toon_dir / ".image-job"
 
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"

@@ -11,7 +11,7 @@
 - Seams: 1 (Image job, `failed_cards`, ภาพก่อนหน้า, start ใหม่, `stale_ref`, Voice job, `stale_audio`), 3 (ภาพขึ้นระหว่างงาน)
 - User stories: 3 (ป้ายการ์ดที่ใช้หน้าเก่า), 8, 9
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

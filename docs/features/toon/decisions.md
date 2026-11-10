@@ -722,6 +722,26 @@
 
 **From:** build ticket 02 · **Status:** active
 
+## D55: ภาพการ์ดและเสียงเล่า ticket 03: ค่าเล็กที่ build เลือกเอง
+
+**Chosen:**
+- Toon job มี `card_ids` (การ์ดที่งาน `image` หรือ `voice` ทำ ตามลำดับ: `card_ids[done]` คือใบที่กำลังวาด) และ `scope` (`missing`, `stale_ref`, หรือ null เมื่อเป็นการ์ดเดียว) ให้หน้าเว็บขึ้น "กำลังวาด…" ที่การ์ดนั้นและกดลองอีกครั้งได้งานเดิม; `missing_refs` แต่ละรายการมี `kind` (ตัวละครหรือฉากหลัง) เพิ่มจาก spec
+- การ์ดอยู่ในขอบเขตตามภาพ: `missing` = การ์ดที่ไม่มีภาพ, `stale_ref` = การ์ดที่มีภาพแต่ภาพอ้างอิงเปลี่ยน (รวมการ์ดที่มีภาพแต่ตอนนี้เป็น `no_ref`); การ์ดในขอบเขตที่ตัวละครหรือฉากหลังยังไม่มีภาพอ้างอิง → นับใน `skipped` และอยู่ใน `missing_refs`
+- Voice job การ์ดเงียบ → `400` `silent_card`; สลับภาพที่ไม่มีภาพก่อนหน้า → `404` `not_found`; สลับภาพเป็นการแก้ EP (`ep_locked` ระหว่าง Plot/Cards job)
+- klein ล้มที่ `Draw` หนึ่งภาพ: process ลูกตอบ `WorkerError` แล้วรอภาพถัดไป (ไม่จบ) ตาม spec › Image job ข้อ 5; ล้มตอน `Encode` ยังจบ
+- คำสั่งให้ Qwen แปลคำบรรยายการ์ดบอกว่าชื่อไทยไหนคือ `character 1`/`character 2`; คำบรรยายว่างไม่ถาม Qwen
+- `GET /eps/{eid}` การ์ดมี `has_image` (การ์ด `no_ref` อาจมีภาพเดิม); หน้าเว็บโหลดภาพและเสียงด้วย `?v=` ที่เพิ่มทุกครั้งที่อ่าน EP; ระหว่าง Image job `done` เปลี่ยนแล้วอ่าน EP ใหม่
+- หน้าเส้นเรื่อง: รายการ "ต้องสร้างภาพอ้างอิงก่อน" มาจาก `missing_refs` ของ Image job ล่าสุดของ EP หรือของ `nothing_to_draw`; ลิงก์ "ไปสร้างภาพอ้างอิง" ไปหน้าตัวละครและฉากหลัง; ปุ่ม "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน" ปิดเมื่อไม่มีการ์ด `stale_ref`; การ์ดที่ klein วาดไม่สำเร็จเป็นคำเตือนหลังงานจบ; เสียงเก่า (`stale_audio`) ได้ป้าย "เสียงเก่า"; ปุ่ม "คลังเสียงพื้น" และ "ไปหน้า render" ของแบบรอ ticket 04
+- ลูปสร้างเสียงทีละข้อความเป็น `speaking.Speaker._speak` (รับข้อความกับ Saved voice คือ clone prompt และ speed คืนเสียงทีละอัน) ใน module กลาง `backend/speaking.py` ที่ spoil-maker และ Toon job ใช้ร่วม; `voices.saved_voice` อ่าน speed กับ clone prompt ของ Saved voice ใต้ lock ของ draft
+
+**Why:** spec ไม่ได้กำหนด; เลือกตามโค้ดที่มี (Ref job, `SentenceVoicer`) และแบบใน Figma โดยไม่เปลี่ยนสิ่งที่ spec สัญญา. `card_ids` กับ `scope` ทำให้หน้าเว็บรู้ว่าการ์ดไหนกำลังวาดและลองงานเดิมซ้ำได้โดยไม่ต้องเดา.
+
+**Rejected:**
+- ส่งชื่อไฟล์ภาพให้หน้าเว็บเพื่อ cache — D53 ไม่ส่งไฟล์ภาพ
+- เริ่ม klein ใหม่หลังภาพล้ม — encode คำสั่งทั้งงานใหม่ทุกครั้งที่ล้ม
+
+**From:** build ticket 03 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

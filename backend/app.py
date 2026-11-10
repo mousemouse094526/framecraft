@@ -20,7 +20,6 @@ from backend.routes import stories as stories_routes
 from backend.spoil import clips, downloads, transcribe, trim
 from backend.spoil_maker import describe, draft, episodes, render, shots, voices
 from backend.toon import jobs as toon_jobs
-from backend.toon import series as toon_series
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +66,7 @@ JOB_HOLDERS = (
     JobEntry(lambda: draft.draft_jobs),
     JobEntry(lambda: voices.voice_jobs, voices.clean_on_start),
     JobEntry(lambda: render.render_jobs, render.clean_on_start),
-    JobEntry(lambda: toon_jobs.toon_jobs, toon_series.clean_on_start),
+    JobEntry(lambda: toon_jobs.toon_jobs, toon_jobs.clean_on_start),
 )
 
 

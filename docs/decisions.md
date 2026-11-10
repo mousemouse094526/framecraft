@@ -331,3 +331,4 @@ question; the full entry is in the feature's decisions.md.
 | หน้า tab การ์ตูนเล่า: hash `#/toon`, `/new`, `/series/{sid}`, `/settings`, `/{kind}/{id}/pick`; `POST /series` รับ style/tone/acts; ล้มหรือหยุด Ref job ไม่มีภาพให้เลือก | [toon](features/toon/decisions.md) | D52 | — | — | changed by toon D53 |
 | EP พล็อต เส้นเรื่อง: `/series/{sid}` เป็นรายการ EP ตัวละครย้ายไป `/cast`; EP ใหม่เริ่ม Plot job ทันที; `PATCH` องก์; Cards job เขียน Series กับ EP ตอนจบ; ขีดจำกัดข้อความ | [toon](features/toon/decisions.md) | D53 | — | — | active |
 | พล็อตที่ยืนยันแล้วไม่รับตัวละครหรือฉากหลังใหม่ (`invalid_request`); id ของ EP ไม่ซ้ำทั้ง tab; ชื่อองก์แก้ที่หัวองก์ | [toon](features/toon/decisions.md) | D54 | — | — | active |
+| ภาพการ์ดและเสียงเล่า: Toon job มี `card_ids` `scope`; ขอบเขตตามภาพ ข้าม `no_ref`; `silent_card`; klein ล้มหนึ่งภาพแล้วรอภาพถัดไป; `has_image`; ลูปเสียงกลาง `speaking.Speaker` | [toon](features/toon/decisions.md) | D55 | — | — | active |

@@ -54,3 +54,40 @@ def parse_scene(reply: str) -> str | None:
 def ref_prompt(kind: str, scene: str, style: str) -> str:
     template = CHARACTER_TEMPLATE if kind == "characters" else BACKGROUND_TEMPLATE
     return template.format(scene=scene, style=style)
+
+
+def card_scene_prompt(description: str, names: list[str]) -> str:
+    """Asks Qwen for the English `{scene}` of a card's picture, its characters as `character 1`
+    and `character 2` in the order of the card's `character_ids` (spec › คำสั่งภาพ)."""
+    if names:
+        who = ", ".join(f"{name} is character {n}" for n, name in enumerate(names, start=1))
+        subjects = " and ".join(f'"character {n}"' for n in range(1, len(names) + 1))
+        how = (
+            f"Make {subjects} the subject ({who}), never their names. "
+            "Say their pose and facial expression, the camera's angle and distance, and the light."
+        )
+    else:
+        how = "Nobody is in it. Say what is there, the camera's angle and distance, and the light."
+    return (
+        f"Write one or two short English sentences for an image model, describing one picture of a story. {how}\n"
+        "Do not name a style, and write no Thai.\n"
+        f"Thai description: {description}\n"
+        'Answer with JSON only: {"scene": "..."}'
+    )
+
+
+def fallback_scene(characters: int, description: str) -> str:
+    """The `{scene}` of a card whose description is empty, or whose translation broke or took
+    too long: a medium shot, then the description as written (spec › คำสั่งภาพ)."""
+    shot = "character 1 in a medium shot." if characters else "A medium shot."
+    return f"{shot} {description}" if description else shot
+
+
+def card_prompt(scene: str, style: str, characters: int) -> str:
+    """The app's template around a card's scene: each character bound to its reference image,
+    then the background's, which comes after them (spec › คำสั่งภาพ)."""
+    bound = "".join(f" character {n} is the character in reference image {n}." for n in range(1, characters + 1))
+    return (
+        f"{scene}{bound} In the setting of the background in reference image {characters + 1}. "
+        f"{style}. No text, no letters, no signs."
+    )

@@ -11,20 +11,40 @@ import { JobBanner } from "./JobBanner";
 import { PlotView } from "./PlotView";
 import { StorylineView } from "./StorylineView";
 
-type WritingKind = Extract<ToonJob["kind"], "plot" | "cards">;
-const JOB_TITLES: Record<WritingKind, string> = { plot: "AI กำลังร่างพล็อต", cards: "AI กำลังเขียนการ์ด" };
-const FAILED_TITLES: Record<WritingKind, string> = { plot: "ร่างพล็อตไม่สำเร็จ", cards: "แตกการ์ดไม่สำเร็จ" };
+type EpJobKind = Exclude<ToonJob["kind"], "ref">;
+type EpJob = ToonJob & { kind: EpJobKind };
+const FAILED_TITLES: Record<EpJobKind, string> = {
+  plot: "ร่างพล็อตไม่สำเร็จ",
+  cards: "แตกการ์ดไม่สำเร็จ",
+  image: "สร้างภาพไม่สำเร็จ",
+  voice: "สร้างเสียงเล่าไม่สำเร็จ",
+};
 
-/** The latest Plot or Cards job of this EP, or null. */
-function writingJobOf(job: ToonJob | null, eid: string): (ToonJob & { kind: WritingKind }) | null {
+/** The latest job of this EP, or null. */
+function epJobOf(job: ToonJob | null, eid: string): EpJob | null {
   if (job === null || job.ep_id !== eid || job.kind === "ref") return null;
   return { ...job, kind: job.kind }; // the copy carries `kind` narrowed past "ref"
+}
+
+/** What the running banner says of each job of this EP (Figma toon / 7 › Image job running). */
+function runningText(job: EpJob): { title: string; detail: string } {
+  if (job.kind === "plot") return { title: "AI กำลังร่างพล็อต", detail: "แก้ได้อีกครั้งเมื่อเสร็จ · ปิดหน้านี้ได้ งานยังทำต่อ" };
+  if (job.kind === "cards") return { title: "AI กำลังเขียนการ์ด", detail: "แก้ได้อีกครั้งเมื่อเสร็จ · ปิดหน้านี้ได้ งานยังทำต่อ" };
+  if (job.kind === "voice") return { title: "กำลังสร้างเสียงเล่า", detail: "ปิดหน้านี้ได้ งานยังทำต่อ" };
+  const skipped = job.skipped ? ` ข้าม ${job.skipped}` : "";
+  if (job.state === "translating") {
+    return { title: `AI กำลังแปลคำบรรยายภาพ${skipped}`, detail: "แล้วจึงเริ่มวาด · ปิดหน้านี้ได้ งานยังทำต่อ" };
+  }
+  return {
+    title: `กำลังสร้างภาพ ${job.done ?? 0}/${job.total ?? 0}${skipped}`,
+    detail: "ภาพขึ้นทีละใบ · ข้ามการ์ดที่ยังไม่มีภาพอ้างอิง",
+  };
 }
 
 /** `#/toon/eps/{eid}`: the plot until it is confirmed, then the storyline; `/plot` opens the
  * plot either way (Figma toon / 6, 7). A Plot or Cards job of this EP closes every field. */
 export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
-  const { state, reload, edit, startPlot, startCards, closeLost, cancelJob } = useEp(eid);
+  const { state, reload, edit, startPlot, startCards, closeLost, cancelJob, ...cardJobs } = useEp(eid);
 
   if (state.kind === "offline") {
     return (
@@ -41,12 +61,21 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
     );
   }
 
-  const { ep, series, job, notice, lost } = state;
-  const own = writingJobOf(job, eid);
-  const writing = own !== null && isRunning(own) ? own : null;
-  const locked = ep.locked || writing !== null;
+  const { ep, series, job, notice, lost, missing, version } = state;
+  const own = epJobOf(job, eid);
+  const running = own !== null && isRunning(own) ? own : null;
+  const locked = ep.locked || (running !== null && (running.kind === "plot" || running.kind === "cards"));
+  const failedCards = own?.kind === "image" && own.state === "done" ? (own.failed_cards ?? []) : [];
   const showPlot = plot || ep.stage === "plot";
   const busy = job !== null && isRunning(job);
+
+  /** ลองอีกครั้ง: the failed job again, as it was asked. */
+  function retry(failed: EpJob) {
+    if (failed.kind === "plot") return startPlot();
+    if (failed.kind === "cards") return startCards();
+    if (failed.kind === "voice") return cardJobs.startVoice(failed.card_ids?.[0] ?? "");
+    return failed.scope ? cardJobs.startImages(failed.scope) : cardJobs.startImage(failed.card_ids?.[0] ?? "");
+  }
 
   return (
     <PageLayout tab="toon" wide>
@@ -65,14 +94,13 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
         )}
       </div>
       {notice && <NoticeLine notice={notice} />}
-      {writing && (
+      {running && (
         <JobBanner
           kind="running"
-          title={JOB_TITLES[writing.kind]}
-          detail="แก้ได้อีกครั้งเมื่อเสร็จ · ปิดหน้านี้ได้ งานยังทำต่อ"
-          done={writing.done ?? 0}
-          total={writing.total ?? 1}
-          stopping={writing.cancel_requested}
+          {...runningText(running)}
+          done={running.done ?? 0}
+          total={running.total ?? 1}
+          stopping={running.cancel_requested}
           onStop={() => void cancelJob()}
         />
       )}
@@ -81,7 +109,17 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
           kind="failed"
           title={FAILED_TITLES[own.kind]}
           detail={own.error?.message ?? ""}
-          onRetry={() => void (own.kind === "plot" ? startPlot() : startCards())}
+          onRetry={() => void retry(own)}
+        />
+      )}
+      {failedCards.length > 0 && (
+        <NoticeLine
+          notice={{
+            tone: "warning",
+            title: `วาดไม่สำเร็จ ${failedCards.length} การ์ด`,
+            text: "กดสร้างภาพที่ขาดทั้งหมดอีกครั้ง หรือสร้างภาพใหม่ที่การ์ดนั้น",
+            setupLink: false,
+          }}
         />
       )}
       {showPlot ? (
@@ -97,7 +135,18 @@ export function EpPage({ eid, plot }: { eid: string; plot: boolean }) {
           onCloseLost={closeLost}
         />
       ) : (
-        <StorylineView ep={ep} series={series} locked={locked} edit={edit} />
+        <StorylineView
+          ep={ep}
+          series={series}
+          locked={locked}
+          edit={edit}
+          job={own}
+          busy={busy}
+          missing={own?.kind === "image" ? (own.missing_refs ?? missing) : missing}
+          skipped={own?.kind === "image" ? (own.skipped ?? 0) : null}
+          version={version}
+          jobs={cardJobs}
+        />
       )}
     </PageLayout>
   );

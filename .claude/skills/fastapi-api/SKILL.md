@@ -95,10 +95,16 @@ backend/
 │                    `ep_jobs`, where each job slot says which EP it locks),
 │                    writer (the Plot and Cards prompts and the reading of
 │                    Qwen's answers through llm_reply), prompts (the picture prompts and the
-│                    reading of Qwen's scene), jobs (the Toon job slot: Plot
-│                    and Cards jobs on Qwen, Ref job, Qwen then klein), klein
-│                    (the only diffusers import; its `worker` runs in a
-│                    child process, D34)
+│                    reading of Qwen's scene), images (which cards an Image
+│                    job draws, each picture it writes, swapping back),
+│                    voicing (a card's narration), jobs (the Toon job slot:
+│                    Plot and Cards jobs on Qwen, Ref and Image jobs, Qwen
+│                    then klein, Voice job on OmniVoice through
+│                    `speaking.Speaker`), klein (the only diffusers import;
+│                    its `worker` runs in a child process, D34)
+├── speaking.py   ← `Speaker`, the job slot base that speaks texts in a Saved
+│                    voice in an OmniVoice child, and the wav it writes:
+│                    spoil_maker's Voice and Render jobs and toon's Voice job
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
 │                    File import and toon's reference uploads share it
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an

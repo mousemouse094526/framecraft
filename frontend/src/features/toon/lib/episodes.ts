@@ -3,6 +3,10 @@
 
 export const EPS_PATH = "/api/toon/eps";
 export const epPath = (eid: string) => `${EPS_PATH}/${eid}`;
+const cardPath = (eid: string, kid: string) => `${epPath(eid)}/cards/${kid}`;
+/** A card's image, previous image or narration; `version` makes a picture drawn since load again. */
+export const cardImagePath = (eid: string, kid: string, version: number) => `${cardPath(eid, kid)}/image?v=${version}`;
+export const cardAudioPath = (eid: string, kid: string, version: number) => `${cardPath(eid, kid)}/audio?v=${version}`;
 export const seriesEpsPath = (sid: string) => `/api/toon/series/${sid}/eps`;
 
 export type Motion = "still" | "zoom_in" | "zoom_out" | "pan_left" | "pan_right";
@@ -41,6 +45,7 @@ export type Card = {
   image_status: "no_ref" | "no_image" | "stale_ref" | "ready";
   audio_status: "silent" | "no_audio" | "stale_audio" | "ready";
   duration_s: number;
+  has_image: boolean;
   has_previous_image: boolean;
 };
 

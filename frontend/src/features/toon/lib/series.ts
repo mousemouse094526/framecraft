@@ -132,21 +132,36 @@ export function pageOf(hash: string): Page {
   return { kind: "list" };
 }
 
+/** A character or background with no reference image yet, and how many cards of an Image job it
+ * made skip (D13). */
+export type MissingRef = { kind: Kind; id: string; name: string; cards: number };
+
+/** Which cards an Image job of the whole EP draws: every one with no image, or every
+ * `stale_ref` one (D33, D44). */
+export type ImageScope = "missing" | "stale_ref";
+
 /** The Toon job as `/jobs/current` sends it (toon spec › Toon job): `plot` and `cards` write an
- * EP and lock it, `ref` draws a reference image. */
+ * EP and lock it, `ref` draws a reference image, `image` card images, `voice` a card's narration. */
 export type ToonJob = {
-  kind: "plot" | "cards" | "ref";
-  state: "writing" | "translating" | "drawing" | "done" | "failed" | "cancelled";
+  kind: "plot" | "cards" | "ref" | "image" | "voice";
+  state: "writing" | "translating" | "drawing" | "voicing" | "done" | "failed" | "cancelled";
   series_id: string;
   ep_id: string | null;
   item_id: string | null;
+  /** The cards an `image` or `voice` job works on, in order: `card_ids[done]` is the one now (D55). */
+  card_ids?: string[] | null;
+  /** An `image` job of every card with no image, or every `stale_ref` one; null: of one card. */
+  scope?: ImageScope | null;
   done: number | null;
   total: number | null;
+  skipped?: number | null;
+  missing_refs?: MissingRef[] | null;
+  failed_cards?: string[] | null;
   error: { code: string; message: string } | null;
   cancel_requested: boolean;
 };
 
-export const UNFINISHED_JOB = ["writing", "translating", "drawing"] as const;
+export const UNFINISHED_JOB = ["writing", "translating", "drawing", "voicing"] as const;
 
 export const isRunning = isUnfinishedIn<ToonJob["state"]>(UNFINISHED_JOB);
 

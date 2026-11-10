@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, Request, Response
 from fastapi.responses import FileResponse
 
 from backend import body_types, paths
-from backend.toon import episodes, jobs, series
+from backend.toon import episodes, images, jobs, series, voicing
 from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
 from backend.toon.series import Kind, ListedSeries, SeriesView, UploadCheck
@@ -150,6 +150,26 @@ def change_card(ep_id: str, card_id: str, body: dict[str, Any]) -> EpView:
 @router.delete("/eps/{ep_id}/cards/{card_id}")
 def delete_card(ep_id: str, card_id: str) -> EpView:
     return episodes.delete_card(paths.project(), ep_id, card_id)
+
+
+@router.post("/eps/{ep_id}/cards/{card_id}/swap-image")
+def swap_image(ep_id: str, card_id: str) -> EpView:
+    return images.swap(paths.project(), ep_id, card_id)
+
+
+@router.get("/eps/{ep_id}/cards/{card_id}/image")
+def get_image(ep_id: str, card_id: str) -> FileResponse:
+    return FileResponse(images.image_file(paths.project(), ep_id, card_id), media_type="image/png")
+
+
+@router.get("/eps/{ep_id}/cards/{card_id}/previous-image")
+def get_previous_image(ep_id: str, card_id: str) -> FileResponse:
+    return FileResponse(images.image_file(paths.project(), ep_id, card_id, previous=True), media_type="image/png")
+
+
+@router.get("/eps/{ep_id}/cards/{card_id}/audio")
+def get_audio(ep_id: str, card_id: str) -> FileResponse:
+    return FileResponse(voicing.audio_file(paths.project(), ep_id, card_id), media_type="audio/wav")
 
 
 @router.post("/jobs", status_code=202)

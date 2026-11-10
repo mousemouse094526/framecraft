@@ -5,7 +5,7 @@ import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { epPath, type Ep, type LostCards } from "../lib/episodes";
-import { epHash, isRunning, JOB_PATH, JOBS_PATH, seriesPath, type Series, type ToonJob } from "../lib/series";
+import { epHash, isRunning, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
 import type { Notice } from "./useCast";
 
 export type EpState =
@@ -20,14 +20,19 @@ export type EpState =
       notice: Notice | null;
       /** `cards_will_be_lost`: what each act would lose, until the user confirms or cancels (D43). */
       lost: LostCards[] | null;
+      /** `nothing_to_draw`: what has no reference image yet, until another job starts (D13). */
+      missing: MissingRef[] | null;
+      /** Goes up with every read of the EP, so a card picture or narration made since loads again. */
+      version: number;
     };
 
 type Ready = Extract<EpState, { kind: "ready" }>;
 
 /**
  * An EP: its plot (Plot job, edits, confirm), its storyline (acts, segments, cards and their
- * edits), and the Cards job that splits the plot (spec › Plot job, › Cards job). While a Plot
- * or Cards job of this EP runs, the page closes every field; a job that ends reads the EP again.
+ * edits), the Cards job that splits the plot, and the Image and Voice jobs of its cards (spec ›
+ * Plot job, › Cards job, › Image job, › Voice job). While a Plot or Cards job of this EP runs,
+ * the page closes every field; a job that ends reads the EP again, and so does each picture drawn.
  */
 export function useEp(eid: string) {
   const [state, , setState] = useMountedState<EpState>({ kind: "loading" });
@@ -48,6 +53,8 @@ export function useEp(eid: string) {
         job,
         notice: s.kind === "ready" ? s.notice : null,
         lost: s.kind === "ready" ? s.lost : null,
+        missing: s.kind === "ready" ? s.missing : null,
+        version: s.kind === "ready" ? s.version + 1 : 0,
       }));
     } catch {
       setState({ kind: "offline" });
@@ -63,7 +70,13 @@ export function useEp(eid: string) {
     job !== null && isRunning(job),
     JOB_PATH,
     (next) => {
-      if (next !== null && isRunning(next)) return update((s) => ({ ...s, job: next }));
+      if (next !== null && isRunning(next)) {
+        // A picture of this EP is written as soon as it is drawn: read the EP for it (spec › Frontend).
+        const drew = next.kind === "image" && next.ep_id === eid && next.state === "drawing" && next.done !== job?.done;
+        update((s) => ({ ...s, job: next }));
+        if (drew) void load();
+        return;
+      }
       // A Cards job of this EP that is done opens the storyline (the plot page may be open).
       if (next?.kind === "cards" && next.ep_id === eid && next.state === "done") window.location.hash = epHash(eid);
       void load();
@@ -96,13 +109,14 @@ export function useEp(eid: string) {
     try {
       const reply = await sendJson<ToonJob | Refusal>("POST", JOBS_PATH, { ep_id: eid, ...body });
       if (reply.status === 202) {
-        update((s) => ({ ...s, job: reply.body as ToonJob, notice: null, lost: null }));
+        update((s) => ({ ...s, job: reply.body as ToonJob, notice: null, lost: null, missing: null }));
         void load(); // the EP reads as locked now
         return;
       }
-      const refusal = refusalOf(reply.body) as (Refusal & { acts?: LostCards[] }) | null;
+      const refusal = refusalOf(reply.body) as (Refusal & { acts?: LostCards[]; missing_refs?: MissingRef[] }) | null;
       if (refusal?.code === "cards_will_be_lost") return update((s) => ({ ...s, lost: refusal.acts ?? [] }));
-      const busy = ["busy", "gpu_busy", "not_ready", "nothing_to_split"].includes(refusal?.code ?? "");
+      if (refusal?.code === "nothing_to_draw") update((s) => ({ ...s, missing: refusal.missing_refs ?? [] }));
+      const busy = ["busy", "gpu_busy", "not_ready", "nothing_to_split", "nothing_to_draw"].includes(refusal?.code ?? "");
       refused(title, reply.body, busy ? "warning" : "error");
     } catch {
       refused(title, null);
@@ -123,6 +137,13 @@ export function useEp(eid: string) {
     /** First without `confirm_loss`: a `cards_will_be_lost` answer opens the confirm (D43). */
     startCards: (confirmLoss = false) => start({ kind: "cards", confirm_loss: confirmLoss }, "ยังแตกการ์ดไม่ได้"),
     closeLost: () => update((s) => ({ ...s, lost: null })),
+    /** Every card with no image, or every `stale_ref` one (D33, D44). */
+    startImages: (scope: ImageScope) => start({ kind: "image", scope }, "ยังสร้างภาพไม่ได้"),
+    startImage: (cardId: string) => start({ kind: "image", card_id: cardId }, "ยังสร้างภาพไม่ได้"),
+    startVoice: (cardId: string) => start({ kind: "voice", card_id: cardId }, "ยังสร้างเสียงไม่ได้"),
+    swapImage: async (cardId: string) => {
+      if (await edit("POST", `/cards/${cardId}/swap-image`, {}, "สลับภาพไม่ได้")) update((s) => ({ ...s, version: s.version + 1 }));
+    },
     cancelJob,
   };
 }

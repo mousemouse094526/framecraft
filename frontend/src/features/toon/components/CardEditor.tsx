@@ -1,10 +1,19 @@
 import plusIcon from "../../../components/ui/assets/plus.svg";
+import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
+import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import flameIcon from "../assets/flame.svg";
 import imageIcon from "../assets/image.svg";
+import loaderIcon from "../assets/loader.svg";
+import micDarkIcon from "../assets/mic-dark.svg";
+import micIcon from "../assets/mic.svg";
 import minusIcon from "../assets/minus.svg";
+import playIcon from "../assets/play.svg";
+import undoIcon from "../assets/undo.svg";
 import {
+  cardAudioPath,
+  cardImagePath,
   CARD_CHARACTERS_MAX,
   CARD_DESCRIPTION_MAX,
   HOLD_MAX,
@@ -16,13 +25,22 @@ import {
 } from "../lib/episodes";
 import type { Series } from "../lib/series";
 import { CommitField } from "./CommitField";
+import type { CardJobs } from "./StorylineView";
 
 type Props = {
   card: Card;
   /** The card's number in the EP, from 1. */
   number: number;
   series: Series;
+  eid: string;
+  /** Goes up with each read of the EP: a picture or narration made since loads again. */
+  version: number;
   locked: boolean;
+  /** Any Toon job runs: its buttons wait. */
+  busy: boolean;
+  /** What a running job does to this card now; null: nothing. */
+  work: CardWork | null;
+  jobs: CardJobs;
   onChange: (body: Partial<Card>) => void;
   onDelete: () => void;
 };
@@ -30,18 +48,44 @@ type Props = {
 const LABEL = "text-xs leading-[1.5] font-medium text-mid";
 const FIELD = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-[1.5] text-foreground disabled:bg-muted";
 
-/** Figma `Toon/Card`: the fields of one card (card-sketch, D20, D21, D30). The card image and
- * the narration buttons come with their jobs (ticket 03). */
-export function CardEditor({ card, number, series, locked, onChange, onDelete }: Props) {
+export type CardWork = "drawing" | "voicing";
+
+const ACTION = "h-8 px-3";
+
+/** Figma `Toon/Card`: the fields of one card (card-sketch, D20, D21, D30), its picture with
+ * สร้างภาพใหม่ and สลับภาพก่อนหน้า (D27, D33), and its narration's buttons (D21). */
+export function CardEditor(props: Props) {
+  const { card, number, series, eid, version, locked, busy, work, jobs, onChange, onDelete } = props;
   const named = (id: string) => series.characters.find((c) => c.id === id)?.name ?? id;
   const addable = series.characters.filter((c) => !card.character_ids.includes(c.id));
   const full = card.character_ids.length >= CARD_CHARACTERS_MAX;
 
   return (
     <article aria-label={`การ์ด ${number}`} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:flex-row">
-      <div className="flex h-36 w-full shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-disabled bg-muted sm:w-64">
-        <img src={imageIcon} alt="" width={20} height={20} />
-        <p className="text-xs leading-[1.5] text-muted-foreground">ยังไม่มีภาพ</p>
+      <div className="flex shrink-0 flex-col gap-2">
+        <CardPicture card={card} number={number} src={cardImagePath(eid, card.id, version)} drawing={work === "drawing"} full={series.layout === "full"} />
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            disabled={busy || locked || card.image_status === "no_ref"}
+            onClick={() => void jobs.startImage(card.id)}
+            className={`${ACTION} ${GHOST_BUTTON}`}
+          >
+            <img src={refreshIcon} alt="" width={16} height={16} />
+            {card.has_image ? "สร้างภาพใหม่" : "สร้างภาพ"}
+          </button>
+          {card.has_previous_image && (
+            <button
+              type="button"
+              disabled={busy || locked}
+              onClick={() => void jobs.swapImage(card.id)}
+              className={`${ACTION} ${GHOST_BUTTON}`}
+            >
+              <img src={undoIcon} alt="" width={16} height={16} />
+              สลับภาพก่อนหน้า
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -169,8 +213,81 @@ export function CardEditor({ card, number, series, locked, onChange, onDelete }:
             </div>
           </div>
         </div>
+        {card.audio_status !== "silent" && (
+          <Narration
+            card={card}
+            src={cardAudioPath(eid, card.id, version)}
+            disabled={busy || locked}
+            voicing={work === "voicing"}
+            onVoice={() => void jobs.startVoice(card.id)}
+          />
+        )}
       </div>
     </article>
+  );
+}
+
+/** The card's picture as big as the design's 144 px high, a frame card wide and a full-screen one
+ * upright (D37); while the Image job draws it, กำลังวาด…. */
+function CardPicture({ card, number, src, drawing, full }: { card: Card; number: number; src: string; drawing: boolean; full: boolean }) {
+  const size = full ? "h-36 w-[81px]" : "h-36 w-64";
+  if (drawing) {
+    return (
+      <div className={`flex flex-col items-center justify-center gap-1.5 rounded-lg bg-accent-subtle ${size}`}>
+        <img src={loaderIcon} alt="" width={20} height={20} className="motion-safe:animate-spin" />
+        <p className="text-xs leading-[1.5] text-mid">กำลังวาด…</p>
+      </div>
+    );
+  }
+  if (!card.has_image) {
+    return (
+      <div className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-disabled bg-muted ${size}`}>
+        <img src={imageIcon} alt="" width={20} height={20} />
+        <p className="text-xs leading-[1.5] text-muted-foreground">ยังไม่มีภาพ</p>
+      </div>
+    );
+  }
+  return <img src={src} alt={`ภาพการ์ด ${number}`} className={`rounded-lg bg-muted object-cover ${size}`} />;
+}
+
+/** Figma `Narration voice`: สร้างเสียง until the card has narration, then ฟัง and สร้างใหม่ with
+ * its length; a changed text or EP voice says the narration is old (D8, D21). */
+function Narration({ card, src, disabled, voicing, onVoice }: { card: Card; src: string; disabled: boolean; voicing: boolean; onVoice: () => void }) {
+  const play = () => {
+    try {
+      void new Audio(src).play().catch(() => undefined);
+    } catch {
+      // A browser without audio output: nothing to play.
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <img src={micIcon} alt="" width={16} height={16} />
+      <span className={LABEL}>เสียงเล่า</span>
+      {voicing ? (
+        <span className="flex h-8 items-center gap-2 px-3 text-sm text-mid">
+          <img src={loaderIcon} alt="" width={16} height={16} className="motion-safe:animate-spin" />
+          กำลังสร้างเสียง…
+        </span>
+      ) : card.audio_status === "no_audio" ? (
+        <button type="button" disabled={disabled} onClick={onVoice} className={`${ACTION} ${OUTLINE_BUTTON}`}>
+          <img src={micDarkIcon} alt="" width={16} height={16} />
+          สร้างเสียง
+        </button>
+      ) : (
+        <>
+          <button type="button" onClick={play} className={`${ACTION} ${GHOST_BUTTON}`}>
+            <img src={playIcon} alt="" width={16} height={16} />
+            ฟัง
+          </button>
+          <button type="button" disabled={disabled} onClick={onVoice} className={`${ACTION} ${GHOST_BUTTON}`}>
+            <img src={refreshIcon} alt="" width={16} height={16} />
+            สร้างใหม่
+          </button>
+          {card.audio_status === "stale_audio" && <Badge className="bg-warning-surface text-warning">เสียงเก่า</Badge>}
+        </>
+      )}
+    </div>
   );
 }
 

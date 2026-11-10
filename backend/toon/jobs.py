@@ -1,10 +1,12 @@
 """The Toon job: every job of the การ์ตูนเล่า tab but its render, one at a time in one slot
-(toon spec › Toon job, ADR 0010, ADR 0012, ADR 0015). Its kinds so far: `plot` and `cards`,
-Qwen writing an EP's plot and splitting it into segments and cards (spec › Plot job, › Cards
-job), and `ref`, the reference picture of a character or a background (spec › Ref job).
+(toon spec › Toon job, ADR 0010, ADR 0012, ADR 0015). Its kinds: `plot` and `cards`, Qwen
+writing an EP's plot and splitting it into segments and cards (spec › Plot job, › Cards job);
+`ref`, the reference picture of a character or a background (spec › Ref job); `image`, the
+pictures of one card or of every card a scope takes (spec › Image job); and `voice`, one
+card's narration (spec › Voice job).
 
 A job holds the GPU slot as its kind's `gpu_kind`, set as it starts: `toon_write` for Qwen's
-writing, `toon_image` for a job that runs Qwen then klein. Its `Child` (`_use`)
+writing, `toon_image` for a job that runs Qwen then klein, `toon_voice` for OmniVoice. Its `Child` (`_use`)
 follows the step it is in, so `_reply` names that child. A `plot` or `cards`
 job locks its EP: edits are `ep_locked` until it ends, and the EP changes only at its end.
 """
@@ -19,23 +21,23 @@ from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
 
-from backend import checks, gate_rows, gpu, paths, spoil_maker, toon
+from backend import checks, gate_rows, gpu, paths, speaking, spoil_maker, toon
 from backend.errors import ApiError, JobFailed, Row, invalid_request, require_rows
-from backend.jobs import ModelJobSlot, stop_process
+from backend.jobs import stop_process
 from backend.models import KLEIN, KLEIN_GGUF, qwen_for
 from backend.paths import ProjectPaths
-from backend.spoil_maker import llm, voices
+from backend.spoil_maker import llm, tts, voices
 from backend.spoil_maker.llm import Generate, Generated, Ready
-from backend.toon import episodes, klein, prompts, series, store, writer
+from backend.toon import episodes, images, klein, prompts, series, store, voicing, writer
 from backend.toon.klein import Draw, Drawn, Encode, Encoded
 from backend.toon.store import Background, Character, Ep, Plot, Series
 
 log = logging.getLogger(__name__)
 
-State = Literal["writing", "translating", "drawing", "done", "failed", "cancelled"]
-UNFINISHED: frozenset[State] = frozenset({"writing", "translating", "drawing"})
+State = Literal["writing", "translating", "drawing", "voicing", "done", "failed", "cancelled"]
+UNFINISHED: frozenset[State] = frozenset({"writing", "translating", "drawing", "voicing"})
 ErrorCode = Literal["crashed", "model_failed", "write_failed", "ffmpeg_failed", "internal"]
-JobKind = Literal["plot", "cards", "ref"]
+JobKind = Literal["plot", "cards", "ref", "image", "voice"]
 LOCKS_EP: frozenset[JobKind] = frozenset({"plot", "cards"})
 
 SEED_MAX = 2**31 - 1
@@ -52,6 +54,7 @@ class Child(NamedTuple):
 WRITER = Child(llm.WorkerError, "ตัวร่างการ์ตูนเล่า", "ร่างการ์ตูนเล่าไม่สำเร็จ")
 TRANSLATOR = Child(llm.WorkerError, "ตัวแปลคำบรรยาย", "สร้างภาพไม่สำเร็จ")
 DRAWER = Child(klein.WorkerError, "ตัวสร้างภาพ", "สร้างภาพไม่สำเร็จ")
+VOICER = Child(tts.WorkerError, "ตัวสร้างเสียง", "สร้างเสียงไม่สำเร็จ")
 
 
 class LostCards(BaseModel):
@@ -77,16 +80,25 @@ class ToonJob(BaseModel):
     series_id: str
     ep_id: str | None = None
     item_id: str | None = None  # the character or background a `ref` job draws (D48)
+    # The cards an `image` or `voice` job works on, in order; while `drawing`, `card_ids[done]`
+    # is the one klein draws now (`done` counts translations while `translating`, D55).
+    card_ids: list[str] | None = None
+    scope: images.Scope | None = None  # an `image` job of every card the scope takes, not of one
     percent: int | None = None
     done: int | None = None
     total: int | None = None
     skipped: int | None = None
+    missing_refs: list[images.MissingRef] | None = None  # what made an `image` job skip cards (D13)
+    failed_cards: list[str] | None = None  # the cards klein failed to draw; the job went on
     error: ToonJobError | None = None
     cancel_requested: bool = False
     started_at: str
 
 
-class ToonJobs(ModelJobSlot[ToonJob]):
+class ToonJobs(speaking.Speaker[ToonJob]):
+    """The slot itself. A `Speaker` for the Voice job's OmniVoice steps (`_speak`); its other
+    kinds run Qwen and klein children through `_reply` the same way."""
+
     unfinished = UNFINISHED
     nothing_to_cancel = "ไม่มีงานการ์ตูนเล่าที่ยังไม่จบ"
     error_type = ToonJobError
@@ -102,6 +114,10 @@ class ToonJobs(ModelJobSlot[ToonJob]):
             return self._start_cards(body)
         if body.get("kind") == "ref":
             return self._start_ref(body)
+        if body.get("kind") == "image":
+            return self._start_image(body)
+        if body.get("kind") == "voice":
+            return self._start_voice(body)
         raise ApiError(400, "invalid_request", "ไม่รู้จักงานแบบนี้")
 
     def ep_use(self) -> tuple[str, bool] | None:
@@ -323,7 +339,7 @@ class ToonJobs(ModelJobSlot[ToonJob]):
     def _ref(self, project: ProjectPaths, series_id: str, plan: series.RefPlan, work: Path) -> None:
         """Steps 2–3: Qwen writes the scene, its child ends, then klein draws three pictures
         with different seeds; they become the item's waiting set only once all three are in."""
-        scene = self._scene(project, prompts.ref_scene_prompt(plan.kind, plan.name, plan.description))
+        [scene] = self._scenes(project, [prompts.ref_scene_prompt(plan.kind, plan.name, plan.description)])
         if scene is None:
             scene = plan.description or plan.name  # D48: the description as it was written
         prompt = prompts.ref_prompt(plan.kind, scene, plan.style)
@@ -345,29 +361,152 @@ class ToonJobs(ModelJobSlot[ToonJob]):
         if not series.put_pending(project, series_id, plan.kind, plan.item_id, pictures):
             log.info("the reference pictures of %s are dropped: it was deleted", plan.item_id)
 
-    def _scene(self, project: ProjectPaths, prompt: str) -> str | None:
-        """Qwen's English scene, or None when its answer isn't one or takes too long; its
-        child ends either way, before klein loads (D36)."""
+    def _start_image(self, body: dict) -> ToonJob:
+        """Step 1 in spec order: the EP and its cards, the gate, `busy`, `gpu_busy`, the disk.
+        The cards are read again under the store's lock with the job set, and the reference
+        images they use copied there, so each copy is the `ref_rev` the card records."""
+        project = paths.project()
+        images.plan(project, body)  # its refusals first; the plan the job takes is read again below
+        require_rows(image_rows(project))
+        with self._lock:
+            if self._taken():
+                raise ApiError(409, "busy", "มีงานการ์ตูนเล่าที่ยังไม่จบ")
+            with store.lock:
+                plan = images.plan(project, body)
+                gpu.slot.take("toon_image")
+                self._use("toon_image", DRAWER)
+                try:
+                    series.require_free_disk(project)
+                    images.copy_refs(project, plan)
+                except Exception:
+                    gpu.slot.release("toon_image")  # no job holds it yet (ADR 0015)
+                    raise
+                self._job = ToonJob(
+                    kind="image",
+                    state="translating",
+                    series_id=plan.series_id,
+                    ep_id=plan.ep_id,
+                    card_ids=[card.card_id for card in plan.cards],
+                    scope=body.get("scope"),
+                    done=0,
+                    total=len(plan.cards),
+                    skipped=plan.skipped,
+                    missing_refs=plan.missing_refs,
+                    failed_cards=[],
+                    started_at=checks.now_iso(),
+                )
+            self._cancel.clear()
+            job = self._job.model_copy(deep=True)
+
+        def clean_up(state: str) -> None:
+            shutil.rmtree(project.image_job_dir, ignore_errors=True)
+
+        what = f"toon job image {plan.ep_id} ({len(plan.cards)} cards)"
+        threading.Thread(
+            target=self._run_job, args=(what, lambda: self._image(project, plan), clean_up), daemon=True
+        ).start()
+        return job
+
+    def _image(self, project: ProjectPaths, plan: images.ImagePlan) -> None:
+        """Steps 2–6: Qwen translates every card's description as it was at the start, its
+        child ends (D36), then klein encodes every prompt and draws the cards in order, each
+        written as soon as it is (D33). A card klein fails on is counted and the job goes on."""
+        asks = [prompts.card_scene_prompt(c.description, c.names) if c.description else None for c in plan.cards]
+        scenes = self._scenes(project, asks, counted=True)
+        card_prompts = [
+            prompts.card_prompt(scene or prompts.fallback_scene(len(c.names), c.description), plan.style, len(c.names))
+            for c, scene in zip(plan.cards, scenes, strict=True)
+        ]
+        self._update(state="drawing", done=0)
+        process, requests, replies = self._start_klein(project)
+        requests.put(Encode(card_prompts))
+        self._klein_reply(process, replies, Encoded)
+        width, height = plan.size
+        failed: list[str] = []
+        for done, (card, prompt) in enumerate(zip(plan.cards, card_prompts, strict=True), start=1):
+            seed = random.randint(0, SEED_MAX)
+            requests.put(Draw(index=done - 1, ref_paths=card.ref_paths, width=width, height=height, seed=seed))
+            # A `WorkerError` asked for comes back like a `Drawn` instead of failing the job.
+            drawn = self._klein_reply(process, replies, Drawn, klein.WorkerError)
+            if isinstance(drawn, klein.WorkerError):
+                log.error("klein failed on card %s (%s): %s", card.card_id, drawn.code, drawn.detail)
+                failed.append(card.card_id)
+            elif not images.put_image(project, plan, card, drawn.png, seed, prompt):
+                log.info("the picture of card %s is dropped: the card went", card.card_id)
+            self._update(done=done, failed_cards=list(failed))
+        requests.put(None)
+
+    def _scenes(self, project: ProjectPaths, asks: list[str | None], counted: bool = False) -> list[str | None]:
+        """Qwen's English scene for each ask, in one child that ends before klein loads (D36);
+        None for an ask that is None (nothing to translate), an answer that isn't one, or one
+        that takes too long, after which the next ask starts a new child. `counted`: the job's
+        `done` counts the asks answered (an Image job's `translating`; a Ref job has one ask)."""
         self._use("toon_image", TRANSLATOR)
-        qwen = qwen_for(checks.this_platform())
-        process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
-        self._track(process)
+        timeout, scenes = llm.timeouts().pick, []
+        process = requests = replies = None  # Qwen's child, started at the first ask it answers
         try:
-            self._reply(process, replies, (Ready,))
-            requests.put(Generate(prompt, None, prompts.SCENE_MAX_TOKENS, prompts.SCENE_TEMPERATURE))
-            reply = self._reply(process, replies, (Generated,), llm.timeouts().pick)
-            scene = prompts.parse_scene(reply.text)
-        except TimeoutError:
-            log.warning("the scene took longer than %g s", llm.timeouts().pick)
-            scene = None
+            for done, ask in enumerate(asks, start=1):
+                scene = None
+                if ask is not None:
+                    if process is None:
+                        qwen = qwen_for(checks.this_platform())
+                        process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
+                        self._track(process)
+                        self._reply(process, replies, (Ready,))
+                    requests.put(Generate(ask, None, prompts.SCENE_MAX_TOKENS, prompts.SCENE_TEMPERATURE))
+                    try:
+                        scene = prompts.parse_scene(self._reply(process, replies, (Generated,), timeout).text)
+                    except TimeoutError:
+                        log.warning("a scene took longer than %g s", timeout)
+                        self._track(None)
+                        stop_process(process)
+                        process = None
+                    if scene is None:
+                        log.warning("no scene from Qwen: the fallback goes in")
+                scenes.append(scene)
+                if counted:
+                    self._update(done=done)
         finally:
             # klein's names again, however Qwen's step ended: a failure names the child that ran.
             self._use("toon_image", DRAWER)
-        if scene is None:
-            log.warning("no scene from Qwen: the description goes in as written")
-        self._track(None)
-        stop_process(process)
-        return scene
+        if process is not None:
+            self._track(None)
+            stop_process(process)
+        return scenes
+
+    def _start_voice(self, body: dict) -> ToonJob:
+        """Step 1: the card and the EP's voice, the gate, `busy`, `gpu_busy`."""
+        project = paths.project()
+        voicing.plan(project, body)
+        require_rows(voices.needed_rows(project))
+        with self._lock:
+            if self._taken():
+                raise ApiError(409, "busy", "มีงานการ์ตูนเล่าที่ยังไม่จบ")
+            plan = voicing.plan(project, body)
+            gpu.slot.take("toon_voice")
+            self._use("toon_voice", VOICER)
+            self._job = ToonJob(
+                kind="voice",
+                state="voicing",
+                series_id=plan.series_id,
+                ep_id=plan.ep_id,
+                card_ids=[plan.card_id],
+                done=0,
+                total=1,
+                started_at=checks.now_iso(),
+            )
+            self._cancel.clear()
+            job = self._job.model_copy(deep=True)
+        what = f"toon job voice {plan.card_id}"
+        threading.Thread(target=self._run_job, args=(what, lambda: self._voice(project, plan)), daemon=True).start()
+        return job
+
+    def _voice(self, project: ProjectPaths, plan: voicing.VoicePlan) -> None:
+        """OmniVoice speaks the card's text as it was at the start, in the EP's Saved voice."""
+        for spoken in self._speak(project, [plan.tts_text], plan.voice):
+            if not voicing.put_audio(project, plan, spoken):
+                log.info("the narration of card %s is dropped: the card went", plan.card_id)
+            self._update(done=1)
 
     def _start_klein(self, project: ProjectPaths):
         device = checks.probe_device()
@@ -377,10 +516,10 @@ class ToonJobs(ModelJobSlot[ToonJob]):
         self._track(process)
         return process, requests, replies
 
-    def _klein_reply(self, process, replies, expected: type):
+    def _klein_reply(self, process, replies, *expected: type):
         """klein's next message; one that takes longer than a picture may fails the job."""
         try:
-            return self._reply(process, replies, (expected,), klein.draw_timeout())
+            return self._reply(process, replies, expected, klein.draw_timeout())
         except TimeoutError:
             raise JobFailed("model_failed", f"สร้างภาพเกิน {klein.draw_timeout() / 60:g} นาที. {gpu.ADVICE}") from None
 
@@ -448,6 +587,13 @@ def _lost(act) -> LostCards:
         images=sum(card.image is not None for card in cards),
         audio=sum(card.audio is not None for card in cards),
     )
+
+
+def clean_on_start(project: ProjectPaths) -> None:
+    """What a Toon job leaves half-done: Ref pictures never picked, uploads never received in
+    full, an Image job's copies and its pictures no `ep.json` names."""
+    series.clean_on_start(project)
+    images.clean_on_start(project)
 
 
 def image_rows(project: ProjectPaths) -> dict[str, Row]:

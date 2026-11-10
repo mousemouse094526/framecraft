@@ -126,17 +126,18 @@ class ModelJobSlot(JobSlot[Job]):
 
     def _reply(self, process, replies, expected: tuple[type, ...], timeout: float | None = None):
         """The child's next message, one of `expected`. Raises `Cancelled`, `TimeoutError`
-        after `timeout` seconds (None: no limit), or `JobFailed` when the child errs or dies."""
+        after `timeout` seconds (None: no limit), or `JobFailed` when the child dies or errs —
+        unless `expected` holds its `worker_error`, which is then returned like any other."""
         try:
             message = next_message(process, replies, self._cancel, timeout)
         except ChildGone as gone:
             raise JobFailed("crashed", f"{self.child_name}หยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
+        if isinstance(message, expected):
+            return message
         if isinstance(message, self.worker_error):
             log.error("the %s process failed (%s): %s", self.gpu_kind, message.code, message.detail)
             raise JobFailed("model_failed", f"{self.failure}: {short(message.detail)}. {gpu.ADVICE}")
-        if not isinstance(message, expected):
-            raise RuntimeError(f"unknown message from the {self.gpu_kind} process: {message!r}")
-        return message
+        raise RuntimeError(f"unknown message from the {self.gpu_kind} process: {message!r}")
 
     def _track(self, process) -> None:
         """Remembers the running child, so shutdown can stop it and the job's end does."""

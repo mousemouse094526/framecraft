@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
-import { get, send, sent, serve, type Route } from "../../../testing/testBackend";
+import { get, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import type { Card, Ep, ListedEp } from "../lib/episodes";
 import { GENRE_DEFAULTS, type Item, type Series, type ToonJob } from "../lib/series";
 
@@ -45,6 +45,7 @@ function cardOf(change: Partial<Card> = {}): Card {
     image_status: "no_image",
     audio_status: "no_audio",
     duration_s: 3.5,
+    has_image: false,
     has_previous_image: false,
     ...change,
   };
@@ -259,5 +260,115 @@ describe("เส้นเรื่อง", () => {
 
     expect(sent(fetchMock, "PATCH", `${EP_PATH}/cards/k_01`)).toEqual([{ text: "ข้อความใหม่" }]);
     expect(await within(screen.getByRole("article", { name: "การ์ด 1" })).findByText("แก้เอง")).toBeInTheDocument();
+  });
+});
+
+describe("ภาพการ์ดและเสียงเล่า", () => {
+  function imageJob(change: Partial<ToonJob> = {}): ToonJob {
+    return { ...cardsJob(), kind: "image", state: "drawing", card_ids: ["k_01", "k_02"], scope: "missing", done: 1, total: 2, skipped: 0, missing_refs: [], failed_cards: [], ...change };
+  }
+  const drawn = (...ids: string[]) =>
+    epOf({
+      acts: epOf().acts.map((act) => ({
+        ...act,
+        segments: act.segments.map((segment) => ({
+          ...segment,
+          cards: segment.cards.map((card) => (ids.includes(card.id) ? { ...card, image_status: "ready" as const, has_image: true } : card)),
+        })),
+      })),
+    });
+
+  afterEach(() => vi.useRealTimers());
+
+  it("while an Image job draws, the second card's picture shows once done goes from 1 to 2 (e2e)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // A third card keeps the job drawing once the second picture is in.
+    const job = phased(JOB_PATH, imageJob(), imageJob({ done: 2, total: 3, card_ids: ["k_01", "k_02", "k_03"] }));
+    const ep = phased(EP_PATH, drawn("k_01"), drawn("k_01", "k_02"));
+    open(`#/toon/eps/${EID}`, [job.route, ep.route]);
+
+    const second = await screen.findByRole("article", { name: "การ์ด 2" });
+    expect(screen.getByRole("img", { name: "ภาพการ์ด 1" })).toBeInTheDocument();
+    expect(within(second).getByText("กำลังวาด…")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("กำลังสร้างภาพ 1/2");
+    job.phases.at = 1;
+    ep.phases.at = 1;
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+
+    expect(await within(second).findByRole("img", { name: "ภาพการ์ด 2" })).toHaveAttribute(
+      "src",
+      expect.stringMatching(new RegExp(`^${EP_PATH}/cards/k_02/image\\?v=`)),
+    );
+  });
+
+  it("drawing what is missing with cards skipped shows how many and what needs a reference image first (e2e)", async () => {
+    const skipping = imageJob({
+      state: "translating",
+      done: 0,
+      total: 1,
+      card_ids: ["k_01"],
+      skipped: 1,
+      missing_refs: [{ kind: "characters", id: "c_03", name: "ลุงยาม", cards: 1 }],
+    });
+    const job = phased(JOB_PATH, null, skipping); // the page reads the job again once it started
+    const user = open(`#/toon/eps/${EID}`, [job.route, get(EP_PATH, epOf()), send("POST", JOBS_PATH, skipping, 202)]);
+
+    const button = await screen.findByRole("button", { name: "สร้างภาพที่ขาดทั้งหมด" });
+    job.phases.at = 1;
+    await user.click(button);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("ข้าม 1");
+    const needs = screen.getByRole("region", { name: "ต้องสร้างภาพอ้างอิงก่อน" });
+    expect(needs).toHaveTextContent("การ์ด 1 ใบยังวาดไม่ได้");
+    expect(needs).toHaveTextContent("ตัวละคร ลุงยาม");
+    expect(within(needs).getByRole("link", { name: "ไปสร้างภาพอ้างอิง" })).toHaveAttribute("href", `#/toon/series/${SID}/cast`);
+    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ ep_id: EID, kind: "image", scope: "missing" }]);
+  });
+
+  it("nothing_to_draw lists what needs a reference image first", async () => {
+    const refusal = { code: "nothing_to_draw", message: "ไม่มีการ์ดให้สร้างภาพ", missing_refs: [{ kind: "backgrounds", id: "b_02", name: "ห้องน้ำ", cards: 2 }] };
+    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf()), send("POST", JOBS_PATH, refusal, 400)]);
+
+    await user.click(await screen.findByRole("button", { name: "สร้างภาพที่ขาดทั้งหมด" }));
+
+    expect(await screen.findByRole("region", { name: "ต้องสร้างภาพอ้างอิงก่อน" })).toHaveTextContent("ฉากหลัง ห้องน้ำ");
+  });
+
+  it("สร้างเสียง starts a Voice job of the card; a card with narration offers ฟัง and สร้างใหม่", async () => {
+    const voiced = epOf({
+      acts: epOf().acts.map((act, i) => ({
+        ...act,
+        segments: act.segments.map((segment) => ({
+          ...segment,
+          cards: segment.cards.map((card) => (i === 1 ? { ...card, audio_status: "ready" as const } : card)),
+        })),
+      })),
+    });
+    const voicing: ToonJob = { ...imageJob(), kind: "voice", state: "voicing", scope: null, card_ids: ["k_01"], done: 0, total: 1 };
+    const job = phased(JOB_PATH, null, voicing);
+    const user = open(`#/toon/eps/${EID}`, [job.route, get(EP_PATH, voiced), send("POST", JOBS_PATH, voicing, 202)]);
+
+    const first = await screen.findByRole("article", { name: "การ์ด 1" });
+    job.phases.at = 1;
+    const second = screen.getByRole("article", { name: "การ์ด 2" });
+    expect(within(second).getByRole("button", { name: "ฟัง" })).toBeInTheDocument();
+    expect(within(second).getByRole("button", { name: "สร้างใหม่" })).toBeInTheDocument();
+    await user.click(within(first).getByRole("button", { name: "สร้างเสียง" }));
+
+    expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ ep_id: EID, kind: "voice", card_id: "k_01" }]);
+    expect(await within(first).findByText("กำลังสร้างเสียง…")).toBeInTheDocument();
+  });
+
+  it("สลับภาพก่อนหน้า swaps the card's picture back", async () => {
+    const withPrevious = drawn("k_01");
+    withPrevious.acts[0].segments[0].cards[0].has_previous_image = true;
+    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, withPrevious), send("POST", `${EP_PATH}/cards/k_01/swap-image`, withPrevious, 200)]);
+
+    const before = (await screen.findByRole("img", { name: "ภาพการ์ด 1" })).getAttribute("src");
+    await user.click(screen.getByRole("button", { name: "สลับภาพก่อนหน้า" }));
+
+    expect(sent(fetchMock, "POST", `${EP_PATH}/cards/k_01/swap-image`)).toEqual([{}]);
+    // The card's picture loads again: it is the one it had before.
+    await waitFor(() => expect(screen.getByRole("img", { name: "ภาพการ์ด 1" }).getAttribute("src")).not.toBe(before));
   });
 });

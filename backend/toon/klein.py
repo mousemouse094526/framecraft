@@ -47,7 +47,8 @@ class Draw(NamedTuple):
 
 
 # Sent back, in order: `Encoded` once the transformer is loaded, then one `Drawn` per
-# `Draw`; a `WorkerError` instead ends the child.
+# `Draw`. A `WorkerError` instead of `Encoded` ends the child; one instead of a `Drawn`
+# answers that `Draw` only.
 
 
 class Encoded(NamedTuple):
@@ -92,7 +93,9 @@ def worker(snapshot_dir: Path, gguf_dir: Path, device: str, requests, replies) -
         except Exception as error:
             traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
             replies.put(WorkerError("model_failed", f"{type(error).__name__}: {error}"))
-            return
+            if not isinstance(request, Draw):
+                return
+            continue  # one picture failed: the Image job counts it and asks for the next (spec › Image job)
         replies.put(reply)
 
 

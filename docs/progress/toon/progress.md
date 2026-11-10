@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** 02 done (EP, Plot job, Cards job, แตกใหม่, หน้ารายการ EP พล็อต เส้นเรื่อง). ต่อ 03 ภาพการ์ดและเสียงเล่า
+**Now:** 03 done (Image job, Voice job, ภาพการ์ดและปุ่มเสียงบนเส้นเรื่อง); เช็คมือบน M1 ของ 03 ค้าง (Blocked #11). ต่อ 04 คลังเสียงพื้นและ render
 
 **Next:**
 
 ```
-/warroom-build toon 03
+/warroom-build toon 04
 ```
 
 ## Tickets
@@ -14,10 +14,29 @@
 |---|---|---|
 | 01 | ติดตั้ง klein, Series และภาพอ้างอิง | done |
 | 02 | EP, พล็อต และเส้นเรื่อง | done |
-| 03 | ภาพการ์ดและเสียงเล่า | ready |
+| 03 | ภาพการ์ดและเสียงเล่า | done |
 | 04 | คลังเสียงพื้นและ render | ready |
 
 ## Log
+
+### 03: ภาพการ์ดและเสียงเล่า — done 2026-11-10
+
+**Built:**
+- ย้ายก่อน: ลูปสร้างเสียงทีละข้อความเป็น `backend/speaking.py` (`Speaker._speak`, `write_wav`, `wav_seconds`, `NUM_STEP`) ที่ spoil-maker (`SentenceVoicer`) และ Toon job ใช้ร่วม; `voices.saved_voice` / `SavedVoice` (speed + clone prompt)
+- backend: `toon/images.py` (แผนของ Image job: การ์ดเดียวหรือ `scope` `missing` / `stale_ref`, `skipped`, `missing_refs`, `no_ref`, `nothing_to_draw`; copy ภาพอ้างอิงลง `.image-job/`; เขียนภาพทีละใบพร้อมภาพก่อนหน้าและลบภาพก่อนหน้าเดิม; ทิ้งภาพของการ์ดที่หายระหว่างงาน; `swap-image`; ไฟล์ภาพ; start ใหม่ลบ `.image-job/` และ PNG ที่ไม่มี `ep.json` อ้าง), `toon/voicing.py` (Voice job การ์ดเดียว, `silent_card`, wav, `audio`), `ToonJobs` มี `image` (Qwen แปลทุกการ์ดก่อน แล้ว klein encode ทั้งงานและวาดทีละใบ, `failed_cards`) และ `voice` (`toon_voice` "สร้างเสียงเล่า"); `prompts` มีแม่แบบภาพการ์ด ค่าสำรอง และคำสั่งแปลคำบรรยาย; klein ตอบ `WorkerError` ที่ `Draw` แล้วรอภาพถัดไป; `_reply` คืน worker error ที่ขอไว้; `ProjectPaths.image_job_dir`, `card_images_dir`, `card_audio_dir`; การ์ดใน `GET` EP มี `has_image`
+- หน้าเว็บ (เส้นเรื่อง): ปุ่ม "สร้างภาพที่ขาดทั้งหมด" และ "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน", banner ของ Image/Voice job (นับ ข้าม หยุด ลองอีกครั้ง), กล่อง "ต้องสร้างภาพอ้างอิงก่อน" พร้อมลิงก์ไปหน้าตัวละคร, ภาพการ์ด (กำลังวาด…, สร้างภาพใหม่, สลับภาพก่อนหน้า), แถวเสียงเล่า (สร้างเสียง / ฟัง / สร้างใหม่ / เสียงเก่า); ระหว่าง Image job ที่ `done` เพิ่มอ่าน EP ใหม่ให้ภาพขึ้น; icon จาก Figma (`undo`, `mic`, `mic-dark`, `play`, `triangle-alert`, `chevron-right-16`, `users-16`, `mountain-16`)
+- test: `backend/tests/test_toon_images_api.py` (23), `EpPage.test.tsx` เพิ่ม 5 (2 e2e ของ ticket)
+
+**Decided:**
+- D55 — `card_ids` กับ `scope` ใน Toon job, ขอบเขตตามภาพ, `silent_card`, klein ล้มหนึ่งภาพแล้วรอภาพถัดไป, `has_image`, `?v=` ของภาพ, ลูปเสียงกลางใน `backend/speaking.py`, ปุ่มคลังเสียงพื้นและ render รอ 04
+
+**For the next ticket:**
+- ticket 04: Render job สร้างเสียงที่ขาดด้วย `speaking.Speaker._speak` และ `voicing.put_audio` ได้เลย; ปุ่ม "คลังเสียงพื้น" และ "ไปหน้า render" บน toolbar ของเส้นเรื่องยังไม่มี (แบบมี); `icon/arrow-right` ของปุ่ม render ต้องโหลดจาก Figma
+- smell ที่ไม่ได้แก้: `ToonJobs` สืบทอด `speaking.Speaker` เพื่อใช้ `_speak` (composition จะตรงกว่า); การแตกกิ่งตาม `job.kind` ใน `EpPage` (`FAILED_TITLES`, `runningText`, `retry`) และ `ToonJobs.start`
+- ปุ่ม "ฟัง" ใช้ `new Audio(src).play()` ไม่มี test; หน้าตาเทียบ Figma ด้วยมือยังไม่ได้ทำ
+- ของค้างจาก 01–02 ยังค้าง (`GENRE_DEFAULTS`, `useCast` / `usePickRef` poll ซ้ำ, ตารางต่อ kind)
+
+**Checks:** `uv run pytest` 996 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 387 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). e2e = Vitest ผ่าน `App`. เช็คมือบน Mac M1 ยังไม่ได้ทำ: เครื่องนี้ยังไม่ได้รัน setup (ไม่มี Qwen, OmniVoice, marker) → Blocked #11
 
 ### 02: EP, พล็อต และเส้นเรื่อง — done 2026-11-10
 
@@ -151,3 +170,4 @@
 | 8 | 04 | design: คลังเสียงพื้น | `/warroom toon` พร้อมลิงก์แบบ (ทำจาก `docs/features/toon/ui-prompt.md`) | done ([แบบ](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8129-80163)) |
 | 9 | 04 | design: render และผล | `/warroom toon` พร้อมลิงก์แบบ (ทำจาก `docs/features/toon/ui-prompt.md`) | done ([แบบ](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8130-81152)) |
 | 10 | 01 | klein บน torch 2.8.0 กรณีหนักสุด (GGUF Q8_0, 3 ภาพอ้างอิง, 576×1024) peak MPS 13.1–14.0 GB เกิน ~12 GB ของ D34 และ swap; ต้องเลือก: ภาพอ้างอิงเล็กลง, GGUF ที่เล็กกว่า (Q6_K/Q4_K_M), ภาพอ้างอิงสูงสุดน้อยลง, torch รุ่นใหม่ หรือยอมรับ | `/warroom toon` | done (this ticket, D51) |
+| 11 | 03 | เช็คมือบน Mac M1 16 GB: Image job `scope: missing` ~20 การ์ด 3 ภาพอ้างอิง (peak ทั้งระบบ ≤ ~12 GB ไม่ swap, จดเวลาต่อภาพ), หน้าตัวละครใน ~5 การ์ดของ EP แรกและ EP ที่สอง, ปิด backend กลาง "สร้างภาพที่ขาดทั้งหมด" แล้วเปิดใหม่; เครื่องที่ build ยังไม่ได้รัน setup (ไม่มี Qwen, OmniVoice) | owner รัน `./setup.sh` แล้วทำตามรายการใน ticket 03 › เช็คมือ และจดผลใน `progress.md` | open |
