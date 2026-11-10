@@ -17,12 +17,13 @@ import { useSeriesForm } from "../hooks/useSeriesForm";
 import {
   ACT_NAME_MAX,
   ACTS_MAX,
-  castHash,
   CHANNEL_MAX,
   GENRE_DEFAULTS,
+  GENRE_LABELS,
   LAYOUT_LABELS,
   LIST_HASH,
   NAME_MAX,
+  seriesHash,
   STYLE_MAX,
   TONE_MAX,
   type Genre,
@@ -38,7 +39,7 @@ const HINT = "text-xs leading-[1.5] text-muted-foreground";
 /** `#/toon/new` and `#/toon/series/{sid}/settings`: ตั้งค่า Series (Figma toon / 2). */
 export function SeriesForm({ sid }: { sid: string | null }) {
   const { state, save } = useSeriesForm(sid);
-  const back = sid === null ? LIST_HASH : castHash(sid);
+  const back = sid === null ? LIST_HASH : seriesHash(sid);
 
   return (
     <PageLayout tab="toon" wide>
@@ -293,7 +294,6 @@ function LayoutSketch({ layout }: { layout: Layout }) {
   );
 }
 
-const GENRE_LABELS: Record<Genre, string> = { horror: "หลอน", comedy: "ตลก" };
 
 function GenreOption({ genre, selected, onPick }: { genre: Genre; selected: boolean; onPick: () => void }) {
   return (

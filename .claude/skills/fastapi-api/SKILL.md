@@ -87,17 +87,24 @@ backend/
 │                    transformers VLM and bitsandbytes import, windows-launch
 │                    D3); llm's, llm_windows's and tts's `worker` run in a
 │                    child process; `llm.TIMEOUTS` holds each OS's timeouts
-├── toon/         ← the การ์ตูนเล่า tab (toon spec): store (`series.json` on
-│                    disk, the tab's one lock), series (Series, characters,
-│                    backgrounds, reference pictures and their uploads),
-│                    prompts (the picture prompts and the reading of Qwen's
-│                    scene), jobs (the Toon job slot: Ref job, Qwen then
-│                    klein), klein (the only diffusers import; its `worker`
-│                    runs in a child process, D34)
+├── toon/         ← the การ์ตูนเล่า tab (toon spec): store (`series.json`,
+│                    `ep.json` and `sounds.json` on disk, the tab's one lock),
+│                    series (Series, characters, backgrounds, reference
+│                    pictures and their uploads, `in_use`), episodes (EPs,
+│                    their plot, acts, segments and cards, each card's state;
+│                    `ep_jobs`, where each job slot says which EP it locks),
+│                    writer (the Plot and Cards prompts and the reading of
+│                    Qwen's answers through llm_reply), prompts (the picture prompts and the
+│                    reading of Qwen's scene), jobs (the Toon job slot: Plot
+│                    and Cards jobs on Qwen, Ref job, Qwen then klein), klein
+│                    (the only diffusers import; its `worker` runs in a
+│                    child process, D34)
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
 │                    File import and toon's reference uploads share it
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
+├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK
+│                    letters: spoil_maker's script and toon's writer share it
 ├── routes/       ← one router file per feature, e.g. setup_status.py, stories.py
 └── tests/        ← pytest, test_{module}.py
 ```

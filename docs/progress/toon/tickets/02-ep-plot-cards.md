@@ -11,7 +11,7 @@
 - Seams: 1 (Plot job, Cards job, แตกใหม่, เลข EP, `ep_locked`, `in_use` ของตัวละคร), 3 (ช่องแก้ปิดระหว่าง Cards job, ความยาวเกินเป้า, `cards_will_be_lost`)
 - User stories: 4, 5, 6, 7, 12 (ลบ EP)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

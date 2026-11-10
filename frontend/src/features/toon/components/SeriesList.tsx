@@ -10,7 +10,7 @@ import chevronRightIcon from "../assets/chevron-right.svg";
 import film24Icon from "../assets/film-24.svg";
 import filmIcon from "../assets/film.svg";
 import { useSeriesList } from "../hooks/useSeriesList";
-import { castHash, LAYOUT_LABELS, NEW_HASH, type ListedSeries } from "../lib/series";
+import { LAYOUT_LABELS, NEW_HASH, seriesHash, type ListedSeries } from "../lib/series";
 import { ToonDialog } from "./ToonDialog";
 
 /** `#/toon`: the Series, each a link to its page, with delete behind a confirm (Figma toon / 1). */
@@ -80,7 +80,7 @@ function NewSeriesLink() {
 function SeriesRow({ series, onDelete }: { series: ListedSeries; onDelete: () => void }) {
   return (
     <li className="flex h-16 items-center gap-3 rounded-xl px-4 py-3 hover:bg-muted">
-      <a href={castHash(series.id)} className="flex min-w-0 flex-1 items-center gap-3">
+      <a href={seriesHash(series.id)} className="flex min-w-0 flex-1 items-center gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-subtle">
           <img src={filmIcon} alt="" width={20} height={20} />
         </span>

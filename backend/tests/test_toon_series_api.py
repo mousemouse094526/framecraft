@@ -47,7 +47,8 @@ def create(client, **changes) -> dict:
 def write_ep(project: ProjectPaths, series_id: str, ep_id: str, n: int, title: str) -> None:
     folder = project.series_dir(series_id) / "eps" / ep_id
     folder.mkdir(parents=True)
-    (folder / "ep.json").write_text(json.dumps({"version": 1, "id": ep_id, "n": n, "title": title}), encoding="utf-8")
+    ep = {"version": 1, "id": ep_id, "n": n, "idea": "ไอเดีย", "title": title, "voice_id": VOICE, "acts": []}
+    (folder / "ep.json").write_text(json.dumps(ep), encoding="utf-8")
 
 
 def test_a_horror_series_starts_with_the_horror_acts_style_and_tone(client):

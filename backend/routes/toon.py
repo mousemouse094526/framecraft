@@ -4,7 +4,8 @@ from fastapi import APIRouter, Body, Depends, Request, Response
 from fastapi.responses import FileResponse
 
 from backend import body_types, paths
-from backend.toon import jobs, series
+from backend.toon import episodes, jobs, series
+from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
 from backend.toon.series import Kind, ListedSeries, SeriesView, UploadCheck
 
@@ -35,6 +36,17 @@ def change_series(series_id: str, body: dict[str, Any]) -> SeriesView:
 def delete_series(series_id: str, body: dict[str, Any] | None = Body(None)) -> Response:
     jobs.toon_jobs.delete_series(paths.project(), series_id, body)
     return Response(status_code=204)
+
+
+# Before `/series/{series_id}/{kind}`: the first route that matches a path answers it.
+@router.get("/series/{series_id}/eps")
+def list_eps(series_id: str) -> list[ListedEp]:
+    return episodes.list_for(paths.project(), series_id)
+
+
+@router.post("/series/{series_id}/eps", status_code=201)
+def create_ep(series_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.create(paths.project(), series_id, body)
 
 
 @router.post("/series/{series_id}/{kind}", status_code=201)
@@ -77,6 +89,67 @@ async def upload_ref(request: Request, series_id: str, kind: Kind, item_id: str,
     """The body is the picture itself (ADR 0028); `size` stays text so the module answers a
     bad one with `invalid_request`."""
     return await series.receive_upload(paths.project(), series_id, kind, item_id, size, request.stream())
+
+
+@router.get("/eps/{ep_id}")
+def get_ep(ep_id: str) -> EpView:
+    return episodes.view(paths.project(), ep_id)
+
+
+@router.patch("/eps/{ep_id}")
+def change_ep(ep_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.change(paths.project(), ep_id, body)
+
+
+@router.delete("/eps/{ep_id}", status_code=204)
+def delete_ep(ep_id: str) -> Response:
+    episodes.delete(paths.project(), ep_id)
+    return Response(status_code=204)
+
+
+@router.post("/eps/{ep_id}/acts", status_code=201)
+def add_act(ep_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.add_act(paths.project(), ep_id, body)
+
+
+@router.patch("/eps/{ep_id}/acts/{act_id}")
+def change_act(ep_id: str, act_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.change_act(paths.project(), ep_id, act_id, body)
+
+
+@router.delete("/eps/{ep_id}/acts/{act_id}")
+def delete_act(ep_id: str, act_id: str) -> EpView:
+    return episodes.delete_act(paths.project(), ep_id, act_id)
+
+
+@router.post("/eps/{ep_id}/segments", status_code=201)
+def add_segment(ep_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.add_segment(paths.project(), ep_id, body)
+
+
+@router.patch("/eps/{ep_id}/segments/{segment_id}")
+def change_segment(ep_id: str, segment_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.change_segment(paths.project(), ep_id, segment_id, body)
+
+
+@router.delete("/eps/{ep_id}/segments/{segment_id}")
+def delete_segment(ep_id: str, segment_id: str) -> EpView:
+    return episodes.delete_segment(paths.project(), ep_id, segment_id)
+
+
+@router.post("/eps/{ep_id}/cards", status_code=201)
+def add_card(ep_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.add_card(paths.project(), ep_id, body)
+
+
+@router.patch("/eps/{ep_id}/cards/{card_id}")
+def change_card(ep_id: str, card_id: str, body: dict[str, Any]) -> EpView:
+    return episodes.change_card(paths.project(), ep_id, card_id, body)
+
+
+@router.delete("/eps/{ep_id}/cards/{card_id}")
+def delete_card(ep_id: str, card_id: str) -> EpView:
+    return episodes.delete_card(paths.project(), ep_id, card_id)
 
 
 @router.post("/jobs", status_code=202)

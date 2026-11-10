@@ -1,5 +1,4 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Alert } from "../../../components/ui/Alert";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
@@ -13,15 +12,16 @@ import mountainIcon from "../assets/mountain.svg";
 import uploadIcon from "../assets/upload.svg";
 import usersIcon from "../assets/users.svg";
 import wandIcon from "../assets/wand.svg";
-import { useCast, type ItemFields, type Notice } from "../hooks/useCast";
+import { useCast, type ItemFields } from "../hooks/useCast";
+import { NoticeLine } from "./NoticeLine";
 import {
   DESCRIPTION_MAX,
   isRunning,
   ITEM_NAME_MAX,
-  LIST_HASH,
   pickHash,
   REF_PICTURES,
   refUrl,
+  seriesHash,
   settingsHash,
   TAG_MAX,
   type Item,
@@ -70,7 +70,7 @@ export function CastPage({ sid }: { sid: string }) {
   return (
     <PageLayout tab="toon" wide>
       <div className="flex flex-wrap items-center gap-2">
-        <a href={LIST_HASH} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+        <a href={seriesHash(sid)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
           กลับไปที่ชุด
         </a>
@@ -86,24 +86,6 @@ export function CastPage({ sid }: { sid: string }) {
       <ItemSection kind="characters" series={series} onAdd={add} {...actions} />
       <ItemSection kind="backgrounds" series={series} onAdd={add} {...actions} />
     </PageLayout>
-  );
-}
-
-function NoticeLine({ notice }: { notice: Notice }) {
-  return (
-    <Alert
-      tone={notice.tone}
-      title={notice.title}
-      action={
-        notice.setupLink && (
-          <a href="#/setup" className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
-            ไปที่ ติดตั้ง
-          </a>
-        )
-      }
-    >
-      {notice.text}
-    </Alert>
   );
 }
 

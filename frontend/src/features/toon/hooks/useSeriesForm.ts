@@ -4,9 +4,9 @@ import { refusalLine, refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { VOICES_PATH, type SavedVoice } from "../../../lib/voices";
 import {
-  castHash,
   GENRE_DEFAULTS,
   SERIES_PATH,
+  seriesHash,
   seriesPath,
   type Series,
   type SeriesFields,
@@ -60,7 +60,7 @@ export function useSeriesForm(sid: string | null) {
             ? await sendJson<Series | Refusal>("POST", SERIES_PATH, fields)
             : await sendJson<Series | Refusal>("PATCH", seriesPath(sid), editable(fields));
         if (reply.status === 200 || reply.status === 201) {
-          window.location.hash = castHash((reply.body as Series).id);
+          window.location.hash = seriesHash((reply.body as Series).id);
           return;
         }
         const refusal = refusalOf(reply.body);

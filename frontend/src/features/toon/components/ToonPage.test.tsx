@@ -41,6 +41,7 @@ function jobOf(change: Partial<ToonJob> = {}): ToonJob {
     kind: "ref",
     state: "drawing",
     series_id: SID,
+    ep_id: null,
     item_id: "c_01",
     done: 1,
     total: 3,
@@ -177,7 +178,7 @@ describe("ตั้งค่า Series", () => {
 describe("ตัวละครและฉากหลัง", () => {
   it("shows ยังไม่มีภาพ, the reference image, and a set waiting to be picked", async () => {
     const mind: Item = { ...peak, id: "c_02", name: "มายด์", pending: 3 };
-    open(`#/toon/series/${SID}`, [get(ONE_PATH, seriesOf({ characters: [peak, mind] }))]);
+    open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf({ characters: [peak, mind] }))]);
 
     const characters = await screen.findByRole("region", { name: "ตัวละคร" });
     expect(within(characters).getByRole("listitem", { name: "พีค" })).toHaveTextContent("ยังไม่มีภาพ");
@@ -192,7 +193,7 @@ describe("ตัวละครและฉากหลัง", () => {
   });
 
   it("เอาไฟล์เข้า of a character shows the legal notice before the file picker (e2e)", async () => {
-    const user = open(`#/toon/series/${SID}`, [get(ONE_PATH, seriesOf())]);
+    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf())]);
     const tile = await screen.findByRole("listitem", { name: "พีค" });
     const picker = vi.spyOn(within(tile).getByLabelText<HTMLInputElement>("ไฟล์ภาพ พีค"), "click");
 
@@ -207,7 +208,7 @@ describe("ตัวละครและฉากหลัง", () => {
 
   it("a picked file is checked, then sent as the raw body; the answer's reference image shows", async () => {
     const check = `${ONE_PATH}/characters/c_01/ref/upload/check`;
-    const user = open(`#/toon/series/${SID}`, [get(ONE_PATH, seriesOf()), send("POST", check, { size: 3 }, 200)]);
+    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", check, { size: 3 }, 200)]);
     const tile = await screen.findByRole("listitem", { name: "พีค" });
 
     await user.upload(within(tile).getByLabelText("ไฟล์ภาพ พีค"), new File(["png"], "peak.png", { type: "image/png" }));
@@ -227,7 +228,7 @@ describe("ตัวละครและฉากหลัง", () => {
 
   it("a Ref job refused with gpu_busy names the running job from RUNNING_NAMES (e2e)", async () => {
     const busy = { code: "gpu_busy", message: "GPU busy", running: "describe" };
-    const user = open(`#/toon/series/${SID}`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", busy, 409)]);
+    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", busy, 409)]);
 
     await user.click(within(await screen.findByRole("listitem", { name: "พีค" })).getByRole("button", { name: "สร้างภาพ 3 แบบ" }));
 
@@ -239,7 +240,7 @@ describe("ตัวละครและฉากหลัง", () => {
   });
 
   it("a started Ref job opens เลือกภาพอ้างอิง", async () => {
-    const user = open(`#/toon/series/${SID}`, [
+    const user = open(`#/toon/series/${SID}/cast`, [
       get(ONE_PATH, seriesOf()),
       send("POST", "/api/toon/jobs", jobOf({ state: "translating", done: null, total: null }), 202),
     ]);
@@ -251,7 +252,7 @@ describe("ตัวละครและฉากหลัง", () => {
 
   it("not_ready links to ติดตั้ง", async () => {
     const missing = { code: "not_ready", message: "ยังติดตั้ง FLUX.2 klein ไม่ครบ" };
-    const user = open(`#/toon/series/${SID}`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", missing, 503)]);
+    const user = open(`#/toon/series/${SID}/cast`, [get(ONE_PATH, seriesOf()), send("POST", "/api/toon/jobs", missing, 503)]);
 
     await user.click(within(await screen.findByRole("listitem", { name: "พีค" })).getByRole("button", { name: "สร้างภาพ 3 แบบ" }));
 
@@ -260,7 +261,7 @@ describe("ตัวละครและฉากหลัง", () => {
 
   it("เพิ่มตัวละคร sends name, tag and description and shows the new tile", async () => {
     const mind: Item = { id: "c_02", name: "มายด์", tag: "ขี้กลัว", description: "", ref_rev: 0, pending: 0 };
-    const user = open(`#/toon/series/${SID}`, [
+    const user = open(`#/toon/series/${SID}/cast`, [
       get(ONE_PATH, seriesOf()),
       send("POST", `${ONE_PATH}/characters`, seriesOf({ characters: [peak, mind] }), 201),
     ]);
@@ -299,7 +300,7 @@ describe("เลือกภาพอ้างอิง", () => {
     expect(screen.getByRole("radio", { name: "แบบ 2" })).toHaveAttribute("aria-checked", "true");
     await user.click(screen.getByRole("button", { name: "ใช้ภาพนี้" }));
 
-    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SID}`));
+    await waitFor(() => expect(window.location.hash).toBe(`#/toon/series/${SID}/cast`));
     expect(sent(fetchMock, "POST", `${ONE_PATH}/characters/c_01/ref/pick`)).toEqual([{ n: 2 }]);
   });
 

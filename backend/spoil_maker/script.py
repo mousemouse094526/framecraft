@@ -3,14 +3,13 @@ in a reply, and the cleaning of a script (spoil-maker spec › Draft job steps 2
 › เรียบเรียง, D11, D18, D19, D72–D76). Plain functions, no job and no file.
 """
 
-import json
 import re
 import secrets
 from collections.abc import Sequence
 
 from pydantic import BaseModel
 
-from backend import clock, stories
+from backend import clock, llm_reply, stories
 from backend.spoil.transcribe import Transcript, TranscriptLine
 from backend.spoil_maker import thai
 from backend.spoil_maker.draft_file import Layout, Ref, Sentence, Style
@@ -33,11 +32,6 @@ TOLERANCE = 0.25  # a script's letters within ±25% of the target pass (D18)
 TOP_TEXT_MAX = 40  # letters that take space (spec › ข้อความบนวิดีโอ)
 
 LINE_ID = re.compile(r"\d+")
-# Han, Hiragana, Katakana and Hangul slip into Qwen's Thai (llm-trial › รอบ 2).
-CJK = re.compile(
-    "[ᄀ-ᇿ぀-ヿ㄰-㆏ㇰ-ㇿ㐀-䶿一-鿿"
-    "가-힯豈-﫿ｦ-ﾟ\U00020000-\U0003134f]+"
-)
 
 
 NumberedLine = tuple[int, TranscriptLine]
@@ -151,7 +145,7 @@ def parse_script(reply: str, brief: Brief) -> tuple[str, list[Sentence]] | None:
     """Steps 3–4: `top_text` and the sentences, cleaned; None when the reply isn't the
     JSON asked for. Han, kana and Hangul go, refs to lines that don't exist go, and
     sentences left empty go; `top_text` is cut to fit, and is empty in layout B."""
-    found = _json_object(reply)
+    found = llm_reply.json_object(reply)
     if found is None or not isinstance(found.get("sentences"), list):
         return None
     sentences: list[Sentence] = []
@@ -159,20 +153,20 @@ def parse_script(reply: str, brief: Brief) -> tuple[str, list[Sentence]] | None:
     for item in found["sentences"]:
         if not isinstance(item, dict) or not isinstance(item.get("text"), str):
             continue
-        text = _clean(item["text"])
+        text = llm_reply.clean(item["text"])
         if text:
             refs = _refs(item.get("refs"), brief)
             sentences.append(Sentence(id=new_sentence_id(taken), text=text, refs=refs, shots=[None, None]))
     if not sentences:
         return None
     top_text = found.get("top_text")
-    top_text = thai.cut_width(_clean(top_text), TOP_TEXT_MAX) if isinstance(top_text, str) and brief.layout != "B" else ""
+    top_text = thai.cut_width(llm_reply.clean(top_text), TOP_TEXT_MAX) if isinstance(top_text, str) and brief.layout != "B" else ""
     return top_text, sentences
 
 
 def parse_pick(reply: str, candidates: list[Shot]) -> list[int] | None:
     """Two numbers of Shots among `candidates`, or None (step 5.4)."""
-    found = _json_object(reply)
+    found = llm_reply.json_object(reply)
     numbers = found.get("shots") if found else None
     allowed = {shot.n for shot in candidates}
     if not isinstance(numbers, list) or len(numbers) != 2:
@@ -238,7 +232,7 @@ def parse_polish(reply: str, sentences: list[Sentence], asked: set[int]) -> dict
     JSON asked for or under half of `asked` came back. An `i` not asked for, or given
     twice, is dropped: its text can't be told to belong there (D76). A text empty once
     cleaned, or ±50% off its sentence's letters, leaves that sentence as it was."""
-    found = _json_object(reply)
+    found = llm_reply.json_object(reply)
     items = found.get("sentences") if found else None
     if not isinstance(items, list):
         return None
@@ -252,7 +246,7 @@ def parse_polish(reply: str, sentences: list[Sentence], asked: set[int]) -> dict
         return None
     texts = {}
     for i, text in usable.items():
-        text, was = _clean(text), sentences[i].text
+        text, was = llm_reply.clean(text), sentences[i].text
         before = _spoken_letters(was)
         texts[i] = text if text and abs(_spoken_letters(text) - before) <= POLISH_SENTENCE_TOLERANCE * before else was
     return texts
@@ -299,22 +293,6 @@ def new_sentence_id(taken: set[str]) -> str:
     return sentence_id
 
 
-def _json_object(reply: str) -> dict | None:
-    """The JSON object in a reply, inside a code fence or not; one that is short of
-    only its last "}" is read too (D61)."""
-    start, end = reply.find("{"), reply.rfind("}")
-    if start < 0 or end < start:
-        return None
-    body = reply[start:].rstrip().removesuffix("```").rstrip()
-    for text in (reply[start : end + 1], body + "}"):
-        try:
-            found = json.loads(text)
-        except json.JSONDecodeError:
-            continue
-        return found if isinstance(found, dict) else None
-    return None
-
-
 def _refs(value: object, brief: Brief) -> list[Ref]:
     """Ids of the EP's lines, in order, once each, the first `MAX_REFS`: a line outside
     the EP or not in the Transcript goes (D61, D70)."""
@@ -330,7 +308,3 @@ def _refs(value: object, brief: Brief) -> list[Ref]:
         if ref not in refs:
             refs.append(ref)
     return refs
-
-
-def _clean(text: str) -> str:
-    return " ".join(CJK.sub("", text).split())

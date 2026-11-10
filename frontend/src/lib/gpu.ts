@@ -7,6 +7,7 @@ const RUNNING_NAMES: Record<string, string> = {
   draft: "ร่างบท",
   voice: "สร้างเสียง",
   render: "render",
+  toon_write: "ร่างการ์ตูนเล่า",
   toon_image: "สร้างภาพ",
 };
 
@@ -16,6 +17,7 @@ export const GPU_JOB_PATHS: Record<string, string> = {
   transcribe: "/api/spoil/transcriptions/current",
   describe: "/api/spoil-maker/describes/current",
   draft: "/api/spoil-maker/draft-jobs/current",
+  toon_write: "/api/toon/jobs/current",
   toon_image: "/api/toon/jobs/current",
 };
 

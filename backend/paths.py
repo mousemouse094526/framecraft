@@ -154,6 +154,15 @@ class ProjectPaths:
         """The three pictures of a Ref job not picked yet, `{id}-{1..3}.png`; emptied on every start."""
         return self.refs_dir(series_id) / ".pending"
 
+    def ep_dir(self, series_id: str, ep_id: str) -> Path:
+        """An EP's `ep.json`, its card images and narration, and its renders."""
+        return self.series_dir(series_id) / "eps" / ep_id
+
+    @property
+    def toon_sounds_file(self) -> Path:
+        """The background sound library of the whole tab (toon D16)."""
+        return self.toon_dir / "sounds" / "sounds.json"
+
     @property
     def toon_partial_dir(self) -> Path:
         """Uploads not received in full yet; emptied on every start."""

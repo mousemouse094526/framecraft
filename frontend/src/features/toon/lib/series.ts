@@ -85,6 +85,7 @@ export const TAG_MAX = 20;
 export const DESCRIPTION_MAX = 300;
 
 export const LAYOUT_LABELS: Record<Layout, string> = { frame: "กรอบดำ", full: "เต็มจอ" };
+export const GENRE_LABELS: Record<Genre, string> = { horror: "หลอน", comedy: "ตลก" };
 
 export const seriesPath = (sid: string) => `${SERIES_PATH}/${sid}`;
 export const itemPath = (sid: string, kind: Kind, id: string) => `${seriesPath(sid)}/${kind}/${id}`;
@@ -92,28 +93,38 @@ export const itemPath = (sid: string, kind: Kind, id: string) => `${seriesPath(s
 export const refUrl = (sid: string, kind: Kind, item: Item) => `${itemPath(sid, kind, item.id)}/ref?rev=${item.ref_rev}`;
 export const pendingUrl = (sid: string, kind: Kind, id: string, n: number) => `${itemPath(sid, kind, id)}/ref/pending/${n}`;
 
-// The tab's pages (D52): the Series list, a new Series, a Series' characters and backgrounds,
-// its settings, and the pick of a reference image.
+// The tab's pages (D52, D53): the Series list, a new Series, a Series' EPs, its characters and
+// backgrounds, its settings, the pick of a reference image, and an EP: its plot, or its storyline
+// once the plot is confirmed (`/plot` opens the plot either way).
 export const LIST_HASH = "#/toon";
 export const NEW_HASH = "#/toon/new";
-export const castHash = (sid: string) => `#/toon/series/${sid}`;
+export const seriesHash = (sid: string) => `#/toon/series/${sid}`;
+export const castHash = (sid: string) => `#/toon/series/${sid}/cast`;
 export const settingsHash = (sid: string) => `#/toon/series/${sid}/settings`;
 export const pickHash = (sid: string, kind: Kind, id: string) => `#/toon/series/${sid}/${kind}/${id}/pick`;
+export const epHash = (eid: string) => `#/toon/eps/${eid}`;
+export const plotHash = (eid: string) => `#/toon/eps/${eid}/plot`;
 
 export type Page =
   | { kind: "list" }
   | { kind: "new" }
+  | { kind: "eps"; sid: string }
   | { kind: "cast"; sid: string }
   | { kind: "settings"; sid: string }
-  | { kind: "pick"; sid: string; itemKind: Kind; id: string };
+  | { kind: "pick"; sid: string; itemKind: Kind; id: string }
+  | { kind: "ep"; eid: string; plot: boolean };
 
 /** The page a `#/toon…` hash opens; anything else under the tab is the Series list. */
 export function pageOf(hash: string): Page {
   if (hash === NEW_HASH) return { kind: "new" };
   const parts = hash.split("/").slice(2); // after "#", "toon"
+  if (parts[0] === "eps" && parts[1] && (parts.length === 2 || (parts.length === 3 && parts[2] === "plot"))) {
+    return { kind: "ep", eid: parts[1], plot: parts.length === 3 };
+  }
   if (parts[0] !== "series" || !parts[1]) return { kind: "list" };
   const sid = parts[1];
-  if (parts.length === 2) return { kind: "cast", sid };
+  if (parts.length === 2) return { kind: "eps", sid };
+  if (parts.length === 3 && parts[2] === "cast") return { kind: "cast", sid };
   if (parts.length === 3 && parts[2] === "settings") return { kind: "settings", sid };
   if (parts.length === 5 && (parts[2] === "characters" || parts[2] === "backgrounds") && parts[4] === "pick") {
     return { kind: "pick", sid, itemKind: parts[2], id: parts[3] };
@@ -121,11 +132,13 @@ export function pageOf(hash: string): Page {
   return { kind: "list" };
 }
 
-/** The Toon job as `/jobs/current` sends it (toon spec › Toon job); this ticket's kind is `ref`. */
+/** The Toon job as `/jobs/current` sends it (toon spec › Toon job): `plot` and `cards` write an
+ * EP and lock it, `ref` draws a reference image. */
 export type ToonJob = {
-  kind: "ref";
-  state: "translating" | "drawing" | "done" | "failed" | "cancelled";
+  kind: "plot" | "cards" | "ref";
+  state: "writing" | "translating" | "drawing" | "done" | "failed" | "cancelled";
   series_id: string;
+  ep_id: string | null;
   item_id: string | null;
   done: number | null;
   total: number | null;
@@ -133,7 +146,7 @@ export type ToonJob = {
   cancel_requested: boolean;
 };
 
-export const UNFINISHED_JOB = ["translating", "drawing"] as const;
+export const UNFINISHED_JOB = ["writing", "translating", "drawing"] as const;
 
 export const isRunning = isUnfinishedIn<ToonJob["state"]>(UNFINISHED_JOB);
 

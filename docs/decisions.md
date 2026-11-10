@@ -328,4 +328,6 @@ question; the full entry is in the feature's decisions.md.
 | klein: peak MPS ≤ 12 GB ที่กรณีหนักสุด; ลองตามลำดับ empty_cache + ภาพอ้างอิง ≤ 512 → Q6_K → Q4_K_M | [toon](features/toon/decisions.md) | D49 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
 | Status check: pattern ใน `allow_patterns` ที่ระบุไฟล์หรือ folder ต้องตรงไฟล์ใน marker; pattern ชนิดไฟล์ไม่เทียบ | [toon](features/toon/decisions.md) | D50 | — | — | active |
 | klein transformer เป็น GGUF Q4_K_M (Q8_0 13.08 GB, Q6_K 12.88 GB เกิน; Q4_K_M 11.83 GB) + ภาพอ้างอิง ≤ 512 + `empty_cache` ทุกภาพ | [toon](features/toon/decisions.md) | D51 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
-| หน้า tab การ์ตูนเล่า: hash `#/toon`, `/new`, `/series/{sid}`, `/settings`, `/{kind}/{id}/pick`; `POST /series` รับ style/tone/acts; ล้มหรือหยุด Ref job ไม่มีภาพให้เลือก | [toon](features/toon/decisions.md) | D52 | — | — | active |
+| หน้า tab การ์ตูนเล่า: hash `#/toon`, `/new`, `/series/{sid}`, `/settings`, `/{kind}/{id}/pick`; `POST /series` รับ style/tone/acts; ล้มหรือหยุด Ref job ไม่มีภาพให้เลือก | [toon](features/toon/decisions.md) | D52 | — | — | changed by toon D53 |
+| EP พล็อต เส้นเรื่อง: `/series/{sid}` เป็นรายการ EP ตัวละครย้ายไป `/cast`; EP ใหม่เริ่ม Plot job ทันที; `PATCH` องก์; Cards job เขียน Series กับ EP ตอนจบ; ขีดจำกัดข้อความ | [toon](features/toon/decisions.md) | D53 | — | — | active |
+| พล็อตที่ยืนยันแล้วไม่รับตัวละครหรือฉากหลังใหม่ (`invalid_request`); id ของ EP ไม่ซ้ำทั้ง tab; ชื่อองก์แก้ที่หัวองก์ | [toon](features/toon/decisions.md) | D54 | — | — | active |

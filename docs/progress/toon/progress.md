@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** 01 done (klein, Series, Ref job, upload, หน้าเว็บ 4 จอ). ต่อ 02 EP, พล็อต และเส้นเรื่อง
+**Now:** 02 done (EP, Plot job, Cards job, แตกใหม่, หน้ารายการ EP พล็อต เส้นเรื่อง). ต่อ 03 ภาพการ์ดและเสียงเล่า
 
 **Next:**
 
 ```
-/warroom-build toon 02
+/warroom-build toon 03
 ```
 
 ## Tickets
@@ -13,11 +13,32 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | ติดตั้ง klein, Series และภาพอ้างอิง | done |
-| 02 | EP, พล็อต และเส้นเรื่อง | ready |
+| 02 | EP, พล็อต และเส้นเรื่อง | done |
 | 03 | ภาพการ์ดและเสียงเล่า | ready |
 | 04 | คลังเสียงพื้นและ render | ready |
 
 ## Log
+
+### 02: EP, พล็อต และเส้นเรื่อง — done 2026-11-10
+
+**Built:**
+- backend: `toon/episodes.py` (EP สร้าง แก้ ลบ, เลข EP ตาม `max_ep` D40, `invalid_ep_number`, องก์ ช่วง การ์ด, สถานะภาพ เสียง ความยาวต่อการ์ดและรวม, `ep_locked` / `ep_busy` ผ่าน `ep_jobs`, `in_use` ของตัวละครและฉากหลังที่การ์ดหรือ `plot` ใช้, `voice_in_use` ของ EP), `toon/writer.py` (คำสั่งและการอ่านคำตอบของ Plot job กับ Cards job), `ToonJobs` มี `plot` และ `cards` บน `toon_write` ("ร่างการ์ตูนเล่า"); Cards job เขียน Series กับ `ep.json` พร้อมกันตอนจบ (ยกเลิกหรือ crash แล้วไม่เปลี่ยน), แตกใหม่เฉพาะองก์ที่ `summary` ≠ `cards_from`, `cards_will_be_lost` ต่อองก์, `nothing_to_split`
+- `backend/llm_reply.py` ใหม่: `json_object` และ `clean` ย้ายจาก `spoil_maker.script` (ผู้ใช้คนที่สองคือ `toon.writer`); `store.ep_ids` ให้ id ของ EP ไม่ซ้ำทั้ง tab
+- หน้าเว็บ: รายการ EP (`#/toon/series/{sid}`, EP ใหม่ส่ง Plot job ทันที), ตัวละครย้ายไป `/cast`, หน้า EP (`#/toon/eps/{eid}`, `/plot`): พล็อต (ชื่อตอน สรุปต่อองก์ ป้าย "ใหม่" สลับเป็นของใน Series, องก์ที่จะแตกใหม่, dialog ของที่จะหาย), เส้นเรื่อง (องก์ แก้ชื่อที่หัวองก์, ช่วงพร้อมฉากหลัง, `CardEditor`, `LengthMeter` เทียบเป้า 60–120), ช่องแก้ปิดระหว่าง Plot/Cards job ของ EP; `NoticeLine` เป็น component ของตัวเอง
+- test: `backend/tests/test_toon_eps_api.py` (33), `features/toon/components/EpPage.test.tsx`
+
+**Decided:**
+- D53 — hash ใหม่ (`/cast`, `/eps/{eid}`, `/plot`), EP ใหม่เริ่ม Plot job ทันที, `PATCH` องก์, Cards job เขียนตอนจบ, ขีดจำกัดข้อความ, ค่าตั้งต้นของช่วงใหม่
+- D54 — พล็อตที่ยืนยันแล้วไม่รับของใหม่ (`invalid_request`), id ของ EP ไม่ซ้ำทั้ง tab, ชื่อองก์แก้ที่หัวองก์
+
+**For the next ticket:**
+- ticket 03: การ์ดมี `has_previous_image` และ `previous_image` รอแล้ว; ภาพการ์ด ปุ่มเสียงเล่า และสถานะบน `CardEditor` ยังไม่ขึ้น (D53)
+- ticket 04: `PATCH` ช่วง `sound` / `volume` (`episodes._sound`) และ `ListedEp.rendered_at` มีแล้วแต่หน้าเว็บยังไม่ใช้; Render slot ต้องเพิ่มตัวเองใน `episodes.ep_jobs` (ตอนนี้มีแค่ `toon_jobs.ep_use`)
+- smell ที่ไม่ได้แก้: `writer._plot_items` (อ่านคำตอบ Qwen แบบทิ้งของเสีย) กับ `episodes._plot_items` (API ปฏิเสธ) คล้ายกันแต่กติกาต่างกัน; แตกกิ่ง `characters` / `backgrounds` เพิ่มใน `_cards`, `_plot_items` — รวมเป็นตารางต่อ kind พร้อมที่ ticket 01 บอกไว้
+- test backend บางตัวผูกกับถ้อยคำในคำสั่ง (`Writer.respond` แยกด้วย "เขียนพล็อต" และ "องก์นี้ ("); `edit_stored` เขียน `ep.json` ตรงเพื่อใส่ภาพและเสียง จนกว่า ticket 03 จะมี API
+- `GENRE_DEFAULTS` ซ้ำ `DEFAULTS`, `lib/voices.ts` และ smell ของ `useCast` / `usePickRef` จาก ticket 01 ยังค้าง; `useEp` poll `JOB_PATH` เป็นตัวที่สาม → ticket 03 รวมเป็น hook เดียว
+
+**Checks:** `uv run pytest` 973 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 382 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). e2e = Vitest ผ่าน `App`; หน้าตาเทียบ Figma ด้วยมือยังไม่ได้ทำ
 
 ### 01: ติดตั้ง klein, Series และภาพอ้างอิง — done 2026-11-10
 

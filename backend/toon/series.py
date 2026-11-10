@@ -6,7 +6,6 @@ pictures wait in `refs/.pending/{id}-{1..3}.png` until one is picked.
 """
 
 import io
-import json
 import logging
 import secrets
 import shutil
@@ -116,8 +115,8 @@ def list_all(project: ProjectPaths) -> list[ListedSeries]:
 def create(project: ProjectPaths, body: dict) -> SeriesView:
     """A new Series with its genre's acts, style and tone (spec › Series ตัวละคร ฉากหลัง), or the
     ones the body sends: the form shows the defaults and the user may change them first (D52)."""
-    name = _text(body.get("name"), 1, NAME_MAX)
-    channel_name = _text(body.get("channel_name", ""), 0, CHANNEL_MAX)
+    name = checked_text(body.get("name"), 1, NAME_MAX)
+    channel_name = checked_text(body.get("channel_name", ""), 0, CHANNEL_MAX)
     layout, genre = body.get("layout"), body.get("genre")
     if layout not in BACKGROUND_SIZE or genre not in DEFAULTS:
         raise invalid_request()
@@ -127,7 +126,7 @@ def create(project: ProjectPaths, body: dict) -> SeriesView:
     overrides = _style_tone_acts(body)  # what the form changed from the genre's defaults (D52)
     # A `voice_id` is written under the draft's lock, so a voice delete can't slip in (D25).
     with gpu.slot.draft_lock, store.lock:
-        voice_id = _voice(project, body.get("voice_id"))
+        voice_id = existing_voice(project, body.get("voice_id"))
         taken = {s.id for s in store.list_series(project)}
         series = Series(
             id=store.new_id("s", taken),
@@ -148,14 +147,14 @@ def _style_tone_acts(body: dict) -> dict:
     """The `style`, `tone` and `acts` the body sends, each checked; a field it leaves out is not in the answer."""
     fields: dict = {}
     if "style" in body:
-        fields["style"] = _text(body["style"], 1, STYLE_MAX)
+        fields["style"] = checked_text(body["style"], 1, STYLE_MAX)
     if "tone" in body:
-        fields["tone"] = _text(body["tone"], 0, TONE_MAX)
+        fields["tone"] = checked_text(body["tone"], 0, TONE_MAX)
     if "acts" in body:
         acts = body["acts"]
         if not isinstance(acts, list) or not 1 <= len(acts) <= ACTS_MAX:
             raise ApiError(400, "invalid_request", f"โครงองก์มีได้ 1–{ACTS_MAX} องก์")
-        fields["acts"] = [_text(act, 1, ACT_NAME_MAX) for act in acts]
+        fields["acts"] = [checked_text(act, 1, ACT_NAME_MAX) for act in acts]
     return fields
 
 
@@ -175,9 +174,9 @@ def change(project: ProjectPaths, series_id: str, body: dict) -> SeriesView:
     new `acts` count for new EPs only (D11)."""
     changes: dict = _style_tone_acts(body)
     if "name" in body:
-        changes["name"] = _text(body["name"], 1, NAME_MAX)
+        changes["name"] = checked_text(body["name"], 1, NAME_MAX)
     if "channel_name" in body:
-        changes["channel_name"] = _text(body["channel_name"], 0, CHANNEL_MAX)
+        changes["channel_name"] = checked_text(body["channel_name"], 0, CHANNEL_MAX)
     if "name_tags" in body:
         if not isinstance(body["name_tags"], bool):
             raise invalid_request()
@@ -185,7 +184,7 @@ def change(project: ProjectPaths, series_id: str, body: dict) -> SeriesView:
     with gpu.slot.draft_lock, store.lock:
         series = _series(project, series_id)
         if "voice_id" in body:
-            changes["voice_id"] = _voice(project, body["voice_id"])
+            changes["voice_id"] = existing_voice(project, body["voice_id"])
         store.write_series(project, series.model_copy(update=changes))
     return view(project, series_id)
 
@@ -206,10 +205,13 @@ def delete(project: ProjectPaths, series_id: str, body: dict | None, busy: set[s
 
 
 def uses_voice(voice_id: str) -> bool:
-    """Whether a Series uses the Saved voice, which then can't be deleted (D25)."""
+    """Whether a Series or an EP narrates with the Saved voice, which then can't be deleted (D25)."""
     project = paths.project()
     with store.lock:
-        return any(series.voice_id == voice_id for series in store.list_series(project))
+        return any(
+            series.voice_id == voice_id or any(ep.voice_id == voice_id for ep in store.list_eps(project, series.id))
+            for series in store.list_series(project)
+        )
 
 
 # --- characters and backgrounds ---
@@ -241,9 +243,13 @@ def change_item(project: ProjectPaths, series_id: str, kind: Kind, item_id: str,
 
 
 def delete_item(project: ProjectPaths, series_id: str, kind: Kind, item_id: str) -> SeriesView:
+    """An item a card, a segment or a plot of an EP uses can't go: `in_use` with those EPs (D25)."""
     with store.lock:
         series = _series(project, series_id)
         item = _item(series, kind, item_id)
+        users = [EpRef(n=ep.n, title=ep.title) for ep in store.list_eps(project, series_id) if item_id in _used_items(ep)]
+        if users:
+            raise ApiError(409, "in_use", "ยังมี EP ที่ใช้อยู่ ลบไม่ได้", eps=[ep.model_dump() for ep in users])
         getattr(series, kind).remove(item)
         store.write_series(project, series)
         _remove_ref_files(project, series_id, item_id)
@@ -451,15 +457,18 @@ def _pending_counts(project: ProjectPaths, series: Series) -> dict[str, int]:
 
 def _eps(project: ProjectPaths, series_id: str) -> list[EpRef]:
     """The Series' EPs by number, as a refusal names them."""
-    found = []
-    eps_dir = project.series_dir(series_id) / "eps"
-    for path in eps_dir.glob("*/ep.json") if eps_dir.is_dir() else ():
-        try:
-            ep = json.loads(path.read_text(encoding="utf-8"))
-            found.append(EpRef(n=ep["n"], title=ep.get("title") or ""))
-        except (ValueError, KeyError, TypeError):
-            log.warning("skipped %s: unreadable", path)
-    return sorted(found, key=lambda ep: ep.n)
+    return [EpRef(n=ep.n, title=ep.title) for ep in store.list_eps(project, series_id)]
+
+
+def _used_items(ep: store.Ep) -> set[str]:
+    """Every character and background the EP's plot, segments and cards use."""
+    used = {item.id for item in [*ep.plot.characters, *ep.plot.backgrounds] if item.id}
+    for act in ep.acts:
+        for segment in act.segments:
+            used.add(segment.background_id)
+            for card in segment.cards:
+                used.update(card.character_ids)
+    return used
 
 
 def _series(project: ProjectPaths, series_id: str) -> Series:
@@ -479,27 +488,27 @@ def _item(series: Series, kind: Kind, item_id: str) -> Character | Background:
 def _character_fields(body: dict, partial: bool) -> dict:
     fields = _item_fields(body, partial)
     if "tag" in body:
-        fields["tag"] = _text(body["tag"], 0, TAG_MAX)
+        fields["tag"] = checked_text(body["tag"], 0, TAG_MAX)
     return fields
 
 
 def _item_fields(body: dict, partial: bool) -> dict:
     fields = {}
     if "name" in body or not partial:
-        fields["name"] = _text(body.get("name"), 1, ITEM_NAME_MAX)
+        fields["name"] = checked_text(body.get("name"), 1, ITEM_NAME_MAX)
     if "description" in body:
-        fields["description"] = _text(body["description"], 0, DESCRIPTION_MAX)
+        fields["description"] = checked_text(body["description"], 0, DESCRIPTION_MAX)
     return fields
 
 
-def _voice(project: ProjectPaths, voice_id: object) -> str:
+def existing_voice(project: ProjectPaths, voice_id: object) -> str:
     """A Saved voice that exists. Raises `ApiError` 400 `voice_not_found`."""
     if not isinstance(voice_id, str) or voices.chars_per_s(project, voice_id) is None:
         raise ApiError(400, "voice_not_found", "ไม่พบเสียงนี้: เลือกเสียงที่บันทึกไว้")
     return voice_id
 
 
-def _text(value: object, low: int, high: int) -> str:
+def checked_text(value: object, low: int, high: int) -> str:
     """A text of `low`–`high` letters once the spaces around it are cut."""
     text = value.strip() if isinstance(value, str) else None
     if text is None or not low <= len(text) <= high:

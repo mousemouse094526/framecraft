@@ -4,7 +4,8 @@ import { OUTLINE_BUTTON, PRIMARY_BUTTON, DESTRUCTIVE_BUTTON } from "../../../com
 
 type Props = {
   title: string;
-  message: string;
+  /** One line, or one paragraph per line (the acts a re-split loses, D43). */
+  message: string | string[];
   confirmLabel: string;
   /** Red for a step that deletes (ลบชุด); dark otherwise (เลือกไฟล์). */
   destructive?: boolean;
@@ -23,7 +24,11 @@ export function ToonDialog({ title, message, confirmLabel, destructive = false, 
       <h2 id={titleId} className="text-lg leading-[1.5] font-semibold text-foreground">
         {title}
       </h2>
-      <p className="text-sm leading-[1.5] text-mid">{message}</p>
+      <div className="text-sm leading-[1.5] text-mid">
+        {(typeof message === "string" ? [message] : message).map((line, index) => (
+          <p key={index}>{line}</p>
+        ))}
+      </div>
       <div className="flex justify-end gap-2">
         <button ref={cancel} type="button" onClick={onClose} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
           ยกเลิก
