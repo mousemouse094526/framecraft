@@ -11,3 +11,7 @@ class Worker(NamedTuple):
     process: Any
     requests: Any
     replies: Any
+
+    def end(self) -> None:
+        """Asks the child to exit on its own once it has answered what it was asked."""
+        self.requests.put(None)

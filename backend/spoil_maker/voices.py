@@ -204,9 +204,8 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
 
     def _design(self, project: ProjectPaths, request: Design) -> None:
         worker = self.speaker.start(project)
-        worker.requests.put(request)
-        designed = self.reply(worker, (Designed,))
-        worker.requests.put(None)
+        designed = self.ask(worker, request, (Designed,))
+        worker.end()
         _write_preview(project, request, designed)
 
     def _run(self, steps) -> None:

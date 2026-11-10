@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** 07 done; ต่อ 08; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ทุก ticket done (08 ล่าสุด); ต่อ feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 08
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -19,9 +19,26 @@
 | 05 | แยกงานของ toon ออกเป็นส่วน | done |
 | 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | done |
 | 07 | โครงงานของ toon และชื่อที่ชนกัน | done |
-| 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | ready |
+| 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | done |
 
 ## Log
+
+### 08: เริ่มและหยุด child และ render ที่ซ้ำข้าม feature — done 2026-11-10
+
+**Built:**
+- `ModelJobSlot.start_child` (track แล้วรอข้อความแรก), `ask`, `stop_child`, `free_gpu`; `Worker.end`: Qwen (`steps.start_qwen`, Describe, Draft), klein (`steps.open_klein`, `steps.draw` แทน `klein_reply`) และ `speaking.Speaker` เริ่มและหยุด child ทางเดียว; `_finish` ใช้ `stop_child`; `_free_gpu` สองตัวของ render หายไป
+- `renders.PIECES_SHARE`, `pieces_percent`, `encode_progress`: `percent` ของ render ทั้งสอง feature; `renders.Render(folder, name)` (`next_free`, `file`, `finish`, `require`, `complete`, `delete`)
+- `series.ref_revs` (หน้า EP, Image job, Render job); `episodes.plot_items(…, from_qwen)` ตัวเดียวแทน `_plot_items` สองตัว (ของ Qwen ที่ผิดตัดทิ้ง, ของผู้ใช้ `invalid_request`)
+- test: Qwen, klein, OmniVoice ตายตอนโหลด → `crashed` และ GPU ว่าง (`FakeModel.crash_on_load`); ลองของ Plot job ที่ช้าเกินหยุด child ตัวนั้นแล้วเปิดตัวใหม่; คำตอบพล็อตของ Qwen ที่มีของผิดรูป
+- spec › Modules touched, `fastapi-api` SKILL.md
+
+**Decided:**
+- D62 — `start_child`/`ask`/`stop_child`/`free_gpu`, `Worker.end`, `steps.draw`, `renders.Render`, `encode_progress`, `series.ref_revs`, `episodes.plot_items`
+
+**For the next ticket:**
+- review ไม่แก้ (ตั้งใจ): `plot_items` ใน `episodes` อ่าน `llm_reply` (ผู้ใช้กับ Qwen ใช้ตัวเดียวตามตั๋ว; SKILL.md เขียนไว้); `result_file`/`delete_result` สองบรรทัดคล้ายกันใน render สองฝั่ง (folder ต่างกัน); `stop_on_shutdown` เรียก `stop_process` ตรง (D62); `llm.respond.__self__.plot` ใน test เป็นแบบเดิมของหลายไฟล์; id ของ Qwen ที่ไม่ใช่ string ตอนนี้ถูกตัดทิ้งแทน `internal`
+
+**Checks:** `uv run pytest` 1047 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 401 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `34c5b91`: Standards ไม่มีข้อผิดกติกา + smell (แก้: การจบ/ตรวจ/ลบเป็น method ของ `Render`, `new` → `next_free`, `draw` รับ tuple, ตัวแปรดิบใน `writer`, สร้าง request ก่อน `ask`, `plot_items` ใช้ `drop()`), Spec (แก้: `"id": null` ของ Qwen ตัดทิ้งแบบเดิม — เดิมเปลี่ยนพฤติกรรม, test klein ตายตอนโหลด, `stop_on_shutdown` ใน D62), Newcomer สรุปตรง What to build (แก้: พารามิเตอร์ `ready` → `first`, คอมเมนต์ว่าเมื่อไรใช้ `stop_child`/`free_gpu`, ชื่อ test, คอมเมนต์ test timeout, คืน GPU ใน test)
 
 ### 07: โครงงานของ toon และชื่อที่ชนกัน — done 2026-11-10
 
@@ -297,5 +314,5 @@
 | 17 | review | แถว `diffusers`/`gguf` เขียนทั้งใน `checks.run_checks` และ `gate_rows.klein` | `/warroom tickets toon` | done (ticket 06) |
 | 18 | review | ไฟล์เสียงที่หน้าเว็บหายไประหว่างแปลง ffmpeg ยังแปลงจนจบและเข้าคลัง (`_take_in` ได้ `threading.Event()` ใหม่); `DELETE …/renders/{name}` มี `409` `in_use` ที่ spec ไม่ได้เขียน | `/warroom tickets toon` | done (ticket 06) |
 | 19 | review | smell ที่ค้างจาก 05: `cards.run` สร้างตัวละครและฉากหลังใหม่เอง (ควรอยู่ `series`); `plot.writable` อ่าน `render.render_jobs.ep_use()` ตรงแทน `episodes.ep_jobs`; `process, requests, replies` เดินด้วยกัน (Data Clump); `ToonJobs.update`/`track`/`reply` แค่ส่งต่อ (Middle Man); เปิด klein (`Encode` แล้ว `Draw`) ซ้ำใน `refs.run` กับ `images.run`; `_running`/`series_use` ซ้ำระหว่าง `ToonJobs` กับ `RenderJobs` | `/warroom tickets toon` | done (ticket 07) |
-| 20 | review | ซ้ำ: เริ่ม child (start, `track`, `Ready`) ใน `start_qwen`/`start_klein`/`Speaker.start` และหยุด (`track(None)`, `stop_process`) 3 ที่ใน `steps.py` + `_free_gpu`; `on_progress` และ `_free_gpu` ของสอง render; map `ref_rev` สร้าง 3 ที่ (`images._ref_revs`, `render._cards_to_voice`, `cards.run`); `_plot_items` สองตัวที่ทำต่างกัน (`writer` ตัดทิ้ง, `episodes` raise); `(folder, name)` ใน `backend.renders` | `/warroom tickets toon` | → ticket 08 |
+| 20 | review | ซ้ำ: เริ่ม child (start, `track`, `Ready`) ใน `start_qwen`/`start_klein`/`Speaker.start` และหยุด (`track(None)`, `stop_process`) 3 ที่ใน `steps.py` + `_free_gpu`; `on_progress` และ `_free_gpu` ของสอง render; map `ref_rev` สร้าง 3 ที่ (`images._ref_revs`, `render._cards_to_voice`, `cards.run`); `_plot_items` สองตัวที่ทำต่างกัน (`writer` ตัดทิ้ง, `episodes` raise); `(folder, name)` ใน `backend.renders` | `/warroom tickets toon` | done (ticket 08) |
 | 21 | review | ชื่อ: `kinds.Kind` (characters/backgrounds) ชนกับ `JobKind` จน body ต้องใช้ `item_kind` และ `{kind}` ใน route เป็นชนิดของ item; ตัวพูดเป็น `speaker` ใน `ToonJobs` แต่ `_speaker` ใน `RenderJobs`/`SentenceVoicer`; คอมเมนต์ "Step 1", "Steps 2–3" ไม่บอกว่าขั้นของ spec ส่วนไหน; `toon/__init__.py` re-export ไว้ให้ test patch | `/warroom tickets toon` | done (ticket 07) |

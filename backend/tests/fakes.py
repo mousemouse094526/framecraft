@@ -498,7 +498,8 @@ class FakeModel:
     before answering request `index` until the test calls
     `release` (or the process is terminated) with `pause_at`, never answer it
     (`hang_at`, for timeouts), or exit at it without a word (`crash_at`). An
-    `answer` of `HANG` never comes either, whichever process asked.
+    `answer` of `HANG` never comes either, whichever process asked. `crash_on_load`
+    exits before `ready()`, as a model that can't load.
     """
 
     HANG = object()
@@ -508,6 +509,7 @@ class FakeModel:
         self.processes: list["FakeModelProcess"] = []
         self.crash_at: int | None = None
         self.hang_at: int | None = None
+        self.crash_on_load = False
         self._paused: dict[int, threading.Event] = {}
         self._reached: dict[int, threading.Event] = {}
 
@@ -634,6 +636,9 @@ class FakeModelProcess(FakeProcess):
         from queue import Empty
 
         model = self._model
+        if model.crash_on_load:
+            self.exitcode = -11
+            return
         if (ready := model.ready()) is not None:
             self._replies.put(ready)
         index = 0

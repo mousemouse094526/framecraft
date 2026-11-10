@@ -67,7 +67,7 @@ def plan(project: ProjectPaths, body: dict) -> ImagePlan:
         raise ApiError(400, "invalid_request", "เลือกการ์ดหนึ่งใบ หรือขอบเขตของภาพที่จะสร้าง")
     with store.lock:
         series_now, ep = episodes.find(project, ep_id)
-        refs = _ref_revs(series_now)
+        refs = series.ref_revs(series_now)
         placed = [(s, c, episodes.image_status(c, s, refs)) for s, c in episodes.placed_cards(ep)]
         if card_id is not None:
             segment, card, status = next(((s, c, st) for s, c, st in placed if c.id == card_id), (None, None, None))
@@ -149,16 +149,16 @@ def run(job: steps.Run, project: ProjectPaths, plan: ImagePlan) -> None:
     failed: list[str] = []
     for done, (card, prompt) in enumerate(zip(plan.cards, card_prompts, strict=True), start=1):
         seed = random.randint(0, steps.SEED_MAX)
-        drawer.requests.put(Draw(index=done - 1, ref_paths=card.ref_paths, width=width, height=height, seed=seed))
+        request = Draw(index=done - 1, ref_paths=card.ref_paths, width=width, height=height, seed=seed)
         # A `WorkerError` asked for comes back like a `Drawn` instead of failing the job.
-        drawn = steps.klein_reply(job, drawer, Drawn, klein.WorkerError)
+        drawn = steps.draw(job, drawer, request, (Drawn, klein.WorkerError))
         if isinstance(drawn, klein.WorkerError):
             log.error("klein failed on card %s (%s): %s", card.card_id, drawn.code, drawn.detail)
             failed.append(card.card_id)
         elif not put_image(project, plan, card, drawn.png, seed, prompt):
             log.info("the picture of card %s is dropped: the card went", card.card_id)
         job.update(done=done, failed_cards=list(failed))
-    drawer.requests.put(None)
+    drawer.end()
 
 
 def _ready(project: ProjectPaths, plan: ImagePlan) -> None:
@@ -263,7 +263,3 @@ def _missing_refs(series_now: Series, skipped: list[tuple[Segment, Card]]) -> li
             if item is not None and item.ref_rev == 0:
                 found.setdefault(item_id, MissingRef(kind=item_kind, id=item_id, name=item.name, cards=0)).cards += 1
     return list(found.values())
-
-
-def _ref_revs(series_now: Series) -> dict[str, int]:
-    return {item.id: item.ref_rev for item in [*series_now.characters, *series_now.backgrounds]}

@@ -266,6 +266,12 @@ def find_item(series: Series, item_kind: ItemKind, item_id: str) -> Character | 
     return next((item for item in getattr(series, item_kind) if item.id == item_id), None)
 
 
+def ref_revs(series: Series) -> dict[str, int]:
+    """The `ref_rev` of each character and background, by id: what a card's image status
+    compares its image's `refs` with (`episodes.image_status`)."""
+    return {item.id: item.ref_rev for item in [*series.characters, *series.backgrounds]}
+
+
 class RefPlan(BaseModel):
     """What a Ref job draws, read once when it starts (spec › Ref job)."""
 

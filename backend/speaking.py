@@ -27,14 +27,14 @@ class Voice(Protocol):
 class Slot(Protocol):
     """What a Speaker asks of the job slot that holds it (`jobs.ModelJobSlot`)."""
 
-    def track(self, process) -> None: ...
+    def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker: ...
 
-    def reply(self, worker: Worker, expected: tuple[type, ...], timeout: float | None = None): ...
+    def ask(self, worker: Worker, request, expected: tuple[type, ...], timeout: float | None = None): ...
 
 
 class Speaker:
     """Speaks texts in an OmniVoice child for the job slot that holds it: through that slot's
-    `track` (so shutdown and the job's end stop the child) and `reply` (so a failure names
+    `start_child` (so shutdown and the job's end stop the child) and `ask` (so a failure names
     the slot's child)."""
 
     def __init__(self, slot: Slot):
@@ -44,10 +44,7 @@ class Speaker:
         """Starts the OmniVoice child and waits until it is loaded."""
         device = checks.probe_device()
         snapshot = project.snapshot_dir(OMNIVOICE, OMNIVOICE.revision)
-        worker = spoil_maker.start_tts_worker(snapshot, device)
-        self._slot.track(worker.process)
-        self._slot.reply(worker, (Ready,))
-        return worker
+        return self._slot.start_child(spoil_maker.start_tts_worker(snapshot, device), Ready)
 
     def speak(self, project: ProjectPaths, texts: list[str], voice: Voice) -> Iterator[Spoken]:
         """Each text (numbers already words) spoken in one child in `voice`, in order, as
@@ -55,9 +52,9 @@ class Speaker:
         the finished ones. Ask once more after the last text and it ends its child."""
         worker = self.start(project)
         for text in texts:
-            worker.requests.put(Speak(text=text, prompt=voice.prompt, speed=voice.speed, num_step=NUM_STEP))
-            yield self._slot.reply(worker, (Spoken,))
-        worker.requests.put(None)
+            request = Speak(text=text, prompt=voice.prompt, speed=voice.speed, num_step=NUM_STEP)
+            yield self._slot.ask(worker, request, (Spoken,))
+        worker.end()
 
 
 def write_wav(path: Path, spoken: Designed | Spoken) -> None:

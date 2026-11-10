@@ -13,7 +13,7 @@ from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
 
-from backend import gpu, renders
+from backend import gpu, llm_reply, renders
 from backend.errors import ApiError, invalid_request
 from backend.json_values import is_int, is_number
 from backend.paths import ProjectPaths
@@ -160,7 +160,7 @@ def view(project: ProjectPaths, ep_id: str) -> EpView:
     with store.lock:
         series, ep = find(project, ep_id)
         chars_per_s = voices.chars_per_s(project, ep.voice_id) or UNKNOWN_CHARS_PER_S
-        refs = {item.id: item.ref_rev for item in [*series.characters, *series.backgrounds]}
+        refs = series_module.ref_revs(series)
         acts = [
             ActView(
                 id=act.id,
@@ -458,9 +458,14 @@ def _plot(series: Series, value: object, confirmed: bool) -> Plot:
     confirmed: only the first Cards job takes them into the Series (spec › Cards job, D54)."""
     if not isinstance(value, dict):
         raise invalid_request()
+    characters, backgrounds = value.get("characters", []), value.get("backgrounds")
+    if not (isinstance(characters, list) and isinstance(backgrounds, list)):
+        raise invalid_request()
+    if len(characters) > PLOT_CHARACTERS_MAX or len(backgrounds) > PLOT_BACKGROUNDS_MAX:
+        raise invalid_request()
     plot = Plot(
-        characters=_plot_items(series, "characters", value.get("characters", []), PLOT_CHARACTERS_MAX),
-        backgrounds=_plot_items(series, "backgrounds", value.get("backgrounds"), PLOT_BACKGROUNDS_MAX),
+        characters=plot_items(series, "characters", characters),
+        backgrounds=plot_items(series, "backgrounds", backgrounds),
     )
     if not plot.backgrounds:
         raise ApiError(400, "invalid_request", "พล็อตต้องมีฉากหลังอย่างน้อยหนึ่ง")
@@ -469,24 +474,43 @@ def _plot(series: Series, value: object, confirmed: bool) -> Plot:
     return plot
 
 
-def _plot_items(series: Series, item_kind: ItemKind, value: object, most: int) -> list[PlotItem]:
-    if not isinstance(value, list) or len(value) > most or not all(isinstance(item, dict) for item in value):
-        raise invalid_request()
+def plot_items(series: Series, item_kind: ItemKind, value: list, from_qwen: bool = False) -> list[PlotItem]:
+    """A plot's characters or backgrounds (`item_kind`): the Series' by `id`, each once, or new
+    ones by `name` (D13). From the user, anything else raises `invalid_request`. From Qwen
+    (`from_qwen`, spec › Plot job step 4) it is dropped instead, and a new one's text is cleaned
+    of CJK letters and cut to length. How many there may be is the caller's to check."""
+
+    def text(item: dict, field: str, least: int, most: int) -> str:
+        found = item.get(field, "")
+        if from_qwen:
+            return llm_reply.clean(found)[:most] if isinstance(found, str) else ""
+        return series_module.checked_text(found, least, most)
+
+    def drop() -> None:
+        """An item that isn't one: Qwen's is dropped, the user's refused."""
+        if not from_qwen:
+            raise invalid_request()
+
     items: list[PlotItem] = []
     for item in value:
-        if item.get("id") is not None:
-            if series_module.find_item(series, item_kind, item["id"]) is None or any(i.id == item["id"] for i in items):
-                raise invalid_request()
-            items.append(PlotItem(id=item["id"]))
-        else:
-            new = PlotItem(
-                new=True,
-                name=series_module.checked_text(item.get("name"), 1, series_module.ITEM_NAME_MAX),
-                description=series_module.checked_text(item.get("description", ""), 0, series_module.DESCRIPTION_MAX),
-            )
-            if KINDS[item_kind].tagged:
-                new.tag = series_module.checked_text(item.get("tag", ""), 0, series_module.TAG_MAX)
-            items.append(new)
+        if not isinstance(item, dict):
+            drop()
+            continue
+        item_id = item.get("id")
+        # Qwen names an `id` only for the Series' own (spec › Plot job step 3); the page sends `null` with a new one.
+        if ("id" in item) if from_qwen else item_id is not None:
+            if series_module.find_item(series, item_kind, item_id) is None or any(i.id == item_id for i in items):
+                drop()
+            else:
+                items.append(PlotItem(id=item_id))
+            continue
+        name = text(item, "name", 1, series_module.ITEM_NAME_MAX)  # `checked_text` raises at an empty one
+        if not name:
+            continue  # Qwen's: no name, nothing to make
+        new = PlotItem(new=True, name=name, description=text(item, "description", 0, series_module.DESCRIPTION_MAX))
+        if KINDS[item_kind].tagged:
+            new.tag = text(item, "tag", 0, series_module.TAG_MAX)
+        items.append(new)
     return items
 
 

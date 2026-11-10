@@ -61,7 +61,12 @@ class ModelJobSlot(JobSlot[Job]):
     message of a cancel with no running job, `error_type`, the job's `{code, message}`
     error, and for `reply`: the child's `worker_error` message type, `child_name`
     ("ตัวบรรยายฉาก") and `failure` ("บรรยายฉากไม่สำเร็จ"), the words a failed job's
-    message is made of."""
+    message is made of.
+
+    A step starts its child with `start_child` and `ask`s it. One child runs at a time, the
+    one tracked: a step whose child is done with stops it with `stop_child` (a job that runs
+    Qwen then klein), or with `free_gpu` when the rest of the job needs no GPU (a render's
+    ffmpeg); otherwise the job's end stops it."""
 
     gpu_kind: gpu.Kind
     nothing_to_cancel: str
@@ -132,6 +137,35 @@ class ModelJobSlot(JobSlot[Job]):
     def _failed(self, code: str, message: str) -> dict:
         return {"state": "failed", "error": self.error_type(code=code, message=message)}
 
+    def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker:
+        """A child just started: tracked first (so shutdown and the job's end stop it), then
+        its first message, `first`, waited for (`Ready` once loaded; klein's `Encoded`, as it
+        answers its first request). Loading has no timeout unless `timeout`; a child that dies
+        or errs instead fails the job as `reply` says, and its end frees the GPU."""
+        self.track(worker.process)
+        self.reply(worker, (first,), timeout)
+        return worker
+
+    def ask(self, worker: Worker, request, expected: tuple[type, ...], timeout: float | None = None):
+        """Sends `request` to the child and returns its answer, as `reply`."""
+        worker.requests.put(request)
+        return self.reply(worker, expected, timeout)
+
+    def stop_child(self) -> None:
+        """Stops the child `track` remembers (the one `start_child` started last), if one runs,
+        before the job ends: a try that took too long, or a step that is over. Forgotten first,
+        so shutdown doesn't stop it twice."""
+        process = self._child()
+        self.track(None)
+        if process is not None:
+            stop_process(process)
+
+    def free_gpu(self) -> None:
+        """The model's part of the job is over: its child goes and the GPU is free for the next
+        job while the rest runs (a render's ffmpeg). A job that never took it: `release` does nothing."""
+        self.stop_child()
+        gpu.slot.release(self.gpu_kind)
+
     def reply(self, worker: Worker, expected: tuple[type, ...], timeout: float | None = None):
         """The child's next message, one of `expected`. Raises `Cancelled`, `TimeoutError`
         after `timeout` seconds (None: no limit), or `JobFailed` when the child dies or errs —
@@ -161,13 +195,10 @@ class ModelJobSlot(JobSlot[Job]):
         """Every ending of the job's thread: stops the child, frees the GPU before the
         job reads as finished (so a job started after that never meets `gpu_busy`), and
         sets the ending's fields. Never raises: the job must end, or every later POST is refused."""
-        process = self._child()
-        if process is not None:
-            try:
-                stop_process(process)
-            except Exception:
-                log.exception("could not stop the %s process", self.gpu_kind)
-        self.track(None)
+        try:  # `free_gpu`, but a child that won't stop still frees the GPU
+            self.stop_child()
+        except Exception:
+            log.exception("could not stop the %s process", self.gpu_kind)
         gpu.slot.release(self.gpu_kind)
         self.update(**ending)
 

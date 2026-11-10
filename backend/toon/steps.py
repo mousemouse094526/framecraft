@@ -1,6 +1,6 @@
 """What the kinds of the Toon job share (toon spec › Toon job, ADR 0012, ADR 0015): `Work`, how
 the slot starts and runs one kind; `Run`, what a kind's steps ask of the slot; and the steps
-that talk to a child: Qwen writing (`Qwen`) or translating (`scenes`), klein drawing (`open_klein`, `klein_reply`).
+that talk to a child: Qwen writing (`Qwen`) or translating (`scenes`), klein drawing (`open_klein`, `draw`).
 
 A job holds the GPU slot as its kind's `gpu_kind`, set as it starts: `toon_write` for Qwen's
 writing, `toon_image` for a job that runs Qwen then klein, `toon_voice` for OmniVoice. Its
@@ -8,19 +8,18 @@ writing, `toon_image` for a job that runs Qwen then klein, `toon_voice` for Omni
 """
 
 import logging
-from collections.abc import Callable
-from contextlib import AbstractContextManager, nullcontext
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from typing import Any, NamedTuple, Protocol, TypeVar
 
 from backend import checks, gate_rows, gpu, speaking, spoil_maker
 from backend.errors import JobFailed, Row
-from backend.jobs import stop_process
 from backend.models import KLEIN, KLEIN_GGUF, qwen_for
 from backend.paths import ProjectPaths
 from backend.spoil_maker import llm, tts
 from backend.spoil_maker.llm import Generate, Generated, Ready
 from backend.toon import klein, prompts, writer
-from backend.toon.klein import Encode, Encoded
+from backend.toon.klein import Draw, Encode, Encoded
 from backend.workers import Worker
 
 log = logging.getLogger(__name__)
@@ -54,9 +53,11 @@ class Run(Protocol):
 
     def use_child(self, gpu_kind: gpu.Kind, child: Child) -> None: ...
 
-    def track(self, process) -> None: ...
+    def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker: ...
 
-    def reply(self, worker: Worker, expected: tuple[type, ...], timeout: float | None = None): ...
+    def ask(self, worker: Worker, request, expected: tuple[type, ...], timeout: float | None = None): ...
+
+    def stop_child(self) -> None: ...
 
 
 class Work(NamedTuple):
@@ -103,25 +104,20 @@ class Qwen:
         timeout = llm.timeouts().write
         if self._model is None:
             self._model = start_qwen(self._run, self._project)
-        model = self._model
-        model.requests.put(Generate(prompt, None, max_tokens, writer.TEMPERATURE))
+        request = Generate(prompt, None, max_tokens, writer.TEMPERATURE)
         try:
-            return self._run.reply(model, (Generated,), timeout).text
+            return self._run.ask(self._model, request, (Generated,), timeout).text
         except TimeoutError:
             log.warning("attempt %d took longer than %g s", attempt, timeout)
             self._model = None
-            self._run.track(None)
-            stop_process(model.process)
+            self._run.stop_child()
             return None
 
 
 def start_qwen(run: Run, project: ProjectPaths) -> Worker:
     """Starts Qwen's child and waits until it is loaded (no timeout)."""
     qwen = qwen_for(checks.this_platform())
-    worker = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
-    run.track(worker.process)
-    run.reply(worker, (Ready,))
-    return worker
+    return run.start_child(spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision)), Ready)
 
 
 def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: bool = False) -> list[str | None]:
@@ -139,13 +135,12 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
             if ask is not None:
                 if qwen is None:
                     qwen = start_qwen(run, project)
-                qwen.requests.put(Generate(ask, None, prompts.SCENE_MAX_TOKENS, prompts.SCENE_TEMPERATURE))
+                request = Generate(ask, None, prompts.SCENE_MAX_TOKENS, prompts.SCENE_TEMPERATURE)
                 try:
-                    scene = prompts.parse_scene(run.reply(qwen, (Generated,), timeout).text)
+                    scene = prompts.parse_scene(run.ask(qwen, request, (Generated,), timeout).text)
                 except TimeoutError:
                     log.warning("a scene took longer than %g s", timeout)
-                    run.track(None)
-                    stop_process(qwen.process)
+                    run.stop_child()
                     qwen = None
                 if scene is None:
                     log.warning("no scene from Qwen: the fallback goes in")
@@ -156,29 +151,33 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
         # klein's names again, however Qwen's step ended: a failure names the child that ran.
         run.use_child("toon_image", DRAWER)
     if qwen is not None:
-        run.track(None)
-        stop_process(qwen.process)
+        run.stop_child()
     return found
 
 
 def open_klein(run: Run, project: ProjectPaths, texts: list[str]) -> Worker:
     """Starts klein's child and encodes every prompt of the job (`texts`), which its `Draw`s name by
-    index (spec › Ref job, › Image job: klein draws). `None` on its requests ends it."""
+    index (spec › Ref job, › Image job: klein draws). `Worker.end` ends it."""
     worker = klein.start_worker(
         project.snapshot_dir(KLEIN, KLEIN.revision),
         project.snapshot_dir(KLEIN_GGUF, KLEIN_GGUF.revision),
         checks.probe_device(),
     )
-    run.track(worker.process)
-    worker.requests.put(Encode(texts))
-    klein_reply(run, worker, Encoded)
-    return worker
+    worker.requests.put(Encode(texts))  # klein says nothing until it has the prompts
+    with _drawing_time():
+        return run.start_child(worker, Encoded, klein.draw_timeout())
 
 
-def klein_reply(run: Run, worker: Worker, *expected: type):
-    """klein's next message; one that takes longer than a picture may fails the job."""
+def draw(run: Run, worker: Worker, request: Draw, expected: tuple[type, ...]):
+    """klein's answer to `request`, one of `expected`; one that takes longer than a picture may fails the job."""
+    with _drawing_time():
+        return run.ask(worker, request, expected, klein.draw_timeout())
+
+
+@contextmanager
+def _drawing_time() -> Iterator[None]:
     try:
-        return run.reply(worker, expected, klein.draw_timeout())
+        yield
     except TimeoutError:
         raise JobFailed("model_failed", f"สร้างภาพเกิน {klein.draw_timeout() / 60:g} นาที. {gpu.ADVICE}") from None
 

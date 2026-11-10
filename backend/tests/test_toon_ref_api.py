@@ -402,6 +402,18 @@ def test_a_multipart_upload_is_refused(client):
     assert response.status_code == 415
 
 
+def test_a_ref_job_whose_klein_dies_while_loading_fails_crashed_and_frees_the_gpu(client, llm, klein):
+    series_id = create(client)["id"]
+    item_id = add_item(client, series_id)["id"]
+    klein.crash_on_load = True
+
+    assert start_ref(client, series_id, item_id).status_code == 202
+    job = wait_for_end(client)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
+    assert gpu_is_free()
+
+
 def test_a_backend_shutdown_stops_a_running_ref_job_s_child(client, klein):
     """The Toon job is in `JOB_HOLDERS`: the lifespan's end stops its child."""
     with TestClient(app, base_url="http://127.0.0.1") as running:

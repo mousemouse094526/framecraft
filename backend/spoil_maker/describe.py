@@ -124,22 +124,20 @@ class Describes(ModelJobSlot[DescribeJob]):
         # Seconds one Shot's description may take on this OS; longer and the child is terminated (windows-launch D7).
         seconds = timeouts().describe
         qwen = qwen_for(checks.this_platform())
-        worker = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
-        self.track(worker.process)
-        self.reply(worker, (Ready,))  # loading has no timeout
+        worker = self.start_child(spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision)), Ready)
         described = []
         for n, (start, end) in enumerate(spans):
             frame = new / "frames" / f"{n}.jpg"
             # The middle frame: the start and end of a Shot blur into its neighbours (D17).
             frames.extract_frame(mp4, (start + end) / 2, thumbnail=new / f"{n}.jpg", llm_frame=frame)
-            worker.requests.put(Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE))
+            request = Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE)
             try:
-                reply = self.reply(worker, (Generated,), seconds)
+                reply = self.ask(worker, request, (Generated,), seconds)
             except TimeoutError:
                 raise JobFailed("model_failed", f"บรรยายภาพเกิน {seconds:g} วินาที. {gpu.ADVICE}") from None
             described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
             self.update(done=n + 1)
-        worker.requests.put(None)
+        worker.end()
         result = shots.ShotsFile(clip_id=clip.id, shots=described)
         (new / shots.SHOTS_FILE).write_text(result.model_dump_json(indent=2), encoding="utf-8")
         shutil.rmtree(new / "frames")

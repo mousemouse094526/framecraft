@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from backend import checks, gate_rows, gpu, paths, spoil_maker, stories
 from backend.errors import ApiError, JobFailed, require_rows
-from backend.jobs import ModelJobSlot, stop_process
+from backend.jobs import ModelJobSlot
 from backend.models import qwen_for
 from backend.paths import ProjectPaths
 from backend.spoil import clips, transcribe
@@ -482,17 +482,13 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         `TimeoutError` after `timeout` seconds, `Cancelled`, or `JobFailed`."""
         if self._model is None:
             qwen = qwen_for(checks.this_platform())
-            self._model = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
-            self.track(self._model.process)
-            self.reply(self._model, (Ready,))  # loading has no timeout
-        self._model.requests.put(Generate(prompt, None, max_tokens, temperature))
-        return self.reply(self._model, (Generated,), timeout).text
+            worker = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
+            self._model = self.start_child(worker, Ready)  # loading has no timeout
+        return self.ask(self._model, Generate(prompt, None, max_tokens, temperature), (Generated,), timeout).text
 
     def _stop_model(self) -> None:
-        process = self._model.process
         self._model = None
-        self.track(None)
-        stop_process(process)
+        self.stop_child()
 
 
 def _too_long(tokens: int, story_tokens: int) -> ApiError:

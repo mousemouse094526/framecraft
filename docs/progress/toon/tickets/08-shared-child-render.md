@@ -9,7 +9,7 @@
 - ADR: 0012, 0015
 - Blocked: #20 (feature review)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

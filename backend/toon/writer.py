@@ -8,8 +8,8 @@ cleaned (`llm_reply.clean`). A reply that can't be used is None, and the job ask
 from pydantic import BaseModel
 
 from backend import llm_reply
-from backend.toon import episodes, series, store
-from backend.toon.kinds import KINDS, ItemKind
+from backend.toon import episodes, store
+from backend.toon.kinds import ItemKind
 from backend.toon.store import Act, Card, PlotItem, Segment, Series, StoredSound
 
 ATTEMPTS = 3
@@ -65,14 +65,12 @@ def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | None:
     summaries = [_cleaned(act.get("summary") if isinstance(act, dict) else None) for act in acts]
     if not all(summaries):
         return None
-    characters = _plot_items(found.get("characters"), cast, "characters")
-    backgrounds = _plot_items(found.get("backgrounds"), cast, "backgrounds")
-    if (
-        characters is None
-        or backgrounds is None
-        or len(characters) > episodes.PLOT_CHARACTERS_MAX
-        or not 1 <= len(backgrounds) <= episodes.PLOT_BACKGROUNDS_MAX
-    ):
+    listed_characters, listed_backgrounds = found.get("characters"), found.get("backgrounds")
+    if not all(value is None or isinstance(value, list) for value in (listed_characters, listed_backgrounds)):
+        return None
+    characters = episodes.plot_items(cast, "characters", listed_characters or [], from_qwen=True)
+    backgrounds = episodes.plot_items(cast, "backgrounds", listed_backgrounds or [], from_qwen=True)
+    if len(characters) > episodes.PLOT_CHARACTERS_MAX or not 1 <= len(backgrounds) <= episodes.PLOT_BACKGROUNDS_MAX:
         return None
     return WrittenPlot(title=title, summaries=summaries, characters=characters, backgrounds=backgrounds)
 
@@ -163,27 +161,6 @@ def _card(value: object, character_ids: set[str], taken: set[str]) -> Card | Non
         flicker=value.get("flicker") is True,
         hold_s=0 if text else episodes.SILENT_HOLD,
     )
-
-
-def _plot_items(value: object, cast: Series, item_kind: ItemKind) -> list[PlotItem] | None:
-    ids = {item.id for item in getattr(cast, item_kind)}
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        return None
-    items: list[PlotItem] = []
-    for item in value:
-        if not isinstance(item, dict):
-            continue
-        if "id" in item:
-            if item["id"] in ids and all(found.id != item["id"] for found in items):
-                items.append(PlotItem(id=item["id"]))
-            continue
-        name = _cleaned(item.get("name"))[: series.ITEM_NAME_MAX]
-        if name:
-            tag = _cleaned(item.get("tag"))[: series.TAG_MAX] if KINDS[item_kind].tagged else ""
-            items.append(PlotItem(new=True, name=name, tag=tag, description=_cleaned(item.get("description"))[: series.DESCRIPTION_MAX]))
-    return items
 
 
 def _cleaned(value: object) -> str:

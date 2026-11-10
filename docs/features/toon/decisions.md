@@ -852,6 +852,26 @@
 
 **From:** build ticket 07 · **Status:** active
 
+## D62: เริ่มและหยุด child และ render ที่ซ้ำข้าม feature ticket 08: `start_child`, `ask`, `stop_child`, `free_gpu`, `renders.Render`, `episodes.plot_items`
+
+**Chosen:**
+- `ModelJobSlot` (`backend.jobs`) มีทางเดียวที่เริ่ม child: `start_child(worker, first, timeout)` (`track` ก่อน แล้วรอข้อความแรก `first`: `Ready` ของ Qwen และ OmniVoice, `Encoded` ของ klein ที่ได้ `Encode` แล้ว); `ask(worker, request, expected, timeout)` (ส่งแล้วรอคำตอบ); `stop_child()` (ลืม child ก่อนแล้วหยุด: ลองที่ช้าเกิน, ขั้นที่จบแล้ว, และ `_finish` ตอนงานจบ); `free_gpu()` (`stop_child` แล้วคืนช่อง GPU ของ `gpu_kind`) แทน `_free_gpu` สองตัวของ render; `Worker.end()` ขอให้ child ออกเอง (แทน `requests.put(None)`)
+- `stop_on_shutdown` ยังเรียก `stop_process` ตรง: มันอยู่ใน thread ของ lifespan ไม่ใช่ของงาน และไม่ลืม child ให้ `_finish` ของ thread งานทำเอง
+- สปอยเมกเกอร์ (Describe, Draft, Voice job) ใช้สาม method เดียวกัน; Transcribe job ของ spoil ไม่ใช้ (child ของ Whisper ไม่มี `Worker` และไม่มีคำขอ)
+- `steps.draw(run, worker, request, expected)` แทน `klein_reply`: ทั้ง `open_klein` และ `draw` แปลงเวลาเกินเป็น `model_failed` ผ่านตัวเดียว
+- `renders.PIECES_SHARE`, `pieces_percent`, `encode_progress(update, total_s)`: `percent` ของ render ทั้งสอง feature (0–50 ตัดชิ้น, 50–100 ต่อชิ้น)
+- `renders.Render(folder, name)` เป็นค่าเดียวของ render หนึ่งชิ้น: `renders.next_free(folder)` ให้ตัวนี้ (แทน `free_name`) และการจบ การตรวจ การลบเป็น method ของมัน (`file`, `finish`, `require`, `complete`, `delete`; เดิม `renders.finish(folder, name, …)` ของ D60)
+- `series.ref_revs(series)` สร้าง map `ref_rev` ที่เดียว (หน้า EP, Image job, Render job)
+- `episodes.plot_items(series, item_kind, value, from_qwen)` ตัวเดียว: จากผู้ใช้ ของที่ผิด → `invalid_request`; จาก Qwen ของที่ผิดถูกตัดทิ้ง ข้อความตัด CJK และตัดความยาว; จำนวนเป็นของผู้เรียกตรวจ. ของ Qwen ที่มี key `id` อ้างของใน Series เสมอ (`"id": null` ถูกตัดทิ้งแบบเดิม); ของผู้ใช้ `"id": null` คือของใหม่แบบเดิม. id ของ Qwen ที่ไม่ใช่ string ถูกตัดทิ้ง (เดิม `TypeError` ทำให้งานล้ม `internal`)
+
+**Why:** build ticket 08 (Blocked #20): ทางเลือกในโค้ดล้วน ผู้ใช้เห็นทุกอย่างเหมือนเดิม; route, body และรหัส error เดิม. `stop_child` หยุด child ที่ slot `track` ไว้ ไม่รับ process: ทุกที่ที่หยุดเป็น child ตัวที่ track อยู่แล้ว.
+
+**Rejected:**
+- `stop_child(worker)` — ส่ง child ซ้ำกับที่ slot จำไว้ และ `_finish` ไม่มี worker
+- `free_gpu` ใน `backend.renders` — การคืนช่อง GPU เป็นเรื่องของ job slot ไม่ใช่ folder ผล; `percent` ของ render อยู่ `renders` เพราะสอง render ไม่มีคลาสฐานร่วมนอก `ModelJobSlot`
+
+**From:** build ticket 08 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

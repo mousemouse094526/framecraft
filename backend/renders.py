@@ -19,16 +19,77 @@ log = logging.getLogger(__name__)
 NAME_FORMAT = "%Y%m%d-%H%M%S"
 RESULT_SUFFIXES = (".mp4", ".srt", ".json")
 
+PIECES_SHARE = 50  # a render job's `percent`: 0–50 while its pieces are cut, 50–100 for the final encode
+
 IN_USE = "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"
 NOT_FOUND = "ไม่พบผล render นี้"
 
 
-def free_name(folder: Path) -> str:
-    """`YYYYMMDD-HHMMSS` now, or the next free second (two renders in one second)."""
+class Render(NamedTuple):
+    """One render in a results folder, by name: its files are `{name}.mp4`, `.srt`, `.json`."""
+
+    folder: Path
+    name: str
+
+    def file(self, suffix: str) -> Path:
+        """The render's file with `suffix` (`.mp4`, `.mp4.partial`, …)."""
+        return self.folder / f"{self.name}{suffix}"
+
+    def finish(self, srt: str, info: dict) -> None:
+        """Writes the srt and the json beside the `.mp4.partial`, then drops the three
+        `.partial`s, the json last: a name is listed once all three are there."""
+        srt_partial = self.file(".srt.partial")
+        srt_partial.write_text(srt, encoding="utf-8")
+        json_partial = self.file(".json.partial")
+        json_partial.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+        for written in (srt_partial, self.file(".mp4.partial"), json_partial):
+            os.replace(written, written.with_suffix(""))
+
+    def require(self) -> None:
+        """Only a complete render's name gets near the disk. Raises `ApiError` 404 `not_found`."""
+        if not (_is_name(self.name) and self.complete()):
+            raise ApiError(404, "not_found", NOT_FOUND)
+
+    def complete(self) -> bool:
+        return all(self.file(suffix).is_file() for suffix in RESULT_SUFFIXES) and not any(
+            self.folder.glob(f"{self.name}.*.partial")
+        )
+
+    def delete(self) -> None:
+        """A complete render's files: the mp4 first (a player may hold it open: `409` `in_use`),
+        the json last. Raises `ApiError` 404 `not_found`, or 409 `in_use`."""
+        self.require()
+        try:
+            self.file(".mp4").unlink(missing_ok=True)
+        except PermissionError:
+            raise ApiError(409, "in_use", IN_USE) from None
+        self.file(".srt").unlink(missing_ok=True)
+        self.file(".json").unlink(missing_ok=True)
+        log.info("deleted render %s in %s", self.name, self.folder)
+
+
+def next_free(folder: Path) -> Render:
+    """A render named `YYYYMMDD-HHMMSS` now, or the next free second (two renders in one second)."""
     moment = datetime.now()
     while any(folder.glob(f"{moment.strftime(NAME_FORMAT)}.*")):
         moment += timedelta(seconds=1)
-    return moment.strftime(NAME_FORMAT)
+    return Render(folder, moment.strftime(NAME_FORMAT))
+
+
+def pieces_percent(done: int, count: int) -> int:
+    """A render job's `percent` once `done` of its `count` pieces are cut."""
+    return PIECES_SHARE * done // count
+
+
+def encode_progress(update: Callable[..., None], total_s: float) -> Callable[[float], None]:
+    """ffmpeg's `on_progress` for the final encode of a `total_s` clip: the seconds written
+    so far as the job's `percent` (`update`, the slot's), past the pieces' share."""
+    share = 100 - PIECES_SHARE
+
+    def on_progress(seconds: float) -> None:
+        update(percent=PIECES_SHARE + min(share, round(share * seconds / total_s)))
+
+    return on_progress
 
 
 def complete_names(folder: Path) -> list[str]:
@@ -36,7 +97,7 @@ def complete_names(folder: Path) -> list[str]:
     if not folder.is_dir():
         return []
     found = {path.name.split(".")[0] for path in folder.glob("*.json")}
-    return sorted((name for name in found if _is_name(name) and _complete(folder, name)), reverse=True)
+    return sorted((name for name in found if _is_name(name) and Render(folder, name).complete()), reverse=True)
 
 
 class Stored(NamedTuple):
@@ -50,9 +111,10 @@ class Stored(NamedTuple):
 def results(folder: Path) -> Iterator[Stored]:
     """Each complete render, newest first; an unreadable one is logged and skipped."""
     for name in complete_names(folder):
+        render = Render(folder, name)
         try:
-            info = json.loads((folder / f"{name}.json").read_text(encoding="utf-8"))
-            yield Stored(name, info, (folder / f"{name}.mp4").stat().st_size)
+            info = json.loads(render.file(".json").read_text(encoding="utf-8"))
+            yield Stored(name, info, render.file(".mp4").stat().st_size)
         except (OSError, ValueError):
             log.warning("skipping unreadable render %s", name)
 
@@ -77,47 +139,11 @@ def latest_at(folder: Path) -> str | None:
     )
 
 
-def finish(folder: Path, name: str, srt: str, info: dict) -> None:
-    """Writes the srt and the json beside `{name}.mp4.partial`, then drops the three
-    `.partial`s, the json last: a name is listed once all three are there."""
-    srt_partial = folder / f"{name}.srt.partial"
-    srt_partial.write_text(srt, encoding="utf-8")
-    json_partial = folder / f"{name}.json.partial"
-    json_partial.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
-    for written in (srt_partial, folder / f"{name}.mp4.partial", json_partial):
-        os.replace(written, written.with_suffix(""))
-
-
-def require(folder: Path, name: str) -> None:
-    """Only a complete render's name gets near the disk. Raises `ApiError` 404 `not_found`."""
-    if not (_is_name(name) and _complete(folder, name)):
-        raise ApiError(404, "not_found", NOT_FOUND)
-
-
-def delete(folder: Path, name: str) -> None:
-    """A complete render's files: the mp4 first (a player may hold it open: `409` `in_use`),
-    the json last. Raises `ApiError` 404 `not_found`, or 409 `in_use`."""
-    require(folder, name)
-    try:
-        (folder / f"{name}.mp4").unlink(missing_ok=True)
-    except PermissionError:
-        raise ApiError(409, "in_use", IN_USE) from None
-    (folder / f"{name}.srt").unlink(missing_ok=True)
-    (folder / f"{name}.json").unlink(missing_ok=True)
-    log.info("deleted render %s in %s", name, folder)
-
-
 def remove_partials(folder: Path) -> None:
     """What a render cut short left: jobs don't survive a restart."""
     if folder.is_dir():
         for leftover in folder.glob("*.partial"):
             leftover.unlink(missing_ok=True)
-
-
-def _complete(folder: Path, name: str) -> bool:
-    return all((folder / f"{name}{suffix}").is_file() for suffix in RESULT_SUFFIXES) and not any(
-        folder.glob(f"{name}.*.partial")
-    )
 
 
 def _is_name(name: str) -> bool:

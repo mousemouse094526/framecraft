@@ -13,9 +13,10 @@ from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.spoil_maker import thai
 from backend.toon import jobs, store
+from backend.toon.series import DESCRIPTION_MAX
 from backend.toon.store import Audio, CardImage
 
-from .fakes import FakeLlm, cuda_device, ok_ffmpeg, poll_until
+from .fakes import FakeLlm, cuda_device, ok_ffmpeg, os_timeouts, poll_until
 from .test_toon_series_api import VOICE, create, write_voice
 
 SERIES = "/api/toon/series"
@@ -205,6 +206,26 @@ def test_a_plot_job_writes_the_title_and_every_summary_and_keeps_new_items_in_th
     assert gpu_holder() is None
 
 
+def test_a_plot_answer_drops_a_non_object_a_null_or_repeated_id_and_a_nameless_item_and_cleans_a_new_name(client, llm):
+    series_id, character, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.respond.__self__.plot["characters"] = [
+        "พีค",
+        {"id": character},
+        {"id": character},
+        {"id": None, "name": "ลุงยามอีกคน"},
+        {"name": "ลุง中文ยาม", "description": "ชาย" + "แก่" * 300},
+        {"name": "中文"},
+    ]
+
+    assert run(client, "plot", ep_id)["state"] == "done"
+
+    characters = client.get(f"/api/toon/eps/{ep_id}").json()["plot"]["characters"]
+    # A Series' character is kept by id alone; only a new one carries its name.
+    assert [(c["id"], c["name"]) for c in characters] == [(character, ""), (None, "ลุงยาม")]
+    assert len(characters[1]["description"]) == DESCRIPTION_MAX
+
+
 def test_a_plot_job_whose_answer_is_broken_three_times_fails_write_failed(client, llm):
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
@@ -214,6 +235,38 @@ def test_a_plot_job_whose_answer_is_broken_three_times_fails_write_failed(client
 
     assert (job["state"], job["error"]["code"], len(llm.requests)) == ("failed", "write_failed", 3)
     assert client.get(f"/api/toon/eps/{ep_id}").json()["title"] == ""
+    assert gpu_holder() is None
+
+
+def test_a_plot_job_whose_qwen_dies_while_loading_fails_crashed_and_frees_the_gpu(client, llm):
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.crash_on_load = True
+
+    job = run(client, "plot", ep_id)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
+    assert gpu_holder() is None
+
+
+def test_a_plot_try_that_takes_too_long_stops_its_qwen_and_the_next_try_starts_another(client, llm, monkeypatch):
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    os_timeouts(monkeypatch, darwin=0.2, win32=0.2)
+    write, asked = llm.respond, []
+
+    def first_hangs(request):
+        asked.append(request)
+        return llm.HANG if len(asked) == 1 else write(request)
+
+    llm.respond = first_hangs
+
+    job = run(client, "plot", ep_id)
+
+    assert job["state"] == "done"
+    first, second = llm.processes
+    assert first.terminated  # stopped at the timeout
+    assert not second.is_alive()  # the job's end stopped the one that answered
     assert gpu_holder() is None
 
 

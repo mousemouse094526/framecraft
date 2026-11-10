@@ -36,13 +36,16 @@ backend/
 │                    `PYTHAINLP`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
-│                    shutdown, `track`, `reply`, `_run_job`, the one ending of
-│                    every job's thread that frees the GPU) and the child
-│                    process helpers every GPU job uses (ADR 0012); a slot's
-│                    steps and its `Speaker` call `update`, `track`, `reply`
+│                    shutdown, `_run_job`, the one ending of every job's thread
+│                    that frees the GPU) and the child process helpers every GPU
+│                    job uses (ADR 0012); a child starts only through
+│                    `start_child` (tracked, then its first message waited for)
+│                    and stops only through `stop_child` (`free_gpu` also frees
+│                    the GPU mid-job); a slot's steps and its `Speaker` call
+│                    `update`, `start_child`, `ask`, `stop_child`
 ├── workers.py    ← `Worker`, a model's child with its request and reply queues:
-│                    every `start_worker` returns one (standard library only,
-│                    as a child imports it)
+│                    every `start_worker` returns one, `end` asks it to exit
+│                    (standard library only, as a child imports it)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
@@ -97,9 +100,10 @@ backend/
 │                    one row each: code that handles both reads it, never
 │                    `kind == "characters"`), series (Series, characters,
 │                    backgrounds, reference pictures and their uploads,
-│                    `in_use`, `new_items` of a plot; `series_jobs`, each job
+│                    `in_use`, `new_items` of a plot, `ref_revs`; `series_jobs`, each job
 │                    slot, whose running job's Series can't go), episodes
-│                    (EPs, their plot, acts, segments and cards, each card's
+│                    (EPs, their plot (`plot_items`, the user's or Qwen's),
+│                    acts, segments and cards, each card's
 │                    state; `ep_jobs`, where each job slot says the EP it
 │                    works on as an `EpUse`: locks it, renders it), writer
 │                    (the Plot and Cards prompts and the reading of Qwen's
@@ -108,7 +112,7 @@ backend/
 │                    jobs (the Toon job slot: it starts and ends every kind
 │                    the same way from each kind's `WORK`, a `steps.Work`),
 │                    steps (what the kinds share: Qwen's and klein's children,
-│                    `open_klein` the one start of klein, `Run`, what a kind's
+│                    `open_klein` the one start of klein, `draw`, `Run`, what a kind's
 │                    steps call on the slot); a variable of `kinds.ItemKind`
 │                    (characters or backgrounds) is `item_kind`, as `kind`
 │                    names a job's (a response field keeps its name, as
@@ -132,8 +136,11 @@ backend/
 ├── subtitles.py  ← what every render's text shares: the ASS header, a Dialogue line,
 │                    Thai text cut into lines or short chunks and their times, the
 │                    `.srt`; spoil_maker's captions and toon's compose lay them out
-├── renders.py    ← what every render's results folder shares: a free name, the complete
-│                    renders (`results`, `listed`), `latest_at`, the finish (`finish`: json last), the
+├── renders.py    ← what every render's results folder shares: a `Render` (folder and
+│                    name as one value, `next_free` picks it; its `finish`,
+│                    `require`, `delete`), the complete
+│                    renders (`results`, `listed`), `latest_at`, the job's `percent`
+│                    (`pieces_percent`, `encode_progress`), the finish (`finish`: json last), the
 │                    delete (mp4 first, `409` `in_use`, json last), leftover `.partial`s;
 │                    spoil_maker's and toon's render keep their folders and call it, and gate
 │                    on `gate_rows.render`

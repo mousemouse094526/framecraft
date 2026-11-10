@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from backend import checks, ffmpeg, gate_rows, gpu, paths, renders, speaking, subtitles
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
-from backend.jobs import ModelJobSlot, short, stop_process
+from backend.jobs import ModelJobSlot, short
 from backend.paths import ProjectPaths
 from backend.spoil_maker import tts
 from backend.subtitles import Timed
@@ -37,7 +37,6 @@ State = Literal["voicing", "rendering", "done", "failed", "cancelled"]
 UNFINISHED: frozenset[State] = frozenset({"voicing", "rendering"})
 ErrorCode = Literal["crashed", "model_failed", "ffmpeg_failed", "internal"]
 
-PIECES_SHARE = 50  # `percent` 0–50 while the cards' pieces are made, 50–100 for the whole clip
 NOT_READY = ("no_image", "no_ref")  # a card that can't render (spec › Render job step 1)
 NEEDS_VOICE = ("no_audio", "stale_audio")
 CAPTIONS, NARRATION = "captions.ass", "narration.wav"
@@ -144,7 +143,7 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
                 if not voicing.put_audio(project, plan, spoken):
                     log.info("the narration of card %s is dropped: the card went", plan.card_id)
                 self.update(done=done)
-            self._free_gpu()
+            self.free_gpu()  # voicing is over: the GPU is free while ffmpeg runs
         self.update(state="rendering", percent=0, done=None, total=None)
         try:
             name = self._render(project, series_id, ep_id)
@@ -152,14 +151,6 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
             raise JobFailed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}") from None
         log.info("render of %s wrote %s", ep_id, name)
         return {"percent": 100, "name": name}
-
-    def _free_gpu(self) -> None:
-        """Voicing is over: the OmniVoice child goes and the GPU is free while ffmpeg runs."""
-        process = self._child()
-        if process is not None:
-            stop_process(process)
-            self.track(None)
-        gpu.slot.release("toon_render")
 
     def _render(self, project: ProjectPaths, series_id: str, ep_id: str) -> str:
         """Spec › Render job step 3: the EP read and copied once, each card's piece, then the whole clip."""
@@ -194,28 +185,23 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
             piece = f"{index}.mkv"
             self._run_ffmpeg(compose.piece_command(card, series_now.layout, frames, piece), work, self._cancel)
             pieces.append(piece)
-            self.update(percent=PIECES_SHARE * (index + 1) // len(placed))
+            self.update(percent=renders.pieces_percent(index + 1, len(placed)))
         folder = project.ep_renders_dir(series_id, ep_id)
         folder.mkdir(parents=True, exist_ok=True)
-        name = renders.free_name(folder)
-        mp4_partial = folder / f"{name}.mp4.partial"
+        render = renders.next_free(folder)
+        mp4_partial = render.file(".mp4.partial")
         command = compose.final_command(
             pieces, placed, NARRATION, runs, CAPTIONS, os.path.relpath(project.kanit_dir, work), total_frames, str(mp4_partial)
         )
-
-        def on_progress(seconds: float) -> None:
-            share = 100 - PIECES_SHARE
-            self.update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
-
-        self._run_ffmpeg(command, work, self._cancel, on_progress)
+        self._run_ffmpeg(command, work, self._cancel, renders.encode_progress(self.update, total))
         info = {
             "title": ep.title,
             "n": ep.n,
             "duration_s": round(probe(mp4_partial).duration_s, 2),
             "created_at": checks.now_iso(),
         }
-        renders.finish(folder, name, subtitles.srt_file([Timed(*n) for n in narrated]), info)
-        return name
+        render.finish(subtitles.srt_file([Timed(*n) for n in narrated]), info)
+        return render.name
 
 
 def _cards_to_voice(project: ProjectPaths, series_now: Series, ep: Ep) -> list[store.Card]:
@@ -224,7 +210,7 @@ def _cards_to_voice(project: ProjectPaths, series_now: Series, ep: Ep) -> list[s
     if ep.stage != "cards" or not any(True for _ in episodes.placed_cards(ep)):
         raise ApiError(400, "cards_not_ready", "EP นี้ยังไม่มีการ์ด", card_ids=[])
     episodes.editable(project, ep.id)  # `ep_locked`
-    refs = {item.id: item.ref_rev for item in [*series_now.characters, *series_now.backgrounds]}
+    refs = series.ref_revs(series_now)
     missing = [card.id for segment, card in episodes.placed_cards(ep) if episodes.image_status(card, segment, refs) in NOT_READY]
     if missing:
         raise ApiError(400, "cards_not_ready", "ทุกการ์ดต้องมีภาพก่อน render", card_ids=missing)
@@ -340,14 +326,14 @@ def list_results(project: ProjectPaths, ep_id: str) -> list[RenderResult]:
 
 def result_file(project: ProjectPaths, ep_id: str, name: str) -> Path:
     """The mp4 of a complete render of the EP. Raises `ApiError` 404 `not_found`."""
-    folder = _renders_dir(project, ep_id)
-    renders.require(folder, name)
-    return folder / f"{name}.mp4"
+    render = renders.Render(_renders_dir(project, ep_id), name)
+    render.require()
+    return render.file(".mp4")
 
 
 def delete_result(project: ProjectPaths, ep_id: str, name: str) -> None:
     """`404` `not_found`, or `409` `in_use` while a player holds the mp4 open."""
-    renders.delete(_renders_dir(project, ep_id), name)
+    renders.Render(_renders_dir(project, ep_id), name).delete()
 
 
 def clean_on_start(project: ProjectPaths) -> None:

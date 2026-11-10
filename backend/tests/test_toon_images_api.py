@@ -409,6 +409,17 @@ def test_a_voice_job_speaks_a_card_in_the_ep_s_voice_and_its_wav_is_served(clien
     assert (audio.status_code, audio.content[:4]) == (200, b"RIFF")
 
 
+def test_a_voice_job_whose_omnivoice_dies_while_loading_fails_crashed_and_frees_the_gpu(client, llm, tts):
+    _, _, _, ep = with_cards(client, llm)
+    tts.crash_on_load = True
+
+    job = voice(client, ep["id"], cards_of(ep)[0]["id"])
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
+    gpu.slot.take("describe")  # free: no `gpu_busy`
+    gpu.slot.release("describe")
+
+
 def test_deleting_a_series_during_its_voice_job_is_series_busy(client, llm, tts):
     series_id, _, _, ep = with_cards(client, llm)
     tts.pause_at(0)

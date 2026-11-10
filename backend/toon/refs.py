@@ -45,13 +45,13 @@ def run(job: steps.Run, project: ProjectPaths, plan: series.RefPlan) -> None:
     width, height = plan.size
     for n in range(1, series.PICTURES + 1):
         seed = random.randint(0, steps.SEED_MAX)
-        drawer.requests.put(Draw(index=0, ref_paths=[], width=width, height=height, seed=seed))
-        drawn = steps.klein_reply(job, drawer, Drawn)
+        request = Draw(index=0, ref_paths=[], width=width, height=height, seed=seed)
+        drawn = steps.draw(job, drawer, request, (Drawn,))
         picture = work / f"{n}.png"
         picture.write_bytes(drawn.png)
         pictures.append(picture)
         job.update(done=n)
-    drawer.requests.put(None)
+    drawer.end()
     if not series.put_pending(project, plan.series_id, plan.item_kind, plan.item_id, pictures):
         log.info("the reference pictures of %s are dropped: it was deleted", plan.item_id)
 

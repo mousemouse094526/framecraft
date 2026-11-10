@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from backend import checks, disk, ffmpeg, gate_rows, gpu, paths, renders
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
-from backend.jobs import short, stop_process
+from backend.jobs import short
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.spoil_maker import captions, compose, draft, draft_file, settings, shots, voices
@@ -36,7 +36,6 @@ UNFINISHED: frozenset[State] = frozenset({"voicing", "rendering"})
 ErrorCode = Literal["ffmpeg_failed", "crashed", "model_failed", "internal"]
 
 MIN_FREE_BYTES = 1024**3  # 1 GiB (spec › Render job step 1)
-PIECES_SHARE = 50  # `percent` 0–50 while the pieces are cut, 50–100 for the final encode
 
 # Files in the work folder (`.render/`), named bare for ffmpeg (compose).
 PIECES_LIST, NARRATION, CAPTIONS = "pieces.txt", "narration.wav", "captions.ass"
@@ -147,22 +146,13 @@ class RenderJobs(SentenceVoicer[RenderJob]):
                 timed, pieces = _timeline(project, drawn)
                 _start_work_folder(project)
                 _write_narration(project, drawn, project.render_work_dir / NARRATION)
-            self._free_gpu()
+            self.free_gpu()  # voicing is over: the GPU is free for the next job while ffmpeg runs (D51)
             self.update(state="rendering", percent=0, done=None, total=None)
             name = self._render(project, drawn, timed, pieces)
         except FfmpegFailed as error:
             raise JobFailed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}") from None
         log.info("render wrote %s", name)
         return {"percent": 100}
-
-    def _free_gpu(self) -> None:
-        """Voicing is over: the TTS child goes and the GPU is free for the next job while
-        ffmpeg runs (D51). A render that voiced nothing never took it: `release` then does nothing."""
-        process = self._child()
-        if process is not None:
-            stop_process(process)
-            self.track(None)
-        gpu.slot.release("render")
 
     def _render(self, project: ProjectPaths, drawn: Draft, timed: list[Timed], pieces: list[Piece]) -> str:
         """Step 3–4: cut the pieces, join them under the voice and the text, write the result."""
@@ -178,21 +168,16 @@ class RenderJobs(SentenceVoicer[RenderJob]):
                 piece, mp4, media[piece.clip_id], drawn.layout, drawn.original_volume, f"{index}.mkv"
             )
             self._run_ffmpeg(command, work, self._cancel)
-            self.update(percent=PIECES_SHARE * (index + 1) // len(pieces))
+            self.update(percent=renders.pieces_percent(index + 1, len(pieces)))
         (work / PIECES_LIST).write_text("".join(f"file '{i}.mkv'\n" for i in range(len(pieces))), encoding="utf-8")
         total = timed[-1].end
         project.renders_dir.mkdir(parents=True, exist_ok=True)
-        name = renders.free_name(project.renders_dir)
-        mp4_partial = project.renders_dir / f"{name}.mp4.partial"
+        render = renders.next_free(project.renders_dir)
+        mp4_partial = render.file(".mp4.partial")
         command = compose.final_command(
             PIECES_LIST, NARRATION, CAPTIONS, os.path.relpath(project.kanit_dir, work), total, str(mp4_partial)
         )
-
-        def on_progress(seconds: float) -> None:
-            share = 100 - PIECES_SHARE
-            self.update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
-
-        self._run_ffmpeg(command, work, self._cancel, on_progress)
+        self._run_ffmpeg(command, work, self._cancel, renders.encode_progress(self.update, total))
         info = {
             "created_at": checks.now_iso(),
             "duration_s": round(probe(mp4_partial).duration_s, 2),
@@ -202,8 +187,8 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             "start_s": drawn.ep.start_s,
             "end_s": drawn.ep.end_s,
         }
-        renders.finish(project.renders_dir, name, captions.srt_file(timed), info)  # spec › Render job
-        return name
+        render.finish(captions.srt_file(timed), info)  # spec › Render job
+        return render.name
 
 
 def _timeline(project: ProjectPaths, drawn: Draft) -> tuple[list[Timed], list[Piece]]:
@@ -263,13 +248,14 @@ def list_results(project: ProjectPaths) -> list[RenderResult]:
 
 def result_file(project: ProjectPaths, name: str, suffix: str) -> Path:
     """Only a well-formed, complete name gets near the disk. Raises `ApiError` 404 `not_found`."""
-    renders.require(project.renders_dir, name)
-    return project.renders_dir / f"{name}{suffix}"
+    render = renders.Render(project.renders_dir, name)
+    render.require()
+    return render.file(suffix)
 
 
 def delete_result(project: ProjectPaths, name: str) -> None:
     """`404` `not_found`, or `409` `in_use` while a player holds the mp4 open."""
-    renders.delete(project.renders_dir, name)
+    renders.Render(project.renders_dir, name).delete()
 
 
 def clean_on_start(project: ProjectPaths) -> None:
