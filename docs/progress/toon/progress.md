@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ทุก ticket done (08 ล่าสุด); ต่อ feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** feature review รอบสามจบ; smell ใหญ่สามข้อ (Blocked #22–24) รอตั๋วใหม่; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon --review-feature
+/warroom tickets toon
 ```
 
 ## Tickets
@@ -22,6 +22,24 @@
 | 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | done |
 
 ## Log
+
+### Feature review (รอบสาม) — done 2026-11-10
+
+**Built:**
+- Cards job อ่านคลังเสียงพื้นอีกครั้งตอนเขียนผล: เสียงที่ถูกลบระหว่างงานเป็น `sound: null` (spec › Cards job ขั้น 5); test ลบเสียงระหว่าง Qwen แตกองก์
+- `disk.require_free` / `disk.MIN_FREE_BYTES` ที่เดียว (Ref, Image, Render job, Sound import ของ toon และ Render job ของสปอยเมกเกอร์); `series.require_series` แทน `_series` สองตัว; `steps.Qwen.once` / `end` ที่ `answer` และ `scenes` ใช้ร่วม
+- `missing_refs[].item_kind` (เดิม `kind`); `ffmpeg_failed` ออกจาก `ErrorCode` ของ Toon job และ spec
+- หน้าเว็บ: `lib/kinds.ts` `ITEM_KINDS` (ชื่อ icon); `VOICES_HASH` ใน `lib/voices.ts`; `useEp` ใช้ `noticeOf`; test ข้อความ legal เขียนข้อความเต็ม
+- docstring ของ `test_toon_klein.py` และ `test_toon_modules.py` อธิบายในตัว; `clean_up(_state)`; spec, `fastapi-api` SKILL.md
+
+**Decided:**
+- D63 — `disk.require_free`, `series.require_series`, `Qwen.once`, เสียงที่ถูกลบระหว่าง Cards job, `missing_refs[].item_kind`, `ITEM_KINDS`, `VOICES_HASH`
+
+**For the next ticket:**
+- ไม่แก้ (ตั้งใจ): `OSError` ตอน copy ภาพอ้างอิงออกเป็น 500 ของ framework (ทั้งแอปไม่มี handler ของ error ที่ไม่คาด, D63); test นอก seam (`test_toon_modules.py` ของ D59, `parse_scene` และ `named_patterns` เป็นฟังก์ชันล้วน); `renders.latest_at` มีผู้ใช้ตัวเดียวแต่ SKILL.md เขียนไว้; `SoundsRender.test.tsx` ครอบสองหน้า; ขนาดช่องภาพและการถามก่อนเลือกไฟล์ของตัวละครยังแตกกิ่งตาม kind (พฤติกรรมต่างกัน ไม่ใช่แค่หน้าตา); `running()` อ่านไม่ล็อก (docstring บอกไว้); `plan` สองรอบ (คอมเมนต์บอกไว้)
+- smell ใหญ่ → Blocked #22–24
+
+**Checks:** `uv run pytest` 1048 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 401 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `912c7c4`: Standards ไม่มีข้อผิดกติกาหนัก + 9 (หนักสุด เช็คดิสก์ 1 GiB ซ้ำโดยไม่ย้ายไปที่ส่วนกลาง ผิด SKILL.md "Where shared code goes"), Spec 6 (หนักสุด Cards job เขียน `sound_id` ที่ถูกลบแล้ว), Newcomer 12 (หนักสุด `reply` คืน `worker_error` เมื่อขอไว้; `ffmpeg_failed` ที่ไม่มีใครใช้)
 
 ### 08: เริ่มและหยุด child และ render ที่ซ้ำข้าม feature — done 2026-11-10
 
@@ -316,3 +334,6 @@
 | 19 | review | smell ที่ค้างจาก 05: `cards.run` สร้างตัวละครและฉากหลังใหม่เอง (ควรอยู่ `series`); `plot.writable` อ่าน `render.render_jobs.ep_use()` ตรงแทน `episodes.ep_jobs`; `process, requests, replies` เดินด้วยกัน (Data Clump); `ToonJobs.update`/`track`/`reply` แค่ส่งต่อ (Middle Man); เปิด klein (`Encode` แล้ว `Draw`) ซ้ำใน `refs.run` กับ `images.run`; `_running`/`series_use` ซ้ำระหว่าง `ToonJobs` กับ `RenderJobs` | `/warroom tickets toon` | done (ticket 07) |
 | 20 | review | ซ้ำ: เริ่ม child (start, `track`, `Ready`) ใน `start_qwen`/`start_klein`/`Speaker.start` และหยุด (`track(None)`, `stop_process`) 3 ที่ใน `steps.py` + `_free_gpu`; `on_progress` และ `_free_gpu` ของสอง render; map `ref_rev` สร้าง 3 ที่ (`images._ref_revs`, `render._cards_to_voice`, `cards.run`); `_plot_items` สองตัวที่ทำต่างกัน (`writer` ตัดทิ้ง, `episodes` raise); `(folder, name)` ใน `backend.renders` | `/warroom tickets toon` | done (ticket 08) |
 | 21 | review | ชื่อ: `kinds.Kind` (characters/backgrounds) ชนกับ `JobKind` จน body ต้องใช้ `item_kind` และ `{kind}` ใน route เป็นชนิดของ item; ตัวพูดเป็น `speaker` ใน `ToonJobs` แต่ `_speaker` ใน `RenderJobs`/`SentenceVoicer`; คอมเมนต์ "Step 1", "Steps 2–3" ไม่บอกว่าขั้นของ spec ส่วนไหน; `toon/__init__.py` re-export ไว้ให้ test patch | `/warroom tickets toon` | done (ticket 07) |
+| 22 | review | หน้าเว็บ: `update = useCallback((change) => setState((s) => (s.kind === "ready" ? change(s) : s)))` ซ้ำ 5 hook (`useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp`); `useCast.sendItem` กับ `useEp.edit` รูปเดียวกัน (ส่ง, 200/201 แทนค่าและล้าง notice, ไม่งั้น `refused`) | `/warroom tickets toon` | open |
+| 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | open |
+| 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | open |
