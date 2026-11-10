@@ -416,7 +416,7 @@ klein worker (`toon.klein`): request `Encode(prompts)` → reply `Encoded(count)
   - ไฟล์: `POST /api/toon/sounds/imports?name=&size=` body ดิบ (ADR-0028) ไม่เกิน 200 MB; หน้าเว็บหายระหว่าง ffmpeg แปลง → ffmpeg หยุด ไม่มีเสียงใหม่ใน `sounds.json` และไม่มีไฟล์ค้างใน `.partial/` (D59)
   - ลิงก์: `POST /api/toon/sounds/downloads {"url": "..."}` ทำตามขั้นของ Download job ของ spoil (อ่าน info → เช็คความยาวจาก info ก่อนโหลด → โหลดพร้อม % → `stalled`) ใน `toon.sounds` ด้วย adapter options ของ Modules touched ลง `media/toon/.partial/`; ใช้ error code ของลิงก์เดิม (`invalid_url`, `login_required`, `download_error`, `disk_full`) กติกาลิงก์ของ spoil (ADR-0029)
   - ffmpeg แปลงเป็น m4a aac 192k 48 kHz stereo ไม่มีภาพ; ffmpeg อ่านเสียงไม่ได้ → `400` `unsupported_file`; ยาวเกิน 20 นาที → `400` `too_long`
-  - ชื่อตั้งต้น = ชื่อไฟล์ไม่มีนามสกุล หรือชื่อคลิปของลิงก์ ตัดเหลือ 60 ตัวอักษร; แก้ชื่อได้ 1–60; ชื่อซ้ำได้
+  - ชื่อตั้งต้น = ชื่อไฟล์ไม่มีนามสกุล หรือชื่อคลิปของลิงก์ ตัดเหลือ 60 ตัวอักษร (ชื่อคลิปว่าง → id ของเสียง, D69); แก้ชื่อได้ 1–60; ชื่อซ้ำได้
 - ลบเสียงที่ช่วงของ EP ใดใช้ → `409` `in_use` พร้อม `eps` (แนวเดียวกับ D25)
 - AI เลือกเสียงจากชื่อตอน Cards job (D5); ผู้ใช้เปลี่ยน ปิด (`sound: null`) หรือตั้ง `volume` 0–100 ต่อช่วง
 

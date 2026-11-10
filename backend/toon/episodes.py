@@ -52,7 +52,8 @@ class EpUse(NamedTuple):
 
 
 ep_jobs: list[Callable[[], EpUse | None]] = []
-"""What each job slot of the tab works on now, or None. Each reads its job without its slot's
+"""What each job slot of the tab works on now, or None; each slot's module adds its own as it
+loads (`toon.jobs`, `toon.render`). Each reads its job without its slot's
 lock (`JobSlot.running`): edits ask under `store.lock`, and a job that locks an EP is set under
 it too."""
 

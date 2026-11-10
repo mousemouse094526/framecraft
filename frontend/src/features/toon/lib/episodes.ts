@@ -1,6 +1,9 @@
 // An EP of the การ์ตูนเล่า tab as the API sends it: its plot, acts, segments and cards, with each
 // card's state and length (toon spec › ข้อมูล, › สถานะการ์ด, › API, D9, D13–D15, D21).
 
+import { getJson } from "../../../lib/api";
+import { seriesPath, type Series } from "./series";
+
 export const EPS_PATH = "/api/toon/eps";
 export const epPath = (epId: string) => `${EPS_PATH}/${epId}`;
 const cardPath = (epId: string, cardId: string) => `${epPath(epId)}/cards/${cardId}`;
@@ -99,6 +102,12 @@ export const TARGET_MAX_S = 120;
 
 /** `EP04`: how the design names an EP. */
 /** Every card of the EP in order. */
+/** An EP and then its Series, as the EP and render pages load them; throws as `getJson` does. */
+export async function readEpAndSeries(epId: string): Promise<{ ep: Ep; series: Series }> {
+  const ep = await getJson<Ep>(epPath(epId));
+  return { ep, series: await getJson<Series>(seriesPath(ep.series_id)) };
+}
+
 export const cardsOf = (ep: Ep) => ep.acts.flatMap((act) => act.segments.flatMap((segment) => segment.cards));
 
 /** A card that can't render: it has no picture, or a reference image is missing (spec › Render job). */

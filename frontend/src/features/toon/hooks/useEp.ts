@@ -1,9 +1,9 @@
 import { useCallback, useEffect } from "react";
-import { getJson, sendJson } from "../../../lib/api";
+import { getJson } from "../../../lib/api";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
-import { epPath, type Ep, type LostCards } from "../lib/episodes";
+import { epPath, readEpAndSeries, type Ep, type LostCards } from "../lib/episodes";
 import { SOUNDS_PATH, type Sound } from "../lib/sounds";
-import { epHash, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
+import { epHash, JOB_PATH, startToonJob, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
 import { sendEdit } from "../lib/edit";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
@@ -40,12 +40,11 @@ export function useEp(epId: string) {
 
   const load = useCallback(async () => {
     try {
-      const [ep, job, sounds] = await Promise.all([
-        getJson<Ep>(epPath(epId)),
+      const [{ ep, series }, job, sounds] = await Promise.all([
+        readEpAndSeries(epId),
         getJson<ToonJob | null>(JOB_PATH),
         getJson<Sound[]>(SOUNDS_PATH),
       ]);
-      const series = await getJson<Series>(seriesPath(ep.series_id));
       setState((s) => ({
         kind: "ready",
         ep,
@@ -97,7 +96,7 @@ export function useEp(epId: string) {
 
   const start = async (body: Record<string, unknown>, title: string) => {
     try {
-      const reply = await sendJson<ToonJob | Refusal>("POST", JOBS_PATH, { ep_id: epId, ...body });
+      const reply = await startToonJob({ ep_id: epId, ...body });
       if (reply.status === 202) {
         update((s) => ({ ...s, job: reply.body as ToonJob, notice: null, lost: null, missing: null }));
         void load(); // the EP reads as locked now

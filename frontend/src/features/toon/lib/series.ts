@@ -176,9 +176,14 @@ export const UNFINISHED_JOB = ["writing", "translating", "drawing", "voicing"] a
 
 export const isRunning = isUnfinishedIn<ToonJob["state"]>(UNFINISHED_JOB);
 
-/** `POST /jobs` for a Ref job of one item; both the lists and the pick page start one. */
+/** `POST /jobs`: starts a Toon job of any kind; `202` with the job, else a refusal. */
+export function startToonJob(body: Record<string, unknown>): Promise<JsonReply<ToonJob | Refusal>> {
+  return sendJson("POST", JOBS_PATH, body);
+}
+
+/** A Ref job of one item; both the lists and the pick page start one. */
 export function startRefJob({ seriesId, itemKind, itemId }: ItemRef): Promise<JsonReply<ToonJob | Refusal>> {
-  return sendJson("POST", JOBS_PATH, { kind: "ref", series_id: seriesId, item_kind: itemKind, item_id: itemId });
+  return startToonJob({ kind: "ref", series_id: seriesId, item_kind: itemKind, item_id: itemId });
 }
 
 /** A Ref job draws three pictures to pick from (D31). */

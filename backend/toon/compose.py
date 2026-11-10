@@ -23,7 +23,8 @@ from backend.toon.store import Layout, Motion
 
 FPS = 30
 WIDTH, HEIGHT = 1080, 1920
-AUDIO_RATE = 48_000
+AUDIO_RATE = 48_000  # the mix's, and the sound library's (`sounds`)
+AUDIO_BITRATE = "192k"
 FADE_S = 0.3  # between cards (D4)
 SOUND_FADE_S = 1.0  # between background sounds (D17)
 
@@ -148,7 +149,7 @@ def final_command(
         exe(), "-nostdin", "-hide_banner", "-y", "-progress", "pipe:1", "-nostats", *inputs,
         "-filter_complex", ";".join(graph), "-map", "[v]", "-map", "[a]", "-t", f"{seconds:.3f}",
         "-r", str(FPS), "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE),
+        "-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", str(AUDIO_RATE),
         "-movflags", "+faststart", "-f", "mp4", out,
     ]  # fmt: skip
 

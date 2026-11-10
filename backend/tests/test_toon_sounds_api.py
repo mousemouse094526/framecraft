@@ -170,6 +170,14 @@ def test_a_link_loads_its_best_audio_into_toon_partial_with_no_thumbnail_and_com
     assert not list(project.toon_partial_dir.iterdir())
 
 
+def test_a_link_whose_clip_title_is_only_spaces_comes_in_named_after_its_id(client, adapter):
+    adapter.info["title"] = "   "
+    job = download(client)
+    assert job["state"] == "done", job
+    [sound] = client.get(TOON_SOUNDS).json()
+    assert sound["name"] == job["sound_id"]
+
+
 def test_a_link_spoil_s_rules_refuse_is_invalid_url(client):
     for url in ("ftp://example.com/a.mp3", "http://127.0.0.1/a.mp3", "not a link"):
         response = client.post(f"{TOON_SOUNDS}/downloads", json={"url": url})

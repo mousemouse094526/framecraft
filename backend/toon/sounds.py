@@ -30,6 +30,7 @@ from backend.paths import ProjectPaths
 from backend.spoil import links
 from backend.spoil.adapter import DownloadCancelled, DownloadOptions, error_code
 from backend.toon import series, store
+from backend.toon.compose import AUDIO_BITRATE, AUDIO_RATE
 from backend.toon.store import StoredSound
 
 log = logging.getLogger(__name__)
@@ -42,8 +43,6 @@ Source = Literal["file", "link"]
 UPLOAD_MAX_BYTES = 200 * 1024**2  # spec › คลังเสียงพื้น
 MAX_SECONDS = 20 * 60
 NAME_MAX = 60
-AUDIO_RATE = 48_000
-BITRATE = "192k"
 GONE_POLL_SECONDS = 0.25  # how often a file's conversion asks whether the page is still there
 
 # Where a link's audio lands: `.partial/` of the tab, no thumbnail, no mp4 merge (spec › Modules touched).
@@ -227,14 +226,14 @@ class SoundImports(JobSlot[SoundImport]):
             disk.require_free(project.root, estimate)
         except ApiError as full:
             raise JobFailed("disk_full", full.message) from None
-        title = info.get("title") or sound_id
+        title = _first_name(info.get("title")) or sound_id
         self.update(state="downloading", title=title, percent=0)
         project.toon_partial_dir.mkdir(parents=True, exist_ok=True)
         loaded = spoil.adapter.download(
             info, project, sound_id, lambda event: self._on_progress(estimate, event), LINK_OPTIONS
         )
         self.update(state="converting", percent=None)
-        return self._take_in(project, sound_id, loaded, title.strip()[:NAME_MAX].strip(), "link", self._cancel)
+        return self._take_in(project, sound_id, loaded, title, "link", self._cancel)
 
     def _on_progress(self, estimate: int, event: dict) -> None:
         with self._lock:
@@ -321,7 +320,7 @@ def convert_command(source: Path, out: Path) -> list[str]:
     """The first audio stream as aac 192k 48 kHz stereo in m4a, no picture (D39)."""
     return [
         ffmpeg.exe(), "-nostdin", "-hide_banner", "-v", "error", "-y", "-i", str(source),
-        "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", BITRATE, "-ar", str(AUDIO_RATE), "-ac", "2",
+        "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", str(AUDIO_RATE), "-ac", "2",
         "-f", "mp4", str(out),
     ]  # fmt: skip
 
@@ -403,9 +402,14 @@ def _file_checks(project: ProjectPaths, name: object, size: object) -> int:
 
 
 def _file_title(name: str | None) -> str:
-    """A sound's first name: the file's without its extension, cut to 60 letters (a link's is its
-    clip's title, cut the same way)."""
-    return os.path.splitext((name or "").strip())[0].strip()[:NAME_MAX].strip()
+    """A file's sound's first name: the file's without its extension (`_first_name`)."""
+    return _first_name(os.path.splitext((name or "").strip())[0])
+
+
+def _first_name(text: object) -> str:
+    """A sound's first name cut to 60 letters: the file's name, or the link's clip title;
+    empty when there is none (a link's then falls back to the sound's id)."""
+    return text.strip()[:NAME_MAX].strip() if isinstance(text, str) else ""
 
 
 def _new_sound_id(project: ProjectPaths) -> str:

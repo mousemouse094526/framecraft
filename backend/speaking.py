@@ -49,7 +49,8 @@ class Speaker:
     def speak(self, project: ProjectPaths, texts: list[str], voice: Voice) -> Iterator[Spoken]:
         """Each text (numbers already words) spoken in one child in `voice`, in order, as
         soon as it is: the caller writes it before the next is asked for, so a cancel keeps
-        the finished ones. Ask once more after the last text and it ends its child."""
+        the finished ones. The child ends only when the caller asks for one more after the last
+        text (the loop runs out): a caller that stops early leaves it to the job's end."""
         worker = self.start(project)
         for text in texts:
             request = Speak(text=text, prompt=voice.prompt, speed=voice.speed, num_step=NUM_STEP)

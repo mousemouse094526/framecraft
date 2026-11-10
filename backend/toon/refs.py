@@ -46,6 +46,7 @@ def run(job: steps.Run, project: ProjectPaths, plan: series.RefPlan) -> None:
     width, height = plan.size
     for n in range(1, series.PICTURES + 1):
         seed = random.randint(0, steps.SEED_MAX)
+        # `index` 0: the one prompt `open_klein` encoded; a reference image has no references.
         request = Draw(index=0, ref_paths=[], width=width, height=height, seed=seed)
         drawn = steps.draw(job, drawer, request, (Drawn,))
         picture = folder / f"{n}.png"

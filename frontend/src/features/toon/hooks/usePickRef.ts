@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { getJson, OFFLINE_TEXT, sendJson, type JsonReply } from "../../../lib/api";
+import { getJson, getReply, OFFLINE_TEXT, sendJson, type JsonReply } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type ItemRef, type Series, type ToonJob } from "../lib/series";
 import { refusalTextOf } from "../lib/notice";
@@ -30,7 +30,7 @@ export function usePickRef(itemRef: ItemRef) {
     try {
       const [series, job] = await Promise.all([
         // A reply, not getJson: a Series deleted meanwhile is `missing`, not offline.
-        sendJson<Series>("GET", seriesPath(seriesId)),
+        getReply<Series>(seriesPath(seriesId)),
         getJson<ToonJob | null>(JOB_PATH),
       ]);
       const item = series.status === 200 ? series.body?.[itemKind].find((i) => i.id === itemId) : undefined;

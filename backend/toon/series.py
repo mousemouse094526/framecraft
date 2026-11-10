@@ -2,7 +2,8 @@
 (toon spec › Series ตัวละคร ฉากหลัง, › Ref job, D7, D10, D11, D13, D25, D26, D28, D31, D32, D41).
 
 A reference image is `refs/{id}-{rev}.png`, `rev` the item's `ref_rev`; a Ref job's three
-pictures wait in `refs/.pending/{id}-{1..3}.png` until one is picked.
+pictures wait in `refs/.pending/{id}-{1..3}.png` until one is picked (the job draws them into
+`refs/.pending/.new-{id}/` and moves all three in at once, `put_pending`).
 """
 
 import io
@@ -33,7 +34,7 @@ ACTS_MAX, ACT_NAME_MAX = 8, 20
 ITEM_NAME_MAX, TAG_MAX, DESCRIPTION_MAX = 30, 20, 300
 STYLE_MAX, TONE_MAX = 500, 300  # D48
 PICTURES = 3  # a Ref job draws three to pick from (D31)
-UPLOAD_MAX_BYTES = 20 * 2**20
+UPLOAD_MAX_BYTES = 20 * 1024**2
 
 # What a new Series starts with, by genre (D10, D11, D28, D41).
 DEFAULTS: dict[str, dict] = {
@@ -63,7 +64,7 @@ class ItemRef(NamedTuple):
 
 
 series_jobs: list[Callable[[], JobSlot]] = []
-"""Each job slot of the tab, looked up as it is asked: the Series of its running job
+"""Each job slot of the tab, added by its module as it loads (`toon.jobs`, `toon.render`), looked up as it is asked: the Series of its running job
 (`JobSlot.running`, a `series_id`) can't be deleted. Read under `store.lock`, as `episodes.ep_jobs`."""
 
 

@@ -2,7 +2,7 @@
 the slot starts and runs one kind; `Run`, what a kind's steps ask of the slot; and the steps
 that talk to a child: Qwen writing (`Qwen`) or translating (`scenes`), klein drawing (`open_klein`, `draw`).
 
-A job holds the GPU slot as its kind's `gpu_kind`, set as it starts: `toon_write` for Qwen's
+A job holds the GPU slot as its kind's `gpu_kind` from start to end: `toon_write` for Qwen's
 writing, `toon_image` for a job that runs Qwen then klein, `toon_voice` for OmniVoice. Its
 `Child` follows the step it is in (`Run.use_child`), so a failure names the child that ran.
 """
@@ -51,7 +51,7 @@ class Run(Protocol):
 
     def update(self, **fields) -> None: ...
 
-    def use_child(self, gpu_kind: gpu.Kind, child: Child) -> None: ...
+    def use_child(self, child: Child) -> None: ...
 
     def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker: ...
 
@@ -131,8 +131,8 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
     None for an ask that is None (nothing to translate), an answer that isn't one, or one
     that takes too long, after which the next ask starts a new child. `counted`: the job's
     `done` counts the asks answered (an Image job's `translating`; a Ref job has one ask)."""
-    run.use_child("toon_image", TRANSLATOR)
-    # A scene is one short answer: it may take as long as a sentence's Shots take to pick.
+    run.use_child(TRANSLATOR)
+    # A scene is one short answer, so it gets the timeout of spoil-maker's short `pick` answer.
     timeout, found = llm.timeouts().pick, []
     qwen = Qwen(run, project)
     try:
@@ -149,7 +149,7 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
                 run.update(done=done)
     finally:
         # klein's names again, however Qwen's step ended: a failure names the child that ran.
-        run.use_child("toon_image", DRAWER)
+        run.use_child(DRAWER)
     qwen.end()
     return found
 

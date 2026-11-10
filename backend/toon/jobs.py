@@ -91,7 +91,8 @@ class ToonJobs(ModelJobSlot[ToonJob]):
             with work.locks(), store.lock:
                 plan_now = work.plan(project, body)
                 gpu.slot.take(work.gpu_kind)
-                self.use_child(work.gpu_kind, work.child)
+                self.gpu_kind = work.gpu_kind
+                self.use_child(work.child)
                 if work.ready is not None:
                     try:
                         work.ready(project, plan_now)
@@ -117,10 +118,9 @@ class ToonJobs(ModelJobSlot[ToonJob]):
         job = self.running()
         return episodes.EpUse(job.ep_id, "locks" if job.kind in LOCKS_EP else "works") if job is not None and job.ep_id is not None else None
 
-    def use_child(self, gpu_kind: gpu.Kind, child: Child) -> None:
-        """The GPU slot's kind this job holds, and which child `reply` reads from now (and
-        names in a failure): an Image job moves from Qwen to klein (`steps.Run`)."""
-        self.gpu_kind = gpu_kind
+    def use_child(self, child: Child) -> None:
+        """Which child `reply` reads from now (and names in a failure): an Image job moves from
+        Qwen to klein (`steps.Run`). The GPU slot's kind stays the one the job took."""
         self.worker_error, self.child_name, self.failure = child
 
 

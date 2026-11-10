@@ -3,7 +3,7 @@ import { getJson, sendJson } from "../../../lib/api";
 import type { Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, seriesEpsPath, type Ep, type ListedEp } from "../lib/episodes";
-import { epHash, JOBS_PATH, seriesPath, type Series, type ToonJob } from "../lib/series";
+import { epHash, seriesPath, startToonJob, type Series } from "../lib/series";
 import { noticeOf, type Notice } from "../lib/notice";
 
 export type EpListState =
@@ -45,7 +45,7 @@ export function useEpList(seriesId: string) {
         return false;
       }
       const ep = created.body as Ep;
-      const started = await sendJson<ToonJob | Refusal>("POST", JOBS_PATH, { kind: "plot", ep_id: ep.id });
+      const started = await startToonJob({ kind: "plot", ep_id: ep.id });
       if (started.status === 202) {
         window.location.hash = epHash(ep.id);
         return true;

@@ -982,6 +982,25 @@
 
 **From:** build ticket 12 · **Status:** active
 
+## D69: feature review รอบห้าของ toon
+
+**Chosen:**
+- คำตอบการ์ดของ Qwen: ค่าที่ไม่ใช่ข้อความ (list, object) ใน `background`, `sound`, `characters`, `motion` ทิ้งแบบค่าที่ไม่รู้จัก (spec › Cards job ขั้น 5) ด้วย `writer._one_of`; เดิม `TypeError` ทำให้งาน `failed` `internal`
+- ชื่อตั้งต้นของเสียงตัดที่เดียว `sounds._first_name` (ไฟล์และลิงก์); ชื่อคลิปของลิงก์ที่ว่างหรือมีแต่ช่องว่าง → id ของเสียง (เดิมได้ชื่อ `""` ที่ผิด 1–60)
+- `compose.AUDIO_RATE`, `compose.AUDIO_BITRATE` ที่เดียว (`sounds` ใช้ร่วม); `series.UPLOAD_MAX_BYTES` เขียน `1024**2` แบบ `sounds`
+- `Run.use_child(child)` เปลี่ยนแค่ child: `gpu_kind` ของงานตั้งครั้งเดียวตอน start (Ref และ Image job เป็น `toon_image` ตลอด)
+- หน้าเว็บ: `lib/series.startToonJob(body)` ที่ `startRefJob`, `useEp.start`, `useEpList` ใช้; `lib/episodes.readEpAndSeries` ของ `useEp` และ `useRender`; `usePickRef` ใช้ `getReply`
+- docstring และคอมเมนต์: `.new-{id}/` ของ Ref job, ลำดับการเพิ่มใน `ep_jobs`/`series_jobs`, การจบ child ของ `Speaker.speak`, `Draw(index=0)`, timeout ของ scene, `QWEN_MAC` ใน `test_toon_klein.py`
+
+**Why:** review รอบห้า: Spec (c) `TypeError` ของ Cards job, ชื่อ `""`; (e) การตัดชื่อสองที่, ค่าคงที่สองที่; Standards: Shotgun Surgery ของ body ของ job, โหลด EP กับ Series ซ้ำ, `sendJson("GET")`; Newcomer เดาจุดเหล่านี้.
+
+**Rejected:**
+- เปลี่ยนชื่อ `gpu.slot.draft_lock` — ของ spoil-maker ที่ toon ใช้ร่วมเพื่อเขียน `voice_id` (D25, `store` บอกลำดับล็อก); นอก feature
+- `done` ของ Toon job สองความหมาย, `scope: missing` คู่กับ `no_image`, `pending: int`, `how="works"` — spec และ D55 ตั้งไว้ มี docstring แล้ว
+- `reply` ที่คืน `worker_error` เมื่อขอไว้ — docstring บอกแล้ว (รอบสาม)
+
+**From:** feature review รอบห้า · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

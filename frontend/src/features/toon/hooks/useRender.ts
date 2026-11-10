@@ -3,7 +3,7 @@ import { getJson, sendJson } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
-import { epPath, type Ep } from "../lib/episodes";
+import { readEpAndSeries, type Ep } from "../lib/episodes";
 import {
   isRendering,
   renderFilePath,
@@ -13,7 +13,7 @@ import {
   type RenderJob,
   type RenderResult,
 } from "../lib/render";
-import { seriesPath, type Series } from "../lib/series";
+import type { Series } from "../lib/series";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 import { useReadyState } from "./useReadyState";
 
@@ -38,12 +38,11 @@ export function useRender(epId: string) {
 
   const load = useCallback(async () => {
     try {
-      const [ep, job, renders] = await Promise.all([
-        getJson<Ep>(epPath(epId)),
+      const [{ ep, series }, job, renders] = await Promise.all([
+        readEpAndSeries(epId),
         getJson<RenderJob | null>(RENDER_JOB_PATH),
         getJson<RenderResult[]>(rendersPath(epId)),
       ]);
-      const series = await getJson<Series>(seriesPath(ep.series_id));
       setState((s) => ({
         kind: "ready",
         ep,

@@ -5,6 +5,8 @@ A reply is read the way the spoil-maker Draft job reads one: the JSON object in 
 cleaned (`llm_reply.clean`). A reply that can't be used is None, and the job asks again.
 """
 
+from collections.abc import Collection
+
 from pydantic import BaseModel
 
 from backend import llm_reply
@@ -129,8 +131,8 @@ def parse_cards(
         sound = item.get("sound")
         segment = Segment(
             id=_new_id("g", taken),
-            background_id=background if background in background_ids else background_ids[0],
-            sound=store.Sound(sound_id=sound) if sound in sound_ids else None,
+            background_id=background if _one_of(background, background_ids) else background_ids[0],
+            sound=store.Sound(sound_id=sound) if _one_of(sound, sound_ids) else None,
             cards=cards,
         )
         segments.append(segment)
@@ -150,14 +152,15 @@ def _card(value: object, character_ids: set[str], taken: set[str]) -> Card | Non
     if not isinstance(value, dict):
         return None
     text = _cleaned(value.get("text"))[: episodes.TEXT_MAX]
-    characters = [c for c in dict.fromkeys(_list(value.get("characters"))) if c in character_ids][: episodes.CARD_CHARACTERS_MAX]
+    named = [c for c in _list(value.get("characters")) if _one_of(c, character_ids)]
+    characters = list(dict.fromkeys(named))[: episodes.CARD_CHARACTERS_MAX]
     motion = value.get("motion")
     return Card(
         id=_new_id("k", taken),
         text=text,
         character_ids=characters,
         description=_cleaned(value.get("description"))[: episodes.CARD_DESCRIPTION_MAX],
-        motion=motion if motion in episodes.MOTIONS else "still",
+        motion=motion if _one_of(motion, episodes.MOTIONS) else "still",
         flicker=value.get("flicker") is True,
         hold_s=0 if text else episodes.SILENT_HOLD,
     )
@@ -165,6 +168,11 @@ def _card(value: object, character_ids: set[str], taken: set[str]) -> Card | Non
 
 def _cleaned(value: object) -> str:
     return llm_reply.clean(value) if isinstance(value, str) else ""
+
+
+def _one_of(value: object, ids: Collection[str]) -> bool:
+    """Whether Qwen's value is one of these; a list or an object where a name belongs is not."""
+    return isinstance(value, str) and value in ids
 
 
 def _list(value: object) -> list:

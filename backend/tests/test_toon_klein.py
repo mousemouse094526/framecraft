@@ -46,4 +46,5 @@ def test_status_check_compares_the_named_files_and_folders_of_a_model_and_skips_
         "transformer/config.json",
     ]
     assert named_patterns(KLEIN_GGUF) == ["flux-2-klein-4b-Q4_K_M.gguf"]
-    assert named_patterns(QWEN_MAC) == []  # the Qwen an Image job translates with: the same rule
+    # The Qwen an Image job translates with lists only kinds of file (`*.json`, …): no file to look for.
+    assert named_patterns(QWEN_MAC) == []

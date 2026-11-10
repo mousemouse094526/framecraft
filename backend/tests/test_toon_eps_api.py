@@ -312,6 +312,26 @@ def test_a_card_answer_is_kept_to_two_characters_a_known_motion_and_a_sound_in_t
     assert len(series["characters"]) == 3
 
 
+def test_a_card_answer_with_a_list_for_a_sound_or_an_object_for_a_character_drops_them(client, llm):
+    series_id, character, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    run(client, "plot", ep_id)
+    llm.respond.__self__.cards = lambda act: {
+        "segments": [
+            {
+                "background": ["b_x"],
+                "sound": ["m_00000001"],
+                "cards": [{"text": "สองคน", "characters": [{"id": character}, character], "motion": ["still"]}],
+            }
+        ]
+    }
+
+    assert run(client, "cards", ep_id)["state"] == "done"
+
+    segment = client.get(f"/api/toon/eps/{ep_id}").json()["acts"][0]["segments"][0]
+    assert (segment["sound"], segment["cards"][0]["character_ids"]) == (None, [character])
+
+
 def test_a_sound_deleted_from_the_library_while_qwen_splits_the_act_is_not_kept(client, llm, project):
     series_id, _, _ = with_series(client, llm)
     project.toon_sounds_file.parent.mkdir(parents=True)
