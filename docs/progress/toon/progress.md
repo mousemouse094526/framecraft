@@ -1,6 +1,6 @@
 # Progress: toon
 
-**Now:** ticket 14 done (`sendEdit` ทางเดียว, D72): ทุก ticket done; ถัดไป feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** feature review รอบหก done (D73), CI เขียว ที่ `1dbf609`; ยังไม่พร้อม merge: Blocked #11, #12 (เช็คมือบน Mac ของ 03, 04 รอ owner) และ #31 (test ของ `EpPage` ที่ล้มบางครั้ง รอข้อความ error ของรอบที่ล้ม) ยัง open; เมื่อปิดแล้ว feature review อีกรอบเพื่อตั้ง ✅
 
 **Next:**
 
@@ -28,6 +28,24 @@
 | 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | done |
 
 ## Log
+
+### Feature review (รอบหก) — done 2026-11-10
+
+**Built:**
+- ปุ่มหยุดของทุกงานผ่าน `lib/edit.stopJob` (`sendEdit` `ok` 202, `404` เป็น `ended`): หน้า EP, ตัวละครและฉากหลัง, render, โหลดเสียงจากลิงก์ แสดง notice "หยุดงานไม่ได้" เมื่อหยุดไม่ได้ (เดิมเงียบ); หน้าเลือกภาพแสดงข้อความของ backend; `cancelToonJob(onCancelling, onRefused)`
+- `startRefJob(itemRef)` ถือ `NOT_NOW` เอง; `sendChecked` คืน `ok` แทน `sent`
+- `hooks/useToonJobPoll.test.ts`; test หยุดที่ถูกปฏิเสธ (EP) และไม่มี backend (render)
+- `SKILL.md` folder map (`testing/statusBox.ts`); `rules/testing.md` (timeout ค่าเดียวที่ swap ที่ module)
+- id ขององก์ใน EP ใหม่ไม่ซ้ำกันเอง; ชื่อ/คอมเมนต์: `chars_per_act`, `setIfMounted`, `_in_scope`, `ref_paths`, `UNKNOWN_CHARS_PER_S`, prefix ของ id, `names_own`; spec › Modules touched
+- bug record [2026-11-10-ep-card-text-test-flaky](bugs/2026-11-10-ep-card-text-test-flaky.md): ทำให้ล้มซ้ำไม่ได้ 42 รอบ → Blocked #31
+
+**Decided:**
+- D73 — ข้างบนทั้งหมด และที่ไม่แก้ (`sendItem`/`edit`/`download` ต่างที่ field, accessor ต่อ kind ของ `Plot`, `OSError` เป็น 500, test นอก seam ของ D59, test status check ใน `test_toon_klein.py`, ของที่มีคอมเมนต์อยู่แล้ว); auto mode เลือกตัวเลือกที่แนะนำ
+
+**For the next ticket:**
+- ภาระเครื่องหนัก (vitest ทั้งชุด 4 process พร้อมกัน) ทำให้ test ของ spoil-maker ล้ม: `DraftProgress` "the failure's Alert stays until a new Draft job starts" ทุกรอบ, "แทรกใต้", "เลือก Shot ใหม่", `gpu_busy` (นอก feature; ทีละรอบผ่าน 10/10)
+
+**Checks:** `uv run pytest` 1094 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 442 passed (+6; ล้มหนึ่งรอบที่ test ของ `EpPage` ตัวเดิม → Blocked #31); `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `912c7c4`: Standards 3 ข้อผิดกติกา + smell 3 (หนักสุด `useToonJobPoll` ไม่มี test), Spec 4 (หนักสุด ปุ่มหยุดสามในสี่ที่เงียบเมื่อหยุดไม่ได้), Newcomer สรุปตรง spec › Solution + เดา 16 จุด (ใหม่ราว 10)
 
 ### 14: ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon — done 2026-11-10
 
@@ -497,3 +515,4 @@
 | 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | done (ticket 12) |
 | 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | done (ticket 14) |
 | 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | done (ticket 13) |
+| 31 | review | test `EpPage.test.tsx` › "a changed text is sent when the field is left; the answer shows the card as แก้เอง" ล้มบางครั้งในทั้งชุด (ticket 10, 11, feature review รอบหก); ทำให้ล้มซ้ำไม่ได้ใน 42 รอบ ([record](bugs/2026-11-10-ep-card-text-test-flaky.md)) | รอบหน้าที่ล้ม เก็บข้อความ error ทั้งก้อน (`npm --prefix frontend test 2>&1 \| tee …`) แล้ว `/kiki-debug EpPage card text edit test flaky` | open |
