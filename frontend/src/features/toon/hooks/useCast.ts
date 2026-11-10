@@ -10,7 +10,7 @@ import {
   seriesPath,
   startRefJob,
   type Item,
-  type Kind,
+  type ItemKind,
   type Series,
   type ToonJob,
 } from "../lib/series";
@@ -95,13 +95,13 @@ export function useCast(sid: string) {
     return false;
   };
 
-  const add = (kind: Kind, fields: ItemFields) =>
+  const add = (kind: ItemKind, fields: ItemFields) =>
     sendItem("POST", `${seriesPath(sid)}/${kind}`, fields, `เพิ่ม ${fields.name} ไม่ได้`);
 
-  const remove = (kind: Kind, item: Item) =>
+  const remove = (kind: ItemKind, item: Item) =>
     void sendItem("DELETE", itemPath(sid, kind, item.id), undefined, `ลบ ${item.name} ไม่ได้`);
 
-  const startRef = async (kind: Kind, item: Item) => {
+  const startRef = async (kind: ItemKind, item: Item) => {
     const title = "ยังสร้างภาพอ้างอิงไม่ได้";
     try {
       const reply = await startRefJob(sid, kind, item.id);
@@ -118,7 +118,7 @@ export function useCast(sid: string) {
   const cancelJob = () => cancelToonJob((job) => update((s) => ({ ...s, job })));
 
   /** `/ref/upload/check` first, then the file as the raw body (ADR 0028); the answer is the Series. */
-  const upload = async (kind: Kind, item: Item, file: File) => {
+  const upload = async (kind: ItemKind, item: Item, file: File) => {
     const title = `เอาไฟล์ ${file.name} เข้าไม่ได้`;
     const path = `${itemPath(sid, kind, item.id)}/ref/upload`;
     try {

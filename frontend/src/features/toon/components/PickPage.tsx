@@ -11,12 +11,12 @@ import loader24Icon from "../assets/loader-24.svg";
 import radio18Icon from "../assets/radio-18.svg";
 import radioSelected18Icon from "../assets/radio-selected-18.svg";
 import { usePickRef } from "../hooks/usePickRef";
-import { castHash, isRunning, pendingUrl, REF_PICTURES, type Item, type Kind, type ToonJob } from "../lib/series";
+import { castHash, isRunning, pendingUrl, REF_PICTURES, type Item, type ItemKind, type ToonJob } from "../lib/series";
 import { JobBanner } from "./JobBanner";
 
 const PICTURES = Array.from({ length: REF_PICTURES }, (_, i) => i + 1);
 
-type Props = { sid: string; kind: Kind; id: string };
+type Props = { sid: string; kind: ItemKind; id: string };
 
 /** `#/toon/series/{sid}/{kind}/{id}/pick`: เลือกภาพอ้างอิง (Figma toon / 4). */
 export function PickPage({ sid, kind, id }: Props) {
@@ -145,7 +145,7 @@ function Subject({ item }: { item: Item }) {
   );
 }
 
-type OptionProps = { n: number; kind: Kind; selected: boolean; onChoose?: () => void; children: ReactNode };
+type OptionProps = { n: number; kind: ItemKind; selected: boolean; onChoose?: () => void; children: ReactNode };
 
 /** Figma `Toon/PickOption`: one of the three pictures as a radio; chosen, a 3px ring and "เลือกแล้ว". */
 function Option({ n, kind, selected, onChoose, children }: OptionProps) {

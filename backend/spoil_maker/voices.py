@@ -127,17 +127,17 @@ class SentenceVoicer(ModelJobSlot[Job]):
 
     def __init__(self):
         super().__init__()
-        self._speaker = Speaker(self._track, self._reply)
+        self.speaker = Speaker(self)
 
     def _voice_sentences(self, project: ProjectPaths, plan: SentencesPlan) -> None:
         """One sentence at a time, each written as soon as it is spoken (spec › Voice job);
         `done` counts them. The draft is locked meanwhile, so every sentence is still there."""
         tts_texts = [thai.spoken(text) for _, text in plan.sentences]
-        spoken_each = self._speaker.speak(project, tts_texts, plan.voice)
+        spoken_each = self.speaker.speak(project, tts_texts, plan.voice)
         # The speaker first: `zip` asks it once more after the last text, so it ends its child.
         for done, (spoken, (sentence_id, _), tts_text) in enumerate(zip(spoken_each, plan.sentences, tts_texts), start=1):
             _write_sentence_audio(project, plan.voice_id, sentence_id, tts_text, spoken)
-            self._update(done=done)
+            self.update(done=done)
 
 
 class VoiceJobs(SentenceVoicer[VoiceJob]):
@@ -203,10 +203,10 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
         return job
 
     def _design(self, project: ProjectPaths, request: Design) -> None:
-        process, requests, replies = self._speaker.start(project)
-        requests.put(request)
-        designed = self._reply(process, replies, (Designed,))
-        requests.put(None)
+        worker = self.speaker.start(project)
+        worker.requests.put(request)
+        designed = self.reply(worker, (Designed,))
+        worker.requests.put(None)
         _write_preview(project, request, designed)
 
     def _run(self, steps) -> None:

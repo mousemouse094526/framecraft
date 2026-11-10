@@ -159,7 +159,7 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
         def steps() -> None:
             snapshot = project.snapshot_dir(WHISPER, WHISPER.revision)
             process, queue = spoil.start_worker(mp4, clip.duration_s, snapshot, device)
-            self._track(process)
+            self.track(process)
             segments = self._read_segments(process, queue)
             write_transcript(project, _build_transcript(clip, segments))
             draft_file.drop_if_uses(project, clip.id)  # the user confirmed (spoil-maker D49)
@@ -181,7 +181,7 @@ class Transcriptions(ModelJobSlot[TranscribeJob]):
             if not isinstance(message, Segment):
                 raise RuntimeError(f"unknown message from the Whisper process: {message!r}")
             segments.append(message)
-            self._update(state="transcribing", percent=(message.index + 1) * 100 // message.total)
+            self.update(state="transcribing", percent=(message.index + 1) * 100 // message.total)
 
 
 def _worker_error(error: WorkerError) -> JobFailed:

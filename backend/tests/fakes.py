@@ -14,6 +14,7 @@ import httpx
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
+from backend.workers import Worker
 from backend.spoil import clips
 from backend.spoil.mp4check import Mp4Info, NotPlayable
 from backend.spoil.whisper import Done, Segment
@@ -532,7 +533,7 @@ class FakeModel:
         process = FakeModelProcess(self, snapshot_dir, args, requests, replies)
         self.processes.append(process)
         process.start()
-        return process, requests, replies
+        return Worker(process, requests, replies)
 
 
 class _EndNoted(queue.Queue):
@@ -597,7 +598,7 @@ class FakeTts(FakeModel):
 
 
 class FakeKlein(FakeModel):
-    """The klein child (`toon.start_klein_worker`): no word until `Encode`, then `Encoded`,
+    """The klein child (`toon.klein.start_worker`): no word until `Encode`, then `Encoded`,
     and one `Drawn` per `Draw` with the bytes `b"png {seed}"`. `fail_at` answers that request
     with a `WorkerError` instead."""
 

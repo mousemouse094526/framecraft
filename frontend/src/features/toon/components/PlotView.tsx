@@ -5,7 +5,7 @@ import mountainIcon from "../assets/mountain.svg";
 import usersIcon from "../assets/users.svg";
 import wandWhiteIcon from "../assets/wand-white.svg";
 import { actsToSplit, SUMMARY_MAX, TITLE_MAX, type Ep, type LostCards, type PlotItem } from "../lib/episodes";
-import type { Kind, Series } from "../lib/series";
+import type { ItemKind, Series } from "../lib/series";
 import { CommitField } from "./CommitField";
 import { ToonDialog } from "./ToonDialog";
 
@@ -125,7 +125,7 @@ function lostLines(ep: Ep, lost: LostCards[]): string[] {
 
 /** ตัวละครและฉากหลังที่พล็อตใช้: a new one can switch to one of the Series' instead (D13). */
 function PlotCast({ ep, series, locked, edit }: { ep: Ep; series: Series; locked: boolean; edit: Edit }) {
-  const switchTo = (kind: Kind, index: number, id: string) => {
+  const switchTo = (kind: ItemKind, index: number, id: string) => {
     const items = ep.plot[kind].map((item, i) => (i === index ? { id } : asBody(item)));
     void edit("PATCH", "", { plot: { ...plotBody(ep), [kind]: items } });
   };

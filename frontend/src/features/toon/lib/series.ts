@@ -11,7 +11,7 @@ export const JOB_PATH = "/api/toon/jobs/current";
 
 export type Layout = "frame" | "full";
 export type Genre = "horror" | "comedy";
-export type Kind = "characters" | "backgrounds";
+export type ItemKind = "characters" | "backgrounds";
 
 /** A row of `GET /series`. */
 export type ListedSeries = {
@@ -88,10 +88,10 @@ export const LAYOUT_LABELS: Record<Layout, string> = { frame: "กรอบด�
 export const GENRE_LABELS: Record<Genre, string> = { horror: "หลอน", comedy: "ตลก" };
 
 export const seriesPath = (sid: string) => `${SERIES_PATH}/${sid}`;
-export const itemPath = (sid: string, kind: Kind, id: string) => `${seriesPath(sid)}/${kind}/${id}`;
+export const itemPath = (sid: string, kind: ItemKind, id: string) => `${seriesPath(sid)}/${kind}/${id}`;
 /** The current reference image; `rev` in the query makes a new one load in place of the old. */
-export const refUrl = (sid: string, kind: Kind, item: Item) => `${itemPath(sid, kind, item.id)}/ref?rev=${item.ref_rev}`;
-export const pendingUrl = (sid: string, kind: Kind, id: string, n: number) => `${itemPath(sid, kind, id)}/ref/pending/${n}`;
+export const refUrl = (sid: string, kind: ItemKind, item: Item) => `${itemPath(sid, kind, item.id)}/ref?rev=${item.ref_rev}`;
+export const pendingUrl = (sid: string, kind: ItemKind, id: string, n: number) => `${itemPath(sid, kind, id)}/ref/pending/${n}`;
 
 // The tab's pages (D52, D53, D56): the Series list, a new Series, a Series' EPs, its characters and
 // backgrounds, its settings, the pick of a reference image, an EP: its plot, or its storyline
@@ -103,7 +103,7 @@ export const SOUNDS_HASH = "#/toon/sounds";
 export const seriesHash = (sid: string) => `#/toon/series/${sid}`;
 export const castHash = (sid: string) => `#/toon/series/${sid}/cast`;
 export const settingsHash = (sid: string) => `#/toon/series/${sid}/settings`;
-export const pickHash = (sid: string, kind: Kind, id: string) => `#/toon/series/${sid}/${kind}/${id}/pick`;
+export const pickHash = (sid: string, kind: ItemKind, id: string) => `#/toon/series/${sid}/${kind}/${id}/pick`;
 export const epHash = (eid: string) => `#/toon/eps/${eid}`;
 export const plotHash = (eid: string) => `#/toon/eps/${eid}/plot`;
 export const renderHash = (eid: string) => `#/toon/eps/${eid}/render`;
@@ -114,7 +114,7 @@ export type Page =
   | { kind: "eps"; sid: string }
   | { kind: "cast"; sid: string }
   | { kind: "settings"; sid: string }
-  | { kind: "pick"; sid: string; itemKind: Kind; id: string }
+  | { kind: "pick"; sid: string; itemKind: ItemKind; id: string }
   | { kind: "ep"; eid: string; plot: boolean }
   | { kind: "render"; eid: string }
   | { kind: "sounds" };
@@ -141,7 +141,7 @@ export function pageOf(hash: string): Page {
 
 /** A character or background with no reference image yet, and how many cards of an Image job it
  * made skip (D13). */
-export type MissingRef = { kind: Kind; id: string; name: string; cards: number };
+export type MissingRef = { kind: ItemKind; id: string; name: string; cards: number };
 
 /** Which cards an Image job of the whole EP draws: every one with no image, or every
  * `stale_ref` one (D33, D44). */
@@ -173,7 +173,7 @@ export const UNFINISHED_JOB = ["writing", "translating", "drawing", "voicing"] a
 export const isRunning = isUnfinishedIn<ToonJob["state"]>(UNFINISHED_JOB);
 
 /** `POST /jobs` for a Ref job of one item; both the lists and the pick page start one. */
-export function startRefJob(sid: string, kind: Kind, id: string): Promise<JsonReply<ToonJob | Refusal>> {
+export function startRefJob(sid: string, kind: ItemKind, id: string): Promise<JsonReply<ToonJob | Refusal>> {
   return sendJson("POST", JOBS_PATH, { kind: "ref", series_id: sid, item_kind: kind, item_id: id });
 }
 

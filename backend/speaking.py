@@ -4,7 +4,7 @@ the wav files they write.
 """
 
 import wave
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Protocol
 
@@ -12,6 +12,7 @@ from backend import checks, spoil_maker
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil_maker.tts import Designed, Ready, Speak, Spoken
+from backend.workers import Worker
 
 NUM_STEP = 16  # spoil-maker D37
 
@@ -23,33 +24,40 @@ class Voice(Protocol):
     prompt: bytes
 
 
+class Slot(Protocol):
+    """What a Speaker asks of the job slot that holds it (`jobs.ModelJobSlot`)."""
+
+    def track(self, process) -> None: ...
+
+    def reply(self, worker: Worker, expected: tuple[type, ...], timeout: float | None = None): ...
+
+
 class Speaker:
     """Speaks texts in an OmniVoice child for the job slot that holds it: through that slot's
     `track` (so shutdown and the job's end stop the child) and `reply` (so a failure names
     the slot's child)."""
 
-    def __init__(self, track: Callable[[object], None], reply: Callable[..., object]):
-        self._track = track
-        self._reply = reply
+    def __init__(self, slot: Slot):
+        self._slot = slot
 
-    def start(self, project: ProjectPaths):
-        """Starts the OmniVoice child and waits until it is loaded; returns it with its queues."""
+    def start(self, project: ProjectPaths) -> Worker:
+        """Starts the OmniVoice child and waits until it is loaded."""
         device = checks.probe_device()
         snapshot = project.snapshot_dir(OMNIVOICE, OMNIVOICE.revision)
-        process, requests, replies = spoil_maker.start_tts_worker(snapshot, device)
-        self._track(process)
-        self._reply(process, replies, (Ready,))
-        return process, requests, replies
+        worker = spoil_maker.start_tts_worker(snapshot, device)
+        self._slot.track(worker.process)
+        self._slot.reply(worker, (Ready,))
+        return worker
 
     def speak(self, project: ProjectPaths, texts: list[str], voice: Voice) -> Iterator[Spoken]:
         """Each text (numbers already words) spoken in one child in `voice`, in order, as
         soon as it is: the caller writes it before the next is asked for, so a cancel keeps
         the finished ones. Ask once more after the last text and it ends its child."""
-        process, requests, replies = self.start(project)
+        worker = self.start(project)
         for text in texts:
-            requests.put(Speak(text=text, prompt=voice.prompt, speed=voice.speed, num_step=NUM_STEP))
-            yield self._reply(process, replies, (Spoken,))
-        requests.put(None)
+            worker.requests.put(Speak(text=text, prompt=voice.prompt, speed=voice.speed, num_step=NUM_STEP))
+            yield self._slot.reply(worker, (Spoken,))
+        worker.requests.put(None)
 
 
 def write_wav(path: Path, spoken: Designed | Spoken) -> None:

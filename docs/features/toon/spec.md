@@ -99,9 +99,9 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `YtDlpAdapter.download` รับ options (รูปแบบ, folder ปลายทาง, แม่แบบชื่อไฟล์, เขียน thumbnail ไหม); ค่าตั้งต้นคือของ Temp clip เดิม; คลังเสียงพื้นใช้ `bestaudio`, `media/toon/.partial/`, ไม่มี thumbnail, ไม่ merge mp4; extractor และกติกาลิงก์เดิม (ADR-0029)
 - **`backend.toon`** (ใหม่)
   - `store`: อ่านเขียน `series.json`, `ep.json`, `sounds.json` ผ่าน `.tmp` แล้ว rename ใต้ lock ของ toon
-  - `series`: Series ตัวละคร ฉากหลัง ภาพอ้างอิง การลบ (`series_jobs`: Series ที่แต่ละ slot ทำงานอยู่)
-  - `kinds`: ตารางค่าที่ต่างกันระหว่างตัวละครกับฉากหลัง (D58)
-  - `episodes`: EP พล็อต การ์ด การแก้ สถานะการ์ด
+  - `series`: Series ตัวละคร ฉากหลัง ภาพอ้างอิง การลบ, ของใหม่ในพล็อตเป็นตัวละครและฉากหลังของ Series (`new_items`); `series_jobs`: job slot ทุกตัวของ tab ที่ Series ของงานที่ยังไม่จบลบไม่ได้ (D61)
+  - `kinds`: ตารางค่าที่ต่างกันระหว่างตัวละครกับฉากหลัง (D58); ชนิด `ItemKind` ไม่ชน `JobKind` ของ Toon job (D61)
+  - `episodes`: EP พล็อต การ์ด การแก้ สถานะการ์ด; `ep_jobs`: แต่ละ slot บอก EP ที่ทำงานอยู่เป็น `EpUse` (`how`: ทำงานอยู่, ล็อก, render: Plot job อ่าน `rendering`, D61)
   - `writer`: คำสั่งและการอ่านคำตอบของ Plot job และ Cards job (ใช้ worker ของ `spoil_maker.llm`)
   - `prompts`: คำสั่งภาพ, คำสั่งแปลคำบรรยาย และการอ่านคำตอบ
   - `klein`: worker ของ klein ใน process ลูก `spawn` (ADR-0012)
@@ -111,7 +111,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `voicing`: Voice job: แผน ขั้น และการเขียนเสียงเล่าของการ์ด (ผ่าน `speaking.Speaker`)
   - `sounds`: คลังเสียงพื้น, Sound import slot (ไฟล์ที่หน้าเว็บหายระหว่างแปลงไม่เข้าคลัง)
   - `render`: Render slot (D45), Render job; `compose`: timeline, ASS, filter graph
-  - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่เริ่มและจบทุก kind แบบเดียวกันจาก `WORK` ของ module ของ kind นั้น; `steps`: ส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, D58)
+  - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่เริ่มและจบทุก kind แบบเดียวกันจาก `WORK` ของ module ของ kind นั้น; `steps`: ส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, `open_klein` ที่เดียวที่เปิด klein, D58, D61)
 - **`backend.routes`**
   - router ใหม่ `toon` prefix `/toon`
 - **`NOTICE.md`**

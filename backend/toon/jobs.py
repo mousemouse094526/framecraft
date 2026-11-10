@@ -73,10 +73,11 @@ class ToonJobs(ModelJobSlot[ToonJob]):
 
     def __init__(self):
         super().__init__()
-        self.speaker = speaking.Speaker(self._track, self._reply)
+        self.speaker = speaking.Speaker(self)
 
     def start(self, body: dict) -> ToonJob:
-        """Step 1 in the kind's order (`steps.Work`), then its steps in the job's thread."""
+        """Step 1 of the kind's spec section (Plot job, Cards job, …) in the order `steps.Work`
+        gives, then the kind's later steps in the job's thread."""
         kind = body.get("kind")
         work = WORKS.get(kind) if isinstance(kind, str) else None
         if work is None:
@@ -111,38 +112,16 @@ class ToonJobs(ModelJobSlot[ToonJob]):
         threading.Thread(target=self._run_job, args=(work.log_name(plan_now), run, clean_up), daemon=True).start()
         return job
 
-    def ep_use(self) -> tuple[str, bool] | None:
+    def ep_use(self) -> episodes.EpUse | None:
         """The EP an unfinished job works on, and whether it locks it (`episodes.ep_jobs`)."""
-        job = self._running()
-        return (job.ep_id, job.kind in LOCKS_EP) if job is not None and job.ep_id is not None else None
-
-    def series_use(self) -> str | None:
-        """The Series of an unfinished job, which can't be deleted meanwhile (`series.series_jobs`)."""
-        job = self._running()
-        return job.series_id if job is not None else None
-
-    def _running(self) -> ToonJob | None:
-        """The unfinished job. One attribute read, without the slot's lock: callers ask under
-        the store's lock, which every job starts under too."""
-        job = self._job
-        return job if job is not None and job.state in UNFINISHED else None
-
-    # --- `steps.Run`: what a kind's steps ask of the slot ---
-
-    def update(self, **fields) -> None:
-        self._update(**fields)
+        job = self.running()
+        return episodes.EpUse(job.ep_id, "locks" if job.kind in LOCKS_EP else "works") if job is not None and job.ep_id is not None else None
 
     def use_child(self, gpu_kind: gpu.Kind, child: Child) -> None:
         """The GPU slot's kind this job holds, and which child `reply` reads from now (and
-        names in a failure): an Image job moves from Qwen to klein."""
+        names in a failure): an Image job moves from Qwen to klein (`steps.Run`)."""
         self.gpu_kind = gpu_kind
         self.worker_error, self.child_name, self.failure = child
-
-    def track(self, process) -> None:
-        self._track(process)
-
-    def reply(self, process, replies, expected: tuple[type, ...], timeout: float | None = None):
-        return self._reply(process, replies, expected, timeout)
 
 
 def clean_on_start(project: ProjectPaths) -> None:
@@ -154,4 +133,4 @@ def clean_on_start(project: ProjectPaths) -> None:
 
 toon_jobs = ToonJobs()
 episodes.ep_jobs.append(lambda: toon_jobs.ep_use())
-series.series_jobs.append(lambda: toon_jobs.series_use())
+series.series_jobs.append(lambda: toon_jobs)

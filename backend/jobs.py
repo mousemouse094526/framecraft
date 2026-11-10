@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from backend import gpu
 from backend.errors import ApiError, JobFailed
+from backend.workers import Worker
 
 log = logging.getLogger(__name__)
 
@@ -37,11 +38,18 @@ class JobSlot(Generic[Job]):
         with self._lock:
             return self._job.model_copy(deep=True) if self._job else None
 
+    def running(self) -> Job | None:
+        """The unfinished job, or None. One attribute read, without the lock: a caller that
+        needs it to hold reads under a lock the job starts under too (as toon's `store.lock`)."""
+        job = self._job
+        return job if job is not None and job.state in self.unfinished else None
+
     def _taken(self) -> bool:
         """Whether a job is still running. Call with the lock held."""
-        return self._job is not None and self._job.state in self.unfinished
+        return self.running() is not None
 
-    def _update(self, **fields) -> None:
+    def update(self, **fields) -> None:
+        """Sets fields of the job, as its steps go."""
         with self._lock:
             for name, value in fields.items():
                 setattr(self._job, name, value)
@@ -51,7 +59,7 @@ class ModelJobSlot(JobSlot[Job]):
     """A job slot whose job runs a model in a child process and holds the GPU slot
     as `gpu_kind` (ADR 0012, ADR 0015). Subclasses also set `nothing_to_cancel`, the
     message of a cancel with no running job, `error_type`, the job's `{code, message}`
-    error, and for `_reply`: the child's `worker_error` message type, `child_name`
+    error, and for `reply`: the child's `worker_error` message type, `child_name`
     ("ตัวบรรยายฉาก") and `failure` ("บรรยายฉากไม่สำเร็จ"), the words a failed job's
     message is made of."""
 
@@ -124,12 +132,12 @@ class ModelJobSlot(JobSlot[Job]):
     def _failed(self, code: str, message: str) -> dict:
         return {"state": "failed", "error": self.error_type(code=code, message=message)}
 
-    def _reply(self, process, replies, expected: tuple[type, ...], timeout: float | None = None):
+    def reply(self, worker: Worker, expected: tuple[type, ...], timeout: float | None = None):
         """The child's next message, one of `expected`. Raises `Cancelled`, `TimeoutError`
         after `timeout` seconds (None: no limit), or `JobFailed` when the child dies or errs —
         unless `expected` holds its `worker_error`, which is then returned like any other."""
         try:
-            message = next_message(process, replies, self._cancel, timeout)
+            message = next_message(worker.process, worker.replies, self._cancel, timeout)
         except ChildGone as gone:
             raise JobFailed("crashed", f"{self.child_name}หยุดทำงานกลางทาง ({gone}). {gpu.ADVICE}") from None
         if isinstance(message, expected):
@@ -139,13 +147,13 @@ class ModelJobSlot(JobSlot[Job]):
             raise JobFailed("model_failed", f"{self.failure}: {short(message.detail)}. {gpu.ADVICE}")
         raise RuntimeError(f"unknown message from the {self.gpu_kind} process: {message!r}")
 
-    def _track(self, process) -> None:
+    def track(self, process) -> None:
         """Remembers the running child, so shutdown can stop it and the job's end does."""
         with self._lock:
             self._process = process
 
     def _child(self):
-        """The running child `_track` remembers, or None."""
+        """The running child `track` remembers, or None."""
         with self._lock:
             return self._process
 
@@ -159,9 +167,9 @@ class ModelJobSlot(JobSlot[Job]):
                 stop_process(process)
             except Exception:
                 log.exception("could not stop the %s process", self.gpu_kind)
-        self._track(None)
+        self.track(None)
         gpu.slot.release(self.gpu_kind)
-        self._update(**ending)
+        self.update(**ending)
 
 
 class Cancelled(Exception):

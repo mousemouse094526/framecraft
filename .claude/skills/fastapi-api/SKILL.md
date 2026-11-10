@@ -34,11 +34,15 @@ backend/
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
-├── jobs.py       ← JobSlot (one job of a kind, ADR 0010), ModelJobSlot (a job
-│                    whose model runs in a child: cancel, shutdown,
-│                    `_run_job`, the one ending of every job's thread that
-│                    frees the GPU) and the child process helpers every GPU
-│                    job uses (ADR 0012)
+├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
+│                    ModelJobSlot (a job whose model runs in a child: cancel,
+│                    shutdown, `track`, `reply`, `_run_job`, the one ending of
+│                    every job's thread that frees the GPU) and the child
+│                    process helpers every GPU job uses (ADR 0012); a slot's
+│                    steps and its `Speaker` call `update`, `track`, `reply`
+├── workers.py    ← `Worker`, a model's child with its request and reply queues:
+│                    every `start_worker` returns one (standard library only,
+│                    as a child imports it)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
@@ -93,17 +97,22 @@ backend/
 │                    one row each: code that handles both reads it, never
 │                    `kind == "characters"`), series (Series, characters,
 │                    backgrounds, reference pictures and their uploads,
-│                    `in_use`; `series_jobs`, the Series each job slot works
-│                    on), episodes (EPs, their plot, acts, segments and cards,
-│                    each card's state; `ep_jobs`, where each job slot says
-│                    which EP it locks), writer (the Plot and Cards prompts and
-│                    the reading of Qwen's answers through llm_reply), prompts
+│                    `in_use`, `new_items` of a plot; `series_jobs`, each job
+│                    slot, whose running job's Series can't go), episodes
+│                    (EPs, their plot, acts, segments and cards, each card's
+│                    state; `ep_jobs`, where each job slot says the EP it
+│                    works on as an `EpUse`: locks it, renders it), writer
+│                    (the Plot and Cards prompts and the reading of Qwen's
+│                    answers through llm_reply), prompts
 │                    (the picture prompts and the reading of Qwen's scene),
 │                    jobs (the Toon job slot: it starts and ends every kind
 │                    the same way from each kind's `WORK`, a `steps.Work`),
 │                    steps (what the kinds share: Qwen's and klein's children,
-│                    `Run`, what a kind's steps call on the slot), one module
-│                    per kind: plot, cards, refs (Ref job), images (Image job:
+│                    `open_klein` the one start of klein, `Run`, what a kind's
+│                    steps call on the slot); a variable of `kinds.ItemKind`
+│                    (characters or backgrounds) is `item_kind`, as `kind`
+│                    names a job's (a response field keeps its name, as
+│                    `missing_refs[].kind`); one module per kind: plot, cards, refs (Ref job), images (Image job:
 │                    which cards it draws, each picture it writes, swapping
 │                    back), voicing (Voice job: a card's narration), klein (the
 │                    only diffusers import; its `worker` runs in a child
@@ -115,8 +124,9 @@ backend/
 │                    render's timeline, its ffmpeg commands and its ASS file,
 │                    through `subtitles`)
 ├── speaking.py   ← `Speaker`, which speaks texts in a Saved voice in an
-│                    OmniVoice child for the job slot that holds it (through
-│                    the slot's `_track` and `_reply`, never as its base), and
+│                    OmniVoice child for the job slot that holds it (it is
+│                    given the slot and calls its `track` and `reply`, never
+│                    as its base), and
 │                    the wav it writes: spoil_maker's Voice and Render jobs,
 │                    toon's Voice and Render jobs
 ├── subtitles.py  ← what every render's text shares: the ASS header, a Dialogue line,
@@ -167,7 +177,7 @@ through a queue; the thread writes the result file (ADR 0012).
   `spoil_maker.llm`, the OmniVoice adapter `spoil_maker.tts`, the tokenizer
   `spoil_maker.tokens`, the diffusers adapter `toon.klein`); tests replace it with a
   fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
-  `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.start_klein_worker`).
+  `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_worker`).
 - torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one

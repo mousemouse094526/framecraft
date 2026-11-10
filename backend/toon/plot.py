@@ -12,7 +12,7 @@ from backend import gate_rows
 from backend.errors import ApiError, JobFailed
 from backend.paths import ProjectPaths
 from backend.spoil_maker import voices
-from backend.toon import episodes, render, steps, store, writer
+from backend.toon import episodes, steps, store, writer
 from backend.toon.store import Ep, Plot, Series
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class WritePlan(BaseModel):
 
 
 def plan(project: ProjectPaths, body: dict) -> WritePlan:
-    """Step 1 up to the gate: the EP, its idea, its voice, its stage."""
+    """Spec › Plot job step 1 up to the gate: the EP, its idea, its voice, its stage."""
     found = writable(project, body.get("ep_id"))
     if found.ep.stage == "cards":
         raise ApiError(409, "plot_confirmed", "ยืนยันพล็อตแล้ว: แก้พล็อตแล้วแตกการ์ดใหม่แทน")
@@ -43,8 +43,7 @@ def writable(project: ProjectPaths, ep_id: object) -> WritePlan:
     if found is None:
         raise ApiError(404, "not_found", "ไม่พบ EP นี้")
     series_now, ep = found
-    rendering = render.render_jobs.ep_use()
-    if rendering is not None and rendering[0] == ep.id:
+    if episodes.rendering(ep.id):
         raise ApiError(409, "ep_busy", "กำลัง render EP นี้: เขียนใหม่ได้เมื่อ render จบ")
     if not 1 <= len(ep.idea) <= episodes.IDEA_MAX:
         raise ApiError(400, "invalid_request", f"ไอเดียต้องยาว 1–{episodes.IDEA_MAX} ตัวอักษร")
@@ -55,7 +54,7 @@ def writable(project: ProjectPaths, ep_id: object) -> WritePlan:
 
 
 def run(job: steps.Run, project: ProjectPaths, found: WritePlan) -> None:
-    """Steps 2–5: up to three tries, then the title, the summaries and the plot's cast are
+    """Spec › Plot job steps 2–5: up to three tries, then the title, the summaries and the plot's cast are
     written; new characters and backgrounds stay in the plot (D13)."""
     series_id, ep_id = found.series.id, found.ep.id
     with store.lock:

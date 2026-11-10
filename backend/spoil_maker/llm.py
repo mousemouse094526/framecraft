@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Literal, NamedTuple
 
 from backend import checks
+from backend.workers import Worker
 
 # Sent to the child: one prompt, with one image or none. `None` asks it to exit.
 
@@ -75,8 +76,8 @@ def worker_for(sys_platform: str) -> Callable:
     return worker
 
 
-def start_worker(snapshot_dir: Path):
-    """Starts this OS's child; returns it with the queue of requests and the queue of replies.
+def start_worker(snapshot_dir: Path) -> Worker:
+    """Starts this OS's child with its queue of requests and its queue of replies.
 
     Fresh queues per child: `terminate()` may corrupt a queue it was using.
     Daemonic, so the child dies with the backend.
@@ -90,7 +91,7 @@ def start_worker(snapshot_dir: Path):
         name="framecraft-llm",
     )
     process.start()
-    return process, requests, replies
+    return Worker(process, requests, replies)
 
 
 def worker(snapshot_dir: Path, requests, replies) -> None:

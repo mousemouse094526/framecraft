@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend import checks, gpu, paths, spoil_maker, toon
+from backend import checks, gpu, paths, spoil_maker
 from backend.app import app
 from backend.models import KLEIN
 from backend.paths import ProjectPaths
@@ -39,7 +39,7 @@ def llm(monkeypatch) -> FakeLlm:
 @pytest.fixture
 def klein(monkeypatch) -> FakeKlein:
     fake = FakeKlein()
-    monkeypatch.setattr(toon, "start_klein_worker", fake)
+    monkeypatch.setattr("backend.toon.klein.start_worker", fake)
     return fake
 
 

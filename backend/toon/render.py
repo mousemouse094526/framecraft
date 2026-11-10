@@ -77,7 +77,7 @@ class RenderResult(BaseModel):
 
 
 class RenderJobs(ModelJobSlot[ToonRenderJob]):
-    """Holds the latest Render job; its `voicing` speaks through the `speaking.Speaker` it holds.
+    """Holds the latest Render job; its `voicing` speaks through its `speaker`.
     `run_ffmpeg` runs each ffmpeg command; a test passes one that pauses (`fastapi-api` › testing)."""
 
     unfinished = UNFINISHED
@@ -90,27 +90,16 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
 
     def __init__(self, run_ffmpeg: Runner = ffmpeg.run):
         super().__init__()
-        self._speaker = speaking.Speaker(self._track, self._reply)
+        self.speaker = speaking.Speaker(self)
         self._run_ffmpeg = run_ffmpeg
 
-    def ep_use(self) -> tuple[str, bool] | None:
+    def ep_use(self) -> episodes.EpUse | None:
         """The EP an unfinished render works on; it never locks it (`episodes.ep_jobs`)."""
-        job = self._running()
-        return (job.ep_id, False) if job else None
-
-    def series_use(self) -> str | None:
-        """The Series of an unfinished render, which can't be deleted meanwhile (`series.series_jobs`)."""
-        job = self._running()
-        return job.series_id if job else None
-
-    def _running(self) -> ToonRenderJob | None:
-        """The unfinished job. One attribute read, without the slot's lock (as `ToonJobs._running`):
-        callers ask under the store's lock, which a render starts under too."""
-        job = self._job
-        return job if job is not None and job.state in UNFINISHED else None
+        job = self.running()
+        return episodes.EpUse(job.ep_id, "renders") if job else None
 
     def start(self, body: dict) -> ToonRenderJob:
-        """Step 1 in spec order: the EP and its cards, `ep_locked`, `disk_full`, the gate,
+        """Spec › Render job step 1, in order: the EP and its cards, `ep_locked`, `disk_full`, the gate,
         `busy`, and `gpu_busy` when cards need their narration. The draft's lock and the
         store's cover the checks and the start, so no edit or voice delete slips between."""
         project, ep_id = paths.project(), body.get("ep_id")
@@ -149,14 +138,14 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
 
     def _voice_and_render(self, project: ProjectPaths, series_id: str, ep_id: str, plans: list[VoicePlan]) -> dict:
         if plans:
-            spoken_all = self._speaker.speak(project, [plan.tts_text for plan in plans], plans[0].voice)
+            spoken_all = self.speaker.speak(project, [plan.tts_text for plan in plans], plans[0].voice)
             # The speaker first: `zip` asks it once more after the last text, so it ends its child.
             for done, (spoken, plan) in enumerate(zip(spoken_all, plans), start=1):
                 if not voicing.put_audio(project, plan, spoken):
                     log.info("the narration of card %s is dropped: the card went", plan.card_id)
-                self._update(done=done)
+                self.update(done=done)
             self._free_gpu()
-        self._update(state="rendering", percent=0, done=None, total=None)
+        self.update(state="rendering", percent=0, done=None, total=None)
         try:
             name = self._render(project, series_id, ep_id)
         except FfmpegFailed as error:
@@ -169,11 +158,11 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
         process = self._child()
         if process is not None:
             stop_process(process)
-            self._track(None)
+            self.track(None)
         gpu.slot.release("toon_render")
 
     def _render(self, project: ProjectPaths, series_id: str, ep_id: str) -> str:
-        """Step 3: the EP read and copied once, each card's piece, then the whole clip."""
+        """Spec › Render job step 3: the EP read and copied once, each card's piece, then the whole clip."""
         work = project.toon_render_dir
         shutil.rmtree(work, ignore_errors=True)
         work.mkdir(parents=True)
@@ -205,7 +194,7 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
             piece = f"{index}.mkv"
             self._run_ffmpeg(compose.piece_command(card, series_now.layout, frames, piece), work, self._cancel)
             pieces.append(piece)
-            self._update(percent=PIECES_SHARE * (index + 1) // len(placed))
+            self.update(percent=PIECES_SHARE * (index + 1) // len(placed))
         folder = project.ep_renders_dir(series_id, ep_id)
         folder.mkdir(parents=True, exist_ok=True)
         name = renders.free_name(folder)
@@ -216,7 +205,7 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
 
         def on_progress(seconds: float) -> None:
             share = 100 - PIECES_SHARE
-            self._update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
+            self.update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
 
         self._run_ffmpeg(command, work, self._cancel, on_progress)
         info = {
@@ -230,7 +219,7 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
 
 
 def _cards_to_voice(project: ProjectPaths, series_now: Series, ep: Ep) -> list[store.Card]:
-    """Step 1 up to the gate; returns the cards to voice first (D38). Call under the store's lock."""
+    """Spec › Render job step 1 up to the gate; returns the cards to voice first (D38). Call under the store's lock."""
     # An EP still at its plot has no cards to render either (spec › Render job step 1).
     if ep.stage != "cards" or not any(True for _ in episodes.placed_cards(ep)):
         raise ApiError(400, "cards_not_ready", "EP นี้ยังไม่มีการ์ด", card_ids=[])
@@ -377,4 +366,4 @@ def _renders_dir(project: ProjectPaths, ep_id: str) -> Path:
 
 render_jobs = RenderJobs()
 episodes.ep_jobs.append(lambda: render_jobs.ep_use())
-series.series_jobs.append(lambda: render_jobs.series_use())
+series.series_jobs.append(lambda: render_jobs)

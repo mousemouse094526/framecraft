@@ -7,7 +7,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import checks, gpu, paths, spoil_maker, toon
+from backend import checks, gpu, paths, spoil_maker
 from backend.app import app
 from backend.errors import ApiError
 from backend.models import KLEIN, OMNIVOICE
@@ -57,7 +57,7 @@ def llm(monkeypatch) -> FakeLlm:
 @pytest.fixture
 def klein(monkeypatch) -> FakeKlein:
     fake = FakeKlein()
-    monkeypatch.setattr(toon, "start_klein_worker", fake)
+    monkeypatch.setattr("backend.toon.klein.start_worker", fake)
     return fake
 
 

@@ -25,7 +25,7 @@ import {
   settingsHash,
   TAG_MAX,
   type Item,
-  type Kind,
+  type ItemKind,
   type Series,
   type ToonJob,
 } from "../lib/series";
@@ -63,8 +63,8 @@ export function CastPage({ sid }: { sid: string }) {
     running,
     sending,
     onRemove: remove,
-    onStartRef: (kind: Kind, item: Item) => void startRef(kind, item),
-    onUpload: (kind: Kind, item: Item, file: File) => void upload(kind, item, file),
+    onStartRef: (kind: ItemKind, item: Item) => void startRef(kind, item),
+    onUpload: (kind: ItemKind, item: Item, file: File) => void upload(kind, item, file),
   };
 
   return (
@@ -107,9 +107,9 @@ function RunningBanner({ job, series, onStop }: { job: ToonJob; series: Series; 
 type Actions = {
   running: ToonJob | null;
   sending: { id: string; percent: number } | null;
-  onRemove: (kind: Kind, item: Item) => void;
-  onStartRef: (kind: Kind, item: Item) => void;
-  onUpload: (kind: Kind, item: Item, file: File) => void;
+  onRemove: (kind: ItemKind, item: Item) => void;
+  onStartRef: (kind: ItemKind, item: Item) => void;
+  onUpload: (kind: ItemKind, item: Item, file: File) => void;
 };
 
 const SECTION = {
@@ -118,9 +118,9 @@ const SECTION = {
 };
 
 type SectionProps = Actions & {
-  kind: Kind;
+  kind: ItemKind;
   series: Series;
-  onAdd: (kind: Kind, fields: ItemFields) => Promise<boolean>;
+  onAdd: (kind: ItemKind, fields: ItemFields) => Promise<boolean>;
 };
 
 function ItemSection({ kind, series, onAdd, ...actions }: SectionProps) {
@@ -165,7 +165,7 @@ function ItemSection({ kind, series, onAdd, ...actions }: SectionProps) {
   );
 }
 
-type TileProps = Actions & { kind: Kind; sid: string; item: Item };
+type TileProps = Actions & { kind: ItemKind; sid: string; item: Item };
 
 /** Figma `Toon/RefTile`: the reference image (or why there is none), name, tag, description, actions. */
 function RefTile({ kind, sid, item, running, sending, onRemove, onStartRef, onUpload }: TileProps) {
@@ -292,7 +292,7 @@ function Slot({ className, children }: { className: string; children: ReactNode 
 const INPUT = "h-10 w-full rounded-lg border border-border bg-card px-3 text-sm leading-[1.5] text-foreground";
 const LABEL = "font-button text-sm leading-5 font-medium text-foreground";
 
-function ItemForm({ kind, onCancel, onAdd }: { kind: Kind; onCancel: () => void; onAdd: (fields: ItemFields) => void }) {
+function ItemForm({ kind, onCancel, onAdd }: { kind: ItemKind; onCancel: () => void; onAdd: (fields: ItemFields) => void }) {
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
   const [description, setDescription] = useState("");

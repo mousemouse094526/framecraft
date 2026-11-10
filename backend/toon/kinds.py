@@ -7,14 +7,16 @@ from typing import Literal, NamedTuple
 
 from backend.toon.store import Background, Character
 
-Kind = Literal["characters", "backgrounds"]
+ItemKind = Literal["characters", "backgrounds"]
 
 # The size of a card's picture by the Series' layout; a background is drawn as the card it
 # sits behind (D37).
 CARD_SIZE = {"frame": (1024, 576), "full": (576, 1024)}
 
 
-class ItemKind(NamedTuple):
+class KindRow(NamedTuple):
+    """One row of `KINDS`: what the code reads of an `ItemKind` instead of branching on it."""
+
     model: type[Character] | type[Background]
     id_prefix: str
     tagged: bool  # whether it has the short `tag` after its name on a name tag (D23)
@@ -25,8 +27,8 @@ class ItemKind(NamedTuple):
     scene_ask: tuple[str, str]  # what Qwen describes for that `{scene}`, and how
 
 
-KINDS: dict[Kind, ItemKind] = {
-    "characters": ItemKind(
+KINDS: dict[ItemKind, KindRow] = {
+    "characters": KindRow(
         model=Character,
         id_prefix="c",
         tagged=True,
@@ -38,7 +40,7 @@ KINDS: dict[Kind, ItemKind] = {
             "Describe how they look: body, hair, face, clothes and their colours.",
         ),
     ),
-    "backgrounds": ItemKind(
+    "backgrounds": KindRow(
         model=Background,
         id_prefix="b",
         tagged=False,

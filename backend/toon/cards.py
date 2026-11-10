@@ -10,8 +10,7 @@ from pydantic import BaseModel
 from backend import gate_rows
 from backend.errors import ApiError, JobFailed, invalid_request
 from backend.paths import ProjectPaths
-from backend.toon import episodes, plot, steps, store, writer
-from backend.toon.kinds import KINDS
+from backend.toon import episodes, plot, series, steps, store, writer
 from backend.toon.store import Ep, Series
 
 log = logging.getLogger(__name__)
@@ -37,7 +36,7 @@ class CardsPlan(BaseModel):
 
 
 def plan(project: ProjectPaths, body: dict) -> CardsPlan:
-    """Step 1 up to the gate: the acts to split, and what they would lose (D15, D43)."""
+    """Spec › Cards job step 1 up to the gate: the acts to split, and what they would lose (D15, D43)."""
     confirm_loss = body.get("confirm_loss", False)
     if not isinstance(confirm_loss, bool):
         raise invalid_request()
@@ -57,19 +56,14 @@ def plan(project: ProjectPaths, body: dict) -> CardsPlan:
 
 
 def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
-    """Steps 2–6: each act to split is asked up to three times; all are written at once at
+    """Spec › Cards job steps 2–6: each act to split is asked up to three times; all are written at once at
     the end, with the plot's new characters and backgrounds entering the Series (D13, D15).
     An act with no card after three tries fails the job."""
     series_now, ep = plan.series, plan.ep
-    taken = {item.id for item in [*series_now.characters, *series_now.backgrounds]}
-    added: dict[str, list] = {kind: [] for kind in KINDS}
-    for kind, item_kind in KINDS.items():
-        for item in getattr(ep.plot, kind):
-            if item.new:
-                item.id, item.new = store.new_id(item_kind.id_prefix, taken), False
-                taken.add(item.id)
-                added[kind].append(item_kind.model(**item.model_dump(include=set(item_kind.model.model_fields))))
-    cast = series_now.model_copy(update={kind: [*getattr(series_now, kind), *added[kind]] for kind in KINDS})
+    added = series.new_items(series_now, ep.plot)
+    cast = series_now.model_copy(
+        update={item_kind: [*getattr(series_now, item_kind), *items] for item_kind, items in added.items()}
+    )
     characters = writer.known(ep.plot.characters, cast, "characters")
     backgrounds = writer.known(ep.plot.backgrounds, cast, "backgrounds")
     sounds = store.read_sounds(project)
@@ -94,8 +88,8 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
         job.update(done=done)
     with store.lock:
         series_now = store.read_series(project, plan.series.id)
-        for kind in KINDS:
-            getattr(series_now, kind).extend(added[kind])
+        for item_kind, items in added.items():
+            getattr(series_now, item_kind).extend(items)
         ep_now = store.read_ep(project, plan.series.id, ep.id)
         gone = []
         for act in ep_now.acts:

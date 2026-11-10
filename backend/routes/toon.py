@@ -8,7 +8,7 @@ from backend.toon import episodes, images, jobs, render, series, sounds, voicing
 from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
 from backend.toon.render import RenderResult, ToonRenderJob
-from backend.toon.kinds import Kind
+from backend.toon.kinds import ItemKind
 from backend.toon.series import ListedSeries, SeriesView
 from backend.toon.sounds import SoundImport, SoundView
 from backend.uploads import UploadCheck
@@ -42,7 +42,7 @@ def delete_series(series_id: str, body: dict[str, Any] | None = Body(None)) -> R
     return Response(status_code=204)
 
 
-# Before `/series/{series_id}/{kind}`: the first route that matches a path answers it.
+# Before `/series/{series_id}/{item_kind}`: the first route that matches a path answers it.
 @router.get("/series/{series_id}/eps")
 def list_eps(series_id: str) -> list[ListedEp]:
     return episodes.list_for(paths.project(), series_id)
@@ -53,46 +53,46 @@ def create_ep(series_id: str, body: dict[str, Any]) -> EpView:
     return episodes.create(paths.project(), series_id, body)
 
 
-@router.post("/series/{series_id}/{kind}", status_code=201)
-def add_item(series_id: str, kind: Kind, body: dict[str, Any]) -> SeriesView:
-    return series.add_item(paths.project(), series_id, kind, body)
+@router.post("/series/{series_id}/{item_kind}", status_code=201)
+def add_item(series_id: str, item_kind: ItemKind, body: dict[str, Any]) -> SeriesView:
+    return series.add_item(paths.project(), series_id, item_kind, body)
 
 
-@router.patch("/series/{series_id}/{kind}/{item_id}")
-def change_item(series_id: str, kind: Kind, item_id: str, body: dict[str, Any]) -> SeriesView:
-    return series.change_item(paths.project(), series_id, kind, item_id, body)
+@router.patch("/series/{series_id}/{item_kind}/{item_id}")
+def change_item(series_id: str, item_kind: ItemKind, item_id: str, body: dict[str, Any]) -> SeriesView:
+    return series.change_item(paths.project(), series_id, item_kind, item_id, body)
 
 
-@router.delete("/series/{series_id}/{kind}/{item_id}")
-def delete_item(series_id: str, kind: Kind, item_id: str) -> SeriesView:
-    return series.delete_item(paths.project(), series_id, kind, item_id)
+@router.delete("/series/{series_id}/{item_kind}/{item_id}")
+def delete_item(series_id: str, item_kind: ItemKind, item_id: str) -> SeriesView:
+    return series.delete_item(paths.project(), series_id, item_kind, item_id)
 
 
-@router.get("/series/{series_id}/{kind}/{item_id}/ref")
-def get_ref(series_id: str, kind: Kind, item_id: str) -> FileResponse:
-    return FileResponse(series.ref_image(paths.project(), series_id, kind, item_id), media_type="image/png")
+@router.get("/series/{series_id}/{item_kind}/{item_id}/ref")
+def get_ref(series_id: str, item_kind: ItemKind, item_id: str) -> FileResponse:
+    return FileResponse(series.ref_image(paths.project(), series_id, item_kind, item_id), media_type="image/png")
 
 
-@router.get("/series/{series_id}/{kind}/{item_id}/ref/pending/{n}")
-def get_pending_ref(series_id: str, kind: Kind, item_id: str, n: int) -> FileResponse:
-    return FileResponse(series.pending_image(paths.project(), series_id, kind, item_id, n), media_type="image/png")
+@router.get("/series/{series_id}/{item_kind}/{item_id}/ref/pending/{n}")
+def get_pending_ref(series_id: str, item_kind: ItemKind, item_id: str, n: int) -> FileResponse:
+    return FileResponse(series.pending_image(paths.project(), series_id, item_kind, item_id, n), media_type="image/png")
 
 
-@router.post("/series/{series_id}/{kind}/{item_id}/ref/pick")
-def pick_ref(series_id: str, kind: Kind, item_id: str, body: dict[str, Any]) -> SeriesView:
-    return series.pick(paths.project(), series_id, kind, item_id, body)
+@router.post("/series/{series_id}/{item_kind}/{item_id}/ref/pick")
+def pick_ref(series_id: str, item_kind: ItemKind, item_id: str, body: dict[str, Any]) -> SeriesView:
+    return series.pick(paths.project(), series_id, item_kind, item_id, body)
 
 
-@router.post("/series/{series_id}/{kind}/{item_id}/ref/upload/check")
-def check_ref_upload(series_id: str, kind: Kind, item_id: str, body: dict[str, Any]) -> UploadCheck:
-    return series.check_upload(paths.project(), series_id, kind, item_id, body)
+@router.post("/series/{series_id}/{item_kind}/{item_id}/ref/upload/check")
+def check_ref_upload(series_id: str, item_kind: ItemKind, item_id: str, body: dict[str, Any]) -> UploadCheck:
+    return series.check_upload(paths.project(), series_id, item_kind, item_id, body)
 
 
-@router.post("/series/{series_id}/{kind}/{item_id}/ref/upload", dependencies=[Depends(body_types.require_octet_stream)])
-async def upload_ref(request: Request, series_id: str, kind: Kind, item_id: str, size: str | None = None) -> SeriesView:
+@router.post("/series/{series_id}/{item_kind}/{item_id}/ref/upload", dependencies=[Depends(body_types.require_octet_stream)])
+async def upload_ref(request: Request, series_id: str, item_kind: ItemKind, item_id: str, size: str | None = None) -> SeriesView:
     """The body is the picture itself (ADR 0028); `size` stays text so the module answers a
     bad one with `invalid_request`."""
-    return await series.receive_upload(paths.project(), series_id, kind, item_id, size, request.stream())
+    return await series.receive_upload(paths.project(), series_id, item_kind, item_id, size, request.stream())
 
 
 @router.get("/eps/{ep_id}")

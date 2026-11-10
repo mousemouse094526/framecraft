@@ -211,7 +211,7 @@ class SoundImports(JobSlot[SoundImport]):
         finally:
             for leftover in project.toon_partial_dir.glob(f"{sound_id}.*") if project.toon_partial_dir.is_dir() else ():
                 leftover.unlink(missing_ok=True)
-            self._update(**ending)
+            self.update(**ending)
 
     def _download(self, project: ProjectPaths, url: str, sound_id: str) -> SoundView:
         """Spoil's Download job steps: the info, its length before loading, the load with %."""
@@ -228,12 +228,12 @@ class SoundImports(JobSlot[SoundImport]):
         except ApiError as full:
             raise JobFailed("disk_full", full.message) from None
         title = info.get("title") or sound_id
-        self._update(state="downloading", title=title, percent=0)
+        self.update(state="downloading", title=title, percent=0)
         project.toon_partial_dir.mkdir(parents=True, exist_ok=True)
         loaded = spoil.adapter.download(
             info, project, sound_id, lambda event: self._on_progress(estimate, event), LINK_OPTIONS
         )
-        self._update(state="converting", percent=None)
+        self.update(state="converting", percent=None)
         return self._take_in(project, sound_id, loaded, title.strip()[:NAME_MAX].strip(), "link", self._cancel)
 
     def _on_progress(self, estimate: int, event: dict) -> None:

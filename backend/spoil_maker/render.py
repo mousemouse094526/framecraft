@@ -148,7 +148,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
                 _start_work_folder(project)
                 _write_narration(project, drawn, project.render_work_dir / NARRATION)
             self._free_gpu()
-            self._update(state="rendering", percent=0, done=None, total=None)
+            self.update(state="rendering", percent=0, done=None, total=None)
             name = self._render(project, drawn, timed, pieces)
         except FfmpegFailed as error:
             raise JobFailed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}") from None
@@ -161,7 +161,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         process = self._child()
         if process is not None:
             stop_process(process)
-            self._track(None)
+            self.track(None)
         gpu.slot.release("render")
 
     def _render(self, project: ProjectPaths, drawn: Draft, timed: list[Timed], pieces: list[Piece]) -> str:
@@ -178,7 +178,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
                 piece, mp4, media[piece.clip_id], drawn.layout, drawn.original_volume, f"{index}.mkv"
             )
             self._run_ffmpeg(command, work, self._cancel)
-            self._update(percent=PIECES_SHARE * (index + 1) // len(pieces))
+            self.update(percent=PIECES_SHARE * (index + 1) // len(pieces))
         (work / PIECES_LIST).write_text("".join(f"file '{i}.mkv'\n" for i in range(len(pieces))), encoding="utf-8")
         total = timed[-1].end
         project.renders_dir.mkdir(parents=True, exist_ok=True)
@@ -190,7 +190,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
 
         def on_progress(seconds: float) -> None:
             share = 100 - PIECES_SHARE
-            self._update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
+            self.update(percent=PIECES_SHARE + min(share, round(share * seconds / total)))
 
         self._run_ffmpeg(command, work, self._cancel, on_progress)
         info = {

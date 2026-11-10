@@ -9,7 +9,7 @@ delete `ep_busy` while any job works on it: each job slot of the tab adds a chec
 import logging
 import shutil
 from collections.abc import Callable
-from typing import Literal, get_args
+from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
 
@@ -20,7 +20,7 @@ from backend.paths import ProjectPaths
 from backend.spoil_maker import thai, voices
 from backend.toon import series as series_module
 from backend.toon import store
-from backend.toon.kinds import KINDS, Kind
+from backend.toon.kinds import KINDS, ItemKind
 from backend.toon.store import Act, Card, Ep, Motion, Plot, PlotItem, Segment, Series, Sound, Stage
 
 log = logging.getLogger(__name__)
@@ -39,10 +39,21 @@ AudioStatus = Literal["silent", "no_audio", "stale_audio", "ready"]
 VOLUME_MAX = 100
 UNKNOWN_CHARS_PER_S = 15.0  # an EP's voice can't be deleted (D25); this only guesses for a broken file
 
-ep_jobs: list[Callable[[], tuple[str, bool] | None]] = []
-"""What each job slot of the tab works on now: `(ep_id, locks)`, or None. `locks`: edits of
-that EP are `ep_locked` (a Plot or Cards job). Each reads its job without its slot's lock (one
-attribute read): edits ask under `store.lock`, and a job that locks an EP is set under it too."""
+
+
+class EpUse(NamedTuple):
+    """The EP an unfinished job works on, as its slot says it in `ep_jobs`."""
+
+    ep_id: str
+    # `locks`: edits of the EP are `ep_locked` (a Plot or Cards job); `renders`: a Render job,
+    # so starting a Plot or Cards job on the EP is `ep_busy` (D57); `works`: any other job.
+    how: Literal["works", "locks", "renders"]
+
+
+ep_jobs: list[Callable[[], EpUse | None]] = []
+"""What each job slot of the tab works on now, or None. Each reads its job without its slot's
+lock (`JobSlot.running`): edits ask under `store.lock`, and a job that locks an EP is set under
+it too."""
 
 
 class ListedEp(BaseModel):
@@ -458,13 +469,13 @@ def _plot(series: Series, value: object, confirmed: bool) -> Plot:
     return plot
 
 
-def _plot_items(series: Series, kind: Kind, value: object, most: int) -> list[PlotItem]:
+def _plot_items(series: Series, item_kind: ItemKind, value: object, most: int) -> list[PlotItem]:
     if not isinstance(value, list) or len(value) > most or not all(isinstance(item, dict) for item in value):
         raise invalid_request()
     items: list[PlotItem] = []
     for item in value:
         if item.get("id") is not None:
-            if series_module.find_item(series, kind, item["id"]) is None or any(i.id == item["id"] for i in items):
+            if series_module.find_item(series, item_kind, item["id"]) is None or any(i.id == item["id"] for i in items):
                 raise invalid_request()
             items.append(PlotItem(id=item["id"]))
         else:
@@ -473,7 +484,7 @@ def _plot_items(series: Series, kind: Kind, value: object, most: int) -> list[Pl
                 name=series_module.checked_text(item.get("name"), 1, series_module.ITEM_NAME_MAX),
                 description=series_module.checked_text(item.get("description", ""), 0, series_module.DESCRIPTION_MAX),
             )
-            if KINDS[kind].tagged:
+            if KINDS[item_kind].tagged:
                 new.tag = series_module.checked_text(item.get("tag", ""), 0, series_module.TAG_MAX)
             items.append(new)
     return items
@@ -500,13 +511,18 @@ def _ep_number(project: ProjectPaths, series: Series, ep: Ep, value: object) -> 
     return value
 
 
-def _jobs_on(ep_id: str) -> list[bool]:
-    """One entry per unfinished job working on the EP: whether that job locks it."""
-    return [use[1] for current in ep_jobs if (use := current()) is not None and use[0] == ep_id]
+def _jobs_on(ep_id: str) -> list[EpUse]:
+    """One entry per unfinished job working on the EP."""
+    return [use for current in ep_jobs if (use := current()) is not None and use.ep_id == ep_id]
 
 
 def _locked(ep_id: str) -> bool:
-    return any(_jobs_on(ep_id))
+    return any(use.how == "locks" for use in _jobs_on(ep_id))
+
+
+def rendering(ep_id: str) -> bool:
+    """Whether a Render job works on the EP."""
+    return any(use.how == "renders" for use in _jobs_on(ep_id))
 
 
 def editable(project: ProjectPaths, ep_id: str) -> tuple[Series, Ep]:

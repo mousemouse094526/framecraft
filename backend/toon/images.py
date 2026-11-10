@@ -18,8 +18,8 @@ from pydantic import BaseModel
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.toon import episodes, klein, prompts, series, steps, store
-from backend.toon.kinds import CARD_SIZE, Kind
-from backend.toon.klein import Draw, Drawn, Encode, Encoded
+from backend.toon.kinds import CARD_SIZE, ItemKind
+from backend.toon.klein import Draw, Drawn
 from backend.toon.store import Card, CardImage, Segment, Series
 
 log = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class MissingRef(BaseModel):
     """A character or background with no reference image yet, and how many cards of the job
     it made skip (D13)."""
 
-    kind: Kind
+    kind: ItemKind  # the response's field name (spec › Image job)
     id: str
     name: str
     cards: int
@@ -98,7 +98,7 @@ def plan(project: ProjectPaths, body: dict) -> ImagePlan:
 
 
 def copy_refs(project: ProjectPaths, plan: ImagePlan) -> None:
-    """Step 1: the reference images the job uses go into `.image-job/`, so one can change or
+    """Spec › Image job step 1: the reference images the job uses go into `.image-job/`, so one can change or
     go meanwhile. Call with the store's lock held, as `plan` read their `ref_rev`."""
     folder = project.image_job_dir
     shutil.rmtree(folder, ignore_errors=True)
@@ -111,7 +111,7 @@ def copy_refs(project: ProjectPaths, plan: ImagePlan) -> None:
 
 
 def put_image(project: ProjectPaths, plan: ImagePlan, card: CardDraw, png: bytes, seed: int, prompt: str) -> bool:
-    """Step 4: the new PNG, then under the lock the card's image becomes its previous one and
+    """Spec › Image job step 4: the new PNG, then under the lock the card's image becomes its previous one and
     the new one its image, then the old previous file goes (D33). False when the card went
     meanwhile (deleted, or its act split again): the picture is dropped."""
     images = project.card_images_dir(plan.series_id, plan.ep_id)
@@ -134,7 +134,7 @@ def put_image(project: ProjectPaths, plan: ImagePlan, card: CardDraw, png: bytes
 
 
 def run(job: steps.Run, project: ProjectPaths, plan: ImagePlan) -> None:
-    """Steps 2–6 of the Image job: Qwen translates every card's description as it was at the
+    """Spec › Image job steps 2–6: Qwen translates every card's description as it was at the
     start, its child ends (D36), then klein encodes every prompt and draws the cards in order,
     each written as soon as it is (D33). A card klein fails on is counted and the job goes on."""
     asks = [prompts.card_scene_prompt(c.description, c.names) if c.description else None for c in plan.cards]
@@ -144,23 +144,21 @@ def run(job: steps.Run, project: ProjectPaths, plan: ImagePlan) -> None:
         for c, scene in zip(plan.cards, scenes, strict=True)
     ]
     job.update(state="drawing", done=0)
-    process, requests, replies = steps.start_klein(job, project)
-    requests.put(Encode(card_prompts))
-    steps.klein_reply(job, process, replies, Encoded)
+    drawer = steps.open_klein(job, project, card_prompts)
     width, height = plan.size
     failed: list[str] = []
     for done, (card, prompt) in enumerate(zip(plan.cards, card_prompts, strict=True), start=1):
         seed = random.randint(0, steps.SEED_MAX)
-        requests.put(Draw(index=done - 1, ref_paths=card.ref_paths, width=width, height=height, seed=seed))
+        drawer.requests.put(Draw(index=done - 1, ref_paths=card.ref_paths, width=width, height=height, seed=seed))
         # A `WorkerError` asked for comes back like a `Drawn` instead of failing the job.
-        drawn = steps.klein_reply(job, process, replies, Drawn, klein.WorkerError)
+        drawn = steps.klein_reply(job, drawer, Drawn, klein.WorkerError)
         if isinstance(drawn, klein.WorkerError):
             log.error("klein failed on card %s (%s): %s", card.card_id, drawn.code, drawn.detail)
             failed.append(card.card_id)
         elif not put_image(project, plan, card, drawn.png, seed, prompt):
             log.info("the picture of card %s is dropped: the card went", card.card_id)
         job.update(done=done, failed_cards=list(failed))
-    requests.put(None)
+    drawer.requests.put(None)
 
 
 def _ready(project: ProjectPaths, plan: ImagePlan) -> None:
@@ -260,10 +258,10 @@ def _missing_refs(series_now: Series, skipped: list[tuple[Segment, Card]]) -> li
     """Each item with `ref_rev` 0 that a skipped card uses, by first use, with its card count."""
     found: dict[str, MissingRef] = {}
     for segment, card in skipped:
-        for kind, item_id in [*(("characters", i) for i in card.character_ids), ("backgrounds", segment.background_id)]:
-            item = series.find_item(series_now, kind, item_id)
+        for item_kind, item_id in [*(("characters", i) for i in card.character_ids), ("backgrounds", segment.background_id)]:
+            item = series.find_item(series_now, item_kind, item_id)
             if item is not None and item.ref_rev == 0:
-                found.setdefault(item_id, MissingRef(kind=kind, id=item_id, name=item.name, cards=0)).cards += 1
+                found.setdefault(item_id, MissingRef(kind=item_kind, id=item_id, name=item.name, cards=0)).cards += 1
     return list(found.values())
 
 

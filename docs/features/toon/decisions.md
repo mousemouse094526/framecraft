@@ -832,6 +832,26 @@
 
 **From:** feature review · **Status:** active
 
+## D61: โครงงานของ toon และชื่อที่ชนกัน ticket 07: `Worker`, `update`/`track`/`reply` ของ slot, `EpUse`, `ItemKind`
+
+**Chosen:**
+- process ของ child กับคิวคำขอและคิวคำตอบเป็นค่าเดียว `workers.Worker` (NamedTuple): `start_worker` ของ `spoil_maker.llm`, `spoil_maker.tts`, `toon.klein` คืนตัวนี้ และ `ModelJobSlot.reply(worker, expected, timeout)` รับตัวนี้; `backend/workers.py` import แค่ standard library เพราะ child import adapter ของมันพร้อมตัวนี้ (`backend.jobs` ดึง fastapi มาด้วย)
+- `JobSlot.update`, `ModelJobSlot.track`, `reply` เป็น public (เดิม `_update`, `_track`, `_reply`): ขั้นของงานเรียกตรง และ `speaking.Speaker(slot)` รับ slot แล้วเรียก `track`/`reply` ของมัน (เดิมรับสอง method); `ToonJobs.update`/`track`/`reply` ที่แค่ส่งต่อหายไป (ทุก slot ของสปอยและสปอยเมกเกอร์เปลี่ยนชื่อตาม)
+- `JobSlot.running()` คืนงานที่ยังไม่จบโดยไม่ถือ lock ของ slot (แทน `_running` ของ `ToonJobs` และ `RenderJobs`); `series.series_jobs` เก็บ slot (หาตอนถาม เพราะ test สลับ slot) แล้วอ่าน `series_id` ของ `running()` แทน `series_use` สองตัว
+- `episodes.ep_jobs` คืน `EpUse(ep_id, how)` (`how`: `works`, `locks`, `renders`); `plot.writable` ถาม `episodes.rendering(ep_id)` จึงไม่ import `toon.render`
+- `steps.open_klein(run, project, prompts)` เปิด klein ที่เดียว (start, `track`, `Encode`, รอ `Encoded`); Ref job และ Image job เรียกตัวนี้; test patch `backend.toon.klein.start_worker`; `toon/__init__.py` ไม่ re-export
+- ของใหม่ในพล็อตเป็นตัวละครและฉากหลังของ Series ผ่าน `series.new_items(series, plot)`
+- ชนิดของ item ชื่อ `kinds.ItemKind` (เดิม `Kind`), แถวของตารางเป็น `KindRow` (เดิม `ItemKind`); ตัวแปรและ path parameter ใน route เป็น `item_kind` (URL ไม่เปลี่ยน); หน้าเว็บเปลี่ยนชนิดเป็น `ItemKind` ด้วย; `MissingRef.kind` คงชื่อ field
+- ตัวพูดชื่อ `speaker` ใน `ToonJobs`, `RenderJobs`, `SentenceVoicer`; คอมเมนต์ขั้นบอกส่วนใน spec (`Spec › Plot job step 1`)
+
+**Why:** build ticket 07 (Blocked #19, #21): ทางเลือกในโค้ดล้วน ผู้ใช้ไม่เห็นอะไรเปลี่ยน; route, body และรหัส error เดิม.
+
+**Rejected:**
+- `Worker` ใน `backend.jobs` — child import fastapi ตาม `backend.errors`
+- `series_jobs` เก็บ slot ตรง — test ที่สลับ `toon_jobs` จะไม่เห็นงานของ slot ใหม่
+
+**From:** build ticket 07 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

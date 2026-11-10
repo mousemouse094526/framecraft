@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Literal, NamedTuple
 
 from backend import checks
+from backend.workers import Worker
 
 GGUF_FILE = "flux-2-klein-4b-Q4_K_M.gguf"  # Q8_0 and Q6_K peak over 12 GB on a 16 GB Mac (D51)
 STEPS = 4  # klein 4B is step-distilled (docs/library-notes/diffusers.md)
@@ -64,8 +65,8 @@ class WorkerError(NamedTuple):
     detail: str  # "{exception type}: {message}", for the log
 
 
-def start_worker(snapshot_dir: Path, gguf_dir: Path, device: str):
-    """Starts the child; returns it with the queue of requests and the queue of replies.
+def start_worker(snapshot_dir: Path, gguf_dir: Path, device: str) -> Worker:
+    """Starts the child with its queue of requests and its queue of replies.
     Fresh queues per child; daemonic, so the child dies with the backend."""
     context = multiprocessing.get_context("spawn")
     requests, replies = context.Queue(), context.Queue()
@@ -76,7 +77,7 @@ def start_worker(snapshot_dir: Path, gguf_dir: Path, device: str):
         name="framecraft-klein",
     )
     process.start()
-    return process, requests, replies
+    return Worker(process, requests, replies)
 
 
 def worker(snapshot_dir: Path, gguf_dir: Path, device: str, requests, replies) -> None:

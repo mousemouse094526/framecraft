@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from backend import llm_reply
 from backend.toon import episodes, series, store
-from backend.toon.kinds import KINDS, Kind
+from backend.toon.kinds import KINDS, ItemKind
 from backend.toon.store import Act, Card, PlotItem, Segment, Series, StoredSound
 
 ATTEMPTS = 3
@@ -33,7 +33,7 @@ class Known(BaseModel):
 
 
 def plot_prompt(cast: Series, idea: str, act_names: list[str], target_letters: int) -> str:
-    """Step 2 of the Plot job: the idea, the EP's acts, the Series' tone and its cast."""
+    """Spec › Plot job step 2: the idea, the EP's acts, the Series' tone and its cast."""
     acts = "\n".join(f"{n}. {name}" for n, name in enumerate(act_names, start=1))
     return (
         "เขียนพล็อตของคลิปการ์ตูนเล่าเรื่องแนวตั้งหนึ่งตอน เป็นภาษาไทย\n"
@@ -53,7 +53,7 @@ def plot_prompt(cast: Series, idea: str, act_names: list[str], target_letters: i
 
 
 def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | None:
-    """Step 4: an answer with a title, one summary per act, at most 6 characters and 1–6
+    """Spec › Plot job step 4: an answer with a title, one summary per act, at most 6 characters and 1–6
     backgrounds once ids the Series lacks are dropped; None when it isn't one."""
     found = llm_reply.json_object(reply)
     if found is None:
@@ -86,7 +86,7 @@ def cards_prompt(
     sounds: list[StoredSound],
     target_letters: int,
 ) -> str:
-    """Step 3 of the Cards job for the act at `index`: its summary with the ones around it."""
+    """Spec › Cards job step 3, for the act at `index`: its summary with the ones around it."""
     act = acts[index]
     before = acts[index - 1].summary if index > 0 else "(องก์แรก)"
     after = acts[index + 1].summary if index + 1 < len(acts) else "(องก์สุดท้าย)"
@@ -114,7 +114,7 @@ def cards_prompt(
 def parse_cards(
     reply: str, background_ids: list[str], character_ids: set[str], sound_ids: set[str], taken: set[str]
 ) -> list[Segment] | None:
-    """Step 5: the act's segments, each kept to what the plot and the library have; None
+    """Spec › Cards job step 5: the act's segments, each kept to what the plot and the library have; None
     when the reply isn't the JSON asked for or holds no card. New ids avoid `taken`."""
     found = llm_reply.json_object(reply)
     segments_found = found.get("segments") if found else None
@@ -139,9 +139,9 @@ def parse_cards(
     return segments or None
 
 
-def known(items: list[PlotItem], cast: Series, kind: Kind) -> list[Known]:
+def known(items: list[PlotItem], cast: Series, item_kind: ItemKind) -> list[Known]:
     """The plot's items as the Cards job's prompt names them, all by an id of the Series."""
-    by_id = {item.id: item for item in getattr(cast, kind)}
+    by_id = {item.id: item for item in getattr(cast, item_kind)}
     return [Known(id=item.id, name=by_id[item.id].name, description=by_id[item.id].description) for item in items]
 
 
@@ -165,8 +165,8 @@ def _card(value: object, character_ids: set[str], taken: set[str]) -> Card | Non
     )
 
 
-def _plot_items(value: object, cast: Series, kind: Kind) -> list[PlotItem] | None:
-    ids = {item.id for item in getattr(cast, kind)}
+def _plot_items(value: object, cast: Series, item_kind: ItemKind) -> list[PlotItem] | None:
+    ids = {item.id for item in getattr(cast, item_kind)}
     if value is None:
         return []
     if not isinstance(value, list):
@@ -181,7 +181,7 @@ def _plot_items(value: object, cast: Series, kind: Kind) -> list[PlotItem] | Non
             continue
         name = _cleaned(item.get("name"))[: series.ITEM_NAME_MAX]
         if name:
-            tag = _cleaned(item.get("tag"))[: series.TAG_MAX] if KINDS[kind].tagged else ""
+            tag = _cleaned(item.get("tag"))[: series.TAG_MAX] if KINDS[item_kind].tagged else ""
             items.append(PlotItem(new=True, name=name, tag=tag, description=_cleaned(item.get("description"))[: series.DESCRIPTION_MAX]))
     return items
 

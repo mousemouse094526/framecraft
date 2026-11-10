@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from backend import app as app_module
-from backend import checks, ffmpeg, gpu, paths, spoil_maker, toon
+from backend import checks, ffmpeg, gpu, paths, spoil_maker
 from backend.app import app
 from backend.paths import ProjectPaths
 from backend.toon import jobs, render, sounds
@@ -56,7 +56,7 @@ def tts(monkeypatch) -> FakeTts:
 @pytest.fixture
 def klein(monkeypatch) -> FakeKlein:
     fake = FakeKlein()
-    monkeypatch.setattr(toon, "start_klein_worker", fake)
+    monkeypatch.setattr("backend.toon.klein.start_worker", fake)
     return fake
 
 
@@ -316,6 +316,19 @@ def test_a_cards_job_on_an_ep_a_render_works_on_is_ep_busy(client, llm, project,
     renderer.wait_until(first_run)
     response = start(client, "cards", ep["id"], confirm_loss=True)
     assert (response.status_code, response.json()["code"]) == (409, "ep_busy")
+    renderer.release(first_run)
+    assert poll_until(client, CURRENT, lambda job: job["state"] in FINISHED, timeout_s=60)["state"] == "done"
+
+
+def test_a_plot_job_on_an_ep_a_render_works_on_is_ep_busy(client, llm, project, renderer):
+    _, ep = three_cards(client, llm, project)
+    assert rendered(client, ep["id"])["state"] == "done"  # voices every card: the next render needs no GPU
+    first_run = len(renderer.commands)
+    renderer.pause_at(first_run)
+    assert start_render(client, ep["id"]).status_code == 202
+    renderer.wait_until(first_run)
+    response = start(client, "plot", ep["id"])
+    assert (response.status_code, response.json()["code"]) == (409, "ep_busy")  # before `plot_confirmed`
     renderer.release(first_run)
     assert poll_until(client, CURRENT, lambda job: job["state"] in FINISHED, timeout_s=60)["state"] == "done"
 
