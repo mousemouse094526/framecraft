@@ -8,9 +8,13 @@ then the GPU slot's own. Files are written through `{name}.{uuid}.tmp` and renam
 
 import json
 import logging
+import os
 import re
 import secrets
 import threading
+from collections.abc import Callable
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
@@ -237,18 +241,101 @@ def write_ep(ep_address: EpAddress, ep: Ep) -> None:
 
 
 def read_sounds(project: ProjectPaths) -> list[StoredSound]:
-    """The background sound library; empty until a sound is imported."""
-    path = project.toon_sounds_file
+    """The background sound library; empty until a sound is imported. A file changed into one
+    that won't read while the app runs is recovered (and rewritten) by `reconcile_sounds`
+    from the m4a files, their lengths `0` until the next start reads them (D70). An entry
+    whose m4a is gone stays until that start: a read never scans the folder. Holds `lock`."""
+    with lock:
+        listed = _listed_sounds(project.toon_sounds_file)
+        sounds = _good_sounds(listed or [])
+        if listed is None or len(sounds) < len(listed):
+            return reconcile_sounds(project, lambda m4a: 0.0)
+        return sounds
+
+
+def reconcile_sounds(project: ProjectPaths, length: Callable[[Path], float]) -> list[StoredSound]:
+    """`sounds.json` made to match the m4a files beside it, which are the sounds themselves
+    (D70): a file that won't read at all is kept aside as `sounds.json.bad-*` and the library
+    starts with none; an entry that won't read, repeats an id or has no m4a is dropped; an m4a
+    with no entry comes in named by its id, `length` giving its seconds, as it does for an entry
+    of length `0` (recovered while the app ran). Written only when something changed; a write
+    that fails is logged, and the library is still returned."""
+    with lock:
+        path, folder = project.toon_sounds_file, project.toon_sounds_dir
+        listed = _listed_sounds(path)
+        kept_aside = listed is None
+        if kept_aside:
+            aside = path.with_name(f"{path.name}.bad-{datetime.now(UTC):%Y%m%d-%H%M%S}-{secrets.token_hex(2)}")
+            try:
+                os.replace(path, aside)
+                log.warning("kept the unreadable %s aside as %s", path.name, aside.name)
+            except OSError:  # it stays where it is; `write_sounds` won't write over it
+                log.exception("could not keep the unreadable %s aside", path)
+            listed = []
+        on_disk = {sound_id for sound_id in m4a_ids(project) if SOUND_ID.fullmatch(sound_id)}
+        sounds = [sound for sound in _good_sounds(listed) if sound.id in on_disk]
+        timed = 0
+        for sound in sounds:
+            if sound.duration_s == 0 and (seconds := round(length(folder / f"{sound.id}.m4a"), 1)):
+                sound.duration_s, timed = seconds, timed + 1
+        known = {sound.id for sound in sounds}
+        added = [
+            StoredSound(id=sound_id, name=sound_id, duration_s=round(length(folder / f"{sound_id}.m4a"), 1))
+            for sound_id in sorted(on_disk - known)
+        ]
+        dropped = len(listed) - len(sounds)
+        if kept_aside or dropped or added or timed:
+            log.warning("the sound library: dropped %d entries, added %d sounds from their m4a, timed %d", dropped, len(added), timed)
+            try:
+                write_sounds(project, [*sounds, *added])
+            except OSError:
+                log.exception("could not write the recovered %s", path)
+        return [*sounds, *added]
+
+
+def m4a_ids(project: ProjectPaths) -> set[str]:
+    """The name, without `.m4a`, of every m4a in the sound library's folder, listed or not."""
+    folder = project.toon_sounds_dir
+    return {m4a.stem for m4a in folder.glob("*.m4a")} if folder.is_dir() else set()
+
+
+def _listed_sounds(path: Path) -> list | None:
+    """The entries of `sounds.json`, unchecked: `[]` with no file, None when it won't read
+    at all (not JSON, no list of `sounds`, another `version`)."""
     if not path.is_file():
         return []
     try:
-        return [StoredSound.model_validate(sound) for sound in json.loads(path.read_text(encoding="utf-8"))["sounds"]]
-    except (ValueError, KeyError, TypeError, ValidationError) as error:
-        log.warning("skipped %s: %s", path, str(error).splitlines()[0])
-        return []
+        found = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        log.warning("could not read %s: %s", path, str(error).splitlines()[0])
+        return None
+    if not isinstance(found, dict) or found.get("version") != VERSION or not isinstance(found.get("sounds"), list):
+        log.warning("could not read %s: not a sound library of version %d", path, VERSION)
+        return None
+    return found["sounds"]
+
+
+def _good_sounds(listed: list) -> list[StoredSound]:
+    """The entries that are sounds, with an id of `SOUND_ID` not taken by one before them."""
+    sounds: list[StoredSound] = []
+    for entry in listed:
+        try:
+            sound = StoredSound.model_validate(entry)
+        except ValidationError as error:
+            log.warning("dropped a sound library entry: %s", str(error).splitlines()[0])
+            continue
+        if not SOUND_ID.fullmatch(sound.id) or any(sound.id == before.id for before in sounds):
+            log.warning("dropped the sound library entry %r: a malformed or repeated id", sound.id)
+            continue
+        sounds.append(sound)
+    return sounds
 
 
 def write_sounds(project: ProjectPaths, sounds: list[StoredSound]) -> None:
+    """Raises `OSError` instead of writing over a `sounds.json` that won't read: one that
+    `reconcile_sounds` could not keep aside holds the only copy of the names (D70)."""
+    if _listed_sounds(project.toon_sounds_file) is None:
+        raise OSError(f"{project.toon_sounds_file} won't read and was not kept aside: not written over")
     project.toon_sounds_dir.mkdir(parents=True, exist_ok=True)
     body = {"version": VERSION, "sounds": [sound.model_dump() for sound in sounds]}
     files.write_atomic(project.toon_sounds_file, json.dumps(body, ensure_ascii=False, indent=2), unique=True)

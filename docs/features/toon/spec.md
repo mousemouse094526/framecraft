@@ -101,9 +101,9 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 - **`backend.spoil.adapter`**
   - `YtDlpAdapter.download` รับ options (รูปแบบ, folder ปลายทาง, แม่แบบชื่อไฟล์, เขียน thumbnail ไหม); ค่าตั้งต้นคือของ Temp clip เดิม; คลังเสียงพื้นใช้ `bestaudio`, `media/toon/.partial/`, ไม่มี thumbnail, ไม่ merge mp4; extractor และกติกาลิงก์เดิม (ADR-0029)
 - **`backend.toon`** (ใหม่)
-  - `store`: อ่านเขียน `series.json`, `ep.json`, `sounds.json` ผ่าน `.tmp` แล้ว rename ใต้ lock ของ toon
+  - `store`: อ่านเขียน `series.json`, `ep.json`, `sounds.json` ผ่าน `.tmp` แล้ว rename ใต้ lock ของ toon; `reconcile_sounds` ให้ `sounds.json` ตรงกับไฟล์ m4a (D70, D71)
   - `series`: Series ตัวละคร ฉากหลัง ภาพอ้างอิง การลบ, ของใหม่ในพล็อตเป็นตัวละครและฉากหลังของ Series (`new_items`), `ref_rev` ของทุกตัว (`ref_revs`, D62); `ItemRef` ตัวละครหรือฉากหลังหนึ่งตัวเป็นค่าเดียวที่ฟังก์ชันของตัวเดียวและ route รับ (D64); `series_jobs`: job slot ทุกตัวของ tab ที่ Series ของงานที่ยังไม่จบลบไม่ได้ (D61)
-  - `kinds`: ตารางค่าที่ต่างกันระหว่างตัวละครกับฉากหลัง (D58); ชนิด `ItemKind` ไม่ชน `JobKind` ของ Toon job (D61)
+  - `kinds`: ตารางค่าที่ต่างกันระหว่างตัวละครกับฉากหลัง (D58) รวมจำนวนสูงสุดในพล็อต `plot_max` (D71); ชนิด `ItemKind` ไม่ชน `JobKind` ของ Toon job (D61)
   - `episodes`: EP พล็อต (`plot_items` อ่านตัวละครและฉากหลังของพล็อตทั้งจากผู้ใช้และจาก Qwen, D62) การ์ด การแก้ สถานะการ์ด; `ep_jobs`: แต่ละ slot บอก EP ที่ทำงานอยู่เป็น `EpUse` (`how`: ทำงานอยู่, ล็อก, render: Plot job อ่าน `rendering`, D61)
   - `writer`: คำสั่งและการอ่านคำตอบของ Plot job และ Cards job (ใช้ worker ของ `spoil_maker.llm`)
   - `prompts`: คำสั่งภาพ, คำสั่งแปลคำบรรยาย และการอ่านคำตอบ
@@ -278,7 +278,7 @@ media/toon/
 
 `sounds.json`: `{"version": 1, "sounds": [{"id": "m_01", "name": "ฝนตกในป่า", "duration_s": 62.4, "source": "file"}]}`; `source` `file` หรือ `link`.
 
-- ตรวจคลังตอน start (`sounds.clean_on_start`, ภายใต้ `store.lock`, D70):
+- ตรวจคลังตอน start (`sounds.clean_on_start` เรียก `store.reconcile_sounds`, ภายใต้ `store.lock`, D70, D71):
   - ทั้งไฟล์อ่านไม่ได้ (JSON เสีย, ไม่มี list `sounds`, `version` ≠ 1) → rename เป็น `sounds.json.bad-{YYYYMMDD-HHMMSS}-{4 hex}` (UTC, ไม่ลบเอง) เริ่มจากไม่มีรายการ
   - เก็บรายการที่ผ่าน schema, `id` fullmatch `SOUND_ID`, ไม่ซ้ำ และมี `{id}.m4a`; ที่เหลือทิ้งพร้อม log
   - `{id}.m4a` ที่ไม่มีรายการ → เพิ่มเรียงตาม id: `name` = id, `duration_s` จาก `ffmpeg.probe` timeout 10 วินาที (ล้ม → `0`), `source` `file`; เขียนเมื่อมีอะไรเปลี่ยน

@@ -1025,6 +1025,27 @@
 
 **From:** blocked #30 · **Status:** active
 
+## D71: `store.reconcile_sounds`, `ffmpeg.probe(timeout=)`, `KindRow.plot_max`
+
+**Chosen:**
+- การตรวจคลังของ D70 อยู่ที่ `store.reconcile_sounds(project, length)` ไม่ใช่ `sounds.reconcile`: `store.read_sounds` ต้องเรียกมัน และ `sounds` import `store` อยู่แล้ว; `sounds.clean_on_start` ส่ง `_length` (`ffmpeg.probe` timeout `PROBE_SECONDS` 10, ล้ม → `0`), `read_sounds` ส่งความยาว `0`
+- ระหว่างทำงาน "อ่านไม่ได้" = ทั้งไฟล์อ่านไม่ได้ หรือมีรายการที่ไม่ผ่าน schema/`SOUND_ID`/ซ้ำ; รายการที่ไม่มี m4a ไม่เช็คระหว่างทำงาน (ไม่สแกน folder ทุก read) ทิ้งตอน start
+- rename เป็น `.bad-*` ไม่สำเร็จ → log แล้วกู้จาก m4a ในหน่วยความจำ; `write_sounds` raise `OSError` แทนการเขียนทับ `sounds.json` ที่อ่านไม่ได้ (import, เปลี่ยนชื่อ, ลบ ตอบ `500` จนแก้ดิสก์ได้)
+- ตอน start รายการที่ `duration_s` `0` (กู้ระหว่างทำงาน) ถูก probe ใหม่ ตาม "ความยาวเป็น `0` จน start ใหม่"; `_length` ล้มด้วย `OSError` (ffmpeg ไม่รัน) → `0` เหมือน `FfmpegFailed`
+- test: เกินเวลาใช้ named pipe จริง (`os.mkfifo`, `PROBE_SECONDS` 0.5) ข้ามบน Windows; crash ระหว่างลบ patch `store.write_sounds`, เขียนไม่ได้ patch `files.write_atomic`, rename ไม่ได้ใช้ folder read-only — ไม่มีทางอื่นจาก API; `restart`, `write_library` อยู่ใน `fakes`
+- `_new_sound_id` ไม่ใช้ id ของ m4a ที่คลังไม่มี (start ถัดไปจะเพิ่มมัน)
+- `ffmpeg.input_info`/`probe` รับ `timeout`; เกิน → `FfmpegFailed` (`last_line` `timed out`); `store.m4a_ids` ที่เดียวของการสแกน folder
+- `kinds.KindRow.plot_max` (6 ทั้งสองชนิด) แทน `PLOT_CHARACTERS_MAX`/`PLOT_BACKGROUNDS_MAX`; `episodes.plot_of`/`over_max` วนตาม `KINDS`; `writer.WrittenPlot.plot: Plot`; `writer.known(plot, cast)` คืน dict ตามชนิด
+- `PATCH` plot ที่ไม่มี key `backgrounds` เลย: เดิม `invalid_request` ข้อความทั่วไป ตอนนี้ `invalid_request` "พล็อตต้องมีฉากหลังอย่างน้อยหนึ่ง" (status และ code เดิม; หน้าเว็บส่งทั้งสอง key เสมอ)
+
+**Why:** ticket 13 (D70, smell ค้างจาก feature review รอบห้า); review: Spec (c) rename ล้มแล้ว import เขียนทับไฟล์เสีย, `OSError` ของ ffmpeg; Newcomer ความยาว `0` ไม่เคยถูกอ่านใหม่; Standards test patch `ffmpeg.probe`, helper ที่สองไฟล์ใช้.
+
+**Rejected:**
+- `store` import `ffmpeg` เพื่อ probe เอง — store เป็นแค่ไฟล์บนดิสก์; ผู้เรียกบอกวิธีวัดความยาว
+- เช็ค m4a ทุก `read_sounds` — สแกน folder ทุก request ของ tab
+
+**From:** build ticket 13 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

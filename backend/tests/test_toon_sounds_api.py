@@ -2,6 +2,9 @@
 a link's with a fake yt-dlp adapter, `in_use`, `sound: null`, and the Cards job picking a sound
 (toon seam 1 › Sound import, `in_use` ของเสียง, `sound: null`)."""
 
+import json
+import os
+import re
 import threading
 from pathlib import Path
 
@@ -9,7 +12,7 @@ import anyio
 import deno
 import pytest
 
-from backend import checks, ffmpeg, spoil
+from backend import checks, ffmpeg, files, spoil
 from backend.spoil.adapter import DownloadOptions, YtDlpAdapter, select_formats
 from backend.toon import sounds, store
 
@@ -26,12 +29,14 @@ from .fakes import (
     ok_deno,
     ok_yt_dlp,
     play,
+    restart,
     poll_until,
     run,
     start,
     tone,
     toon_api,
     with_series,
+    write_library,
     youtube_info,
 )
 
@@ -213,7 +218,7 @@ def test_a_second_sound_import_while_one_runs_is_busy_but_one_during_a_toon_job_
 # --- in use ---
 
 
-def with_sound_on_cards(client, llm, tmp_path) -> tuple[str, dict, dict]:
+def with_sound_on_cards(client, llm, tmp_path) -> tuple[dict, dict, Writer]:
     """A Series whose EP is split with one sound in the library: the Cards job picks it."""
     sound = import_tone(client, tmp_path)
     series_id, _, _ = with_series(client, llm)
@@ -314,3 +319,166 @@ def test_a_page_that_goes_away_as_ffmpeg_ends_adds_no_sound(client, project, tmp
     assert client.get(TOON_SOUNDS).json() == []
     assert list(project.toon_partial_dir.iterdir()) == []
     assert list(project.toon_sounds_dir.iterdir()) == []
+
+
+# --- a library that matches its m4a files (D70) ---
+
+
+def bad_copies(project) -> list[Path]:
+    return sorted(project.toon_sounds_dir.glob("sounds.json.bad-*"))
+
+
+def test_an_unreadable_library_is_kept_aside_at_start_and_its_sounds_come_back_named_by_id(client, project, tmp_path):
+    rain, wind = import_tone(client, tmp_path, "ฝน.wav"), import_tone(client, tmp_path, "ลม.wav")
+    write_library(project, "{not json")
+    restart(client)
+    listed = client.get(TOON_SOUNDS).json()
+    assert sorted((s["id"], s["name"], s["source"]) for s in listed) == sorted(
+        (s["id"], s["id"], "file") for s in (rain, wind)
+    )
+    assert [s["duration_s"] for s in listed] == [pytest.approx(1.5, abs=0.1)] * 2
+    [kept] = bad_copies(project)
+    assert re.fullmatch(r"sounds\.json\.bad-\d{8}-\d{6}-[0-9a-f]{4}", kept.name)
+    assert kept.read_text(encoding="utf-8") == "{not json"
+
+
+def test_a_library_of_another_version_is_kept_aside_and_recovered_the_same_way(client, project, tmp_path):
+    rain = import_tone(client, tmp_path, "ฝน.wav")
+    write_library(project, {"version": 2, "sounds": [rain]})
+    restart(client)
+    assert [(s["id"], s["name"]) for s in client.get(TOON_SOUNDS).json()] == [(rain["id"], rain["id"])]
+    assert len(bad_copies(project)) == 1
+
+
+def test_a_bad_entry_is_dropped_and_its_m4a_comes_back_named_by_id_but_an_m4a_off_the_id_pattern_stays_out(
+    client, project, tmp_path
+):
+    rain, wind = import_tone(client, tmp_path, "ฝน.wav"), import_tone(client, tmp_path, "ลม.wav")
+    (project.toon_sounds_dir / "x_1.m4a").write_bytes((project.toon_sounds_dir / f"{rain['id']}.m4a").read_bytes())
+    write_library(
+        project,
+        {
+            "version": 1,
+            "sounds": [
+                rain,
+                wind | {"source": "tape"},
+                {"id": "x_1", "name": "ชื่อผิดรูป", "duration_s": 1, "source": "file"},
+                rain | {"name": "ซ้ำ"},
+            ],
+        },
+    )
+    restart(client)
+    assert [(s["id"], s["name"]) for s in client.get(TOON_SOUNDS).json()] == [
+        (rain["id"], "ฝน"),
+        (wind["id"], wind["id"]),
+    ]
+    assert bad_copies(project) == []
+
+
+def test_an_entry_with_no_m4a_is_gone_after_a_start(client, project, tmp_path):
+    rain, wind = import_tone(client, tmp_path, "ฝน.wav"), import_tone(client, tmp_path, "ลม.wav")
+    (project.toon_sounds_dir / f"{wind['id']}.m4a").unlink()
+    restart(client)
+    assert client.get(TOON_SOUNDS).json() == [rain]
+
+
+def test_an_m4a_ffmpeg_cannot_read_comes_back_with_no_length(client, project):
+    project.toon_sounds_dir.mkdir(parents=True)
+    (project.toon_sounds_dir / "m_0000000a.m4a").write_bytes(b"not a sound")
+    restart(client)
+    assert client.get(TOON_SOUNDS).json() == [{"id": "m_0000000a", "name": "m_0000000a", "duration_s": 0, "source": "file"}]
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="a named pipe needs a POSIX system")
+def test_an_m4a_ffmpeg_is_still_reading_after_its_time_comes_back_with_no_length(client, project, monkeypatch):
+    # A named pipe nobody writes to: ffmpeg waits on it for as long as it is let.
+    monkeypatch.setattr(sounds, "PROBE_SECONDS", 0.5)
+    project.toon_sounds_dir.mkdir(parents=True)
+    os.mkfifo(project.toon_sounds_dir / "m_0000000a.m4a")
+    restart(client)
+    assert client.get(TOON_SOUNDS).json()[0]["duration_s"] == 0
+
+
+def test_a_library_that_matches_its_files_is_not_written_at_start(client, project, tmp_path):
+    import_tone(client, tmp_path)
+    before = project.toon_sounds_file.stat()
+    restart(client)
+    after = project.toon_sounds_file.stat()
+    assert (after.st_ino, after.st_mtime_ns) == (before.st_ino, before.st_mtime_ns)
+
+
+def test_a_segment_on_a_recovered_sound_still_plays_it(client, llm, project, tmp_path):
+    sound, ep, _ = with_sound_on_cards(client, llm, tmp_path)
+    write_library(project, "{not json")
+    restart(client)
+    assert [s["id"] for s in client.get(TOON_SOUNDS).json()] == [sound["id"]]
+    assert client.delete(f"{TOON_SOUNDS}/{sound['id']}").json()["code"] == "in_use"
+
+
+def test_with_no_library_one_import_is_one_sound(client, project, tmp_path):
+    sound = import_tone(client, tmp_path)
+    assert client.get(TOON_SOUNDS).json() == [sound]
+    assert [s["id"] for s in json.loads(project.toon_sounds_file.read_text(encoding="utf-8"))["sounds"]] == [sound["id"]]
+
+
+def test_a_library_broken_while_the_app_runs_keeps_every_sound_through_the_next_import(client, project, tmp_path):
+    rain, wind = import_tone(client, tmp_path, "ฝน.wav"), import_tone(client, tmp_path, "ลม.wav")
+    write_library(project, "{not json")
+    fire = import_tone(client, tmp_path, "ไฟ.wav")
+    listed = {s["id"]: s for s in client.get(TOON_SOUNDS).json()}
+    assert sorted(listed) == sorted([rain["id"], wind["id"], fire["id"]])
+    assert [listed[s["id"]]["name"] for s in (rain, wind, fire)] == [rain["id"], wind["id"], "ไฟ"]
+    assert (listed[rain["id"]]["duration_s"], listed[wind["id"]]["duration_s"]) == (0, 0)  # until the next start
+    assert len(bad_copies(project)) == 1
+    restart(client)
+    timed = {s["id"]: s["duration_s"] for s in client.get(TOON_SOUNDS).json()}
+    assert [timed[rain["id"]], timed[wind["id"]]] == [pytest.approx(1.5, abs=0.1)] * 2
+
+
+def test_a_recovered_library_that_cannot_be_written_is_still_read(client, project, tmp_path, monkeypatch):
+    rain = import_tone(client, tmp_path)
+    write_library(project, "{not json")
+
+    def refuse(*args, **kwargs):
+        raise OSError("read-only")
+
+    monkeypatch.setattr(files, "write_atomic", refuse)
+    response = client.get(TOON_SOUNDS)
+    assert response.status_code == 200
+    assert [s["id"] for s in response.json()] == [rain["id"]]
+
+
+@pytest.mark.skipif(os.name != "posix" or os.geteuid() == 0, reason="a read-only folder needs a POSIX user")
+def test_a_library_that_cannot_be_kept_aside_is_recovered_but_never_written_over(client, project, tmp_path):
+    rain = import_tone(client, tmp_path)
+    write_library(project, "{not json")
+    project.toon_sounds_dir.chmod(0o555)
+    try:
+        assert [s["id"] for s in client.get(TOON_SOUNDS).json()] == [rain["id"]]
+        with pytest.raises(OSError):  # the test client raises what the app would answer 500 with
+            client.patch(f"{TOON_SOUNDS}/{rain['id']}", json={"name": "ฝน"})
+    finally:
+        project.toon_sounds_dir.chmod(0o755)
+    assert project.toon_sounds_file.read_text(encoding="utf-8") == "{not json"
+
+
+def test_a_sound_whose_m4a_came_in_before_a_crash_is_in_the_library_after_a_start(client, project, tmp_path):
+    rain = import_tone(client, tmp_path, "ฝน.wav")
+    m4a = project.toon_sounds_dir / "m_0000000b.m4a"
+    m4a.write_bytes((project.toon_sounds_dir / f"{rain['id']}.m4a").read_bytes())  # placed, `sounds.json` not written
+    restart(client)
+    assert [(s["id"], s["name"]) for s in client.get(TOON_SOUNDS).json()] == [(rain["id"], "ฝน"), ("m_0000000b", "m_0000000b")]
+
+
+def test_a_sound_deleted_before_a_crash_does_not_come_back(client, project, tmp_path, monkeypatch):
+    rain = import_tone(client, tmp_path)
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("the app stopped here")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(store, "write_sounds", crash)
+        with pytest.raises(RuntimeError):
+            client.delete(f"{TOON_SOUNDS}/{rain['id']}")
+    restart(client)
+    assert client.get(TOON_SOUNDS).json() == []

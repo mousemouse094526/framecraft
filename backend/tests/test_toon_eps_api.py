@@ -9,7 +9,8 @@ import pytest
 from backend import gpu
 from backend.paths import EpAddress
 from backend.spoil_maker import thai
-from backend.toon import store
+from backend.toon import store, writer
+from backend.toon.kinds import KINDS
 from backend.toon.series import DESCRIPTION_MAX
 from backend.toon.store import Audio, CardImage
 
@@ -242,6 +243,23 @@ def test_a_plot_left_with_no_background_is_invalid_request(client, llm):
     response = client.patch(f"/api/toon/eps/{ep_id}", json={"plot": {"characters": [{"id": character}], "backgrounds": []}})
 
     assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
+
+
+@pytest.mark.parametrize("item_kind", ["characters", "backgrounds"])
+def test_a_plot_of_more_items_of_a_kind_than_it_may_use_is_invalid_request_from_the_page_and_asked_again_of_qwen(
+    client, llm, item_kind
+):
+    series_id, _, background = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    too_many = [{"name": f"ใหม่ {n}"} for n in range(KINDS[item_kind].plot_max + 1)]
+    plot = {"characters": [], "backgrounds": [{"id": background}]} | {item_kind: too_many}
+
+    response = client.patch(f"/api/toon/eps/{ep_id}", json={"plot": plot})
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
+
+    llm.respond.__self__.plot |= {item_kind: too_many}  # the `Writer` behind `respond` (fakes.Writer)
+    job = run(client, "plot", ep_id)
+    assert (job["state"], job["error"]["code"], len(llm.requests)) == ("failed", "write_failed", writer.ATTEMPTS)
 
 
 def test_a_new_item_of_the_plot_switches_to_one_of_the_series(client, llm):

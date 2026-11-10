@@ -8,7 +8,7 @@ delete `ep_busy` while any job works on it: each job slot of the tab adds a chec
 
 import logging
 import shutil
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping, Sized
 from contextlib import contextmanager
 from typing import Literal, NamedTuple, get_args
 
@@ -28,7 +28,6 @@ log = logging.getLogger(__name__)
 
 IDEA_MAX, TITLE_MAX, SUMMARY_MAX = 500, 60, 1000
 TEXT_MAX, CARD_DESCRIPTION_MAX = 200, 500  # D53
-PLOT_CHARACTERS_MAX, PLOT_BACKGROUNDS_MAX = 6, 6
 CARD_CHARACTERS_MAX = 2  # D30
 HOLD_MAX, HOLD_STEP, SILENT_HOLD = 5, 0.5, 2  # D14, D21
 EP_NUMBER_MAX = 999  # D40
@@ -437,20 +436,25 @@ def _plot(series: Series, value: object, confirmed: bool) -> Plot:
     confirmed: only the first Cards job takes them into the Series (spec › Cards job, D54)."""
     if not isinstance(value, dict):
         raise invalid_request()
-    characters, backgrounds = value.get("characters", []), value.get("backgrounds")
-    if not (isinstance(characters, list) and isinstance(backgrounds, list)):
+    by_kind = {item_kind: value.get(item_kind, []) for item_kind in KINDS}
+    if not all(isinstance(items, list) for items in by_kind.values()) or over_max(by_kind):
         raise invalid_request()
-    if len(characters) > PLOT_CHARACTERS_MAX or len(backgrounds) > PLOT_BACKGROUNDS_MAX:
-        raise invalid_request()
-    plot = Plot(
-        characters=plot_items(series, "characters", characters),
-        backgrounds=plot_items(series, "backgrounds", backgrounds),
-    )
+    plot = plot_of(series, by_kind)
     if not plot.backgrounds:
         raise ApiError(400, "invalid_request", "พล็อตต้องมีฉากหลังอย่างน้อยหนึ่ง")
     if confirmed and any(item.new for item in [*plot.characters, *plot.backgrounds]):
         raise ApiError(400, "invalid_request", "ยืนยันพล็อตแล้ว: เพิ่มตัวละครหรือฉากหลังใหม่ที่หน้าตัวละครของชุด")
     return plot
+
+
+def plot_of(series: Series, by_kind: dict[ItemKind, list], from_qwen: bool = False) -> Plot:
+    """The plot of each kind's items as sent (`by_kind`), each list read by `plot_items`."""
+    return Plot(**{item_kind: plot_items(series, item_kind, by_kind[item_kind], from_qwen) for item_kind in KINDS})
+
+
+def over_max(by_kind: Mapping[ItemKind, Sized]) -> bool:
+    """Whether any kind has more items, as sent or as read, than a plot may use (`KINDS`' `plot_max`)."""
+    return any(len(by_kind[item_kind]) > KINDS[item_kind].plot_max for item_kind in KINDS)
 
 
 def plot_items(series: Series, item_kind: ItemKind, value: list, from_qwen: bool = False) -> list[PlotItem]:

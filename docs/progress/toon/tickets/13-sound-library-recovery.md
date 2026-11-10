@@ -9,7 +9,7 @@
 - Seams: 1 (คลังเสียงพื้น ข้อ `sounds.json` เสีย)
 - Blocked: #30; smell ค้างจาก feature review รอบห้า (`kind` คู่ characters/backgrounds และ `PLOT_*_MAX` สามที่)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

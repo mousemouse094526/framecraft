@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** Blocked #30 ตัดสินเป็น D70 (คลังเสียงพื้นตรงกับไฟล์ m4a); re-cut ticket 13 (D70) และ 14 (#29); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ticket 13 done (คลังเสียงกู้จาก m4a, D70/D71); ถัดไป 14 (#29); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 13
+/warroom-build toon 14
 ```
 
 ## Tickets
@@ -24,10 +24,29 @@
 | 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | done |
 | 11 | ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม | done |
 | 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | done |
-| 13 | คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย | ready |
+| 13 | คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย | done |
 | 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | ready |
 
 ## Log
+
+### 13: คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย — done 2026-11-10
+
+**Built:**
+- `store.reconcile_sounds(project, length)`: `sounds.json` อ่านไม่ได้ทั้งไฟล์ (JSON เสีย, ไม่มี list, `version` อื่น) → `sounds.json.bad-{YYYYMMDD-HHMMSS}-{4 hex}`; ทิ้งรายการที่ผิด schema/id ผิดรูป/ซ้ำ/ไม่มี m4a; m4a กำพร้าเข้าคลังชื่อ = id; รายการความยาว `0` ถูกวัดใหม่; เขียนเมื่อเปลี่ยนเท่านั้น, เขียนล้ม log
+- `sounds.clean_on_start` เรียกมันด้วย `ffmpeg.probe` timeout 10 วินาที (`ffmpeg.probe(timeout=)` ใหม่); `store.read_sounds` ถือ `store.lock` และกู้แบบไม่ probe เมื่อไฟล์อ่านไม่ได้ระหว่างทำงาน; `write_sounds` ไม่เขียนทับไฟล์ที่อ่านไม่ได้ซึ่งเก็บแยกไม่สำเร็จ
+- import อ่านคลัง → วาง m4a → เขียน ใต้ lock เดียว (ไม่มี id ซ้ำ); ลบ m4a ก่อนเขียน json; `_new_sound_id` ไม่ใช้ id ของ m4a กำพร้า
+- `KindRow.plot_max` แทน `PLOT_*_MAX`; `episodes.plot_of`/`over_max`, `writer.WrittenPlot.plot`, `writer.known(plot, cast)` วนตาม `KINDS`
+- test: 15 test ของคลัง (start, ระหว่างทำงาน, crash สองแบบ, named pipe ที่ ffmpeg อ่านไม่จบ, folder read-only), render ของเสียงที่กู้, จำนวนสูงสุดของพล็อตจากหน้าเว็บและจาก Qwen; `fakes.restart`, `fakes.write_library`
+- spec › คลังเสียงพื้น, › Modules touched
+
+**Decided:**
+- D71 — `store.reconcile_sounds` (ความยาวจากผู้เรียก), "อ่านไม่ได้" ระหว่างทำงาน, rename ล้ม, probe ใหม่ของความยาว `0`, `ffmpeg.probe(timeout=)`, `plot_max`, ข้อความเมื่อไม่มี key `backgrounds`, test ที่ยัง patch
+
+**For the next ticket:**
+- review ไม่แก้ (ตั้งใจ): `read_sounds` กู้และเขียนได้ทั้งที่ชื่อว่าอ่าน (docstring บอก; เปลี่ยนชื่อกระทบทุกผู้เรียก); `project.toon_sounds_dir / f"{id}.m4a"` ต่อสตริงหลายที่; `cards` ยังแยก `known["characters"]`/`known["backgrounds"]` ที่ขอบของ prompt; `llm.respond.__self__` ใน test แบบไฟล์อื่น
+- `PATCH` plot ไม่มี key `backgrounds` ได้ข้อความ "ต้องมีฉากหลัง" แทนข้อความทั่วไป (status/code เดิม, D71)
+
+**Checks:** `uv run pytest` 1094 passed (+17); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 423 passed (frontend ไม่ได้แตะ); `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `24b2a1b`: Standards 4 ข้อ + smell (แก้: test patch `ffmpeg.probe` → named pipe, timeout 0.0001 ที่ขึ้นกับเครื่อง → ลบ, `restart`/`write_library` → `fakes`, สแกน m4a สองที่ → `store.m4a_ids`, ชื่อ `of`/`listed`, `dict(plot)`), Spec (แก้: rename `.bad-*` ล้มแล้ว import เขียนทับไฟล์เสีย — หนักสุด, `OSError` ของ ffmpeg ล้ม start, test id ซ้ำ), Newcomer สรุปตรง What to build (แก้: ความยาว `0` ไม่เคยถูกวัดใหม่, docstring ของ `read_sounds`, ชื่อ test `x_1`, `ATTEMPTS`, type ของ `with_sound_on_cards`)
 
 ### Feature review (รอบห้า) — done 2026-11-10
 
@@ -460,4 +479,4 @@
 | 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | done (ticket 11) |
 | 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | done (ticket 12) |
 | 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | → ticket 14 |
-| 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | → D70 (ticket 13) |
+| 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | done (ticket 13) |

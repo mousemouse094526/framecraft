@@ -31,7 +31,9 @@ from .fakes import (
     poll_until,
     run,
     start,
+    restart,
     toon_api,
+    write_library,
 )
 
 EPS = "/api/toon/eps"
@@ -210,6 +212,15 @@ def test_segments_in_a_row_on_one_sound_are_one_run_and_a_new_sound_crossfades_f
     assert "acrossfade=d=1.000" in graph
     assert f"{wind}.m4a" in renderer.commands[-1]
 
+
+def test_a_segment_on_a_sound_recovered_from_its_m4a_renders_with_it(client, llm, project, renderer, tmp_path):
+    rain = import_tone(client, tmp_path, "ฝน.wav", seconds=1.0)["id"]
+    _, ep = three_cards(client, llm, project, sounds=(rain, rain))
+    write_library(project, "{not json")
+    restart(client)  # recovers the library from the m4a (D70)
+    job = rendered(client, ep["id"])
+    assert job["state"] == "done", job
+    assert f"{rain}.m4a" in renderer.commands[-1]
 
 # --- the job (seam 1) ---
 

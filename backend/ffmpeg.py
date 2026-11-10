@@ -51,16 +51,22 @@ def seconds_of(found: re.Match) -> float:
     return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
 
 
-def input_info(path: Path) -> str:
+def input_info(path: Path, timeout: float | None = None) -> str:
     """What `ffmpeg -i` prints about the file: its container, length and streams. With no
-    output it exits 1 by design, so the exit code says nothing; callers read the text."""
-    result = subprocess.run([exe(), "-hide_banner", "-nostdin", "-i", str(path)], capture_output=True, text=True, errors="replace")
+    output it exits 1 by design, so the exit code says nothing; callers read the text.
+    Past `timeout` seconds ffmpeg is killed and `subprocess.TimeoutExpired` raised."""
+    command = [exe(), "-hide_banner", "-nostdin", "-i", str(path)]
+    result = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=timeout)
     return result.stderr
 
 
-def probe(path: Path) -> Media:
-    """The file's length and whether it has sound; only a missing `Duration:` is a failure."""
-    stderr = input_info(path)
+def probe(path: Path, timeout: float | None = None) -> Media:
+    """The file's length and whether it has sound; only a missing `Duration:` is a failure,
+    and ffmpeg still reading it after `timeout` seconds."""
+    try:
+        stderr = input_info(path, timeout)
+    except subprocess.TimeoutExpired:
+        raise FfmpegFailed(f"no length for {path.name}: still reading after {timeout} s", "timed out") from None
     found = DURATION.search(stderr)
     if found is None:
         lines = stderr.strip().splitlines()

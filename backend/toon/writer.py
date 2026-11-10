@@ -11,8 +11,8 @@ from pydantic import BaseModel
 
 from backend import llm_reply
 from backend.toon import episodes, store
-from backend.toon.kinds import ItemKind
-from backend.toon.store import Act, Card, PlotItem, Segment, Series, StoredSound
+from backend.toon.kinds import KINDS, ItemKind
+from backend.toon.store import Act, Card, Plot, Segment, Series, StoredSound
 
 ATTEMPTS = 3
 TEMPERATURE = 0.3  # spoil-maker D61
@@ -22,8 +22,7 @@ PLOT_MAX_TOKENS, CARDS_MAX_TOKENS = 2048, 4096  # D53
 class WrittenPlot(BaseModel):
     title: str
     summaries: list[str]
-    characters: list[PlotItem]
-    backgrounds: list[PlotItem]
+    plot: Plot
 
 
 class Known(BaseModel):
@@ -67,14 +66,13 @@ def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | None:
     summaries = [_cleaned(act.get("summary") if isinstance(act, dict) else None) for act in acts]
     if not all(summaries):
         return None
-    listed_characters, listed_backgrounds = found.get("characters"), found.get("backgrounds")
-    if not all(value is None or isinstance(value, list) for value in (listed_characters, listed_backgrounds)):
+    by_kind = {item_kind: found.get(item_kind) for item_kind in KINDS}
+    if not all(value is None or isinstance(value, list) for value in by_kind.values()):
         return None
-    characters = episodes.plot_items(cast, "characters", listed_characters or [], from_qwen=True)
-    backgrounds = episodes.plot_items(cast, "backgrounds", listed_backgrounds or [], from_qwen=True)
-    if len(characters) > episodes.PLOT_CHARACTERS_MAX or not 1 <= len(backgrounds) <= episodes.PLOT_BACKGROUNDS_MAX:
+    plot = episodes.plot_of(cast, {item_kind: value or [] for item_kind, value in by_kind.items()}, from_qwen=True)
+    if not plot.backgrounds or episodes.over_max({item_kind: getattr(plot, item_kind) for item_kind in KINDS}):
         return None
-    return WrittenPlot(title=title, summaries=summaries, characters=characters, backgrounds=backgrounds)
+    return WrittenPlot(title=title, summaries=summaries, plot=plot)
 
 
 def cards_prompt(
@@ -139,10 +137,15 @@ def parse_cards(
     return segments or None
 
 
-def known(items: list[PlotItem], cast: Series, item_kind: ItemKind) -> list[Known]:
-    """The plot's items as the Cards job's prompt names them, all by an id of the Series."""
-    by_id = {item.id: item for item in getattr(cast, item_kind)}
-    return [Known(id=item.id, name=by_id[item.id].name, description=by_id[item.id].description) for item in items]
+def known(plot: Plot, cast: Series) -> dict[ItemKind, list[Known]]:
+    """The plot's items of each kind as the Cards job's prompt names them, all by an id of the Series."""
+
+    def known_of(item_kind: ItemKind) -> list[Known]:
+        by_id = {item.id: item for item in getattr(cast, item_kind)}
+        items = getattr(plot, item_kind)
+        return [Known(id=item.id, name=by_id[item.id].name, description=by_id[item.id].description) for item in items]
+
+    return {item_kind: known_of(item_kind) for item_kind in KINDS}
 
 
 # --- helpers ---

@@ -6,7 +6,8 @@ this machine as a raw body in one request (ADR 0028), or a link loaded by a job 
 info, checks its length, then downloads its best audio into `.partial/` (spoil's Download
 job, ADR 0029). Either way ffmpeg converts it to aac in m4a with no picture, so a render reads
 one format (D39). A restart half-way leaves only `.partial/` files and `.m4a.partial` ones,
-which start-up removes.
+which start-up removes. Start-up also makes `sounds.json` match the m4a files, which are
+the sounds themselves: a library file that won't read never takes the sounds with it (D70).
 """
 
 import logging
@@ -44,6 +45,7 @@ UPLOAD_MAX_BYTES = 200 * 1024**2  # spec › คลังเสียงพื�
 MAX_SECONDS = 20 * 60
 NAME_MAX = 60
 GONE_POLL_SECONDS = 0.25  # how often a file's conversion asks whether the page is still there
+PROBE_SECONDS = 10  # how long start-up reads the length of an m4a the library lacks (D70)
 
 # Where a link's audio lands: `.partial/` of the tab, no thumbnail, no mp4 merge (spec › Modules touched).
 LINK_OPTIONS = DownloadOptions(
@@ -283,10 +285,13 @@ class SoundImports(JobSlot[SoundImport]):
         if still_wanted and not still_wanted():
             partial.unlink(missing_ok=True)
             raise Cancelled()
-        os.replace(partial, target)
         sound = StoredSound(id=sound_id, name=name, duration_s=round(seconds, 1), source=origin)
+        # Read before the m4a is in place, all under the lock: a library recovered on the read
+        # never lists the new sound already, so it is in it once (D70).
         with store.lock:
-            store.write_sounds(project, [*store.read_sounds(project), sound])
+            sounds = [listed for listed in store.read_sounds(project) if listed.id != sound_id]
+            os.replace(partial, target)
+            store.write_sounds(project, [*sounds, sound])
         log.info("imported sound %s (%s, %.1f s)", sound_id, origin, seconds)
         return SoundView(**sound.model_dump())
 
@@ -345,16 +350,17 @@ def rename(project: ProjectPaths, sound_id: str, body: dict) -> SoundView:
 
 
 def delete(project: ProjectPaths, sound_id: str) -> None:
-    """A sound a segment of any EP plays can't go: `in_use` with those EPs (as D25)."""
+    """A sound a segment of any EP plays can't go: `in_use` with those EPs (as D25). Its m4a
+    goes before its entry: a crash in between leaves an entry the next start drops (D70)."""
     with store.lock:
         sounds = store.read_sounds(project)
         sound = _find(sounds, sound_id)
         users = sound_users(project, sound_id)
         if users:
             raise ApiError(409, "in_use", "ยังมี EP ที่ใช้เสียงนี้อยู่ ลบไม่ได้", eps=[user.model_dump() for user in users])
+        (project.toon_sounds_dir / f"{sound_id}.m4a").unlink(missing_ok=True)
         sounds.remove(sound)
         store.write_sounds(project, sounds)
-        (project.toon_sounds_dir / f"{sound_id}.m4a").unlink(missing_ok=True)
     log.info("deleted sound %s", sound_id)
 
 
@@ -378,10 +384,12 @@ def sound_file(project: ProjectPaths, sound_id: str) -> Path:
 
 
 def clean_on_start(project: ProjectPaths) -> None:
-    """A conversion cut short leaves a `.m4a.partial`; `.partial/` itself the Toon job's clean empties."""
+    """A conversion cut short leaves a `.m4a.partial`; `.partial/` itself the Toon job's clean
+    empties. Then the library is made to match its m4a files (`store.reconcile_sounds`, D70)."""
     if project.toon_sounds_dir.is_dir():
         for leftover in project.toon_sounds_dir.glob("*.partial"):
             leftover.unlink(missing_ok=True)
+    store.reconcile_sounds(project, _length)
 
 
 def link_rows() -> dict[str, Row]:
@@ -412,9 +420,21 @@ def _first_name(text: object) -> str:
     return text.strip()[:NAME_MAX].strip() if isinstance(text, str) else ""
 
 
+def _length(m4a: Path) -> float:
+    """An m4a's seconds as ffmpeg reads them in `PROBE_SECONDS`; `0` when it can't."""
+    try:
+        return ffmpeg.probe(m4a, timeout=PROBE_SECONDS).duration_s
+    except FfmpegFailed as failed:
+        log.warning("no length for %s: %s", m4a.name, failed.last_line)
+    except OSError:  # ffmpeg didn't run at all
+        log.exception("no length for %s", m4a.name)
+    return 0.0
+
+
 def _new_sound_id(project: ProjectPaths) -> str:
+    """Not one of the library's, nor of an m4a it lacks (the next start would add that one)."""
     with store.lock:
-        return store.new_id("m", {sound.id for sound in store.read_sounds(project)})
+        return store.new_id("m", {sound.id for sound in store.read_sounds(project)} | store.m4a_ids(project))
 
 
 def _find(sounds: list[StoredSound], sound_id: str) -> StoredSound:

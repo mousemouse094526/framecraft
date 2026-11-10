@@ -64,8 +64,8 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
     cast = series_now.model_copy(
         update={item_kind: [*getattr(series_now, item_kind), *items] for item_kind, items in added.items()}
     )
-    characters = writer.known(ep.plot.characters, cast, "characters")
-    backgrounds = writer.known(ep.plot.backgrounds, cast, "backgrounds")
+    known = writer.known(ep.plot, cast)
+    characters, backgrounds = known["characters"], known["backgrounds"]
     sounds = store.read_sounds(project)
     target = round(episodes.TARGET_S / len(ep.acts) * plan.chars_per_s)
     ids = {i.id for act in ep.acts for segment in act.segments for i in [segment, *segment.cards]}

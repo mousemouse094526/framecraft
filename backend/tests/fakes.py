@@ -1020,6 +1020,19 @@ def tone(path: Path, seconds: float, rate: int = 44_100) -> Path:
     return path
 
 
+def restart(client) -> None:
+    """The app's start-up, as a new run of it on the same `paths.ROOT` does: `client` is a
+    fixture's, not inside a `with` yet, so this `with` runs the lifespan."""
+    with client:
+        pass
+
+
+def write_library(project: ProjectPaths, body: object) -> None:
+    """`sounds.json` as `body` says: a text as it is (a broken one), anything else as JSON."""
+    project.toon_sounds_dir.mkdir(parents=True, exist_ok=True)
+    project.toon_sounds_file.write_text(body if isinstance(body, str) else json.dumps(body), encoding="utf-8")
+
+
 def import_file(client, name: str, body: bytes):
     return client.post(
         f"{TOON_SOUNDS}/imports?name={name}&size={len(body)}", content=body, headers={"Content-Type": "application/octet-stream"}

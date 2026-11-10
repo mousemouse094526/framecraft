@@ -13,7 +13,7 @@ from backend.errors import ApiError, JobFailed
 from backend.paths import EpAddress, ProjectPaths
 from backend.spoil_maker import voices
 from backend.toon import episodes, steps, store, writer
-from backend.toon.store import Ep, Plot, Series
+from backend.toon.store import Ep, Series
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ def run(job: steps.Run, project: ProjectPaths, found: WritePlan) -> None:
         ep.title = written.title
         for act, summary in zip(ep.acts, written.summaries, strict=True):
             act.summary = summary
-        ep.plot = Plot(characters=written.characters, backgrounds=written.backgrounds)
+        ep.plot = written.plot
         store.write_ep(ep_address, ep)
 
 

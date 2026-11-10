@@ -23,6 +23,7 @@ class KindRow(NamedTuple):
     sizes: dict[str, tuple[int, int]]  # (width, height) of its reference picture, by layout
     # An uploaded picture keeps its own shape, its long side at most this; None: cropped to `sizes`.
     upload_side: int | None
+    plot_max: int  # how many of it a plot may use (spec › Plot job)
     template: str  # the reference picture's prompt around Qwen's `{scene}` and the `{style}`
     scene_ask: tuple[str, str]  # what Qwen describes for that `{scene}`, and how
 
@@ -34,6 +35,7 @@ KINDS: dict[ItemKind, KindRow] = {
         tagged=True,
         sizes={layout: (576, 1024) for layout in CARD_SIZE},  # standing upright whatever the layout
         upload_side=1536,
+        plot_max=6,
         template="Full body, front view, standing, plain light gray background. {scene} {style}. No text, no letters.",
         scene_ask=(
             "a character, for a reference picture of them standing alone",
@@ -46,6 +48,7 @@ KINDS: dict[ItemKind, KindRow] = {
         tagged=False,
         sizes=CARD_SIZE,
         upload_side=None,
+        plot_max=6,
         template="{scene} Empty location, no people. {style}. No text, no letters, no signs.",
         scene_ask=(
             "a place, for a picture of it with nobody in it",
