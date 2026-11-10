@@ -6,11 +6,9 @@ import trashIcon from "../../../components/ui/assets/trash.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import arrowRightIcon from "../assets/arrow-right.svg";
 import chevronRightIcon from "../assets/chevron-right-16.svg";
-import mountain16Icon from "../assets/mountain-16.svg";
 import mountainIcon from "../assets/mountain.svg";
 import musicIcon from "../assets/music.svg";
 import triangleAlertIcon from "../assets/triangle-alert.svg";
-import usersIcon from "../assets/users-16.svg";
 import volumeIcon from "../assets/volume.svg";
 import wandWhiteIcon from "../assets/wand-white.svg";
 import { cardsOf, type Act, type Ep, type Segment } from "../lib/episodes";
@@ -25,6 +23,7 @@ import {
   type Series,
   type ToonJob,
 } from "../lib/series";
+import { ITEM_KINDS } from "../lib/kinds";
 import { DEFAULT_VOLUME, VOLUME_MAX, type Sound } from "../lib/sounds";
 import { CardEditor, type CardWork } from "./CardEditor";
 import { CommitField } from "./CommitField";
@@ -252,9 +251,9 @@ function MissingRefs({ missing, skipped, sid }: { missing: MissingRef[]; skipped
       <ul className="flex flex-col gap-2">
         {missing.map((item) => (
           <li key={item.id} className="flex flex-wrap items-center gap-2">
-            <img src={item.kind === "characters" ? usersIcon : mountain16Icon} alt="" width={16} height={16} />
+            <img src={ITEM_KINDS[item.item_kind].icon16} alt="" width={16} height={16} />
             <span className="text-sm leading-[1.5] font-medium text-foreground">
-              {item.kind === "characters" ? "ตัวละคร" : "ฉากหลัง"} {item.name}
+              {ITEM_KINDS[item.item_kind].name} {item.name}
             </span>
             <span className="font-mono text-xs leading-[1.5] font-medium text-mid">{item.cards} การ์ด</span>
             <span className="flex-1" />

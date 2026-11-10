@@ -141,7 +141,7 @@ export function pageOf(hash: string): Page {
 
 /** A character or background with no reference image yet, and how many cards of an Image job it
  * made skip (D13). */
-export type MissingRef = { kind: ItemKind; id: string; name: string; cards: number };
+export type MissingRef = { item_kind: ItemKind; id: string; name: string; cards: number };
 
 /** Which cards an Image job of the whole EP draws: every one with no image, or every
  * `stale_ref` one (D33, D44). */

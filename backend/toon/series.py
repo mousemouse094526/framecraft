@@ -33,7 +33,6 @@ ITEM_NAME_MAX, TAG_MAX, DESCRIPTION_MAX = 30, 20, 300
 STYLE_MAX, TONE_MAX = 500, 300  # D48
 PICTURES = 3  # a Ref job draws three to pick from (D31)
 UPLOAD_MAX_BYTES = 20 * 2**20
-MIN_FREE_BYTES = 2**30  # a Ref job, an Image job and a render need 1 GiB free (spec › Toon job)
 
 # What a new Series starts with, by genre (D10, D11, D28, D41).
 DEFAULTS: dict[str, dict] = {
@@ -151,7 +150,7 @@ def _style_tone_acts(body: dict) -> dict:
 
 def view(project: ProjectPaths, series_id: str) -> SeriesView:
     with store.lock:
-        series = _series(project, series_id)
+        series = require_series(project, series_id)
         pending = _pending_counts(project, series)
         return SeriesView(
             **series.model_dump(exclude={"characters", "backgrounds"}),
@@ -173,7 +172,7 @@ def change(project: ProjectPaths, series_id: str, body: dict) -> SeriesView:
             raise invalid_request()
         changes["name_tags"] = body["name_tags"]
     with gpu.slot.draft_lock, store.lock:
-        series = _series(project, series_id)
+        series = require_series(project, series_id)
         if "voice_id" in body:
             changes["voice_id"] = existing_voice(project, body["voice_id"])
         store.write_series(project, series.model_copy(update=changes))
@@ -185,7 +184,7 @@ def delete(project: ProjectPaths, series_id: str, body: dict | None) -> None:
     Saved voices and background sounds stay. `series_busy` while a job works on it: every job
     starts under the store's lock, so it finds the Series either whole or gone (`not_found`)."""
     with store.lock:
-        _series(project, series_id)
+        require_series(project, series_id)
         eps = _eps(project, series_id)
         confirm = (body or {}).get("confirm_eps")
         if not is_int(confirm) or confirm != len(eps):
@@ -211,7 +210,7 @@ def uses_voice(voice_id: str) -> bool:
 
 def add_item(project: ProjectPaths, series_id: str, item_kind: ItemKind, body: dict) -> SeriesView:
     with store.lock:
-        series = _series(project, series_id)
+        series = require_series(project, series_id)
         row = KINDS[item_kind]
         fields = _item_fields(body, item_kind, partial=False)
         getattr(series, item_kind).append(row.model(id=store.new_id(row.id_prefix, _taken_ids(series)), **fields))
@@ -240,7 +239,7 @@ def _taken_ids(series: Series) -> set[str]:
 def change_item(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, body: dict) -> SeriesView:
     fields = _item_fields(body, item_kind, partial=True)
     with store.lock:
-        series = _series(project, series_id)
+        series = require_series(project, series_id)
         item = _item(series, item_kind, item_id)
         for name, value in fields.items():
             setattr(item, name, value)
@@ -251,7 +250,7 @@ def change_item(project: ProjectPaths, series_id: str, item_kind: ItemKind, item
 def delete_item(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str) -> SeriesView:
     """An item a card, a segment or a plot of an EP uses can't go: `in_use` with those EPs (D25)."""
     with store.lock:
-        series = _series(project, series_id)
+        series = require_series(project, series_id)
         item = _item(series, item_kind, item_id)
         users = [EpRef(n=ep.n, title=ep.title) for ep in store.list_eps(project, series_id) if item_id in _used_items(ep)]
         if users:
@@ -312,7 +311,7 @@ def picture_size(series: Series, item_kind: ItemKind) -> tuple[int, int]:
 
 def ref_image(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str) -> Path:
     with store.lock:
-        item = _item(_series(project, series_id), item_kind, item_id)
+        item = _item(require_series(project, series_id), item_kind, item_id)
         path = project.refs_dir(series_id) / f"{item_id}-{item.ref_rev}.png"
         if item.ref_rev == 0 or not path.is_file():
             raise ApiError(404, "not_found", "ยังไม่มีภาพอ้างอิง")
@@ -321,7 +320,7 @@ def ref_image(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_i
 
 def pending_image(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, n: int) -> Path:
     with store.lock:
-        _item(_series(project, series_id), item_kind, item_id)
+        _item(require_series(project, series_id), item_kind, item_id)
         if not 1 <= n <= PICTURES or not _pending_complete(project, series_id, item_id):
             raise ApiError(404, "no_pending", "ไม่มีภาพที่รอเลือก")
         return pending_path(project, series_id, item_id, n)
@@ -351,7 +350,7 @@ def pick(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: st
     if not is_int(n) or not 1 <= n <= PICTURES:
         raise ApiError(400, "invalid_request", f"เลือกภาพที่ 1–{PICTURES}")
     with store.lock:
-        series = _series(project, series_id)
+        series = require_series(project, series_id)
         _item(series, item_kind, item_id)
         if not _pending_complete(project, series_id, item_id):
             raise ApiError(404, "no_pending", "ไม่มีภาพที่รอเลือก")
@@ -389,20 +388,14 @@ def clean_on_start(project: ProjectPaths) -> None:
     shutil.rmtree(project.toon_partial_dir, ignore_errors=True)
 
 
-def require_free_disk(project: ProjectPaths, incoming: int = 0) -> None:
-    """Raises `ApiError` 507 `disk_full` unless 1 GiB stays free after `incoming` bytes land."""
-    if disk.free_bytes(project.root) < MIN_FREE_BYTES + incoming:
-        raise ApiError(507, "disk_full", "ที่ว่างดิสก์ไม่ถึง 1 GiB")
-
-
 # --- helpers ---
 
 
 def _upload_checks(project: ProjectPaths, series_id: str, item_kind: ItemKind, item_id: str, size: object) -> int:
     size = uploads.require_size(size, UPLOAD_MAX_BYTES, "ไฟล์ภาพใหญ่เกิน 20 MB")
     with store.lock:
-        _item(_series(project, series_id), item_kind, item_id)
-    require_free_disk(project, size)
+        _item(require_series(project, series_id), item_kind, item_id)
+    disk.require_free(project.root, size)
     return size
 
 
@@ -417,7 +410,7 @@ def _take_upload(project: ProjectPaths, series_id: str, item_kind: ItemKind, ite
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
         raise ApiError(400, "unsupported_file", "รับเฉพาะไฟล์ภาพ PNG หรือ JPEG") from None
     with store.lock:
-        series = _series(project, series_id)
+        series = require_series(project, series_id)
         _item(series, item_kind, item_id)
         side = KINDS[item_kind].upload_side
         if side is None:
@@ -483,7 +476,8 @@ def _used_items(ep: store.Ep) -> set[str]:
     return used
 
 
-def _series(project: ProjectPaths, series_id: str) -> Series:
+def require_series(project: ProjectPaths, series_id: str) -> Series:
+    """The stored Series, or `ApiError` 404 `not_found`."""
     series = store.read_series(project, series_id)
     if series is None:
         raise ApiError(404, "not_found", "ไม่พบ Series นี้")

@@ -148,7 +148,6 @@ export const SETTINGS_PATH = "/api/spoil-maker/settings";
 export const SETUP_HASH = "#/spoil";
 export const REVIEW_HASH = "#/spoil/review";
 export const RENDERS_HASH = "#/spoil/renders";
-export const VOICES_HASH = "#/spoil/voices";
 
 
 /** A model or a child that stopped says the same thing (spec › Frontend); the rest say the API's message. */

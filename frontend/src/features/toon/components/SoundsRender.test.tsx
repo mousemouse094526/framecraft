@@ -9,7 +9,6 @@ import type { RenderJob, RenderResult } from "../lib/render";
 import type { Card, Ep } from "../lib/episodes";
 import { GENRE_DEFAULTS, type Series } from "../lib/series";
 import type { Sound } from "../lib/sounds";
-import { SOUND_RIGHTS } from "./SoundsPage";
 
 const SID = "s_1a2b3c4d";
 const EID = "e_5e6f7a8b";
@@ -158,7 +157,9 @@ describe("คลังเสียงพื้น", () => {
   it("shows legal item 4 before the file picker and the link field (e2e)", async () => {
     open("#/toon/sounds", []);
 
-    const rights = await screen.findByText(SOUND_RIGHTS);
+    const rights = await screen.findByText(
+      "ใช้เสียงของคุณเอง หรือเสียงที่ license ให้ใช้ในวิดีโอที่เผยแพร่ได้ และใส่เครดิตตามที่ license กำหนด", // legal.md item 4
+    );
     const picker = screen.getByLabelText("เลือกไฟล์เสียง");
     const link = screen.getByRole("textbox", { name: /ลิงก์เสียง/ });
     expect(rights.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

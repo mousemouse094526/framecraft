@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 from typing import get_args
 
+from backend import disk
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.toon import prompts, series, steps
@@ -64,6 +65,6 @@ WORK = steps.Work(
     job=lambda plan: {"state": "translating", "series_id": plan.series_id, "item_id": plan.item_id},
     run=run,
     log_name=lambda plan: f"toon job ref {plan.item_id}",
-    ready=lambda project, plan: series.require_free_disk(project),
+    ready=lambda project, plan: disk.require_free(project.root),
     clean_up=lambda project, plan: shutil.rmtree(_pictures_dir(project, plan), ignore_errors=True),
 )

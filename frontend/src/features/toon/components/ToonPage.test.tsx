@@ -5,7 +5,6 @@ import { App } from "../../../App";
 import { FakeXhr } from "../../../testing/fakeXhr";
 import { get, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import { GENRE_DEFAULTS, type Item, type ListedSeries, type Series, type ToonJob } from "../lib/series";
-import { CHARACTER_FILE_NOTICE } from "./CastPage";
 
 const SID = "s_1a2b3c4d";
 const SERIES_PATH = "/api/toon/series";
@@ -200,7 +199,9 @@ describe("ตัวละครและฉากหลัง", () => {
     await user.click(within(tile).getByRole("button", { name: "เอาไฟล์เข้า" }));
 
     const dialog = screen.getByRole("dialog", { name: "ก่อนเอาไฟล์ภาพตัวละครเข้า" });
-    expect(dialog).toHaveTextContent(CHARACTER_FILE_NOTICE);
+    expect(dialog).toHaveTextContent(
+      "ใช้ภาพหรือตัวละครที่คุณวาดเองหรือได้รับอนุญาต และอย่าใช้ภาพคนจริงในเรื่องที่ทำให้เขาเสียชื่อเสียง", // legal.md item 2
+    );
     expect(picker).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole("button", { name: "เลือกไฟล์" }));
     expect(picker).toHaveBeenCalledOnce();

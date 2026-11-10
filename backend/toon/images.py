@@ -15,6 +15,7 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel
 
+from backend import disk
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.toon import episodes, klein, prompts, series, steps, store
@@ -31,7 +32,7 @@ class MissingRef(BaseModel):
     """A character or background with no reference image yet, and how many cards of the job
     it made skip (D13)."""
 
-    kind: ItemKind  # the response's field name (spec › Image job)
+    item_kind: ItemKind
     id: str
     name: str
     cards: int
@@ -162,7 +163,7 @@ def run(job: steps.Run, project: ProjectPaths, plan: ImagePlan) -> None:
 
 
 def _ready(project: ProjectPaths, plan: ImagePlan) -> None:
-    series.require_free_disk(project)
+    disk.require_free(project.root)
     copy_refs(project, plan)
 
 
@@ -261,5 +262,5 @@ def _missing_refs(series_now: Series, skipped: list[tuple[Segment, Card]]) -> li
         for item_kind, item_id in [*(("characters", i) for i in card.character_ids), ("backgrounds", segment.background_id)]:
             item = series.find_item(series_now, item_kind, item_id)
             if item is not None and item.ref_rev == 0:
-                found.setdefault(item_id, MissingRef(kind=item_kind, id=item_id, name=item.name, cards=0)).cards += 1
+                found.setdefault(item_id, MissingRef(item_kind=item_kind, id=item_id, name=item.name, cards=0)).cards += 1
     return list(found.values())

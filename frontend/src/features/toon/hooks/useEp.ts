@@ -5,7 +5,7 @@ import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, type Ep, type LostCards } from "../lib/episodes";
 import { SOUNDS_PATH, type Sound } from "../lib/sounds";
 import { epHash, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
-import { NOT_NOW, refusalTextOf, type Notice } from "../lib/notice";
+import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
 
 export type EpState =
@@ -90,8 +90,8 @@ export function useEp(eid: string) {
     () => setState({ kind: "offline" }),
   );
 
-  const refused = (title: string, body: unknown, tone: Notice["tone"] = "error") => {
-    update((s) => ({ ...s, notice: { tone, title, ...refusalTextOf(body) } }));
+  const refused = (title: string, body: unknown, warnings: readonly string[] = []) => {
+    update((s) => ({ ...s, notice: noticeOf(title, body, warnings) }));
   };
 
   /** An edit: its answer is the EP as it is now; a refusal becomes the notice. */
@@ -120,8 +120,7 @@ export function useEp(eid: string) {
       const refusal = refusalOf(reply.body) as (Refusal & { acts?: LostCards[]; missing_refs?: MissingRef[] }) | null;
       if (refusal?.code === "cards_will_be_lost") return update((s) => ({ ...s, lost: refusal.acts ?? [] }));
       if (refusal?.code === "nothing_to_draw") update((s) => ({ ...s, missing: refusal.missing_refs ?? [] }));
-      const busy = [...NOT_NOW, "nothing_to_split", "nothing_to_draw"].includes(refusal?.code ?? "");
-      refused(title, reply.body, busy ? "warning" : "error");
+      refused(title, reply.body, [...NOT_NOW, "nothing_to_split", "nothing_to_draw"]);
     } catch {
       refused(title, null);
     }

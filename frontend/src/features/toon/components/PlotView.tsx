@@ -1,11 +1,10 @@
 import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import chevronDownIcon from "../../../components/ui/assets/chevron-down.svg";
 import checkIcon from "../assets/check.svg";
-import mountainIcon from "../assets/mountain.svg";
-import usersIcon from "../assets/users.svg";
 import wandWhiteIcon from "../assets/wand-white.svg";
 import { actsToSplit, SUMMARY_MAX, TITLE_MAX, type Ep, type LostCards, type PlotItem } from "../lib/episodes";
 import type { ItemKind, Series } from "../lib/series";
+import { ITEM_KINDS } from "../lib/kinds";
 import { CommitField } from "./CommitField";
 import { ToonDialog } from "./ToonDialog";
 
@@ -139,7 +138,7 @@ function PlotCast({ ep, series, locked, edit }: { ep: Ep; series: Series; locked
           const others = series[kind].filter((s) => !ep.plot[kind].some((p) => p.id === s.id));
           return (
             <div key={`${kind}-${item.id ?? index}`} className="flex flex-wrap items-center gap-3 rounded-xl bg-muted px-3 py-2.5">
-              <img src={kind === "characters" ? usersIcon : mountainIcon} alt="" width={18} height={18} />
+              <img src={ITEM_KINDS[kind].icon} alt="" width={18} height={18} />
               <span className="text-sm leading-[1.5] font-medium text-foreground">{name}</span>
               {item.new ? (
                 <span className="rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">ใหม่</span>

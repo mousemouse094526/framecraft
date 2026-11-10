@@ -140,7 +140,7 @@ def create(project: ProjectPaths, series_id: str, body: dict) -> EpView:
     and voice (D8, D11); its plot comes from a Plot job."""
     idea = series_module.checked_text(body.get("idea"), 1, IDEA_MAX)
     with gpu.slot.draft_lock, store.lock:
-        series = _series(project, series_id)
+        series = series_module.require_series(project, series_id)
         taken = store.ep_ids(project)
         series.max_ep += 1
         ep = Ep(
@@ -564,13 +564,6 @@ def find(project: ProjectPaths, ep_id: object) -> tuple[Series, Ep]:
     if found is None:
         raise ApiError(404, "not_found", "ไม่พบ EP นี้")
     return found
-
-
-def _series(project: ProjectPaths, series_id: str) -> Series:
-    series = store.read_series(project, series_id)
-    if series is None:
-        raise ApiError(404, "not_found", "ไม่พบ Series นี้")
-    return series
 
 
 def ep_cards(ep: Ep):

@@ -91,9 +91,13 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
         for item_kind, items in added.items():
             getattr(series_now, item_kind).extend(items)
         ep_now = store.read_ep(project, plan.series.id, ep.id)
+        in_library = {s.id for s in store.read_sounds(project)}  # a sound deleted while Qwen wrote: none
         gone = []
         for act in ep_now.acts:
             if act.id in written:
+                for segment in written[act.id]:
+                    if segment.sound is not None and segment.sound.sound_id not in in_library:
+                        segment.sound = None
                 gone.extend(card for segment in act.segments for card in segment.cards)
                 act.segments, act.cards_from = written[act.id], act.summary
         ep_now.plot, ep_now.stage = ep.plot, "cards"

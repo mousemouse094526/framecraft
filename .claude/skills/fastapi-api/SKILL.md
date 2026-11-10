@@ -22,7 +22,7 @@ backend/
 │                    `paths.project()` is the one routes read per request
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
-├── disk.py       ← free disk space, shared by setup, spoil and the Render job
+├── disk.py       ← free disk space and the 1 GiB `disk_full` check: setup, spoil, both renders, toon jobs
 ├── fonts.py      ← Kanit Bold pinned by commit and sha256: setup fetches it, the
 │                    Status check checks it, the Render job draws with it
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
@@ -115,8 +115,8 @@ backend/
 │                    `open_klein` the one start of klein, `draw`, `Run`, what a kind's
 │                    steps call on the slot); a variable of `kinds.ItemKind`
 │                    (characters or backgrounds) is `item_kind`, as `kind`
-│                    names a job's (a response field keeps its name, as
-│                    `missing_refs[].kind`); one module per kind: plot, cards, refs (Ref job), images (Image job:
+│                    names a job's (in a response too, as
+│                    `missing_refs[].item_kind`); one module per kind: plot, cards, refs (Ref job), images (Image job:
 │                    which cards it draws, each picture it writes, swapping
 │                    back), voicing (Voice job: a card's narration), klein (the
 │                    only diffusers import; its `worker` runs in a child

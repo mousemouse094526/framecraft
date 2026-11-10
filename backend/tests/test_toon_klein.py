@@ -1,5 +1,5 @@
-"""The klein adapter's surface and the pure helpers of the Ref job (toon seam 1); the real
-`worker` is checked by hand with the model (trial in progress.md)."""
+"""The klein adapter's surface, the pure helpers of the Ref job and how the status check finds
+klein's files. The real `worker` needs the model and a GPU, so it is checked by hand on a Mac."""
 
 import subprocess
 import sys

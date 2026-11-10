@@ -1,5 +1,6 @@
 """The modules of `backend.toon` import each other one way only: no module imports one that
-imports it back, at the top or inside a function (toon ticket 06)."""
+imports it back, at the top or inside a function. A cycle hidden inside a function works until
+someone moves the import, so it is caught here instead."""
 
 import ast
 from pathlib import Path

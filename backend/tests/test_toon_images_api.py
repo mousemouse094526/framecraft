@@ -153,7 +153,7 @@ def test_drawing_what_is_missing_draws_each_no_image_card_in_order_and_skips_one
     job = draw(client, ep["id"], scope="missing")
 
     assert (job["state"], job["done"], job["total"], job["skipped"]) == ("done", 7, 7, 1)
-    assert job["missing_refs"] == [{"kind": "characters", "id": newcomer, "name": "ลุงยาม", "cards": 1}]
+    assert job["missing_refs"] == [{"item_kind": "characters", "id": newcomer, "name": "ลุงยาม", "cards": 1}]
     after = cards_of(get_ep(client, ep["id"]))
     assert [card["image_status"] for card in after] == ["ready", "ready", "no_ref", "ready", "ready", "ready", "ready", "ready"]
     assert [card["has_image"] for card in after] == [True, True, False, True, True, True, True, True]
@@ -172,7 +172,7 @@ def test_drawing_what_is_missing_when_every_card_has_no_ref_is_nothing_to_draw_a
     one = start_image(client, ep["id"], card_id=cards_of(ep)[0]["id"])
 
     assert (every.status_code, every.json()["code"]) == (400, "nothing_to_draw")
-    assert every.json()["missing_refs"] == [{"kind": "backgrounds", "id": other, "name": "ห้องน้ำ", "cards": 8}]
+    assert every.json()["missing_refs"] == [{"item_kind": "backgrounds", "id": other, "name": "ห้องน้ำ", "cards": 8}]
     assert (one.status_code, one.json()["code"]) == (400, "no_ref")
 
 

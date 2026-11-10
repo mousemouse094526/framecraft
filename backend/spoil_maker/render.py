@@ -35,8 +35,6 @@ State = Literal["voicing", "rendering", "done", "failed", "cancelled"]
 UNFINISHED: frozenset[State] = frozenset({"voicing", "rendering"})
 ErrorCode = Literal["ffmpeg_failed", "crashed", "model_failed", "internal"]
 
-MIN_FREE_BYTES = 1024**3  # 1 GiB (spec › Render job step 1)
-
 # Files in the work folder (`.render/`), named bare for ffmpeg (compose).
 PIECES_LIST, NARRATION, CAPTIONS = "pieces.txt", "narration.wav", "captions.ass"
 
@@ -101,8 +99,7 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             missing = [sid for sid, status in statuses.items() if status == "no_shot"]
             if missing:
                 raise ApiError(400, "missing_shots", "ทุกประโยคต้องมีภาพก่อน render", sentence_ids=missing)
-            if disk.free_bytes(project.root) < MIN_FREE_BYTES:
-                raise ApiError(507, "disk_full", "ที่ว่างดิสก์ไม่ถึง 1 GiB")
+            disk.require_free(project.root)  # spec › Render job step 1
             unvoiced = [sid for sid, status in statuses.items() if status != "ready"]
             require_rows(gate_rows.render(project, voices_first=bool(unvoiced)))
             if self._taken():

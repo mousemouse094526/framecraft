@@ -91,27 +91,33 @@ class Qwen:
     def answer(self, prompt: str, max_tokens: int, parse: Callable[[str], T | None], what: str) -> T | None:
         """`parse` of Qwen's answer, asked up to `writer.ATTEMPTS` times; None when no answer
         parsed. `what` names the ask in the log."""
+        request = Generate(prompt, None, max_tokens, writer.TEMPERATURE)
         for attempt in range(1, writer.ATTEMPTS + 1):
-            reply = self._write(prompt, max_tokens, attempt)
+            reply = self.once(request, llm.timeouts().write)
             parsed = parse(reply) if reply is not None else None
             if parsed is not None:
                 return parsed
             log.warning("%s attempt %d is not the JSON asked for", what, attempt)
         return None
 
-    def _write(self, prompt: str, max_tokens: int, attempt: int) -> str | None:
-        """One answer, or None when it took too long."""
-        timeout = llm.timeouts().write
+    def once(self, request: Generate, timeout: float) -> str | None:
+        """One answer, from the child started at the first ask; None when it took longer than
+        `timeout`, after which that child stops and the next ask starts a new one."""
         if self._model is None:
             self._model = start_qwen(self._run, self._project)
-        request = Generate(prompt, None, max_tokens, writer.TEMPERATURE)
         try:
             return self._run.ask(self._model, request, (Generated,), timeout).text
         except TimeoutError:
-            log.warning("attempt %d took longer than %g s", attempt, timeout)
+            log.warning("Qwen took longer than %g s", timeout)
             self._model = None
             self._run.stop_child()
             return None
+
+    def end(self) -> None:
+        """Stops the child, if one runs, so the next step can load its own model."""
+        if self._model is not None:
+            self._model = None
+            self._run.stop_child()
 
 
 def start_qwen(run: Run, project: ProjectPaths) -> Worker:
@@ -128,20 +134,14 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
     run.use_child("toon_image", TRANSLATOR)
     # A scene is one short answer: it may take as long as a sentence's Shots take to pick.
     timeout, found = llm.timeouts().pick, []
-    qwen: Worker | None = None  # started at the first ask it answers
+    qwen = Qwen(run, project)
     try:
         for done, ask in enumerate(asks, start=1):
             scene = None
             if ask is not None:
-                if qwen is None:
-                    qwen = start_qwen(run, project)
                 request = Generate(ask, None, prompts.SCENE_MAX_TOKENS, prompts.SCENE_TEMPERATURE)
-                try:
-                    scene = prompts.parse_scene(run.ask(qwen, request, (Generated,), timeout).text)
-                except TimeoutError:
-                    log.warning("a scene took longer than %g s", timeout)
-                    run.stop_child()
-                    qwen = None
+                text = qwen.once(request, timeout)
+                scene = prompts.parse_scene(text) if text is not None else None
                 if scene is None:
                     log.warning("no scene from Qwen: the fallback goes in")
             found.append(scene)
@@ -150,8 +150,7 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
     finally:
         # klein's names again, however Qwen's step ended: a failure names the child that ran.
         run.use_child("toon_image", DRAWER)
-    if qwen is not None:
-        run.stop_child()
+    qwen.end()
     return found
 
 

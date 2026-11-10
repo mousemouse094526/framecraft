@@ -19,7 +19,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, ffmpeg, gate_rows, gpu, paths, renders, speaking, subtitles
+from backend import checks, disk, ffmpeg, gate_rows, gpu, paths, renders, speaking, subtitles
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
 from backend.jobs import ModelJobSlot, short
@@ -214,7 +214,7 @@ def _cards_to_voice(project: ProjectPaths, series_now: Series, ep: Ep) -> list[s
     missing = [card.id for segment, card in episodes.placed_cards(ep) if episodes.image_status(card, segment, refs) in NOT_READY]
     if missing:
         raise ApiError(400, "cards_not_ready", "ทุกการ์ดต้องมีภาพก่อน render", card_ids=missing)
-    series.require_free_disk(project)
+    disk.require_free(project.root)
     return [card for card in episodes.ep_cards(ep) if episodes.audio_status(card, ep) in NEEDS_VOICE]
 
 

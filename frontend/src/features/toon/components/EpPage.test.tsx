@@ -311,7 +311,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
       total: 1,
       card_ids: ["k_01"],
       skipped: 1,
-      missing_refs: [{ kind: "characters", id: "c_03", name: "ลุงยาม", cards: 1 }],
+      missing_refs: [{ item_kind: "characters", id: "c_03", name: "ลุงยาม", cards: 1 }],
     });
     const job = phased(JOB_PATH, null, skipping); // the page reads the job again once it started
     const user = open(`#/toon/eps/${EID}`, [job.route, get(EP_PATH, epOf()), send("POST", JOBS_PATH, skipping, 202)]);
@@ -329,7 +329,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
   });
 
   it("nothing_to_draw lists what needs a reference image first", async () => {
-    const refusal = { code: "nothing_to_draw", message: "ไม่มีการ์ดให้สร้างภาพ", missing_refs: [{ kind: "backgrounds", id: "b_02", name: "ห้องน้ำ", cards: 2 }] };
+    const refusal = { code: "nothing_to_draw", message: "ไม่มีการ์ดให้สร้างภาพ", missing_refs: [{ item_kind: "backgrounds", id: "b_02", name: "ห้องน้ำ", cards: 2 }] };
     const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, epOf()), send("POST", JOBS_PATH, refusal, 400)]);
 
     await user.click(await screen.findByRole("button", { name: "สร้างภาพที่ขาดทั้งหมด" }));

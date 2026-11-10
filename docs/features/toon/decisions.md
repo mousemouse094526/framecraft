@@ -872,6 +872,25 @@
 
 **From:** build ticket 08 · **Status:** active
 
+## D63: feature review รอบสาม: `disk.require_free`, `series.require_series`, `Qwen.once`, เสียงที่ถูกลบระหว่าง Cards job, `missing_refs[].item_kind`
+
+**Chosen:**
+- เช็คดิสก์ 1 GiB (`507` `disk_full`) อยู่ที่ `backend.disk.require_free(root, incoming)` และ `disk.MIN_FREE_BYTES` ที่เดียว: Ref job, Image job, Render job ของ toon, Sound import และ Render job ของสปอยเมกเกอร์ (แทน `series.require_free_disk` และ `MIN_FREE_BYTES` สองตัว)
+- `series.require_series(project, series_id)` (`404` `not_found`) ตัวเดียว: `episodes` เรียกตัวนี้ (แทน `_series` ที่ซ้ำกันทีละบรรทัด)
+- `steps.Qwen.once(request, timeout)` ถาม Qwen หนึ่งครั้ง (เริ่ม child ตอนถามครั้งแรก, เวลาเกิน: หยุด child แล้วคืน None, ครั้งถัดไปเริ่มใหม่) และ `Qwen.end()`: ทั้ง `answer` (Plot, Cards job) และ `scenes` (Ref, Image job) ใช้ตัวนี้
+- Cards job อ่านคลังเสียงพื้นอีกครั้งตอนเขียนผลใต้ `store.lock`: `sound` ที่ถูกลบระหว่างงานเป็น `null` (spec › Cards job ขั้น 5)
+- `missing_refs[]` ของ Image job ใช้ `item_kind` (เดิม `kind`, ชนกับ `kind` ของงานใน JSON เดียวกัน; ข้อยกเว้นใน SKILL.md ของ D61 หายไป)
+- `Toon job` `error.code` ไม่มี `ffmpeg_failed` (ไม่มีงานไหนของ Toon job ใช้ ffmpeg)
+- หน้าเว็บ: `lib/kinds.ts` `ITEM_KINDS` (ชื่อและ icon ของตัวละครและฉากหลัง) แทนการแตกกิ่ง `=== "characters"` เพื่อเลือก icon และชื่อ; `VOICES_HASH` ย้ายไป `lib/voices.ts` ที่ทั้งสอง tab ใช้; `useEp` ใช้ `noticeOf` แบบ hook อื่น; test ข้อความ legal เขียนข้อความตรงตาม spec แทน import ค่าคงที่จาก component
+
+**Why:** feature review รอบสาม (Standards, Spec, Newcomer): ทางเลือกในโค้ดล้วน ยกเว้นข้อ Cards job ที่ทำตาม spec เดิม และ `item_kind` ที่เปลี่ยนชื่อ field ใน response (หน้าเว็บเปลี่ยนพร้อมกัน ยังไม่มีผู้ใช้นอก repo).
+
+**Rejected:**
+- `require_free_disk` ที่ `series` — ใช้กันห้า module สอง feature
+- ห่อ `OSError` ตอน copy ภาพอ้างอิงเป็น `ApiError` — ทั้งแอปไม่มี handler ของ error ที่ไม่คาด; ทำที่เดียวจะต่างจากทุก route
+
+**From:** feature review · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

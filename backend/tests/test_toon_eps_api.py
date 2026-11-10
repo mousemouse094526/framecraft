@@ -365,6 +365,26 @@ def test_a_card_answer_is_kept_to_two_characters_a_known_motion_and_a_sound_in_t
     assert len(series["characters"]) == 3
 
 
+def test_a_sound_deleted_from_the_library_while_qwen_splits_the_act_is_not_kept(client, llm, project):
+    series_id, _, _ = with_series(client, llm)
+    project.toon_sounds_file.parent.mkdir(parents=True)
+    sounds = {"version": 1, "sounds": [{"id": "m_00000001", "name": "ฝนตกในป่า", "duration_s": 60, "source": "file"}]}
+    project.toon_sounds_file.write_text(json.dumps(sounds), encoding="utf-8")
+    ep_id = new_ep(client, series_id)["id"]
+    run(client, "plot", ep_id)
+
+    def cards(act):
+        if project.toon_sounds_file.read_text(encoding="utf-8").count("m_00000001"):  # the first act's answer
+            assert client.delete("/api/toon/sounds/m_00000001").status_code == 204  # no EP plays it yet
+        return {"segments": [{"background": None, "sound": "m_00000001", "cards": [{"text": "ฝนตก", "characters": []}]}]}
+
+    llm.respond.__self__.cards = cards
+    run(client, "cards", ep_id)
+
+    segment = client.get(f"/api/toon/eps/{ep_id}").json()["acts"][0]["segments"][0]
+    assert segment["sound"] is None
+
+
 def test_a_card_answer_naming_three_characters_of_the_plot_keeps_the_first_two(client, llm):
     series_id, character, _ = with_series(client, llm)
     llm.respond.__self__.plot["characters"] = [{"id": character}, {"name": "มายด์"}, {"name": "ลุงยาม"}]

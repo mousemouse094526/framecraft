@@ -22,7 +22,7 @@ from backend.toon.steps import Child, Work
 
 State = Literal["writing", "translating", "drawing", "voicing", "done", "failed", "cancelled"]
 UNFINISHED: frozenset[State] = frozenset({"writing", "translating", "drawing", "voicing"})
-ErrorCode = Literal["crashed", "model_failed", "write_failed", "ffmpeg_failed", "internal"]
+ErrorCode = Literal["crashed", "model_failed", "write_failed", "internal"]
 JobKind = Literal["plot", "cards", "ref", "image", "voice"]
 LOCKS_EP: frozenset[JobKind] = frozenset({"plot", "cards"})
 
@@ -102,7 +102,7 @@ class ToonJobs(ModelJobSlot[ToonJob]):
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
 
-        def clean_up(state: str) -> None:  # however it ended
+        def clean_up(_state: str) -> None:  # however it ended
             if work.clean_up is not None:
                 work.clean_up(project, plan_now)
 

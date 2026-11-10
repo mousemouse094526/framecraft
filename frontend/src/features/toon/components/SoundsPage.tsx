@@ -21,7 +21,7 @@ import { CommitField } from "./CommitField";
 import { NoticeLine } from "./NoticeLine";
 
 /** legal item 4, shown before every file or link, nothing to accept (spec › Frontend). */
-export const SOUND_RIGHTS = "ใช้เสียงของคุณเอง หรือเสียงที่ license ให้ใช้ในวิดีโอที่เผยแพร่ได้ และใส่เครดิตตามที่ license กำหนด";
+const SOUND_RIGHTS = "ใช้เสียงของคุณเอง หรือเสียงที่ license ให้ใช้ในวิดีโอที่เผยแพร่ได้ และใส่เครดิตตามที่ license กำหนด";
 
 /** `#/toon/sounds`: the tab's background sound library (Figma toon / 8, D5, D16, D39). */
 export function SoundsPage() {

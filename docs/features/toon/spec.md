@@ -328,7 +328,7 @@ media/toon/
 
 - แก้ EP ที่ถูกล็อก → `409` `ep_locked`
 - ทุกงานคืนช่อง GPU เมื่อจบทุกแบบ (ADR-0015); restart แล้วงานหาย ผลที่เขียนไปแล้วอยู่ (ADR-0010)
-- `failed` `error.code`: `crashed`, `model_failed`, `write_failed`, `ffmpeg_failed`, `internal`
+- `failed` `error.code`: `crashed`, `model_failed`, `write_failed`, `internal` (ffmpeg อยู่ใน Render job)
 - Toon job กับ Render job ใช้ EP เดียวกันพร้อมกันได้ เฉพาะเมื่อไม่มีฝ่ายใดล็อก EP: Plot job หรือ Cards job บน EP ที่ Render job ยังไม่จบ → `409` `ep_busy` (D57)
 - ทุกงานรันใน thread ของ backend; โมเดลรันใน process ลูก `spawn`; thread ของ backend เขียนไฟล์ผลคนเดียว (ADR-0012)
 - ดิสก์ว่างน้อยกว่า 1 GiB → `507` `disk_full` ก่อนเริ่ม `ref`, `image`, `render`
@@ -390,7 +390,7 @@ media/toon/
 
 ### Image job
 
-`{"kind": "image", "ep_id": "...", "card_id": "..."}` สร้างหนึ่งการ์ด (ทุกสถานะยกเว้น `no_ref`, ซึ่งได้ `400` `no_ref`). ไม่มี `card_id` ต้องมี `scope`: `missing` = สร้างภาพที่ขาดทั้งหมด การ์ด `no_image` ตามลำดับ (D33); `stale_ref` = สร้างใหม่ทุกการ์ด `stale_ref` ตามลำดับ (D44). การ์ด `no_ref` นับใน `skipped` (D33). ไม่มีการ์ดให้สร้าง → `400` `nothing_to_draw`. ทั้ง `nothing_to_draw` และ job มี `missing_refs`: ตัวละครและฉากหลังที่ทำให้การ์ดถูกข้าม (`id`, ชื่อ, จำนวนการ์ด).
+`{"kind": "image", "ep_id": "...", "card_id": "..."}` สร้างหนึ่งการ์ด (ทุกสถานะยกเว้น `no_ref`, ซึ่งได้ `400` `no_ref`). ไม่มี `card_id` ต้องมี `scope`: `missing` = สร้างภาพที่ขาดทั้งหมด การ์ด `no_image` ตามลำดับ (D33); `stale_ref` = สร้างใหม่ทุกการ์ด `stale_ref` ตามลำดับ (D44). การ์ด `no_ref` นับใน `skipped` (D33). ไม่มีการ์ดให้สร้าง → `400` `nothing_to_draw`. ทั้ง `nothing_to_draw` และ job มี `missing_refs`: ตัวละครและฉากหลังที่ทำให้การ์ดถูกข้าม (`item_kind`, `id`, ชื่อ, จำนวนการ์ด).
 
 1. ตอนเริ่ม copy ภาพอ้างอิงที่งานใช้ลง `media/toon/.image-job/` เพื่อให้เปลี่ยนหรือลบภาพอ้างอิงระหว่างงานได้; เก็บ `ref_rev` ที่ copy ไว้ลง `image.refs`
 2. state `translating` (`done` / `total`): Qwen แปลคำบรรยายภาพของทุกการ์ดในงาน ณ ตอนเริ่ม แล้ว process ลูกของ Qwen จบ (D36)

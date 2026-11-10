@@ -12,7 +12,7 @@ import chevronUpIcon from "../assets/chevron-up.svg";
 import radio18Icon from "../assets/radio-18.svg";
 import radioSelected18Icon from "../assets/radio-selected-18.svg";
 import radioIcon from "../assets/radio.svg";
-import type { SavedVoice } from "../../../lib/voices";
+import { VOICES_HASH, type SavedVoice } from "../../../lib/voices";
 import { useSeriesForm } from "../hooks/useSeriesForm";
 import {
   ACT_NAME_MAX,
@@ -166,7 +166,7 @@ function Form({ creating, initial, voices, saving, error, back, onSave }: FormPr
             <Alert tone="warning" title="ยังไม่มี Saved voice">
               สร้างเสียงที่ tab สปอยก่อน แล้วกลับมาเลือกที่นี่
             </Alert>
-            <a href="#/spoil/voices" className={`h-8 w-fit px-3 ${OUTLINE_BUTTON}`}>
+            <a href={VOICES_HASH} className={`h-8 w-fit px-3 ${OUTLINE_BUTTON}`}>
               ไปสร้างเสียงที่ tab สปอย
             </a>
           </>

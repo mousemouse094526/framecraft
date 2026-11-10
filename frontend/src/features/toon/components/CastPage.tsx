@@ -8,9 +8,7 @@ import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import loader24Icon from "../assets/loader-24.svg";
-import mountainIcon from "../assets/mountain.svg";
 import uploadIcon from "../assets/upload.svg";
-import usersIcon from "../assets/users.svg";
 import wandIcon from "../assets/wand.svg";
 import { useCast, type ItemFields } from "../hooks/useCast";
 import { NoticeLine } from "./NoticeLine";
@@ -29,11 +27,12 @@ import {
   type Series,
   type ToonJob,
 } from "../lib/series";
+import { ITEM_KINDS } from "../lib/kinds";
 import { JobBanner } from "./JobBanner";
 import { ToonDialog } from "./ToonDialog";
 
 /** Legal item 2: shown before the file picker every time, nothing to accept (spec › Frontend). */
-export const CHARACTER_FILE_NOTICE =
+const CHARACTER_FILE_NOTICE =
   "ใช้ภาพหรือตัวละครที่คุณวาดเองหรือได้รับอนุญาต และอย่าใช้ภาพคนจริงในเรื่องที่ทำให้เขาเสียชื่อเสียง";
 
 const SECONDS_PER_PICTURE = 90; // a Ref job's picture on an M1, ~4.5 min for three (D31)
@@ -113,8 +112,8 @@ type Actions = {
 };
 
 const SECTION = {
-  characters: { title: "ตัวละคร", add: "เพิ่มตัวละคร", empty: "ยังไม่มีตัวละคร", icon: usersIcon },
-  backgrounds: { title: "ฉากหลัง", add: "เพิ่มฉากหลัง", empty: "ยังไม่มีฉากหลัง", icon: mountainIcon },
+  characters: { add: "เพิ่มตัวละคร", empty: "ยังไม่มีตัวละคร" },
+  backgrounds: { add: "เพิ่มฉากหลัง", empty: "ยังไม่มีฉากหลัง" },
 };
 
 type SectionProps = Actions & {
@@ -126,7 +125,7 @@ type SectionProps = Actions & {
 function ItemSection({ kind, series, onAdd, ...actions }: SectionProps) {
   const [adding, setAdding] = useState(false);
   const items = series[kind];
-  const text = SECTION[kind];
+  const text = { ...SECTION[kind], title: ITEM_KINDS[kind].name, icon: ITEM_KINDS[kind].icon };
 
   return (
     <section aria-label={text.title} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -219,7 +218,7 @@ function RefTile({ kind, sid, item, running, sending, onRemove, onStartRef, onUp
         />
       ) : (
         <Slot className={`${slot} border border-dashed border-border-disabled bg-muted`}>
-          <img src={kind === "characters" ? usersIcon : mountainIcon} alt="" width={24} height={24} />
+          <img src={ITEM_KINDS[kind].icon} alt="" width={24} height={24} />
           <p className="text-[13px] text-muted-foreground">ยังไม่มีภาพ</p>
         </Slot>
       )}

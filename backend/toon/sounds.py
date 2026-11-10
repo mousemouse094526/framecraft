@@ -22,7 +22,7 @@ import anyio
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from backend import checks, ffmpeg, gate_rows, paths, spoil, uploads
+from backend import checks, disk, ffmpeg, gate_rows, paths, spoil, uploads
 from backend.errors import ApiError, JobFailed, Row, invalid_request, require_rows
 from backend.ffmpeg import FfmpegFailed
 from backend.jobs import Cancelled, JobSlot
@@ -224,7 +224,7 @@ class SoundImports(JobSlot[SoundImport]):
             raise DownloadCancelled()
         estimate = sum(f.get("filesize") or f.get("filesize_approx") or 0 for f in info.get("requested_formats") or [info])
         try:
-            series.require_free_disk(project, estimate)
+            disk.require_free(project.root, estimate)
         except ApiError as full:
             raise JobFailed("disk_full", full.message) from None
         title = info.get("title") or sound_id
@@ -402,7 +402,7 @@ def _file_checks(project: ProjectPaths, name: object, size: object) -> int:
     if not isinstance(name, str) or not _file_title(name):
         raise invalid_request()
     size = uploads.require_size(size, UPLOAD_MAX_BYTES, f"ไฟล์เสียงใหญ่เกิน {UPLOAD_MAX_BYTES // 1024**2} MB")
-    series.require_free_disk(project, size)
+    disk.require_free(project.root, size)
     return size
 
 

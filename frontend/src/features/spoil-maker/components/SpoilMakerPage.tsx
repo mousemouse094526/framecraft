@@ -1,7 +1,7 @@
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { useHash } from "../../../lib/useHash";
 import { DraftRunContext, StepsRefreshContext, useStepStatus } from "../hooks/useStepStatus";
-import { VOICES_HASH } from "../lib/draft";
+import { VOICES_HASH } from "../../../lib/voices";
 import { stepLines } from "../lib/steps";
 import { RenderResults } from "./RenderResults";
 import { SavedVoicePage } from "./SavedVoicePage";
