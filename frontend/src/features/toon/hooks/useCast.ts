@@ -4,13 +4,11 @@ import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
-import { usePollWhile } from "../../../lib/usePollWhile";
 import {
   itemPath,
   JOB_PATH,
   pickHash,
   seriesPath,
-  isRunning,
   startRefJob,
   type Item,
   type Kind,
@@ -18,6 +16,7 @@ import {
   type ToonJob,
 } from "../lib/series";
 import { noticeOf, NOT_NOW, type Notice } from "../lib/notice";
+import { useToonJobPoll } from "./useToonJobPoll";
 
 export type ItemFields = { name: string; tag?: string; description: string };
 
@@ -68,14 +67,11 @@ export function useCast(sid: string) {
   }, [load]);
 
   const job = state.kind === "ready" ? state.job : null;
-  usePollWhile<ToonJob | null>(
-    job !== null && isRunning(job),
-    JOB_PATH,
-    (next) => {
-      // A job that ends leaves three pictures waiting (or none): read the Series again.
-      if (next === null || !isRunning(next)) void load();
-      else update((s) => ({ ...s, job: next }));
-    },
+  useToonJobPoll(
+    job,
+    (next) => update((s) => ({ ...s, job: next })),
+    // A job that ends leaves three pictures waiting (or none): read the Series again.
+    () => void load(),
     () => setState({ kind: "offline" }),
   );
 

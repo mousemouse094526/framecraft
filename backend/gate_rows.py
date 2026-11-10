@@ -2,7 +2,7 @@
 every gate reads the checklist the same way (ADR 0009, spoil-maker spec › Status check).
 Each check looks its probe and the OS up when it runs, so a test's fakes are the ones it calls."""
 
-from backend import checks
+from backend import checks, fonts
 from backend.errors import Row
 from backend.models import KLEIN, KLEIN_GGUF
 from backend.paths import ProjectPaths
@@ -47,10 +47,14 @@ def qwen_jobs(project: ProjectPaths) -> dict[str, Row]:
 
 def klein(project: ProjectPaths) -> dict[str, Row]:
     """klein's two snapshots and the two packages its child imports (toon spec › Status check)."""
-    probes = checks.real_probes()
     return {
         KLEIN.check_id: (KLEIN.label, lambda: checks.check_model(project, KLEIN)),
         KLEIN_GGUF.check_id: (KLEIN_GGUF.label, lambda: checks.check_model(project, KLEIN_GGUF)),
-        "diffusers": ("diffusers", lambda: checks.check_pinned(probes.diffusers, checks.DIFFUSERS_VERSION)),
-        "gguf": ("gguf", lambda: checks.check_pinned(probes.gguf, checks.GGUF_VERSION)),
-    }
+    } | checks.klein_packages(checks.real_probes())
+
+
+def render(project: ProjectPaths) -> dict[str, Row]:
+    """What every Render job's ffmpeg needs: ffmpeg, Kanit and pythainlp (each spec › Status
+    check); a job that voices first adds the Voice job's rows."""
+    kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
+    return FFMPEG | kanit | PYTHAINLP

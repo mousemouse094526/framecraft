@@ -85,6 +85,7 @@ beforeEach(() => vi.stubGlobal("fetch", fetchMock));
 afterEach(() => {
   fetchMock.mockReset();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   window.location.hash = "";
 });
 
@@ -359,6 +360,26 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
 
     expect(sent(fetchMock, "POST", JOBS_PATH)).toEqual([{ ep_id: EID, kind: "voice", card_id: "k_01" }]);
     expect(await within(first).findByText("กำลังสร้างเสียง…")).toBeInTheDocument();
+  });
+
+  it("ฟัง plays the card's own narration", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    const voiced = epOf({
+      acts: epOf().acts.map((act, i) => ({
+        ...act,
+        segments: act.segments.map((segment) => ({
+          ...segment,
+          cards: segment.cards.map((card) => (i === 1 ? { ...card, audio_status: "ready" as const } : card)),
+        })),
+      })),
+    });
+    const user = open(`#/toon/eps/${EID}`, [get(EP_PATH, voiced)]);
+
+    const second = await screen.findByRole("article", { name: "การ์ด 2" });
+    await user.click(within(second).getByRole("button", { name: "ฟัง" }));
+
+    expect(play).toHaveBeenCalledOnce();
+    expect((play.mock.contexts[0] as HTMLAudioElement).src).toContain(`/api/toon/eps/${EID}/cards/k_02/audio?v=`);
   });
 
   it("สลับภาพก่อนหน้า swaps the card's picture back", async () => {

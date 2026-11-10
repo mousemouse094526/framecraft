@@ -7,6 +7,9 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+import anyio
+import httpx
+
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
 from backend.models import MODELS, ModelSpec
 from backend.paths import ProjectPaths
@@ -704,3 +707,88 @@ class FakeFfmpeg:
             self.then(command, cwd, cancel, on_progress)
         else:
             Path(command[-1]).write_bytes(self.output)
+
+
+# --- An upload played through the app as ASGI (docs/library-notes/fastapi.md) ---
+
+
+class Upload:
+    """Plays an upload's ASGI `receive` messages: `chunks`, each sent at once or (a
+    `Gate`) once the test opens it, then the end of the body, a disconnect, or nothing.
+    `then="leave"` ends the body, then disconnects once the test calls `leave`: the page
+    going away after its file was sent."""
+
+    def __init__(self, *chunks, then: str = "end"):
+        self.chunks = list(chunks)
+        self.then = then
+        self.ended = False
+        self.left = anyio.Event()
+
+    def leave(self) -> None:
+        self.left.set()
+
+    async def receive(self) -> dict:
+        if self.chunks:
+            chunk = self.chunks.pop(0)
+            if isinstance(chunk, Gate):
+                chunk = await chunk.wait()
+            return {"type": "http.request", "body": chunk, "more_body": True}
+        if self.then == "disconnect":
+            return {"type": "http.disconnect"}
+        if self.then == "leave" and self.ended:
+            # As uvicorn: a disconnect already seen comes back without waiting, so
+            # Starlette's `is_disconnected` (a receive in a cancelled scope) sees it.
+            if not self.left.is_set():
+                await self.left.wait()
+            return {"type": "http.disconnect"}
+        self.ended = True
+        if self.then == "stall":
+            await anyio.sleep_forever()
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+
+class Gate:
+    """A chunk that waits until the test calls `open`; `reached` is set once the app asks for it."""
+
+    def __init__(self, chunk: bytes):
+        self.chunk = chunk
+        self.reached = anyio.Event()
+        self.opened = anyio.Event()
+
+    async def wait(self) -> bytes:
+        self.reached.set()
+        await self.opened.wait()
+        return self.chunk
+
+    def open(self) -> None:
+        self.opened.set()
+
+
+async def play(upload: Upload, name: str, size: int, path: str = "/api/spoil/imports") -> tuple[int | None, dict | None]:
+    """POST `path` through the app as ASGI; returns the status and the JSON body."""
+    query = httpx.QueryParams({"name": name, "size": size})
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": str(query).encode(),
+        "root_path": "",
+        "headers": [(b"host", b"127.0.0.1"), (b"content-type", b"application/octet-stream")],
+        "client": ("127.0.0.1", 50000),
+        "server": ("127.0.0.1", 8000),
+    }
+    sent: list[dict] = []
+
+    async def collect(message: dict) -> None:
+        sent.append(message)
+
+    from backend.app import app  # here: the app imports every route, which a probe's fake never needs
+
+    await app(scope, upload.receive, collect)
+    status = next((m["status"] for m in sent if m["type"] == "http.response.start"), None)
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    return status, json.loads(body) if body else None

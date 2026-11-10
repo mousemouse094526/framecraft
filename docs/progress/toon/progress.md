@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket 05 เสร็จ (Blocked #13, #14); ต่อ ticket 06 (Blocked #15–18); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ทุก ticket เสร็จ (06 ปิด Blocked #15–18); ต่อ feature review; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 06
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -17,9 +17,28 @@
 | 03 | ภาพการ์ดและเสียงเล่า | done |
 | 04 | คลังเสียงพื้นและ render | done |
 | 05 | แยกงานของ toon ออกเป็นส่วน | done |
-| 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | ready |
+| 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | done |
 
 ## Log
+
+### 06: ส่วนที่ซ้ำและช่องโหว่เล็ก — done 2026-11-10
+
+**Built:**
+- `backend/renders.py`: ชื่อว่าง, ผลที่ครบ (`complete_names`, `results`, `require`), `latest_at`, การลบ (mp4 ก่อน json ท้าย, `409` `in_use`), `.partial` ที่ค้าง; แถว gate ของ render เป็น `gate_rows.render`; `spoil_maker.render` และ `toon.render` เรียกตัวนี้; `toon.episodes` อ่าน `renders.latest_at` จึงไม่ import `toon.render` (ไม่มี import ในฟังก์ชันใน `toon/` แล้ว)
+- `checks.klein_packages(probes)`: แถว `diffusers` และ `gguf` ที่ Status check และ `gate_rows.klein` อ่าน
+- Sound import ไฟล์: ถาม `request.is_disconnected()` ทุก 0.25 วินาทีระหว่าง ffmpeg แปลง; หน้าเว็บหาย → ffmpeg หยุด, ไม่เขียน `sounds.json`, ไม่มีไฟล์ค้าง
+- หน้าเว็บ: `hooks/useToonJobPoll` ที่ `useCast`, `usePickRef`, `useEp` ใช้; `playAudio` ย้ายเป็น `lib/audio.ts` (ปุ่ม "ฟัง" ของการ์ดและคลังเสียงพื้น ใช้ร่วมกับสปอย)
+- test: หน้าเว็บหายระหว่างแปลงเสียง และหายตอน ffmpeg จบพอดี (ASGI `Upload(then="leave")`, `play(path=)` ใน `fakes.py`), ลบคลิปที่ player เปิด `409` `in_use`, ไม่มีวง import ใน `backend.toon` (`test_toon_modules.py`), gate ของ klein ได้แถวเดียวกับ Status check, `GENRE_DEFAULTS`/`DEFAULTS` เทียบ `backend/tests/golden/toon_genre_defaults.json` ทั้งสองฝั่ง, "ฟัง" ของการ์ดและของคลังเสียงพื้น
+- spec › Modules touched, คลังเสียงพื้น, Render job, ตาราง API; `fastapi-api` และ `vite-react-web` SKILL.md
+
+**Decided:**
+- D59 — `backend.renders`, `checks.klein_packages`, Sound import หยุดเมื่อหน้าเว็บหาย, ไฟล์ golden ของค่าตั้งต้นแนว, `lib/audio.ts`
+
+**For the next ticket:**
+- review ไม่ได้แก้: `(folder, name)` เดินคู่กันใน `backend.renders` (Data Clump, ชื่อเป็น `str`); `Upload(then="leave")` จำลองพฤติกรรมของ uvicorn เอง ยังไม่ได้ลองกับ uvicorn จริง (เช็คมือ: ปิดแท็บระหว่างเอาไฟล์เสียงยาวเข้า)
+- feature review: smell ที่ค้างจาก 05 (`cards.run` สร้างตัวละครเอง, Data Clump `process, requests, replies`, Middle Man ของ `ToonJobs`, เปิด klein ซ้ำใน `refs`/`images`, `_running`/`series_use` ซ้ำ), `series_busy` ของ Plot/Cards/Voice ไม่มี test; เช็คมือบน Mac (Blocked #11, #12) ยังรอ owner
+
+**Checks:** `uv run pytest` 1038 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 401 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `b676fb4`: Standards ไม่มีข้อผิดกติกา + smell (แก้: แถว gate ของ render ย้ายเป็น `gate_rows.render` ให้ `backend.renders` ไม่ import `spoil_maker`, `renders.results`/`require` แทนบรรทัดซ้ำสองฝั่ง, ชื่อ `complete_names` `_run_unless_gone` `page_gone`, `Upload`/`Gate`/`play` ย้ายเป็น `fakes.py`, log ซ้ำใน `receive`), Spec 1 race (หน้าเว็บหายช่วง 0.25 วิสุดท้ายของ ffmpeg ยังได้เสียง: แก้ด้วยการถามอีกครั้งก่อนเข้าคลัง + test) + `playAudio` ไม่กัน `new Audio` throw (แก้) + เช็คหลัง ffmpeg ทำให้ลิงก์ที่ยกเลิกช้าเป็น `cancelled` (เอาออก), Newcomer สรุปตรง What to build; แก้ log ของ `latest_at`, test comedy ที่ซ้ำ golden ออก, คอมเมนต์ test ของ gate klein
 
 ### 05: แยกงานของ toon ออกเป็นส่วน — done 2026-11-10
 
@@ -232,7 +251,7 @@
 | 12 | 04 | เช็คมือบน Mac: render EP แรกของ Series หลอนแบบกรอบดำ ดูด้วยตาว่าตำแหน่งชื่อตอน ภาพ ซับ ชื่อช่อง ตรง layout-sketch และขนาดตัวหนังสือ (ค่าจาก layout A, D56) | owner รัน `./setup.sh` แล้ว render EP จริง และจดผลใน `progress.md` | open |
 | 13 | review | `ToonJobs` และ `RenderJobs` สืบทอด `speaking.Speaker` เพื่อใช้ `_speak` (Refused Bequest): เปลี่ยนเป็น composition | `/warroom tickets toon` | done (ticket 05) |
 | 14 | review | `toon/jobs.py` 608 บรรทัดทำหลายเรื่อง (Plot, Cards, Ref, Image, Voice, child ของ klein, `delete_series`, `image_rows`); แตกกิ่ง `kind == "characters"` 22 ที่ใน `toon/`: แยก module และตารางต่อ kind | `/warroom tickets toon` | done (ticket 05) |
-| 15 | review | `toon.render` กับ `spoil_maker.render` ซ้ำ `_free_name`, `_needed_rows`, การลบผล; `episodes.list_for` import `render` ในฟังก์ชัน (วนกัน) | `/warroom tickets toon` | → ticket 06 |
-| 16 | review | หน้าเว็บ: poll `JOB_PATH` ซ้ำ 3 hook (`useCast`, `usePickRef`, `useEp`) ควรเป็น hook เดียว; `GENRE_DEFAULTS` ซ้ำ `DEFAULTS` ของ backend ไม่มี test เทียบ; ปุ่ม "ฟัง" ไม่มี test | `/warroom tickets toon` | → ticket 06 |
-| 17 | review | แถว `diffusers`/`gguf` เขียนทั้งใน `checks.run_checks` และ `gate_rows.klein` | `/warroom tickets toon` | → ticket 06 |
-| 18 | review | ไฟล์เสียงที่หน้าเว็บหายไประหว่างแปลง ffmpeg ยังแปลงจนจบและเข้าคลัง (`_take_in` ได้ `threading.Event()` ใหม่); `DELETE …/renders/{name}` มี `409` `in_use` ที่ spec ไม่ได้เขียน | `/warroom tickets toon` | → ticket 06 |
+| 15 | review | `toon.render` กับ `spoil_maker.render` ซ้ำ `_free_name`, `_needed_rows`, การลบผล; `episodes.list_for` import `render` ในฟังก์ชัน (วนกัน) | `/warroom tickets toon` | done (ticket 06) |
+| 16 | review | หน้าเว็บ: poll `JOB_PATH` ซ้ำ 3 hook (`useCast`, `usePickRef`, `useEp`) ควรเป็น hook เดียว; `GENRE_DEFAULTS` ซ้ำ `DEFAULTS` ของ backend ไม่มี test เทียบ; ปุ่ม "ฟัง" ไม่มี test | `/warroom tickets toon` | done (ticket 06) |
+| 17 | review | แถว `diffusers`/`gguf` เขียนทั้งใน `checks.run_checks` และ `gate_rows.klein` | `/warroom tickets toon` | done (ticket 06) |
+| 18 | review | ไฟล์เสียงที่หน้าเว็บหายไประหว่างแปลง ffmpeg ยังแปลงจนจบและเข้าคลัง (`_take_in` ได้ `threading.Event()` ใหม่); `DELETE …/renders/{name}` มี `409` `in_use` ที่ spec ไม่ได้เขียน | `/warroom tickets toon` | done (ticket 06) |

@@ -240,7 +240,7 @@ def check_sound_import(body: dict[str, Any]) -> UploadCheck:
 @router.post("/sounds/imports", status_code=201, dependencies=[Depends(body_types.require_octet_stream)])
 async def import_sound(request: Request, name: str | None = None, size: str | None = None) -> SoundView:
     """The body is the sound file itself (ADR 0028)."""
-    return await sounds.sound_imports.receive(name, size, request.stream())
+    return await sounds.sound_imports.receive(name, size, request.stream(), request.is_disconnected)
 
 
 @router.post("/sounds/downloads", status_code=202)

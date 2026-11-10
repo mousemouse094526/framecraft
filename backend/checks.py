@@ -398,8 +398,7 @@ def run_checks(
         # The การ์ตูนเล่า tab's rows follow Kanit (toon spec › Status check).
         _model_item(project, KLEIN, fixes.setup, sys_platform),
         _model_item(project, KLEIN_GGUF, fixes.setup, sys_platform),
-        _item("diffusers", "diffusers", lambda: check_pinned(probes.diffusers, DIFFUSERS_VERSION), fixes.setup),
-        _item("gguf", "gguf", lambda: check_pinned(probes.gguf, GGUF_VERSION), fixes.setup),
+        *(_item(row_id, label, check, fixes.setup) for row_id, (label, check) in klein_packages(probes).items()),
     ]
     counts = {s: sum(1 for i in items if i.status == s) for s in get_args(ItemStatus)}
     return StatusResponse(
@@ -434,6 +433,15 @@ def qwen_checks(
         "gpu": ("GPU", lambda: check_gpu(gpu)),
         qwen.check_id: (qwen.label, on_qwen_gpu(gpu, model)),
         "bitsandbytes": ("bitsandbytes", on_qwen_gpu(gpu, lambda: check_version(probes.bitsandbytes))),
+    }
+
+
+def klein_packages(probes: Probes) -> dict[str, tuple[str, Check]]:
+    """The two packages klein's child imports, id → (label, check): the Status check and
+    klein's gate both read them (toon spec › Status check)."""
+    return {
+        "diffusers": ("diffusers", lambda: check_pinned(probes.diffusers, DIFFUSERS_VERSION)),
+        "gguf": ("gguf", lambda: check_pinned(probes.gguf, GGUF_VERSION)),
     }
 
 

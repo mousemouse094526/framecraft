@@ -3,6 +3,7 @@ import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyle
 import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
+import { playAudio } from "../../../lib/audio";
 import flameIcon from "../assets/flame.svg";
 import imageIcon from "../assets/image.svg";
 import loaderIcon from "../assets/loader.svg";
@@ -253,13 +254,6 @@ function CardPicture({ card, number, src, drawing, full }: { card: Card; number:
 /** Figma `Narration voice`: สร้างเสียง until the card has narration, then ฟัง and สร้างใหม่ with
  * its length; a changed text or EP voice says the narration is old (D8, D21). */
 function Narration({ card, src, disabled, voicing, onVoice }: { card: Card; src: string; disabled: boolean; voicing: boolean; onVoice: () => void }) {
-  const play = () => {
-    try {
-      void new Audio(src).play().catch(() => undefined);
-    } catch {
-      // A browser without audio output: nothing to play.
-    }
-  };
   return (
     <div className="flex flex-wrap items-center gap-2">
       <img src={micIcon} alt="" width={16} height={16} />
@@ -276,7 +270,7 @@ function Narration({ card, src, disabled, voicing, onVoice }: { card: Card; src:
         </button>
       ) : (
         <>
-          <button type="button" onClick={play} className={`${ACTION} ${GHOST_BUTTON}`}>
+          <button type="button" onClick={() => playAudio(src)} className={`${ACTION} ${GHOST_BUTTON}`}>
             <img src={playIcon} alt="" width={16} height={16} />
             ฟัง
           </button>

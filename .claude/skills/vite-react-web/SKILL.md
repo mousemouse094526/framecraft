@@ -39,6 +39,7 @@ frontend/src/
     ├── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
     ├── usePollWhile.ts ← polls a job's `…/current` every second while it runs
     ├── job.ts        ← `isUnfinishedIn`, `onlyWhen`, `cancelCurrent` for every job hook
+    ├── audio.ts      ← `playAudio`: the ฟัง buttons of the สปอย and การ์ตูนเล่า tabs
     ├── refusal.ts    ← the API's `{code, message}` refusal, and `refusalLine`
     │                   (the one line a refused button shows)
     ├── gpu.ts        ← "รอให้งาน{running}เสร็จก่อน" for `gpu_busy` (spoil-maker D45)

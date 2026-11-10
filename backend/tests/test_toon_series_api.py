@@ -2,6 +2,7 @@
 
 import json
 import logging
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +12,7 @@ from backend.app import app
 from backend.paths import ProjectPaths
 from backend.toon import jobs
 
+GOLDEN = Path(__file__).parent / "golden"
 VOICE = "v_8f2c01ab"
 SERIES = "/api/toon/series"
 
@@ -60,12 +62,14 @@ def test_a_horror_series_starts_with_the_horror_acts_style_and_tone(client):
     assert (series["max_ep"], series["name_tags"], series["characters"]) == (0, True, [])
 
 
-def test_a_comedy_series_starts_with_the_comedy_defaults(client):
-    series = create(client, genre="comedy", layout="full")
+@pytest.mark.parametrize("genre", ["horror", "comedy"])
+def test_a_new_series_starts_with_the_genre_defaults_the_page_shows(client, genre):
+    # The page's GENRE_DEFAULTS is checked against the same file (features/toon/lib/series.test.ts).
+    shown = json.loads((GOLDEN / "toon_genre_defaults.json").read_text(encoding="utf-8"))[genre]
 
-    assert series["acts"] == ["ตั้งเรื่อง", "ปั่น", "พลิก", "ตบมุก"]
-    assert series["style"].endswith("bright cheerful colors, soft daylight")
-    assert series["tone"] == "เล่ากวนๆ จังหวะเร็ว มีมุกตบท้าย ประโยคสั้น"
+    series = create(client, genre=genre)
+
+    assert {field: series[field] for field in shown} == shown
 
 
 def test_a_new_series_takes_the_style_tone_and_acts_it_is_sent_in_place_of_its_genre_defaults(client):

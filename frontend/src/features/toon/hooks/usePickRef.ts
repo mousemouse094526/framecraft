@@ -2,9 +2,9 @@ import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson, type JsonReply } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import { useMountedState } from "../../../lib/useMountedState";
-import { usePollWhile } from "../../../lib/usePollWhile";
 import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type Kind, type Series, type ToonJob } from "../lib/series";
 import { refusalTextOf } from "../lib/notice";
+import { useToonJobPoll } from "./useToonJobPoll";
 
 export type PickState =
   | { kind: "loading" }
@@ -59,14 +59,11 @@ export function usePickRef(sid: string, kind: Kind, id: string) {
   }, [load]);
 
   const job = state.kind === "ready" ? state.job : null;
-  usePollWhile<ToonJob | null>(
-    job !== null && isRunning(job),
-    JOB_PATH,
-    (next) => {
-      // The three pictures land all at once when the job is done: read the item again.
-      if (next === null || !isRunning(next)) void load();
-      else update((s) => ({ ...s, job: next }));
-    },
+  useToonJobPoll(
+    job,
+    (next) => update((s) => ({ ...s, job: next })),
+    // The three pictures land all at once when the job is done: read the item again.
+    () => void load(),
     () => setState({ kind: "offline" }),
   );
 

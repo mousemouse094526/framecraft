@@ -7,6 +7,7 @@ import { RefreshButton } from "../../../components/ui/RefreshButton";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
+import { playAudio } from "../../../lib/audio";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import downloadWhiteIcon from "../assets/download-white.svg";
 import loaderIcon from "../assets/loader.svg";
@@ -198,7 +199,7 @@ function SoundRow({ sound, onRename, onDelete }: { sound: Sound; onRename: (name
       <button
         type="button"
         aria-label={`ฟัง ${sound.name}`}
-        onClick={() => void new Audio(soundFilePath(sound.id)).play()}
+        onClick={() => playAudio(soundFilePath(sound.id))}
         className="flex size-9 items-center justify-center rounded-lg hover:bg-muted"
       >
         <img src={playIcon} alt="" width={16} height={16} />

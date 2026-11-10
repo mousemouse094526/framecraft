@@ -798,6 +798,24 @@
 
 **From:** build ticket 05 · **Status:** active
 
+## D59: ส่วนที่ซ้ำและช่องโหว่เล็ก ticket 06: `backend.renders`, หน้าเว็บหายระหว่างแปลงเสียง, ค่าตั้งต้นของแนวเทียบผ่านไฟล์เดียว
+
+**Chosen:**
+- ส่วนกลางของผล render อยู่ module ใหม่ `backend/renders.py` (ชื่อว่าง `free_name`, `names` ผลที่ครบ, `latest_at`, `delete` mp4 ก่อน json ท้าย `409` `in_use`, `remove_partials`, `needed_rows`); `spoil_maker.render` และ `toon.render` ถือ folder ของตัวเองแล้วเรียกตัวนี้; ชื่อที่ถูกเช็คด้วยรูปวันเวลาจริง (`strptime`) ทั้งสอง feature แทน regex ของ spoil-maker (ชื่อแบบ `20261399-000000` ที่ `free_name` ไม่มีวันสร้าง ไม่ขึ้นรายการของสปอยแล้ว); แถว gate ของ render อยู่ `gate_rows.render` ไม่ใช่ `backend.renders` เพื่อให้ module กลางไม่ import `spoil_maker`
+- `episodes.list_for` อ่าน `renders.latest_at` จาก folder ของ EP: ไม่ import `toon.render` อีก; test อ่าน import ทุก module ของ `backend.toon` แล้วไม่เจอวง
+- แถว `diffusers` และ `gguf` อยู่ใน `checks.klein_packages(probes)` ที่ Status check และ `gate_rows.klein` อ่าน (แบบ `qwen_checks`)
+- Sound import ไฟล์: ระหว่างแปลง ffmpeg ถาม `request.is_disconnected()` ทุก 0.25 วินาที; หน้าเว็บหาย → ตั้ง `cancel` ของ ffmpeg, ไม่เขียน `sounds.json`, ลบ `.m4a.partial` และไฟล์ใน `.partial/`; หลัง ffmpeg จบถามหน้าเว็บอีกครั้ง (`anyio.from_thread.run`) ก่อนเสียงเข้าคลัง; ลิงก์ไม่เปลี่ยน (ยกเลิกหลัง ffmpeg จบยัง `done`)
+- `GENRE_DEFAULTS` ของหน้าเว็บกับ `DEFAULTS` ของ backend เทียบกับไฟล์เดียว `backend/tests/golden/toon_genre_defaults.json`: test ของ backend สร้าง Series ทั้งสองแนวผ่าน API แล้วเทียบ, test ของหน้าเว็บ import ไฟล์นั้นแล้วเทียบ
+- `playAudio` ย้ายจาก `features/spoil-maker/lib/audio.ts` เป็น `lib/audio.ts`: ปุ่ม "ฟัง" ของการ์ดและของคลังเสียงพื้นใช้ตัวเดียวกับสปอย (คลังเสียงพื้นเคยไม่จับ `play()` ที่ถูกปฏิเสธ)
+
+**Why:** feature review (Blocked #15–18). ไฟล์ golden ไฟล์เดียวให้ test สองชุดที่รันแยกกันจับค่าที่เปลี่ยนข้างเดียวได้ โดยไม่ต้องให้ test ของหน้าเว็บรัน Python. ถาม `is_disconnected` เป็นระยะเพราะ body อ่านจบแล้ว: Starlette ไม่ยกเลิก thread ของ ffmpeg เอง.
+
+**Rejected:**
+- `GENRE_DEFAULTS` อ่านจาก API — ต้องมี route ใหม่เพื่อค่าที่ไม่เปลี่ยน
+- รอ `receive()` ค้างไว้แทนการถามเป็นระยะ — อ่าน ASGI ตรง ไม่ผ่าน API ของ Starlette
+
+**From:** build ticket 06 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

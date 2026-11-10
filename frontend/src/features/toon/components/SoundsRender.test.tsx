@@ -113,6 +113,7 @@ beforeEach(() => {
 afterEach(() => {
   fetchMock.mockReset();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   window.location.hash = "";
 });
@@ -142,6 +143,16 @@ describe("คลังเสียงพื้น", () => {
     const row = await screen.findByRole("listitem", { name: "ฝนตกในป่า" });
     expect(row).toHaveTextContent("3:42");
     expect(screen.getByText("เสียงพื้น 1 เสียง")).toBeInTheDocument();
+  });
+
+  it("ฟัง plays that sound of the library", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    const user = open("#/toon/sounds", [get(SOUNDS, [rain, { ...rain, id: "m_02", name: "ลมพัด" }])]);
+
+    await user.click(await screen.findByRole("button", { name: "ฟัง ลมพัด" }));
+
+    expect(play).toHaveBeenCalledOnce();
+    expect((play.mock.contexts[0] as HTMLAudioElement).src).toMatch(/\/api\/toon\/sounds\/m_02\/file$/);
   });
 
   it("shows legal item 4 before the file picker and the link field (e2e)", async () => {

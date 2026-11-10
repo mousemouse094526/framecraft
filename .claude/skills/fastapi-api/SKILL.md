@@ -33,7 +33,7 @@ backend/
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
-│                    `PYTHAINLP`, `qwen_jobs`), named once (ADR 0009)
+│                    `PYTHAINLP`, `qwen_jobs`, `klein`, `render`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010), ModelJobSlot (a job
 │                    whose model runs in a child: cancel, shutdown,
 │                    `_run_job`, the one ending of every job's thread that
@@ -108,7 +108,8 @@ backend/
 │                    back), voicing (Voice job: a card's narration), klein (the
 │                    only diffusers import; its `worker` runs in a child
 │                    process, D34), sounds (the background sound library and
-│                    its Sound import slot: a file in one request, a link
+│                    its Sound import slot: a file in one request, which a page
+│                    gone during ffmpeg never brings in, a link
 │                    through spoil's adapter with `LINK_OPTIONS`), render (the
 │                    Render job, its own slot, and an EP's renders), compose (a
 │                    render's timeline, its ffmpeg commands and its ASS file,
@@ -121,6 +122,10 @@ backend/
 ├── subtitles.py  ← what every render's text shares: the ASS header, a Dialogue line,
 │                    Thai text cut into lines or short chunks and their times, the
 │                    `.srt`; spoil_maker's captions and toon's compose lay them out
+├── renders.py    ← what every render's results folder shares: a free name, the complete
+│                    renders, `latest_at`, the delete (mp4 first, `409` `in_use`, json last),
+│                    leftover `.partial`s; spoil_maker's and toon's render keep their folders
+│                    and call it, and gate on `gate_rows.render`
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
 │                    File import and toon's reference uploads share it
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an

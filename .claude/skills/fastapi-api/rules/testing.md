@@ -69,7 +69,7 @@ def test_missing_marker(tmp_path):
 ## Good examples
 
 - [backend/tests/conftest.py](../../../../backend/tests/conftest.py) — the `fake_root` fixture only.
-- [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — plain helpers tests import: `write_snapshot`, `write_marker`, fake probes.
+- [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — plain helpers tests import: `write_snapshot`, `write_marker`, fake probes, and `Upload`/`Gate`/`play`, which play a raw upload through the app as ASGI (a page that pauses, stalls, drops or leaves).
 - [backend/tests/test_setup.py](../../../../backend/tests/test_setup.py) — `FakeDownload` stands in for `snapshot_download`.
 - [backend/tests/test_app.py](../../../../backend/tests/test_app.py) — API tests monkeypatch `backend.paths.ROOT` and the default probes in `backend.checks`.
 - [backend/tests/test_spoil_api.py](../../../../backend/tests/test_spoil_api.py) — `FakeAdapter` from `fakes.py` stands in for yt-dlp; `wait_for_end` polls the job.

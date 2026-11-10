@@ -13,7 +13,7 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel
 
-from backend import gpu
+from backend import gpu, renders
 from backend.errors import ApiError, invalid_request
 from backend.json_values import is_int, is_number
 from backend.paths import ProjectPaths
@@ -107,8 +107,6 @@ class EpView(BaseModel):
 
 def list_for(project: ProjectPaths, series_id: str) -> list[ListedEp]:
     """The Series' EPs, newest number first."""
-    from backend.toon import render  # `render` reads EPs through this module
-
     with store.lock:
         series_module.view(project, series_id)  # `not_found`
         eps = store.list_eps(project, series_id)
@@ -120,7 +118,7 @@ def list_for(project: ProjectPaths, series_id: str) -> list[ListedEp]:
             stage=ep.stage,
             cards=sum(1 for card in ep_cards(ep)),
             images=sum(1 for card in ep_cards(ep) if card.image is not None),
-            rendered_at=render.latest_at(project, series_id, ep.id),
+            rendered_at=renders.latest_at(project.ep_renders_dir(series_id, ep.id)),
         )
         for ep in reversed(eps)
     ]

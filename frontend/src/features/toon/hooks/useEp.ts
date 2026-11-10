@@ -3,11 +3,11 @@ import { getJson, sendJson } from "../../../lib/api";
 import { cancelCurrent } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
-import { usePollWhile } from "../../../lib/usePollWhile";
 import { epPath, type Ep, type LostCards } from "../lib/episodes";
 import { SOUNDS_PATH, type Sound } from "../lib/sounds";
-import { epHash, isRunning, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
+import { epHash, JOB_PATH, JOBS_PATH, seriesPath, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
 import { refusalTextOf, type Notice } from "../lib/notice";
+import { useToonJobPoll } from "./useToonJobPoll";
 
 export type EpState =
   | { kind: "loading" }
@@ -74,17 +74,15 @@ export function useEp(eid: string) {
   }, [load]);
 
   const job = state.kind === "ready" ? state.job : null;
-  usePollWhile<ToonJob | null>(
-    job !== null && isRunning(job),
-    JOB_PATH,
+  useToonJobPoll(
+    job,
     (next) => {
-      if (next !== null && isRunning(next)) {
-        // A picture of this EP is written as soon as it is drawn: read the EP for it (spec › Frontend).
-        const drew = next.kind === "image" && next.ep_id === eid && next.state === "drawing" && next.done !== job?.done;
-        update((s) => ({ ...s, job: next }));
-        if (drew) void load();
-        return;
-      }
+      // A picture of this EP is written as soon as it is drawn: read the EP for it (spec › Frontend).
+      const drew = next.kind === "image" && next.ep_id === eid && next.state === "drawing" && next.done !== job?.done;
+      update((s) => ({ ...s, job: next }));
+      if (drew) void load();
+    },
+    (next) => {
       // A Cards job of this EP that is done opens the storyline (the plot page may be open).
       if (next?.kind === "cards" && next.ep_id === eid && next.state === "done") window.location.hash = epHash(eid);
       void load();

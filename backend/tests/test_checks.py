@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from backend import checks
+from backend import checks, gate_rows
 from backend.checks import DeviceProbe, run_checks
 from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
@@ -553,6 +553,20 @@ def test_another_diffusers_version_makes_diffusers_missing(fake_root):
     assert item(result, "diffusers").status == "missing"
     assert item(result, "diffusers").detail == "version ไม่ตรง: ติดตั้งไว้ 0.43.0 ต้องการ 0.42.1"
     assert result.missing_count == 1
+
+
+def test_klein_s_gate_reads_the_same_diffusers_and_gguf_rows_as_the_status_check(fake_root, monkeypatch):
+    # The gate reads the real probes, the Status check here the fakes: both get 0.43.0.
+    monkeypatch.setattr(checks, "probe_diffusers", lambda: "0.43.0")
+    monkeypatch.setattr(checks, "probe_gguf", lambda: "0.19.0")
+    result = checks_with_fakes(fake_root, diffusers=lambda: "0.43.0")
+
+    gate = gate_rows.klein(ProjectPaths(fake_root))
+
+    for row_id in ("diffusers", "gguf"):
+        label, check = gate[row_id]
+        shown = item(result, row_id)
+        assert (label, *check()) == (shown.label, shown.status, shown.detail)
 
 
 def test_gguf_not_installed_makes_gguf_missing_with_the_setup_command(fake_root):

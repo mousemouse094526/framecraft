@@ -82,7 +82,9 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `REQUIRED_FREE_BYTES` เพิ่ม 12 GB: Mac 32 GB, Windows 42 GB; `REQUIRED_FREE_BYTES_WITHOUT_QWEN` 27 GB (D51)
   - klein โหลดไม่สำเร็จเป็นเหมือนโมเดลอื่น: Setup script ล้มและรันซ้ำแล้วโหลดต่อ (ADR-0002)
 - **`backend.checks`, `backend.gate_rows`**
-  - แถวใหม่: Status check ด้านล่าง; `gate_rows.klein(project)` รวมสี่แถวของ klein (ฟังก์ชัน: แถว model ต้องรู้ project)
+  - แถวใหม่: Status check ด้านล่าง; `gate_rows.klein(project)` รวมสี่แถวของ klein (ฟังก์ชัน: แถว model ต้องรู้ project); แถว `diffusers` และ `gguf` เขียนที่เดียวใน `checks.klein_packages` ที่ Status check อ่านด้วย (D59)
+- **`backend.renders`** (ใหม่, D59)
+  - ส่วนกลางของผล render ที่ `spoil_maker.render` และ `toon.render` ใช้ร่วม: ชื่อว่าง ผลที่ครบ `latest_at` การลบ (mp4 ก่อน json ท้าย, `409` `in_use`) `.partial` ที่ค้าง; แถว gate ของ render เป็น `gate_rows.render`; `toon.episodes` อ่าน `latest_at` จากตัวนี้ จึงไม่ import `toon.render`
 - **`backend.gpu`**
   - `Kind` เพิ่ม `toon_write` ("ร่างการ์ตูนเล่า"), `toon_image` ("สร้างภาพ"), `toon_voice` ("สร้างเสียงเล่า"), `toon_render` ("render การ์ตูนเล่า") ใน `RUNNING_NAMES`
 - **`backend.app`**
@@ -107,7 +109,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `refs`: Ref job
   - `images`: แผน ขั้น ไฟล์ และการเขียนภาพของ Image job
   - `voicing`: Voice job: แผน ขั้น และการเขียนเสียงเล่าของการ์ด (ผ่าน `speaking.Speaker`)
-  - `sounds`: คลังเสียงพื้น, Sound import slot
+  - `sounds`: คลังเสียงพื้น, Sound import slot (ไฟล์ที่หน้าเว็บหายระหว่างแปลงไม่เข้าคลัง)
   - `render`: Render slot (D45), Render job; `compose`: timeline, ASS, filter graph
   - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่เริ่มและจบทุก kind แบบเดียวกันจาก `WORK` ของ module ของ kind นั้น; `steps`: ส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, D58)
 - **`backend.routes`**
@@ -119,7 +121,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 - **`frontend` › `lib/gpu`**
   - `GPU_JOB_PATHS` เพิ่ม `/api/toon/jobs/current` และ `/api/toon/render/current`
 - **`frontend` › `features/toon`** (ใหม่)
-  - หน้าตาม Design; ใช้ `lib/api`, `lib/job`, `lib/usePollWhile`, `lib/refusal` เดิม
+  - หน้าตาม Design; ใช้ `lib/api`, `lib/job`, `lib/usePollWhile`, `lib/refusal` เดิม; หน้าที่ตาม Toon job poll ผ่าน `hooks/useToonJobPoll`; ปุ่ม "ฟัง" ใช้ `lib/audio` (ย้ายจาก spoil-maker, D59)
 
 ### Dependencies
 
@@ -408,7 +410,7 @@ klein worker (`toon.klein`): request `Encode(prompts)` → reply `Encoded(count)
 ### คลังเสียงพื้น
 
 - **Sound import** (D39): slot ของตัวเองแยกจาก Toon job (ffmpeg อย่างเดียว ไม่ใช้ GPU) มีได้ทีละงาน `409` `busy`
-  - ไฟล์: `POST /api/toon/sounds/imports?name=&size=` body ดิบ (ADR-0028) ไม่เกิน 200 MB
+  - ไฟล์: `POST /api/toon/sounds/imports?name=&size=` body ดิบ (ADR-0028) ไม่เกิน 200 MB; หน้าเว็บหายระหว่าง ffmpeg แปลง → ffmpeg หยุด ไม่มีเสียงใหม่ใน `sounds.json` และไม่มีไฟล์ค้างใน `.partial/` (D59)
   - ลิงก์: `POST /api/toon/sounds/downloads {"url": "..."}` ทำตามขั้นของ Download job ของ spoil (อ่าน info → เช็คความยาวจาก info ก่อนโหลด → โหลดพร้อม % → `stalled`) ใน `toon.sounds` ด้วย adapter options ของ Modules touched ลง `media/toon/.partial/`; ใช้ error code ของลิงก์เดิม (`invalid_url`, `login_required`, `download_error`, `disk_full`) กติกาลิงก์ของ spoil (ADR-0029)
   - ffmpeg แปลงเป็น m4a aac 192k 48 kHz stereo ไม่มีภาพ; ffmpeg อ่านเสียงไม่ได้ → `400` `unsupported_file`; ยาวเกิน 20 นาที → `400` `too_long`
   - ชื่อตั้งต้น = ชื่อไฟล์ไม่มีนามสกุล หรือชื่อคลิปของลิงก์ ตัดเหลือ 60 ตัวอักษร; แก้ชื่อได้ 1–60; ชื่อซ้ำได้
@@ -442,7 +444,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 - ผสม `amix` `normalize=0`; output aac 192k, h264 crf 20 `yuv420p` 30 fps `+faststart`
 
 - ยกเลิก: ลบ `.partial` และ `.render/`; restart ล้าง `.render/` กับ `*.partial`
-- ลบคลิปที่ render: `DELETE …/renders/{name}`
+- ลบคลิปที่ render: `DELETE …/renders/{name}` ลบ mp4 ก่อน json ท้าย; player เปิด mp4 อยู่ → `409` `in_use` (เหมือน spoil-maker spec › `DELETE /renders/{name}`)
 
 ### API
 
@@ -467,7 +469,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 | POST, PATCH, DELETE | `/eps/{eid}/segments…`, `/eps/{eid}/cards…` | เพิ่ม แก้ ลบ ช่วงและการ์ด (`after` บอกตำแหน่ง) |
 | POST | `/eps/{eid}/cards/{kid}/swap-image` | สลับภาพก่อนหน้า |
 | GET | `/eps/{eid}/cards/{kid}/image`, `/previous-image`, `/audio` | ไฟล์ |
-| GET, DELETE | `/eps/{eid}/renders`, `/eps/{eid}/renders/{name}` | รายการ ไฟล์ ลบ |
+| GET, DELETE | `/eps/{eid}/renders`, `/eps/{eid}/renders/{name}` | รายการ ไฟล์ ลบ (`409` `in_use` ระหว่าง player เปิด mp4) |
 | POST, GET, DELETE | `/jobs`, `/jobs/current` | Toon job |
 | POST, GET, DELETE | `/render`, `/render/current` | Render job (D45) |
 | GET, PATCH, DELETE | `/sounds`, `/sounds/{mid}` | คลังเสียงพื้น |

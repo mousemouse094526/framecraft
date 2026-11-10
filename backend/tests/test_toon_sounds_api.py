@@ -3,8 +3,10 @@ a link's with a fake yt-dlp adapter, `in_use`, `sound: null`, and the Cards job 
 (toon seam 1 › Sound import, `in_use` ของเสียง, `sound: null`)."""
 
 import subprocess
+import threading
 from pathlib import Path
 
+import anyio
 import deno
 import imageio_ffmpeg
 import pytest
@@ -16,7 +18,7 @@ from backend.paths import ProjectPaths
 from backend.spoil.adapter import DownloadOptions, YtDlpAdapter, select_formats
 from backend.toon import jobs, sounds, store
 
-from .fakes import FakeAdapter, FakeLlm, cuda_device, ok_deno, ok_ffmpeg, ok_yt_dlp, poll_until, youtube_info
+from .fakes import FakeAdapter, FakeLlm, Upload, cuda_device, ok_deno, ok_ffmpeg, ok_yt_dlp, play, poll_until, youtube_info
 from .test_toon_eps_api import Writer, cards_of, new_ep, run, start, with_series
 from .test_toon_series_api import write_voice
 
@@ -278,3 +280,61 @@ def test_a_start_removes_a_conversion_cut_short(client, project):
     with client:  # the app's start-up runs each job holder's clean
         pass
     assert not (project.toon_sounds_dir / "m_01234567.m4a.partial").exists()
+
+
+class PausedConvert:
+    """ffmpeg converting a sound, until the job's `cancel` is set: ffmpeg running long."""
+
+    def __init__(self):
+        self.reached = threading.Event()
+        self.cancelled = False
+
+    def __call__(self, command: list[str], cwd: Path, cancel: threading.Event, on_progress=None) -> None:
+        Path(command[-1]).write_bytes(b"half")  # as far as ffmpeg got
+        self.reached.set()
+        self.cancelled = cancel.wait(5)
+        raise ffmpeg.Cancelled() if self.cancelled else AssertionError("the import never cancelled ffmpeg")
+
+
+def test_a_page_that_goes_away_while_ffmpeg_converts_its_file_stops_ffmpeg_and_adds_no_sound(
+    client, project, tmp_path, monkeypatch
+):
+    paused = PausedConvert()
+    monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports(convert=paused))
+    data = tone(tmp_path / "in.wav", 1).read_bytes()
+    upload = Upload(data, then="leave")
+
+    async def main():
+        async with anyio.create_task_group() as group:
+            group.start_soon(play, upload, "ฝนตก.wav", len(data), f"{SOUNDS}/imports")
+            assert await anyio.to_thread.run_sync(paused.reached.wait, 5)
+            upload.leave()
+
+    anyio.run(main)
+
+    assert paused.cancelled
+    assert client.get(SOUNDS).json() == []
+    assert list(project.toon_partial_dir.iterdir()) == []
+    assert list(project.toon_sounds_dir.iterdir()) == []
+    monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports())
+    assert import_file(client, "ฝนตก.wav", data).status_code == 201
+
+
+def test_a_page_that_goes_away_as_ffmpeg_ends_adds_no_sound(client, project, tmp_path, monkeypatch):
+    # The page is asked about once a second at most here, so only the last question before
+    # the sound comes in can see it gone.
+    monkeypatch.setattr(sounds, "GONE_POLL_SECONDS", 1)
+    data = tone(tmp_path / "in.wav", 1).read_bytes()
+    upload = Upload(data, then="leave")
+
+    def convert_then_leave(command, cwd, cancel, on_progress=None):
+        ffmpeg.run(command, cwd, cancel, on_progress)
+        anyio.from_thread.run_sync(upload.leave)
+
+    monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports(convert=convert_then_leave))
+
+    anyio.run(play, upload, "ฝนตก.wav", len(data), f"{SOUNDS}/imports")
+
+    assert client.get(SOUNDS).json() == []
+    assert list(project.toon_partial_dir.iterdir()) == []
+    assert list(project.toon_sounds_dir.iterdir()) == []

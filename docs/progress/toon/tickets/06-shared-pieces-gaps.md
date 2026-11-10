@@ -10,7 +10,7 @@
 - Seams: 1 (Sound import)
 - Blocked: #15, #16, #17, #18 (feature review)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

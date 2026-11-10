@@ -13,7 +13,7 @@ import logging
 import math
 import os
 import threading
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal
@@ -44,6 +44,7 @@ MAX_SECONDS = 20 * 60
 NAME_MAX = 60
 AUDIO_RATE = 48_000
 BITRATE = "192k"
+GONE_POLL_SECONDS = 0.25  # how often a file's conversion asks whether the page is still there
 
 # Where a link's audio lands: `.partial/` of the tab, no thumbnail, no mp4 merge (spec › Modules touched).
 LINK_OPTIONS = DownloadOptions(
@@ -116,9 +117,12 @@ class SoundImports(JobSlot[SoundImport]):
             self._require_free()
         return uploads.UploadCheck(size=size)
 
-    async def receive(self, name: str | None, size: str | None, body: AsyncIterator[bytes]) -> SoundView:
-        """Checks again, writes `body` to `.partial/`, converts it into the library. Raises
-        `ApiError`, or `ClientDisconnect` once its file is gone."""
+    async def receive(
+        self, name: str | None, size: str | None, body: AsyncIterator[bytes], page_gone: Callable[[], Awaitable[bool]]
+    ) -> SoundView:
+        """Checks again, writes `body` to `.partial/`, converts it into the library. `page_gone`
+        says whether the page went away: ffmpeg stops then and the sound never comes in.
+        Raises `ApiError`, or `ClientDisconnect` once its file is gone."""
         project, expected = paths.project(), uploads.whole_number(size)
         await anyio.to_thread.run_sync(_file_checks, project, name, expected)
         with self._receiving():
@@ -126,12 +130,19 @@ class SoundImports(JobSlot[SoundImport]):
             partial = project.toon_partial_dir / f"{sound_id}.upload"
             try:
                 await uploads.receive(body, partial, expected, self._stall_seconds)
-                return await anyio.to_thread.run_sync(
-                    self._take_in, project, sound_id, partial, _file_title(name), "file", threading.Event()
+                cancel = threading.Event()
+
+                def still_wanted() -> bool:  # asked once more right before the sound comes in
+                    return not cancel.is_set() and not anyio.from_thread.run(page_gone)
+
+                return await _run_unless_gone(
+                    page_gone,
+                    cancel,
+                    lambda: self._take_in(project, sound_id, partial, _file_title(name), "file", cancel, still_wanted),
                 )
-            except ClientDisconnect:
+            except (Cancelled, ClientDisconnect):  # `Cancelled`: the page left during ffmpeg
                 log.info("the sound import %s stopped: the page went away", sound_id)
-                raise
+                raise ClientDisconnect() from None
             except JobFailed as refused:
                 raise ApiError(400, refused.code, refused.message) from None
             finally:
@@ -202,7 +213,7 @@ class SoundImports(JobSlot[SoundImport]):
                 leftover.unlink(missing_ok=True)
             self._update(**ending)
 
-    def _download(self, project: ProjectPaths, url: str, sound_id: str) -> StoredSound:
+    def _download(self, project: ProjectPaths, url: str, sound_id: str) -> SoundView:
         """Spoil's Download job steps: the info, its length before loading, the load with %."""
         info = spoil.adapter.fetch_info(url, LINK_OPTIONS)
         if info.get("_type") == "playlist":
@@ -237,10 +248,18 @@ class SoundImports(JobSlot[SoundImport]):
     # --- both ---
 
     def _take_in(
-        self, project: ProjectPaths, sound_id: str, source: Path, name: str, origin: Source, cancel: threading.Event
-    ) -> StoredSound:
+        self,
+        project: ProjectPaths,
+        sound_id: str,
+        source: Path,
+        name: str,
+        origin: Source,
+        cancel: threading.Event,
+        still_wanted: Callable[[], bool] | None = None,
+    ) -> SoundView:
         """In a thread: its length and sound (`unsupported_file`, `too_long`), then aac in m4a
-        through `.partial`, then the library's entry. Raises `JobFailed`."""
+        through `.partial`, then the library's entry, unless `still_wanted` says no by then. Raises
+        `JobFailed`, or `Cancelled`."""
         try:
             media = ffmpeg.probe(source)
         except FfmpegFailed:
@@ -262,12 +281,40 @@ class SoundImports(JobSlot[SoundImport]):
         except BaseException:
             partial.unlink(missing_ok=True)
             raise
+        if still_wanted and not still_wanted():
+            partial.unlink(missing_ok=True)
+            raise Cancelled()
         os.replace(partial, target)
         sound = StoredSound(id=sound_id, name=name, duration_s=round(seconds, 1), source=origin)
         with store.lock:
             store.write_sounds(project, [*store.read_sounds(project), sound])
         log.info("imported sound %s (%s, %.1f s)", sound_id, origin, seconds)
         return SoundView(**sound.model_dump())
+
+
+async def _run_unless_gone(
+    page_gone: Callable[[], Awaitable[bool]], cancel: threading.Event, work: Callable[[], SoundView]
+) -> SoundView:
+    """`work()` in a thread, with `cancel` set once `page_gone()` says the page went away.
+    `work`'s exception is raised as it is: from inside the task group it would come out
+    wrapped in an ExceptionGroup, which `receive`'s `except` lines don't catch."""
+
+    async def watch() -> None:
+        while not await page_gone():
+            await anyio.sleep(GONE_POLL_SECONDS)
+        cancel.set()
+
+    failure: Exception | None = None
+    async with anyio.create_task_group() as group:
+        group.start_soon(watch)
+        try:
+            done = await anyio.to_thread.run_sync(work)
+        except Exception as error:
+            failure = error
+        group.cancel_scope.cancel()
+    if failure is not None:
+        raise failure
+    return done
 
 
 def convert_command(source: Path, out: Path) -> list[str]:

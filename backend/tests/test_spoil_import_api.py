@@ -25,7 +25,7 @@ from backend.app import app
 from backend.paths import ProjectPaths
 from backend.spoil import downloads, imports, mp4check
 
-from .fakes import FakeAdapter, FakeMp4Check, broken_ffmpeg, ok_deno, ok_ffmpeg, ok_yt_dlp
+from .fakes import FakeAdapter, FakeMp4Check, Gate, Upload, broken_ffmpeg, ok_deno, ok_ffmpeg, ok_yt_dlp, play
 
 GB = 1_000_000_000
 OCTET = {"Content-Type": "application/octet-stream"}
@@ -357,72 +357,6 @@ def test_while_a_download_runs_an_import_is_busy_but_a_duplicate_is_still_duplic
     assert busy.json() == {"code": "busy", "message": "กำลังโหลดหรือเอาไฟล์อื่นเข้าอยู่"}
     assert refusal(asked) == (409, "busy")
     assert (again.status_code, again.json()["clip_id"]) == (409, clip_id)
-
-
-class Upload:
-    """Plays an upload's ASGI `receive` messages: `chunks`, each sent at once or (a
-    `Gate`) once the test opens it, then the end of the body, a disconnect, or nothing."""
-
-    def __init__(self, *chunks, then: str = "end"):
-        self.chunks = list(chunks)
-        self.then = then
-
-    async def receive(self) -> dict:
-        if self.chunks:
-            chunk = self.chunks.pop(0)
-            if isinstance(chunk, Gate):
-                chunk = await chunk.wait()
-            return {"type": "http.request", "body": chunk, "more_body": True}
-        if self.then == "disconnect":
-            return {"type": "http.disconnect"}
-        if self.then == "stall":
-            await anyio.sleep_forever()
-        return {"type": "http.request", "body": b"", "more_body": False}
-
-
-class Gate:
-    """A chunk that waits until the test calls `open`; `reached` is set once the app asks for it."""
-
-    def __init__(self, chunk: bytes):
-        self.chunk = chunk
-        self.reached = anyio.Event()
-        self.opened = anyio.Event()
-
-    async def wait(self) -> bytes:
-        self.reached.set()
-        await self.opened.wait()
-        return self.chunk
-
-    def open(self) -> None:
-        self.opened.set()
-
-
-async def play(upload: Upload, name: str, size: int) -> tuple[int, dict | None]:
-    """POST /imports through the app as ASGI; returns the status and the JSON body."""
-    query = httpx.QueryParams({"name": name, "size": size})
-    scope = {
-        "type": "http",
-        "asgi": {"version": "3.0"},
-        "http_version": "1.1",
-        "method": "POST",
-        "scheme": "http",
-        "path": "/api/spoil/imports",
-        "raw_path": b"/api/spoil/imports",
-        "query_string": str(query).encode(),
-        "root_path": "",
-        "headers": [(b"host", b"127.0.0.1"), (b"content-type", b"application/octet-stream")],
-        "client": ("127.0.0.1", 50000),
-        "server": ("127.0.0.1", 8000),
-    }
-    sent: list[dict] = []
-
-    async def collect(message: dict) -> None:
-        sent.append(message)
-
-    await app(scope, upload.receive, collect)
-    status = next((m["status"] for m in sent if m["type"] == "http.response.start"), None)
-    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
-    return status, json.loads(body) if body else None
 
 
 def api() -> httpx.AsyncClient:

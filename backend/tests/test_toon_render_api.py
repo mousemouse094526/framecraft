@@ -5,6 +5,7 @@ makes (toon seam 1 › Render job ระหว่าง Image job, seam 2 › re
 import io
 import re
 import subprocess
+from pathlib import Path
 
 import imageio_ffmpeg
 import pytest
@@ -366,6 +367,25 @@ def test_a_render_is_listed_served_and_deleted_with_its_three_files(client, llm,
     assert client.delete(f"{EPS}/{ep['id']}/renders/{job['name']}").status_code == 204
     assert not list(project.ep_renders_dir(series_id, ep["id"]).iterdir())
     assert client.get(f"{EPS}/{ep['id']}/renders/{job['name']}").status_code == 404
+
+
+def test_a_render_a_player_holds_open_is_in_use_and_keeps_its_files(client, llm, project, monkeypatch):
+    # Windows can't delete a file another program still holds open.
+    series_id, ep = three_cards(client, llm, project)
+    job = rendered(client, ep["id"])
+    real_unlink = Path.unlink
+
+    def unlink(path, missing_ok=False):
+        if path.suffix == ".mp4":
+            raise PermissionError(32, "The process cannot access the file")
+        real_unlink(path, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    response = client.delete(f"{EPS}/{ep['id']}/renders/{job['name']}")
+
+    assert response.status_code == 409
+    assert response.json() == {"code": "in_use", "message": "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"}
+    assert [row["name"] for row in client.get(f"{EPS}/{ep['id']}/renders").json()] == [job["name"]]
 
 
 def test_a_series_a_render_works_on_can_t_be_deleted(client, llm, project, renderer):
