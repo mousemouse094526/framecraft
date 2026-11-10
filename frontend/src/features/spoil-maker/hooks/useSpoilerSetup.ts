@@ -5,7 +5,8 @@ import { onlyWhen } from "../../../lib/job";
 import { refusalLine, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { type ClipStories, readStoryLinks, type StoryRow } from "../../../lib/stories";
-import { BUSY_TEXT, DRAFT_PATH, REVIEW_HASH, sendDraft, SETTINGS_PATH, VOICES_PATH, type Draft, type DraftAsk } from "../lib/draft";
+import { VOICES_PATH } from "../../../lib/voices";
+import { BUSY_TEXT, DRAFT_PATH, REVIEW_HASH, sendDraft, SETTINGS_PATH, type Draft, type DraftAsk } from "../lib/draft";
 import type { Voice } from "./useVoices";
 import { useDraftRun, useJobCalls } from "./useStepStatus";
 

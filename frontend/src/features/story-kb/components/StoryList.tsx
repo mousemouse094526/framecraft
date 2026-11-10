@@ -5,7 +5,7 @@ import { RefreshButton } from "../../../components/ui/RefreshButton";
 import plusIcon from "../../../components/ui/assets/plus.svg";
 import bookOpenIcon from "../assets/book-open.svg";
 import chevronRightIcon from "../assets/chevron-right.svg";
-import plusWhiteIcon from "../assets/plus-white.svg";
+import plusWhiteIcon from "../../../components/ui/assets/plus-white.svg";
 import { useStories } from "../hooks/useStories";
 import { editedAt } from "../lib/story";
 import { NEW_STORY_HASH, storyHash, type StoryRow } from "../../../lib/stories";

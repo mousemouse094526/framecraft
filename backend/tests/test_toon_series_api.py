@@ -67,6 +67,18 @@ def test_a_comedy_series_starts_with_the_comedy_defaults(client):
     assert series["tone"] == "เล่ากวนๆ จังหวะเร็ว มีมุกตบท้าย ประโยคสั้น"
 
 
+def test_a_new_series_takes_the_style_tone_and_acts_it_is_sent_in_place_of_its_genre_defaults(client):
+    series = create(client, style="ink wash", tone="", acts=["ต้น", "จบ"])
+
+    assert (series["style"], series["tone"], series["acts"]) == ("ink wash", "", ["ต้น", "จบ"])
+
+
+def test_a_new_series_with_no_acts_is_invalid_request(client):
+    response = client.post(SERIES, json={"name": "ช่อง", "layout": "frame", "genre": "horror", "voice_id": VOICE, "acts": []})
+
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
+
+
 def test_a_series_with_a_voice_that_isn_t_saved_is_voice_not_found(client):
     response = client.post(SERIES, json={"name": "ช่อง", "layout": "frame", "genre": "horror", "voice_id": "v_00000000"})
 

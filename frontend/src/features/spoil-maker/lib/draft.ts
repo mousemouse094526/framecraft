@@ -143,7 +143,6 @@ export const DRAFT_PATH = "/api/spoil-maker/draft";
 export const DRAFT_JOBS_PATH = "/api/spoil-maker/draft-jobs";
 export const DRAFT_JOB_PATH = "/api/spoil-maker/draft-jobs/current";
 export const SETTINGS_PATH = "/api/spoil-maker/settings";
-export const VOICES_PATH = "/api/spoil-maker/voices";
 
 // The สปอย tab's hashes: its steps and the Saved voice page (spoil-maker D53, D59).
 export const SETUP_HASH = "#/spoil";

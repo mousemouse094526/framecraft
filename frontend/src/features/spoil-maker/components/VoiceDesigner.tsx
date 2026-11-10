@@ -3,7 +3,7 @@ import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonSty
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { gpuBusyText } from "../../../lib/gpu";
 import type { RefusalLine } from "../../../lib/refusal";
-import chevronDownIcon from "../assets/chevron-down.svg";
+import chevronDownIcon from "../../../components/ui/assets/chevron-down.svg";
 import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import refreshWhiteIcon from "../assets/refresh-cw-white.svg";
 import { previewUrl, type Choices, type GpuHolder, type RefusalText } from "../hooks/useVoices";

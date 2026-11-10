@@ -292,7 +292,7 @@ media/toon/
 
 ### Series ตัวละคร ฉากหลัง
 
-- สร้าง Series: `name` 1–60 ตัวอักษร, `channel_name` 0–60, `layout`, `genre`, `voice_id` ที่มีอยู่ (ไม่มี → `400` `voice_not_found`); ค่าตั้งต้นตามตาราง
+- สร้าง Series: `name` 1–60 ตัวอักษร, `channel_name` 0–60, `layout`, `genre`, `voice_id` ที่มีอยู่ (ไม่มี → `400` `voice_not_found`); ค่าตั้งต้นตามตาราง; `style`, `tone`, `acts` ที่ส่งมา (กติกาเดียวกับ `PATCH`) แทนค่าตั้งต้น (D52)
 - `PATCH` Series แก้ได้ทุกช่องยกเว้น `layout`, `genre`, `max_ep`; `acts` 1–8 ชื่อ ชื่อละ 1–20 ตัวอักษร มีผลกับ EP ใหม่เท่านั้น (D11)
 - ตัวละคร: `name` 1–30, `tag` 0–20 (D23), `description` 0–300; ฉากหลัง: `name` 1–30, `description` 0–300
 - ลบตัวละครหรือฉากหลังที่การ์ด หรือ `plot` ของ EP ใด อ้างอยู่ → `409` `in_use` พร้อม `eps` (เลขและชื่อตอน, D25)

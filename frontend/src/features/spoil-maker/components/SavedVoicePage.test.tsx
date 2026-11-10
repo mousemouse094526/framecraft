@@ -12,6 +12,7 @@ const CURRENT_PATH = "/api/spoil-maker/voice-jobs/current";
 const TRANSCRIBE_PATH = "/api/spoil/transcriptions/current";
 const DESCRIBE_PATH = "/api/spoil-maker/describes/current";
 const DRAFT_JOB_PATH = "/api/spoil-maker/draft-jobs/current";
+const TOON_JOB_PATH = "/api/toon/jobs/current";
 const PREVIEW_PATH = "/api/spoil-maker/voice-jobs/preview.wav";
 
 function voiceOf(change: Partial<Voice>): Voice {
@@ -48,7 +49,7 @@ const SISTER = voiceOf({ id: "v_1111abcd", name: "พี่สาวเล่า
  */
 function backend(routes: Route[]) {
   const defaults: [string, unknown][] = [
-    ...[CURRENT_PATH, TRANSCRIBE_PATH, DESCRIBE_PATH, DRAFT_JOB_PATH].map((path): [string, unknown] => [path, null]),
+    ...[CURRENT_PATH, TRANSCRIBE_PATH, DESCRIBE_PATH, DRAFT_JOB_PATH, TOON_JOB_PATH].map((path): [string, unknown] => [path, null]),
     [VOICES_PATH, []],
   ];
   serve(fetchMock, routes, defaults);

@@ -12,7 +12,7 @@
 - User stories: 1, 2, 3 (เปลี่ยนภาพอ้างอิง), 12 (ลบ Series)
 - Legal: 1, 2, 3 (ข้อ 3 และข้อห้ามของ model card ในข้อ 1 เป็นหน้าที่ของผู้ใช้ ไม่มีของต้องสร้าง)
 
-**Status:** in-progress
+**Status:** done
 
 ## Acceptance criteria
 
@@ -62,4 +62,4 @@
 - กดเอาไฟล์ภาพตัวละครเข้า → เห็นคำเตือนของ legal ข้อ 2 ก่อนช่องเลือกไฟล์ (e2e)
 - ยังไม่มี Saved voice → หน้าตั้งค่า Series มีลิงก์ไปหน้า Saved voice ของ tab สปอย (e2e)
 - Ref job ได้ `gpu_busy` → เห็นชื่องานที่รันอยู่จาก `RUNNING_NAMES` (e2e)
-- หน้าตาตรงแบบของสี่จอใน Covers (Source ยัง `pending`: Blocked #1–4)
+- หน้าตาตรงแบบของสี่จอใน Covers (Figma ใน spec › Design)

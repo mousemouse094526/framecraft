@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { NEW_STORY_HASH, storyHash, type StoryRow } from "../../../lib/stories";
-import chevronDownIcon from "../assets/chevron-down.svg";
+import chevronDownIcon from "../../../components/ui/assets/chevron-down.svg";
 import externalLinkIcon from "../assets/external-link.svg";
 
 const NONE = "";

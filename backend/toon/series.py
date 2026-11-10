@@ -114,7 +114,8 @@ def list_all(project: ProjectPaths) -> list[ListedSeries]:
 
 
 def create(project: ProjectPaths, body: dict) -> SeriesView:
-    """A new Series with its genre's acts, style and tone (spec › Series ตัวละคร ฉากหลัง)."""
+    """A new Series with its genre's acts, style and tone (spec › Series ตัวละคร ฉากหลัง), or the
+    ones the body sends: the form shows the defaults and the user may change them first (D52)."""
     name = _text(body.get("name"), 1, NAME_MAX)
     channel_name = _text(body.get("channel_name", ""), 0, CHANNEL_MAX)
     layout, genre = body.get("layout"), body.get("genre")
@@ -123,6 +124,7 @@ def create(project: ProjectPaths, body: dict) -> SeriesView:
     name_tags = body.get("name_tags", True)
     if not isinstance(name_tags, bool):
         raise invalid_request()
+    overrides = _style_tone_acts(body)  # what the form changed from the genre's defaults (D52)
     # A `voice_id` is written under the draft's lock, so a voice delete can't slip in (D25).
     with gpu.slot.draft_lock, store.lock:
         voice_id = _voice(project, body.get("voice_id"))
@@ -135,11 +137,26 @@ def create(project: ProjectPaths, body: dict) -> SeriesView:
             genre=genre,
             voice_id=voice_id,
             name_tags=name_tags,
-            **DEFAULTS[genre],
+            **(DEFAULTS[genre] | overrides),
         )
         store.write_series(project, series)
     log.info("created series %s", series.id)
     return view(project, series.id)
+
+
+def _style_tone_acts(body: dict) -> dict:
+    """The `style`, `tone` and `acts` the body sends, each checked; a field it leaves out is not in the answer."""
+    fields: dict = {}
+    if "style" in body:
+        fields["style"] = _text(body["style"], 1, STYLE_MAX)
+    if "tone" in body:
+        fields["tone"] = _text(body["tone"], 0, TONE_MAX)
+    if "acts" in body:
+        acts = body["acts"]
+        if not isinstance(acts, list) or not 1 <= len(acts) <= ACTS_MAX:
+            raise ApiError(400, "invalid_request", f"โครงองก์มีได้ 1–{ACTS_MAX} องก์")
+        fields["acts"] = [_text(act, 1, ACT_NAME_MAX) for act in acts]
+    return fields
 
 
 def view(project: ProjectPaths, series_id: str) -> SeriesView:
@@ -156,20 +173,11 @@ def view(project: ProjectPaths, series_id: str) -> SeriesView:
 def change(project: ProjectPaths, series_id: str, body: dict) -> SeriesView:
     """Every field but `layout`, `genre` and `max_ep`, which stay as they are (D7, D10, D40);
     new `acts` count for new EPs only (D11)."""
-    changes: dict = {}
+    changes: dict = _style_tone_acts(body)
     if "name" in body:
         changes["name"] = _text(body["name"], 1, NAME_MAX)
     if "channel_name" in body:
         changes["channel_name"] = _text(body["channel_name"], 0, CHANNEL_MAX)
-    if "style" in body:
-        changes["style"] = _text(body["style"], 1, STYLE_MAX)
-    if "tone" in body:
-        changes["tone"] = _text(body["tone"], 0, TONE_MAX)
-    if "acts" in body:
-        acts = body["acts"]
-        if not isinstance(acts, list) or not 1 <= len(acts) <= ACTS_MAX:
-            raise ApiError(400, "invalid_request", f"โครงองก์มีได้ 1–{ACTS_MAX} องก์")
-        changes["acts"] = [_text(act, 1, ACT_NAME_MAX) for act in acts]
     if "name_tags" in body:
         if not isinstance(body["name_tags"], bool):
             raise invalid_request()

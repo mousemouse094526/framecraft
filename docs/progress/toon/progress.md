@@ -1,23 +1,44 @@
 # Progress: toon
 
-**Now:** 01 backend ครบ (klein Q4_K_M ผ่าน 12 GB, Series, Ref job, upload); เหลือกลุ่มหน้าเว็บ (แบบครบ 9 จอแล้ว). 02–04 รอ 01
+**Now:** 01 done (klein, Series, Ref job, upload, หน้าเว็บ 4 จอ). ต่อ 02 EP, พล็อต และเส้นเรื่อง
 
 **Next:**
 
 ```
-/warroom-build toon 01
+/warroom-build toon 02
 ```
 
 ## Tickets
 
 | # | Title | Status |
 |---|---|---|
-| 01 | ติดตั้ง klein, Series และภาพอ้างอิง | in-progress |
+| 01 | ติดตั้ง klein, Series และภาพอ้างอิง | done |
 | 02 | EP, พล็อต และเส้นเรื่อง | ready |
 | 03 | ภาพการ์ดและเสียงเล่า | ready |
 | 04 | คลังเสียงพื้นและ render | ready |
 
 ## Log
+
+### 01: ติดตั้ง klein, Series และภาพอ้างอิง — done 2026-11-10
+
+**Built:**
+- tab ที่ห้า "การ์ตูนเล่า" (`#/toon/…`, `ToonPage` เลือกหน้าจาก `pageOf`): รายการ Series (ว่าง, กำลังโหลด, ลบพร้อมยืนยันจำนวน EP, `series_busy`), ตั้งค่า Series (สร้างและแก้, แนวเติมสไตล์ น้ำเสียง โครงองก์, แบบจอล็อกหลังสร้าง, ไม่มี Saved voice → ลิงก์ `#/spoil/voices`), ตัวละครและฉากหลัง (เพิ่ม ลบ, tile ทุกสถานะ, Ref job banner, upload พร้อม %, คำเตือน legal ข้อ 2 ก่อนเลือกไฟล์ตัวละคร, `gpu_busy` / `not_ready` เป็น Alert), เลือกภาพอ้างอิง (ติดตามงาน, เลือก 1 ใน 3, ล้ม / หยุด / ลองอีกครั้ง)
+- `GPU_JOB_PATHS` และ `RUNNING_NAMES` มี `toon_image`; `Alert` มี `title`; icon ที่สอง feature ใช้ (`chevron-down`, `radio-selected`, `plus-white`) ย้ายไป `components/ui/assets`
+- backend: `POST /series` รับ `style`, `tone`, `acts` (กติกาเดียวกับ `PATCH`, D52)
+- test: `features/toon/components/ToonPage.test.tsx` (16, ผ่าน `App` กับ `testBackend`), backend test ใหม่ 1
+
+**Decided:**
+- D52 — hash ของหน้า tab, `POST /series` ส่งครั้งเดียว, Ref job ล้มหรือหยุดไม่มีภาพให้เลือก, ปุ่มคลังเสียงพื้นรอ 04, ลบตัวละครไม่ถามก่อน
+
+**For the next ticket:**
+- ticket 02: `#/toon/series/{sid}` เป็นรายการ EP ตามแบบ → ย้ายหน้าตัวละครและฉากหลังไป hash ใหม่ (เช่น `/cast`) และปุ่ม "กลับไปที่ชุด" ชี้รายการ EP; ลิงก์ "ตั้งค่า Series" บนหน้า cast ย้ายตามแบบรายการ EP
+- ticket 04: ปุ่ม "คลังเสียงพื้น" บนรายการ Series (`assets/music.svg` เตรียมไว้แล้ว)
+- `GENRE_DEFAULTS` (frontend) ซ้ำ `DEFAULTS` (backend) ไม่มี test เทียบ: เปลี่ยนที่หนึ่งต้องเปลี่ยนอีกที่
+- shared ใหม่: `lib/voices.ts` (`VOICES_PATH`, `SavedVoice`) แทนค่าที่ซ้ำใน spoil-maker
+- build มีคำเตือน chunk > 500 kB ของ Vite (ไม่ใช่ error)
+- review ไม่ได้แก้ (smell): `useCast` กับ `usePickRef` ซ้ำ `update` และการ poll `JOB_PATH` — ถ้า ticket 03 เพิ่ม hook ที่ poll Toon job อีก ให้รวมเป็น hook เดียว; `(sid, kind, id)` เดินด้วยกันหลายที่ (อาจเป็น type `ItemRef`)
+
+**Checks:** `uv run pytest` 940 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 371 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). e2e ตาม testing rules = Vitest ผ่าน `App`; หน้าตาเทียบ Figma ด้วยมือยังไม่ได้ทำ
 
 ### design — 2026-11-10
 
