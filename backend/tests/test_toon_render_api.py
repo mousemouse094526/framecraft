@@ -260,6 +260,19 @@ def test_cards_with_no_narration_are_voiced_first_then_rendered_with_the_gpu_fre
     assert statuses == ["ready", "silent", "ready"]
 
 
+def test_a_cancel_while_voicing_stops_omnivoice_and_keeps_the_narration_already_spoken(client, llm, project, tts):
+    _, ep = three_cards(client, llm, project)
+    tts.pause_at(1)
+    assert start_render(client, ep["id"]).status_code == 202
+    tts.wait_until(1)
+    assert poll_until(client, CURRENT, lambda job: job["done"] == 1)["total"] == 2
+    client.delete(CURRENT)
+    assert poll_until(client, CURRENT, lambda job: job["state"] in FINISHED)["state"] == "cancelled"
+    assert tts.processes[0].terminated
+    statuses = [card["audio_status"] for card in cards_of(client.get(f"{EPS}/{ep['id']}").json())]
+    assert statuses == ["ready", "silent", "no_audio"]
+
+
 def test_a_render_of_an_ep_with_its_narration_starts_during_an_image_job_and_a_second_is_busy(
     client, llm, project, klein, renderer
 ):

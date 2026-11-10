@@ -20,6 +20,7 @@ from backend.paths import ProjectPaths
 from backend.spoil_maker import thai, voices
 from backend.toon import series as series_module
 from backend.toon import store
+from backend.toon.kinds import KINDS, Kind
 from backend.toon.store import Act, Card, Ep, Motion, Plot, PlotItem, Segment, Series, Sound, Stage
 
 log = logging.getLogger(__name__)
@@ -459,7 +460,7 @@ def _plot(series: Series, value: object, confirmed: bool) -> Plot:
     return plot
 
 
-def _plot_items(series: Series, kind: str, value: object, most: int) -> list[PlotItem]:
+def _plot_items(series: Series, kind: Kind, value: object, most: int) -> list[PlotItem]:
     if not isinstance(value, list) or len(value) > most or not all(isinstance(item, dict) for item in value):
         raise invalid_request()
     items: list[PlotItem] = []
@@ -474,7 +475,7 @@ def _plot_items(series: Series, kind: str, value: object, most: int) -> list[Plo
                 name=series_module.checked_text(item.get("name"), 1, series_module.ITEM_NAME_MAX),
                 description=series_module.checked_text(item.get("description", ""), 0, series_module.DESCRIPTION_MAX),
             )
-            if kind == "characters":
+            if KINDS[kind].tagged:
                 new.tag = series_module.checked_text(item.get("tag", ""), 0, series_module.TAG_MAX)
             items.append(new)
     return items

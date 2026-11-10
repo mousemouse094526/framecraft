@@ -12,7 +12,7 @@ from backend.app import app
 from backend.errors import ApiError
 from backend.models import KLEIN, OMNIVOICE
 from backend.paths import ProjectPaths
-from backend.toon import jobs
+from backend.toon import images, jobs, series
 from backend.toon.klein import Draw, Encode
 
 from .fakes import FakeKlein, FakeLlm, FakeTts, cuda_device, ok_ffmpeg, poll_until
@@ -176,6 +176,18 @@ def test_drawing_what_is_missing_when_every_card_has_no_ref_is_nothing_to_draw_a
     assert (one.status_code, one.json()["code"]) == (400, "no_ref")
 
 
+def test_deleting_a_series_during_its_image_job_is_series_busy(client, llm, klein):
+    series_id, _, _, ep = with_cards(client, llm)
+    klein.pause_at(1)
+    start_image(client, ep["id"], scope="missing")
+    klein.wait_until(1)
+
+    response = client.request("DELETE", f"/api/toon/series/{series_id}", json={"confirm_eps": 1})
+
+    assert (response.status_code, response.json()["code"]) == (409, "series_busy")
+    klein.release(1)
+
+
 def test_a_cancel_midway_keeps_the_pictures_done_and_drops_the_one_being_drawn(client, llm, klein):
     _, _, _, ep = with_cards(client, llm)
     klein.pause_at(2)  # request 0 is `Encode`: the second card's picture
@@ -332,7 +344,7 @@ def test_a_card_is_drawn_at_its_series_background_size(client, llm, klein, layou
 
 def test_an_image_job_on_a_full_disk_is_disk_full_and_frees_the_gpu(client, llm, monkeypatch):
     _, _, _, ep = with_cards(client, llm)
-    monkeypatch.setattr(jobs.series.disk, "free_bytes", lambda path: 0)
+    monkeypatch.setattr(series.disk, "free_bytes", lambda path: 0)
 
     response = start_image(client, ep["id"], scope="missing")
 
@@ -445,7 +457,7 @@ def test_a_voice_job_during_a_describe_job_is_gpu_busy_and_one_running_names_its
 
 def test_an_image_job_whose_reference_can_t_be_copied_frees_the_gpu(client, llm, project, monkeypatch):
     _, _, _, ep = with_cards(client, llm)
-    monkeypatch.setattr(jobs.images.shutil, "copyfile", lambda *args: (_ for _ in ()).throw(OSError("disk error")))
+    monkeypatch.setattr(images.shutil, "copyfile", lambda *args: (_ for _ in ()).throw(OSError("disk error")))
 
     with pytest.raises(OSError):
         start_image(client, ep["id"], scope="missing")

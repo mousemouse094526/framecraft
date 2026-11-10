@@ -24,7 +24,7 @@ from pydantic import BaseModel
 from backend import checks, ffmpeg, fonts, gate_rows, gpu, paths, speaking, subtitles
 from backend.errors import ApiError, JobFailed, Row, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
-from backend.jobs import short, stop_process
+from backend.jobs import ModelJobSlot, short, stop_process
 from backend.paths import ProjectPaths
 from backend.spoil_maker import tts, voices
 from backend.subtitles import Timed
@@ -80,9 +80,9 @@ class RenderResult(BaseModel):
     size_bytes: int
 
 
-class RenderJobs(speaking.Speaker[ToonRenderJob]):
-    """Holds the latest Render job. `run_ffmpeg` runs each ffmpeg command; a test passes one
-    that pauses (`fastapi-api` › testing)."""
+class RenderJobs(ModelJobSlot[ToonRenderJob]):
+    """Holds the latest Render job; its `voicing` speaks through the `speaking.Speaker` it holds.
+    `run_ffmpeg` runs each ffmpeg command; a test passes one that pauses (`fastapi-api` › testing)."""
 
     unfinished = UNFINISHED
     gpu_kind = "toon_render"
@@ -94,6 +94,7 @@ class RenderJobs(speaking.Speaker[ToonRenderJob]):
 
     def __init__(self, run_ffmpeg: Runner = ffmpeg.run):
         super().__init__()
+        self._speaker = speaking.Speaker(self._track, self._reply)
         self._run_ffmpeg = run_ffmpeg
 
     def ep_use(self) -> tuple[str, bool] | None:
@@ -102,13 +103,13 @@ class RenderJobs(speaking.Speaker[ToonRenderJob]):
         return (job.ep_id, False) if job else None
 
     def series_use(self) -> str | None:
-        """The Series of an unfinished render, which can't be deleted meanwhile (D26)."""
+        """The Series of an unfinished render, which can't be deleted meanwhile (`series.series_jobs`)."""
         job = self._running()
         return job.series_id if job else None
 
     def _running(self) -> ToonRenderJob | None:
-        """The unfinished job. One attribute read, without the slot's lock (as `ToonJobs.ep_use`):
-        callers ask under the store's lock or the Toon job slot's."""
+        """The unfinished job. One attribute read, without the slot's lock (as `ToonJobs._running`):
+        callers ask under the store's lock, which a render starts under too."""
         job = self._job
         return job if job is not None and job.state in UNFINISHED else None
 
@@ -152,7 +153,7 @@ class RenderJobs(speaking.Speaker[ToonRenderJob]):
 
     def _voice_and_render(self, project: ProjectPaths, series_id: str, ep_id: str, plans: list[VoicePlan]) -> dict:
         if plans:
-            spoken_all = self._speak(project, [plan.tts_text for plan in plans], plans[0].voice)
+            spoken_all = self._speaker.speak(project, [plan.tts_text for plan in plans], plans[0].voice)
             for done, (plan, spoken) in enumerate(zip(plans, spoken_all), start=1):
                 if not voicing.put_audio(project, plan, spoken):
                     log.info("the narration of card %s is dropped: the card went", plan.card_id)
@@ -453,3 +454,4 @@ def _needed_rows(project: ProjectPaths, voicing: bool) -> dict[str, Row]:
 
 render_jobs = RenderJobs()
 episodes.ep_jobs.append(lambda: render_jobs.ep_use())
+series.series_jobs.append(lambda: render_jobs.series_use())

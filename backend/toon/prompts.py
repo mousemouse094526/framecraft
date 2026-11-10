@@ -5,28 +5,14 @@ a Thai description, and `{style}`, the Series' style.
 """
 
 from backend import llm_reply
+from backend.toon.kinds import KINDS, Kind
 
 SCENE_MAX_TOKENS = 200
 SCENE_TEMPERATURE = 0.0
 
-CHARACTER_TEMPLATE = "Full body, front view, standing, plain light gray background. {scene} {style}. No text, no letters."
-BACKGROUND_TEMPLATE = "{scene} Empty location, no people. {style}. No text, no letters, no signs."
-
-_REF_ASK = {
-    "characters": (
-        "a character, for a reference picture of them standing alone",
-        "Describe how they look: body, hair, face, clothes and their colours.",
-    ),
-    "backgrounds": (
-        "a place, for a picture of it with nobody in it",
-        "Describe the place: what is there, the camera's angle and distance, and the light.",
-    ),
-}
-
-
-def ref_scene_prompt(kind: str, name: str, description: str) -> str:
+def ref_scene_prompt(kind: Kind, name: str, description: str) -> str:
     """Asks Qwen for the English `{scene}` of a reference picture (spec › Ref job step 2)."""
-    what, how = _REF_ASK[kind]
+    what, how = KINDS[kind].scene_ask
     text = description or name
     return (
         f"Write one or two short English sentences for an image model, describing {what}. {how}\n"
@@ -45,9 +31,8 @@ def parse_scene(reply: str) -> str | None:
     return scene or None
 
 
-def ref_prompt(kind: str, scene: str, style: str) -> str:
-    template = CHARACTER_TEMPLATE if kind == "characters" else BACKGROUND_TEMPLATE
-    return template.format(scene=scene, style=style)
+def ref_prompt(kind: Kind, scene: str, style: str) -> str:
+    return KINDS[kind].template.format(scene=scene, style=style)
 
 
 def card_scene_prompt(description: str, names: list[str]) -> str:

@@ -89,27 +89,35 @@ backend/
 │                    child process; `llm.TIMEOUTS` holds each OS's timeouts
 ├── toon/         ← the การ์ตูนเล่า tab (toon spec): store (`series.json`,
 │                    `ep.json` and `sounds.json` on disk, the tab's one lock),
-│                    series (Series, characters, backgrounds, reference
-│                    pictures and their uploads, `in_use`), episodes (EPs,
-│                    their plot, acts, segments and cards, each card's state;
-│                    `ep_jobs`, where each job slot says which EP it locks),
-│                    writer (the Plot and Cards prompts and the reading of
-│                    Qwen's answers through llm_reply), prompts (the picture prompts and the
-│                    reading of Qwen's scene), images (which cards an Image
-│                    job draws, each picture it writes, swapping back),
-│                    voicing (a card's narration), jobs (the Toon job slot:
-│                    Plot and Cards jobs on Qwen, Ref and Image jobs, Qwen
-│                    then klein, Voice job on OmniVoice through
-│                    `speaking.Speaker`), klein (the only diffusers import;
-│                    its `worker` runs in a child process, D34), sounds (the
-│                    background sound library and its Sound import slot: a
-│                    file in one request, a link through spoil's adapter with
-│                    `LINK_OPTIONS`), render (the Render job, its own slot,
-│                    and an EP's renders), compose (a render's timeline, its
-│                    ffmpeg commands and its ASS file, through `subtitles`)
-├── speaking.py   ← `Speaker`, the job slot base that speaks texts in a Saved
-│                    voice in an OmniVoice child, and the wav it writes:
-│                    spoil_maker's Voice and Render jobs and toon's Voice job
+│                    kinds (what differs between characters and backgrounds,
+│                    one row each: code that handles both reads it, never
+│                    `kind == "characters"`), series (Series, characters,
+│                    backgrounds, reference pictures and their uploads,
+│                    `in_use`; `series_jobs`, the Series each job slot works
+│                    on), episodes (EPs, their plot, acts, segments and cards,
+│                    each card's state; `ep_jobs`, where each job slot says
+│                    which EP it locks), writer (the Plot and Cards prompts and
+│                    the reading of Qwen's answers through llm_reply), prompts
+│                    (the picture prompts and the reading of Qwen's scene),
+│                    jobs (the Toon job slot: it starts and ends every kind
+│                    the same way from each kind's `WORK`, a `steps.Work`),
+│                    steps (what the kinds share: Qwen's and klein's children,
+│                    `Run`, what a kind's steps call on the slot), one module
+│                    per kind: plot, cards, refs (Ref job), images (Image job:
+│                    which cards it draws, each picture it writes, swapping
+│                    back), voicing (Voice job: a card's narration), klein (the
+│                    only diffusers import; its `worker` runs in a child
+│                    process, D34), sounds (the background sound library and
+│                    its Sound import slot: a file in one request, a link
+│                    through spoil's adapter with `LINK_OPTIONS`), render (the
+│                    Render job, its own slot, and an EP's renders), compose (a
+│                    render's timeline, its ffmpeg commands and its ASS file,
+│                    through `subtitles`)
+├── speaking.py   ← `Speaker`, which speaks texts in a Saved voice in an
+│                    OmniVoice child for the job slot that holds it (through
+│                    the slot's `_track` and `_reply`, never as its base), and
+│                    the wav it writes: spoil_maker's Voice and Render jobs,
+│                    toon's Voice and Render jobs
 ├── subtitles.py  ← what every render's text shares: the ASS header, a Dialogue line,
 │                    Thai text cut into lines or short chunks and their times, the
 │                    `.srt`; spoil_maker's captions and toon's compose lay them out

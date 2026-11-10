@@ -92,21 +92,24 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 - **`backend.spoil_maker.voices`**
   - ลบ Saved voice: นับ Series และ EP ของการ์ตูนเล่าที่ใช้ `voice_id` เป็น `voice_in_use` ด้วย (D25) ผ่าน callback ใน `voice_users` ที่ `backend.toon` ลงทะเบียน
   - ทุกการเขียน `voice_id` ของ Series หรือ EP ถือ `gpu.slot.draft_lock` ก่อน `toon.store.lock` ให้การลบ Saved voice กับการเปลี่ยนเสียงไม่ชนกัน
-  - ย้ายลูปสร้างเสียงทีละข้อความของ `SentenceVoicer` เป็นฟังก์ชันกลางที่รับ (ข้อความ, clone prompt, speed) แล้วคืน wav ทีละอัน; spoil-maker และ `toon.voicing` เรียกฟังก์ชันเดียวกัน
+  - ย้ายลูปสร้างเสียงทีละข้อความของ `SentenceVoicer` เป็นตัวพูดกลาง `speaking.Speaker` ที่รับ (ข้อความ, clone prompt, speed) แล้วคืน wav ทีละอัน; job slot ถือตัวพูดไว้ ไม่สืบทอด (D58); spoil-maker, Voice job และ Render job ของ toon ใช้ตัวเดียวกัน
 - **`backend.spoil.adapter`**
   - `YtDlpAdapter.download` รับ options (รูปแบบ, folder ปลายทาง, แม่แบบชื่อไฟล์, เขียน thumbnail ไหม); ค่าตั้งต้นคือของ Temp clip เดิม; คลังเสียงพื้นใช้ `bestaudio`, `media/toon/.partial/`, ไม่มี thumbnail, ไม่ merge mp4; extractor และกติกาลิงก์เดิม (ADR-0029)
 - **`backend.toon`** (ใหม่)
   - `store`: อ่านเขียน `series.json`, `ep.json`, `sounds.json` ผ่าน `.tmp` แล้ว rename ใต้ lock ของ toon
-  - `series`: Series ตัวละคร ฉากหลัง ภาพอ้างอิง การลบ
+  - `series`: Series ตัวละคร ฉากหลัง ภาพอ้างอิง การลบ (`series_jobs`: Series ที่แต่ละ slot ทำงานอยู่)
+  - `kinds`: ตารางค่าที่ต่างกันระหว่างตัวละครกับฉากหลัง (D58)
   - `episodes`: EP พล็อต การ์ด การแก้ สถานะการ์ด
   - `writer`: คำสั่งและการอ่านคำตอบของ Plot job และ Cards job (ใช้ worker ของ `spoil_maker.llm`)
   - `prompts`: คำสั่งภาพ, คำสั่งแปลคำบรรยาย และการอ่านคำตอบ
   - `klein`: worker ของ klein ใน process ลูก `spawn` (ADR-0012)
-  - `images`: แผน ไฟล์ และการเขียนภาพของ Ref job และ Image job
-  - `voicing`: แผนและการเขียนเสียงเล่าของการ์ด (ใช้ worker ของ `spoil_maker.tts`)
+  - `plot`, `cards`: Plot job และ Cards job (ขั้นของงาน คำสั่งจาก `writer`)
+  - `refs`: Ref job
+  - `images`: แผน ขั้น ไฟล์ และการเขียนภาพของ Image job
+  - `voicing`: Voice job: แผน ขั้น และการเขียนเสียงเล่าของการ์ด (ผ่าน `speaking.Speaker`)
   - `sounds`: คลังเสียงพื้น, Sound import slot
   - `render`: Render slot (D45), Render job; `compose`: timeline, ASS, filter graph
-  - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่รันขั้นของ `writer`, `images`, `voicing`
+  - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่เริ่มและจบทุก kind แบบเดียวกันจาก `WORK` ของ module ของ kind นั้น; `steps`: ส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, D58)
 - **`backend.routes`**
   - router ใหม่ `toon` prefix `/toon`
 - **`NOTICE.md`**

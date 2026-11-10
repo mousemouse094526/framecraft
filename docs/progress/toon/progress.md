@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** smell จาก feature review (Blocked #13–18) ตัดเป็น ticket 05, 06; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ticket 05 เสร็จ (Blocked #13, #14); ต่อ ticket 06 (Blocked #15–18); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 05
+/warroom-build toon 06
 ```
 
 ## Tickets
@@ -16,10 +16,31 @@
 | 02 | EP, พล็อต และเส้นเรื่อง | done |
 | 03 | ภาพการ์ดและเสียงเล่า | done |
 | 04 | คลังเสียงพื้นและ render | done |
-| 05 | แยกงานของ toon ออกเป็นส่วน | ready |
+| 05 | แยกงานของ toon ออกเป็นส่วน | done |
 | 06 | ส่วนที่ซ้ำและช่องโหว่เล็ก | ready |
 
 ## Log
+
+### 05: แยกงานของ toon ออกเป็นส่วน — done 2026-11-10
+
+**Built:**
+- `speaking.Speaker` เป็นตัวพูดที่ slot ถือ (`Speaker(self._track, self._reply)`, `start`, `speak`); `ToonJobs`, `toon.render.RenderJobs`, `spoil_maker.voices.SentenceVoicer` ถือตัวนี้ ไม่สืบทอด
+- งานแต่ละ kind เป็น `steps.Work` ใน module ของตัวเอง: `toon/plot.py`, `toon/cards.py`, `toon/refs.py`, `toon/images.py` (Image job), `toon/voicing.py` (Voice job); `toon/jobs.py` เหลือ slot (~160 บรรทัด) ที่ทำขั้น 1 ของทุก kind แบบเดียวกันจาก `WORKS`; `toon/steps.py`: `Child`, `Run`, `Qwen` (ถาม Qwen สามครั้ง), `scenes`, child ของ klein, `image_rows`
+- `toon/kinds.py`: ตาราง `KINDS` (model, ตัวนำหน้า id, `tagged`, `sizes`, `upload_side`, แม่แบบภาพ, `scene_ask`) และ `CARD_SIZE`; ไม่เหลือกิ่ง `kind == "characters"` ใน `toon/`
+- ทุก kind เริ่มใต้ `store.lock` (slot ถือเอง; Voice job `draft_lock` ก่อน); ลบ Series อ่าน `series.series_jobs` แทน `ToonJobs.delete_series`; route เรียก `series.delete`
+- `kind` ที่ไม่ใช่ string (list, dict) → `400` `invalid_request` เหมือนเดิม (ไม่ใช่ 500)
+- test: ยกเลิกระหว่าง render `voicing` ปิด OmniVoice และเก็บเสียงที่พูดจบ, ลบ Series ระหว่าง Image job `series_busy`, `kind` ที่ไม่รู้จัก; test ของ images patch `series.disk`, `images.shutil` ตรง
+- spec › Modules touched, `fastapi-api` SKILL.md (toon, speaking)
+
+**Decided:**
+- D58 — ตัวพูดที่ slot ถือ, `SentenceVoicer` คงเป็นฐานของ spoil-maker, `Work` ต่อ kind, ตาราง `KINDS`, งานเริ่มใต้ `store.lock`, `series_jobs`
+
+**For the next ticket:**
+- smell ที่ review เห็นแต่ไม่แก้ใน ticket นี้: `cards.run` สร้างตัวละครและฉากหลังใหม่เอง (ควรอยู่ `series`); `plot.writable` อ่าน `render.render_jobs.ep_use()` ตรง (D57) แทน `episodes.ep_jobs`; `process, requests, replies` เดินด้วยกันทุกที่ (Data Clump); `ToonJobs.update`/`track`/`reply` แค่ส่งต่อ (Middle Man เพื่อ `steps.Run`) และ `use()` เขียนทับค่าของ `ModelJobSlot`; เปิด klein (`Encode` แล้ว `Draw` ทีละใบ) ซ้ำใน `refs.run` กับ `images.run`; `_running`/`series_use` ซ้ำระหว่าง `ToonJobs` กับ `RenderJobs`
+- `series_busy` ของ Plot, Cards, Voice job ยังไม่มี test (Ref, Image, render มี)
+- ruff (ไม่อยู่ใน CI) เตือนของเดิม: `Callable` ไม่ใช้ใน `toon/sounds.py`
+
+**Checks:** `uv run pytest` 1032 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 398 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `d7e2969`: Standards ไม่มีข้อผิดกติกา + smell (แก้ `upload_side`, ลูปลองใหม่ของ Plot/Cards, ชื่อ `WritePlan` `_pictures_dir` `log_name` `scene_ask`, `Work.locks` มีค่าตั้งต้น), Spec 1 bug (`kind` list → 500, แก้) + test ยกเลิกระหว่างพูดที่ขาด (เพิ่ม), Newcomer สรุปตรง What to build; แก้ชื่อ `Work.steps` → `run`, `steps.Writer` → `Qwen`, คอมเมนต์ `Work.child`, `store.lock` บังคับใน slot
 
 ### Feature review — done 2026-11-10
 
@@ -209,8 +230,8 @@
 | 10 | 01 | klein บน torch 2.8.0 กรณีหนักสุด (GGUF Q8_0, 3 ภาพอ้างอิง, 576×1024) peak MPS 13.1–14.0 GB เกิน ~12 GB ของ D34 และ swap; ต้องเลือก: ภาพอ้างอิงเล็กลง, GGUF ที่เล็กกว่า (Q6_K/Q4_K_M), ภาพอ้างอิงสูงสุดน้อยลง, torch รุ่นใหม่ หรือยอมรับ | `/warroom toon` | done (this ticket, D51) |
 | 11 | 03 | เช็คมือบน Mac M1 16 GB: Image job `scope: missing` ~20 การ์ด 3 ภาพอ้างอิง (peak ทั้งระบบ ≤ ~12 GB ไม่ swap, จดเวลาต่อภาพ), หน้าตัวละครใน ~5 การ์ดของ EP แรกและ EP ที่สอง, ปิด backend กลาง "สร้างภาพที่ขาดทั้งหมด" แล้วเปิดใหม่; เครื่องที่ build ยังไม่ได้รัน setup (ไม่มี Qwen, OmniVoice) | owner รัน `./setup.sh` แล้วทำตามรายการใน ticket 03 › เช็คมือ และจดผลใน `progress.md` | open |
 | 12 | 04 | เช็คมือบน Mac: render EP แรกของ Series หลอนแบบกรอบดำ ดูด้วยตาว่าตำแหน่งชื่อตอน ภาพ ซับ ชื่อช่อง ตรง layout-sketch และขนาดตัวหนังสือ (ค่าจาก layout A, D56) | owner รัน `./setup.sh` แล้ว render EP จริง และจดผลใน `progress.md` | open |
-| 13 | review | `ToonJobs` และ `RenderJobs` สืบทอด `speaking.Speaker` เพื่อใช้ `_speak` (Refused Bequest): เปลี่ยนเป็น composition | `/warroom tickets toon` | → ticket 05 |
-| 14 | review | `toon/jobs.py` 608 บรรทัดทำหลายเรื่อง (Plot, Cards, Ref, Image, Voice, child ของ klein, `delete_series`, `image_rows`); แตกกิ่ง `kind == "characters"` 22 ที่ใน `toon/`: แยก module และตารางต่อ kind | `/warroom tickets toon` | → ticket 05 |
+| 13 | review | `ToonJobs` และ `RenderJobs` สืบทอด `speaking.Speaker` เพื่อใช้ `_speak` (Refused Bequest): เปลี่ยนเป็น composition | `/warroom tickets toon` | done (ticket 05) |
+| 14 | review | `toon/jobs.py` 608 บรรทัดทำหลายเรื่อง (Plot, Cards, Ref, Image, Voice, child ของ klein, `delete_series`, `image_rows`); แตกกิ่ง `kind == "characters"` 22 ที่ใน `toon/`: แยก module และตารางต่อ kind | `/warroom tickets toon` | done (ticket 05) |
 | 15 | review | `toon.render` กับ `spoil_maker.render` ซ้ำ `_free_name`, `_needed_rows`, การลบผล; `episodes.list_for` import `render` ในฟังก์ชัน (วนกัน) | `/warroom tickets toon` | → ticket 06 |
 | 16 | review | หน้าเว็บ: poll `JOB_PATH` ซ้ำ 3 hook (`useCast`, `usePickRef`, `useEp`) ควรเป็น hook เดียว; `GENRE_DEFAULTS` ซ้ำ `DEFAULTS` ของ backend ไม่มี test เทียบ; ปุ่ม "ฟัง" ไม่มี test | `/warroom tickets toon` | → ticket 06 |
 | 17 | review | แถว `diffusers`/`gguf` เขียนทั้งใน `checks.run_checks` และ `gate_rows.klein` | `/warroom tickets toon` | → ticket 06 |

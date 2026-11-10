@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from backend import llm_reply
 from backend.toon import episodes, series, store
+from backend.toon.kinds import KINDS, Kind
 from backend.toon.store import Act, Card, PlotItem, Segment, Series, StoredSound
 
 ATTEMPTS = 3
@@ -64,8 +65,8 @@ def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | None:
     summaries = [_cleaned(act.get("summary") if isinstance(act, dict) else None) for act in acts]
     if not all(summaries):
         return None
-    characters = _plot_items(found.get("characters"), {c.id for c in cast.characters}, with_tag=True)
-    backgrounds = _plot_items(found.get("backgrounds"), {b.id for b in cast.backgrounds}, with_tag=False)
+    characters = _plot_items(found.get("characters"), cast, "characters")
+    backgrounds = _plot_items(found.get("backgrounds"), cast, "backgrounds")
     if (
         characters is None
         or backgrounds is None
@@ -138,7 +139,7 @@ def parse_cards(
     return segments or None
 
 
-def known(items: list[PlotItem], cast: Series, kind: str) -> list[Known]:
+def known(items: list[PlotItem], cast: Series, kind: Kind) -> list[Known]:
     """The plot's items as the Cards job's prompt names them, all by an id of the Series."""
     by_id = {item.id: item for item in getattr(cast, kind)}
     return [Known(id=item.id, name=by_id[item.id].name, description=by_id[item.id].description) for item in items]
@@ -164,7 +165,8 @@ def _card(value: object, character_ids: set[str], taken: set[str]) -> Card | Non
     )
 
 
-def _plot_items(value: object, ids: set[str], with_tag: bool) -> list[PlotItem] | None:
+def _plot_items(value: object, cast: Series, kind: Kind) -> list[PlotItem] | None:
+    ids = {item.id for item in getattr(cast, kind)}
     if value is None:
         return []
     if not isinstance(value, list):
@@ -179,7 +181,7 @@ def _plot_items(value: object, ids: set[str], with_tag: bool) -> list[PlotItem] 
             continue
         name = _cleaned(item.get("name"))[: series.ITEM_NAME_MAX]
         if name:
-            tag = _cleaned(item.get("tag"))[: series.TAG_MAX] if with_tag else ""
+            tag = _cleaned(item.get("tag"))[: series.TAG_MAX] if KINDS[kind].tagged else ""
             items.append(PlotItem(new=True, name=name, tag=tag, description=_cleaned(item.get("description"))[: series.DESCRIPTION_MAX]))
     return items
 

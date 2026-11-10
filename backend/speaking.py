@@ -4,11 +4,10 @@ the wav files they write.
 """
 
 import wave
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from backend import checks, spoil_maker
-from backend.jobs import Job, ModelJobSlot
 from backend.models import OMNIVOICE
 from backend.paths import ProjectPaths
 from backend.spoil_maker.tts import Designed, Ready, Speak, Spoken
@@ -16,10 +15,16 @@ from backend.spoil_maker.tts import Designed, Ready, Speak, Spoken
 NUM_STEP = 16  # spoil-maker D37
 
 
-class Speaker(ModelJobSlot[Job]):
-    """A job slot whose job speaks texts in an OmniVoice child."""
+class Speaker:
+    """Speaks texts in an OmniVoice child for the job slot that holds it: through that slot's
+    `track` (so shutdown and the job's end stop the child) and `reply` (so a failure names
+    the slot's child)."""
 
-    def _start_tts(self, project: ProjectPaths):
+    def __init__(self, track: Callable[[object], None], reply: Callable[..., object]):
+        self._track = track
+        self._reply = reply
+
+    def start(self, project: ProjectPaths):
         """Starts the OmniVoice child and waits until it is loaded; returns it with its queues."""
         device = checks.probe_device()
         snapshot = project.snapshot_dir(OMNIVOICE, OMNIVOICE.revision)
@@ -28,11 +33,11 @@ class Speaker(ModelJobSlot[Job]):
         self._reply(process, replies, (Ready,))
         return process, requests, replies
 
-    def _speak(self, project: ProjectPaths, texts: list[str], voice) -> Iterator[Spoken]:
+    def speak(self, project: ProjectPaths, texts: list[str], voice) -> Iterator[Spoken]:
         """Each text (numbers already words) spoken in one child in `voice` (a
         `voices.SavedVoice`), in order, as soon as it is: the caller writes it before the next
         is asked for, so a cancel keeps the finished ones."""
-        process, requests, replies = self._start_tts(project)
+        process, requests, replies = self.start(project)
         for text in texts:
             requests.put(Speak(text=text, prompt=voice.prompt, speed=voice.speed, num_step=NUM_STEP))
             yield self._reply(process, replies, (Spoken,))

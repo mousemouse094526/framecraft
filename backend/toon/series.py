@@ -9,9 +9,8 @@ import io
 import logging
 import secrets
 import shutil
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from typing import Literal
 
 import anyio
 from pydantic import BaseModel
@@ -22,11 +21,10 @@ from backend.errors import ApiError, invalid_request
 from backend.paths import ProjectPaths
 from backend.spoil_maker import voices
 from backend.toon import store
+from backend.toon.kinds import CARD_SIZE, KINDS, Kind
 from backend.toon.store import Background, Character, Series
 
 log = logging.getLogger(__name__)
-
-Kind = Literal["characters", "backgrounds"]
 
 NAME_MAX, CHANNEL_MAX = 60, 60
 ACTS_MAX, ACT_NAME_MAX = 8, 20
@@ -34,7 +32,6 @@ ITEM_NAME_MAX, TAG_MAX, DESCRIPTION_MAX = 30, 20, 300
 STYLE_MAX, TONE_MAX = 500, 300  # D48
 PICTURES = 3  # a Ref job draws three to pick from (D31)
 UPLOAD_MAX_BYTES = 20 * 2**20
-CHARACTER_UPLOAD_SIDE = 1536  # an uploaded character keeps its own shape, long side at most this
 MIN_FREE_BYTES = 2**30  # a Ref job, an Image job and a render need 1 GiB free (spec › Toon job)
 
 # What a new Series starts with, by genre (D10, D11, D28, D41).
@@ -53,10 +50,9 @@ DEFAULTS: dict[str, dict] = {
     },
 }
 
-# The picture size of each kind, by the Series' layout: a background as the card it sits
-# behind (D37), a character standing upright whatever the layout (spec › คำสั่งภาพ).
-BACKGROUND_SIZE = {"frame": (1024, 576), "full": (576, 1024)}
-CHARACTER_SIZE = (576, 1024)
+series_jobs: list[Callable[[], str | None]] = []
+"""The Series each job slot of the tab works on now, or None; read under `store.lock` (as
+`episodes.ep_jobs`)."""
 
 
 class CharacterView(Character):
@@ -112,7 +108,7 @@ def create(project: ProjectPaths, body: dict) -> SeriesView:
     name = checked_text(body.get("name"), 1, NAME_MAX)
     channel_name = checked_text(body.get("channel_name", ""), 0, CHANNEL_MAX)
     layout, genre = body.get("layout"), body.get("genre")
-    if layout not in BACKGROUND_SIZE or genre not in DEFAULTS:
+    if layout not in CARD_SIZE or genre not in DEFAULTS:
         raise invalid_request()
     name_tags = body.get("name_tags", True)
     if not isinstance(name_tags, bool):
@@ -183,16 +179,17 @@ def change(project: ProjectPaths, series_id: str, body: dict) -> SeriesView:
     return view(project, series_id)
 
 
-def delete(project: ProjectPaths, series_id: str, body: dict | None, busy: set[str]) -> None:
+def delete(project: ProjectPaths, series_id: str, body: dict | None) -> None:
     """Removes the Series' folder with every EP once `confirm_eps` is their count (D26);
-    Saved voices and background sounds stay. `busy`: Series a job works on now."""
+    Saved voices and background sounds stay. `series_busy` while a job works on it: every job
+    starts under the store's lock, so it finds the Series either whole or gone (`not_found`)."""
     with store.lock:
         _series(project, series_id)
         eps = _eps(project, series_id)
         confirm = (body or {}).get("confirm_eps")
         if not is_int(confirm) or confirm != len(eps):
             raise ApiError(409, "confirm_needed", f"ยืนยันการลบ Series พร้อม {len(eps)} EP", eps=[e.model_dump() for e in eps])
-        if series_id in busy:
+        if series_id in {use() for use in series_jobs}:
             raise ApiError(409, "series_busy", "Series นี้มีงานที่ยังไม่จบ")
         shutil.rmtree(project.series_dir(series_id))
     log.info("deleted series %s with %d EP", series_id, len(eps))
@@ -215,18 +212,15 @@ def add_item(project: ProjectPaths, series_id: str, kind: Kind, body: dict) -> S
     with store.lock:
         series = _series(project, series_id)
         taken = {item.id for item in [*series.characters, *series.backgrounds]}
-        if kind == "characters":
-            fields = _character_fields(body, partial=False)
-            series.characters.append(Character(id=store.new_id("c", taken), **fields))
-        else:
-            fields = _item_fields(body, partial=False)
-            series.backgrounds.append(Background(id=store.new_id("b", taken), **fields))
+        item_kind = KINDS[kind]
+        fields = _item_fields(body, kind, partial=False)
+        getattr(series, kind).append(item_kind.model(id=store.new_id(item_kind.id_prefix, taken), **fields))
         store.write_series(project, series)
     return view(project, series_id)
 
 
 def change_item(project: ProjectPaths, series_id: str, kind: Kind, item_id: str, body: dict) -> SeriesView:
-    fields = _character_fields(body, partial=True) if kind == "characters" else _item_fields(body, partial=True)
+    fields = _item_fields(body, kind, partial=True)
     with store.lock:
         series = _series(project, series_id)
         item = _item(series, kind, item_id)
@@ -257,6 +251,7 @@ def find_item(series: Series, kind: Kind, item_id: str) -> Character | Backgroun
 class RefPlan(BaseModel):
     """What a Ref job draws, read once when it starts (spec › Ref job)."""
 
+    series_id: str
     kind: Kind
     item_id: str
     name: str
@@ -273,6 +268,7 @@ def ref_plan(project: ProjectPaths, series_id: str, kind: Kind, item_id: str) ->
         if item is None:
             raise ApiError(404, "not_found", "ไม่พบตัวละครหรือฉากหลังนี้")
         return RefPlan(
+            series_id=series_id,
             kind=kind,
             item_id=item_id,
             name=item.name,
@@ -284,7 +280,7 @@ def ref_plan(project: ProjectPaths, series_id: str, kind: Kind, item_id: str) ->
 
 def picture_size(series: Series, kind: Kind) -> tuple[int, int]:
     """(width, height) of a reference picture of this kind in this Series."""
-    return CHARACTER_SIZE if kind == "characters" else BACKGROUND_SIZE[series.layout]
+    return KINDS[kind].sizes[series.layout]
 
 
 # --- reference images ---
@@ -399,10 +395,11 @@ def _take_upload(project: ProjectPaths, series_id: str, kind: Kind, item_id: str
     with store.lock:
         series = _series(project, series_id)
         _item(series, kind, item_id)
-        if kind == "backgrounds":
+        side = KINDS[kind].upload_side
+        if side is None:
             image = ImageOps.fit(image, picture_size(series, kind), Image.Resampling.LANCZOS)
         else:
-            image.thumbnail((CHARACTER_UPLOAD_SIDE, CHARACTER_UPLOAD_SIDE), Image.Resampling.LANCZOS)
+            image.thumbnail((side, side), Image.Resampling.LANCZOS)
         png = partial.with_suffix(".png")
         buffer = io.BytesIO()
         image.save(buffer, "PNG")
@@ -476,19 +473,14 @@ def _item(series: Series, kind: Kind, item_id: str) -> Character | Background:
     return item
 
 
-def _character_fields(body: dict, partial: bool) -> dict:
-    fields = _item_fields(body, partial)
-    if "tag" in body:
-        fields["tag"] = checked_text(body["tag"], 0, TAG_MAX)
-    return fields
-
-
-def _item_fields(body: dict, partial: bool) -> dict:
+def _item_fields(body: dict, kind: Kind, partial: bool) -> dict:
     fields = {}
     if "name" in body or not partial:
         fields["name"] = checked_text(body.get("name"), 1, ITEM_NAME_MAX)
     if "description" in body:
         fields["description"] = checked_text(body["description"], 0, DESCRIPTION_MAX)
+    if "tag" in body and KINDS[kind].tagged:
+        fields["tag"] = checked_text(body["tag"], 0, TAG_MAX)
     return fields
 
 

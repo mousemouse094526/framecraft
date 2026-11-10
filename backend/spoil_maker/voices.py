@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from backend import checks, files, gate_rows, gpu, paths
 from backend.errors import ApiError, Row, require_rows
-from backend.jobs import Job
+from backend.jobs import Job, ModelJobSlot
 from backend.models import OMNIVOICE
 from backend.speaking import NUM_STEP, Speaker, wav_seconds, write_wav
 from backend.paths import ProjectPaths
@@ -118,19 +118,23 @@ def plan_sentences(project: ProjectPaths, draft: Draft, sentence_ids: list[str])
     )
 
 
-class SentenceVoicer(Speaker[Job]):
+class SentenceVoicer(ModelJobSlot[Job]):
     """A job slot whose job voices Spoil draft sentences: the Voice job `sentences` and
-    the Render job's `voicing`."""
+    the Render job's `voicing`, through the `Speaker` it holds."""
 
     worker_error = WorkerError
     child_name = "ตัวสร้างเสียง"
     failure = "สร้างเสียงไม่สำเร็จ"
 
+    def __init__(self):
+        super().__init__()
+        self._speaker = Speaker(self._track, self._reply)
+
     def _voice_sentences(self, project: ProjectPaths, plan: SentencesPlan) -> None:
         """One sentence at a time, each written as soon as it is spoken (spec › Voice job);
         `done` counts them. The draft is locked meanwhile, so every sentence is still there."""
         tts_texts = [thai.spoken(text) for _, text in plan.sentences]
-        spoken_each = self._speak(project, tts_texts, plan.voice)
+        spoken_each = self._speaker.speak(project, tts_texts, plan.voice)
         # The speaker first: `zip` asks it once more after the last text, so it ends its child.
         for done, (spoken, (sentence_id, _), tts_text) in enumerate(zip(spoken_each, plan.sentences, tts_texts), start=1):
             _write_sentence_audio(project, plan.voice_id, sentence_id, tts_text, spoken)
@@ -200,7 +204,7 @@ class VoiceJobs(SentenceVoicer[VoiceJob]):
         return job
 
     def _design(self, project: ProjectPaths, request: Design) -> None:
-        process, requests, replies = self._start_tts(project)
+        process, requests, replies = self._speaker.start(project)
         requests.put(request)
         designed = self._reply(process, replies, (Designed,))
         requests.put(None)

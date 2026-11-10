@@ -8,7 +8,8 @@ from backend.toon import episodes, images, jobs, render, series, sounds, voicing
 from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
 from backend.toon.render import RenderResult, ToonRenderJob
-from backend.toon.series import Kind, ListedSeries, SeriesView
+from backend.toon.kinds import Kind
+from backend.toon.series import ListedSeries, SeriesView
 from backend.toon.sounds import SoundImport, SoundView
 from backend.uploads import UploadCheck
 
@@ -37,7 +38,7 @@ def change_series(series_id: str, body: dict[str, Any]) -> SeriesView:
 
 @router.delete("/series/{series_id}", status_code=204)
 def delete_series(series_id: str, body: dict[str, Any] | None = Body(None)) -> Response:
-    jobs.toon_jobs.delete_series(paths.project(), series_id, body)
+    series.delete(paths.project(), series_id, body)
     return Response(status_code=204)
 
 

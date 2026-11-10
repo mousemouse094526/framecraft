@@ -1,0 +1,136 @@
+"""The Cards job: Qwen splits each act of an EP's plot into segments and cards (toon spec ›
+Cards job, D13, D15, D43, D54). The first split takes every act, later ones those whose
+summary changed. Like the Plot job it locks its EP and writes it only at its end.
+"""
+
+import logging
+
+from pydantic import BaseModel
+
+from backend import gate_rows
+from backend.errors import ApiError, JobFailed, invalid_request
+from backend.paths import ProjectPaths
+from backend.toon import episodes, plot, steps, store, writer
+from backend.toon.kinds import KINDS
+from backend.toon.store import Ep, Series
+
+log = logging.getLogger(__name__)
+
+
+class LostCards(BaseModel):
+    """What re-splitting one act throws away (D15, D43)."""
+
+    id: str
+    name: str
+    edited: int
+    images: int
+    audio: int
+
+
+class CardsPlan(BaseModel):
+    """What a Cards job splits, read once under the store's lock as it starts."""
+
+    series: Series
+    ep: Ep
+    act_ids: list[str]
+    chars_per_s: float
+
+
+def plan(project: ProjectPaths, body: dict) -> CardsPlan:
+    """Step 1 up to the gate: the acts to split, and what they would lose (D15, D43)."""
+    confirm_loss = body.get("confirm_loss", False)
+    if not isinstance(confirm_loss, bool):
+        raise invalid_request()
+    found = plot.writable(project, body.get("ep_id"))
+    ep = found.ep
+    if not ep.plot.backgrounds:
+        raise ApiError(400, "invalid_request", "พล็อตต้องมีฉากหลังอย่างน้อยหนึ่ง")
+    acts = [act for act in ep.acts if ep.stage == "plot" or act.summary != act.cards_from]
+    if not acts:
+        raise ApiError(400, "nothing_to_split", "ไม่มีองก์ที่พล็อตเปลี่ยน")
+    lost = [_lost(act) for act in acts]
+    if not confirm_loss and any(act.edited or act.images or act.audio for act in lost):
+        raise ApiError(
+            409, "cards_will_be_lost", "การ์ดที่แก้เอง ภาพ หรือเสียงขององก์ที่แตกใหม่จะหาย", acts=[a.model_dump() for a in lost]
+        )
+    return CardsPlan(series=found.series, ep=ep, act_ids=[act.id for act in acts], chars_per_s=found.chars_per_s)
+
+
+def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
+    """Steps 2–6: each act to split is asked up to three times; all are written at once at
+    the end, with the plot's new characters and backgrounds entering the Series (D13, D15).
+    An act with no card after three tries fails the job."""
+    series_now, ep = plan.series, plan.ep
+    taken = {item.id for item in [*series_now.characters, *series_now.backgrounds]}
+    added: dict[str, list] = {kind: [] for kind in KINDS}
+    for kind, item_kind in KINDS.items():
+        for item in getattr(ep.plot, kind):
+            if item.new:
+                item.id, item.new = store.new_id(item_kind.id_prefix, taken), False
+                taken.add(item.id)
+                added[kind].append(item_kind.model(**item.model_dump(include=set(item_kind.model.model_fields))))
+    cast = series_now.model_copy(update={kind: [*getattr(series_now, kind), *added[kind]] for kind in KINDS})
+    characters = writer.known(ep.plot.characters, cast, "characters")
+    backgrounds = writer.known(ep.plot.backgrounds, cast, "backgrounds")
+    sounds = store.read_sounds(project)
+    target = round(episodes.TARGET_S / len(ep.acts) * plan.chars_per_s)
+    ids = {i.id for act in ep.acts for segment in act.segments for i in [segment, *segment.cards]}
+    qwen = steps.Qwen(job, project)
+    written: dict[str, list] = {}
+    for done, act_id in enumerate(plan.act_ids, start=1):
+        index = next(i for i, act in enumerate(ep.acts) if act.id == act_id)
+        prompt = writer.cards_prompt(cast.tone, ep.acts, index, characters, backgrounds, sounds, target)
+        segments = qwen.answer(
+            prompt,
+            writer.CARDS_MAX_TOKENS,
+            lambda reply: writer.parse_cards(
+                reply, [b.id for b in backgrounds], {c.id for c in characters}, {s.id for s in sounds}, ids
+            ),
+            f"cards of act {index + 1}",
+        )
+        if segments is None:
+            raise JobFailed("write_failed", f"AI แตกการ์ดองก์ {ep.acts[index].name} ไม่สำเร็จ {writer.ATTEMPTS} ครั้ง")
+        written[act_id] = segments
+        job.update(done=done)
+    with store.lock:
+        series_now = store.read_series(project, plan.series.id)
+        for kind in KINDS:
+            getattr(series_now, kind).extend(added[kind])
+        ep_now = store.read_ep(project, plan.series.id, ep.id)
+        gone = []
+        for act in ep_now.acts:
+            if act.id in written:
+                gone.extend(card for segment in act.segments for card in segment.cards)
+                act.segments, act.cards_from = written[act.id], act.summary
+        ep_now.plot, ep_now.stage = ep.plot, "cards"
+        store.write_series(project, series_now)
+        store.write_ep(project, series_now.id, ep_now)
+        episodes.remove_card_files(project, series_now.id, ep_now.id, gone)
+
+
+def _lost(act) -> LostCards:
+    cards = [card for segment in act.segments for card in segment.cards]
+    return LostCards(
+        id=act.id,
+        name=act.name,
+        edited=sum(card.edited for card in cards),
+        images=sum(card.image is not None for card in cards),
+        audio=sum(card.audio is not None for card in cards),
+    )
+
+
+WORK = steps.Work(
+    gpu_kind="toon_write",
+    child=steps.WRITER,
+    plan=plan,
+    rows=gate_rows.qwen_jobs,
+    job=lambda plan: {
+        "state": "writing",
+        "series_id": plan.series.id,
+        "ep_id": plan.ep.id,
+        "done": 0,
+        "total": len(plan.act_ids),
+    },
+    run=run,
+    log_name=lambda plan: f"toon job cards {plan.ep.id}",
+)

@@ -1,12 +1,14 @@
-"""Card images: which cards an Image job draws, the reference images it draws them with, each
-picture it writes, swapping a card's image with its previous one, and the files a restart
-cleans (toon spec › Image job, › คำสั่งภาพ, D13, D27, D29, D30, D32, D33, D37, D44).
+"""The Image job and card images: which cards it draws, the reference images it draws them
+with, its steps and each picture it writes, swapping a card's image with its previous one,
+and the files a restart cleans (toon spec › Image job, › คำสั่งภาพ, D13, D27, D29, D30, D32,
+D33, D37, D44).
 
 A card's image is `images/{card_id}-{seed}.png`; `image.refs` keeps the `ref_rev` of each
 character and background it was drawn with, so a changed reference makes it `stale_ref`.
 """
 
 import logging
+import random
 import shutil
 from pathlib import Path
 from typing import Literal, get_args
@@ -15,7 +17,9 @@ from pydantic import BaseModel
 
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
-from backend.toon import episodes, series, store
+from backend.toon import episodes, klein, prompts, series, steps, store
+from backend.toon.kinds import CARD_SIZE, Kind
+from backend.toon.klein import Draw, Drawn, Encode, Encoded
 from backend.toon.store import Card, CardImage, Segment, Series
 
 log = logging.getLogger(__name__)
@@ -27,7 +31,7 @@ class MissingRef(BaseModel):
     """A character or background with no reference image yet, and how many cards of the job
     it made skip (D13)."""
 
-    kind: series.Kind
+    kind: Kind
     id: str
     name: str
     cards: int
@@ -48,6 +52,7 @@ class ImagePlan(BaseModel):
     ep_id: str
     style: str
     size: tuple[int, int]  # a card is drawn as big as its Series' background (D37)
+    scope: Scope | None  # the job draws every card the scope takes, not one
     cards: list[CardDraw]
     skipped: int
     missing_refs: list[MissingRef]
@@ -84,7 +89,8 @@ def plan(project: ProjectPaths, body: dict) -> ImagePlan:
             series_id=series_now.id,
             ep_id=ep.id,
             style=series_now.style,
-            size=series.BACKGROUND_SIZE[series_now.layout],
+            size=CARD_SIZE[series_now.layout],
+            scope=scope,
             cards=[_card_draw(project, series_now, segment, card, refs) for segment, card in wanted],
             skipped=len(skipped),
             missing_refs=missing,
@@ -125,6 +131,67 @@ def put_image(project: ProjectPaths, plan: ImagePlan, card: CardDraw, png: bytes
         if dropped is not None and dropped.file != picture.name:
             (images / dropped.file).unlink(missing_ok=True)
     return True
+
+
+def run(job: steps.Run, project: ProjectPaths, plan: ImagePlan) -> None:
+    """Steps 2–6 of the Image job: Qwen translates every card's description as it was at the
+    start, its child ends (D36), then klein encodes every prompt and draws the cards in order,
+    each written as soon as it is (D33). A card klein fails on is counted and the job goes on."""
+    asks = [prompts.card_scene_prompt(c.description, c.names) if c.description else None for c in plan.cards]
+    scenes = steps.scenes(job, project, asks, counted=True)
+    card_prompts = [
+        prompts.card_prompt(scene or prompts.fallback_scene(len(c.names), c.description), plan.style, len(c.names))
+        for c, scene in zip(plan.cards, scenes, strict=True)
+    ]
+    job.update(state="drawing", done=0)
+    process, requests, replies = steps.start_klein(job, project)
+    requests.put(Encode(card_prompts))
+    steps.klein_reply(job, process, replies, Encoded)
+    width, height = plan.size
+    failed: list[str] = []
+    for done, (card, prompt) in enumerate(zip(plan.cards, card_prompts, strict=True), start=1):
+        seed = random.randint(0, steps.SEED_MAX)
+        requests.put(Draw(index=done - 1, ref_paths=card.ref_paths, width=width, height=height, seed=seed))
+        # A `WorkerError` asked for comes back like a `Drawn` instead of failing the job.
+        drawn = steps.klein_reply(job, process, replies, Drawn, klein.WorkerError)
+        if isinstance(drawn, klein.WorkerError):
+            log.error("klein failed on card %s (%s): %s", card.card_id, drawn.code, drawn.detail)
+            failed.append(card.card_id)
+        elif not put_image(project, plan, card, drawn.png, seed, prompt):
+            log.info("the picture of card %s is dropped: the card went", card.card_id)
+        job.update(done=done, failed_cards=list(failed))
+    requests.put(None)
+
+
+def _ready(project: ProjectPaths, plan: ImagePlan) -> None:
+    series.require_free_disk(project)
+    copy_refs(project, plan)
+
+
+WORK = steps.Work(
+    gpu_kind="toon_image",
+    child=steps.DRAWER,
+    plan=plan,
+    rows=steps.image_rows,
+    # Under the store's lock with the job set, as the cards are read again: each copy of a
+    # reference image is the `ref_rev` its card records.
+    job=lambda plan: {
+        "state": "translating",
+        "series_id": plan.series_id,
+        "ep_id": plan.ep_id,
+        "card_ids": [card.card_id for card in plan.cards],
+        "scope": plan.scope,
+        "done": 0,
+        "total": len(plan.cards),
+        "skipped": plan.skipped,
+        "missing_refs": plan.missing_refs,
+        "failed_cards": [],
+    },
+    run=run,
+    log_name=lambda plan: f"toon job image {plan.ep_id} ({len(plan.cards)} cards)",
+    ready=_ready,
+    clean_up=lambda project, plan: shutil.rmtree(project.image_job_dir, ignore_errors=True),
+)
 
 
 def swap(project: ProjectPaths, ep_id: str, card_id: str) -> episodes.EpView:

@@ -618,3 +618,9 @@ def test_changing_an_ep_s_voice_waits_for_the_draft_s_lock(client, llm, project)
     thread.join(5)
 
     assert answers[0].json()["voice_id"] == "v_00000002"
+
+
+@pytest.mark.parametrize("kind", ["poster", ["plot"], {"plot": True}, None])
+def test_a_toon_job_of_a_kind_it_does_not_know_is_invalid_request(client, kind):
+    response = client.post(JOBS, json={"kind": kind})
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")

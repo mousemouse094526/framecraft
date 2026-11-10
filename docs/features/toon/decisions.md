@@ -781,6 +781,23 @@
 
 **From:** feature review · **Status:** active
 
+## D58: แยกงานของ toon ออกเป็นส่วน ticket 05: ตัวพูดที่ slot ถือ และ `Work` ต่อ kind
+
+**Chosen:**
+- `speaking.Speaker` ไม่ใช่ job slot แล้ว: เป็นตัวพูดที่ slot ถือไว้ (`Speaker(self._track, self._reply)`) มี `start` และ `speak`; `ToonJobs`, `toon.render.RenderJobs` และ `spoil_maker.voices.SentenceVoicer` ถือตัวนี้
+- `SentenceVoicer` คงไว้เป็นฐานของ Voice job และ Render job ของ spoil-maker (ทั้งสองใช้ `_voice_sentences` จริง) แต่สืบทอด `ModelJobSlot` และถือ `Speaker` แทนการสืบทอด
+- แต่ละ kind ของ Toon job เป็น `steps.Work` ใน module ของตัวเอง: `toon.plot`, `toon.cards`, `toon.refs`, `toon.images`, `toon.voicing`; `toon.jobs` เหลือ slot ที่เริ่มและจบทุก kind แบบเดียวกัน: ตาราง `WORKS` ชี้ `WORK` ของแต่ละ module; `toon.steps` ถือส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, `Child`, `image_rows`, `Run` ที่ขั้นของ kind เรียก slot)
+- ค่าที่ต่างกันระหว่างตัวละครกับฉากหลังอยู่ในตาราง `toon.kinds.KINDS` (model, ตัวนำหน้า id, มี `tag`, ขนาดภาพอ้างอิงต่อ layout, ครอบภาพที่เอาเข้า, แม่แบบภาพ, คำถามถึง Qwen); `CARD_SIZE` ขนาดภาพการ์ดต่อ layout อยู่ที่เดียวกัน
+- ทุก kind เริ่มงาน (อ่านแผนอีกครั้ง จองช่อง GPU ตั้งงาน) ใต้ `store.lock` (Voice job: `draft_lock` แล้ว `store.lock`); การลบ Series อ่าน `series.series_jobs` ใต้ `store.lock` (แบบ `episodes.ep_jobs`) แทน `ToonJobs.delete_series` ที่ถือ lock ของ slot: route เรียก `series.delete` ตรง
+
+**Why:** feature review (Blocked #13, #14): `Speaker` เป็น Refused Bequest และ `toon/jobs.py` 608 บรรทัดทำหลายเรื่อง. งานที่เริ่มใต้ `store.lock` ทำให้การลบ Series เห็นงานนั้นแล้ว หรือทำให้งานเจอ `not_found` เหมือนเดิม โดยไม่ต้องให้ `series` รู้จัก slot.
+
+**Rejected:**
+- ย้ายลูปของ `SentenceVoicer` ลง Voice job และ Render job ของ spoil-maker แยกกัน — ซ้ำโค้ดที่ทั้งสองใช้จริง
+- ให้ `toon.jobs` เรียก `start` ของแต่ละ module — ขั้นที่ 1 (busy, gate, `gpu_busy`) จะซ้ำห้าที่เหมือนเดิม
+
+**From:** build ticket 05 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

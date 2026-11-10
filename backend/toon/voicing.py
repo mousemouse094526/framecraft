@@ -1,10 +1,11 @@
-"""A card's narration: what a Voice job speaks, the wav it writes, and serving it (toon spec ›
-Voice job, D8, D14, D21, spoil-maker D30, D32–D37).
+"""A card's narration: the Voice job (what it speaks, its step, the wav it writes) and serving
+it (toon spec › Voice job, D8, D14, D21, spoil-maker D30, D32–D37).
 
 A card's narration is `audio/{card_id}.wav`; `audio` keeps what was spoken (`thai.spoken` of
 the text) and in which voice, so a changed text or a new EP voice makes it `stale_audio`.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -15,8 +16,10 @@ from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.spoil_maker import thai, voices
 from backend.spoil_maker.tts import Spoken
-from backend.toon import episodes, store
+from backend.toon import episodes, steps, store
 from backend.toon.store import Audio
+
+log = logging.getLogger(__name__)
 
 
 class VoicePlan(BaseModel):
@@ -82,6 +85,33 @@ def put_audio(project: ProjectPaths, plan: VoicePlan, spoken: Spoken) -> bool:
         card.audio = Audio(tts_text=plan.tts_text, voice_id=plan.voice_id, duration_s=seconds)
         store.write_ep(project, plan.series_id, ep)
     return True
+
+
+def run(job: steps.Run, project: ProjectPaths, plan: VoicePlan) -> None:
+    """OmniVoice speaks the card's text as it was at the start, in the EP's Saved voice."""
+    for spoken in job.speaker.speak(project, [plan.tts_text], plan.voice):
+        if not put_audio(project, plan, spoken):
+            log.info("the narration of card %s is dropped: the card went", plan.card_id)
+        job.update(done=1)
+
+
+WORK = steps.Work(
+    gpu_kind="toon_voice",
+    child=steps.VOICER,
+    plan=plan,
+    rows=voices.needed_rows,
+    locks=lambda: gpu.slot.draft_lock,  # before the store's: a Saved voice delete can't slip in (D25)
+    job=lambda plan: {
+        "state": "voicing",
+        "series_id": plan.series_id,
+        "ep_id": plan.ep_id,
+        "card_ids": [plan.card_id],
+        "done": 0,
+        "total": 1,
+    },
+    run=run,
+    log_name=lambda plan: f"toon job voice {plan.card_id}",
+)
 
 
 def audio_file(project: ProjectPaths, ep_id: str, card_id: str) -> Path:
