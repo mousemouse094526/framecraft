@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from backend import disk
 from backend.errors import ApiError
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 from backend.toon import episodes, klein, prompts, series, steps, store
 from backend.toon.kinds import CARD_SIZE, ItemKind
 from backend.toon.klein import Draw, Drawn
@@ -49,8 +49,7 @@ class CardDraw(BaseModel):
 
 
 class ImagePlan(BaseModel):
-    series_id: str
-    ep_id: str
+    ep_address: EpAddress
     style: str
     size: tuple[int, int]  # a card is drawn as big as its Series' background (D37)
     scope: Scope | None  # the job draws every card the scope takes, not one
@@ -63,11 +62,11 @@ def plan(project: ProjectPaths, body: dict) -> ImagePlan:
     """The cards of the job in the EP's order: `card_id` one card, else `scope`'s. Raises
     `not_found`, `invalid_request`, `no_ref` for one card, and `nothing_to_draw` with
     `missing_refs` when every card of the scope is skipped or there is none. Copies no file."""
-    ep_id, card_id, scope = body.get("ep_id"), body.get("card_id"), body.get("scope")
+    card_id, scope = body.get("card_id"), body.get("scope")
     if (card_id is None) == (scope is None) or (scope is not None and scope not in get_args(Scope)):
         raise ApiError(400, "invalid_request", "เลือกการ์ดหนึ่งใบ หรือขอบเขตของภาพที่จะสร้าง")
     with store.lock:
-        series_now, ep = episodes.find(project, ep_id)
+        ep_address, series_now, ep = episodes.look_up(project, body.get("ep_id"))
         refs = series.ref_revs(series_now)
         placed = [(s, c, episodes.image_status(c, s, refs)) for s, c in episodes.placed_cards(ep)]
         if card_id is not None:
@@ -87,8 +86,7 @@ def plan(project: ProjectPaths, body: dict) -> ImagePlan:
                 400, "nothing_to_draw", "ไม่มีการ์ดให้สร้างภาพ", missing_refs=[m.model_dump() for m in missing]
             )
         return ImagePlan(
-            series_id=series_now.id,
-            ep_id=ep.id,
+            ep_address=ep_address,
             style=series_now.style,
             size=CARD_SIZE[series_now.layout],
             scope=scope,
@@ -104,23 +102,23 @@ def copy_refs(project: ProjectPaths, plan: ImagePlan) -> None:
     folder = project.image_job_dir
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True)
-    refs = project.refs_dir(plan.series_id)
+    refs = project.refs_dir(plan.ep_address.series_id)
     for card in plan.cards:
         for item_id, path in zip(card.refs, card.ref_paths, strict=True):
             if not path.is_file():
                 shutil.copyfile(refs / f"{item_id}-{card.refs[item_id]}.png", path)
 
 
-def put_image(project: ProjectPaths, plan: ImagePlan, card: CardDraw, png: bytes, seed: int, prompt: str) -> bool:
+def put_image(plan: ImagePlan, card: CardDraw, png: bytes, seed: int, prompt: str) -> bool:
     """Spec › Image job step 4: the new PNG, then under the lock the card's image becomes its previous one and
     the new one its image, then the old previous file goes (D33). False when the card went
     meanwhile (deleted, or its act split again): the picture is dropped."""
-    images = project.card_images_dir(plan.series_id, plan.ep_id)
+    images = plan.ep_address.images_dir
     images.mkdir(parents=True, exist_ok=True)
     picture = images / f"{card.card_id}-{seed}.png"
     picture.write_bytes(png)
     with store.lock:
-        ep = store.read_ep(project, plan.series_id, plan.ep_id)
+        ep = store.read_ep(plan.ep_address)
         stored = next((c for _, c in episodes.placed_cards(ep) if c.id == card.card_id), None) if ep else None
         if stored is None:
             picture.unlink(missing_ok=True)
@@ -128,7 +126,7 @@ def put_image(project: ProjectPaths, plan: ImagePlan, card: CardDraw, png: bytes
         dropped = stored.previous_image
         stored.previous_image = stored.image
         stored.image = CardImage(file=picture.name, refs=card.refs, prompt=prompt)
-        store.write_ep(project, plan.series_id, ep)
+        store.write_ep(plan.ep_address, ep)
         if dropped is not None and dropped.file != picture.name:
             (images / dropped.file).unlink(missing_ok=True)
     return True
@@ -156,7 +154,7 @@ def run(job: steps.Run, project: ProjectPaths, plan: ImagePlan) -> None:
         if isinstance(drawn, klein.WorkerError):
             log.error("klein failed on card %s (%s): %s", card.card_id, drawn.code, drawn.detail)
             failed.append(card.card_id)
-        elif not put_image(project, plan, card, drawn.png, seed, prompt):
+        elif not put_image(plan, card, drawn.png, seed, prompt):
             log.info("the picture of card %s is dropped: the card went", card.card_id)
         job.update(done=done, failed_cards=list(failed))
     drawer.end()
@@ -176,8 +174,8 @@ WORK = steps.Work(
     # reference image is the `ref_rev` its card records.
     job=lambda plan: {
         "state": "translating",
-        "series_id": plan.series_id,
-        "ep_id": plan.ep_id,
+        "series_id": plan.ep_address.series_id,
+        "ep_id": plan.ep_address.ep_id,
         "card_ids": [card.card_id for card in plan.cards],
         "scope": plan.scope,
         "done": 0,
@@ -187,30 +185,30 @@ WORK = steps.Work(
         "failed_cards": [],
     },
     run=run,
-    log_name=lambda plan: f"toon job image {plan.ep_id} ({len(plan.cards)} cards)",
+    log_name=lambda plan: f"toon job image {plan.ep_address.ep_id} ({len(plan.cards)} cards)",
     ready=_ready,
     clean_up=lambda project, plan: shutil.rmtree(project.image_job_dir, ignore_errors=True),
 )
 
 
-def swap(project: ProjectPaths, ep_id: str, card_id: str) -> episodes.EpView:
+def swap(ep_address: EpAddress, card_id: str) -> episodes.EpView:
     """The card's image and its previous one change places (D33)."""
     with store.lock:
-        series_now, ep = episodes.editable(project, ep_id)
+        _, ep = episodes.editable(ep_address)
         card = episodes.card_of(ep, card_id)
         if card.previous_image is None:
             raise ApiError(404, "not_found", "การ์ดนี้ไม่มีภาพก่อนหน้า")
         card.image, card.previous_image = card.previous_image, card.image
-        store.write_ep(project, series_now.id, ep)
-    return episodes.view(project, ep_id)
+        store.write_ep(ep_address, ep)
+    return episodes.view(ep_address)
 
 
-def image_file(project: ProjectPaths, ep_id: str, card_id: str, previous: bool = False) -> Path:
+def image_file(ep_address: EpAddress, card_id: str, previous: bool = False) -> Path:
     with store.lock:
-        series_now, ep = episodes.find(project, ep_id)
+        _, ep = episodes.read(ep_address)
         card = episodes.card_of(ep, card_id)
         image = card.previous_image if previous else card.image
-        path = project.card_images_dir(series_now.id, ep_id) / image.file if image else None
+        path = ep_address.images_dir / image.file if image else None
         if path is None or not path.is_file():
             raise ApiError(404, "not_found", "การ์ดนี้ยังไม่มีภาพ")
         return path
@@ -223,7 +221,7 @@ def clean_on_start(project: ProjectPaths) -> None:
     with store.lock:
         for series_now in store.list_series(project):
             for ep in store.list_eps(project, series_now.id):
-                folder = project.card_images_dir(series_now.id, ep.id)
+                folder = EpAddress(project, series_now.id, ep.id).images_dir
                 if not folder.is_dir():
                     continue
                 named = {i.file for _, c in episodes.placed_cards(ep) for i in (c.image, c.previous_image) if i is not None}

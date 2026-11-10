@@ -7,89 +7,35 @@ import threading
 import pytest
 
 from backend import gpu
-from backend.errors import ApiError
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress
 from backend.spoil_maker import thai
 from backend.toon import store
 from backend.toon.series import DESCRIPTION_MAX
 from backend.toon.store import Audio, CardImage
 
-from .fakes import TOON_VOICE, os_timeouts, poll_until, toon_api, write_toon_voice
-from .test_toon_series_api import create
-
-SERIES = "/api/toon/series"
-JOBS = "/api/toon/jobs"
-CURRENT = "/api/toon/jobs/current"
-FINISHED = {"done", "failed", "cancelled"}
-
-
-@pytest.fixture
-def project(fake_root) -> ProjectPaths:
-    return ProjectPaths(fake_root)
-
-
-llm, klein, tts, client = toon_api(lambda: Writer().respond)
-
-
-class Writer:
-    """Answers a plot prompt and each act's cards prompt the way Qwen is asked to. `cards`
-    makes one act's answer from the act's name in the prompt."""
-
-    def __init__(self):
-        self.plot: dict | None = None  # set by `with_series`
-        self.cards = lambda act: {
-            "segments": [
-                {
-                    "background": self.plot["backgrounds"][0].get("id", "b_unknown"),
-                    "sound": None,
-                    "cards": [
-                        {"text": f"การ์ดแรกของ{act}", "characters": [], "description": "มุมกว้าง", "motion": "zoom_in"},
-                        {"text": "", "characters": [], "description": "", "motion": "still"},
-                    ],
-                }
-            ]
-        }
-
-    def respond(self, request) -> str:
-        if "เขียนพล็อต" in request.prompt:
-            return json.dumps(self.plot, ensure_ascii=False)
-        act = request.prompt.split("องก์นี้ (")[1].split(")")[0]
-        return "```json\n" + json.dumps(self.cards(act), ensure_ascii=False) + "\n```"
+from .fakes import (
+    TOON_CURRENT,
+    TOON_JOBS,
+    TOON_SERIES,
+    TOON_VOICE,
+    Writer,
+    cards_of,
+    edit_stored_ep,
+    gpu_refusal,
+    new_ep,
+    new_series,
+    os_timeouts,
+    run,
+    start,
+    toon_api,
+    wait_for_toon_job,
+    with_series,
+    write_toon_voice,
+)
 
 
-def with_series(client, llm) -> tuple[str, str, str]:
-    """A horror Series with one character and one background; the plot Qwen writes uses
-    the character and proposes a new character and a new background."""
-    series_id = create(client)["id"]
-    character = client.post(f"{SERIES}/{series_id}/characters", json={"name": "พีค", "tag": "สายแฟ"}).json()["characters"][0]["id"]
-    background = client.post(f"{SERIES}/{series_id}/backgrounds", json={"name": "กองไฟ"}).json()["backgrounds"][0]["id"]
-    llm.respond.__self__.plot = {
-        "title": "เสียงเรียกจากป่า",
-        "acts": [{"summary": f"สรุปองก์ {n}"} for n in range(1, 5)],
-        "characters": [{"id": character}, {"id": "c_00000000"}, {"name": "ลุงยาม", "tag": "", "description": "ชายแก่"}],
-        "backgrounds": [{"name": "ห้องน้ำชั้นสาม", "description": "ห้องน้ำมืด"}],
-    }
-    return series_id, character, background
 
-
-def new_ep(client, series_id: str, idea: str = "รุ่นพี่ไปแคมป์แล้วได้ยินเสียงเรียกชื่อ") -> dict:
-    response = client.post(f"{SERIES}/{series_id}/eps", json={"idea": idea})
-    assert response.status_code == 201, response.json()
-    return response.json()
-
-
-def start(client, kind: str, ep_id: str, **body):
-    return client.post(JOBS, json={"kind": kind, "ep_id": ep_id} | body)
-
-
-def wait_for_end(client) -> dict:
-    return poll_until(client, CURRENT, lambda job: job["state"] in FINISHED)
-
-
-def run(client, kind: str, ep_id: str, **body) -> dict:
-    response = start(client, kind, ep_id, **body)
-    assert response.status_code == 202, response.json()
-    return wait_for_end(client)
+project, llm, klein, tts, client = toon_api(lambda: Writer().respond)
 
 
 def with_cards(client, llm) -> tuple[str, dict]:
@@ -101,33 +47,52 @@ def with_cards(client, llm) -> tuple[str, dict]:
     return series_id, client.get(f"/api/toon/eps/{ep_id}").json()
 
 
-def cards_of(ep: dict) -> list[dict]:
-    return [card for act in ep["acts"] for segment in act["segments"] for card in segment["cards"]]
-
-
-def edit_stored(project: ProjectPaths, series_id: str, ep_id: str, change) -> None:
-    """Changes `ep.json` as a job would, for a state the API can't reach yet (images, audio)."""
-    ep = store.read_ep(project, series_id, ep_id)
-    change(ep)
-    store.write_ep(project, series_id, ep)
-
-
-def gpu_refusal() -> ApiError | None:
-    """What another job is told when it asks for the GPU slot now."""
-    try:
-        gpu.slot.take("describe")
-    except ApiError as refused:
-        return refused
-    gpu.slot.release("describe")
-    return None
-
-
 def gpu_holder() -> str | None:
     refused = gpu_refusal()
     return refused.extra["running"] if refused else None
 
 
 # --- EP and Plot job ---
+
+
+EP_ROUTES = [
+    ("get", "", {}),
+    ("patch", "", {"json": {"title": "ตอนใหม่"}}),
+    ("delete", "", {}),
+    ("post", "/acts", {"json": {"name": "องก์ใหม่"}}),
+    ("patch", "/acts/a_00000000", {"json": {"name": "องก์ใหม่"}}),
+    ("delete", "/acts/a_00000000", {}),
+    ("post", "/segments", {"json": {"act_id": "a_00000000", "background_id": "b_00000000"}}),
+    ("patch", "/segments/g_00000000", {"json": {"sound": None}}),
+    ("delete", "/segments/g_00000000", {}),
+    ("post", "/cards", {"json": {"segment_id": "g_00000000"}}),
+    ("patch", "/cards/k_00000000", {"json": {"text": "ข้อความ"}}),
+    ("delete", "/cards/k_00000000", {}),
+    ("post", "/cards/k_00000000/swap-image", {"json": {}}),  # a POST is JSON (ADR 0013)
+    ("get", "/cards/k_00000000/image", {}),
+    ("get", "/cards/k_00000000/previous-image", {}),
+    ("get", "/cards/k_00000000/audio", {}),
+    ("get", "/renders", {}),
+    ("get", "/renders/clip", {}),
+    ("delete", "/renders/clip", {}),
+]
+
+
+@pytest.mark.parametrize(("method", "tail", "send"), EP_ROUTES)
+def test_every_route_of_one_ep_is_not_found_for_an_ep_that_isn_t_there(client, method, tail, send):
+    # A body valid enough to reach the EP check (a POST with none is `415`), and a Series, so
+    # the id is looked for in one and found in none.
+    new_series(client)
+    for ep_id in ("e_00000000", "not-an-ep"):
+        response = client.request(method, f"/api/toon/eps/{ep_id}{tail}", **send)
+        assert (response.status_code, response.json()) == (404, {"code": "not_found", "message": "ไม่พบ EP นี้"})
+
+
+def test_a_bad_body_for_an_ep_that_isn_t_there_is_refused_for_its_body_first(client):
+    no_name = client.post("/api/toon/eps/e_00000000/acts", json={"name": ""})
+    not_an_object = client.patch("/api/toon/eps/e_00000000", json=[1])
+    assert (no_name.status_code, no_name.json()) == (400, {"code": "invalid_request", "message": "ข้อความต้องยาว 1–20 ตัวอักษร"})
+    assert (not_an_object.status_code, not_an_object.json()["code"]) == (400, "invalid_request")
 
 
 def test_the_first_ep_is_1_and_a_new_one_after_a_delete_is_past_the_highest_ever(client, llm):
@@ -140,7 +105,7 @@ def test_the_first_ep_is_1_and_a_new_one_after_a_delete_is_past_the_highest_ever
 
     assert (first["n"], first["stage"], first["voice_id"], third["n"]) == (1, "plot", TOON_VOICE, 3)
     assert [act["name"] for act in first["acts"]] == ["เปิด", "ปม", "หักมุม", "จบหลอน"]
-    assert [ep["n"] for ep in client.get(f"{SERIES}/{series_id}/eps").json()] == [3, 1]
+    assert [ep["n"] for ep in client.get(f"{TOON_SERIES}/{series_id}/eps").json()] == [3, 1]
 
 
 @pytest.mark.parametrize("n", [1, 0, 1000, True])
@@ -173,7 +138,7 @@ def test_a_plot_job_writes_the_title_and_every_summary_and_keeps_new_items_in_th
     refused = gpu_refusal()
     assert (refused.extra["running"], refused.message) == ("toon_write", "รอให้งานร่างการ์ตูนเล่าเสร็จก่อน")
     llm.release(0)
-    assert wait_for_end(client)["state"] == "done"
+    assert wait_for_toon_job(client)["state"] == "done"
 
     ep = client.get(f"/api/toon/eps/{ep_id}").json()
     assert (ep["title"], [act["summary"] for act in ep["acts"]]) == ("เสียงเรียกจากป่า", [f"สรุปองก์ {n}" for n in range(1, 5)])
@@ -183,7 +148,7 @@ def test_a_plot_job_writes_the_title_and_every_summary_and_keeps_new_items_in_th
         {"id": None, "new": True, "name": "ลุงยาม", "tag": "", "description": "ชายแก่"},
     ]
     assert ep["plot"]["backgrounds"][0] == {"id": None, "new": True, "name": "ห้องน้ำชั้นสาม", "tag": "", "description": "ห้องน้ำมืด"}
-    series = client.get(f"{SERIES}/{series_id}").json()
+    series = client.get(f"{TOON_SERIES}/{series_id}").json()
     assert ([c["name"] for c in series["characters"]], [b["name"] for b in series["backgrounds"]]) == (["พีค"], ["กองไฟ"])
     assert gpu_holder() is None
 
@@ -302,7 +267,7 @@ def test_the_first_cards_job_adds_the_new_items_to_the_series_and_their_cards_ha
     job = run(client, "cards", ep_id)
 
     assert (job["state"], job["done"], job["total"]) == ("done", 4, 4)
-    series = client.get(f"{SERIES}/{series_id}").json()
+    series = client.get(f"{TOON_SERIES}/{series_id}").json()
     new_background = next(b for b in series["backgrounds"] if b["name"] == "ห้องน้ำชั้นสาม")
     assert new_background["ref_rev"] == 0
     assert any(c["name"] == "ลุงยาม" and c["ref_rev"] == 0 for c in series["characters"])
@@ -339,7 +304,7 @@ def test_a_card_answer_is_kept_to_two_characters_a_known_motion_and_a_sound_in_t
 
     ep = client.get(f"/api/toon/eps/{ep_id}").json()
     first, second = ep["acts"][0]["segments"]
-    series = client.get(f"{SERIES}/{series_id}").json()
+    series = client.get(f"{TOON_SERIES}/{series_id}").json()
     assert first["background_id"] == ep["plot"]["backgrounds"][0]["id"]  # not in the plot: the plot's first
     assert (first["sound"], second["sound"]) == (None, {"sound_id": "m_00000001", "volume": 30})
     assert (first["cards"][0]["character_ids"], first["cards"][0]["motion"]) == ([character], "still")
@@ -396,7 +361,7 @@ def test_a_changed_summary_splits_only_that_act_and_the_others_keep_their_cards(
         card = stored.acts[0].segments[0].cards[0]
         card.image = CardImage(file=f"{card.id}-1.png", refs={})
 
-    edit_stored(project, series_id, ep["id"], draw)
+    edit_stored_ep(project, series_id, ep["id"], draw)
     second = ep["acts"][1]["id"]
     client.patch(f"/api/toon/eps/{ep['id']}/acts/{second}", json={"summary": "สรุปใหม่"})
 
@@ -421,7 +386,7 @@ def test_re_splitting_an_act_with_edited_cards_or_images_without_confirm_loss_is
         card.image = CardImage(file=f"{card.id}-1.png", refs={})
         card.audio = Audio(tts_text="x", voice_id=TOON_VOICE, duration_s=1)
 
-    edit_stored(project, series_id, ep["id"], draw)
+    edit_stored_ep(project, series_id, ep["id"], draw)
     client.patch(f"/api/toon/eps/{ep['id']}/acts/{act['id']}", json={"summary": "สรุปใหม่"})
 
     refused = start(client, "cards", ep["id"])
@@ -447,7 +412,7 @@ def test_a_cards_job_cancelled_or_crashed_midway_leaves_ep_json_and_the_series_a
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
     run(client, "plot", ep_id)
-    folder = project.ep_dir(series_id, ep_id)
+    folder = EpAddress(project, series_id, ep_id).dir
     before = (folder / "ep.json").read_text(encoding="utf-8"), (project.series_dir(series_id) / "series.json").read_text(encoding="utf-8")
     if ending == "cancel":
         llm.pause_at(2)
@@ -457,8 +422,8 @@ def test_a_cards_job_cancelled_or_crashed_midway_leaves_ep_json_and_the_series_a
     start(client, "cards", ep_id)
     if ending == "cancel":
         llm.wait_until(2)
-        client.delete(CURRENT)
-    job = wait_for_end(client)
+        client.delete(TOON_CURRENT)
+    job = wait_for_toon_job(client)
 
     assert job["state"] == ("cancelled" if ending == "cancel" else "failed")
     after = (folder / "ep.json").read_text(encoding="utf-8"), (project.series_dir(series_id) / "series.json").read_text(encoding="utf-8")
@@ -546,7 +511,7 @@ def test_get_ep_gives_each_card_its_states_and_length_and_the_total(client, llm,
         card.audio = Audio(tts_text=thai.spoken(card.text), voice_id=TOON_VOICE, duration_s=3.1)
         card.hold_s = 0.5
 
-    edit_stored(project, series_id, ep["id"], heard)
+    edit_stored_ep(project, series_id, ep["id"], heard)
     ep = client.get(f"/api/toon/eps/{ep['id']}").json()
     cards = cards_of(ep)
 
@@ -571,7 +536,7 @@ def test_a_card_drawn_before_its_reference_changed_is_stale_ref_and_a_new_voice_
         card.image = CardImage(file=f"{card.id}-1.png", refs={background: 1})
         card.audio = Audio(tts_text=thai.spoken(card.text), voice_id=TOON_VOICE, duration_s=1)
 
-    edit_stored(project, series_id, ep["id"], drawn)
+    edit_stored_ep(project, series_id, ep["id"], drawn)
     write_toon_voice(project, "v_00000002")
     ep = client.patch(f"/api/toon/eps/{ep['id']}", json={"voice_id": "v_00000002"}).json()
 
@@ -595,7 +560,7 @@ def test_editing_a_card_during_its_ep_s_cards_job_is_ep_locked_and_deleting_the_
     assert (deleted.status_code, deleted.json()["code"]) == (409, "ep_busy")
     assert locked is True
     llm.release(0)
-    wait_for_end(client)
+    wait_for_toon_job(client)
     assert client.get(f"/api/toon/eps/{ep['id']}").json()["locked"] is False
 
 
@@ -611,11 +576,11 @@ def test_deleting_a_series_during_its_plot_or_cards_job_is_series_busy(client, l
     assert start(client, kind, ep["id"]).status_code == 202
     llm.wait_until(0)
 
-    response = client.request("DELETE", f"{SERIES}/{series_id}", json={"confirm_eps": 1})
+    response = client.request("DELETE", f"{TOON_SERIES}/{series_id}", json={"confirm_eps": 1})
 
     assert (response.status_code, response.json()["code"]) == (409, "series_busy")
     llm.release(0)
-    wait_for_end(client)
+    wait_for_toon_job(client)
 
 
 def test_deleting_a_character_a_card_or_plot_uses_is_in_use_with_the_eps(client, llm):
@@ -624,7 +589,7 @@ def test_deleting_a_character_a_card_or_plot_uses_is_in_use_with_the_eps(client,
     run(client, "plot", ep_id)
     client.patch(f"/api/toon/eps/{ep_id}", json={"title": "ตอนแรก"})
 
-    response = client.delete(f"{SERIES}/{series_id}/characters/{character}")
+    response = client.delete(f"{TOON_SERIES}/{series_id}/characters/{character}")
 
     assert (response.status_code, response.json()["code"], response.json()["eps"]) == (409, "in_use", [{"n": 1, "title": "ตอนแรก"}])
 
@@ -637,16 +602,16 @@ def test_deleting_a_character_only_a_card_uses_is_in_use(client, llm, project):
         stored.plot.characters = [item for item in stored.plot.characters if item.id != character]
         stored.acts[0].segments[0].cards[0].character_ids = [character]
 
-    edit_stored(project, series_id, ep["id"], card_only)
+    edit_stored_ep(project, series_id, ep["id"], card_only)
 
-    response = client.delete(f"{SERIES}/{series_id}/characters/{character}")
+    response = client.delete(f"{TOON_SERIES}/{series_id}/characters/{character}")
 
     assert (response.status_code, response.json()["code"], [e["n"] for e in response.json()["eps"]]) == (409, "in_use", [1])
 
 
 def test_deleting_a_background_only_a_segment_uses_is_in_use(client, llm, project):
     series_id, ep = with_cards(client, llm)
-    background = client.get(f"{SERIES}/{series_id}").json()["backgrounds"][0]["id"]
+    background = client.get(f"{TOON_SERIES}/{series_id}").json()["backgrounds"][0]["id"]
 
     def segment_only(stored):
         stored.plot.backgrounds = [item for item in stored.plot.backgrounds if item.id != background]
@@ -654,9 +619,9 @@ def test_deleting_a_background_only_a_segment_uses_is_in_use(client, llm, projec
             for segment in act.segments:
                 segment.background_id = background
 
-    edit_stored(project, series_id, ep["id"], segment_only)
+    edit_stored_ep(project, series_id, ep["id"], segment_only)
 
-    response = client.delete(f"{SERIES}/{series_id}/backgrounds/{background}")
+    response = client.delete(f"{TOON_SERIES}/{series_id}/backgrounds/{background}")
 
     assert (response.status_code, response.json()["code"], [e["n"] for e in response.json()["eps"]]) == (409, "in_use", [1])
 
@@ -665,9 +630,9 @@ def test_deleting_the_saved_voice_an_ep_narrates_with_is_voice_in_use(client, ll
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
     write_toon_voice(project, "v_00000002")
-    client.patch(f"{SERIES}/{series_id}", json={"voice_id": "v_00000002"})
+    client.patch(f"{TOON_SERIES}/{series_id}", json={"voice_id": "v_00000002"})
     client.patch(f"/api/toon/eps/{ep_id}", json={"voice_id": TOON_VOICE})
-    client.patch(f"{SERIES}/{series_id}", json={"voice_id": "v_00000002"})
+    client.patch(f"{TOON_SERIES}/{series_id}", json={"voice_id": "v_00000002"})
 
     response = client.delete(f"/api/spoil-maker/voices/{TOON_VOICE}")
 
@@ -696,5 +661,5 @@ def test_changing_an_ep_s_voice_waits_for_the_draft_s_lock(client, llm, project)
 
 @pytest.mark.parametrize("kind", ["poster", ["plot"], {"plot": True}, None])
 def test_a_toon_job_of_a_kind_it_does_not_know_is_invalid_request(client, kind):
-    response = client.post(JOBS, json={"kind": kind})
+    response = client.post(TOON_JOBS, json={"kind": kind})
     assert (response.status_code, response.json()["code"]) == (400, "invalid_request")

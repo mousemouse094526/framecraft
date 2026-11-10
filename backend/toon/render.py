@@ -23,7 +23,7 @@ from backend import checks, disk, ffmpeg, gate_rows, gpu, paths, renders, speaki
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
 from backend.jobs import ModelJobSlot, short
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 from backend.spoil_maker import tts
 from backend.subtitles import Timed
 from backend.toon import compose, episodes, series, store, voicing
@@ -101,17 +101,17 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
         """Spec › Render job step 1, in order: the EP and its cards, `ep_locked`, `disk_full`, the gate,
         `busy`, and `gpu_busy` when cards need their narration. The draft's lock and the
         store's cover the checks and the start, so no edit or voice delete slips between."""
-        project, ep_id = paths.project(), body.get("ep_id")
+        project = paths.project()
         with self._lock, gpu.slot.draft_lock, store.lock:
-            series_now, ep = episodes.find(project, ep_id)
-            to_voice = _cards_to_voice(project, series_now, ep)
+            ep_address, series_now, ep = episodes.look_up(project, body.get("ep_id"))
+            to_voice = _cards_to_voice(ep_address, series_now, ep)
             require_rows(gate_rows.render(project, voices_first=bool(to_voice)))
             if self._taken():
                 raise ApiError(409, "busy", "กำลัง render การ์ตูนเล่าอยู่")
             plans = []
             if to_voice:
                 voice = voicing.ep_voice(project, ep)
-                plans = [voicing.plan_card(series_now.id, ep, card, voice) for card in to_voice]
+                plans = [voicing.plan_card(ep_address, ep, card, voice) for card in to_voice]
                 gpu.slot.take("toon_render")
                 self._job = ToonRenderJob(
                     state="voicing", series_id=series_now.id, ep_id=ep.id, done=0, total=len(plans), started_at=checks.now_iso()
@@ -122,47 +122,48 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
                 )
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
-        threading.Thread(target=self._run, args=(project, series_now.id, ep.id, plans), daemon=True).start()
+        threading.Thread(target=self._run, args=(ep_address, plans), daemon=True).start()
         return job
 
-    def _run(self, project: ProjectPaths, series_id: str, ep_id: str, plans: list[VoicePlan]) -> None:
+    def _run(self, ep_address: EpAddress, plans: list[VoicePlan]) -> None:
         """A cancel keeps the narration already made in the EP."""
 
         def clean_up(state: str) -> None:  # however it ended
-            shutil.rmtree(project.toon_render_dir, ignore_errors=True)
-            renders.remove_partials(project.ep_renders_dir(series_id, ep_id))
+            shutil.rmtree(ep_address.project.toon_render_dir, ignore_errors=True)
+            renders.remove_partials(ep_address.renders_dir)
 
-        what = f"toon render {ep_id}"
-        self._run_job(what, lambda: self._voice_and_render(project, series_id, ep_id, plans), clean_up)
+        what = f"toon render {ep_address.ep_id}"
+        self._run_job(what, lambda: self._voice_and_render(ep_address, plans), clean_up)
 
-    def _voice_and_render(self, project: ProjectPaths, series_id: str, ep_id: str, plans: list[VoicePlan]) -> dict:
+    def _voice_and_render(self, ep_address: EpAddress, plans: list[VoicePlan]) -> dict:
         if plans:
-            spoken_all = self.speaker.speak(project, [plan.tts_text for plan in plans], plans[0].voice)
+            spoken_all = self.speaker.speak(ep_address.project, [plan.tts_text for plan in plans], plans[0].voice)
             # The speaker first: `zip` asks it once more after the last text, so it ends its child.
             for done, (spoken, plan) in enumerate(zip(spoken_all, plans), start=1):
-                if not voicing.put_audio(project, plan, spoken):
+                if not voicing.put_audio(plan, spoken):
                     log.info("the narration of card %s is dropped: the card went", plan.card_id)
                 self.update(done=done)
             self.free_gpu()  # voicing is over: the GPU is free while ffmpeg runs
         self.update(state="rendering", percent=0, done=None, total=None)
         try:
-            name = self._render(project, series_id, ep_id)
+            name = self._render(ep_address)
         except FfmpegFailed as error:
             raise JobFailed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}") from None
-        log.info("render of %s wrote %s", ep_id, name)
+        log.info("render of %s wrote %s", ep_address.ep_id, name)
         return {"percent": 100, "name": name}
 
-    def _render(self, project: ProjectPaths, series_id: str, ep_id: str) -> str:
+    def _render(self, ep_address: EpAddress) -> str:
         """Spec › Render job step 3: the EP read and copied once, each card's piece, then the whole clip."""
+        project = ep_address.project
         work = project.toon_render_dir
         shutil.rmtree(work, ignore_errors=True)
         work.mkdir(parents=True)
         with store.lock:
-            series_now = store.read_series(project, series_id)
-            ep = store.read_ep(project, series_id, ep_id)
+            series_now = store.read_series(project, ep_address.series_id)
+            ep = store.read_ep(ep_address)
             if series_now is None or ep is None:
                 raise JobFailed("internal", "อ่าน EP นี้ไม่ได้แล้ว")
-            placed, runs = _copy_in(project, series_now, ep, work)
+            placed, runs = _copy_in(ep_address, ep, work)
         total_frames = placed[-1].start_frame + placed[-1].frames
         total = total_frames / compose.FPS
         narrated = [
@@ -186,7 +187,7 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
             self._run_ffmpeg(compose.piece_command(card, series_now.layout, frames, piece), work, self._cancel)
             pieces.append(piece)
             self.update(percent=renders.pieces_percent(index + 1, len(placed)))
-        folder = project.ep_renders_dir(series_id, ep_id)
+        folder = ep_address.renders_dir
         folder.mkdir(parents=True, exist_ok=True)
         render = renders.next_free(folder)
         mp4_partial = render.file(".mp4.partial")
@@ -204,26 +205,25 @@ class RenderJobs(ModelJobSlot[ToonRenderJob]):
         return render.name
 
 
-def _cards_to_voice(project: ProjectPaths, series_now: Series, ep: Ep) -> list[store.Card]:
+def _cards_to_voice(ep_address: EpAddress, series_now: Series, ep: Ep) -> list[store.Card]:
     """Spec › Render job step 1 up to the gate; returns the cards to voice first (D38). Call under the store's lock."""
     # An EP still at its plot has no cards to render either (spec › Render job step 1).
     if ep.stage != "cards" or not any(True for _ in episodes.placed_cards(ep)):
         raise ApiError(400, "cards_not_ready", "EP นี้ยังไม่มีการ์ด", card_ids=[])
-    episodes.editable(project, ep.id)  # `ep_locked`
+    episodes.editable(ep_address)  # `ep_locked`
     refs = series.ref_revs(series_now)
     missing = [card.id for segment, card in episodes.placed_cards(ep) if episodes.image_status(card, segment, refs) in NOT_READY]
     if missing:
         raise ApiError(400, "cards_not_ready", "ทุกการ์ดต้องมีภาพก่อน render", card_ids=missing)
-    disk.require_free(project.root)
+    disk.require_free(ep_address.project.root)
     return [card for card in episodes.ep_cards(ep) if episodes.audio_status(card, ep) in NEEDS_VOICE]
 
 
-def _copy_in(project: ProjectPaths, series_now: Series, ep: Ep, work: Path) -> tuple[list[Placed], list[SoundRun]]:
+def _copy_in(ep_address: EpAddress, ep: Ep, work: Path) -> tuple[list[Placed], list[SoundRun]]:
     """Every card's picture and narration, and every sound played, into the work folder; the
     cards on the timeline (each card's length on whole frames, D14) and the sound runs (D17).
     Call under the store's lock."""
-    images = project.card_images_dir(series_now.id, ep.id)
-    audio = project.card_audio_dir(series_now.id, ep.id)
+    images, audio = ep_address.images_dir, ep_address.audio_dir
     placed: list[Placed] = []
     runs: list[SoundRun] = []
     frame = 0
@@ -261,7 +261,7 @@ def _copy_in(project: ProjectPaths, series_now: Series, ep: Ep, work: Path) -> t
             if segment.sound is not None:
                 sound = f"{segment.sound.sound_id}.m4a"
                 if not (work / sound).is_file():
-                    source = project.toon_sounds_dir / sound
+                    source = ep_address.project.toon_sounds_dir / sound
                     if not source.is_file():
                         raise JobFailed("internal", CHANGED)
                     shutil.copyfile(source, work / sound)
@@ -319,21 +319,21 @@ def _write_narration(work: Path, placed: list[Placed]) -> None:
 # --- the results ---
 
 
-def list_results(project: ProjectPaths, ep_id: str) -> list[RenderResult]:
+def list_results(ep_address: EpAddress) -> list[RenderResult]:
     """Every complete render of the EP, newest first."""
-    return renders.listed(_renders_dir(project, ep_id), RenderResult)
+    return renders.listed(_renders_dir(ep_address), RenderResult)
 
 
-def result_file(project: ProjectPaths, ep_id: str, name: str) -> Path:
+def result_file(ep_address: EpAddress, name: str) -> Path:
     """The mp4 of a complete render of the EP. Raises `ApiError` 404 `not_found`."""
-    render = renders.Render(_renders_dir(project, ep_id), name)
+    render = renders.Render(_renders_dir(ep_address), name)
     render.require()
     return render.file(".mp4")
 
 
-def delete_result(project: ProjectPaths, ep_id: str, name: str) -> None:
+def delete_result(ep_address: EpAddress, name: str) -> None:
     """`404` `not_found`, or `409` `in_use` while a player holds the mp4 open."""
-    renders.Render(_renders_dir(project, ep_id), name).delete()
+    renders.Render(_renders_dir(ep_address), name).delete()
 
 
 def clean_on_start(project: ProjectPaths) -> None:
@@ -344,10 +344,11 @@ def clean_on_start(project: ProjectPaths) -> None:
             renders.remove_partials(folder)
 
 
-def _renders_dir(project: ProjectPaths, ep_id: str) -> Path:
+def _renders_dir(ep_address: EpAddress) -> Path:
+    """The EP's renders folder. Raises `ApiError` 404 `not_found` when the EP is gone."""
     with store.lock:
-        series_now, ep = episodes.find(project, ep_id)
-        return project.ep_renders_dir(series_now.id, ep.id)
+        episodes.read(ep_address)  # `not_found`
+    return ep_address.renders_dir
 
 
 render_jobs = RenderJobs()

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 from backend.models import ModelSpec
 
@@ -154,22 +155,6 @@ class ProjectPaths:
         """The three pictures of a Ref job not picked yet, `{id}-{1..3}.png`; emptied on every start."""
         return self.refs_dir(series_id) / ".pending"
 
-    def ep_dir(self, series_id: str, ep_id: str) -> Path:
-        """An EP's `ep.json`, its card images and narration, and its renders."""
-        return self.series_dir(series_id) / "eps" / ep_id
-
-    def card_images_dir(self, series_id: str, ep_id: str) -> Path:
-        """Each card's image and previous image, `{card_id}-{seed}.png`."""
-        return self.ep_dir(series_id, ep_id) / "images"
-
-    def card_audio_dir(self, series_id: str, ep_id: str) -> Path:
-        """Each card's narration, `{card_id}.wav`."""
-        return self.ep_dir(series_id, ep_id) / "audio"
-
-    def ep_renders_dir(self, series_id: str, ep_id: str) -> Path:
-        """Each finished render of the EP: `{name}.mp4`, `.srt` and `.json`."""
-        return self.ep_dir(series_id, ep_id) / "renders"
-
     @property
     def toon_sounds_dir(self) -> Path:
         """The background sound library of the whole tab (toon D16): `sounds.json` and `{sound_id}.m4a`."""
@@ -205,3 +190,33 @@ class ProjectPaths:
 def project() -> ProjectPaths:
     """The project at `ROOT`, read per call: tests point `ROOT` at a fake root."""
     return ProjectPaths(ROOT)
+
+
+class EpAddress(NamedTuple):
+    """Which EP of which Series of the การ์ตูนเล่า tab: the one value each function of one EP
+    takes instead of its three parts, with the EP's folders (toon D67). Whether the EP exists
+    is checked by the function, under the tab's store lock."""
+
+    project: ProjectPaths
+    series_id: str
+    ep_id: str
+
+    @property
+    def dir(self) -> Path:
+        """The EP's `ep.json`, its card images and narration, and its renders."""
+        return self.project.series_dir(self.series_id) / "eps" / self.ep_id
+
+    @property
+    def images_dir(self) -> Path:
+        """Each card's image and previous image, `{card_id}-{seed}.png`."""
+        return self.dir / "images"
+
+    @property
+    def audio_dir(self) -> Path:
+        """Each card's narration, `{card_id}.wav`."""
+        return self.dir / "audio"
+
+    @property
+    def renders_dir(self) -> Path:
+        """Each finished render of the EP: `{name}.mp4`, `.srt` and `.json`."""
+        return self.dir / "renders"

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from backend import gate_rows
 from backend.errors import ApiError, JobFailed
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 from backend.spoil_maker import voices
 from backend.toon import episodes, steps, store, writer
 from backend.toon.store import Ep, Plot, Series
@@ -39,10 +39,7 @@ def writable(project: ProjectPaths, ep_id: object) -> WritePlan:
     """The EP with its Series, and its voice's speed. Raises `not_found`, `ep_busy` while a
     render works on the EP (a Plot or Cards job would lock it, D57), `invalid_request` for an
     idea out of 1–500, `voice_not_found`."""
-    found = store.find_ep(project, ep_id) if isinstance(ep_id, str) else None
-    if found is None:
-        raise ApiError(404, "not_found", "ไม่พบ EP นี้")
-    series_now, ep = found
+    _, series_now, ep = episodes.look_up(project, ep_id)
     if episodes.rendering(ep.id):
         raise ApiError(409, "ep_busy", "กำลัง render EP นี้: เขียนใหม่ได้เมื่อ render จบ")
     if not 1 <= len(ep.idea) <= episodes.IDEA_MAX:
@@ -56,9 +53,9 @@ def writable(project: ProjectPaths, ep_id: object) -> WritePlan:
 def run(job: steps.Run, project: ProjectPaths, found: WritePlan) -> None:
     """Spec › Plot job steps 2–5: up to three tries, then the title, the summaries and the plot's cast are
     written; new characters and backgrounds stay in the plot (D13)."""
-    series_id, ep_id = found.series.id, found.ep.id
+    ep_address = EpAddress(project, found.series.id, found.ep.id)
     with store.lock:
-        series_now, ep = store.read_series(project, series_id), store.read_ep(project, series_id, ep_id)
+        series_now, ep = store.read_series(project, ep_address.series_id), store.read_ep(ep_address)
     prompt = writer.plot_prompt(
         series_now, ep.idea, [act.name for act in ep.acts], round(episodes.TARGET_S * found.chars_per_s)
     )
@@ -68,14 +65,14 @@ def run(job: steps.Run, project: ProjectPaths, found: WritePlan) -> None:
     if written is None:
         raise JobFailed("write_failed", f"AI ร่างพล็อตไม่สำเร็จ {writer.ATTEMPTS} ครั้ง")
     with store.lock:
-        ep = store.read_ep(project, series_id, ep_id)
+        ep = store.read_ep(ep_address)
         if ep is None:
             raise JobFailed("internal", "อ่าน EP นี้ไม่ได้แล้ว")
         ep.title = written.title
         for act, summary in zip(ep.acts, written.summaries, strict=True):
             act.summary = summary
         ep.plot = Plot(characters=written.characters, backgrounds=written.backgrounds)
-        store.write_ep(project, series_id, ep)
+        store.write_ep(ep_address, ep)
 
 
 WORK = steps.Work(

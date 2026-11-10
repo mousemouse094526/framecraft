@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends, Request, Response
 from fastapi.responses import FileResponse
 
 from backend import body_types, paths
+from backend.paths import EpAddress
 from backend.toon import episodes, images, jobs, render, series, sounds, voicing
 from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
@@ -19,6 +20,12 @@ router = APIRouter(prefix="/toon")
 def item_ref(series_id: str, item_kind: ItemKind, item_id: str) -> ItemRef:
     """The character or background a `/series/{series_id}/{item_kind}/{item_id}` path names."""
     return ItemRef(paths.project(), series_id, item_kind, item_id)
+
+
+def ep_address(ep_id: str) -> EpAddress:
+    """The EP an `/eps/{ep_id}` path names, in whichever Series holds it. Whether it exists is the
+    module function's to check, after the body's own checks (`episodes.address_of`)."""
+    return episodes.address_of(paths.project(), ep_id)
 
 
 @router.get("/series")
@@ -101,100 +108,100 @@ async def upload_ref(request: Request, size: str | None = None, item: ItemRef = 
 
 
 @router.get("/eps/{ep_id}")
-def get_ep(ep_id: str) -> EpView:
-    return episodes.view(paths.project(), ep_id)
+def get_ep(ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.view(ep)
 
 
 @router.patch("/eps/{ep_id}")
-def change_ep(ep_id: str, body: dict[str, Any]) -> EpView:
-    return episodes.change(paths.project(), ep_id, body)
+def change_ep(body: dict[str, Any], ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.change(ep, body)
 
 
 @router.delete("/eps/{ep_id}", status_code=204)
-def delete_ep(ep_id: str) -> Response:
-    episodes.delete(paths.project(), ep_id)
+def delete_ep(ep: EpAddress = Depends(ep_address)) -> Response:
+    episodes.delete(ep)
     return Response(status_code=204)
 
 
 @router.post("/eps/{ep_id}/acts", status_code=201)
-def add_act(ep_id: str, body: dict[str, Any]) -> EpView:
-    return episodes.add_act(paths.project(), ep_id, body)
+def add_act(body: dict[str, Any], ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.add_act(ep, body)
 
 
 @router.patch("/eps/{ep_id}/acts/{act_id}")
-def change_act(ep_id: str, act_id: str, body: dict[str, Any]) -> EpView:
-    return episodes.change_act(paths.project(), ep_id, act_id, body)
+def change_act(act_id: str, body: dict[str, Any], ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.change_act(ep, act_id, body)
 
 
 @router.delete("/eps/{ep_id}/acts/{act_id}")
-def delete_act(ep_id: str, act_id: str) -> EpView:
-    return episodes.delete_act(paths.project(), ep_id, act_id)
+def delete_act(act_id: str, ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.delete_act(ep, act_id)
 
 
 @router.post("/eps/{ep_id}/segments", status_code=201)
-def add_segment(ep_id: str, body: dict[str, Any]) -> EpView:
-    return episodes.add_segment(paths.project(), ep_id, body)
+def add_segment(body: dict[str, Any], ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.add_segment(ep, body)
 
 
 @router.patch("/eps/{ep_id}/segments/{segment_id}")
-def change_segment(ep_id: str, segment_id: str, body: dict[str, Any]) -> EpView:
-    return episodes.change_segment(paths.project(), ep_id, segment_id, body)
+def change_segment(segment_id: str, body: dict[str, Any], ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.change_segment(ep, segment_id, body)
 
 
 @router.delete("/eps/{ep_id}/segments/{segment_id}")
-def delete_segment(ep_id: str, segment_id: str) -> EpView:
-    return episodes.delete_segment(paths.project(), ep_id, segment_id)
+def delete_segment(segment_id: str, ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.delete_segment(ep, segment_id)
 
 
 @router.post("/eps/{ep_id}/cards", status_code=201)
-def add_card(ep_id: str, body: dict[str, Any]) -> EpView:
-    return episodes.add_card(paths.project(), ep_id, body)
+def add_card(body: dict[str, Any], ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.add_card(ep, body)
 
 
 @router.patch("/eps/{ep_id}/cards/{card_id}")
-def change_card(ep_id: str, card_id: str, body: dict[str, Any]) -> EpView:
-    return episodes.change_card(paths.project(), ep_id, card_id, body)
+def change_card(card_id: str, body: dict[str, Any], ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.change_card(ep, card_id, body)
 
 
 @router.delete("/eps/{ep_id}/cards/{card_id}")
-def delete_card(ep_id: str, card_id: str) -> EpView:
-    return episodes.delete_card(paths.project(), ep_id, card_id)
+def delete_card(card_id: str, ep: EpAddress = Depends(ep_address)) -> EpView:
+    return episodes.delete_card(ep, card_id)
 
 
 @router.post("/eps/{ep_id}/cards/{card_id}/swap-image")
-def swap_image(ep_id: str, card_id: str) -> EpView:
-    return images.swap(paths.project(), ep_id, card_id)
+def swap_image(card_id: str, ep: EpAddress = Depends(ep_address)) -> EpView:
+    return images.swap(ep, card_id)
 
 
 @router.get("/eps/{ep_id}/cards/{card_id}/image")
-def get_image(ep_id: str, card_id: str) -> FileResponse:
-    return FileResponse(images.image_file(paths.project(), ep_id, card_id), media_type="image/png")
+def get_image(card_id: str, ep: EpAddress = Depends(ep_address)) -> FileResponse:
+    return FileResponse(images.image_file(ep, card_id), media_type="image/png")
 
 
 @router.get("/eps/{ep_id}/cards/{card_id}/previous-image")
-def get_previous_image(ep_id: str, card_id: str) -> FileResponse:
-    return FileResponse(images.image_file(paths.project(), ep_id, card_id, previous=True), media_type="image/png")
+def get_previous_image(card_id: str, ep: EpAddress = Depends(ep_address)) -> FileResponse:
+    return FileResponse(images.image_file(ep, card_id, previous=True), media_type="image/png")
 
 
 @router.get("/eps/{ep_id}/cards/{card_id}/audio")
-def get_audio(ep_id: str, card_id: str) -> FileResponse:
-    return FileResponse(voicing.audio_file(paths.project(), ep_id, card_id), media_type="audio/wav")
+def get_audio(card_id: str, ep: EpAddress = Depends(ep_address)) -> FileResponse:
+    return FileResponse(voicing.audio_file(ep, card_id), media_type="audio/wav")
 
 
 @router.get("/eps/{ep_id}/renders")
-def list_renders(ep_id: str) -> list[RenderResult]:
-    return render.list_results(paths.project(), ep_id)
+def list_renders(ep: EpAddress = Depends(ep_address)) -> list[RenderResult]:
+    return render.list_results(ep)
 
 
 @router.get("/eps/{ep_id}/renders/{name}")
-def get_render(ep_id: str, name: str) -> FileResponse:
-    path = render.result_file(paths.project(), ep_id, name)
+def get_render(name: str, ep: EpAddress = Depends(ep_address)) -> FileResponse:
+    path = render.result_file(ep, name)
     return FileResponse(path, media_type="video/mp4", filename=path.name, content_disposition_type="inline")
 
 
 @router.delete("/eps/{ep_id}/renders/{name}", status_code=204)
-def delete_render(ep_id: str, name: str) -> Response:
-    render.delete_result(paths.project(), ep_id, name)
+def delete_render(name: str, ep: EpAddress = Depends(ep_address)) -> Response:
+    render.delete_result(ep, name)
     return Response(status_code=204)
 
 

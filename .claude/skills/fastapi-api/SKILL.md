@@ -19,7 +19,11 @@ backend/
 │                    lists every job holder once, and the lifespan runs each
 │                    one's start-up clean and `stop_on_shutdown` from it
 ├── paths.py      ← project root, models/ and media/ paths (ADR 0003);
-│                    `paths.project()` is the one routes read per request
+│                    `paths.project()` is the one routes read per request;
+│                    `EpAddress` (one toon EP: project, Series, EP, and its
+│                    folders) is what every function of one EP and its
+│                    `/eps/{ep_id}` routes take (`episodes.address_of`
+│                    makes it and never refuses; `episodes.read` gives `404`)
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
 ├── disk.py       ← free disk space and the 1 GiB `disk_full` check: setup, spoil, both renders, toon jobs

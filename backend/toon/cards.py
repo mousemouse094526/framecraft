@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from backend import gate_rows
 from backend.errors import ApiError, JobFailed, invalid_request
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 from backend.toon import episodes, plot, series, steps, store, writer
 from backend.toon.store import Ep, Series
 
@@ -90,7 +90,8 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
         series_now = store.read_series(project, plan.series.id)
         for item_kind, items in added.items():
             getattr(series_now, item_kind).extend(items)
-        ep_now = store.read_ep(project, plan.series.id, ep.id)
+        ep_address = EpAddress(project, plan.series.id, ep.id)
+        ep_now = store.read_ep(ep_address)
         in_library = {s.id for s in store.read_sounds(project)}  # a sound deleted while Qwen wrote: none
         gone = []
         for act in ep_now.acts:
@@ -102,8 +103,8 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
                 act.segments, act.cards_from = written[act.id], act.summary
         ep_now.plot, ep_now.stage = ep.plot, "cards"
         store.write_series(project, series_now)
-        store.write_ep(project, series_now.id, ep_now)
-        episodes.remove_card_files(project, series_now.id, ep_now.id, gone)
+        store.write_ep(ep_address, ep_now)
+        episodes.remove_card_files(ep_address, gone)
 
 
 def _lost(act) -> LostCards:

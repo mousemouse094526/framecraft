@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from backend import gpu, llm_reply, renders
 from backend.errors import ApiError, invalid_request
 from backend.json_values import is_int, is_number
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 from backend.spoil_maker import thai, voices
 from backend.toon import series as series_module
 from backend.toon import store
@@ -130,7 +130,7 @@ def list_for(project: ProjectPaths, series_id: str) -> list[ListedEp]:
             stage=ep.stage,
             cards=sum(1 for card in ep_cards(ep)),
             images=sum(1 for card in ep_cards(ep) if card.image is not None),
-            rendered_at=renders.latest_at(project.ep_renders_dir(series_id, ep.id)),
+            rendered_at=renders.latest_at(EpAddress(project, series_id, ep.id).renders_dir),
         )
         for ep in reversed(eps)
     ]
@@ -151,16 +151,17 @@ def create(project: ProjectPaths, series_id: str, body: dict) -> EpView:
             voice_id=series.voice_id,
             acts=[Act(id=store.new_id("a"), name=name) for name in series.acts],
         )
-        store.write_ep(project, series_id, ep)
+        ep_address = EpAddress(project, series_id, ep.id)
+        store.write_ep(ep_address, ep)
         store.write_series(project, series)
     log.info("created EP %s in %s", ep.id, series_id)
-    return view(project, ep.id)
+    return view(ep_address)
 
 
-def view(project: ProjectPaths, ep_id: str) -> EpView:
+def view(ep_address: EpAddress) -> EpView:
     with store.lock:
-        series, ep = find(project, ep_id)
-        chars_per_s = voices.chars_per_s(project, ep.voice_id) or UNKNOWN_CHARS_PER_S
+        series, ep = read(ep_address)
+        chars_per_s = voices.chars_per_s(ep_address.project, ep.voice_id) or UNKNOWN_CHARS_PER_S
         refs = series_module.ref_revs(series)
         acts = [
             ActView(
@@ -195,15 +196,16 @@ def view(project: ProjectPaths, ep_id: str) -> EpView:
         )
 
 
-def change(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
+def change(ep_address: EpAddress, body: dict) -> EpView:
     """`title` (D24), `n` (D40), `voice_id` (D8) and `plot` (D13). A `voice_id` is written under
     the draft's lock, so a Saved voice delete can't slip in (D25)."""
+    project = ep_address.project
     with gpu.slot.draft_lock, store.lock:
-        series, ep = editable(project, ep_id)
+        series, ep = editable(ep_address)
         if "title" in body:
             ep.title = series_module.checked_text(body["title"], 0, TITLE_MAX)
         if "n" in body:
-            ep.n = _ep_number(project, series, ep, body["n"])
+            ep.n = _ep_number(ep_address, body["n"])
             if ep.n > series.max_ep:
                 series.max_ep = ep.n
                 store.write_series(project, series)
@@ -211,95 +213,95 @@ def change(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
             ep.voice_id = series_module.existing_voice(project, body["voice_id"])
         if "plot" in body:
             ep.plot = _plot(series, body["plot"], ep.stage == "cards")
-        store.write_ep(project, series.id, ep)
-    return view(project, ep_id)
+        store.write_ep(ep_address, ep)
+    return view(ep_address)
 
 
-def delete(project: ProjectPaths, ep_id: str) -> None:
+def delete(ep_address: EpAddress) -> None:
     """Removes the EP's folder: its plot, cards, images, narration and renders (D26).
     Characters and backgrounds it added stay in the Series."""
     with store.lock:
-        series, ep = find(project, ep_id)
-        if _jobs_on(ep_id):
+        read(ep_address)  # `not_found`
+        if _jobs_on(ep_address.ep_id):
             raise ApiError(409, "ep_busy", "EP นี้มีงานที่ยังไม่จบ")
-        shutil.rmtree(project.ep_dir(series.id, ep_id))
-    log.info("deleted EP %s of %s", ep_id, series.id)
+        shutil.rmtree(ep_address.dir)
+    log.info("deleted EP %s of %s", ep_address.ep_id, ep_address.series_id)
 
 
 # --- acts ---
 
 
-def add_act(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
+def add_act(ep_address: EpAddress, body: dict) -> EpView:
     """An act the user adds: never split, so a Cards job counts it as changed (D10, D15)."""
     name = series_module.checked_text(body.get("name"), 1, series_module.ACT_NAME_MAX)
     summary = series_module.checked_text(body.get("summary", ""), 0, SUMMARY_MAX)
-    with _editing(project, ep_id) as (_, ep, _):
+    with _editing(ep_address) as (_, ep, _):
         act = Act(id=store.new_id("a", {a.id for a in ep.acts}), name=name, summary=summary)
         _insert(ep.acts, act, body)
-    return view(project, ep_id)
+    return view(ep_address)
 
 
-def change_act(project: ProjectPaths, ep_id: str, act_id: str, body: dict) -> EpView:
+def change_act(ep_address: EpAddress, act_id: str, body: dict) -> EpView:
     """The act's `name` and `summary` (D10, D15); a changed summary marks it to split again."""
-    with _editing(project, ep_id) as (_, ep, _):
+    with _editing(ep_address) as (_, ep, _):
         act = _find(ep.acts, act_id)
         if "name" in body:
             act.name = series_module.checked_text(body["name"], 1, series_module.ACT_NAME_MAX)
         if "summary" in body:
             act.summary = series_module.checked_text(body["summary"], 0, SUMMARY_MAX)
-    return view(project, ep_id)
+    return view(ep_address)
 
 
-def delete_act(project: ProjectPaths, ep_id: str, act_id: str) -> EpView:
-    with _editing(project, ep_id) as (_, ep, removed):
+def delete_act(ep_address: EpAddress, act_id: str) -> EpView:
+    with _editing(ep_address) as (_, ep, removed):
         act = _find(ep.acts, act_id)
         ep.acts.remove(act)
         removed.extend(card for segment in act.segments for card in segment.cards)
-    return view(project, ep_id)
+    return view(ep_address)
 
 
 # --- segments ---
 
 
-def add_segment(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
+def add_segment(ep_address: EpAddress, body: dict) -> EpView:
     """A segment needs a background of the Series and one card: a silent card the user
     fills, counted as written by them (spec › API, spoil-maker D74)."""
-    with _editing(project, ep_id) as (series, ep, _):
+    with _editing(ep_address) as (series, ep, _):
         act = _find(ep.acts, body.get("act_id"))
         background_id = _require_background(series, body.get("background_id"))
         taken = _ids(ep)
         card = Card(id=store.new_id("k", taken), hold_s=SILENT_HOLD, edited=True)
         segment = Segment(id=store.new_id("g", taken), background_id=background_id, cards=[card])
         _insert(act.segments, segment, body)
-    return view(project, ep_id)
+    return view(ep_address)
 
 
-def change_segment(project: ProjectPaths, ep_id: str, segment_id: str, body: dict) -> EpView:
+def change_segment(ep_address: EpAddress, segment_id: str, body: dict) -> EpView:
     """The segment's background (cards drawn on the old one go `stale_ref`, D32) and its
     background sound: off (`null`), another from the library, or its volume (D5)."""
-    with _editing(project, ep_id) as (series, ep, _):
+    with _editing(ep_address) as (series, ep, _):
         segment = _segment(ep, segment_id)
         if "background_id" in body:
             segment.background_id = _require_background(series, body["background_id"])
         if "sound" in body:
-            segment.sound = _sound(project, body["sound"], segment.sound)
-    return view(project, ep_id)
+            segment.sound = _sound(ep_address.project, body["sound"], segment.sound)
+    return view(ep_address)
 
 
-def delete_segment(project: ProjectPaths, ep_id: str, segment_id: str) -> EpView:
-    with _editing(project, ep_id) as (_, ep, removed):
+def delete_segment(ep_address: EpAddress, segment_id: str) -> EpView:
+    with _editing(ep_address) as (_, ep, removed):
         segment = _segment(ep, segment_id)
         next(act for act, placed in _placed_segments(ep) if placed is segment).segments.remove(segment)
         removed.extend(segment.cards)
-    return view(project, ep_id)
+    return view(ep_address)
 
 
 # --- cards ---
 
 
-def add_card(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
+def add_card(ep_address: EpAddress, body: dict) -> EpView:
     """A card the user inserts is `edited` (spoil-maker D74); a silent one holds 2 s (D21)."""
-    with _editing(project, ep_id) as (series, ep, _):
+    with _editing(ep_address) as (series, ep, _):
         segment = _segment(ep, body.get("segment_id"))
         card = Card(id=store.new_id("k", _ids(ep)), edited=True)
         _apply_card(series, card, body)
@@ -307,36 +309,36 @@ def add_card(project: ProjectPaths, ep_id: str, body: dict) -> EpView:
             card.hold_s = SILENT_HOLD
         _check_card(card)
         _insert(segment.cards, card, body)
-    return view(project, ep_id)
+    return view(ep_address)
 
 
-def change_card(project: ProjectPaths, ep_id: str, card_id: str, body: dict) -> EpView:
+def change_card(ep_address: EpAddress, card_id: str, body: dict) -> EpView:
     """A changed `text` or `description` makes the card `edited` (spoil-maker D74)."""
-    with _editing(project, ep_id) as (series, ep, _):
+    with _editing(ep_address) as (series, ep, _):
         card = card_of(ep, card_id)
         before = (card.text, card.description)
         _apply_card(series, card, body)
         _check_card(card)
         if (card.text, card.description) != before:
             card.edited = True
-    return view(project, ep_id)
+    return view(ep_address)
 
 
-def delete_card(project: ProjectPaths, ep_id: str, card_id: str) -> EpView:
+def delete_card(ep_address: EpAddress, card_id: str) -> EpView:
     """The last card of a segment takes the segment with it (spec › API)."""
-    with _editing(project, ep_id) as (_, ep, removed):
+    with _editing(ep_address) as (_, ep, removed):
         card = card_of(ep, card_id)
         act, segment = next((act, segment) for act, segment in _placed_segments(ep) if card in segment.cards)
         segment.cards.remove(card)
         if not segment.cards:
             act.segments.remove(segment)
         removed.append(card)
-    return view(project, ep_id)
+    return view(ep_address)
 
 
-def remove_card_files(project: ProjectPaths, series_id: str, ep_id: str, cards: list[Card]) -> None:
+def remove_card_files(ep_address: EpAddress, cards: list[Card]) -> None:
     """The images and narration of cards that are gone (D15)."""
-    images, audio = project.card_images_dir(series_id, ep_id), project.card_audio_dir(series_id, ep_id)
+    images, audio = ep_address.images_dir, ep_address.audio_dir
     for card in cards:
         for path in images.glob(f"{card.id}-*.png") if images.is_dir() else ():
             path.unlink(missing_ok=True)
@@ -504,8 +506,9 @@ def _sound(project: ProjectPaths, value: object, now: Sound | None) -> Sound | N
     return Sound(sound_id=sound_id, volume=volume)
 
 
-def _ep_number(project: ProjectPaths, series: Series, ep: Ep, value: object) -> int:
-    taken = {other.n for other in store.list_eps(project, series.id) if other.id != ep.id}
+def _ep_number(ep_address: EpAddress, value: object) -> int:
+    others = store.list_eps(ep_address.project, ep_address.series_id)
+    taken = {other.n for other in others if other.id != ep_address.ep_id}
     if not is_int(value) or not 1 <= value <= EP_NUMBER_MAX or value in taken:
         raise ApiError(400, "invalid_ep_number", f"เลข EP ต้องเป็น 1–{EP_NUMBER_MAX} และไม่ซ้ำกับ EP อื่นในชุด")
     return value
@@ -526,15 +529,15 @@ def rendering(ep_id: str) -> bool:
 
 
 @contextmanager
-def _editing(project: ProjectPaths, ep_id: str) -> Iterator[tuple[Series, Ep, list[Card]]]:
+def _editing(ep_address: EpAddress) -> Iterator[tuple[Series, Ep, list[Card]]]:
     """An edit of the EP under the store's lock: the Series, the EP to change, and a list for
     the cards it takes out. The EP is written when the block ends, then those cards' files go."""
     with store.lock:
-        series, ep = editable(project, ep_id)
+        series, ep = editable(ep_address)
         removed: list[Card] = []
         yield series, ep, removed
-        store.write_ep(project, series.id, ep)
-        remove_card_files(project, series.id, ep.id, removed)
+        store.write_ep(ep_address, ep)
+        remove_card_files(ep_address, removed)
 
 
 def _require_background(series: Series, background_id: object) -> str:
@@ -544,21 +547,37 @@ def _require_background(series: Series, background_id: object) -> str:
     return background_id
 
 
-def editable(project: ProjectPaths, ep_id: str) -> tuple[Series, Ep]:
+def editable(ep_address: EpAddress) -> tuple[Series, Ep]:
     """The EP to change; `ep_locked` while a Plot or Cards job works on it. Call with the
     store's lock held."""
-    found = find(project, ep_id)
-    if _locked(ep_id):
+    found = read(ep_address)
+    if _locked(ep_address.ep_id):
         raise ApiError(409, "ep_locked", "AI กำลังเขียน EP นี้: แก้ได้อีกครั้งเมื่องานจบ")
     return found
 
 
-def find(project: ProjectPaths, ep_id: object) -> tuple[Series, Ep]:
-    """The EP with its Series. Raises `ApiError` 404 `not_found`."""
-    found = store.find_ep(project, ep_id) if isinstance(ep_id, str) else None
-    if found is None:
+def address_of(project: ProjectPaths, ep_id: object) -> EpAddress:
+    """Where the EP an id names lives, whichever Series holds it: a route's `{ep_id}`, a job's
+    `ep_id`. It never refuses: an id no Series holds gets an empty `series_id`, so `read` answers
+    `404` at the point each function always checked it, after the body's own checks."""
+    with store.lock:
+        found = store.locate_ep(project, ep_id) if isinstance(ep_id, str) else None
+    return found or EpAddress(project, "", ep_id if isinstance(ep_id, str) else "")
+
+
+def read(ep_address: EpAddress) -> tuple[Series, Ep]:
+    """The EP with its Series, read now. Raises `ApiError` 404 `not_found`."""
+    series = store.read_series(ep_address.project, ep_address.series_id)
+    ep = store.read_ep(ep_address) if series is not None else None
+    if ep is None:
         raise ApiError(404, "not_found", "ไม่พบ EP นี้")
-    return found
+    return series, ep
+
+
+def look_up(project: ProjectPaths, ep_id: object) -> tuple[EpAddress, Series, Ep]:
+    """A job's `ep_id`: the EP's address, its Series and the EP. Raises `ApiError` 404 `not_found`."""
+    ep_address = address_of(project, ep_id)
+    return ep_address, *read(ep_address)
 
 
 def ep_cards(ep: Ep):

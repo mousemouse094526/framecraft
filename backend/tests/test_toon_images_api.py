@@ -11,29 +11,32 @@ from backend import checks, gpu
 from backend.app import app
 from backend.errors import ApiError
 from backend.models import KLEIN, OMNIVOICE
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress
 from backend.toon import images, series
 from backend.toon.klein import Draw, Encode
 
-from .fakes import FakeKlein, poll_until, toon_api, write_toon_voice
-from .test_toon_eps_api import Writer, cards_of, new_ep, run
-from .test_toon_ref_api import png, upload
-from .test_toon_series_api import create
+from .fakes import (
+    TOON_CURRENT,
+    TOON_JOBS,
+    FakeKlein,
+    Writer,
+    cards_of,
+    item_with_ref,
+    new_ep,
+    new_series,
+    png,
+    run,
+    toon_api,
+    upload,
+    wait_for_toon_job,
+    write_toon_voice,
+)
 
-SERIES = "/api/toon/series"
 EPS = "/api/toon/eps"
-JOBS = "/api/toon/jobs"
-CURRENT = "/api/toon/jobs/current"
-FINISHED = {"done", "failed", "cancelled"}
 SCENE = "character 1 sits by a campfire, wide shot, orange light from below."
 
 
-@pytest.fixture
-def project(fake_root) -> ProjectPaths:
-    return ProjectPaths(fake_root)
-
-
-llm, klein, tts, client = toon_api(lambda: Translator().respond)
+project, llm, klein, tts, client = toon_api(lambda: Translator().respond)
 
 
 class Translator(Writer):
@@ -49,21 +52,13 @@ class Translator(Writer):
         return super().respond(request)
 
 
-def add(client, series_id: str, kind: str, name: str, with_ref: bool = True) -> str:
-    """A character or background of the Series, with an uploaded reference image."""
-    item_id = client.post(f"{SERIES}/{series_id}/{kind}", json={"name": name}).json()[kind][-1]["id"]
-    if with_ref:
-        assert upload(client, series_id, kind, item_id, png(64, 64)).status_code == 200
-    return item_id
-
-
 def with_cards(client, llm, layout: str = "frame") -> tuple[str, str, str, dict]:
     """A Series whose character and background have reference images, and an EP of four
     acts, each one segment on that background: the act's first card shows the character,
     its second is silent with no one in it."""
-    series_id = create(client, layout=layout)["id"]
-    character = add(client, series_id, "characters", "พีค")
-    background = add(client, series_id, "backgrounds", "กองไฟ")
+    series_id = new_series(client, layout=layout)["id"]
+    character = item_with_ref(client, series_id, "characters", "พีค")
+    background = item_with_ref(client, series_id, "backgrounds", "กองไฟ")
     writer = llm.respond.__self__
     writer.plot = {
         "title": "เสียงเรียกจากป่า",
@@ -90,17 +85,13 @@ def with_cards(client, llm, layout: str = "frame") -> tuple[str, str, str, dict]
 
 
 def start_image(client, ep_id: str, **body):
-    return client.post(JOBS, json={"kind": "image", "ep_id": ep_id} | body)
-
-
-def wait_for_end(client) -> dict:
-    return poll_until(client, CURRENT, lambda job: job["state"] in FINISHED)
+    return client.post(TOON_JOBS, json={"kind": "image", "ep_id": ep_id} | body)
 
 
 def draw(client, ep_id: str, **body) -> dict:
     response = start_image(client, ep_id, **body)
     assert response.status_code == 202, response.json()
-    return wait_for_end(client)
+    return wait_for_toon_job(client)
 
 
 def get_ep(client, ep_id: str) -> dict:
@@ -116,7 +107,7 @@ def draws(klein: FakeKlein) -> list[Draw]:
 
 def test_drawing_what_is_missing_draws_each_no_image_card_in_order_and_skips_one_with_no_ref(client, llm, klein):
     series_id, _, _, ep = with_cards(client, llm)
-    newcomer = add(client, series_id, "characters", "ลุงยาม", with_ref=False)
+    newcomer = item_with_ref(client, series_id, "characters", "ลุงยาม", with_ref=False)
     cards = cards_of(ep)
     client.patch(f"{EPS}/{ep['id']}/cards/{cards[2]['id']}", json={"character_ids": [newcomer]})
 
@@ -134,7 +125,7 @@ def test_drawing_what_is_missing_draws_each_no_image_card_in_order_and_skips_one
 
 def test_drawing_what_is_missing_when_every_card_has_no_ref_is_nothing_to_draw_and_one_such_card_is_no_ref(client, llm):
     series_id, _, background, ep = with_cards(client, llm)
-    other = add(client, series_id, "backgrounds", "ห้องน้ำ", with_ref=False)
+    other = item_with_ref(client, series_id, "backgrounds", "ห้องน้ำ", with_ref=False)
     for act in ep["acts"]:
         client.patch(f"{EPS}/{ep['id']}/segments/{act['segments'][0]['id']}", json={"background_id": other})
 
@@ -164,8 +155,8 @@ def test_a_cancel_midway_keeps_the_pictures_done_and_drops_the_one_being_drawn(c
     start_image(client, ep["id"], scope="missing")
     klein.wait_until(2)
 
-    assert client.delete(CURRENT).status_code == 202
-    job = wait_for_end(client)
+    assert client.delete(TOON_CURRENT).status_code == 202
+    job = wait_for_toon_job(client)
 
     assert (job["state"], job["done"]) == ("cancelled", 1)
     statuses = [card["image_status"] for card in cards_of(get_ep(client, ep["id"]))]
@@ -190,7 +181,7 @@ def test_drawing_a_card_again_keeps_the_old_picture_as_previous_drops_the_one_be
     for _ in range(3):
         assert draw(client, ep["id"], card_id=card_id)["state"] == "done"
         pictures.append(client.get(f"{EPS}/{ep['id']}/cards/{card_id}/image").content)
-    folder = project.ep_dir(series_id, ep["id"]) / "images"
+    folder = EpAddress(project, series_id, ep["id"]).images_dir
 
     assert cards_of(get_ep(client, ep["id"]))[0]["has_previous_image"]
     assert client.get(f"{EPS}/{ep['id']}/cards/{card_id}/previous-image").content == pictures[1]
@@ -215,7 +206,7 @@ def test_a_backend_start_removes_pictures_no_ep_names_and_the_image_job_s_copies
     series_id, _, _, ep = with_cards(client, llm)
     card_id = cards_of(ep)[0]["id"]
     draw(client, ep["id"], card_id=card_id)
-    folder = project.ep_dir(series_id, ep["id"]) / "images"
+    folder = EpAddress(project, series_id, ep["id"]).images_dir
     kept = next(folder.iterdir())
     (folder / f"{card_id}-123.png").write_bytes(b"left by a job that never wrote ep.json")
     project.image_job_dir.mkdir(parents=True)
@@ -235,8 +226,8 @@ def test_after_a_restart_drawing_what_is_missing_draws_only_the_cards_with_no_im
     draw(client, ep["id"], card_id=cards[1]["id"])
 
     with TestClient(app, base_url="http://127.0.0.1") as restarted:
-        assert restarted.post(JOBS, json={"kind": "image", "ep_id": ep["id"], "scope": "missing"}).status_code == 202
-        job = wait_for_end(restarted)
+        assert restarted.post(TOON_JOBS, json={"kind": "image", "ep_id": ep["id"], "scope": "missing"}).status_code == 202
+        job = wait_for_toon_job(restarted)
 
     assert (job["total"], job["scope"], job["card_ids"]) == (6, "missing", [card["id"] for card in cards[2:]])
 
@@ -244,7 +235,7 @@ def test_after_a_restart_drawing_what_is_missing_draws_only_the_cards_with_no_im
 def test_a_changed_reference_or_character_makes_a_card_stale_ref_which_only_the_stale_ref_scope_draws(client, llm, klein):
     series_id, character, _, ep = with_cards(client, llm)
     assert draw(client, ep["id"], scope="missing")["state"] == "done"
-    other = add(client, series_id, "characters", "ลุงยาม")
+    other = item_with_ref(client, series_id, "characters", "ลุงยาม")
     cards = cards_of(ep)
     upload(client, series_id, "characters", character, png(32, 32))  # the character's face changes
     client.patch(f"{EPS}/{ep['id']}/cards/{cards[1]['id']}", json={"character_ids": [other]})
@@ -269,8 +260,8 @@ def test_a_card_deleted_while_its_picture_is_drawn_gets_none_and_leaves_no_file(
     assert client.delete(f"{EPS}/{ep['id']}/cards/{card_id}").status_code == 200
     klein.release(1)
 
-    assert wait_for_end(client)["state"] == "done"
-    assert not list((project.ep_dir(series_id, ep["id"]) / "images").glob(f"{card_id}-*"))
+    assert wait_for_toon_job(client)["state"] == "done"
+    assert not list(EpAddress(project, series_id, ep["id"]).images_dir.glob(f"{card_id}-*"))
 
 
 def test_a_card_s_prompt_binds_its_character_and_background_to_their_reference_images_in_order(client, llm, klein, project):
@@ -354,13 +345,13 @@ def test_an_image_job_during_a_describe_job_is_gpu_busy(client, llm):
 
 
 def start_voice(client, ep_id: str, card_id: str):
-    return client.post(JOBS, json={"kind": "voice", "ep_id": ep_id, "card_id": card_id})
+    return client.post(TOON_JOBS, json={"kind": "voice", "ep_id": ep_id, "card_id": card_id})
 
 
 def voice(client, ep_id: str, card_id: str) -> dict:
     response = start_voice(client, ep_id, card_id)
     assert response.status_code == 202, response.json()
-    return wait_for_end(client)
+    return wait_for_toon_job(client)
 
 
 def test_a_voice_job_speaks_a_card_in_the_ep_s_voice_and_its_wav_is_served(client, llm, tts):
@@ -400,7 +391,7 @@ def test_deleting_a_series_during_its_voice_job_is_series_busy(client, llm, tts)
 
     assert (response.status_code, response.json()["code"]) == (409, "series_busy")
     tts.release(0)
-    wait_for_end(client)
+    wait_for_toon_job(client)
 
 
 def test_a_voice_job_on_a_silent_card_is_refused_and_a_card_with_no_audio_has_none_to_serve(client, llm):
@@ -453,7 +444,7 @@ def test_a_voice_job_during_a_describe_job_is_gpu_busy_and_one_running_names_its
         gpu.slot.take("describe")
     running = other.value.extra["running"]
     tts.release(0)
-    wait_for_end(client)
+    wait_for_toon_job(client)
 
     assert (refused.status_code, refused.json()["code"]) == (409, "gpu_busy")
     assert (running, gpu.RUNNING_NAMES[running]) == ("toon_voice", "สร้างเสียงเล่า")

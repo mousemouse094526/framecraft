@@ -1,9 +1,11 @@
 """Fake project roots, probes and models shared by the backend tests, and the fixtures
-of the toon API tests (`toon_api`)."""
+of the toon API tests (`toon_api`) and the calls they share."""
 
 import dataclasses
+import io
 import json
 import queue
+import subprocess
 import threading
 import time
 from collections.abc import Callable
@@ -11,19 +13,22 @@ from pathlib import Path
 
 import anyio
 import httpx
+import imageio_ffmpeg
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from backend import checks, gpu, paths, spoil_maker
 from backend.app import app
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
+from backend.errors import ApiError
 from backend.models import MODELS, ModelSpec
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 from backend.workers import Worker
 from backend.spoil import clips
 from backend.spoil.mp4check import Mp4Info, NotPlayable
 from backend.spoil.whisper import Done, Segment
-from backend.toon import jobs, sounds
+from backend.toon import jobs, sounds, store
 
 
 
@@ -825,6 +830,11 @@ async def play(upload: Upload, name: str, size: int, path: str = "/api/spoil/imp
 # --- toon API tests ---
 
 TOON_VOICE = "v_8f2c01ab"
+TOON_SERIES = "/api/toon/series"
+TOON_JOBS = "/api/toon/jobs"
+TOON_CURRENT = "/api/toon/jobs/current"
+TOON_SOUNDS = "/api/toon/sounds"
+FINISHED = {"done", "failed", "cancelled"}
 
 
 def write_toon_voice(project: ProjectPaths, voice_id: str = TOON_VOICE) -> None:
@@ -838,12 +848,16 @@ def write_toon_voice(project: ProjectPaths, voice_id: str = TOON_VOICE) -> None:
 
 def toon_api(
     answers: Callable[[], Callable[[object], str]] | None = None, *, tts_seconds: float = 2.0, uses: tuple[str, ...] = ()
-) -> tuple[Callable, Callable, Callable, Callable]:
-    """The `llm`, `klein`, `tts` and `client` fixtures of a toon API test file. The file keeps
-    them under those names, as pytest finds a fixture by its module-level name:
-    `llm, klein, tts, client = toon_api(...)`. `answers()` makes a fresh `FakeLlm.respond` for
+) -> tuple[Callable, Callable, Callable, Callable, Callable]:
+    """The `project`, `llm`, `klein`, `tts` and `client` fixtures of a toon API test file. The
+    file keeps them under those names, as pytest finds a fixture by its module-level name:
+    `project, llm, klein, tts, client = toon_api(...)`. `answers()` makes a fresh `FakeLlm.respond` for
     each test (None: FakeLlm's own); `uses` names fixtures of the file itself that `client`
     sets up first (`renderer`, a stand-in ffmpeg; `adapter`, yt-dlp)."""
+    @pytest.fixture(name="project")
+    def project_fixture(fake_root) -> ProjectPaths:
+        return ProjectPaths(fake_root)
+
     @pytest.fixture(name="llm")
     def llm_fixture(monkeypatch) -> FakeLlm:
         fake = FakeLlm()
@@ -878,4 +892,141 @@ def toon_api(
         write_toon_voice(ProjectPaths(fake_root))
         return TestClient(app, base_url="http://127.0.0.1")
 
-    return llm_fixture, klein_fixture, tts_fixture, client_fixture
+    return project_fixture, llm_fixture, klein_fixture, tts_fixture, client_fixture
+
+
+# --- what the toon API test files share: no test file imports another ---
+
+
+def new_series(client, **changes) -> dict:
+    body = {"name": "รุ่นพี่เล่าว่า…", "channel_name": "รุ่นพี่เล่าว่า", "layout": "frame", "genre": "horror", "voice_id": TOON_VOICE}
+    response = client.post(TOON_SERIES, json=body | changes)
+    assert response.status_code == 201, response.json()
+    return response.json()
+
+
+class Writer:
+    """Answers a plot prompt and each act's cards prompt the way Qwen is asked to. `cards`
+    makes one act's answer from the act's name in the prompt."""
+
+    def __init__(self):
+        self.plot: dict | None = None  # set by `with_series`
+        self.cards = lambda act: {
+            "segments": [
+                {
+                    "background": self.plot["backgrounds"][0].get("id", "b_unknown"),
+                    "sound": None,
+                    "cards": [
+                        {"text": f"การ์ดแรกของ{act}", "characters": [], "description": "มุมกว้าง", "motion": "zoom_in"},
+                        {"text": "", "characters": [], "description": "", "motion": "still"},
+                    ],
+                }
+            ]
+        }
+
+    def respond(self, request) -> str:
+        if "เขียนพล็อต" in request.prompt:
+            return json.dumps(self.plot, ensure_ascii=False)
+        act = request.prompt.split("องก์นี้ (")[1].split(")")[0]
+        return "```json\n" + json.dumps(self.cards(act), ensure_ascii=False) + "\n```"
+
+
+def with_series(client, llm) -> tuple[str, str, str]:
+    """A horror Series with one character and one background; the plot Qwen writes uses
+    the character and proposes a new character and a new background."""
+    series_id = new_series(client)["id"]
+    character = client.post(f"{TOON_SERIES}/{series_id}/characters", json={"name": "พีค", "tag": "สายแฟ"}).json()["characters"][0]["id"]
+    background = client.post(f"{TOON_SERIES}/{series_id}/backgrounds", json={"name": "กองไฟ"}).json()["backgrounds"][0]["id"]
+    llm.respond.__self__.plot = {
+        "title": "เสียงเรียกจากป่า",
+        "acts": [{"summary": f"สรุปองก์ {n}"} for n in range(1, 5)],
+        "characters": [{"id": character}, {"id": "c_00000000"}, {"name": "ลุงยาม", "tag": "", "description": "ชายแก่"}],
+        "backgrounds": [{"name": "ห้องน้ำชั้นสาม", "description": "ห้องน้ำมืด"}],
+    }
+    return series_id, character, background
+
+
+def new_ep(client, series_id: str, idea: str = "รุ่นพี่ไปแคมป์แล้วได้ยินเสียงเรียกชื่อ") -> dict:
+    response = client.post(f"{TOON_SERIES}/{series_id}/eps", json={"idea": idea})
+    assert response.status_code == 201, response.json()
+    return response.json()
+
+
+def start(client, kind: str, ep_id: str, **body):
+    return client.post(TOON_JOBS, json={"kind": kind, "ep_id": ep_id} | body)
+
+
+def wait_for_toon_job(client) -> dict:
+    return poll_until(client, TOON_CURRENT, lambda job: job["state"] in FINISHED)
+
+
+def run(client, kind: str, ep_id: str, **body) -> dict:
+    response = start(client, kind, ep_id, **body)
+    assert response.status_code == 202, response.json()
+    return wait_for_toon_job(client)
+
+
+def cards_of(ep: dict) -> list[dict]:
+    return [card for act in ep["acts"] for segment in act["segments"] for card in segment["cards"]]
+
+
+def edit_stored_ep(project: ProjectPaths, series_id: str, ep_id: str, change) -> None:
+    """Changes `ep.json` as a job would, for a state the API can't reach yet (images, audio)."""
+    ep_address = EpAddress(project, series_id, ep_id)
+    ep = store.read_ep(ep_address)
+    change(ep)
+    store.write_ep(ep_address, ep)
+
+
+def gpu_refusal() -> ApiError | None:
+    """What another job is told when it asks for the GPU slot now."""
+    try:
+        gpu.slot.take("describe")
+    except ApiError as refused:
+        return refused
+    gpu.slot.release("describe")
+    return None
+
+
+def png(width: int, height: int) -> bytes:
+    out = io.BytesIO()
+    Image.new("RGB", (width, height), "gray").save(out, "PNG")
+    return out.getvalue()
+
+
+def upload(client, series_id: str, kind: str, item_id: str, body: bytes):
+    return client.post(
+        f"{TOON_SERIES}/{series_id}/{kind}/{item_id}/ref/upload?size={len(body)}",
+        content=body,
+        headers={"Content-Type": "application/octet-stream"},
+    )
+
+
+def item_with_ref(client, series_id: str, kind: str, name: str, with_ref: bool = True) -> str:
+    """A character or background of the Series, with an uploaded reference image."""
+    item_id = client.post(f"{TOON_SERIES}/{series_id}/{kind}", json={"name": name}).json()[kind][-1]["id"]
+    if with_ref:
+        assert upload(client, series_id, kind, item_id, png(64, 64)).status_code == 200
+    return item_id
+
+
+def tone(path: Path, seconds: float, rate: int = 44_100) -> Path:
+    """A sine tone made with ffmpeg's `lavfi`, in the format the path's suffix names."""
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(), "-nostdin", "-v", "error", "-y",
+        "-f", "lavfi", "-i", f"sine=frequency=330:sample_rate={rate}:duration={seconds}", str(path),
+    ]  # fmt: skip
+    subprocess.run(command, check=True)
+    return path
+
+
+def import_file(client, name: str, body: bytes):
+    return client.post(
+        f"{TOON_SOUNDS}/imports?name={name}&size={len(body)}", content=body, headers={"Content-Type": "application/octet-stream"}
+    )
+
+
+def import_tone(client, tmp_path, name: str = "ฝนตก.wav", seconds: float = 1.5) -> dict:
+    response = import_file(client, name, tone(tmp_path / "in.wav", seconds).read_bytes())
+    assert response.status_code == 201, response.json()
+    return response.json()

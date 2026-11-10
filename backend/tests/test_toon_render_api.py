@@ -13,29 +13,34 @@ from PIL import Image
 
 from backend import app as app_module
 from backend import ffmpeg, gpu
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress
 from backend.toon import render, sounds
 from backend.toon.store import CardImage
 
-from .fakes import FakeFfmpeg, poll_until, toon_api
-from .test_toon_eps_api import Writer, cards_of, edit_stored, gpu_refusal, new_ep, run, start
-from .test_toon_images_api import add
-from .test_toon_series_api import create
-from .test_toon_sounds_api import import_tone
+from .fakes import (
+    FINISHED,
+    FakeFfmpeg,
+    Writer,
+    cards_of,
+    edit_stored_ep,
+    gpu_refusal,
+    import_tone,
+    item_with_ref,
+    new_ep,
+    new_series,
+    poll_until,
+    run,
+    start,
+    toon_api,
+)
 
 EPS = "/api/toon/eps"
 RENDER = "/api/toon/render"
 CURRENT = "/api/toon/render/current"
-FINISHED = {"done", "failed", "cancelled"}
 COLOURS = [(220, 30, 30), (30, 200, 40), (40, 60, 220)]
 
 
-@pytest.fixture
-def project(fake_root) -> ProjectPaths:
-    return ProjectPaths(fake_root)
-
-
-llm, klein, tts, client = toon_api(lambda: Writer().respond, tts_seconds=1.0, uses=("renderer",))
+project, llm, klein, tts, client = toon_api(lambda: Writer().respond, tts_seconds=1.0, uses=("renderer",))
 
 
 @pytest.fixture
@@ -50,10 +55,10 @@ def three_cards(client, llm, project, layout: str = "frame", channel_name: str =
     """A one-act Series with a character and a background, and an EP of three cards over two
     segments: the character speaks, a silent card holds 2 s, the character speaks again. Each
     card's picture is a solid colour of `COLOURS`; no card has narration yet."""
-    series_id = create(client, layout=layout, channel_name=channel_name, acts=["เปิด"])["id"]
-    character = add(client, series_id, "characters", "พีค")
+    series_id = new_series(client, layout=layout, channel_name=channel_name, acts=["เปิด"])["id"]
+    character = item_with_ref(client, series_id, "characters", "พีค")
     client.patch(f"/api/toon/series/{series_id}/characters/{character}", json={"tag": "สายแฟ"})
-    background = add(client, series_id, "backgrounds", "กองไฟ")
+    background = item_with_ref(client, series_id, "backgrounds", "กองไฟ")
     writer = llm.respond.__self__
     writer.plot = {
         "title": "เสียงเรียกจากป่า",
@@ -76,7 +81,7 @@ def three_cards(client, llm, project, layout: str = "frame", channel_name: str =
     assert run(client, "cards", ep_id)["state"] == "done"
     size = (1024, 576) if layout == "frame" else (576, 1024)
     refs = {character: 1, background: 1}
-    folder = project.card_images_dir(series_id, ep_id)
+    folder = EpAddress(project, series_id, ep_id).images_dir
     folder.mkdir(parents=True, exist_ok=True)
 
     def paint(ep):
@@ -87,7 +92,7 @@ def three_cards(client, llm, project, layout: str = "frame", channel_name: str =
             used = {background: 1} | {i: 1 for i in stored.character_ids}
             stored.image = CardImage(file=f"{stored.id}-1.png", refs={k: refs[k] for k in used})
 
-    edit_stored(project, series_id, ep_id, paint)
+    edit_stored_ep(project, series_id, ep_id, paint)
     return series_id, client.get(f"{EPS}/{ep_id}").json()
 
 
@@ -127,7 +132,7 @@ def test_a_frame_render_of_three_cards_is_1080x1920_30fps_h264_aac_as_long_as_it
     ep = client.get(f"{EPS}/{ep['id']}").json()
     lengths = [card["duration_s"] for card in cards_of(ep)]
     assert lengths == [1.3, 2.0, 1.3]  # 1 s of narration + 0.3 s gap; the silent card holds 2 s
-    mp4 = project.ep_renders_dir(series_id, ep["id"]) / f"{job['name']}.mp4"
+    mp4 = EpAddress(project, series_id, ep["id"]).renders_dir / f"{job['name']}.mp4"
     info = ffmpeg.input_info(mp4)
     assert re.search(r"Video: h264.*1080x1920.*30 fps", info), info
     assert "Audio: aac" in info
@@ -306,7 +311,7 @@ def test_a_render_with_a_card_with_no_picture_is_cards_not_ready_naming_it(clien
     def unpaint(stored):
         next(c for a in stored.acts for s in a.segments for c in s.cards if c.id == second).image = None
 
-    edit_stored(project, series_id, ep["id"], unpaint)
+    edit_stored_ep(project, series_id, ep["id"], unpaint)
     response = start_render(client, ep["id"])
     assert response.status_code == 400
     assert (response.json()["code"], response.json()["card_ids"]) == ("cards_not_ready", [second])
@@ -319,7 +324,7 @@ def test_a_cancel_during_the_final_encode_leaves_no_partial_and_no_work_folder_a
     renderer.pause_at(3)  # three pieces, then the whole clip
     assert start_render(client, ep["id"]).status_code == 202
     renderer.wait_until(3)
-    folder = project.ep_renders_dir(series_id, ep["id"])
+    folder = EpAddress(project, series_id, ep["id"]).renders_dir
     partial = folder / renderer.commands[3][-1].split("/")[-1]
     partial.write_bytes(b"half")  # as far as ffmpeg got
     assert client.delete(CURRENT).status_code == 202
@@ -345,7 +350,7 @@ def test_a_render_is_listed_served_and_deleted_with_its_three_files(client, llm,
     [row] = client.get(f"/api/toon/series/{series_id}/eps").json()
     assert row["rendered_at"] == listed["created_at"]
     assert client.delete(f"{EPS}/{ep['id']}/renders/{job['name']}").status_code == 204
-    assert not list(project.ep_renders_dir(series_id, ep["id"]).iterdir())
+    assert not list(EpAddress(project, series_id, ep["id"]).renders_dir.iterdir())
     assert client.get(f"{EPS}/{ep['id']}/renders/{job['name']}").status_code == 404
 
 

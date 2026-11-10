@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ตัด ticket 11 (Blocked #26, #27) และ 12 (Blocked #25, #28) จาก smell ของ feature review รอบสี่; เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
+**Now:** ticket 11 done (`EpAddress`, helper ของ test toon ใน `fakes`); เหลือ ticket 12 (Blocked #25, #28); เช็คมือบน Mac ของ 03 และ 04 (Blocked #11, #12) ยังรอ owner
 
 **Next:**
 
 ```
-/warroom-build toon 11
+/warroom-build toon 12
 ```
 
 ## Tickets
@@ -22,10 +22,29 @@
 | 08 | เริ่มและหยุด child และ render ที่ซ้ำข้าม feature | done |
 | 09 | ItemRef และ fixture ของ test ที่ใช้ร่วม | done |
 | 10 | state ที่ใช้ร่วมของ hook หน้าเว็บ toon | done |
-| 11 | ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม | ready |
+| 11 | ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม | done |
 | 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | ready |
 
 ## Log
+
+### 11: ค่า EP เดียวและ helper ของ test ที่ใช้ร่วม — done 2026-11-10
+
+**Built:**
+- `paths.EpAddress(project, series_id, ep_id)` พร้อม `dir`, `images_dir`, `audio_dir`, `renders_dir` (ย้ายจาก `ProjectPaths.ep_dir`/`card_images_dir`/`card_audio_dir`/`ep_renders_dir`): `store.read_ep`/`write_ep`, ทุกฟังก์ชันของ EP หนึ่งตอนใน `episodes`, `images`, `voicing`, `render` (`_run`, `_voice_and_render`, `_render`, `_copy_in`, `_cards_to_voice`), `remove_card_files`, `_ep_number` รับค่าเดียว; `ImagePlan.ep_address`, `VoicePlan.ep_address`
+- `episodes.address_of` (id → `EpAddress`, ไม่ปฏิเสธ), `read` (เดิม `find`, `404` เดิม), `look_up` (ของ job ที่ start ทั้งห้า); `store.locate_ep` (เดิม `find_ep`)
+- `routes/toon.py`: dependency `ep_address` ใน 19 route ของ `/eps/{ep_id}`
+- test: `toon_api` คืน fixture `project`; helper และ path ที่ใช้ร่วม (`new_series`, `Writer`, `new_ep`, `run`, `start`, `upload`, `png`, `item_with_ref`, `import_tone`, `edit_stored_ep`, `TOON_SERIES`, …) อยู่ใน `fakes.py`; ไม่มีไฟล์ test ของ toon import ไฟล์ test อื่น; test ใหม่: 19 route `404` ข้อความเดิม (ผ่านกับโค้ดก่อนแก้ด้วย), body ผิดไปยัง EP ที่ไม่มียัง `400` (ล้มกับ dependency ที่ปฏิเสธเอง)
+- spec › Modules touched, `fastapi-api` SKILL.md, `rules/testing.md`
+
+**Decided:**
+- D67 — `paths.EpAddress`, `address_of`/`read`/`look_up`, dependency `ep_address` ที่ไม่ปฏิเสธ, helper ของ test toon ใน `fakes`
+
+**For the next ticket:**
+- review ไม่แก้ (ตั้งใจ): `_jobs_on`/`_locked`/`rendering` รับ `ep_id` อย่างเดียว (id ของ EP ไม่ซ้ำทั้ง tab, `store.ep_ids`); `render.clean_on_start` glob `*/eps/*/renders` ทุก EP; `ep_address.project.…` ใน `render`/`_ep_number` (`paths` อ่าน store ไม่ได้, D67); `ep` คู่กับ `ep_address` ใน `write_ep`/`plan_card`/`_cards_to_voice` (docstring บอก); `WritePlan`/`CardsPlan` สร้าง `EpAddress` ใน `run`; test ของ spoil/spoil-maker ยัง import ข้ามไฟล์ (นอก feature, D67); `Writer.cards` `"b_unknown"` เดิม
+- vitest ล้มหนึ่ง test หนึ่งรอบ (ไม่ได้จดชื่อ; frontend ไม่ได้แตะ) แล้วผ่านสองรอบ — อาจเป็น `EpPage` ตัวเดิมของ ticket 10: ล้มอีก → `/kiki-debug EpPage card text edit test flaky`
+
+**Checks:** `uv run pytest` 1075 passed (+20); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 409 passed; `npm --prefix frontend run build` ผ่าน (คำเตือน chunk > 500 kB). Review สามแกนจาก `14bcf6a`: Standards ไม่มีข้อผิดกติกา + smell (แก้: ค่าคงที่ path ซ้ำในไฟล์ test, `locate`+`find` ซ้ำสี่ที่ → `look_up`, ชื่อ `find` → `read`), Spec 1 (แก้: dependency ตอบ `404` ก่อนเช็ค body — ตอนนี้ไม่ปฏิเสธ, test ใหม่), Newcomer สรุปตรง What to build (แก้: `find_ep` → `locate_ep`, `create`/`add`/`edit_stored` → `new_series`/`item_with_ref`/`edit_stored_ep`, คอมเมนต์ของ test 404)
+
 
 ### 10: state ที่ใช้ร่วมของ hook หน้าเว็บ toon — done 2026-11-10
 
@@ -397,6 +416,6 @@
 | 23 | review | Data Clump `(project, series_id, item_kind, item_id)` ใน `series.ref_plan`, `ref_image`, `pending_image`, `pick`, `check_upload`, `_upload_checks`, `_take_upload`, `put_pending` และ 8 route ของ `routes/toon.py`: รวมเป็น type `ItemRef` | `/warroom tickets toon` | done (ticket 09) |
 | 24 | review | test: fixture `llm`, `klein`, `tts`, `client` เกือบซ้ำใน `test_toon_images_api.py`, `test_toon_ref_api.py`, `test_toon_render_api.py`, `test_toon_eps_api.py`, `test_toon_sounds_api.py`: ย้ายเป็น helper ใน `tests/fakes.py` (conftest คง `fake_root` อย่างเดียว) | `/warroom tickets toon` | done (ticket 09) |
 | 25 | review | หน้าเว็บยังส่ง `(sid, kind, id)` สามค่าใน `itemPath`, `pickHash`, `startRefJob` (`lib/series.ts`) ขณะ backend ใช้ `ItemRef` (D64); ชื่อ `sid`/`eid` ของ hook และ lib → `seriesId`/`epId` | `/warroom tickets toon` | → ticket 12 |
-| 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | → ticket 11 |
-| 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | → ticket 11 |
+| 26 | review | Data Clump `(project, series_id, ep_id)` ราว 20 signature ใน `toon/` และ `paths.py` (`render._run`, `_voice_and_render`, `_render`, `episodes.remove_card_files`): type เดียวแบบ `ItemRef` (ชื่อ `EpRef` ถูก response model ใช้แล้ว) | `/warroom tickets toon` | done (ticket 11) |
+| 27 | review | test: fixture `project(fake_root)` ซ้ำหกไฟล์ test API ของ toon และ helper (`Writer`, `new_ep`, `run`, `start`, `create`, `png`, `upload`, `add`, `import_tone`) import ข้ามไฟล์ test: ย้ายเข้า `fakes.py` (ticket 09 "fixture … มาจาก helper ใน fakes ตัวเดียว") | `/warroom tickets toon` | done (ticket 11) |
 | 28 | review | หน้าเว็บ: ขนาดช่องภาพ, aspect และการถามก่อนเลือกไฟล์ยังแตกกิ่ง `kind === "characters"` ใน `CastPage.tsx` (3 ที่) และ `PickPage.tsx`: ย้ายเข้า `ITEM_KINDS`; flow เช็คแล้ว `sendFile` ซ้ำใน `useCast` กับ `useSounds` | `/warroom tickets toon` | → ticket 12 |

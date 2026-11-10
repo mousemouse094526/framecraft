@@ -2,34 +2,43 @@
 a link's with a fake yt-dlp adapter, `in_use`, `sound: null`, and the Cards job picking a sound
 (toon seam 1 › Sound import, `in_use` ของเสียง, `sound: null`)."""
 
-import subprocess
 import threading
 from pathlib import Path
 
 import anyio
 import deno
-import imageio_ffmpeg
 import pytest
 
 from backend import checks, ffmpeg, spoil
-from backend.paths import ProjectPaths
 from backend.spoil.adapter import DownloadOptions, YtDlpAdapter, select_formats
 from backend.toon import sounds, store
 
-from .fakes import FakeAdapter, Upload, ok_deno, ok_yt_dlp, play, poll_until, toon_api, youtube_info
-from .test_toon_eps_api import Writer, cards_of, new_ep, run, start, with_series
+from .fakes import (
+    FINISHED,
+    TOON_SOUNDS,
+    FakeAdapter,
+    Upload,
+    Writer,
+    cards_of,
+    import_file,
+    import_tone,
+    new_ep,
+    ok_deno,
+    ok_yt_dlp,
+    play,
+    poll_until,
+    run,
+    start,
+    tone,
+    toon_api,
+    with_series,
+    youtube_info,
+)
 
-SOUNDS = "/api/toon/sounds"
 IMPORT = "/api/toon/sounds/import/current"
-FINISHED = {"done", "failed", "cancelled"}
 
 
-@pytest.fixture
-def project(fake_root) -> ProjectPaths:
-    return ProjectPaths(fake_root)
-
-
-llm, klein, tts, client = toon_api(lambda: Writer().respond, uses=("adapter",))
+project, llm, klein, tts, client = toon_api(lambda: Writer().respond, uses=("adapter",))
 
 
 @pytest.fixture
@@ -68,30 +77,8 @@ class LinkAdapter(FakeAdapter):
         return target
 
 
-def tone(path: Path, seconds: float, rate: int = 44_100) -> Path:
-    """A sine tone made with ffmpeg's `lavfi`, in the format the path's suffix names."""
-    command = [
-        imageio_ffmpeg.get_ffmpeg_exe(), "-nostdin", "-v", "error", "-y",
-        "-f", "lavfi", "-i", f"sine=frequency=330:sample_rate={rate}:duration={seconds}", str(path),
-    ]  # fmt: skip
-    subprocess.run(command, check=True)
-    return path
-
-
-def import_file(client, name: str, body: bytes):
-    return client.post(
-        f"{SOUNDS}/imports?name={name}&size={len(body)}", content=body, headers={"Content-Type": "application/octet-stream"}
-    )
-
-
-def import_tone(client, tmp_path, name: str = "ฝนตก.wav", seconds: float = 1.5) -> dict:
-    response = import_file(client, name, tone(tmp_path / "in.wav", seconds).read_bytes())
-    assert response.status_code == 201, response.json()
-    return response.json()
-
-
 def download(client, url: str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ") -> dict:
-    response = client.post(f"{SOUNDS}/downloads", json={"url": url})
+    response = client.post(f"{TOON_SOUNDS}/downloads", json={"url": url})
     assert response.status_code == 202, response.json()
     return poll_until(client, IMPORT, lambda job: job["state"] in FINISHED)
 
@@ -135,8 +122,8 @@ def test_a_wav_file_comes_in_as_aac_in_m4a_named_after_the_file(client, project,
     info = ffmpeg.input_info(m4a)
     assert "Audio: aac" in info and "48000 Hz" in info and "stereo" in info
     assert [s.id for s in store.read_sounds(project)] == [sound["id"]]
-    assert client.get(SOUNDS).json() == [sound]
-    assert client.get(f"{SOUNDS}/{sound['id']}/file").content == m4a.read_bytes()
+    assert client.get(TOON_SOUNDS).json() == [sound]
+    assert client.get(f"{TOON_SOUNDS}/{sound['id']}/file").content == m4a.read_bytes()
     assert not list(project.toon_partial_dir.iterdir())
 
 
@@ -144,7 +131,7 @@ def test_a_file_ffmpeg_reads_no_sound_in_is_unsupported_file(client, project):
     response = import_file(client, "notes.mp3", "ไม่ใช่เสียง".encode() * 100)
     assert response.status_code == 400
     assert response.json()["code"] == "unsupported_file"
-    assert client.get(SOUNDS).json() == []
+    assert client.get(TOON_SOUNDS).json() == []
 
 
 def test_a_file_over_twenty_minutes_is_too_long(client, tmp_path):
@@ -155,16 +142,16 @@ def test_a_file_over_twenty_minutes_is_too_long(client, tmp_path):
 
 
 def test_a_file_over_200_mb_is_refused_at_the_check(client):
-    response = client.post(f"{SOUNDS}/imports/check", json={"name": "big.wav", "size": sounds.UPLOAD_MAX_BYTES + 1})
+    response = client.post(f"{TOON_SOUNDS}/imports/check", json={"name": "big.wav", "size": sounds.UPLOAD_MAX_BYTES + 1})
     assert response.status_code == 400
     assert response.json()["code"] == "file_too_large"
-    assert client.post(f"{SOUNDS}/imports/check", json={"name": "ok.wav", "size": 1000}).json() == {"size": 1000}
+    assert client.post(f"{TOON_SOUNDS}/imports/check", json={"name": "ok.wav", "size": 1000}).json() == {"size": 1000}
 
 
 def test_a_sound_is_renamed_within_1_to_60_letters(client, tmp_path):
     sound = import_tone(client, tmp_path)
-    assert client.patch(f"{SOUNDS}/{sound['id']}", json={"name": " ลมพัด "}).json()["name"] == "ลมพัด"
-    assert client.patch(f"{SOUNDS}/{sound['id']}", json={"name": ""}).json()["code"] == "invalid_request"
+    assert client.patch(f"{TOON_SOUNDS}/{sound['id']}", json={"name": " ลมพัด "}).json()["name"] == "ลมพัด"
+    assert client.patch(f"{TOON_SOUNDS}/{sound['id']}", json={"name": ""}).json()["code"] == "invalid_request"
 
 
 # --- a link ---
@@ -177,7 +164,7 @@ def test_a_link_loads_its_best_audio_into_toon_partial_with_no_thumbnail_and_com
     assert job["state"] == "done", job
     assert all(options == sounds.LINK_OPTIONS for options in adapter.options)
     assert adapter.landed == [f"{adapter.clip_ids[0]}.webm"]
-    [sound] = client.get(SOUNDS).json()
+    [sound] = client.get(TOON_SOUNDS).json()
     assert sound == {"id": job["sound_id"], "name": "ฝนตกในป่า", "duration_s": pytest.approx(2, abs=0.1), "source": "link"}
     assert (project.toon_sounds_dir / f"{sound['id']}.m4a").is_file()
     assert not list(project.toon_partial_dir.iterdir())
@@ -185,7 +172,7 @@ def test_a_link_loads_its_best_audio_into_toon_partial_with_no_thumbnail_and_com
 
 def test_a_link_spoil_s_rules_refuse_is_invalid_url(client):
     for url in ("ftp://example.com/a.mp3", "http://127.0.0.1/a.mp3", "not a link"):
-        response = client.post(f"{SOUNDS}/downloads", json={"url": url})
+        response = client.post(f"{TOON_SOUNDS}/downloads", json={"url": url})
         assert response.status_code == 400
         assert response.json()["code"] == "invalid_url"
 
@@ -205,9 +192,9 @@ def test_a_second_sound_import_while_one_runs_is_busy_but_one_during_a_toon_job_
     assert start(client, "plot", ep_id).status_code == 202
     llm.wait_until(0)
     adapter.pause_at("progress")
-    assert client.post(f"{SOUNDS}/downloads", json={"url": "https://youtu.be/dQw4w9WgXcQ"}).status_code == 202
+    assert client.post(f"{TOON_SOUNDS}/downloads", json={"url": "https://youtu.be/dQw4w9WgXcQ"}).status_code == 202
     adapter.wait_until("progress")
-    again = client.post(f"{SOUNDS}/downloads", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
+    again = client.post(f"{TOON_SOUNDS}/downloads", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
     assert (again.status_code, again.json()["code"]) == (409, "busy")
     assert import_file(client, "a.wav", b"x" * 10).json()["code"] == "busy"
     adapter.release("progress")
@@ -241,7 +228,7 @@ def test_the_cards_job_picks_a_sound_of_the_library_at_volume_30(client, llm, tm
 
 def test_a_sound_a_segment_plays_is_in_use_naming_the_ep_until_its_sound_is_null(client, llm, tmp_path, project):
     sound, ep, _ = with_sound_on_cards(client, llm, tmp_path)
-    refused = client.delete(f"{SOUNDS}/{sound['id']}")
+    refused = client.delete(f"{TOON_SOUNDS}/{sound['id']}")
     assert refused.status_code == 409
     assert refused.json()["code"] == "in_use"
     assert refused.json()["eps"] == [{"series_name": "รุ่นพี่เล่าว่า…", "n": 1, "title": ep["title"]}]
@@ -250,7 +237,7 @@ def test_a_sound_a_segment_plays_is_in_use_naming_the_ep_until_its_sound_is_null
         assert changed.status_code == 200
     after = client.get(f"/api/toon/eps/{ep['id']}").json()
     assert {s["sound"] is None for act in after["acts"] for s in act["segments"]} == {True}
-    assert client.delete(f"{SOUNDS}/{sound['id']}").status_code == 204
+    assert client.delete(f"{TOON_SOUNDS}/{sound['id']}").status_code == 204
     assert not (project.toon_sounds_dir / f"{sound['id']}.m4a").exists()
     assert len(cards_of(after)) == len(cards_of(ep))
 
@@ -287,14 +274,14 @@ def test_a_page_that_goes_away_while_ffmpeg_converts_its_file_stops_ffmpeg_and_a
 
     async def main():
         async with anyio.create_task_group() as group:
-            group.start_soon(play, upload, "ฝนตก.wav", len(data), f"{SOUNDS}/imports")
+            group.start_soon(play, upload, "ฝนตก.wav", len(data), f"{TOON_SOUNDS}/imports")
             assert await anyio.to_thread.run_sync(paused.reached.wait, 5)
             upload.leave()
 
     anyio.run(main)
 
     assert paused.cancelled
-    assert client.get(SOUNDS).json() == []
+    assert client.get(TOON_SOUNDS).json() == []
     assert list(project.toon_partial_dir.iterdir()) == []
     assert list(project.toon_sounds_dir.iterdir()) == []
     monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports())
@@ -314,8 +301,8 @@ def test_a_page_that_goes_away_as_ffmpeg_ends_adds_no_sound(client, project, tmp
 
     monkeypatch.setattr(sounds, "sound_imports", sounds.SoundImports(convert=convert_then_leave))
 
-    anyio.run(play, upload, "ฝนตก.wav", len(data), f"{SOUNDS}/imports")
+    anyio.run(play, upload, "ฝนตก.wav", len(data), f"{TOON_SOUNDS}/imports")
 
-    assert client.get(SOUNDS).json() == []
+    assert client.get(TOON_SOUNDS).json() == []
     assert list(project.toon_partial_dir.iterdir()) == []
     assert list(project.toon_sounds_dir.iterdir()) == []

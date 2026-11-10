@@ -16,7 +16,7 @@ from typing import Literal
 from pydantic import BaseModel, ValidationError
 
 from backend import files
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 
 log = logging.getLogger(__name__)
 
@@ -187,12 +187,12 @@ def write_series(project: ProjectPaths, series: Series) -> None:
     files.write_atomic(folder / "series.json", series.model_dump_json(indent=2), unique=True)
 
 
-def read_ep(project: ProjectPaths, series_id: str, ep_id: str) -> Ep | None:
+def read_ep(ep_address: EpAddress) -> Ep | None:
     """The EP, or None when it is gone, its id is malformed, or its file is unreadable or of
     another `version` (logged)."""
-    if not EP_ID.fullmatch(ep_id):
+    if not EP_ID.fullmatch(ep_address.ep_id):
         return None
-    path = project.ep_dir(series_id, ep_id) / "ep.json"
+    path = ep_address.dir / "ep.json"
     if not path.is_file():
         return None
     try:
@@ -205,32 +205,33 @@ def read_ep(project: ProjectPaths, series_id: str, ep_id: str) -> Ep | None:
 def list_eps(project: ProjectPaths, series_id: str) -> list[Ep]:
     """Every readable EP of the Series, by number."""
     folder = project.series_dir(series_id) / "eps"
-    found = [read_ep(project, series_id, path.name) for path in folder.iterdir()] if folder.is_dir() else []
+    found = [read_ep(EpAddress(project, series_id, path.name)) for path in folder.iterdir()] if folder.is_dir() else []
     return sorted((ep for ep in found if ep is not None), key=lambda ep: ep.n)
 
 
 def ep_ids(project: ProjectPaths) -> set[str]:
     """The folder name of every EP of every Series, readable or not: an EP id is unique in
-    the whole tab, since `find_ep` looks it up without its Series."""
+    the whole tab, since `locate_ep` looks it up without its Series."""
     if not project.toon_series_dir.is_dir():
         return set()
     folders = [folder / "eps" for folder in project.toon_series_dir.iterdir()]
     return {path.name for folder in folders if folder.is_dir() for path in folder.iterdir()}
 
 
-def find_ep(project: ProjectPaths, ep_id: str) -> tuple[Series, Ep] | None:
-    """The EP with its Series, whichever Series holds it."""
+def locate_ep(project: ProjectPaths, ep_id: str) -> EpAddress | None:
+    """Which readable Series holds the EP's `ep.json`; whether the file reads is `read_ep`'s."""
     if not EP_ID.fullmatch(ep_id):
         return None
     for series in list_series(project):
-        if (project.ep_dir(series.id, ep_id) / "ep.json").is_file():
-            ep = read_ep(project, series.id, ep_id)
-            return (series, ep) if ep is not None else None
+        ep_address = EpAddress(project, series.id, ep_id)
+        if (ep_address.dir / "ep.json").is_file():
+            return ep_address
     return None
 
 
-def write_ep(project: ProjectPaths, series_id: str, ep: Ep) -> None:
-    folder = project.ep_dir(series_id, ep.id)
+def write_ep(ep_address: EpAddress, ep: Ep) -> None:
+    """`ep` is the EP at `ep_address`, new or changed."""
+    folder = ep_address.dir
     folder.mkdir(parents=True, exist_ok=True)
     files.write_atomic(folder / "ep.json", ep.model_dump_json(indent=2), unique=True)
 

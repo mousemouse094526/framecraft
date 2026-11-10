@@ -93,6 +93,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `JOB_HOLDERS` เพิ่ม Toon job กับ Sound import; include router `/api/toon`
 - **`backend.paths`**
   - path ของ `media/toon/` (ข้อมูล ด้านล่าง)
+  - `EpAddress`: EP หนึ่งตอน (project, Series, EP) เป็นค่าเดียวที่ฟังก์ชันของ EP ตอนเดียวและ route `/eps/{ep_id}` รับ พร้อม folder ของ EP (D67)
 - **`backend.spoil_maker.voices`**
   - ลบ Saved voice: นับ Series และ EP ของการ์ตูนเล่าที่ใช้ `voice_id` เป็น `voice_in_use` ด้วย (D25) ผ่าน callback ใน `voice_users` ที่ `backend.toon` ลงทะเบียน
   - ทุกการเขียน `voice_id` ของ Series หรือ EP ถือ `gpu.slot.draft_lock` ก่อน `toon.store.lock` ให้การลบ Saved voice กับการเปลี่ยนเสียงไม่ชนกัน

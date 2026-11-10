@@ -942,6 +942,27 @@
 
 **From:** feature review รอบสี่ · **Status:** active
 
+## D67: `paths.EpAddress` และ helper ของ test toon ใน `fakes` ticket 11
+
+**Chosen:**
+- `paths.EpAddress(project, series_id, ep_id)` (`NamedTuple` แบบ `ItemRef`) ค่าเดียวของ EP หนึ่งตอน พร้อม folder ของ EP (`dir`, `images_dir`, `audio_dir`, `renders_dir`) ที่ย้ายมาจาก `ProjectPaths.ep_dir`/`card_images_dir`/`card_audio_dir`/`ep_renders_dir`; ไม่เช็คว่ามีอยู่ตอนสร้าง (ฟังก์ชันเช็คเองใต้ `store.lock`)
+- อยู่ใน `backend/paths.py`: path ของ `media/toon/` อยู่ที่นี่อยู่แล้ว (spec › Modules touched) และ `ProjectPaths` ต้องไม่ import `toon`; ชื่อไม่ชน `series.EpRef` (response) และ `ItemRef`
+- `store.read_ep(ep_address)`, `write_ep(ep_address, ep)`, `locate_ep(project, ep_id)` (เดิม `find_ep`) คืน `EpAddress | None`; `episodes.address_of(project, ep_id)` (id จาก path หรือ body ของงาน → `EpAddress` ไม่ปฏิเสธ: id ที่ไม่มี Series ใดถือได้ `series_id` ว่าง), `episodes.read(ep_address)` (เดิม `find`: อ่าน Series และ EP ตอนนี้ หรือ `404` "ไม่พบ EP นี้" เดิม), `episodes.look_up(project, ep_id)` (ทั้งสองรวมกันของ job ที่ start: Plot, Cards, Image, Voice, Render); ทุกฟังก์ชันของ EP หนึ่งตอนใน `episodes`, `images`, `voicing`, `render` รับ `EpAddress`; `ImagePlan.ep_address`, `VoicePlan.ep_address` แทน `series_id`/`ep_id`; `put_image`/`put_audio` ไม่รับ `project` แยก
+- `routes/toon.py`: dependency `ep_address` สร้างจาก `{ep_id}` ครั้งเดียวใน 19 route ของ `/eps/{ep_id}`; dependency ไม่ปฏิเสธ จึงยังเช็ค body ก่อน EP เหมือนเดิม (body ผิดไปยัง EP ที่ไม่มียัง `400`; test)
+- test: `fakes.toon_api` คืน fixture `project` ด้วย (`project, llm, klein, tts, client = toon_api(...)`); `new_series` (เดิม `create`), `Writer`, `with_series`, `new_ep`, `start`, `run`, `wait_for_toon_job`, `cards_of`, `edit_stored_ep`, `gpu_refusal`, `png`, `upload`, `item_with_ref` (เดิม `add`), `tone`, `import_file`, `import_tone` และ `TOON_SERIES`/`TOON_JOBS`/`TOON_CURRENT`/`TOON_SOUNDS`/`FINISHED` ย้ายเข้า `fakes.py`; ไฟล์ test ของ toon ไม่ import จากไฟล์ test อื่น; test ใหม่: 19 route ของ EP หนึ่งตอน `404` ข้อความเดิม (ผ่านกับโค้ดก่อนแก้ด้วย)
+
+**Why:** Blocked #26, #27: สามค่าเดินคู่กันราว 20 signature; fixture `project` ซ้ำหกไฟล์ และ helper import ข้ามไฟล์ test.
+
+**Rejected:**
+- `EpAddress` ใน `toon/store.py` — path ของ EP จะแยกจาก path อื่นของ `media/toon/`
+- `EpAddress` ไม่มี `project` — ticket ให้สามค่าเป็นค่าเดียว (เหมือน D64)
+- dependency `ep_address` ตอบ `404` เอง — body ผิดไปยัง EP ที่ไม่มีจะได้ `404` แทน `400` เดิม (ticket: "ทุก route ตอบ status และ body เหมือนเดิม")
+- `EpAddress.series()` อ่าน Series เอง — `paths` import `toon.store` ไม่ได้; `episodes.read` อ่านให้
+- `WritePlan`/`CardsPlan` ถือ `ep_address` — ถือ Series และ EP ทั้งตัวอยู่แล้ว; `run` สร้าง `EpAddress` ครั้งเดียว
+- ย้าย helper ที่ test ของ spoil และ spoil-maker import ข้ามไฟล์ (`test_spoil_maker_draft_api`, `test_spoil_trim_api`) — นอก feature นี้
+
+**From:** build ticket 11 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)
