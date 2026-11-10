@@ -109,7 +109,11 @@ export function useEp(epId: string) {
     update((s) => ({ ...s, notice: reply.notice, missing: missing ?? s.missing }));
   };
 
-  const cancelJob = () => cancelToonJob((job) => update((s) => ({ ...s, job })));
+  const cancelJob = () =>
+    cancelToonJob(
+      (job) => update((s) => ({ ...s, job })),
+      (notice) => update((s) => ({ ...s, notice })),
+    );
 
   return {
     state,

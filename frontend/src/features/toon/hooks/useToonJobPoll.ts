@@ -1,4 +1,5 @@
-import { cancelCurrent } from "../../../lib/job";
+import { stopJob } from "../lib/edit";
+import type { Notice } from "../lib/notice";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isRunning, JOB_PATH, type ToonJob } from "../lib/series";
 
@@ -20,8 +21,10 @@ export function useToonJobPoll(
   );
 }
 
-/** หยุด: the job, now `cancel_requested`, goes to `onCancelling` until the poll sees it end. */
-export async function cancelToonJob(onCancelling: (job: ToonJob) => void) {
-  const reply = await cancelCurrent<ToonJob>(JOB_PATH);
+/** หยุด: the job, now `cancel_requested`, goes to `onCancelling` until the poll sees it end;
+ * a stop that didn't happen goes to `onRefused`. */
+export async function cancelToonJob(onCancelling: (job: ToonJob) => void, onRefused: (notice: Notice) => void) {
+  const reply = await stopJob<ToonJob>(JOB_PATH);
   if (reply.kind === "cancelling") onCancelling(reply.job);
+  else if (reply.kind === "refused") onRefused(reply.notice);
 }

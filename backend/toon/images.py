@@ -104,6 +104,7 @@ def copy_refs(project: ProjectPaths, plan: ImagePlan) -> None:
     folder.mkdir(parents=True)
     refs = project.refs_dir(plan.ep_address.series_id)
     for card in plan.cards:
+        # `ref_paths` is built from `refs` in its order, one path per item id (`_card_draw`).
         for item_id, path in zip(card.refs, card.ref_paths, strict=True):
             if not path.is_file():
                 shutil.copyfile(refs / f"{item_id}-{card.refs[item_id]}.png", path)
@@ -236,7 +237,8 @@ def clean_on_start(project: ProjectPaths) -> None:
 def _in_scope(scope: Scope, status: str, card: Card) -> bool:
     """Whether the scope draws the card, its reference images aside: `missing` the cards with
     no image, `stale_ref` the ones drawn with an older reference (D32, D44). A card of either
-    whose character or background has no reference image is skipped (D13)."""
+    whose character or background has no reference image is skipped (D13): `stale_ref` takes in
+    the `no_ref` cards that have an image too, only for the job to count them as skipped."""
     if scope == "missing":
         return card.image is None
     return status == "stale_ref" or (status == "no_ref" and card.image is not None)

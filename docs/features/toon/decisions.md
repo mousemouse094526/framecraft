@@ -1069,6 +1069,29 @@
 
 **From:** build ticket 14 · **Status:** active
 
+## D73: feature review รอบหกของ toon
+
+**Chosen:**
+- ปุ่มหยุดของทุกงานในหน้าเว็บ (Toon job ของ EP, ตัวละครและฉากหลัง, หน้าเลือกภาพ; render; โหลดเสียงจากลิงก์) ผ่าน `lib/edit.stopJob(path)`: `DELETE …/current` ผ่าน `sendEdit` (`ok` 202), `404` `not_found` เป็น `ended` (งานจบก่อน: poll ถัดไปบอกเอง ไม่มีข้อความ), ที่เหลือเป็น notice "หยุดงานไม่ได้" พร้อมข้อความของ backend หรือ `OFFLINE_TEXT`; เดิมสี่หน้าเงียบเมื่อหยุดไม่ได้ และหน้าเลือกภาพแสดง "หยุดงานไม่ได้" แทนข้อความของ backend; `cancelToonJob(onCancelling, onRefused)`
+- `startRefJob(itemRef)` ถือ `NOT_NOW` เอง: Ref job ที่ "ยังไม่ใช่ตอนนี้" เป็น `warning` ทั้งหน้ารายการและหน้าเลือกภาพ (เดิม parameter `warnings` มีผู้ส่งตัวเดียว)
+- `SendReply` ของ `sendChecked` ใช้ `ok` แทน `sent` แบบ `sendEdit`
+- `hooks/useToonJobPoll.test.ts` (hook ที่สาม hook ใช้ร่วม, `rules/testing.md`); `SKILL.md` folder map มี `testing/statusBox.ts`; `rules/testing.md` บอกว่า timeout ที่ไม่ต่างตาม OS และส่งเข้าไม่ได้ (`sounds.PROBE_SECONDS`) swap ที่ module
+- ชื่อและคอมเมนต์: `cards` `target` → `chars_per_act`; `useReadyState` `setIfMounted`; `_in_scope` บอกว่า `stale_ref` รวมการ์ด `no_ref` ที่มีภาพเพื่อนับเป็นข้าม; ลำดับของ `ref_paths`; `UNKNOWN_CHARS_PER_S`; prefix ของ id ใน `store.new_id`; เงื่อนไขของ `plot_items` เป็นค่าที่ตั้งชื่อ
+- องก์ของ EP ใหม่ได้ id ที่ไม่ซ้ำกันเอง (`new_id("a", …)` เช็คองก์ที่สร้างไปแล้ว)
+- test: หยุดที่ถูกปฏิเสธบนหน้า EP, หยุดที่ไม่มี backend บนหน้า render, `useToonJobPoll` (poll, จบ, ไม่ poll งานที่ไม่ได้ทำ, หยุดสี่แบบ)
+
+**Why:** feature review รอบหก: Spec (ปุ่มหยุดสองทาง, `sent`/`ok`), Standards (hook ร่วมไม่มี test, folder map, constant ของ timeout, `warnings` ของ `startRefJob`), Newcomer (ชื่อและคอมเมนต์ที่ต้องเดา). auto mode เลือกตัวเลือกที่แนะนำ: แก้ข้อเล็กทั้งหมดและปุ่มหยุด.
+
+**Rejected:**
+- รวม `useCast.sendItem`/`useEp.edit`/`useSounds.download` — ต่างกันที่ field (D65 เดิม)
+- accessor ต่อ kind ของ `Plot` และ `Series` (`getattr(plot, item_kind)` สี่ module) — ทุกที่วนตาม `KINDS` แล้ว (D71) และไม่มีกติกาซ้ำ: เหลือแค่การอ่าน field ตามชื่อของ kind
+- `OSError` ตอน copy ภาพอ้างอิงเป็น `ApiError` — D63 เดิม
+- ย้าย `test_toon_modules.py` และ test ที่ patch `shutil.copyfile` — D59 เดิม; ดิสก์ที่ copy ไม่ได้ทำผ่าน API ไม่ได้
+- ย้าย test ของ status check ออกจาก `test_toon_klein.py` — test ไฟล์ของ klein ที่ status check อ่าน
+- `plan` สองรอบ, `done` สองความหมาย, registry ของ `ep_jobs`/`series_jobs`, ข้อความล้มของ `TRANSLATOR`, `address_of` ที่ไม่ปฏิเสธ, `zip` ของผู้พูด — มีคอมเมนต์หรือ docstring บอกแล้ว (D66, D69)
+
+**From:** feature review · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

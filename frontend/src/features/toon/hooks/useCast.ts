@@ -15,7 +15,7 @@ import {
 } from "../lib/series";
 import { sendEdit } from "../lib/edit";
 import { sendChecked } from "../lib/upload";
-import { NOT_NOW, type Notice } from "../lib/notice";
+import type { Notice } from "../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
 import { useReadyState } from "./useReadyState";
 
@@ -89,12 +89,16 @@ export function useCast(seriesId: string) {
 
   const startRef = async (kind: ItemKind, item: Item) => {
     const ref = refOf(kind, item);
-    const reply = await startRefJob(ref, NOT_NOW);
+    const reply = await startRefJob(ref);
     if (reply.kind === "ok") window.location.hash = pickHash(ref);
     else update((s) => ({ ...s, notice: reply.notice }));
   };
 
-  const cancelJob = () => cancelToonJob((job) => update((s) => ({ ...s, job })));
+  const cancelJob = () =>
+    cancelToonJob(
+      (job) => update((s) => ({ ...s, job })),
+      (notice) => update((s) => ({ ...s, notice })),
+    );
 
   /** `/ref/upload/check` first, then the file as the raw body (ADR 0028); the answer is the Series. */
   const upload = async (kind: ItemKind, item: Item, file: File) => {
@@ -110,7 +114,7 @@ export function useCast(seriesId: string) {
     uploading.current = false;
     update((s) => {
       const done = { ...s, upload: null };
-      if (reply.kind === "sent") return { ...done, series: reply.value };
+      if (reply.kind === "ok") return { ...done, series: reply.value };
       return reply.kind === "refused" ? { ...done, notice: reply.notice } : done;
     });
   };

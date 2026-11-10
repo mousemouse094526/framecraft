@@ -124,7 +124,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 - **`frontend` › `lib/gpu`**
   - `GPU_JOB_PATHS` เพิ่ม `/api/toon/jobs/current` และ `/api/toon/render/current`
 - **`frontend` › `features/toon`** (ใหม่)
-  - หน้าตาม Design; ใช้ `lib/api`, `lib/job`, `lib/usePollWhile`, `lib/refusal` เดิม; หน้าที่ตาม Toon job poll ผ่าน `hooks/useToonJobPoll`; hook แก้ state ตอนพร้อมผ่าน `hooks/useReadyState` และทุกคำขอที่เปลี่ยนของ (แก้ไข, ลบ, เริ่มงาน) อ่านคำตอบผ่าน `lib/edit.sendEdit` ที่คืน `Notice` (D65, D72); ตัวละครหรือฉากหลังหนึ่งตัวเป็น `lib/series.ItemRef`, ค่าที่ต่างกันต่อชนิดอยู่ใน `lib/kinds.ITEM_KINDS`, ไฟล์ที่เช็คแล้วส่งผ่าน `lib/upload.sendChecked` (D68); ปุ่ม "ฟัง" ใช้ `lib/audio` (ย้ายจาก spoil-maker, D59)
+  - หน้าตาม Design; ใช้ `lib/api`, `lib/job`, `lib/usePollWhile`, `lib/refusal` เดิม; หน้าที่ตาม Toon job poll ผ่าน `hooks/useToonJobPoll`; hook แก้ state ตอนพร้อมผ่าน `hooks/useReadyState` และทุกคำขอที่เปลี่ยนของ (แก้ไข, ลบ, เริ่มงาน) อ่านคำตอบผ่าน `lib/edit.sendEdit` ที่คืน `Notice` และปุ่มหยุดของทุกงานผ่าน `lib/edit.stopJob` (D65, D72, D73); ตัวละครหรือฉากหลังหนึ่งตัวเป็น `lib/series.ItemRef`, ค่าที่ต่างกันต่อชนิดอยู่ใน `lib/kinds.ITEM_KINDS`, ไฟล์ที่เช็คแล้วส่งผ่าน `lib/upload.sendChecked` (D68); ปุ่ม "ฟัง" ใช้ `lib/audio` (ย้ายจาก spoil-maker, D59)
 
 ### Dependencies
 

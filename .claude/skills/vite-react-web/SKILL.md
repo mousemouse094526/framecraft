@@ -29,7 +29,8 @@ frontend/src/
 │                        focus kept inside), buttonStyles; assets/
 │                        holds the icons two features use (copy, trash, x, …)
 ├── testing/          ← testBackend.ts: the fake backend every tab's tests answer `fetch` with; fakeXhr.ts:
-│                        the `XMLHttpRequest` an upload test stubs (`sendFile`)
+│                        the `XMLHttpRequest` an upload test stubs (`sendFile`); statusBox.ts:
+│                        `findStatusWith`, the `Alert` that shows a text, for a test to read its tone
 └── lib/
     ├── api.ts        ← getJson / sendJson, both with the 30 s timeout; sendFile (XHR upload with
     │                   its %, no timeout, spoil D58)

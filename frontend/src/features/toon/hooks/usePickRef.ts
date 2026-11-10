@@ -1,8 +1,7 @@
 import { useCallback, useEffect } from "react";
-import { getJson, getReply, OFFLINE_TEXT } from "../../../lib/api";
-import { cancelCurrent } from "../../../lib/job";
+import { getJson, getReply } from "../../../lib/api";
 import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type ItemRef, type Series, type ToonJob } from "../lib/series";
-import { sendEdit, type EditReply } from "../lib/edit";
+import { sendEdit, stopJob, type EditReply } from "../lib/edit";
 import type { Notice } from "../lib/notice";
 import { useToonJobPoll } from "./useToonJobPoll";
 import { useReadyState } from "./useReadyState";
@@ -22,8 +21,6 @@ export type PickState =
       /** Why the last pick, retry or stop didn't happen; the page shows its text only, untitled. */
       notice: Notice | null;
     };
-
-const STOP_REFUSED = "หยุดงานไม่ได้";
 
 /** เลือกภาพอ้างอิง: follows the item's Ref job, then one of its three pictures becomes the reference image (D31, D32). */
 export function usePickRef(itemRef: ItemRef) {
@@ -92,13 +89,10 @@ export function usePickRef(itemRef: ItemRef) {
       window.location.hash = castHash(seriesId);
       return;
     }
-    const reply = await cancelCurrent<ToonJob>(JOB_PATH);
+    const reply = await stopJob<ToonJob>(JOB_PATH);
     if (reply.kind === "cancelling") update((s) => ({ ...s, job: reply.job }));
     else if (reply.kind === "ended") void load();
-    else {
-      const text = reply.kind === "offline" ? OFFLINE_TEXT : STOP_REFUSED;
-      update((s) => ({ ...s, notice: { tone: "error", title: STOP_REFUSED, text, setupLink: false } }));
-    }
+    else update((s) => ({ ...s, notice: reply.notice }));
   };
 
   return { state, choose, pick, retry, cancel, reload: load };

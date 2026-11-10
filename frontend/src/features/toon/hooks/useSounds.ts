@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, type FileUpload } from "../../../lib/api";
-import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isImporting, SOUND_IMPORT_PATH, SOUNDS_PATH, soundPath, type Sound, type SoundImport } from "../lib/sounds";
-import { sendEdit } from "../lib/edit";
+import { sendEdit, stopJob } from "../lib/edit";
 import { NOT_NOW, type Notice } from "../lib/notice";
 import { sendChecked } from "../lib/upload";
 import { useReadyState } from "./useReadyState";
@@ -114,7 +113,7 @@ export function useSounds() {
     sending.current = null;
     update((s) => {
       const done = { ...s, upload: null };
-      if (reply.kind === "sent") return { ...done, sounds: [...s.sounds, reply.value] };
+      if (reply.kind === "ok") return { ...done, sounds: [...s.sounds, reply.value] };
       return reply.kind === "refused" ? { ...done, importNotice: reply.notice } : done;
     });
   };
@@ -131,8 +130,9 @@ export function useSounds() {
   };
 
   const cancelDownload = async () => {
-    const reply = await cancelCurrent<SoundImport>(SOUND_IMPORT_PATH);
+    const reply = await stopJob<SoundImport>(SOUND_IMPORT_PATH);
     if (reply.kind === "cancelling") update((s) => ({ ...s, job: reply.job }));
+    else if (reply.kind === "refused") update((s) => ({ ...s, importNotice: reply.notice }));
   };
 
   return { state, reload: load, rename, remove, uploadFile, cancelUpload, download, cancelDownload };

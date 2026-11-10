@@ -278,6 +278,19 @@ describe("เส้นเรื่อง", () => {
     expect(screen.getByRole("status")).toHaveTextContent("AI กำลังเขียนการ์ด");
   });
 
+  it("หยุด that the backend refuses says the job didn't stop", async () => {
+    const user = open(`#/toon/eps/${EP_ID}`, [
+      get(EP_PATH, epOf({ locked: false })),
+      get(JOB_PATH, cardsJob()),
+      send("DELETE", JOB_PATH, { code: "busy", message: "งานนี้หยุดไม่ได้แล้ว" }, 409),
+    ]);
+
+    await user.click(await screen.findByRole("button", { name: "หยุด" }));
+
+    expect(await findStatusWith("หยุดงานไม่ได้")).toHaveClass("bg-error-surface");
+    expect(screen.getByText("งานนี้หยุดไม่ได้แล้ว")).toBeInTheDocument();
+  });
+
   it("a storyline of 130 s says it runs past the 60–120 s target (e2e)", async () => {
     open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf({ duration_s: 130 }))]);
 

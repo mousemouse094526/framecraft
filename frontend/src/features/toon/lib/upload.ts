@@ -15,9 +15,9 @@ export type FileToSend = {
   warnings?: readonly string[];
 };
 
-/** How a file's import ended: `sent` with the backend's 200 or 201 body (the new sound, or the
+/** How a file's import ended: `ok` with the backend's 200 or 201 body (the new sound, or the
  * Series with its new reference image), `refused` with the notice, or `aborted` by `abort()`. */
-export type SendReply<T> = { kind: "sent"; value: T } | { kind: "refused"; notice: Notice } | { kind: "aborted" };
+export type SendReply<T> = { kind: "ok"; value: T } | { kind: "refused"; notice: Notice } | { kind: "aborted" };
 
 /**
  * The check, then the file as the raw body with `sendFile` (no timeout, spoil D58): a refused
@@ -36,6 +36,6 @@ export async function sendChecked<T>(
   on.started(upload);
   const reply = await upload.reply;
   if (reply.kind === "aborted") return reply;
-  if (reply.kind === "answer" && (reply.status === 200 || reply.status === 201)) return { kind: "sent", value: reply.body as T };
+  if (reply.kind === "answer" && (reply.status === 200 || reply.status === 201)) return { kind: "ok", value: reply.body as T };
   return refused(reply.kind === "answer" ? reply.body : null);
 }

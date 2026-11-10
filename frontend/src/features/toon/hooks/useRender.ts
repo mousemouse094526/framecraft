@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from "react";
 import { getJson } from "../../../lib/api";
-import { cancelCurrent } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { readEpAndSeries, type Ep } from "../lib/episodes";
@@ -14,7 +13,7 @@ import {
   type RenderResult,
 } from "../lib/render";
 import type { Series } from "../lib/series";
-import { sendEdit } from "../lib/edit";
+import { sendEdit, stopJob } from "../lib/edit";
 import { NOT_NOW, type Notice } from "../lib/notice";
 import { useReadyState } from "./useReadyState";
 
@@ -86,8 +85,9 @@ export function useRender(epId: string) {
   };
 
   const cancel = async () => {
-    const reply = await cancelCurrent<RenderJob>(RENDER_JOB_PATH);
+    const reply = await stopJob<RenderJob>(RENDER_JOB_PATH);
     if (reply.kind === "cancelling") update((s) => ({ ...s, job: reply.job }));
+    else if (reply.kind === "refused") update((s) => ({ ...s, notice: reply.notice }));
   };
 
   const remove = async (result: RenderResult) => {

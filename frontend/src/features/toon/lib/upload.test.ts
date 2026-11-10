@@ -38,7 +38,7 @@ test.each([200, 201])("checked, the file goes to {path}?{query} as the raw body 
   xhr.progress(1, 2);
   await xhr.respond(status, { id: "m_02" });
 
-  expect(await reply).toEqual({ kind: "sent", value: { id: "m_02" } });
+  expect(await reply).toEqual({ kind: "ok", value: { id: "m_02" } });
   expect(sent(fetchMock, "POST", CHECK)).toEqual([{ size: 3 }]);
   expect(xhr.url).toBe(UPLOAD_URL);
   expect(xhr.body).toBe(file);

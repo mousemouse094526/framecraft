@@ -1,4 +1,5 @@
 import { sendEdit, type EditReply } from "./edit";
+import { NOT_NOW } from "./notice";
 import { isUnfinishedIn } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 
@@ -186,10 +187,10 @@ export function startToonJob<R extends Refusal = Refusal>(
   return sendEdit<ToonJob, R>("POST", JOBS_PATH, body, title, { ok: [202], warnings });
 }
 
-/** A Ref job of one item; both the lists and the pick page start one. */
-export function startRefJob({ seriesId, itemKind, itemId }: ItemRef, warnings: readonly string[] = []) {
+/** A Ref job of one item; both the lists and the pick page start one, and "not now" is a warning on both. */
+export function startRefJob({ seriesId, itemKind, itemId }: ItemRef) {
   const body = { kind: "ref", series_id: seriesId, item_kind: itemKind, item_id: itemId };
-  return startToonJob(body, "ยังสร้างภาพอ้างอิงไม่ได้", warnings);
+  return startToonJob(body, "ยังสร้างภาพอ้างอิงไม่ได้", NOT_NOW);
 }
 
 /** A Ref job draws three pictures to pick from (D31). */

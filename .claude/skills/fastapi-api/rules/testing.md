@@ -58,7 +58,8 @@ def test_missing_marker(tmp_path):
   worker's steps are also tested against stand-in `torch` and `transformers`
   modules put in `sys.modules` (`test_spoil_maker_llm_windows.py`). A timeout test
   swaps the per-OS table with `os_timeouts(monkeypatch, darwin=…, win32=…)`, never
-  a constant. Its pure helpers
+  a constant; a timeout that is the same on every OS and that a request can't pass in
+  (`sounds.PROBE_SECONDS`, read at start-up) is swapped on its module. Its pure helpers
   (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
   `python -c` to prove importing the adapter loads neither torch nor
   transformers.

@@ -349,3 +349,4 @@ question; the full entry is in the feature's decisions.md.
 | คลังเสียงพื้นตรงกับไฟล์ m4a: ตรวจตอน start (`sounds.json` เสียเก็บเป็น `.bad-*`, ทิ้งรายการเสีย, เพิ่ม m4a กำพร้าชื่อ = id), import ถือ `store.lock` ถึงเขียน, ลบไฟล์ก่อน json | [toon](features/toon/decisions.md) | D70 | — | — | active |
 | การตรวจคลังเสียงอยู่ที่ `store.reconcile_sounds` (ความยาวจากผู้เรียก), `ffmpeg.probe(timeout=)`, จำนวนสูงสุดของพล็อตใน `KindRow.plot_max` | [toon](features/toon/decisions.md) | D71 | — | — | active |
 | หน้าเว็บของ toon: ทุกคำขอที่เปลี่ยนของผ่าน `sendEdit` (status ที่ ok, code ที่เป็น warning, คืน refusal ให้เช็ค code), `startToonJob` คืนผลเดียวกัน, ทุก hook เก็บ `Notice` | [toon](features/toon/decisions.md) | D72 | — | — | active |
+| feature review รอบหกของ toon: ปุ่มหยุดของทุกงานผ่าน `stopJob` (notice เมื่อหยุดไม่ได้), `startRefJob` ถือ `NOT_NOW`, `sendChecked` คืน `ok`, id ขององก์ใน EP ใหม่ไม่ซ้ำ | [toon](features/toon/decisions.md) | D73 | — | — | active |

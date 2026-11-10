@@ -10,12 +10,12 @@ type Ready<S> = Extract<S, { kind: "ready" }>;
  * rest as they are. Every toon hook that has a `ready` state uses it (toon D65).
  */
 export function useReadyState<S extends { kind: string }>(initial: S) {
-  const [state, , setState] = useMountedState<S>(initial);
+  const [state, , setIfMounted] = useMountedState<S>(initial);
 
   const update = useCallback(
-    (change: (s: Ready<S>) => S) => setState((s) => (s.kind === "ready" ? change(s as Ready<S>) : s)),
-    [setState],
+    (change: (s: Ready<S>) => S) => setIfMounted((s) => (s.kind === "ready" ? change(s as Ready<S>) : s)),
+    [setIfMounted],
   );
 
-  return [state, setState, update] as const;
+  return [state, setIfMounted, update] as const;
 }

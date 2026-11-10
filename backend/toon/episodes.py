@@ -37,7 +37,9 @@ MOTIONS = get_args(Motion)
 ImageStatus = Literal["no_ref", "no_image", "stale_ref", "ready"]  # spec › สถานะการ์ด
 AudioStatus = Literal["silent", "no_audio", "stale_audio", "ready"]
 VOLUME_MAX = 100
-UNKNOWN_CHARS_PER_S = 15.0  # an EP's voice can't be deleted (D25); this only guesses for a broken file
+# Letters per second of a voice the saved voices don't have: an EP's voice can't be deleted (D25),
+# so only a broken voices file gets here, and the length is a guess.
+UNKNOWN_CHARS_PER_S = 15.0
 
 
 
@@ -144,12 +146,15 @@ def create(project: ProjectPaths, series_id: str, body: dict) -> EpView:
         series = series_module.require_series(project, series_id)
         taken = store.ep_ids(project)
         series.max_ep += 1
+        acts: list[Act] = []
+        for name in series.acts:
+            acts.append(Act(id=store.new_id("a", {act.id for act in acts}), name=name))
         ep = Ep(
             id=store.new_id("e", taken),
             n=series.max_ep,
             idea=idea,
             voice_id=series.voice_id,
-            acts=[Act(id=store.new_id("a"), name=name) for name in series.acts],
+            acts=acts,
         )
         ep_address = EpAddress(project, series_id, ep.id)
         store.write_ep(ep_address, ep)
@@ -481,7 +486,8 @@ def plot_items(series: Series, item_kind: ItemKind, value: list, from_qwen: bool
             continue
         item_id = item.get("id")
         # Qwen names an `id` only for the Series' own (spec › Plot job step 3); the page sends `null` with a new one.
-        if ("id" in item) if from_qwen else item_id is not None:
+        names_own = "id" in item if from_qwen else item_id is not None
+        if names_own:
             if series_module.find_item(series, item_kind, item_id) is None or any(i.id == item_id for i in items):
                 drop()
             else:

@@ -38,3 +38,14 @@ export async function sendEdit<T, R extends Refusal = Refusal>(
     return { kind: "refused", notice: noticeOf(title, null), refusal: null };
   }
 }
+
+/** How a หยุด ended: `cancelling` with the job, `ended` when it ended before the cancel came
+ * (`404` `not_found`), or `refused` with the notice (a refusal, or no backend). */
+export type StopReply<Job> = { kind: "cancelling"; job: Job } | { kind: "ended" } | { kind: "refused"; notice: Notice };
+
+/** หยุด of every job of the tab: `DELETE {path}` of the job's `…/current`. */
+export async function stopJob<Job>(path: string): Promise<StopReply<Job>> {
+  const reply = await sendEdit<Job>("DELETE", path, undefined, "หยุดงานไม่ได้", { ok: [202] });
+  if (reply.kind === "ok") return { kind: "cancelling", job: reply.value };
+  return reply.refusal?.code === "not_found" ? { kind: "ended" } : { kind: "refused", notice: reply.notice };
+}

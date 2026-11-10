@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
+import { OFFLINE_TEXT } from "../../../lib/api";
 import { GPU_JOB_PATHS } from "../../../lib/gpu";
 import { FakeXhr } from "../../../testing/fakeXhr";
 import { findStatusWith } from "../../../testing/statusBox";
@@ -364,6 +365,19 @@ describe("render และผล", () => {
     expect(await findStatusWith(`ลบคลิป ${clip.name} ไม่ได้`)).toHaveClass("bg-warning-surface");
     expect(screen.getByText(refused.message)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: button })).toBeInTheDocument();
+  });
+
+  it("หยุด with no backend says the render didn't stop", async () => {
+    const user = open(`#/toon/eps/${EP_ID}/render`, [
+      get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])),
+      get(RENDER_JOB, renderJob({ total: 1 })),
+      { method: "DELETE", path: RENDER_JOB, reply: () => Promise.reject(new TypeError("Failed to fetch")) },
+    ]);
+
+    await user.click(await screen.findByRole("button", { name: "หยุด" }));
+
+    expect(await findStatusWith("หยุดงานไม่ได้")).toHaveClass("bg-error-surface");
+    expect(screen.getByText(OFFLINE_TEXT)).toBeInTheDocument();
   });
 
   it("a render refused as not now says why as a warning", async () => {

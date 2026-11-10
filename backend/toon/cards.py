@@ -67,13 +67,13 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
     known = writer.known(ep.plot, cast)
     characters, backgrounds = known["characters"], known["backgrounds"]
     sounds = store.read_sounds(project)
-    target = round(episodes.TARGET_S / len(ep.acts) * plan.chars_per_s)
+    chars_per_act = round(episodes.TARGET_S / len(ep.acts) * plan.chars_per_s)
     ids = {i.id for act in ep.acts for segment in act.segments for i in [segment, *segment.cards]}
     qwen = steps.Qwen(job, project)
     written: dict[str, list] = {}
     for done, act_id in enumerate(plan.act_ids, start=1):
         index = next(i for i, act in enumerate(ep.acts) if act.id == act_id)
-        prompt = writer.cards_prompt(cast.tone, ep.acts, index, characters, backgrounds, sounds, target)
+        prompt = writer.cards_prompt(cast.tone, ep.acts, index, characters, backgrounds, sounds, chars_per_act)
         segments = qwen.answer(
             prompt,
             writer.CARDS_MAX_TOKENS,
