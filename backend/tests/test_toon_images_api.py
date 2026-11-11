@@ -16,6 +16,7 @@ from backend.toon import images, series
 from backend.toon.klein import Encode, Load
 
 from .fakes import (
+    CODE_ERROR,
     TOON_CURRENT,
     TOON_JOBS,
     FakeKlein,
@@ -175,6 +176,17 @@ def test_a_card_klein_fails_on_is_in_failed_cards_and_the_job_goes_on_to_done(cl
     assert [card["image_status"] for card in cards[:3]] == ["ready", "no_image", "ready"]
 
 
+def test_an_image_job_whose_klein_errs_in_the_code_while_encoding_fails_model_failed_without_the_gpu_advice(client, llm, klein):
+    """D84: an error of the code says what it is; only one of the GPU ends with `gpu.ADVICE`."""
+    _, _, _, ep = with_cards(client, llm)
+    klein.fail_at, klein.fail_with = 0, CODE_ERROR  # the encoder's `Encode`
+
+    job = draw(client, ep["id"], scope="missing")
+
+    assert (job["state"], job["error"]) == ("failed", {"code": "model_failed", "message": f"สร้างภาพไม่สำเร็จ: {CODE_ERROR}"})
+    assert gpu_refusal() is None
+
+
 def test_an_image_job_whose_klein_never_answers_a_draw_fails_model_failed_keeps_the_pictures_done_and_stops_it(
     client, llm, klein, monkeypatch
 ):
@@ -186,6 +198,7 @@ def test_an_image_job_whose_klein_never_answers_a_draw_fails_model_failed_keeps_
     job = draw(client, ep["id"], scope="missing")
 
     assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert job["error"]["message"].endswith(gpu.ADVICE)
     assert [card["image_status"] for card in cards_of(get_ep(client, ep["id"]))[:2]] == ["ready", "no_image"]
     assert klein.processes[1].terminated  # the drawing child
     assert gpu_refusal() is None
@@ -396,6 +409,16 @@ def test_a_voice_job_whose_omnivoice_dies_while_loading_fails_crashed_and_frees_
     assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
     gpu.slot.take("describe")  # free: no `gpu_busy`
     gpu.slot.release("describe")
+
+
+def test_a_voice_job_whose_omnivoice_errs_in_the_code_fails_model_failed_without_the_gpu_advice(client, llm, tts):
+    """D84, for OmniVoice's child."""
+    _, _, _, ep = with_cards(client, llm)
+    tts.fail_at, tts.fail_with = 0, CODE_ERROR
+
+    job = voice(client, ep["id"], cards_of(ep)[0]["id"])
+
+    assert (job["state"], job["error"]) == ("failed", {"code": "model_failed", "message": f"สร้างเสียงไม่สำเร็จ: {CODE_ERROR}"})
 
 
 def test_deleting_a_series_during_its_voice_job_is_series_busy(client, llm, tts):

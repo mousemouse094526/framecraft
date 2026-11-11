@@ -15,6 +15,7 @@ from backend.toon.series import DESCRIPTION_MAX
 from backend.toon.store import Audio, CardImage
 
 from .fakes import (
+    CODE_ERROR,
     TOON_CURRENT,
     TOON_JOBS,
     TOON_SERIES,
@@ -311,6 +312,18 @@ def test_a_plot_job_whose_qwen_dies_while_loading_fails_crashed_and_frees_the_gp
     job = run(client, "plot", ep_id)
 
     assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
+    assert gpu_holder() is None
+
+
+def test_a_plot_job_whose_qwen_errs_in_the_code_fails_model_failed_without_the_gpu_advice(client, llm):
+    """D84, for Qwen's child."""
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.fail_at, llm.fail_with = 0, CODE_ERROR
+
+    job = run(client, "plot", ep_id)
+
+    assert (job["state"], job["error"]) == ("failed", {"code": "model_failed", "message": f"ร่างการ์ตูนเล่าไม่สำเร็จ: {CODE_ERROR}"})
     assert gpu_holder() is None
 
 

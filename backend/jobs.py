@@ -13,12 +13,29 @@ from pydantic import BaseModel
 
 from backend import gpu
 from backend.errors import ApiError, JobFailed
-from backend.workers import Worker
+from backend.workers import Worker, type_name
 
 log = logging.getLogger(__name__)
 
 POLL_SECONDS = 0.2  # how often a thread looks at the cancel flag while the child works
 TERMINATE_SECONDS = 5  # a child that ignores SIGTERM this long is killed
+
+# The names of the exception types that are a mistake in the code, not trouble with the GPU:
+# a child's error of one gets no `gpu.ADVICE` (toon D84). Only the name crosses the queue, so
+# the subclasses that the code raises too are listed by their own names (D85).
+CODE_ERROR_TYPES = frozenset(
+    {
+        "TypeError",
+        "AttributeError",
+        "NameError",
+        "UnboundLocalError",
+        "KeyError",
+        "IndexError",
+        "ImportError",
+        "ModuleNotFoundError",
+        "AssertionError",
+    }
+)
 
 Job = TypeVar("Job", bound=BaseModel)
 
@@ -178,7 +195,7 @@ class ModelJobSlot(JobSlot[Job]):
             return message
         if isinstance(message, self.worker_error):
             log.error("the %s process failed (%s): %s", self.gpu_kind, message.code, message.detail)
-            raise JobFailed("model_failed", f"{self.failure}: {short(message.detail)}. {gpu.ADVICE}")
+            raise JobFailed("model_failed", worker_failure(self.failure, message.detail))
         raise RuntimeError(f"unknown message from the {self.gpu_kind} process: {message!r}")
 
     def track(self, process) -> None:
@@ -251,3 +268,11 @@ def short(error: Exception | str) -> str:
     """The first line of an error, for a message; the full one goes to the log."""
     text = str(error).strip()
     return text.splitlines()[0][:200] if text else type(error).__name__
+
+
+def worker_failure(failure: str, detail: str) -> str:
+    """The message of a job whose child sent a `WorkerError` with `detail` (`workers.error_detail`):
+    `failure` and the error's first line, then `gpu.ADVICE` unless its type is one of `CODE_ERROR_TYPES`.
+    A child that dies or a timeout is the GPU's: those messages end with `gpu.ADVICE` themselves."""
+    message = f"{failure}: {short(detail)}"
+    return message if type_name(detail) in CODE_ERROR_TYPES else f"{message}. {gpu.ADVICE}"

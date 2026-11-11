@@ -361,3 +361,4 @@ question; the full entry is in the feature's decisions.md.
 | prompt ของ Plot job ให้ `acts` หนึ่ง key ต่อองก์ (Qwen จริง 20/20); คำตอบที่อ่านไม่ได้ของ Plot/Cards เป็น `writer.Unusable` และ log เหตุกับต้นคำตอบ 300 ตัวอักษร | [toon](features/toon/decisions.md) | D82 | — | — | active |
 | feature review รอบแปดของ toon: log ของ Plot บอกเหตุต่อขอบ, `REPLY_LOG_LETTERS`, test ที่ key สลับที่ยังอ่านตามลำดับคำตอบ | [toon](features/toon/decisions.md) | D83 | — | — | active |
 | `gpu.ADVICE` ไม่ต่อท้าย error ของโค้ดผิด (`TypeError` ฯลฯ) ใน process ลูก; `model_failed` และหน้าเว็บคงเดิม; ใช้ทั้ง toon, spoil-maker, spoil | [toon](features/toon/decisions.md) | D84 | spoil, spoil-maker | — | active |
+| `jobs.CODE_ERROR_TYPES` เทียบชื่อชนิดหน้า `:` ของ `WorkerError.detail`, นับ `UnboundLocalError`, `ModuleNotFoundError`; `jobs.worker_failure` ใช้ร่วม | [toon](features/toon/decisions.md) | D85 | spoil, spoil-maker | — | active |

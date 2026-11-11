@@ -18,7 +18,7 @@ from typing import Literal, NamedTuple
 
 from backend import checks
 from backend.spoil_maker import llm
-from backend.workers import Worker, dump_stacks_after, dump_stacks_on_signal
+from backend.workers import Worker, dump_stacks_after, dump_stacks_on_signal, error_detail
 
 GGUF_FILE = "flux-2-klein-4b-Q4_K_M.gguf"  # Q8_0 and Q6_K peak over 12 GB on a 16 GB Mac (D51)
 STEPS = 4  # klein 4B is step-distilled (docs/library-notes/diffusers.md)
@@ -138,7 +138,7 @@ def drawer_worker(snapshot_dir: Path, gguf_dir: Path, device: str, requests, rep
 
 def _worker_error(error: Exception) -> WorkerError:
     traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    return WorkerError("model_failed", f"{type(error).__name__}: {error}")
+    return WorkerError("model_failed", error_detail(error))
 
 
 def embeds_bytes(embeds) -> bytes:

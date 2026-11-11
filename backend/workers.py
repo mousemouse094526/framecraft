@@ -10,6 +10,16 @@ from contextlib import contextmanager
 from typing import Any, NamedTuple
 
 
+def error_detail(error: Exception) -> str:
+    """A child's error as its `WorkerError.detail`, `{type}: {error}`: `jobs.worker_failure` reads the type."""
+    return f"{type(error).__name__}: {error}"
+
+
+def type_name(detail: str) -> str:
+    """The type's name in an `error_detail`."""
+    return detail.split(":", 1)[0]
+
+
 class Worker(NamedTuple):
     """The child process and its two queues: what the job asks it, what it answers."""
 

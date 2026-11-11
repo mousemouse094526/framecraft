@@ -13,7 +13,7 @@ import traceback
 from pathlib import Path
 from typing import Literal, NamedTuple
 
-from backend.workers import Worker
+from backend.workers import Worker, error_detail
 
 LANGUAGE = "th"
 
@@ -153,4 +153,4 @@ def _pcm16(samples) -> bytes:
 
 def _send_error(replies, error: Exception) -> None:
     traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    replies.put(WorkerError("model_failed", f"{type(error).__name__}: {error}"))
+    replies.put(WorkerError("model_failed", error_detail(error)))

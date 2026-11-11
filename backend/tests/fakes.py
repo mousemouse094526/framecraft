@@ -195,6 +195,10 @@ def os_timeouts(monkeypatch, darwin: float, win32: float) -> None:
 
 # A fake answer this slow outlasts a Mac timeout of 0.2 s and fits a Windows one of 1 s.
 SLOW_ANSWER_SECONDS = 0.5
+# A child's errors as a `WorkerError.detail`. One of the GPU, its message ending with `gpu.ADVICE`;
+# one of the code (the kind of `TypeError` toon #33 met), whose message has none (toon D84).
+GPU_ERROR = "RuntimeError: MPS out of memory"
+CODE_ERROR = "TypeError: Load.__new__() missing 1 required positional argument: 'embeds'"
 
 
 def slow_first(reply):
@@ -517,7 +521,9 @@ class FakeModel:
     `release` (or the process is terminated) with `pause_at`, never answer it
     (`hang_at`, for timeouts), or exit at it without a word (`crash_at`). An
     `answer` of `HANG` never comes either, whichever process asked. `crash_on_load`
-    exits before `ready()`, as a model that can't load.
+    exits before `ready()`, as a model that can't load. `fail_at` answers that request of a
+    process — of every process the model starts — with the model's `WorkerError` whose
+    detail is `fail_with` instead (`GPU_ERROR` unless a test sets `CODE_ERROR`).
     """
 
     HANG = object()
@@ -528,6 +534,8 @@ class FakeModel:
         self.crash_at: int | None = None
         self.hang_at: int | None = None
         self.crash_on_load = False
+        self.fail_at: int | None = None
+        self.fail_with = GPU_ERROR
         self._paused: dict[int, threading.Event] = {}
         self._reached: dict[int, threading.Event] = {}
 
@@ -582,8 +590,10 @@ class FakeLlm(FakeModel):
         return Ready()
 
     def answer(self, request, index: int):
-        from backend.spoil_maker.llm import Generated
+        from backend.spoil_maker.llm import Generated, WorkerError
 
+        if index == self.fail_at:
+            return WorkerError("model_failed", self.fail_with)
         text = self.respond(request)
         return text if text is self.HANG else Generated(text)
 
@@ -591,14 +601,13 @@ class FakeLlm(FakeModel):
 class FakeTts(FakeModel):
     """The OmniVoice child: every request is spoken as `seconds` of silence at 24 kHz;
     a `Design` also gets the clone prompt `b"prompt {n}"`, `n` counting every request
-    it got from 0. `fail_at` answers that request of a process with a `WorkerError` instead."""
+    it got from 0."""
 
     SAMPLE_RATE = 24_000
 
     def __init__(self):
         super().__init__()
         self.seconds = 2.0
-        self.fail_at: int | None = None
 
     def ready(self):
         from backend.spoil_maker.tts import Ready
@@ -609,7 +618,7 @@ class FakeTts(FakeModel):
         from backend.spoil_maker.tts import Designed, Speak, Spoken, WorkerError
 
         if index == self.fail_at:
-            return WorkerError("model_failed", "RuntimeError: MPS out of memory")
+            return WorkerError("model_failed", self.fail_with)
         audio = b"\0\0" * round(self.SAMPLE_RATE * self.seconds)
         if isinstance(request, Speak):
             return Spoken(audio=audio, sample_rate=self.SAMPLE_RATE)
@@ -622,12 +631,11 @@ class FakeKlein(FakeModel):
     with `embeds_of` each prompt, and the drawing one (`toon.klein.start_drawer`), which answers
     `Load` with `Loaded` and each `Draw` with the bytes `b"png {seed}"`. Neither says a word
     first; `processes` holds both, in the order they started, and `alive_at_start` which of the
-    earlier ones still ran as each started. `fail_at` answers that request of a process with a
-    `WorkerError` instead; `silent_on` never answers a request of that type (`Encode`, `Load`)."""
+    earlier ones still ran as each started. `silent_on` never answers a request of that type
+    (`Encode`, `Load`)."""
 
     def __init__(self):
         super().__init__()
-        self.fail_at: int | None = None
         self.silent_on: type | None = None
         self.alive_at_start: list[list[bool]] = []
 
@@ -654,7 +662,7 @@ class FakeKlein(FakeModel):
         if self.silent_on is not None and isinstance(request, self.silent_on):
             return self.HANG
         if index == self.fail_at:
-            return WorkerError("model_failed", "RuntimeError: MPS out of memory")
+            return WorkerError("model_failed", self.fail_with)
         if isinstance(request, Encode):
             return Encoded([self.embeds_of(prompt) for prompt in request.prompts])
         if isinstance(request, Load):

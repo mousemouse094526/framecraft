@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Literal, NamedTuple
 
 from backend import checks
-from backend.workers import Worker
+from backend.workers import Worker, error_detail
 
 # Sent to the child: one prompt, with one image or none. `None` asks it to exit.
 
@@ -147,4 +147,4 @@ def generate(model, processor, request: Generate) -> str:
 
 def _send_error(replies, error: Exception) -> None:
     traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    replies.put(WorkerError("model_failed", f"{type(error).__name__}: {error}"))
+    replies.put(WorkerError("model_failed", error_detail(error)))

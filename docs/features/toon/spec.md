@@ -338,7 +338,7 @@ media/toon/
 
 - แก้ EP ที่ถูกล็อก → `409` `ep_locked`
 - ทุกงานคืนช่อง GPU เมื่อจบทุกแบบ (ADR-0015); restart แล้วงานหาย ผลที่เขียนไปแล้วอยู่ (ADR-0010)
-- `failed` `error.code`: `crashed`, `model_failed`, `write_failed`, `internal` (ffmpeg อยู่ใน Render job)
+- `failed` `error.code`: `crashed`, `model_failed`, `write_failed`, `internal` (ffmpeg อยู่ใน Render job); ข้อความของ `crashed`, timeout และ `model_failed` ลงท้าย "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง" ยกเว้น `model_failed` จาก error ของโค้ด (`jobs.CODE_ERROR_TYPES`, D84): `{failure}: {ข้อความสั้นของ error}`
 - Toon job กับ Render job ใช้ EP เดียวกันพร้อมกันได้ เฉพาะเมื่อไม่มีฝ่ายใดล็อก EP: Plot job หรือ Cards job บน EP ที่ Render job ยังไม่จบ → `409` `ep_busy` (D57)
 - ทุกงานรันใน thread ของ backend; โมเดลรันใน process ลูก `spawn`; thread ของ backend เขียนไฟล์ผลคนเดียว (ADR-0012)
 - ดิสก์ว่างน้อยกว่า 1 GiB → `507` `disk_full` ก่อนเริ่ม `ref`, `image`, `render`

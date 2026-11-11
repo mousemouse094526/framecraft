@@ -13,7 +13,7 @@ from backend.models import KLEIN
 from backend.toon import series
 from backend.toon.klein import Draw, Encode, Load
 
-from .fakes import TOON_CURRENT, TOON_JOBS, TOON_SERIES, FakeKlein, gpu_refusal, klein_timeouts, new_series, png, toon_api, upload, wait_for_toon_job
+from .fakes import CODE_ERROR, GPU_ERROR, TOON_CURRENT, TOON_JOBS, TOON_SERIES, FakeKlein, gpu_refusal, klein_timeouts, new_series, png, toon_api, upload, wait_for_toon_job
 
 
 
@@ -247,6 +247,25 @@ def test_a_failed_ref_job_leaves_nothing_waiting(client, klein):
     assert client.get(f"{TOON_SERIES}/{series_id}").json()["characters"][0]["pending"] == 0
 
 
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        (CODE_ERROR, f"สร้างภาพไม่สำเร็จ: {CODE_ERROR}"),
+        (GPU_ERROR, f"สร้างภาพไม่สำเร็จ: {GPU_ERROR}. {gpu.ADVICE}"),
+    ],
+)
+def test_a_ref_job_whose_klein_errs_names_the_error_and_only_an_error_of_the_gpu_ends_with_the_advice(client, klein, failure, message):
+    """D84: an error of the code (a `TypeError`) says what it is, without pointing at other apps on the GPU."""
+    klein.fail_at, klein.fail_with = 2, failure  # request 0 is `Load`: the second picture
+    series_id = new_series(client)["id"]
+    item_id = add_item(client, series_id)["id"]
+    start_ref(client, series_id, item_id)
+
+    job = wait_for_toon_job(client)
+
+    assert (job["state"], job["error"]) == ("failed", {"code": "model_failed", "message": message})
+
+
 def test_a_new_ref_job_of_the_same_item_replaces_the_waiting_set(client, klein, project):
     series_id, item_id = with_pending(client)
     start_ref(client, series_id, item_id)
@@ -393,6 +412,7 @@ def test_a_ref_job_whose_klein_dies_while_loading_fails_crashed_and_frees_the_gp
     job = wait_for_toon_job(client)
 
     assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
+    assert job["error"]["message"].endswith(gpu.ADVICE)
     assert gpu_refusal() is None
 
 
@@ -407,6 +427,7 @@ def test_a_ref_job_whose_klein_never_answers_encode_fails_model_failed_stops_it_
     job = wait_for_toon_job(client)
 
     assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert job["error"]["message"].endswith(gpu.ADVICE)
     assert [process.terminated for process in klein.processes] == [True]  # no drawing child started
     klein.silent_on = None
     assert start_ref(client, series_id, item_id).status_code == 202

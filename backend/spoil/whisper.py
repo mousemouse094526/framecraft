@@ -12,6 +12,8 @@ import traceback
 from pathlib import Path
 from typing import Literal, NamedTuple
 
+from backend.workers import error_detail
+
 SEGMENT_SECONDS = 300
 MIN_LAST_SECONDS = 30  # a shorter last piece joins the one before: Whisper invents words from a few seconds (D29)
 SAMPLE_RATE = 16_000
@@ -164,4 +166,4 @@ def to_lines(chunks: list[dict], start_s: int, length_s: int | None) -> list[Lin
 
 def _send_error(queue, code: str, error: Exception) -> None:
     traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    queue.put(WorkerError(code, f"{type(error).__name__}: {error}"))
+    queue.put(WorkerError(code, error_detail(error)))

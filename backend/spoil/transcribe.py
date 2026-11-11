@@ -18,7 +18,7 @@ from backend.models import WHISPER
 from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.errors import ApiError, JobFailed, Row, require_rows
-from backend.jobs import ChildGone, ModelJobSlot, next_message, short
+from backend.jobs import ChildGone, ModelJobSlot, next_message, worker_failure
 from backend.spoil.whisper import Done, Segment, WorkerError
 from backend.spoil_maker import draft_file
 
@@ -188,7 +188,7 @@ def _worker_error(error: WorkerError) -> JobFailed:
     log.error("the Whisper process failed (%s): %s", error.code, error.detail)
     if error.code == "no_audio":
         return JobFailed("no_audio", "คลิปนี้ไม่มีเสียง หรืออ่านเสียงไม่ได้")
-    return JobFailed("model_failed", f"ถอดไม่สำเร็จ: {short(error.detail)}. {gpu.ADVICE}")
+    return JobFailed("model_failed", worker_failure("ถอดไม่สำเร็จ", error.detail))
 
 
 def _needed_rows(project: ProjectPaths) -> dict[str, Row]:

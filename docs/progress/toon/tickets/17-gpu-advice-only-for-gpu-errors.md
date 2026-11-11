@@ -8,7 +8,7 @@
 - Decisions: D84
 - Blocked: #36
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

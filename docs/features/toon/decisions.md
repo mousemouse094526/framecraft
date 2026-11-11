@@ -1280,6 +1280,17 @@
 
 **From:** tickets · **Status:** active
 
+## D85: `jobs.CODE_ERROR_TYPES` แยกด้วยชื่อชนิด และนับ subclass ที่โค้ดโยนเองด้วย
+
+**Chosen:** ทุก process ลูกสร้าง `WorkerError.detail` ด้วย `workers.error_detail` (`{type}: {error}`, รูปเดิม) และ `jobs.worker_failure(failure, detail)` อ่านชื่อชนิดด้วย `workers.type_name` แล้วเทียบกับ `jobs.CODE_ERROR_TYPES`: เจ็ดชนิดของ D84 บวก `UnboundLocalError` (ของ `NameError`) และ `ModuleNotFoundError` (ของ `ImportError`). error ของโค้ดได้ `{failure}: {บรรทัดแรก}` ไม่มีจุดท้าย (รูปเดียวกับ `internal`). `ModelJobSlot.reply` และ Transcribe job ของ spoil ใช้ตัวเดียวกัน.
+
+**Why:** ชื่อเท่านั้นที่ข้าม queue; รูปของ `detail` เดิมสร้างแยกสี่ที่ (review ticket 17) จึงย้ายมาสร้างและอ่านที่ `workers` ที่เดียว แทนเพิ่ม field ใน `WorkerError` สี่ตัว. import ที่พัง (`ModuleNotFoundError`) และตัวแปรที่ยังไม่ตั้ง (`UnboundLocalError`) เป็นโค้ดผิดเหมือนชนิดแม่ แต่ชื่อไม่ตรง
+
+**Rejected:**
+- field `error_type` ใน `WorkerError` ทุกตัว — สี่ module ของ process ลูกเปลี่ยน แต่ได้ข้อมูลเดิมที่มีใน `detail` แล้ว
+
+**From:** build ticket 17 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

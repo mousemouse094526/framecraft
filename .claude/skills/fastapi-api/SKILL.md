@@ -47,12 +47,15 @@ backend/
 │                    a child that says nothing until asked, klein's, is only
 │                    `track`ed) and stops only through `stop_child` (`free_gpu` also frees
 │                    the GPU mid-job); a slot's steps and its `Speaker` call
-│                    `update`, `start_child`, `ask`, `stop_child`
+│                    `update`, `start_child`, `ask`, `stop_child`; `worker_failure`, the
+│                    message of a child's `WorkerError` (`gpu.ADVICE` unless one of
+│                    `CODE_ERROR_TYPES`, toon D84)
 ├── workers.py    ← `Worker`, a model's child with its request and reply queues:
 │                    every adapter's `start_worker` (klein's `start_encoder`,
 │                    `start_drawer`) returns one, `end` asks it to exit;
 │                    the stack dumpers of a child that hangs (`dump_stacks_on_signal`,
-│                    `dump_stacks_after`, toon D76) (standard library only, as a child imports it)
+│                    `dump_stacks_after`, toon D76), `error_detail`/`type_name` of a
+│                    `WorkerError.detail` (toon D85) (standard library only, as a child imports it)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
