@@ -1231,7 +1231,7 @@
 
 ## D81: คำตอบของ Plot job ที่ `acts` เป็นข้อความสรุปเฉย ๆ
 
-**Chosen:** `writer.parse_plot` อ่าน act ที่เป็นข้อความเป็น `summary` ขององก์นั้น และยังอ่าน `{"summary": "..."}` ตามเดิม (ปนกันได้); prompt คงเดิม; `acts` ที่จำนวนไม่เท่าองก์ของ EP ยังสั่งใหม่ตาม spec › Plot job ข้อ 4.
+**Chosen:** `writer.parse_plot` อ่าน act ที่เป็นข้อความเป็น `summary` ขององก์นั้น และยังอ่าน `{"summary": "..."}` ตามเดิม (ปนกันได้); prompt คงเดิม (ภายหลังเปลี่ยนใน D82); `acts` ที่จำนวนไม่เท่าองก์ของ EP ยังสั่งใหม่ตาม spec › Plot job ข้อ 4.
 
 **Why:** Qwen จริงตอบ `"acts": ["...", ...]` ทุกครั้งที่วัด (8/8) แม้ตัวอย่าง JSON ใน prompt จะเป็น object ต่อองก์ตามชื่อ จน Plot job ล้ม `write_failed` ทุกครั้ง ([record](../../progress/toon/bugs/2026-11-11-plot-job-write-failed-with-qwen.md)); อ่านข้อความเป็น summary ไม่เปลี่ยนสิ่งที่ spec สัญญา เหมือนที่ `llm_reply.json_object` อ่าน JSON ที่ขาด `}` ตัวท้าย (spoil-maker D61). auto mode เลือกตัวเลือกที่แนะนำ
 
@@ -1240,6 +1240,20 @@
 - รับเฉพาะ object แล้วแก้ prompt — prompt ที่แสดง object ต่อองก์ชัดแล้วยังได้ข้อความ 5/5
 
 **From:** /kiki-debug · **Status:** active
+
+## D82: prompt ของ Plot job ให้ `acts` หนึ่ง key ต่อองก์ และ log บอกว่าคำตอบผิดตรงไหน
+
+**Chosen:** ตัวอย่าง JSON ใน `writer.plot_prompt` แสดง `acts` เป็น object หนึ่ง key ต่อองก์ (`{"1. เปิด": "สรุปองก์ เปิด 1–3 ประโยค", …}`) และกฎ "acts มี N ช่องพอดี ช่องละหนึ่งองก์"; `parse_plot` อ่าน object ตามลำดับ key (ไม่ดูชื่อ key) และยังอ่าน list ของข้อความหรือ `{"summary"}` ตาม D81. คำตอบที่อ่านไม่ได้ของ Plot job และ Cards job เป็น `writer.Unusable(why)` แทน None; `steps.Qwen.answer` log `{งาน} attempt N is not the JSON asked for: {why}; it starts {ต้นคำตอบ 300 ตัวอักษร}` (`steps.REPLY_LOGGED`); ครั้งที่ timeout มีแค่บรรทัด timeout.
+
+**Why:** ticket 16: prompt เดิม Qwen จริงบน M1 ตอบ `acts` จำนวนผิด 5/20 (3–55 ช่อง: ช่องละประโยค ไม่ใช่ช่องละองก์, record ของ #35 › Run 4); prompt ที่มี key ต่อองก์ ได้ 4 ช่อง 20/20 และผ่าน `parse_plot` 20/20 ของ EP `e_14c37720` (35–51 วิ/ครั้ง). log เดิมบอกแค่ "not the JSON asked for" จึงต้องรัน Qwen ซ้ำเพื่อวินิจฉัย #35; 300 ตัวอักษรพอเห็น `title` และต้นของ `acts`. ตัดสินเองใน build (เรื่องใน feature, ผู้ใช้ไม่เห็น)
+
+**Rejected:**
+- ตัวอย่างเป็น list ข้อความหนึ่งช่องต่อองก์ตามชื่อ (`"slots"`) — วัดได้ครั้งเดียว (4 ช่อง) ก่อนหยุดเพราะ keyed ผ่านครบแล้ว
+- list ของ object ต่อองก์ตามชื่อ — วัดใน #35 › Run 3 ได้ 12 ช่อง 1/5
+- รวบประโยคที่เกินเป็นองก์ใน parser — 55 หรือ 25 ช่องไม่บอกว่าประโยคไหนเป็นองก์ไหน
+- log คำตอบทั้งหมด — ยาวถึง 4096 token ต่อครั้งท่วม `[api]`
+
+**From:** build ticket 16 · **Status:** active
 
 ## Sources
 

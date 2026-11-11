@@ -1,6 +1,6 @@
 """What the kinds of the Toon job share (toon spec › Toon job, ADR 0012, ADR 0015): `Work`, how
 the slot starts and runs one kind; `Run`, what a kind's steps ask of the slot; and the steps
-that talk to a child: Qwen writing (`Qwen`) or translating (`scenes`), klein drawing (`open_klein`, `draw`).
+that talk to a child: Qwen writing (`Qwen`) or translating (`scenes`), klein drawing (`open_klein`, `ask_klein`).
 
 A job holds the GPU slot as its kind's `gpu_kind` from start to end: `toon_write` for Qwen's
 writing, `toon_image` for a job that runs Qwen then klein, `toon_voice` for OmniVoice. Its
@@ -25,6 +25,7 @@ from backend.workers import Worker
 log = logging.getLogger(__name__)
 
 SEED_MAX = 2**31 - 1
+REPLY_LOGGED = 300  # letters of a reply that can't be used the log keeps, enough to see its shape
 
 T = TypeVar("T")
 
@@ -90,16 +91,24 @@ class Qwen:
         self._run, self._project = run, project
         self._model: Worker | None = None  # the running child
 
-    def answer(self, prompt: str, max_tokens: int, parse: Callable[[str], T | None], what: str) -> T | None:
+    def answer(self, prompt: str, max_tokens: int, parse: Callable[[str], T | writer.Unusable], what: str) -> T | None:
         """`parse` of Qwen's answer, asked up to `writer.ATTEMPTS` times; None when no answer
-        parsed. `what` names the ask in the log."""
+        parsed. `what` names the ask in the log, with why each answer didn't parse and its start."""
         request = Generate(prompt, None, max_tokens, writer.TEMPERATURE)
         for attempt in range(1, writer.ATTEMPTS + 1):
             reply = self.once(request, llm.timeouts().write)
-            parsed = parse(reply) if reply is not None else None
-            if parsed is not None:
+            if reply is None:
+                continue  # `once` logged the timeout
+            parsed = parse(reply)
+            if not isinstance(parsed, writer.Unusable):
                 return parsed
-            log.warning("%s attempt %d is not the JSON asked for", what, attempt)
+            log.warning(
+                "%s attempt %d is not the JSON asked for: %s; it starts %r",
+                what,
+                attempt,
+                parsed.why,
+                reply[:REPLY_LOGGED],
+            )
         return None
 
     def once(self, request: Generate, timeout: float) -> str | None:

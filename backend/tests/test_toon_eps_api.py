@@ -9,7 +9,7 @@ import pytest
 from backend import gpu
 from backend.paths import EpAddress
 from backend.spoil_maker import thai
-from backend.toon import store, writer
+from backend.toon import steps, store, writer
 from backend.toon.kinds import KINDS
 from backend.toon.series import DESCRIPTION_MAX
 from backend.toon.store import Audio, CardImage
@@ -165,6 +165,54 @@ def test_a_plot_answer_whose_acts_are_plain_summaries_is_read_as_one(client, llm
     assert [act["summary"] for act in ep["acts"]] == [f"สรุปองก์ {n}" for n in range(1, 5)]
 
 
+def test_a_plot_prompt_names_each_act_as_a_key_and_an_answer_by_act_name_is_read_in_the_answer_s_order(client, llm):
+    # The real Qwen fills one summary per key 20/20 times, where a list of acts came back 3 to 55 long (D82);
+    # the keys and the start of each summary are those of its answers to this prompt (ticket 16).
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.respond.__self__.plot["acts"] = {
+        "1. เปิด": "ฉันยืนเฝ้าห้องเรียนคืนสุดท้ายก่อนตึกจะถูกทุบทิ้ง",
+        "2. ปม": "ครูเอกผู้ตายไปแล้วเดินเข้ามาที่หน้าชั้นเรียน",
+        "3. หักมุม": "ครูเอกหันมาสบตาฉันด้วยรอยยิ้มที่ดูคุ้นเคย",
+        "4. จบหลอน": "ฉันสะดุ้งตื่นพบว่าตัวเองนอนหลับอยู่ที่โต๊ะ",
+    }
+
+    assert (run(client, "plot", ep_id)["state"], len(llm.requests)) == ("done", 1)
+
+    assert '"acts": {"1. เปิด": "สรุปองก์ เปิด 1–3 ประโยค", "2. ปม": "สรุปองก์ ปม 1–3 ประโยค",' in llm.requests[0].prompt
+    assert "acts มี 4 ช่องพอดี ช่องละหนึ่งองก์" in llm.requests[0].prompt
+    ep = client.get(f"/api/toon/eps/{ep_id}").json()
+    assert [act["summary"][:6] for act in ep["acts"]] == ["ฉันยืน", "ครูเอก", "ครูเอก", "ฉันสะด"]
+
+
+def test_a_plot_answer_the_way_the_real_qwen_writes_it_is_read(client, llm):
+    # Cut from a real Qwen answer of #35 (`bugs/2026-11-11-plot-job-write-failed-with-qwen.md`): its acts
+    # are plain summaries, and the Series' items it uses carry their name, tag and description with the id.
+    series_id, character, background = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    reply = (
+        '{\n  "title": "คาบสุดท้ายก่อนรื้อ",\n  "acts": [\n'
+        '    "คืนสุดท้ายที่ตึกโรงเรียนจะถูกทุบทำลาย ฉันนั่งเฝ้าห้องเรียนเก่าที่มืดมิดและเย็นเฉียบ",\n'
+        '    "เสียงกระดุกกระดิกจากประตูทำให้ฉันสะดุ้ง",\n'
+        '    "ครูเอกที่ตายไปแล้วกลับมาสอนคาบสุดท้าย",\n'
+        "    \"ครูเอกชี้ไปที่กระดานแล้วบอกว่า 'ตึกจะพัง' ก่อนที่ภาพจะจางหาย\"\n  ],\n"
+        f'  "characters": [\n    {{\n      "id": "{character}",\n      "name": "พีค",\n'
+        '      "tag": "นักเรียน",\n      "description": "นักเรียนมัธยมที่เฝ้าห้องเรียนคืนสุดท้าย"\n    }\n  ],\n'
+        f'  "backgrounds": [\n    {{\n      "id": "{background}",\n      "name": "กองไฟ",\n'
+        '      "description": "ห้องเรียนที่มืดสลัว"\n    },\n'
+        '    {\n      "name": "ทางเดินชั้นสอง",\n      "tag": "ทางเดิน",\n      "description": "ทางเดินยาวไฟกะพริบ"\n    }\n  ]\n}'
+    )
+    llm.respond = lambda request: reply
+
+    assert (run(client, "plot", ep_id)["state"], len(llm.requests)) == ("done", 1)
+
+    ep = client.get(f"/api/toon/eps/{ep_id}").json()
+    # Items of the Series come back by id alone: the name and description Qwen copied with it are dropped.
+    assert (ep["title"], ep["acts"][1]["summary"]) == ("คาบสุดท้ายก่อนรื้อ", "เสียงกระดุกกระดิกจากประตูทำให้ฉันสะดุ้ง")
+    assert [(c["id"], c["name"]) for c in ep["plot"]["characters"]] == [(character, "")]
+    assert [(b["id"], b["name"]) for b in ep["plot"]["backgrounds"]] == [(background, ""), (None, "ทางเดินชั้นสอง")]
+
+
 def test_a_plot_answer_drops_a_non_object_a_null_or_repeated_id_and_a_nameless_item_and_cleans_a_new_name(client, llm):
     series_id, character, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
@@ -197,6 +245,52 @@ def test_a_plot_job_whose_answer_is_broken_three_times_fails_write_failed(client
     assert gpu_holder() is None
 
 
+def test_a_plot_answer_with_too_many_acts_is_logged_with_the_counts_and_the_start_of_the_answer(client, llm, caplog):
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.respond.__self__.plot["acts"] = [f"ประโยคที่ {n} ของเรื่อง" for n in range(1, 13)]
+
+    assert run(client, "plot", ep_id)["state"] == "failed"
+
+    assert "plot attempt 3 is not the JSON asked for: 12 acts for the EP's 4;" in caplog.text
+    assert '{"title": "เสียงเรียกจากป่า", "acts": ["ประโยคที่ 1 ของเรื่อง"' in caplog.text
+
+
+def test_a_plot_answer_with_no_background_is_logged_with_what_the_plot_holds(client, llm, caplog):
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.respond.__self__.plot["backgrounds"] = [{"id": "b_00000000"}]  # not in the Series: dropped
+
+    assert run(client, "plot", ep_id)["state"] == "failed"
+
+    assert "is not the JSON asked for: 2 characters, 0 backgrounds once unknown ids are dropped" in caplog.text
+
+
+def test_an_unreadable_answer_is_logged_cut_to_its_first_letters(client, llm, caplog):
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    reply = "ขอโทษครับ " + "ก" * steps.REPLY_LOGGED
+    llm.respond = lambda request: reply
+
+    assert run(client, "plot", ep_id)["state"] == "failed"
+
+    assert f"plot attempt 1 is not the JSON asked for: no JSON object; it starts {reply[: steps.REPLY_LOGGED]!r}" in caplog.text
+    assert reply[: steps.REPLY_LOGGED + 1] not in caplog.text
+
+
+def test_a_cards_answer_with_no_card_three_times_fails_write_failed_and_is_logged(client, llm, caplog):
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    run(client, "plot", ep_id)
+    llm.respond.__self__.cards = lambda act: {"segments": [{"background": "b_unknown", "cards": []}]}
+
+    job = run(client, "cards", ep_id)
+
+    # The plot, then three tries of the first act.
+    assert (job["state"], job["error"]["code"], len(llm.requests)) == ("failed", "write_failed", 4)
+    assert "cards of act 1 attempt 3 is not the JSON asked for: no segment with a card;" in caplog.text
+
+
 def test_a_plot_job_whose_qwen_dies_while_loading_fails_crashed_and_frees_the_gpu(client, llm):
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
@@ -208,7 +302,7 @@ def test_a_plot_job_whose_qwen_dies_while_loading_fails_crashed_and_frees_the_gp
     assert gpu_holder() is None
 
 
-def test_a_plot_try_that_takes_too_long_stops_its_qwen_and_the_next_try_starts_another(client, llm, monkeypatch):
+def test_a_plot_try_that_takes_too_long_stops_its_qwen_and_the_next_try_starts_another(client, llm, monkeypatch, caplog):
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
     os_timeouts(monkeypatch, darwin=0.2, win32=0.2)
@@ -227,6 +321,7 @@ def test_a_plot_try_that_takes_too_long_stops_its_qwen_and_the_next_try_starts_a
     assert first.terminated  # stopped at the timeout
     assert not second.is_alive()  # the job's end stopped the one that answered
     assert gpu_holder() is None
+    assert "not the JSON asked for" not in caplog.text  # a try that took too long logs only that
 
 
 def test_a_plot_job_on_a_confirmed_plot_is_plot_confirmed(client, llm):
@@ -306,6 +401,33 @@ def test_the_first_cards_job_adds_the_new_items_to_the_series_and_their_cards_ha
     assert all(act["cards_from"] == act["summary"] for act in ep["acts"])
     assert {card["image_status"] for card in cards_of(ep)} == {"no_ref"}
     assert [(c["edited"], c["hold_s"]) for c in cards_of(ep)[:2]] == [(False, 0), (False, 2)]  # D21: silent holds 2 s
+
+
+def test_a_cards_answer_the_way_the_real_qwen_writes_it_is_read(client, llm):
+    # Cut from a real Qwen answer to the Cards prompt of e_14c37720's second act (ticket 16): pretty-printed,
+    # no code fence, a null sound, and the plot's characters by id.
+    series_id, character, background = with_series(client, llm)
+    llm.respond.__self__.plot |= {"characters": [{"id": character}], "backgrounds": [{"id": background}]}
+    ep_id = new_ep(client, series_id)["id"]
+    run(client, "plot", ep_id)
+    reply = (
+        f'{{\n  "segments": [\n    {{\n      "background": "{background}",\n      "sound": null,\n      "cards": [\n'
+        f'        {{\n          "text": "ครูเอกเดินเข้ามา",\n          "characters": [\n            "{character}"\n'
+        '          ],\n          "description": "ครูเอกยืนนิ่งตรงกลางห้อง แสงสลัวจากหน้าต่างทำให้ใบหน้าดูซีดจาง",\n'
+        '          "motion": "still",\n          "flicker": false\n        },\n'
+        '        {\n          "text": "ฉันจับหนังสือไว้",\n          "characters": [],\n'
+        '          "description": "มือฉันกำหนังสือแน่นจนเล็บจิกเข้าเนื้อ แสงในห้องเริ่มมืดลง",\n'
+        '          "motion": "zoom_in",\n          "flicker": true\n        }\n      ]\n    }\n  ]\n}'
+    )
+    llm.respond = lambda request: reply
+
+    assert (run(client, "cards", ep_id)["state"], len(llm.requests)) == ("done", 5)  # the plot, then one per act
+
+    # Every act got the same answer; the second is the act it was written for.
+    segment = client.get(f"/api/toon/eps/{ep_id}").json()["acts"][1]["segments"][0]
+    assert (segment["background_id"], segment["sound"]) == (background, None)
+    cards = [(c["text"], c["character_ids"], c["motion"], c["flicker"]) for c in segment["cards"]]
+    assert cards == [("ครูเอกเดินเข้ามา", [character], "still", False), ("ฉันจับหนังสือไว้", [], "zoom_in", True)]
 
 
 def test_a_card_answer_is_kept_to_two_characters_a_known_motion_and_a_sound_in_the_library(client, llm, project):

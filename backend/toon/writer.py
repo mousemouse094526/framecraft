@@ -2,10 +2,13 @@
 › Plot job, › Cards job, D5, D9, D12, D13, D21, D24, D30, D41).
 
 A reply is read the way the spoil-maker Draft job reads one: the JSON object in it, its text
-cleaned (`llm_reply.clean`). A reply that can't be used is None, and the job asks again.
+cleaned (`llm_reply.clean`). A reply that can't be used is `Unusable`, which says why for
+the log, and the job asks again.
 """
 
+import json
 from collections.abc import Collection
+from typing import NamedTuple
 
 from pydantic import BaseModel
 
@@ -25,6 +28,12 @@ class WrittenPlot(BaseModel):
     plot: Plot
 
 
+class Unusable(NamedTuple):
+    """A reply that can't be used, and why, as the log says it (ticket 16)."""
+
+    why: str
+
+
 class Known(BaseModel):
     """A character or background the prompt names, by the id the answer cites."""
 
@@ -34,8 +43,10 @@ class Known(BaseModel):
 
 
 def plot_prompt(cast: Series, idea: str, act_names: list[str], target_letters: int) -> str:
-    """Spec › Plot job step 2: the idea, the EP's acts, the Series' tone and its cast."""
-    acts = "\n".join(f"{n}. {name}" for n, name in enumerate(act_names, start=1))
+    """Spec › Plot job step 2: the idea, the EP's acts, the Series' tone and its cast. The answer's
+    `acts` shows one key per act, which the real Qwen fills one summary each (D82)."""
+    asked = {f"{n}. {name}": f"สรุปองก์ {name} 1–3 ประโยค" for n, name in enumerate(act_names, start=1)}
+    acts, answer_acts = "\n".join(asked), json.dumps(asked, ensure_ascii=False)
     return (
         "เขียนพล็อตของคลิปการ์ตูนเล่าเรื่องแนวตั้งหนึ่งตอน เป็นภาษาไทย\n"
         f"ไอเดีย: {idea}\n"
@@ -45,33 +56,43 @@ def plot_prompt(cast: Series, idea: str, act_names: list[str], target_letters: i
         f"ตัวละครที่มีอยู่แล้ว:\n{_lines(cast.characters)}\n"
         f"ฉากหลังที่มีอยู่แล้ว:\n{_lines(cast.backgrounds)}\n"
         "ใช้ตัวละครและฉากหลังที่มีอยู่แล้วด้วย id เมื่อเข้ากับเรื่อง; ต้องการของใหม่ให้ตั้งชื่อและบรรยายหน้าตาหรือสถานที่\n"
-        f"ตัวละครไม่เกิน 6, ฉากหลัง 1–6, สรุปองก์ละ 1–3 ประโยค เท่ากับจำนวนองก์\n"
+        f"ตัวละครไม่เกิน 6, ฉากหลัง 1–6, สรุปองก์ละ 1–3 ประโยค: acts มี {len(act_names)} ช่องพอดี ช่องละหนึ่งองก์\n"
         "ตอบเป็น JSON อย่างเดียว:\n"
-        '{"title": "ชื่อตอน", "acts": [{"summary": "..."}], '
+        f'{{"title": "ชื่อตอน", "acts": {answer_acts}, '
         '"characters": [{"id": "c_..."} | {"name": "...", "tag": "คำสั้น", "description": "..."}], '
         '"backgrounds": [{"id": "b_..."} | {"name": "...", "description": "..."}]}'
     )
 
 
-def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | None:
+def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | Unusable:
     """Spec › Plot job step 4: an answer with a title, one summary per act, at most 6 characters and 1–6
-    backgrounds once ids the Series lacks are dropped; None when it isn't one."""
+    backgrounds once ids the Series lacks are dropped; `Unusable` when it isn't one."""
     found = llm_reply.json_object(reply)
     if found is None:
-        return None
+        return Unusable("no JSON object")
     title = _cleaned(found.get("title"))[: episodes.TITLE_MAX]
+    if not title:
+        return Unusable("no title")
     acts = found.get("acts")
-    if not title or not isinstance(acts, list) or len(acts) != act_count:
-        return None
+    if isinstance(acts, dict):
+        # One key per act, as the prompt asks (D82): read in the answer's order; the keys' text isn't checked.
+        acts = list(acts.values())
+    if not isinstance(acts, list):
+        return Unusable("acts is neither a list nor an object")
+    if len(acts) != act_count:
+        return Unusable(f"{len(acts)} acts for the EP's {act_count}")
     summaries = [_cleaned(_summary(act)) for act in acts]
     if not all(summaries):
-        return None
-    by_kind = {item_kind: found.get(item_kind) for item_kind in KINDS}
-    if not all(value is None or isinstance(value, list) for value in by_kind.values()):
-        return None
-    plot = episodes.plot_of(cast, {item_kind: value or [] for item_kind, value in by_kind.items()}, from_qwen=True)
-    if not plot.backgrounds or episodes.over_max({item_kind: getattr(plot, item_kind) for item_kind in KINDS}):
-        return None
+        return Unusable(f"act {summaries.index('') + 1} has no summary")
+    answered = {item_kind: found.get(item_kind) for item_kind in KINDS}
+    for item_kind, value in answered.items():
+        if not (value is None or isinstance(value, list)):
+            return Unusable(f"{item_kind} is not a list")
+    plot = episodes.plot_of(cast, {item_kind: value or [] for item_kind, value in answered.items()}, from_qwen=True)
+    in_plot = {item_kind: getattr(plot, item_kind) for item_kind in KINDS}
+    if not plot.backgrounds or episodes.over_max(in_plot):
+        counts = ", ".join(f"{len(items)} {item_kind}" for item_kind, items in in_plot.items())
+        return Unusable(f"{counts} once unknown ids are dropped: out of bounds")
     return WrittenPlot(title=title, summaries=summaries, plot=plot)
 
 
@@ -111,13 +132,15 @@ def cards_prompt(
 
 def parse_cards(
     reply: str, background_ids: list[str], character_ids: set[str], sound_ids: set[str], taken: set[str]
-) -> list[Segment] | None:
-    """Spec › Cards job step 5: the act's segments, each kept to what the plot and the library have; None
-    when the reply isn't the JSON asked for or holds no card. New ids avoid `taken`."""
+) -> list[Segment] | Unusable:
+    """Spec › Cards job step 5: the act's segments, each kept to what the plot and the library have;
+    `Unusable` when the reply isn't the JSON asked for or holds no card. New ids avoid `taken`."""
     found = llm_reply.json_object(reply)
-    segments_found = found.get("segments") if found else None
+    if found is None:
+        return Unusable("no JSON object")
+    segments_found = found.get("segments")
     if not isinstance(segments_found, list):
-        return None
+        return Unusable("segments is not a list")
     segments: list[Segment] = []
     for item in segments_found:
         if not isinstance(item, dict):
@@ -134,7 +157,7 @@ def parse_cards(
             cards=cards,
         )
         segments.append(segment)
-    return segments or None
+    return segments or Unusable("no segment with a card")
 
 
 def known(plot: Plot, cast: Series) -> dict[ItemKind, list[Known]]:

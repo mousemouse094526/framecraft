@@ -116,7 +116,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
   - `voicing`: Voice job: แผน ขั้น และการเขียนเสียงเล่าของการ์ด (ผ่าน `speaking.Speaker`)
   - `sounds`: คลังเสียงพื้น, Sound import slot (ไฟล์ที่หน้าเว็บหายระหว่างแปลงไม่เข้าคลัง)
   - `render`: Render slot (D45), Render job; `compose`: timeline, ASS, filter graph
-  - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่เริ่มและจบทุก kind แบบเดียวกันจาก `WORK` ของ module ของ kind นั้น; `steps`: ส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, `open_klein` ที่เดียวที่เปิด klein, `draw`, D58, D61, D62)
+  - `jobs`: Toon job slot (ทุกงานยกเว้น render และ Sound import) ที่เริ่มและจบทุก kind แบบเดียวกันจาก `WORK` ของ module ของ kind นั้น; `steps`: ส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, `open_klein` ที่เดียวที่เปิด klein, `ask_klein`, `Qwen.answer` ที่ log คำตอบที่อ่านไม่ได้ (D82), D58, D61, D62)
 - **`backend.routes`**
   - router ใหม่ `toon` prefix `/toon`
 - **`NOTICE.md`**
@@ -347,8 +347,8 @@ media/toon/
 
 1. เช็ค: EP มีอยู่ (`404` `not_found`); `idea` 1–500 ตัวอักษร (`400` `invalid_request`); Saved voice ของ EP มีอยู่ (`400` `voice_not_found`); EP `stage` `cards` ต้องผ่าน Cards job แทน (`409` `plot_confirmed`); แถว Status check; `busy`, `gpu_busy`
 2. state `writing`: Qwen ร่างพล็อตจาก `idea`, ชื่อองก์ของ EP, `tone` ของ Series, ตัวละครและฉากหลังใน Series (`id`, ชื่อ, คำอธิบาย), ความยาวเป้า 90 วินาที × `chars_per_s`
-3. คำตอบ JSON: `{"title": "...", "acts": [{"summary": "..."}], "characters": [{"id": "c_01"} | {"name": "...", "tag": "...", "description": "..."}], "backgrounds": [{"id": "b_01"} | {"name": "...", "description": "..."}]}`
-4. ตรวจผล: JSON อ่านได้, `acts` ยาวเท่าองก์ของ EP (act ที่เป็นข้อความคือ `summary` ขององก์นั้น, D81), ตัวละครไม่เกิน 6, ฉากหลัง 1–6; `id` ที่ไม่มีใน Series ถูกทิ้ง; ไม่ผ่านสั่งใหม่รวม 3 ครั้งแบบ Draft job ของ spoil-maker (ค่าการสร้าง: `temperature` 0.3, thinking ปิด, timeout `llm.timeouts().write`); ครบ 3 ครั้ง → `failed` `write_failed`
+3. คำตอบ JSON: `{"title": "...", "acts": {"1. {ชื่อองก์}": "..."}, "characters": [{"id": "c_01"} | {"name": "...", "tag": "...", "description": "..."}], "backgrounds": [{"id": "b_01"} | {"name": "...", "description": "..."}]}`
+4. ตรวจผล: JSON อ่านได้, `acts` ยาวเท่าองก์ของ EP (object อ่านตามลำดับ key, D82; list ของข้อความหรือ `{"summary"}` ก็อ่าน, D81), ตัวละครไม่เกิน 6, ฉากหลัง 1–6; `id` ที่ไม่มีใน Series ถูกทิ้ง; ไม่ผ่านสั่งใหม่รวม 3 ครั้งแบบ Draft job ของ spoil-maker (ค่าการสร้าง: `temperature` 0.3, thinking ปิด, timeout `llm.timeouts().write`); ครบ 3 ครั้ง → `failed` `write_failed`; คำตอบที่ไม่ผ่านทุกครั้ง log เหตุและต้นคำตอบ (D82)
 5. ทำความสะอาดข้อความแบบ spoil-maker Draft job ข้อ 4; เขียน `title`, `summary` ทุกองก์, `plot` (ของใหม่เก็บใน `plot` ด้วย `name`, `tag`, `description` และ `new: true` ยังไม่เข้า Series)
 
 ผู้ใช้แก้ `title`, `summary`, และสลับของใหม่ใน `plot` ไปเป็น `id` ของเดิมได้ (D13); `plot` ต้องเหลือฉากหลังอย่างน้อยหนึ่งไม่งั้น `400` `invalid_request`.
@@ -361,7 +361,7 @@ media/toon/
 2. ครั้งแรก: ของ `new: true` ใน `plot` เข้า Series ตอนนี้ ได้ `id` และ `ref_rev` 0 (D13)
 3. state `writing` (`done` / `total` องก์): ต่อองก์ Qwen ได้ `summary` ขององก์นั้น สรุปขององก์ก่อนและหลังเป็นบริบท, `tone`, ตัวละครและฉากหลังของ `plot`, ชื่อเสียงในคลังเสียงพื้น, ความยาวเป้าขององก์ = เป้า 90 วินาที หารจำนวนองก์
 4. คำตอบ JSON: `{"segments": [{"background": "b_01", "sound": "m_01" | null, "cards": [{"text": "...", "characters": ["c_01"], "description": "...", "motion": "zoom_in", "flicker": false}]}]}`
-5. ตรวจผล: `background` ต้องอยู่ใน `plot` ไม่งั้นใช้ฉากหลังแรกของ `plot`; `characters` ที่ไม่อยู่ใน `plot` ถูกทิ้ง เก็บแค่ 2 ตัวแรก (D30); `motion` นอกรายการ → `still`; `sound` ที่ไม่มีในคลัง → `null`; ความดังตั้งต้น 30; การ์ดเงียบได้ `hold_s` 2 (D21); องก์ที่ไม่ได้การ์ดเลยหลังสั่งรวม 3 ครั้ง → `failed` `write_failed` และ EP ไม่เปลี่ยน
+5. ตรวจผล: `background` ต้องอยู่ใน `plot` ไม่งั้นใช้ฉากหลังแรกของ `plot`; `characters` ที่ไม่อยู่ใน `plot` ถูกทิ้ง เก็บแค่ 2 ตัวแรก (D30); `motion` นอกรายการ → `still`; `sound` ที่ไม่มีในคลัง → `null`; ความดังตั้งต้น 30; การ์ดเงียบได้ `hold_s` 2 (D21); องก์ที่ไม่ได้การ์ดเลยหลังสั่งรวม 3 ครั้ง → `failed` `write_failed` และ EP ไม่เปลี่ยน; คำตอบที่ไม่ผ่าน log เหตุและต้นคำตอบแบบ Plot job (D82)
 6. เขียนทุกองก์ที่แตกในครั้งเดียว: ช่วงและการ์ดเดิมขององก์นั้นถูกแทน ลบไฟล์ภาพและเสียงของการ์ดเดิม (D15); `cards_from` = `summary`; `stage` `cards`
 
 ยกเลิกหรือ crash: EP ไม่เปลี่ยน.

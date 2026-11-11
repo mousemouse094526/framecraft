@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** #35 แก้แล้ว (Plot job อ่าน `acts` ที่เป็นข้อความ, D81; Qwen จริงผ่าน 15/20 ครั้ง) และตัด ticket 16 จาก Prevention; Blocked ที่ยัง open — #11, #12, #34 (owner เช็คมือ/วัดซ้ำหลัง restart), #33 (รอจับถ้าค้างอีก), #36 (`gpu.ADVICE` ต่อท้าย error ของโค้ด), #37 (pool ของ MPS ใน EP ยาว)
+**Now:** ticket ครบ 16/16 (16: prompt key ต่อองก์ Qwen จริง 20/20, D82); รอ feature review; Blocked ที่ยัง open — #11, #12, #34 (owner เช็คมือ/วัดซ้ำหลัง restart), #33 (รอจับถ้าค้างอีก), #36 (`gpu.ADVICE` ต่อท้าย error ของโค้ด), #37 (pool ของ MPS ใน EP ยาว)
 
 **Next:**
 
 ```
-/warroom-build toon 16
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -27,9 +27,36 @@
 | 13 | คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย | done |
 | 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | done |
 | 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | done |
-| 16 | Plot job ที่ผ่านกับ Qwen จริงเกือบทุกครั้ง และ log ที่บอกว่าคำตอบผิดตรงไหน | ready-for-agent |
+| 16 | Plot job ที่ผ่านกับ Qwen จริงเกือบทุกครั้ง และ log ที่บอกว่าคำตอบผิดตรงไหน | done |
 
 ## Log
+
+### 16: Plot job ที่ผ่านกับ Qwen จริงเกือบทุกครั้ง และ log ที่บอกว่าคำตอบผิดตรงไหน — done 2026-11-11
+
+**Built:**
+- `writer.plot_prompt`: ตัวอย่าง `acts` เป็น object หนึ่ง key ต่อองก์ (`{"1. เปิด": "สรุปองก์ เปิด 1–3 ประโยค", …}`) + "acts มี N ช่องพอดี ช่องละหนึ่งองก์"; `parse_plot` อ่าน object ตามลำดับ key, list ตาม D81 เดิม
+- `writer.Unusable(why)` แทน None ของ `parse_plot`/`parse_cards`; `steps.Qwen.answer` log `{งาน} attempt N is not the JSON asked for: {why}; it starts {300 ตัวอักษรแรก}` (`steps.REPLY_LOGGED`); ครั้งที่ timeout มีแค่บรรทัด timeout
+- test: คำตอบจริงของ Qwen ที่ย่อ — Plot ของ #35 (`acts` ข้อความ, ของเดิมมี `name`/`tag`/`description` ติด `id`), Plot แบบ key ต่อองก์ของรอบนี้, Cards องก์ 2 ของ `e_14c37720` (ไม่มี code fence, `sound` null); log ของจำนวนองก์ผิด, คำตอบที่ไม่ใช่ JSON ตัดที่ 300, Cards ที่ไม่มีการ์ด `write_failed`
+- spec › Plot job ข้อ 3–4, › Cards job ข้อ 5, Seams ของ `steps` (`draw` → `ask_klein` ที่ค้างจาก review รอบเจ็ด)
+
+**Qwen จริงบน M1** (prompt ของ `e_14c37720` ตรงตัวกับที่โค้ดสร้าง, process เดียว ไม่ผ่าน backend, script ใน scratchpad ไม่ commit):
+
+| prompt | ครั้ง | `acts` 4 ช่อง | ผ่าน `parse_plot` | เวลา |
+|---|---|---|---|---|
+| เดิม (#35 › Run 4) | 20 | 15 | 15 | 31–125 วิ |
+| key ต่อองก์ (ใหม่) | 20 | 20 | 20 | 35–51 วิ |
+| list ข้อความตามชื่อองก์ | 1 (หยุด: key ผ่านครบแล้ว) | 1 | — | 42 วิ |
+
+Cards prompt 4 องก์ (plot จากคำตอบ key ครั้งแรก): ผ่าน `parse_cards` 4/4, 22–31 วิ
+
+**Decided:**
+- D82 — prompt key ต่อองก์, `Unusable` และ log 300 ตัวอักษร; D81 "prompt คงเดิม" → เปลี่ยนใน D82
+
+**For the next ticket:**
+- `steps.scenes` ยังได้ None จาก `prompts.parse_scene` และ log แค่ "no scene from Qwen" (ไม่มีเหตุหรือต้นคำตอบ) — ทำแบบ `Unusable` ถ้าแปลคำบรรยายพังอีก
+- Cards จริงได้แค่ 2–3 การ์ดต่อองก์ (เป้าราว 270 ตัวอักษรต่อองก์ ได้ ~40–90): คลิปจะสั้นกว่า 90 วิมาก — ยังไม่ได้วัดทั้ง EP; ถ้าเจอตอนเช็คมือ #11 → `/warroom toon`
+
+**Checks:** `uv run pytest` 1117 passed (+8); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 442 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `ebb0d57`: Standards 0 ข้อ + smell 8 (แก้: `Unread` → `Unusable`, `by_kind`/`by_kind_read` → `answered`/`in_plot`, `plot_prompt` สร้าง key ครั้งเดียว, docstring ของ module; ไม่แก้: `__self__` ของ fake (แบบเดิมทั้งไฟล์), log ข้อความตรงใน test (D82 ตรึงรูป), `scenes` ยังใช้ None → For the next ticket), Spec 9 (แก้: plot ตั้งต้นของ fake เป็นรูป key, test ไม่มีฉากหลัง, timeout ไม่ log ซ้ำ, record #35 › Prevention ชี้ D82 และ test, ticket จดว่าคำตอบ Cards มาจากรอบนี้; ไม่แก้: test ที่ตรึงข้อความ prompt (ตั้งใจ), `REPLY_LOGGED` ใน test, `draw` → `ask_klein` ใน docs เป็นของค้าง D80), Newcomer สรุปตรง What to build + เดา 9 จุด (แก้: คอมเมนต์ key ไม่ถูกเช็ค, ชื่อ test, เหตุ "out of bounds", คอมเมนต์จำนวนคำขอ, ชื่อที่ทิ้งของ id เดิม, องก์ใน test Cards; ไม่แก้: D82 ชนเลขของ spoil-maker (เลขต่อ feature), `NamedTuple` ฟิลด์เดียว)
 
 ### Feature review (รอบเจ็ด) — done 2026-11-11
 

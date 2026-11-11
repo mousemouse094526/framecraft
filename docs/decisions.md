@@ -357,4 +357,5 @@ question; the full entry is in the feature's decisions.md.
 | ไฟล์ Python ใน `scripts/` เป็นเครื่องมือที่รันด้วยมือ: standard library, ไม่มี backend import, กติกา Python ของ library-notes; ข้อใน SKILL.md แทน rules file | [toon](features/toon/decisions.md) | D78 | — | — | active |
 | klein วาด 768×432 / 432×768 (ขั้น 3 ของ D74, ข้ามขั้น 2); ภาพเดิม 1024 ใช้ต่อ; pool ของ MPS driver ไต่ทีละภาพ `gc.collect()` ไม่ช่วย | [toon](features/toon/decisions.md) | D79 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
 | feature review รอบเจ็ดของ toon: `steps.ask_klein`, `start_child` รอข้อความแรกเสมอ (klein แค่ `track`), test ช่อง GPU ผ่าน `gpu_refusal`, spec ของ torch เป็น `torch.save` bytes | [toon](features/toon/decisions.md) | D80 | — | — | active |
-| Plot job อ่าน `acts` ที่เป็นข้อความเป็น `summary` ขององก์ (Qwen จริงตอบแบบนี้เสมอ); prompt คงเดิม | [toon](features/toon/decisions.md) | D81 | — | — | active |
+| Plot job อ่าน `acts` ที่เป็นข้อความเป็น `summary` ขององก์ (Qwen จริงตอบแบบนี้เสมอ); prompt เปลี่ยนใน D82 | [toon](features/toon/decisions.md) | D81 | — | — | active |
+| prompt ของ Plot job ให้ `acts` หนึ่ง key ต่อองก์ (Qwen จริง 20/20); คำตอบที่อ่านไม่ได้ของ Plot/Cards เป็น `writer.Unusable` และ log เหตุกับต้นคำตอบ 300 ตัวอักษร | [toon](features/toon/decisions.md) | D82 | — | — | active |

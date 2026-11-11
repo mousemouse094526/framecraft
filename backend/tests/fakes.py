@@ -970,7 +970,8 @@ def with_series(client, llm) -> tuple[str, str, str]:
     background = client.post(f"{TOON_SERIES}/{series_id}/backgrounds", json={"name": "กองไฟ"}).json()["backgrounds"][0]["id"]
     llm.respond.__self__.plot = {
         "title": "เสียงเรียกจากป่า",
-        "acts": [{"summary": f"สรุปองก์ {n}"} for n in range(1, 5)],
+        # One key per act, the way the real Qwen answers the prompt (toon D82).
+        "acts": {f"{n}. {name}": f"สรุปองก์ {n}" for n, name in enumerate(["เปิด", "ปม", "หักมุม", "จบหลอน"], start=1)},
         "characters": [{"id": character}, {"id": "c_00000000"}, {"name": "ลุงยาม", "tag": "", "description": "ชายแก่"}],
         "backgrounds": [{"name": "ห้องน้ำชั้นสาม", "description": "ห้องน้ำมืด"}],
     }

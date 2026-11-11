@@ -72,8 +72,8 @@ Plot job กับ Qwen จริงบน M1 ล้ม `write_failed` สอง
 
 **Prevention:**
 - parser รับรูปที่ Qwen จริงตอบ (เอาอันตรายออก) — D81, `test_a_plot_answer_whose_acts_are_plain_summaries_is_read_as_one`
-- log เหตุและต้นของคำตอบที่อ่านไม่ได้ เพื่อให้ครั้งหน้าวินิจฉัยจาก log ได้ — ticket 16
-- fixture ของ fake llm จากคำตอบจริงของ Qwen (`acts` เป็นข้อความ) — ticket 16
-- ลดจำนวนองก์ผิด (H2, 7/28 ครั้ง ≈ 1.6% ต่องาน) — ticket 16 (auto mode เลือกตัวเลือกที่แนะนำ)
+- log เหตุและต้นของคำตอบที่อ่านไม่ได้ เพื่อให้ครั้งหน้าวินิจฉัยจาก log ได้ — ticket 16, D82 (`writer.Unusable`, `steps.REPLY_LOGGED`)
+- fixture ของ fake llm จากคำตอบจริงของ Qwen (`acts` เป็นข้อความ) — ticket 16: `test_a_plot_answer_the_way_the_real_qwen_writes_it_is_read`, `test_a_cards_answer_the_way_the_real_qwen_writes_it_is_read`; plot ตั้งต้นของ `fakes.Writer` เป็นรูป key ต่อองก์
+- ลดจำนวนองก์ผิด (H2, 7/28 ครั้ง ≈ 1.6% ต่องาน) — ticket 16 (auto mode เลือกตัวเลือกที่แนะนำ): prompt key ต่อองก์ (D82), Qwen จริง 20/20
 
 **What helped:** เรียก `spoil_maker.llm.load`/`generate` ตรงใน process เดียว ไม่ผ่าน backend ทำให้เห็นคำตอบดิบใน ~45 วิ; เก็บคำตอบเป็นไฟล์แล้วเช็คด้วย `which.py` ทำให้ลอง knob ได้ทันทีโดยไม่รัน Qwen ซ้ำ. ช้า: log เดิมไม่เก็บคำตอบ
