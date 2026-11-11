@@ -103,7 +103,7 @@ def test_a_character_s_prompt_holds_qwen_s_scene_and_the_series_style_and_three_
     assert encode.prompts[0].startswith("Full body, front view, standing, plain light gray background. A boy with short")
     assert "dark night scene" in encode.prompts[0]
     assert [type(draw) for draw in draws] == [Draw, Draw, Draw]
-    assert {(draw.width, draw.height, tuple(draw.ref_paths)) for draw in draws} == {(576, 1024, ())}
+    assert {(draw.width, draw.height, tuple(draw.ref_paths)) for draw in draws} == {(432, 768, ())}
     assert len({draw.seed for draw in draws}) == 3
 
 
@@ -113,7 +113,7 @@ def test_a_background_is_drawn_at_the_series_card_size(client, klein):
 
     assert start_ref(client, series_id, item_id, "backgrounds").status_code == 202
     assert wait_for_toon_job(client)["state"] == "done"
-    assert (klein.draws()[0].width, klein.draws()[0].height) == (576, 1024)
+    assert (klein.draws()[0].width, klein.draws()[0].height) == (432, 768)
 
 
 def test_qwen_s_unreadable_answer_puts_the_description_in_as_written(client, llm, klein):
@@ -354,7 +354,7 @@ def test_a_square_background_in_a_frame_series_becomes_a_card(client):
 
     assert response.json()["backgrounds"][0]["ref_rev"] == 1
     picture = client.get(f"{TOON_SERIES}/{series_id}/backgrounds/{item_id}/ref").content
-    assert Image.open(io.BytesIO(picture)).size == (1024, 576)
+    assert Image.open(io.BytesIO(picture)).size == (768, 432)
 
 
 def test_a_big_character_keeps_its_shape_with_the_long_side_at_1536(client):

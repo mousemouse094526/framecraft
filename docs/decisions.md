@@ -307,13 +307,13 @@ question; the full entry is in the feature's decisions.md.
 | สไตล์ภาพของ Series เป็นข้อความอังกฤษช่องเดียวต่อท้ายทุกคำสั่งภาพ; สไตล์ตั้งต้น "หลอนมืด" / "ตลกสว่าง"; ไม่มีภาพตัวอย่างสไตล์ | [toon](features/toon/decisions.md) | D28 | — | — | active |
 | ภาพการ์ดสร้างครั้งเดียวด้วย klein โดยส่งภาพฉากหลังคู่ภาพตัวละครเป็นภาพอ้างอิง; ไม่ตัดพื้นไม่ซ้อนภาพ | [toon](features/toon/decisions.md) | D29 | — | [0031](adr/0031-consistency-by-reference-images.md) | active |
 | ตัวละครในภาพการ์ด 0–2 ตัว (ภาพอ้างอิงต่อการ์ดสูงสุด 3) | [toon](features/toon/decisions.md) | D30 | — | — | active |
-| ภาพอ้างอิงหนึ่งภาพต่อตัวละคร (เต็มตัว หน้าตรง พื้นเรียบ) หรือฉากหลัง (ไม่มีคน); สร้าง 3 แบบให้เลือก หรือเอาไฟล์ PNG/JPG เข้า | [toon](features/toon/decisions.md) | D31 | — | [0031](adr/0031-consistency-by-reference-images.md) | changed by toon D49 |
+| ภาพอ้างอิงหนึ่งภาพต่อตัวละคร (เต็มตัว หน้าตรง พื้นเรียบ) หรือฉากหลัง (ไม่มีคน); สร้าง 3 แบบให้เลือก หรือเอาไฟล์ PNG/JPG เข้า | [toon](features/toon/decisions.md) | D31 | — | [0031](adr/0031-consistency-by-reference-images.md) | changed by toon D49, D79 |
 | เปลี่ยนภาพอ้างอิงได้เสมอ; ภาพการ์ดเดิมคงอยู่พร้อมป้าย "ภาพอ้างอิงเปลี่ยน" | [toon](features/toon/decisions.md) | D32 | — | [0034](adr/0034-derived-media-records-inputs.md) | changed by toon D44 |
 | การ์ดละหนึ่งภาพ; ปุ่มสร้างทีละการ์ด + "สร้างภาพที่ขาดทั้งหมด" เป็นงานเดียวหยุดได้; เก็บภาพก่อนหน้าหนึ่งภาพให้สลับกลับ | [toon](features/toon/decisions.md) | D33 | — | — | active |
 | klein บน Mac: transformer GGUF Q8_0 (unsloth) + text encoder/vae จาก repo BFL pin commit; แยกขั้น encode → ปล่อย → transformer; เพิ่ม `diffusers`, `gguf` | [toon](features/toon/decisions.md) | D34 | — | [0036](adr/0036-klein-within-whole-mac.md) | changed by toon D49 |
 | klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda; เช็คเครื่องจริงและ VRAM ขั้นต่ำใน windows-check | [toon](features/toon/decisions.md) | D35 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
 | คำสั่งภาพ: Qwen แปลคำบรรยายภาพเป็นอังกฤษตอนเริ่มงานภาพ แอปต่อแม่แบบ (ตัวละคร↔ภาพอ้างอิง N, ฉากหลัง, สไตล์, ห้ามตัวหนังสือ) | [toon](features/toon/decisions.md) | D36 | — | — | active |
-| ภาพการ์ดขนาดเท่าภาพฉากหลัง (1024×576 / 576×1024) ขยายด้วย lanczos ตอน render | [toon](features/toon/decisions.md) | D37 | — | — | active |
+| ภาพการ์ดขนาดเท่าภาพฉากหลัง (1024×576 / 576×1024) ขยายด้วย lanczos ตอน render | [toon](features/toon/decisions.md) | D37 | — | — | changed by toon D79 |
 | render สร้างเสียงเล่าที่ขาดหรือไม่ตรงให้ก่อน แบบ spoil-maker D30 | [toon](features/toon/decisions.md) | D38 | — | — | active |
 | เสียงในคลังเสียงพื้นแปลงเป็น m4a (aac) ตอนเอาเข้า ทั้งไฟล์และลิงก์ | [toon](features/toon/decisions.md) | D39 | — | — | active |
 | เลข EP ใหม่ = เลขสูงสุดที่ Series เคยมี + 1; แก้เลขเองได้ ไม่ซ้ำใน Series | [toon](features/toon/decisions.md) | D40 | — | — | active |
@@ -355,3 +355,4 @@ question; the full entry is in the feature's decisions.md.
 | log ของ backend (logger `backend` INFO พร้อมเวลา) ใน `[api]`; `kill -USR1` พิมพ์ stack ของ backend และ klein; klein พิมพ์ stack เองเมื่อ request เกิน 600 วิ | [toon](features/toon/decisions.md) | D76 | — | — | active |
 | klein encode ใน process ลูกของตัวเองที่จบก่อน process ที่วาดเริ่ม (`start_encoder`, `Load`/`Loaded`), embeddings เป็น `torch.save` bytes ผ่าน backend, `start_child(worker, None)`, `start_drawer` | [toon](features/toon/decisions.md) | D77 | — | [0012](adr/0012-gpu-jobs-in-child-process.md), [0036](adr/0036-klein-within-whole-mac.md) | active |
 | ไฟล์ Python ใน `scripts/` เป็นเครื่องมือที่รันด้วยมือ: standard library, ไม่มี backend import, กติกา Python ของ library-notes; ข้อใน SKILL.md แทน rules file | [toon](features/toon/decisions.md) | D78 | — | — | active |
+| klein วาด 768×432 / 432×768 (ขั้น 3 ของ D74, ข้ามขั้น 2); ภาพเดิม 1024 ใช้ต่อ; pool ของ MPS driver ไต่ทีละภาพ `gc.collect()` ไม่ช่วย | [toon](features/toon/decisions.md) | D79 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |

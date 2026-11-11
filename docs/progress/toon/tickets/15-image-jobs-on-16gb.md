@@ -10,7 +10,7 @@
 - Seams: 1 (klein ปลอมเงียบ)
 - Blocked: #32
 
-**Status:** in-progress
+**Status:** done
 
 ## Acceptance criteria
 

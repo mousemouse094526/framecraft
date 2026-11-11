@@ -63,7 +63,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 - คลิปที่ render ยาวเท่าผลรวมความยาวการ์ด (±0.1 วินาที) และ `ffmpeg -i` อ่านได้ h264 1080×1920 30 fps กับ aac (ไม่มี ffprobe, ADR-0005).
 - ทุกการ์ดในคลิปเป็นภาพการ์ดปัจจุบันของการ์ดนั้นตามลำดับ.
 - ปิด backend ระหว่าง "สร้างภาพที่ขาดทั้งหมด" แล้วเปิดใหม่: ภาพที่เสร็จก่อนปิดยังอยู่ กดใหม่สร้างเฉพาะที่เหลือ.
-- งานภาพบน M1 16 GB: peak `torch.mps.driver_allocated_memory()` ของ process ลูก klein ไม่เกิน 12 GB ที่กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพติดกันใน process เดียว, seed และคำสั่งตายตัว, ปิดแอปอื่น) และภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2 (D49).
+- งานภาพบน M1 16 GB: peak `torch.mps.driver_allocated_memory()` ของ process ลูก klein ไม่เกิน 12 GB ที่กรณีหนักสุด (432×768 ตั้งแต่ D79, 3 ภาพอ้างอิง, 5 ภาพติดกันใน process เดียว, seed และคำสั่งตายตัว, ปิดแอปอื่น) และภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2 (D49).
 - งานภาพบน M1 16 GB ทั้งเครื่อง (หลัง restart เครื่อง, เปิดแค่ `npm run dev` (backend และ Vite) กับหน้าเว็บของแอปหนึ่ง tab): Ref job 3 ครั้งติดกัน, Image job กรณีหนักสุดข้างบน และ `scope: missing` 20 การ์ด ใช้ swap (`sysctl vm.swapusage`) เพิ่มจากก่อนเริ่มไม่เกิน 1 GB, `memory_pressure` ไม่ถึง critical, ทุกงาน `done` โดยไม่มี `failed_cards` และไม่ timeout, และเวลาต่อภาพไม่เกิน 1.5 เท่าของ trial ที่ภาพอ้างอิงเท่ากัน (0 = 89.6, 1 = 110.4, 2 = 145.1, 3 = 252.5 วิ) (D74).
 - Ref job และ Image job ไม่ค้าง: เหตุของงานค้างใน Blocked #32 มี bug record และ regression test (D75).
 - ลองด้วยมือ: ตัวละครหนึ่งตัวใน ~5 การ์ดของ EP แรกและ EP ที่สอง ดูด้วยตาว่าหน้าเหมือนภาพอ้างอิง จดผลใน `progress.md` (แบบ trial-klein-mac).
@@ -383,7 +383,7 @@ media/toon/
 - คำบรรยายภาพว่าง → ใช้ค่าในข้อก่อนโดยไม่ถาม Qwen
 - ภาพอ้างอิงย่อด้านยาว ≤ 512 px ตอนส่งเข้า klein (D49, เดิม 768 ของ D31); ไฟล์ที่เก็บคงขนาดเดิม ย่อเฉพาะตอนส่ง
 - `torch.mps.empty_cache()` หลังทุกภาพ (`cuda`: `torch.cuda.empty_cache()`) (D49)
-- ขนาด: ภาพการ์ดและฉากหลัง 1024×576 (`frame`) หรือ 576×1024 (`full`) (D31, D37); ตัวละคร 576×1024 เสมอ
+- ขนาด: ภาพการ์ดและฉากหลัง 768×432 (`frame`) หรือ 432×768 (`full`) (D31, D37, D79); ตัวละคร 432×768 เสมอ; ภาพที่สร้างก่อน D79 ที่ 1024×576 / 576×1024 ใช้ต่อได้ render ขยายทุกขนาด
 - seed สุ่มต่อภาพ เก็บในชื่อไฟล์
 
 ### Ref job
@@ -523,7 +523,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 1. **API การ์ตูนเล่า** `/api/toon/*` กับ `FakeLlm`, `FakeTts`, klein ปลอม
    - สร้าง Series `horror` → `acts`, `style`, `tone` ตามตารางค่าตั้งต้น
    - ลบ Series ไม่มี `confirm_eps` → `409` `confirm_needed` พร้อม `eps`; ระหว่าง Image job ของ Series → `409` `series_busy`; ยืนยันแล้ว folder หาย Saved voice และเสียงพื้นอยู่
-   - Ref job → `pending` 3; `ref/pick {"n": 2}` → `ref_rev` +1 และ `.pending` หาย; pick ซ้ำ → `404` `no_pending`; upload ไฟล์ข้อความ → `400` `unsupported_file`; upload PNG ฉากหลัง 800×800 → ภาพอ้างอิง 1024×576
+   - Ref job → `pending` 3; `ref/pick {"n": 2}` → `ref_rev` +1 และ `.pending` หาย; pick ซ้ำ → `404` `no_pending`; upload ไฟล์ข้อความ → `400` `unsupported_file`; upload PNG ฉากหลัง 800×800 → ภาพอ้างอิง 768×432
    - Plot job → EP มี `title`, `summary` ทุกองก์; ของใหม่อยู่ใน `plot` ไม่อยู่ใน Series
    - Cards job ครั้งแรก → ของใหม่เข้า Series `ref_rev` 0; การ์ดที่ใช้มันเป็น `no_ref`
    - แก้ `summary` หนึ่งองก์ → Cards job แตกเฉพาะองก์นั้น การ์ดองก์อื่น id และภาพเดิม; องก์นั้นมีการ์ดที่มีภาพและไม่ยืนยัน → `409` `cards_will_be_lost` พร้อมจำนวน

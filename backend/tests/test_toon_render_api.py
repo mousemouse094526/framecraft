@@ -15,6 +15,7 @@ from backend import app as app_module
 from backend import ffmpeg, gpu
 from backend.paths import EpAddress
 from backend.toon import render, sounds
+from backend.toon.kinds import CARD_SIZE
 from backend.toon.store import CardImage
 
 from .fakes import (
@@ -53,10 +54,13 @@ def renderer(monkeypatch) -> FakeFfmpeg:
     return fake
 
 
-def three_cards(client, llm, project, layout: str = "frame", channel_name: str = "รุ่นพี่เล่าว่า", sounds=(None, None)):
+def three_cards(
+    client, llm, project, layout: str = "frame", channel_name: str = "รุ่นพี่เล่าว่า", sounds=(None, None), size: tuple[int, int] | None = None
+):
     """A one-act Series with a character and a background, and an EP of three cards over two
     segments: the character speaks, a silent card holds 2 s, the character speaks again. Each
-    card's picture is a solid colour of `COLOURS`; no card has narration yet."""
+    card's picture is a solid colour of `COLOURS`, `size` or the layout's `CARD_SIZE`; no card
+    has narration yet."""
     series_id = new_series(client, layout=layout, channel_name=channel_name, acts=["เปิด"])["id"]
     character = item_with_ref(client, series_id, "characters", "พีค")
     client.patch(f"/api/toon/series/{series_id}/characters/{character}", json={"tag": "สายแฟ"})
@@ -81,7 +85,7 @@ def three_cards(client, llm, project, layout: str = "frame", channel_name: str =
     ep_id = new_ep(client, series_id)["id"]
     assert run(client, "plot", ep_id)["state"] == "done"
     assert run(client, "cards", ep_id)["state"] == "done"
-    size = (1024, 576) if layout == "frame" else (576, 1024)
+    size = size or CARD_SIZE[layout]
     refs = {character: 1, background: 1}
     folder = EpAddress(project, series_id, ep_id).images_dir
     folder.mkdir(parents=True, exist_ok=True)
@@ -145,6 +149,16 @@ def test_a_frame_render_of_three_cards_is_1080x1920_30fps_h264_aac_as_long_as_it
     names = sorted(path.name for path in mp4.parent.iterdir())
     assert names == [f"{job['name']}{suffix}" for suffix in (".json", ".mp4", ".srt")]
     assert "คืนนั้นเราตั้งแคมป์" in (mp4.parent / f"{job['name']}.srt").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(("layout", "size"), [("frame", (1024, 576)), ("full", (576, 1024))])
+def test_cards_drawn_at_the_older_1024_size_still_render(client, llm, project, tts, layout, size):
+    series_id, ep = three_cards(client, llm, project, layout=layout, size=size)
+    job = rendered(client, ep["id"])
+    assert job["state"] == "done", job
+    mp4 = EpAddress(project, series_id, ep["id"]).renders_dir / f"{job['name']}.mp4"
+    assert re.search(r"Video: h264.*1080x1920", ffmpeg.input_info(mp4))
+    assert near(colour_at(mp4, 0.65), COLOURS[0])  # the middle of the first card's 1.3 s
 
 
 def test_a_full_render_s_ass_tags_a_character_on_its_first_card_only_and_has_no_title(client, llm, project, renderer):

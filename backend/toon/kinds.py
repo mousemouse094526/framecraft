@@ -5,13 +5,14 @@ instead of asking which kind it has.
 
 from typing import Literal, NamedTuple
 
-from backend.toon.store import Background, Character
+from backend.toon.store import Background, Character, Layout
 
 ItemKind = Literal["characters", "backgrounds"]
 
 # The size of a card's picture by the Series' layout; a background is drawn as the card it
-# sits behind (D37).
-CARD_SIZE = {"frame": (1024, 576), "full": (576, 1024)}
+# sits behind (D37). 768 on the long side so a 16 GB Mac doesn't swap (D79); render scales
+# every size up to the layout's, so pictures drawn at an older size still work.
+CARD_SIZE: dict[Layout, tuple[int, int]] = {"frame": (768, 432), "full": (432, 768)}
 
 
 class KindRow(NamedTuple):
@@ -33,7 +34,7 @@ KINDS: dict[ItemKind, KindRow] = {
         model=Character,
         id_prefix="c",
         tagged=True,
-        sizes={layout: (576, 1024) for layout in CARD_SIZE},  # standing upright whatever the layout
+        sizes={layout: CARD_SIZE["full"] for layout in CARD_SIZE},  # upright, as a full card, whatever the layout
         upload_side=1536,
         plot_max=6,
         template="Full body, front view, standing, plain light gray background. {scene} {style}. No text, no letters.",

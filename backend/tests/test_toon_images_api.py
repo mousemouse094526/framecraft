@@ -310,7 +310,7 @@ def test_an_empty_scene_from_qwen_or_an_empty_description_takes_the_spec_s_fallb
     assert prompts[1].startswith("A medium shot. In the setting of the background in reference image 1.")
 
 
-@pytest.mark.parametrize(("layout", "size"), [("frame", (1024, 576)), ("full", (576, 1024))])
+@pytest.mark.parametrize(("layout", "size"), [("frame", (768, 432)), ("full", (432, 768))])
 def test_a_card_is_drawn_at_its_series_background_size(client, llm, klein, layout, size):
     _, _, _, ep = with_cards(client, llm, layout=layout)
 

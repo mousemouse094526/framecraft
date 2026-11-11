@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket 15 หยุดกลางทาง (ขั้น 1 ของ D74 เสร็จและวัดแล้ว): encode ใน process ลูกของตัวเอง (D77) ภาพเดิมที่ seed เดียวกัน; Ref job ×4 และ Image job กรณีหนักสุดผ่าน แต่ "สร้างภาพที่ขาดทั้งหมด" 20 การ์ด swap +3.2 GB ไม่ผ่าน → ขั้น 2 ใน session ใหม่; owner วัดขั้น 0 บนเครื่องที่ restart (#34); Plot job ล้มกับ Qwen จริง (#35)
+**Now:** ticket 15 done: วาด 768×432 / 432×768 (D79) ผ่านเกณฑ์ทั้งเครื่องของ D74 ทั้งสามงานบน M1 (วัดตอนเครื่องไม่ restart); ทุก ticket done → feature review. เช็คมือของ owner ยังเปิด: #34 (วัดซ้ำหลัง restart), #11, #12; #33 รอจับถ้าค้างอีก; #35 Plot job กับ Qwen จริง
 
 **Next:**
 
 ```
-/warroom-build toon 15
+/warroom-build toon --review-feature
 ```
 
 ## Tickets
@@ -26,9 +26,39 @@
 | 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | done |
 | 13 | คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย | done |
 | 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | done |
-| 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | in-progress |
+| 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | done |
 
 ## Log
+
+### 15: งานภาพที่จบเองและไม่ swap บน Mac 16 GB — done 2026-11-11
+
+**Built (ขั้น 3 ของ D74, ข้ามขั้น 2):**
+- `kinds.CARD_SIZE` 768×432 (`frame`) / 432×768 (`full`), ตัวละคร 432×768 เสมอ; upload ฉากหลังครอปขนาดเดียวกัน; ภาพเดิม 1024 render ได้ (`test_cards_drawn_at_the_older_1024_size_still_render` ทั้งสอง layout); test ขนาดวาดของ Ref job, Image job และ upload เป็นค่าใหม่
+- spec › คำสั่งภาพ, Seams, How success is judged; D31/D37 changed by D79; ADR 0036 Source
+- วินิจฉัยใน process ที่วาดตัวเดียว (script ใน scratchpad ไม่ commit): ที่ 1024×576 หลัง `empty_cache` driver 5.05 → 6.91 → 7.94 GB ขณะ `current_allocated` 2.58 GB คงที่ → pool ของ MPS driver ไม่ใช่ tensor ค้าง (`gc.collect()` ไม่ช่วย); ที่ 768×432 peak 7.4–9.9 GB swap ไม่ขยับ
+- คงตัวละคร 10 ภาพที่ 768×432 ผ่าน (`trial-images/consistency-10-768.png`)
+
+**ขั้น 3 บน M1 16 GB** (backend ใหม่บน 8001, เครื่องไม่ restart แอปอื่นเปิดอยู่, swap ก่อนเริ่ม 1.1–1.3 GB):
+
+| งาน | ผล | swap เพิ่ม | pressure | เวลาต่อภาพ / trial |
+|---|---|---|---|---|
+| Ref job ×3 ติดกัน | `done` 277–281 วิ | ทั้งชุด +0.23 GB | warn | ~81 วิ = 0.90× |
+| Image job กรณีหนักสุด | `done` 184 วิ | +0.70 GB | warn | 172 วิ รวมโหลด = 0.68× |
+| 20 การ์ด `missing` | `done` 2732 วิ, 20/20, ไม่มี `failed_cards` | +0.32 GB | warn | 100 / 120 / 142 วิ = 0.91× / 0.83× / 0.56× |
+| D49 (432×768, 3 ภาพอ้างอิง, 5 ภาพเดิม) | peak 8.64 GB ทุกภาพ | — | — | 143 วิ |
+
+- ภาพการ์ด 20 ใบของ `e_14c37720` สร้างใหม่ที่ 768×432 (ภาพ 1024 เดิมยังอยู่ในโฟลเดอร์ ไม่มีการ์ดชี้; `ep.json` ก่อนวัดอยู่ใน scratchpad ของ session)
+
+**Decided:**
+- D79 — วาด 768×432 / 432×768, ข้ามขั้น 2 (ลดได้ ~0.5 GB จาก ~2.2 GB ที่ต้องลด), upload ครอปขนาดเดียวกับที่วาด, เวลา "ราว 4.5 นาที" ของหน้าเลือกภาพคงเดิม (วัดได้ 277–281 วิ)
+
+**For the next ticket:**
+- ตัวเลขทั้งหมดวัดตอนเครื่องไม่ restart (#34 เปลี่ยนเป็นวัดขั้น 3 ซ้ำตามวิธีวัด)
+- pool ของ MPS driver ยังไต่เมื่อการ์ดติดกันมีจำนวนภาพอ้างอิงต่างกัน (768: 4.42 → 6.23 GB หลังภาพ ใน 5 ภาพ): EP ที่ยาวกว่า 20 การ์ดอาจไต่ต่อ — เรียงการ์ดตามจำนวนภาพอ้างอิง หรือเริ่ม process ที่วาดใหม่ทุก N ภาพ ถ้าวัดเจอ (`/warroom toon`)
+- review ไม่แก้ (ตั้งใจ): test ขนาดใน `test_toon_images_api.py`/`test_toon_ref_api.py` เป็นตัวเลขตรง (ตรึงสัญญา) ส่วน `three_cards` ใช้ `CARD_SIZE` (แค่ setup); test ภาพเดิมเช็คสีกลางภาพ ไม่ใช่สัดส่วน
+- `model_failed` จาก `TypeError` ยังต่อท้าย `gpu.ADVICE` (จากรอบก่อน)
+
+**Checks:** `uv run pytest` 1109 passed (+2); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 442 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `ebd69af`: Standards 2 ข้อของ docs (แก้: ตาราง D79 ย้ายเข้า Details, แถว TODO เติมแล้ว) + smell 4 (แก้: type ของ `CARD_SIZE` และ `size`, คอมเมนต์ใน `kinds.py` อ้าง D79 ไม่ใส่ตัวเลข; ไม่แก้: ตัวเลขตรงใน test ดูข้างบน), Spec 8 (แก้: D79 ชี้ตัวเลขขั้น 0–1, ภาพเดิม `full`, เกณฑ์ D49 วัดแล้วผ่าน, เงื่อนไขการวัดและ trial ที่ไม่ปรับใน D79, ชื่อ test ไม่อ้าง D79; upload ครอปเหตุอยู่ใน D79), Newcomer สรุปตรง What to build + เดา 9 จุด (แก้: ชื่อ test, คอมเมนต์ 0.65 วิ, ภาพเดิม `full`, คอมเมนต์ตัวละคร; `upload_side` และ `REF_SIDE` คงเดิมตาม D79)
 
 ### 15: งานภาพที่จบเองและไม่ swap บน Mac 16 GB — stopped 2026-11-11 (รอบสอง)
 
@@ -593,5 +623,5 @@
 | 31 | review | test ล้มบางครั้งในชุดเต็ม — ตามได้แล้ว: **`spoil-maker/DraftProgress.test.tsx`** › "the failure's Alert stays until a new Draft job starts (D87)" ล้ม 1/8 รอบ (`Unable to find role "button" name "เลือก Shot ใหม่"`); `EpPage` เดี่ยว 30 รอบผ่านหมด | ไม่มี — แก้ที่เทสต์: `await nextPoll()` + `findByRole` ก่อนคลิก (`369a1fc`) | done |
 | 32 | 03/04 | **เช็คมือบน M1 16 GB ทำไม่ได้ตามเกณฑ์:** Ref job ค้าง 2 ครั้ง (ครั้งแรก `drawing 0/3` ไม่มี worker ทำงาน → รีสตาร์ท backend แล้วเดินต่อ; ครั้งที่สองค้างที่ `2/3` worker idle 1% CPU, ภาพใบ 3 ไม่มา) · swap ถูกใช้ **4.0–5.0 GB จาก 6 GB** ตลอดเวลา, หน่วยความจำว่าง <100 MB · denoise วัดได้ **26.4 วิ/step × 4 = ~105 วิ/ภาพ** บวกโหลดโมเดลใหม่ทุกภาพ (~40–60 วิ) → best case ~3 นาที/ภาพ, ที่เห็นจริง 8–10 นาที/ภาพ | ตัดสินใน `/warroom toon`: ลด ref ต่อภาพ, ย่อ ref 512 px, ถอด Qwen ออกจากหน่วยความจำก่อนเข้า klein, หรือยอมรับ swap / เครื่อง 24 GB+ | done (ticket 15: รอบสองไม่ได้ค้าง; ดู #33, #34) |
 | 33 | 15 | Ref job รอบแรกใน #32 (`drawing 0/3` ไม่มี process ลูก) ยังไม่พบเหตุ: ไม่เกิดซ้ำใน 9 Ref job จริงของ ticket 15. `TypeError` ตอน 13:01 (บันทึกก่อนหน้าในแถวนี้) **ไม่ใช่บั๊กของโค้ด**: backend เดิมบน 8000 (โค้ดก่อน ticket 15 ใน memory) spawn process ลูกที่ import `klein.py` ใหม่จากดิสก์ จึงส่ง `Encode` ให้ตัววาดที่รอ `Load` ([record](bugs/2026-11-11-ref-job-hangs-on-m1.md) › Timeline 13:00); ครั้งหน้าที่ค้าง `[api]` มี stack ของ klein (ทุก 10 นาที) และ `kill -USR1 {pid backend}` | restart backend บน 8000 ก่อนเช็คมือ; ค้างอีก → `/kiki-debug toon: Ref job ค้าง` พร้อม stack และบรรทัด `toon job … started` ของรอบนั้น | open |
-| 34 | 15 | ขั้น 0 ของ D74 ตามวิธีวัดต้อง restart เครื่องและเปิดแค่ `npm run dev` กับหน้าเว็บหนึ่ง tab: agent ปิดแอปของ owner หรือ restart ไม่ได้ (ตัวเลขข้างบนวัดตอนแอปอื่นเปิดอยู่) | owner restart Mac, `npm run dev`, เปิดหน้าเว็บหนึ่ง tab, รัน `.venv/bin/python scripts/measure_toon_memory.py ~/toon-d74 ref s_73ac00e3 characters c_d0cd8188 3` แล้วบอก session ของ ticket 15 | open |
+| 34 | 15 | ตัวเลขของขั้น 0 และขั้น 3 (D79) วัดตอนเครื่องไม่ restart และแอปอื่นเปิดอยู่: วิธีวัดของ D74 ต้อง restart Mac และเปิดแค่ `npm run dev` กับหน้าเว็บหนึ่ง tab ซึ่ง agent ทำไม่ได้ | owner restart Mac, `npm run dev`, เปิดหน้าเว็บหนึ่ง tab, รัน `.venv/bin/python scripts/measure_toon_memory.py ~/toon-d79 ref s_73ac00e3 characters c_d0cd8188 3` แล้วจด swap เพิ่มใน `progress.md` (ไม่เกิน 1 GB, ไม่ critical); ไม่ผ่าน → `/warroom toon` | open |
 | 35 | 15 | Plot job กับ Qwen จริงบน M1 ล้ม `write_failed` สองครั้งติดกัน (6/6 attempt `plot attempt N is not the JSON asked for`, 129–149 วิ) ของ EP ใหม่ `e_14c37720` ใน Series `s_73ac00e3` (ตัวละครและฉากหลังไม่มีคำบรรยาย); log ไม่เก็บคำตอบของ Qwen จึงไม่รู้ว่าผิดตรงไหน. นอก ticket 15: การ์ด 20 ใบของการวัด D74 สร้างด้วยมือผ่าน API | `/kiki-debug toon: Plot job write_failed กับ Qwen จริง` | open |

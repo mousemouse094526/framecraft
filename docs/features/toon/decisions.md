@@ -400,7 +400,7 @@
 **Details:**
 - 3 แบบ ≈ 4.5 นาทีบน M1 (t2i ~90 วิต่อภาพ)
 
-**From:** interview (auto mode) · **Status:** changed by D49
+**From:** interview (auto mode) · **Status:** changed by D49, D79
 
 ## D32: เปลี่ยนภาพอ้างอิงได้เสมอ ภาพการ์ดเดิมได้ป้าย "ภาพอ้างอิงเปลี่ยน"
 
@@ -482,7 +482,7 @@
 **Details:**
 - 576×1024 ยังไม่ได้ลอง: ticket แรกวัดเวลาและ memory หนึ่งภาพก่อนทำต่อ
 
-**From:** interview (auto mode) · **Status:** active
+**From:** interview (auto mode) · **Status:** changed by D79 (วาด 768×432 / 432×768)
 
 ## D38: render สร้างเสียงเล่าที่ขาดให้ก่อน
 
@@ -1186,6 +1186,32 @@
 **Chosen:** `scripts/*.py` (วันนี้ `measure_toon_memory.py`) รันด้วย `.venv/bin/python scripts/….py`, backend ไม่ import, ใช้แค่ standard library และกติกา Python ของ `docs/library-notes/python.md` (เปิดไฟล์ด้วย `encoding="utf-8"`); เขียนเป็นข้อหนึ่งใน `fastapi-api` SKILL.md › Never break แทน rules file ของ layer ใหม่
 
 **Why:** build ticket 15 (review Standards): SKILL.md ให้หยุดถามเมื่อเขียน layer ที่ไม่มี rules file; ไฟล์เดียวที่ไม่มี test และไม่อยู่ในแอป ไม่คุ้ม rules file เต็ม. script เป็น macOS อย่างเดียวตาม docstring จึงไม่จับ `OSError` ของ `footprint`/`lsof`/`pgrep` ที่ไม่มี
+
+**From:** build ticket 15 · **Status:** active
+
+## D79: ขั้น 3 ของ D74 — วาด 768×432 / 432×768 (ข้ามขั้น 2)
+
+**Chosen:** ภาพการ์ดและฉากหลังวาดที่ 768×432 (`frame`) หรือ 432×768 (`full`), ตัวละคร 432×768 เสมอ (`kinds.CARD_SIZE`), ต่อจากขั้น 1 (D77) ด้วย Q4_K_M เดิม. ภาพฉากหลังที่ upload ครอปเป็นขนาดเดียวกัน (`KindRow.sizes` ค่าเดียวทั้งวาดและครอป). ภาพที่สร้างก่อนหน้านี้ (1024×576 / 576×1024) ใช้ต่อได้: render ขยายทุกขนาดเป็น `PICTURE_SIZES` (D37). เวลาบนหน้าเลือกภาพ "ราว 4.5 นาที" และ 90 วิต่อภาพของ Ref job คงเดิม: วัดได้ 277–281 วิต่องาน.
+
+**Why:** build ticket 15. ขั้น 1 ไม่ผ่าน 20 การ์ด (swap +3.19 GB, `progress.md` › Log ของ ticket 15 รอบสอง มีตัวเลขของขั้น 0 และขั้น 1 ครบ). วัดใน process ที่วาดตัวเดียว (การ์ดของ `e_14c37720` ตามลำดับ, seed 7): หลัง `empty_cache` memory ของ MPS driver ไต่ทีละภาพ 5.05 → 6.91 → 7.94 GB ขณะที่ `current_allocated_memory` คงที่ 2.58 GB (เท่า weights) — ไม่มี tensor ค้างใน Python จึง `gc.collect()` ไม่ช่วย, เป็น pool ของ driver ที่ `empty_cache` คืนไม่หมดและโตตามขนาดของ activation; peak 10.3 → 13.7 GB ที่ภาพที่ 4. ที่ 768×432 ชุดเดียวกัน peak 7.4 → 9.9 GB, swap ไม่ขยับ, 100–146 วิต่อภาพ. ขั้น 2 (Q3_K_M) ลด transformer ราว 0.5 GB ซึ่งน้อยกว่า ~2.2 GB ที่ 20 การ์ดต้องลด จึงข้ามตาม D74 › Details. ครอป upload ขนาดเดียวกับที่วาด: ภาพอ้างอิงเข้า klein ที่ด้านยาว 512 (D49) ทั้งสองขนาดจึงให้ภาพการ์ดเท่ากัน และฉากหลังที่สร้างกับที่ upload ขนาดเดียวกัน.
+
+**Rejected:**
+- `gc.collect()` ก่อน `empty_cache` — `current_allocated_memory` เท่า weights หลังทุกภาพ: ไม่มีของให้เก็บ
+- process ที่วาดใหม่ทุกภาพ (คืน pool ของ driver ทั้งหมด) — โหลด transformer ใหม่ทุกภาพ และไม่อยู่ในขั้นของ D74 (`/warroom toon` ถ้า 768 ไม่พอ)
+- ขั้น 2 — ดู Why
+- upload คงที่ 1024 — สองขนาดใน `KindRow` ทั้งที่ klein ได้ 512 เหมือนกัน
+
+**Details:**
+- เกณฑ์ทั้งเครื่องบน M1 16 GB (D74): backend ใหม่บน 8001 ไม่มี Vite และหน้าเว็บ, เครื่องไม่ restart และแอปอื่นเปิดอยู่ (ไม่ตามวิธีวัด: #34), swap ก่อนเริ่ม 1.1–1.3 GB; เทียบกับเวลาของ trial ที่ 1024×576 Q8_0 เดิม (D74 › Details) ไม่ปรับตามขนาดใหม่
+
+| งาน | ผล | swap เพิ่ม | pressure | เวลาต่อภาพ / trial |
+|---|---|---|---|---|
+| Ref job ×3 ติดกัน | `done` ทุกครั้ง 277–281 วิ | ทั้งชุด +0.23 GB | warn | ~81 วิ (ภาพแรกรวมโหลด ~105) = 0.90× |
+| Image job กรณีหนักสุด (2 ตัวละคร + ฉากหลัง) | `done` 184 วิ | +0.70 GB | warn | 172 วิ รวม encode และโหลด = 0.68× |
+| "สร้างภาพที่ขาดทั้งหมด" 20 การ์ด (ภาพอ้างอิง 1/2/3 = 4/8/8) | `done` 2732 วิ, 20/20, ไม่มี `failed_cards` | +0.32 GB | warn | ~100 / ~120 / ~142 วิ = 0.91× / 0.83× / 0.56× (Qwen 109 วิ, ภาพแรกรวม encode และโหลด 235 วิ) |
+
+- คงตัวละคร 10 ภาพที่ 768×432 (ภาพอ้างอิง 1 ภาพ, `c_d0cd8188`): ผมน้ำตาล เสื้อยืดฟ้า กางเกงกรมท่า ครบทุกภาพ ไม่มีหน้าบิดหรือตัวซ้ำ ([consistency-10-768.png](trial-images/consistency-10-768.png))
+- เกณฑ์ของ D49 (432×768, ภาพอ้างอิง 3 ภาพ, คำสั่งและ seed เดียว 5 ภาพใน process เดียว): peak `driver_allocated_memory` 8.64 GB ทุกภาพ (≤ 12, ภาพ 3–5 ไม่สูงกว่าภาพ 2), 143 วิต่อภาพ — ผ่าน. pool ของ driver ไต่เฉพาะเมื่อภาพติดกันมีจำนวนภาพอ้างอิงต่างกัน (การ์ดของ EP จริง: 4.42 → 6.23 GB หลังภาพ) และเกณฑ์ทั้งเครื่องข้างบนวัดกรณีนั้นแล้ว
 
 **From:** build ticket 15 · **Status:** active
 
