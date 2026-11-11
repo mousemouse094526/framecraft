@@ -98,9 +98,9 @@ def test_the_backend_s_own_info_lines_reach_the_terminal_with_the_time():
     """A job's `started` / `ended … after N s` in `[api]` (toon D76): uvicorn's loggers only, before."""
     script = (
         "import logging; from backend import app; app.log_to_terminal(); "
-        "logging.getLogger('backend.jobs').info('toon job ref c_1 ended done  after 412 s')"
+        "logging.getLogger('backend.jobs').info('toon job ref c_1 ended done after 412 s')"
     )
 
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True)
 
-    assert re.fullmatch(r"\d\d:\d\d:\d\d INFO backend.jobs: toon job ref c_1 ended done  after 412 s\n", result.stderr)
+    assert re.fullmatch(r"\d\d:\d\d:\d\d INFO backend.jobs: toon job ref c_1 ended done after 412 s\n", result.stderr)

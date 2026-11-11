@@ -19,7 +19,7 @@ from backend.paths import ProjectPaths
 from backend.spoil_maker import llm, tts
 from backend.spoil_maker.llm import Generate, Generated, Ready
 from backend.toon import klein, prompts, writer
-from backend.toon.klein import Draw, Encode, Encoded
+from backend.toon.klein import Draw, Encode, Encoded, Load, Loaded
 from backend.workers import Worker
 
 log = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class Run(Protocol):
 
     def use_child(self, child: Child) -> None: ...
 
-    def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker: ...
+    def start_child(self, worker: Worker, first: type | None, timeout: float | None = None) -> Worker: ...
 
     def ask(self, worker: Worker, request, expected: tuple[type, ...], timeout: float | None = None): ...
 
@@ -155,20 +155,22 @@ def scenes(run: Run, project: ProjectPaths, asks: list[str | None], counted: boo
 
 
 def open_klein(run: Run, project: ProjectPaths, texts: list[str]) -> Worker:
-    """Starts klein's child and encodes every prompt of the job (`texts`), which its `Draw`s name by
-    index (spec › Ref job, › Image job: klein draws). `Worker.end` ends it."""
-    worker = klein.start_worker(
-        project.snapshot_dir(KLEIN, KLEIN.revision),
-        project.snapshot_dir(KLEIN_GGUF, KLEIN_GGUF.revision),
-        checks.probe_device(),
-    )
-    worker.requests.put(Encode(texts))  # klein says nothing until it has the prompts
-    with _drawing_time():
-        return run.start_child(worker, Encoded, klein.draw_timeout())
+    """Encodes every prompt of the job (`texts`) in the encoder's child, stops it, then starts klein's
+    drawing child with the embeddings, which its `Draw`s name by index (spec › Ref job, › Image job:
+    klein draws; D74 › 1). Each wait has a picture's timeout. `Worker.end` ends the drawing child."""
+    snapshot, device = project.snapshot_dir(KLEIN, KLEIN.revision), checks.probe_device()
+    encoder = run.start_child(klein.start_encoder(snapshot, device), None)
+    encoded = draw(run, encoder, Encode(texts), (Encoded,))
+    run.stop_child()  # the encoder's memory is the Mac's again before the transformer loads
+    gguf = project.snapshot_dir(KLEIN_GGUF, KLEIN_GGUF.revision)
+    drawer = run.start_child(klein.start_drawer(snapshot, gguf, device), None)
+    draw(run, drawer, Load(encoded.embeds), (Loaded,))
+    return drawer
 
 
-def draw(run: Run, worker: Worker, request: Draw, expected: tuple[type, ...]):
-    """klein's answer to `request`, one of `expected`; one that takes longer than a picture may fails the job."""
+def draw(run: Run, worker: Worker, request, expected: tuple[type, ...]):
+    """klein's answer to `request`, one of `expected`; one that takes longer than a picture may fails the job.
+    Encoding and loading are the start of the first picture: the user sees the picture fail."""
     with _drawing_time():
         return run.ask(worker, request, expected, klein.draw_timeout())
 

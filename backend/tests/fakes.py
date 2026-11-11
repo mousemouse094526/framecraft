@@ -179,6 +179,13 @@ def on_windows(monkeypatch, gpu_probe=None) -> None:
     monkeypatch.setattr(checks, "probe_bitsandbytes", ok_bitsandbytes)
 
 
+def klein_timeouts(monkeypatch, seconds: float) -> None:
+    """Swaps `klein.DRAW_TIMEOUTS` so a picture of the Mac and of Windows may take `seconds`."""
+    from backend.toon import klein
+
+    monkeypatch.setattr(klein, "DRAW_TIMEOUTS", {"darwin": seconds, "win32": seconds})
+
+
 def os_timeouts(monkeypatch, darwin: float, win32: float) -> None:
     """Swaps `llm.TIMEOUTS` so every step of the Mac and of Windows has the given seconds."""
     from backend.spoil_maker import llm
@@ -611,24 +618,47 @@ class FakeTts(FakeModel):
 
 
 class FakeKlein(FakeModel):
-    """The klein child (`toon.klein.start_worker`): no word until `Encode`, then `Encoded`,
-    and one `Drawn` per `Draw` with the bytes `b"png {seed}"`. `fail_at` answers that request
-    with a `WorkerError` instead."""
+    """Both klein children: the encoder's (`toon.klein.start_encoder`), which answers `Encode`
+    with `embeds_of` each prompt, and the drawing one (`toon.klein.start_drawer`), which answers
+    `Load` with `Loaded` and each `Draw` with the bytes `b"png {seed}"`. Neither says a word
+    first; `processes` holds both, in the order they started, and `alive_at_start` which of the
+    earlier ones still ran as each started. `fail_at` answers that request of a process with a
+    `WorkerError` instead; `silent_on` never answers a request of that type (`Encode`, `Load`)."""
 
     def __init__(self):
         super().__init__()
         self.fail_at: int | None = None
+        self.silent_on: type | None = None
+        self.alive_at_start: list[list[bool]] = []
+
+    @staticmethod
+    def embeds_of(prompt: str) -> bytes:
+        return f"embeds of {prompt}".encode()
+
+    def draws(self) -> list:
+        """The `Draw`s of every drawing child, in order."""
+        from backend.toon.klein import Draw
+
+        return [request for request in self.requests if isinstance(request, Draw)]
+
+    def __call__(self, snapshot_dir: Path, *args):
+        self.alive_at_start.append([process.is_alive() for process in self.processes])
+        return super().__call__(snapshot_dir, *args)
 
     def ready(self):
         return None
 
     def answer(self, request, index: int):
-        from backend.toon.klein import Drawn, Encode, Encoded, WorkerError
+        from backend.toon.klein import Drawn, Encode, Encoded, Load, Loaded, WorkerError
 
+        if self.silent_on is not None and isinstance(request, self.silent_on):
+            return self.HANG
         if index == self.fail_at:
             return WorkerError("model_failed", "RuntimeError: MPS out of memory")
         if isinstance(request, Encode):
-            return Encoded(len(request.prompts))
+            return Encoded([self.embeds_of(prompt) for prompt in request.prompts])
+        if isinstance(request, Load):
+            return Loaded()
         return Drawn(f"png {request.seed}".encode())
 
 
@@ -869,7 +899,8 @@ def toon_api(
     @pytest.fixture(name="klein")
     def klein_fixture(monkeypatch) -> FakeKlein:
         fake = FakeKlein()
-        monkeypatch.setattr("backend.toon.klein.start_worker", fake)
+        monkeypatch.setattr("backend.toon.klein.start_encoder", fake)
+        monkeypatch.setattr("backend.toon.klein.start_drawer", fake)
         return fake
 
     @pytest.fixture(name="tts")

@@ -131,19 +131,20 @@ class ModelJobSlot(JobSlot[Job]):
                 except Exception:
                     log.exception("%s: clean-up failed", what)
             self._finish({**self.ending_fields, **ending})
-            code = ending["error"].code if ending.get("error") else ""
-            log.info("%s ended %s %s after %.0f s", what, ending["state"], code, time.monotonic() - started)
+            state = f"{ending['state']} {ending['error'].code}" if ending.get("error") else ending["state"]
+            log.info("%s ended %s after %.0f s", what, state, time.monotonic() - started)
 
     def _failed(self, code: str, message: str) -> dict:
         return {"state": "failed", "error": self.error_type(code=code, message=message)}
 
-    def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker:
+    def start_child(self, worker: Worker, first: type | None, timeout: float | None = None) -> Worker:
         """A child just started: tracked first (so shutdown and the job's end stop it), then
-        its first message, `first`, waited for (`Ready` once loaded; klein's `Encoded`, as it
-        answers its first request). Loading has no timeout unless `timeout`; a child that dies
+        its first message, `first`, waited for (`Ready` once loaded; None for klein's, which say
+        nothing until asked, and `timeout` is unused). Loading has no timeout unless `timeout`; a child that dies
         or errs instead fails the job as `reply` says, and its end frees the GPU."""
         self.track(worker.process)
-        self.reply(worker, (first,), timeout)
+        if first is not None:
+            self.reply(worker, (first,), timeout)
         return worker
 
     def ask(self, worker: Worker, request, expected: tuple[type, ...], timeout: float | None = None):

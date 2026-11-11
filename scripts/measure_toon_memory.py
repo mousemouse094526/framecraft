@@ -75,7 +75,7 @@ class Sampler(threading.Thread):
         super().__init__(daemon=True)
         self.job = ""  # the job's state as the samples name it
         self._stop_event = threading.Event()
-        self._file = (out / "samples.tsv").open("a")
+        self._file = (out / "samples.tsv").open("a", encoding="utf-8")
         self._file.write("time\tswap_used_mb\tpressure_level\tpageouts\tswapouts\tbackend_gb\tchildren_gb\tjob\n")
 
     def run(self) -> None:
@@ -142,7 +142,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     sampler = Sampler(out)
     sampler.start()
-    with (out / "events.log").open("a") as events:
+    with (out / "events.log").open("a", encoding="utf-8") as events:
         for n, body in enumerate(jobs, start=1):
             if not watch(n, body, sampler, events):
                 break

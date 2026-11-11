@@ -10,11 +10,10 @@ from PIL import Image
 from backend import gpu
 from backend.app import app
 from backend.models import KLEIN
-from backend.toon import klein as klein_module
 from backend.toon import series
-from backend.toon.klein import Draw, Encode
+from backend.toon.klein import Draw, Encode, Load
 
-from .fakes import TOON_CURRENT, TOON_JOBS, TOON_SERIES, new_series, png, toon_api, upload, wait_for_toon_job
+from .fakes import TOON_CURRENT, TOON_JOBS, TOON_SERIES, FakeKlein, klein_timeouts, new_series, png, toon_api, upload, wait_for_toon_job
 
 
 
@@ -86,10 +85,20 @@ def test_a_ref_job_translates_then_draws_three_pictures_that_wait_to_be_picked(c
     assert (character["pending"], character["ref_rev"]) == (3, 0)
 
 
+def test_a_ref_job_encodes_in_a_child_that_is_stopped_before_the_drawing_child_starts_with_its_embeddings(client, klein):
+    """Step 1 of D74: the text encoder's memory is the Mac's again before the transformer loads."""
+    with_pending(client)
+
+    assert klein.alive_at_start == [[], [False]]
+    encode, load, *draws = klein.requests
+    assert isinstance(encode, Encode) and load == Load([FakeKlein.embeds_of(encode.prompts[0])])
+    assert [type(draw) for draw in draws] == [Draw, Draw, Draw]
+
+
 def test_a_character_s_prompt_holds_qwen_s_scene_and_the_series_style_and_three_seeds(client, klein):
     series_id, _ = with_pending(client)
 
-    encode, *draws = klein.requests
+    encode, _, *draws = klein.requests
     assert isinstance(encode, Encode) and len(encode.prompts) == 1
     assert encode.prompts[0].startswith("Full body, front view, standing, plain light gray background. A boy with short")
     assert "dark night scene" in encode.prompts[0]
@@ -104,7 +113,7 @@ def test_a_background_is_drawn_at_the_series_card_size(client, klein):
 
     assert start_ref(client, series_id, item_id, "backgrounds").status_code == 202
     assert wait_for_toon_job(client)["state"] == "done"
-    assert (klein.requests[1].width, klein.requests[1].height) == (576, 1024)
+    assert (klein.draws()[0].width, klein.draws()[0].height) == (576, 1024)
 
 
 def test_qwen_s_unreadable_answer_puts_the_description_in_as_written(client, llm, klein):
@@ -112,7 +121,8 @@ def test_qwen_s_unreadable_answer_puts_the_description_in_as_written(client, llm
 
     with_pending(client)
 
-    assert "ผมสั้น เสื้อกรมท่า" in klein.requests[0].prompts[0]
+    [encode] = [request for request in klein.requests if isinstance(request, Encode)]
+    assert "ผมสั้น เสื้อกรมท่า" in encode.prompts[0]
 
 
 def test_a_second_ref_job_meanwhile_is_busy(client, klein):
@@ -220,7 +230,7 @@ def test_every_ending_of_a_ref_job_frees_the_gpu(client, klein, ending):
     series_id = new_series(client)["id"]
     item_id = add_item(client, series_id)["id"]
     if ending == "failed":
-        klein.fail_at = 2  # request 0 is `Encode`: the second picture fails
+        klein.fail_at = 2  # request 0 is `Load`: the second picture fails
     if ending == "cancelled":
         klein.pause_at(1)
     start_ref(client, series_id, item_id)
@@ -253,7 +263,7 @@ def test_a_new_ref_job_of_the_same_item_replaces_the_waiting_set(client, klein, 
 
     waiting = [waiting_picture(client, series_id, item_id, n) for n in (1, 2, 3)]
 
-    second_job = [f"png {draw.seed}".encode() for draw in klein.requests[5:]]
+    second_job = [f"png {draw.seed}".encode() for draw in klein.draws()[3:]]
     assert waiting == second_job
     assert len(list(project.pending_refs_dir(series_id).glob("*.png"))) == 3
 
@@ -395,23 +405,36 @@ def test_a_ref_job_whose_klein_dies_while_loading_fails_crashed_and_frees_the_gp
     assert gpu_is_free()
 
 
-def test_a_ref_job_whose_klein_never_answers_encode_fails_model_failed_stops_it_and_a_new_one_starts(
-    client, klein, monkeypatch
-):
+def test_a_ref_job_whose_klein_never_answers_encode_fails_model_failed_stops_it_and_a_new_one_starts(client, klein, monkeypatch):
     """Seam 1, klein silent: the per-picture timeout covers the wait for `Encoded` (D75)."""
-    monkeypatch.setattr(klein_module, "draw_timeout", lambda: 0.2)
+    klein_timeouts(monkeypatch, 0.2)
     series_id = new_series(client)["id"]
     item_id = add_item(client, series_id)["id"]
-    klein.hang_at = 0  # `Encode`
+    klein.silent_on = Encode
 
     assert start_ref(client, series_id, item_id).status_code == 202
     job = wait_for_toon_job(client)
 
     assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
-    assert klein.processes[0].terminated
-    klein.hang_at = None
+    assert [process.terminated for process in klein.processes] == [True]  # no drawing child started
+    klein.silent_on = None
     assert start_ref(client, series_id, item_id).status_code == 202
     assert wait_for_toon_job(client)["state"] == "done"
+
+
+def test_a_ref_job_whose_drawing_child_never_answers_load_fails_model_failed_and_frees_the_gpu(client, klein, monkeypatch):
+    """Seam 1, klein silent: the wait for `Loaded` has the per-picture timeout too (D77)."""
+    klein_timeouts(monkeypatch, 0.2)
+    series_id = new_series(client)["id"]
+    item_id = add_item(client, series_id)["id"]
+    klein.silent_on = Load
+
+    assert start_ref(client, series_id, item_id).status_code == 202
+    job = wait_for_toon_job(client)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert klein.processes[1].terminated
+    assert gpu_is_free()
 
 
 def test_a_backend_shutdown_stops_a_running_ref_job_s_child(client, klein):
@@ -423,4 +446,4 @@ def test_a_backend_shutdown_stops_a_running_ref_job_s_child(client, klein):
         start_ref(running, series_id, item_id)
         klein.wait_until(1)
 
-    assert klein.processes[0].terminated
+    assert klein.processes[1].terminated  # the drawing child: the encoder's ended already

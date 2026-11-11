@@ -413,7 +413,7 @@ media/toon/
 - สลับภาพก่อนหน้า: `POST …/cards/{card_id}/swap-image` สลับ `image` กับ `previous_image`
 - เปลี่ยนตัวละครของการ์ด หรือฉากหลังของช่วง ไม่ลบภาพ: การ์ดเป็น `stale_ref` ผ่าน `image.refs` เพราะ id ไม่ตรง
 
-klein worker (`toon.klein`): request `Encode(prompts)` → reply `Encoded(count)`; `Draw(index, ref_paths, width, height, seed)` → `Drawn(png: bytes)`; `None` ให้จบ; error → `WorkerError`. timeout ต่อภาพ 15 นาทีบน Mac, Windows ตาม `llm.timeouts` คูณเดียวกัน ใช้ทั้งการรอ `Encoded` และแต่ละ `Drawn`; เกิน → `model_failed` และหยุด process ลูก แม้ process ลูกยังอยู่. memory ทั้งเครื่องบน Mac 16 GB ตามเกณฑ์ D74: ticket 15 ใช้ขั้นแรกที่ผ่าน (encode ใน process ลูกแยก, Q3_K_M หรือขนาดวาด 768×432 / 432×768) และแก้ worker ไฟล์ ขนาด และเวลาในหน้าเลือกภาพตามขั้นนั้น.
+klein สอง process ลูกต่อกัน (`toon.klein`, D74 › 1, D77): process ของ encoder ได้ `Encode(prompts)` → ตอบ `Encoded(embeds: list[bytes])` (`torch.save` ของแต่ละคำสั่ง) แล้วจบเอง และ backend หยุดมันก่อนเริ่มอีกตัว; process ที่วาดได้ `Load(embeds)` → `Loaded(count)`, `Draw(index, ref_paths, width, height, seed)` → `Drawn(png: bytes)`; `None` ให้จบ; error → `WorkerError`. timeout ต่อภาพ 15 นาทีบน Mac, Windows ตาม `llm.timeouts` คูณเดียวกัน ใช้ทั้งการรอ `Encoded`, `Loaded` และแต่ละ `Drawn`; เกิน → `model_failed` และหยุด process ลูก แม้ process ลูกยังอยู่. memory ทั้งเครื่องบน Mac 16 GB ตามเกณฑ์ D74: ticket 15 ใช้ขั้นแรกที่ผ่าน (encode ใน process ลูกแยก, Q3_K_M หรือขนาดวาด 768×432 / 432×768) และแก้ worker ไฟล์ ขนาด และเวลาในหน้าเลือกภาพตามขั้นนั้น.
 
 ### Voice job
 

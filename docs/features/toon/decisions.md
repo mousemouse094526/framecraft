@@ -1162,6 +1162,24 @@
 
 **From:** build ticket 15 · **Status:** active
 
+## D77: encode ใน process ลูกของตัวเอง (ขั้น 1 ของ D74) ส่ง embeddings เป็น bytes ผ่าน backend
+
+**Chosen:**
+- `klein.start_encoder` เริ่ม process ลูก `framecraft-klein-encoder` (`encoder_worker`): รับ `Encode` หนึ่งครั้ง ตอบ `Encoded(embeds)` แล้วจบเอง; `steps.open_klein` หยุดมัน (`stop_child`) ก่อนเริ่ม process ที่วาด (`start_worker`) ซึ่งได้ `Load(embeds)` เป็น request แรกและตอบ `Loaded(count)`
+- embeddings ข้าม backend เป็น `torch.save` ของแต่ละคำสั่ง (`klein.embeds_bytes` / `embeds_from`, `weights_only=True`): dtype bf16 คงเดิม seed เดียวกันจึงได้ภาพเดิม
+- `ModelJobSlot.start_child(worker, None)`: track แล้วไม่รอข้อความแรก (klein ทั้งสองไม่พูดก่อนถูกถาม); การรอ `Encoded` และ `Loaded` มี timeout ต่อภาพเหมือนเดิม
+- `FakeKlein` ตัวเดียวแทนทั้งสอง process (`processes[0]` คือ encoder) และ index ของ request นับต่อ process: `Load` เป็น 0 ของ process ที่วาด จึงเลขใน test เดิมไม่เปลี่ยน
+
+**Why:** build ticket 15 (D74 › 1): ขั้น 0 วัดได้ว่า peak คือ encoder (9.0 GB) และ decode ของภาพแรก (11.0 GB ซึ่ง ~1.7 GB เป็นของ encoder ที่ปล่อยแล้วแต่ไม่คืนให้เครื่อง). backend ไม่ import torch (D34) จึงรับ tensor ที่ pickle ตรงไม่ได้: bytes ผ่านได้โดยไม่ import. ราว 8 MB ต่อคำสั่ง (512 token × 7680 × bf16), 20 การ์ดราว 160 MB.
+
+**Rejected:**
+- process ลูกของ encoder ที่ process ที่วาดเริ่มเอง — process daemonic เริ่ม child ของ `multiprocessing` ไม่ได้ (library-notes/python.md)
+- ไฟล์ชั่วคราวของ embeddings บนดิสก์ — ต้องลบเองทุกทางที่งานจบ; queue พอสำหรับขนาดนี้
+- ส่ง embeddings ใน `Draw` ทีละภาพ — backend ถือครบอยู่แล้ว แต่ต้องเปลี่ยน `Draw` และทุกผู้เรียก; `Load` เปลี่ยนแค่ request แรก
+- encoder บอก `Ready` หลังโหลด (แบบ Qwen) — `FakeKlein` ตัวเดียวแทนสอง process ไม่ได้ และไม่มีอะไรให้ทำระหว่างนั้น
+
+**From:** build ticket 15 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

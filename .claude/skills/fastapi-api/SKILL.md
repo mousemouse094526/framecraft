@@ -43,13 +43,15 @@ backend/
 │                    shutdown, `_run_job`, the one ending of every job's thread
 │                    that frees the GPU) and the child process helpers every GPU
 │                    job uses (ADR 0012); a child starts only through
-│                    `start_child` (tracked, then its first message waited for)
+│                    `start_child` (tracked, then its first message waited for,
+│                    or none for a child that says nothing until asked: klein's)
 │                    and stops only through `stop_child` (`free_gpu` also frees
 │                    the GPU mid-job); a slot's steps and its `Speaker` call
 │                    `update`, `start_child`, `ask`, `stop_child`
 ├── workers.py    ← `Worker`, a model's child with its request and reply queues:
-│                    every `start_worker` returns one, `end` asks it to exit
-│                    (standard library only, as a child imports it)
+│                    every `start_worker` returns one, `end` asks it to exit;
+│                    the stack dumpers of a child that hangs (`dump_stacks_on_signal`,
+│                    `dump_stacks_after`, toon D76) (standard library only, as a child imports it)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
@@ -125,8 +127,8 @@ backend/
 │                    `missing_refs[].item_kind`); one module per kind: plot, cards, refs (Ref job), images (Image job:
 │                    which cards it draws, each picture it writes, swapping
 │                    back), voicing (Voice job: a card's narration), klein (the
-│                    only diffusers import; its `worker` runs in a child
-│                    process, D34), sounds (the background sound library and
+│                    only diffusers import; two children one after the other:
+│                    `encoder_worker`, then `drawer_worker`, D34, D77), sounds (the background sound library and
 │                    its Sound import slot: a file in one request, which a page
 │                    gone during ffmpeg never brings in, a link
 │                    through spoil's adapter with `LINK_OPTIONS`), render (the
@@ -190,7 +192,8 @@ through a queue; the thread writes the result file (ADR 0012).
   `spoil_maker.llm`, the OmniVoice adapter `spoil_maker.tts`, the tokenizer
   `spoil_maker.tokens`, the diffusers adapter `toon.klein`); tests replace it with a
   fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
-  `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_worker`).
+  `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_encoder`,
+  `toon.klein.start_drawer`).
 - torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
@@ -228,6 +231,9 @@ through a queue; the thread writes the result file (ADR 0012).
 - Qwen's spec comes from `models.qwen_for(checks.this_platform())` when it is used,
   never `QWEN_MAC` or `QWEN_WINDOWS` directly (ADR 0025).
 - `setup.ps1` stays ASCII-only; Thai text is printed from Python.
+- A Python file in `scripts/` is a tool run by hand (`.venv/bin/python scripts/….py`), never
+  imported by the backend: standard library only, and the Python rules of
+  `docs/library-notes/python.md` (files opened with `encoding="utf-8"`) (toon D78).
 
 ## Rules by layer
 

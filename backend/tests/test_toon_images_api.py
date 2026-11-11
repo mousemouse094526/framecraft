@@ -13,8 +13,7 @@ from backend.errors import ApiError
 from backend.models import KLEIN, OMNIVOICE
 from backend.paths import EpAddress
 from backend.toon import images, series
-from backend.toon import klein as klein_module
-from backend.toon.klein import Draw, Encode
+from backend.toon.klein import Encode, Load
 
 from .fakes import (
     TOON_CURRENT,
@@ -23,6 +22,7 @@ from .fakes import (
     Writer,
     cards_of,
     item_with_ref,
+    klein_timeouts,
     new_ep,
     new_series,
     png,
@@ -99,10 +99,6 @@ def get_ep(client, ep_id: str) -> dict:
     return client.get(f"{EPS}/{ep_id}").json()
 
 
-def draws(klein: FakeKlein) -> list[Draw]:
-    return [request for request in klein.requests if isinstance(request, Draw)]
-
-
 # --- Image job ---
 
 
@@ -121,7 +117,10 @@ def test_drawing_what_is_missing_draws_each_no_image_card_in_order_and_skips_one
     assert [card["has_image"] for card in after] == [True, True, False, True, True, True, True, True]
     encoded = next(request for request in klein.requests if isinstance(request, Encode))
     assert len(encoded.prompts) == 7
-    assert [d.index for d in draws(klein)] == list(range(7))
+    loaded = next(request for request in klein.requests if isinstance(request, Load))
+    assert loaded.embeds == [FakeKlein.embeds_of(prompt) for prompt in encoded.prompts]  # the order `Draw.index` names
+    assert klein.alive_at_start == [[], [False]]  # the encoder's child stopped before the drawing one started (D74 › 1)
+    assert [d.index for d in klein.draws()] == list(range(7))
 
 
 def test_drawing_what_is_missing_when_every_card_has_no_ref_is_nothing_to_draw_and_one_such_card_is_no_ref(client, llm):
@@ -152,7 +151,7 @@ def test_deleting_a_series_during_its_image_job_is_series_busy(client, llm, klei
 
 def test_a_cancel_midway_keeps_the_pictures_done_and_drops_the_one_being_drawn(client, llm, klein):
     _, _, _, ep = with_cards(client, llm)
-    klein.pause_at(2)  # request 0 is `Encode`: the second card's picture
+    klein.pause_at(2)  # request 0 is `Load`: the second card's picture
     start_image(client, ep["id"], scope="missing")
     klein.wait_until(2)
 
@@ -180,14 +179,14 @@ def test_an_image_job_whose_klein_never_answers_a_draw_fails_model_failed_keeps_
 ):
     """Seam 1, klein silent: a `Draw` that takes longer than a picture may fails the job (D75)."""
     _, _, _, ep = with_cards(client, llm)
-    monkeypatch.setattr(klein_module, "draw_timeout", lambda: 0.2)
-    klein.hang_at = 2  # request 0 is `Encode`: the second card's picture
+    klein_timeouts(monkeypatch, 0.2)
+    klein.hang_at = 2  # request 0 is `Load`: the second card's picture
 
     job = draw(client, ep["id"], scope="missing")
 
     assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
     assert [card["image_status"] for card in cards_of(get_ep(client, ep["id"]))[:2]] == ["ready", "no_image"]
-    assert klein.processes[0].terminated
+    assert klein.processes[1].terminated  # the drawing child
     assert gpu.slot.take("describe") is None
 
 
@@ -292,7 +291,7 @@ def test_a_card_s_prompt_binds_its_character_and_background_to_their_reference_i
         f"{SCENE} character 1 is the character in reference image 1. In the setting of the background in reference image 2. "
     )
     assert prompt.endswith("deep shadows. No text, no letters, no signs.")
-    assert [path.name for path in draws(klein)[0].ref_paths] == [f"{character}-1.png", f"{background}-1.png"]
+    assert [path.name for path in klein.draws()[0].ref_paths] == [f"{character}-1.png", f"{background}-1.png"]
     asked = [r.prompt for r in llm.requests if '"scene"' in r.prompt][-1]
     assert "พีค is character 1" in asked and "พีคนั่งหน้ากองไฟ มุมกว้าง" in asked
     assert SCENE not in json.dumps(get_ep(client, ep["id"]))  # the prompt stays out of the page (D36)
@@ -317,7 +316,7 @@ def test_a_card_is_drawn_at_its_series_background_size(client, llm, klein, layou
 
     draw(client, ep["id"], card_id=cards_of(ep)[0]["id"])
 
-    assert (draws(klein)[0].width, draws(klein)[0].height) == size
+    assert (klein.draws()[0].width, klein.draws()[0].height) == size
 
 
 def test_an_image_job_on_a_full_disk_is_disk_full_and_frees_the_gpu(client, llm, monkeypatch):
