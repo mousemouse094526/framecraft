@@ -19,7 +19,7 @@ from backend.paths import ProjectPaths
 from backend.spoil_maker import llm, tts
 from backend.spoil_maker.llm import Generate, Generated, Ready
 from backend.toon import klein, prompts, writer
-from backend.toon.klein import Draw, Encode, Encoded, Load, Loaded
+from backend.toon.klein import Encode, Encoded, Load, Loaded
 from backend.workers import Worker
 
 log = logging.getLogger(__name__)

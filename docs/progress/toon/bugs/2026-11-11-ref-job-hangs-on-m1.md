@@ -68,6 +68,7 @@ Blocked #32 (เช็คมือบน M1 16 GB, 2026-11-11): "Ref job ค้�
 - 2026-11-11 11:24 — Blocked #32
 - 2026-11-11 12:00 — อ่าน `api.log` (ticket 15): รอบสองถูกกดหยุด
 - 2026-11-11 12:07–12:39 — Ref job จริง 5 ครั้ง `done` ทุกครั้ง
+- 2026-11-11 13:00 — อีก session รัน Ref job ผ่าน backend เดิมบน 8000 (pid 18096, เริ่ม 11:18, โค้ดก่อน ticket 15 ใน memory) ระหว่างที่ build ของ ticket 15 แก้ `klein.py` บนดิสก์: process ลูกที่ spawn ใหม่ import `klein.py` ใหม่ จึงได้ `Encode` แทน `Load` → `TypeError: list indices must be integers or slices, not builtin_function_or_method` (`embeds[request.index]`; `index` ของ NamedTuple คือ method `tuple.index`) ใน 18 วิ; `clean_up` ของงานนั้นลบ `.pending/.new-c_d0cd8188` ซึ่งเป็นโฟลเดอร์ของ Ref job ที่วัดอยู่บน 8001 พร้อมกัน → งานนั้นล้ม `internal` `FileNotFoundError` ตอนเขียนภาพแรก (13:01:07)
 
 **Root cause:** (รอบสอง) ผู้เช็คเห็นงานเหมือนค้าง → หน้าเว็บนับแค่ภาพที่เสร็จ ราว 2 นาทีไม่ขยับ และ CPU ของ process ลูกต่ำเพราะงานอยู่บน GPU → ไม่มีอะไรบอกว่างานยังเดิน: ล็อกของ backend ไม่ออกเลย (ไม่มีการตั้ง logging) และไม่มีเวลา → ระบบไม่ให้ทางดูว่างานยังเดินหรือค้าง. (รอบแรก) ยังไม่รู้: ล็อกถูกเขียนทับตอนรีสตาร์ท
 
@@ -75,5 +76,7 @@ Blocked #32 (เช็คมือบน M1 16 GB, 2026-11-11): "Ref job ค้�
 - ล็อกของ backend ใน `[api]` พร้อมเวลา — ticket 15 (D76)
 - stack ของ backend และ klein ตอนค้าง — ticket 15 (D76)
 - หน้าเว็บบอก step ของ klein ระหว่างภาพ (ไม่ใช่แค่ภาพที่เสร็จ) — ข้อเสนอ, ตัดสินใน `/warroom toon` (auto mode เลือกตัวเลือกที่แนะนำ: จดไว้ก่อน); อยู่ใน For the next ticket
+
+**ไม่ใช่ bug ของโค้ด (13:00):** backend ที่รันค้างไว้กับไฟล์ที่เปลี่ยนใต้มัน และสอง backend บน project เดียว (spec ไม่รองรับ: ทั้งคู่ถือช่อง GPU ของตัวเอง). ทางกัน: restart backend เดิมหลังดึงโค้ดใหม่ทุกครั้ง; ไม่รันสอง backend บน `media/` เดียวกัน. ข้อความ `model_failed` ที่บอก "ปิดโปรแกรมอื่นที่ใช้ GPU" (`gpu.ADVICE`) ของ `TypeError` หลอกทาง: จดไว้ใน For the next ticket
 
 **What helped:** ล็อกของรอบสองยังอยู่ในไฟล์ (backend รันแบบ background ส่ง stdout ลงไฟล์); ถ้ารันใน terminal ปกติ ล็อกจะหายพร้อม terminal

@@ -1,6 +1,6 @@
 # Progress: toon
 
-**Now:** ticket 15 หยุดกลางทาง (กลุ่ม D75 เสร็จ): Ref job จริง 5 ครั้งไม่ค้าง มี log พร้อมเวลาและตัวดึง stack (D76); ขั้น 0 ของ D74 วัดได้บนเครื่องที่เปิดแอปอื่นอยู่ ไม่ผ่าน (swap +2.8 GB, critical); ต่อด้วยขั้น 1 ใน session ใหม่ และ owner วัดขั้น 0 ตามวิธีของ D74 (#34)
+**Now:** ticket 15 หยุดกลางทาง (ขั้น 1 ของ D74 เสร็จและวัดแล้ว): encode ใน process ลูกของตัวเอง (D77) ภาพเดิมที่ seed เดียวกัน; Ref job ×4 และ Image job กรณีหนักสุดผ่าน แต่ "สร้างภาพที่ขาดทั้งหมด" 20 การ์ด swap +3.2 GB ไม่ผ่าน → ขั้น 2 ใน session ใหม่; owner วัดขั้น 0 บนเครื่องที่ restart (#34); Plot job ล้มกับ Qwen จริง (#35)
 
 **Next:**
 
@@ -29,6 +29,43 @@
 | 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | in-progress |
 
 ## Log
+
+### 15: งานภาพที่จบเองและไม่ swap บน Mac 16 GB — stopped 2026-11-11 (รอบสอง)
+
+**Built (ขั้น 1 ของ D74):**
+- `klein.start_encoder` / `encoder_worker`: process ลูกของ encoder ตอบ `Encode` ด้วย `Encoded(embeds)` (`torch.save` bytes ต่อคำสั่ง, `embeds_bytes`/`embeds_from`) แล้วจบเอง; `steps.open_klein` หยุดมันก่อนเริ่ม `start_drawer` / `drawer_worker` ที่ได้ `Load(embeds)` → `Loaded()`; ทุกการรอมี timeout ต่อภาพ (`steps.draw`)
+- `ModelJobSlot.start_child(worker, None)` (track ไม่รอข้อความแรก); บรรทัด `… ended {state} [{code}] after N s` ไม่มีช่องว่างซ้อน
+- `FakeKlein` แทนทั้งสอง process (`alive_at_start`, `silent_on`, `draws()`), `fakes.klein_timeouts` (สลับ `DRAW_TIMEOUTS`); test: encoder จบก่อนตัววาดเริ่ม (Ref job, Image job), `Load` มี embeddings ตามลำดับ, ตัววาดไม่ตอบ `Load` → `model_failed`, encoder/drawer ของจริงด้วย model ปลอม, bytes ไม่เปลี่ยน bf16, `test_workers.py` (ตัวดึง stack ไม่ใช้ sleep); spec › klein worker, SKILL.md, `docs/library-notes/torch.md`
+- เช็คบน M1: klein ก่อน ticket 15 กับขั้น 1 ที่ seed 7, 1024×576 → PNG ตรงกันทุก byte
+
+**ขั้น 1 บน M1 16 GB** (เครื่องเดิมไม่ restart, แอปอื่นเปิดอยู่, backend ใหม่บน 8001, swap ก่อนเริ่ม 0.8–1.0 GB):
+
+| งาน | ผล | swap เพิ่ม | pressure | peak process ลูก | เวลาต่อภาพ / trial |
+|---|---|---|---|---|---|
+| Ref job ×4 ติดกัน (ตัวละคร, ไม่มีภาพอ้างอิง) | `done` ทุกครั้ง 380–386 วิ | ต่องาน +0.88, +0.91, +0.00, +0.45; ทั้งชุด 0.80 → 2.29 (+1.50) | warn | encoder 9.0–10.0 GB, decode ภาพแรก 10–11 GB | ~114 วิ = 1.27× |
+| "สร้างภาพที่ขาดทั้งหมด" 20 การ์ด (ภาพอ้างอิง 1/2/3 ภาพ = 4/8/8 ใบ) | `done` 3512 วิ, 20/20 `ready`, ไม่มี `failed_cards` | 0.99 → 4.17 (**+3.19**) | warn | ภาพอ้างอิง 3 ภาพ 12–13 GB ทุกใบ (ไม่ไต่ทีละภาพ) | 139 / 159 / 184 วิ = 1.26× / 1.10× / 0.73× |
+| Image job กรณีหนักสุด (2 ตัวละคร + ฉากหลัง) ใบเดียว | `done` 223 วิ | +0.25 | warn | 10.0 GB | 208 วิ (รวมโหลด) |
+
+- ไม่ผ่าน: 20 การ์ด swap +3.19 GB (เกณฑ์ +1 GB); Ref job ผ่านถ้านับต่องาน ไม่ผ่านถ้านับทั้งชุด (+1.50); critical ไม่เกิดเลย
+- เทียบขั้น 0 (รอบก่อน, swap ก่อนเริ่ม 2.8–3.9 GB): Ref job +1.2 ถึง +2.9 และ critical 2 ใน 5 → ขั้น 1 ดีขึ้นแต่สภาพเครื่องต่างกัน (swap ก่อนเริ่มต่ำกว่ามาก) จึงเทียบตรงไม่ได้
+- peak ใบเดียวกัน (ภาพอ้างอิง 3 ภาพ): งานยาว 12–13 GB, งานใบเดียว 10 GB → memory ของ MPS ที่ค้างระหว่างภาพในงานยาว ไม่ใช่ของ encoder (encoder จบไปแล้ว)
+- งานที่ล้มนอกโค้ด: Ref job หนึ่งงานบน 8001 ล้ม `internal` เพราะอีก session รัน Ref job ผ่าน backend เดิมบน 8000 ซึ่ง `clean_up` ลบโฟลเดอร์เดียวกัน (#33, bug record › Timeline 13:00)
+
+**Decided:**
+- D77 — encode ใน process ลูกของตัวเอง, embeddings เป็น bytes ผ่าน backend, `start_child(worker, None)`, `FakeKlein` สอง process
+- D78 — ไฟล์ Python ใน `scripts/` (ข้อใน SKILL.md แทน rules file)
+- ขั้น 1 คงไว้ (ขั้น 2–3 ของ D74 คือ "ข้อ 1 +"); ขั้น 2 ใน session ใหม่: ต้องโหลด Q3_K_M ผ่าน setup และลองคงตัวละคร 10 ภาพ
+
+**For the next ticket:**
+- ต่อ ticket 15: ขั้น 2 (Q3_K_M, D74 › Details) แล้ววัด 20 การ์ดของ EP `e_14c37720` (การ์ดสร้างด้วยมือ, ทุกใบ `ready` แล้ว: วัดด้วย `image e_14c37720 stale_ref` ไม่ได้ ต้องลบภาพหรือใช้ `card` ทีละใบ) และ Ref job ×3; ตัวเลขบอกว่า peak คือ decode ของภาพอ้างอิง 3 ภาพในงานยาว (12–13 GB) ซึ่งขั้น 3 (วาด 768×432) น่าลดมากกว่าขั้น 2 (transformer เล็กลง ~0.5 GB): ข้ามขั้น 2 ได้ตาม D74 › Details ถ้าจดเหตุ
+- ลองก่อนขั้น 2: ทำไมใบเดียวกัน 10 GB ในงานสั้นแต่ 12–13 GB ในงานยาว (`gc.collect()` ก่อน `empty_cache`, หรือ `torch.mps.driver_allocated_memory()` ทีละภาพ)
+- เกณฑ์ "Ref job 3 ครั้งติดกัน swap เพิ่มไม่เกิน 1 GB" นับต่องานหรือทั้งชุด: D74 ไม่บอก (ใช้ทั้งชุดจนกว่า `/warroom toon` บอก)
+- `model_failed` ที่มาจาก `TypeError` ของโค้ด (ไม่ใช่ memory) ยังต่อท้ายด้วย `gpu.ADVICE` ("ปิดโปรแกรมอื่นที่ใช้ GPU") ซึ่งหลอกทาง
+- review ไม่แก้ (ตั้งใจ): test ของ `log_to_terminal` เรียกตรงแทนผ่าน lifespan (lifespan ใน subprocess ลบ `.pending` ของ `media/` จริง); test ของ `encoder_worker`/`drawer_worker` patch `encode`/`load_pipeline`/`draw` (model จริงไม่อยู่ใน test); `measure_toon_memory.py` ไม่จับ `OSError` ของคำสั่ง macOS (D78)
+- backend เดิม (pid 18096 บน 8000) ยังรันโค้ดก่อน ticket 15 และ process ลูกของมัน import `klein.py` ใหม่: ทุก Ref/Image job ผ่านมันจะล้ม `TypeError` จนกว่าจะ restart
+- commit `1951551` (อีก session, ข้อความ docs #33) เก็บโค้ดของขั้น 1 ที่ยังไม่ได้ commit ไปด้วย
+
+**Checks:** `uv run pytest` 1107 passed (+9); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 442 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `c8487fd` (ทั้ง ticket ถึงตอนนี้): Standards 5 ข้อผิดกติกา (แก้: timeout ของ test สลับ `DRAW_TIMEOUTS`, test ตัวดึง stack ไม่ใช้ sleep, SKILL.md, `scripts/` → D78, `encoding="utf-8"`) + smell (แก้: ชื่อ `start_drawer`/`drawer_worker`/`_worker_error`, `Loaded` ไม่มี field, การรอซ้ำผ่าน `steps.draw`, บรรทัดยาว, index ของ test ผ่าน `draws()`), Spec 3 (แก้: test ตัววาดไม่ตอบ `Load`, ลำดับ process ของ Image job, docstring ที่เกินจริง; seed เดิม: เช็คบน M1), Newcomer สรุปตรง + เดา 12 จุด (แก้: คอมเมนต์ `DUMP_AFTER`, `embeds` สองชนิด, `timeout` ที่ไม่ใช้, `None` ก่อน `Encode`, ช่องว่างซ้อนใน log)
 
 ### 15: งานภาพที่จบเองและไม่ swap บน Mac 16 GB — stopped 2026-11-11
 
@@ -555,5 +592,6 @@
 | 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | done (ticket 13) |
 | 31 | review | test ล้มบางครั้งในชุดเต็ม — ตามได้แล้ว: **`spoil-maker/DraftProgress.test.tsx`** › "the failure's Alert stays until a new Draft job starts (D87)" ล้ม 1/8 รอบ (`Unable to find role "button" name "เลือก Shot ใหม่"`); `EpPage` เดี่ยว 30 รอบผ่านหมด | ไม่มี — แก้ที่เทสต์: `await nextPoll()` + `findByRole` ก่อนคลิก (`369a1fc`) | done |
 | 32 | 03/04 | **เช็คมือบน M1 16 GB ทำไม่ได้ตามเกณฑ์:** Ref job ค้าง 2 ครั้ง (ครั้งแรก `drawing 0/3` ไม่มี worker ทำงาน → รีสตาร์ท backend แล้วเดินต่อ; ครั้งที่สองค้างที่ `2/3` worker idle 1% CPU, ภาพใบ 3 ไม่มา) · swap ถูกใช้ **4.0–5.0 GB จาก 6 GB** ตลอดเวลา, หน่วยความจำว่าง <100 MB · denoise วัดได้ **26.4 วิ/step × 4 = ~105 วิ/ภาพ** บวกโหลดโมเดลใหม่ทุกภาพ (~40–60 วิ) → best case ~3 นาที/ภาพ, ที่เห็นจริง 8–10 นาที/ภาพ | ตัดสินใน `/warroom toon`: ลด ref ต่อภาพ, ย่อ ref 512 px, ถอด Qwen ออกจากหน่วยความจำก่อนเข้า klein, หรือยอมรับ swap / เครื่อง 24 GB+ | done (ticket 15: รอบสองไม่ได้ค้าง; ดู #33, #34) |
-| 33 | 15 | Ref job ล้มทันที (2026-11-11 13:01, เครื่องสะอาด) — **ไม่ใช่ค้าง แต่เป็นบั๊กโค้ด**: `drawing 0/3` แล้ว failed ใน 18 วิ ด้วย `model_failed: TypeError: list indices must be integers or slices, not builtin_function_or_method` (ข้อความเสนอ "ปิดโปรแกรมอื่นที่ใช้ GPU" ซึ่งหลอกทาง) · ก่อนหน้านี้ค้าง `0/3` แบบไม่มี error ในรอบแรก | `/kiki-debug toon: ref job TypeError` — เก็บ traceback จาก thread ของ job (ตอนนี้ error ที่ส่งถึง client มีแต่ message) | open |
+| 33 | 15 | Ref job รอบแรกใน #32 (`drawing 0/3` ไม่มี process ลูก) ยังไม่พบเหตุ: ไม่เกิดซ้ำใน 9 Ref job จริงของ ticket 15. `TypeError` ตอน 13:01 (บันทึกก่อนหน้าในแถวนี้) **ไม่ใช่บั๊กของโค้ด**: backend เดิมบน 8000 (โค้ดก่อน ticket 15 ใน memory) spawn process ลูกที่ import `klein.py` ใหม่จากดิสก์ จึงส่ง `Encode` ให้ตัววาดที่รอ `Load` ([record](bugs/2026-11-11-ref-job-hangs-on-m1.md) › Timeline 13:00); ครั้งหน้าที่ค้าง `[api]` มี stack ของ klein (ทุก 10 นาที) และ `kill -USR1 {pid backend}` | restart backend บน 8000 ก่อนเช็คมือ; ค้างอีก → `/kiki-debug toon: Ref job ค้าง` พร้อม stack และบรรทัด `toon job … started` ของรอบนั้น | open |
 | 34 | 15 | ขั้น 0 ของ D74 ตามวิธีวัดต้อง restart เครื่องและเปิดแค่ `npm run dev` กับหน้าเว็บหนึ่ง tab: agent ปิดแอปของ owner หรือ restart ไม่ได้ (ตัวเลขข้างบนวัดตอนแอปอื่นเปิดอยู่) | owner restart Mac, `npm run dev`, เปิดหน้าเว็บหนึ่ง tab, รัน `.venv/bin/python scripts/measure_toon_memory.py ~/toon-d74 ref s_73ac00e3 characters c_d0cd8188 3` แล้วบอก session ของ ticket 15 | open |
+| 35 | 15 | Plot job กับ Qwen จริงบน M1 ล้ม `write_failed` สองครั้งติดกัน (6/6 attempt `plot attempt N is not the JSON asked for`, 129–149 วิ) ของ EP ใหม่ `e_14c37720` ใน Series `s_73ac00e3` (ตัวละครและฉากหลังไม่มีคำบรรยาย); log ไม่เก็บคำตอบของ Qwen จึงไม่รู้ว่าผิดตรงไหน. นอก ticket 15: การ์ด 20 ใบของการวัด D74 สร้างด้วยมือผ่าน API | `/kiki-debug toon: Plot job write_failed กับ Qwen จริง` | open |
