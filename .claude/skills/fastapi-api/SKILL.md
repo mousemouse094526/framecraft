@@ -43,13 +43,14 @@ backend/
 │                    shutdown, `_run_job`, the one ending of every job's thread
 │                    that frees the GPU) and the child process helpers every GPU
 │                    job uses (ADR 0012); a child starts only through
-│                    `start_child` (tracked, then its first message waited for,
-│                    or none for a child that says nothing until asked: klein's)
-│                    and stops only through `stop_child` (`free_gpu` also frees
+│                    `start_child` (tracked, then its first message waited for;
+│                    a child that says nothing until asked, klein's, is only
+│                    `track`ed) and stops only through `stop_child` (`free_gpu` also frees
 │                    the GPU mid-job); a slot's steps and its `Speaker` call
 │                    `update`, `start_child`, `ask`, `stop_child`
 ├── workers.py    ← `Worker`, a model's child with its request and reply queues:
-│                    every `start_worker` returns one, `end` asks it to exit;
+│                    every adapter's `start_worker` (klein's `start_encoder`,
+│                    `start_drawer`) returns one, `end` asks it to exit;
 │                    the stack dumpers of a child that hangs (`dump_stacks_on_signal`,
 │                    `dump_stacks_after`, toon D76) (standard library only, as a child imports it)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
@@ -120,7 +121,7 @@ backend/
 │                    jobs (the Toon job slot: it starts and ends every kind
 │                    the same way from each kind's `WORK`, a `steps.Work`),
 │                    steps (what the kinds share: Qwen's and klein's children,
-│                    `open_klein` the one start of klein, `draw`, `Run`, what a kind's
+│                    `open_klein` the one start of klein, `ask_klein`, `Run`, what a kind's
 │                    steps call on the slot); a variable of `kinds.ItemKind`
 │                    (characters or backgrounds) is `item_kind`, as `kind`
 │                    names a job's (in a response too, as

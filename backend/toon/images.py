@@ -151,7 +151,7 @@ def run(job: steps.Run, project: ProjectPaths, plan: ImagePlan) -> None:
         seed = random.randint(0, steps.SEED_MAX)
         request = Draw(index=done - 1, ref_paths=card.ref_paths, width=width, height=height, seed=seed)
         # A `WorkerError` asked for comes back like a `Drawn` instead of failing the job.
-        drawn = steps.draw(job, drawer, request, (Drawn, klein.WorkerError))
+        drawn = steps.ask_klein(job, drawer, request, (Drawn, klein.WorkerError))
         if isinstance(drawn, klein.WorkerError):
             log.error("klein failed on card %s (%s): %s", card.card_id, drawn.code, drawn.detail)
             failed.append(card.card_id)

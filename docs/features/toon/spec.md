@@ -145,7 +145,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 | diffusers | 0.42.1 | `Flux2KleinPipeline(image=[...])` รับภาพอ้างอิงเป็น list, 4 steps `guidance_scale=1.0` | [Flux2 pipelines](https://huggingface.co/docs/diffusers/v0.42.1/en/api/pipelines/flux2) |
 | diffusers | 0.42.1 | `Flux2Transformer2DModel.from_single_file(path, config=…, quantization_config=GGUFQuantizationConfig(compute_dtype=torch.bfloat16))` | [GGUF](https://huggingface.co/docs/diffusers/v0.42.1/en/quantization/gguf) |
 | diffusers | 0.42.1 | `encode_prompt` แยกจากการ denoise; pipeline ที่โหลดด้วย `text_encoder=None` รับ `prompt_embeds` (และ `negative_prompt_embeds` ที่ encode จาก `""` ในขั้นเดียวกัน) โดยไม่เรียก text encoder — หน้า docs ไม่ได้เขียนไว้ อิงโค้ดที่ tag กับผลลอง (trial › ข้อ 1) | [pipeline_flux2_klein.py v0.42.1](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/pipelines/flux2/pipeline_flux2_klein.py) |
-| torch | 2.8.0 | tensor บน CPU ส่งผ่าน `multiprocessing` queue ได้ด้วย pickle (`prompt_embeds` จาก process ลูกที่ encode ไป process ลูกที่วาด) — ใช้เมื่อ ticket 15 ใช้ขั้น 1 ขึ้นไปของ D74 | [Serialization semantics](https://docs.pytorch.org/docs/2.8/notes/serialization.html) |
+| torch | 2.8.0 | `torch.save` ของ `prompt_embeds` เป็น bytes แล้ว `torch.load(…, weights_only=True)` ได้ tensor เดิมพร้อม dtype (bf16) — bytes ข้าม backend ซึ่ง import torch ไม่ได้ จาก process ลูกที่ encode ไป process ลูกที่วาด (D77) | [torch.save](https://docs.pytorch.org/docs/2.8/generated/torch.save.html), [torch.load](https://docs.pytorch.org/docs/2.8/generated/torch.load.html) |
 | torch | 2.8.0 (pin ของ project) | MPS รัน pipeline ข้างบนได้; trial วัดบน 2.15.0 — Open Question 1 | [MPS backend](https://docs.pytorch.org/docs/2.8/notes/mps.html) |
 | omnivoice, Qwen, pythainlp, Kanit, libass | ตาม spoil-maker | เหมือน [spoil-maker spec](../spoil-maker/spec.md) › Library assumptions | ตาม spoil-maker |
 | ffmpeg (imageio-ffmpeg 0.7.0) | 7.1 | `scale=…:flags=lanczos`, `zoompan`, `eq=brightness` แบบ expression ตามเวลา, `xfade`, `acrossfade`, `amix`, `ass` | [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) |
@@ -413,7 +413,7 @@ media/toon/
 - สลับภาพก่อนหน้า: `POST …/cards/{card_id}/swap-image` สลับ `image` กับ `previous_image`
 - เปลี่ยนตัวละครของการ์ด หรือฉากหลังของช่วง ไม่ลบภาพ: การ์ดเป็น `stale_ref` ผ่าน `image.refs` เพราะ id ไม่ตรง
 
-klein สอง process ลูกต่อกัน (`toon.klein`, D74 › 1, D77): process ของ encoder ได้ `Encode(prompts)` → ตอบ `Encoded(embeds: list[bytes])` (`torch.save` ของแต่ละคำสั่ง) แล้วจบเอง และ backend หยุดมันก่อนเริ่มอีกตัว; process ที่วาดได้ `Load(embeds)` → `Loaded()`, `Draw(index, ref_paths, width, height, seed)` → `Drawn(png: bytes)`; `None` ให้จบ; error → `WorkerError`. timeout ต่อภาพ 15 นาทีบน Mac, Windows ตาม `llm.timeouts` คูณเดียวกัน ใช้ทั้งการรอ `Encoded`, `Loaded` และแต่ละ `Drawn`; เกิน → `model_failed` และหยุด process ลูก แม้ process ลูกยังอยู่. memory ทั้งเครื่องบน Mac 16 GB ตามเกณฑ์ D74: ticket 15 ใช้ขั้นแรกที่ผ่าน (encode ใน process ลูกแยก, Q3_K_M หรือขนาดวาด 768×432 / 432×768) และแก้ worker ไฟล์ ขนาด และเวลาในหน้าเลือกภาพตามขั้นนั้น.
+klein สอง process ลูกต่อกัน (`toon.klein`, D74 › 1, D77): process ของ encoder ได้ `Encode(prompts)` → ตอบ `Encoded(embeds: list[bytes])` (`torch.save` ของแต่ละคำสั่ง) แล้วจบเอง และ backend หยุดมันก่อนเริ่มอีกตัว; process ที่วาดได้ `Load(embeds)` → `Loaded()`, `Draw(index, ref_paths, width, height, seed)` → `Drawn(png: bytes)`; `None` ให้จบ; error → `WorkerError`. timeout ต่อภาพ 15 นาทีบน Mac, Windows ตาม `llm.timeouts` คูณเดียวกัน ใช้ทั้งการรอ `Encoded`, `Loaded` และแต่ละ `Drawn`; เกิน → `model_failed` และหยุด process ลูก แม้ process ลูกยังอยู่. memory ทั้งเครื่องบน Mac 16 GB ตามเกณฑ์ D74: encode ใน process ลูกแยก (ขั้น 1, D77) และวาด 768×432 / 432×768 (ขั้น 3, D79) ด้วย Q4_K_M เดิม (ข้ามขั้น 2); เวลาในหน้าเลือกภาพคงเดิม.
 
 ### Voice job
 
@@ -591,7 +591,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 - [diffusers Flux2 pipelines](https://huggingface.co/docs/diffusers/v0.42.1/en/api/pipelines/flux2) — `Flux2KleinPipeline`, `encode_prompt` (accessed 2026-11-09)
 - [diffusers GGUF](https://huggingface.co/docs/diffusers/v0.42.1/en/quantization/gguf) — `from_single_file` กับ `GGUFQuantizationConfig` (accessed 2026-11-09)
 - [PyTorch MPS backend](https://docs.pytorch.org/docs/2.8/notes/mps.html) — MPS ใน torch 2.8 (accessed 2026-11-09)
-- [PyTorch serialization semantics](https://docs.pytorch.org/docs/2.8/notes/serialization.html) — pickle ของ tensor (accessed 2026-11-11)
+- [torch.save](https://docs.pytorch.org/docs/2.8/generated/torch.save.html), [torch.load](https://docs.pytorch.org/docs/2.8/generated/torch.load.html) — file-like objects, `weights_only` (accessed 2026-11-11)
 - [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — Q3_K_M 2.12 GB (accessed 2026-11-11)
 - [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) — `zoompan`, `eq`, `xfade`, `acrossfade`, `amix`, `ass` (accessed 2026-11-09)
 - [yt-dlp format selection](https://github.com/yt-dlp/yt-dlp#format-selection) — `bestaudio` (accessed 2026-11-09)

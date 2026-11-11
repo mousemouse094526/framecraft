@@ -16,7 +16,7 @@
 
 ### งานที่ค้าง (D75)
 
-- log `[api]` ของสองรอบที่ค้างใน Blocked #32 → จดใน bug record ว่าแต่ละรอบค้างนานเท่าไรก่อน restart
+- log `[api]` ของสองรอบที่ค้างใน Blocked #32 → จดใน bug record ว่าแต่ละรอบค้างนานเท่าไรก่อน restart (ได้แค่รอบสอง ซึ่งไม่ได้ค้าง: ล็อกของรอบแรกถูกเขียนทับตอน restart ก่อน ticket นี้ ตอนนี้ `[api]` มีบรรทัด started/ended ของทุกงาน (D76); รอบแรกยังไม่รู้เหตุ → Blocked #33)
 - หาเหตุด้วย `/kiki-debug` → bug record และ postmortem ใน `bugs/` ของ toon; พบเหตุ → regression test ที่ล้มก่อนแก้
 - ไม่เกิดซ้ำใน Ref job จริง 5 ครั้ง → ตัวดึง traceback อยู่ใน backend และ process ลูกของ klein, bug record บอกว่ายังไม่พบเหตุ แล้ววัดตาม D74 ต่อ
 - klein ปลอมไม่ตอบ `Encode` ของ Ref job เกิน timeout ต่อภาพ → งาน `failed` `model_failed`, process ปลอมหยุด, เริ่ม Ref job ใหม่ได้ทันทีโดยไม่ได้ `gpu_busy`

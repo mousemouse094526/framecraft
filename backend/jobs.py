@@ -137,14 +137,13 @@ class ModelJobSlot(JobSlot[Job]):
     def _failed(self, code: str, message: str) -> dict:
         return {"state": "failed", "error": self.error_type(code=code, message=message)}
 
-    def start_child(self, worker: Worker, first: type | None, timeout: float | None = None) -> Worker:
+    def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker:
         """A child just started: tracked first (so shutdown and the job's end stop it), then
-        its first message, `first`, waited for (`Ready` once loaded; None for klein's, which say
-        nothing until asked, and `timeout` is unused). Loading has no timeout unless `timeout`; a child that dies
-        or errs instead fails the job as `reply` says, and its end frees the GPU."""
+        its first message, `first`, waited for (`Ready` once loaded). Loading has no timeout
+        unless `timeout`; a child that dies or errs instead fails the job as `reply` says, and
+        its end frees the GPU. A child that says nothing until asked (klein's) is only `track`ed."""
         self.track(worker.process)
-        if first is not None:
-            self.reply(worker, (first,), timeout)
+        self.reply(worker, (first,), timeout)
         return worker
 
     def ask(self, worker: Worker, request, expected: tuple[type, ...], timeout: float | None = None):

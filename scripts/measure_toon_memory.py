@@ -75,8 +75,11 @@ class Sampler(threading.Thread):
         super().__init__(daemon=True)
         self.job = ""  # the job's state as the samples name it
         self._stop_event = threading.Event()
-        self._file = (out / "samples.tsv").open("a", encoding="utf-8")
-        self._file.write("time\tswap_used_mb\tpressure_level\tpageouts\tswapouts\tbackend_gb\tchildren_gb\tjob\n")
+        samples = out / "samples.tsv"
+        new = not samples.exists()  # runs append to the same file: one header
+        self._file = samples.open("a", encoding="utf-8")
+        if new:
+            self._file.write("time\tswap_used_mb\tpressure_level\tpageouts\tswapouts\tbackend_gb\tchildren_gb\tjob\n")
 
     def run(self) -> None:
         backend = backend_pid()

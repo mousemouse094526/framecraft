@@ -53,7 +53,9 @@ class Run(Protocol):
 
     def use_child(self, child: Child) -> None: ...
 
-    def start_child(self, worker: Worker, first: type | None, timeout: float | None = None) -> Worker: ...
+    def start_child(self, worker: Worker, first: type, timeout: float | None = None) -> Worker: ...
+
+    def track(self, process) -> None: ...
 
     def ask(self, worker: Worker, request, expected: tuple[type, ...], timeout: float | None = None): ...
 
@@ -159,18 +161,25 @@ def open_klein(run: Run, project: ProjectPaths, texts: list[str]) -> Worker:
     drawing child with the embeddings, which its `Draw`s name by index (spec › Ref job, › Image job:
     klein draws; D74 › 1). Each wait has a picture's timeout. `Worker.end` ends the drawing child."""
     snapshot, device = project.snapshot_dir(KLEIN, KLEIN.revision), checks.probe_device()
-    encoder = run.start_child(klein.start_encoder(snapshot, device), None)
-    encoded = draw(run, encoder, Encode(texts), (Encoded,))
+    encoder = _start_klein(run, klein.start_encoder(snapshot, device))
+    encoded = ask_klein(run, encoder, Encode(texts), (Encoded,))
     run.stop_child()  # the encoder's memory is the Mac's again before the transformer loads
     gguf = project.snapshot_dir(KLEIN_GGUF, KLEIN_GGUF.revision)
-    drawer = run.start_child(klein.start_drawer(snapshot, gguf, device), None)
-    draw(run, drawer, Load(encoded.embeds), (Loaded,))
+    drawer = _start_klein(run, klein.start_drawer(snapshot, gguf, device))
+    ask_klein(run, drawer, Load(encoded.embeds), (Loaded,))
     return drawer
 
 
-def draw(run: Run, worker: Worker, request, expected: tuple[type, ...]):
-    """klein's answer to `request`, one of `expected`; one that takes longer than a picture may fails the job.
-    Encoding and loading are the start of the first picture: the user sees the picture fail."""
+def _start_klein(run: Run, worker: Worker) -> Worker:
+    """klein's children say nothing until asked: tracked, so the job's end and shutdown stop them."""
+    run.track(worker.process)
+    return worker
+
+
+def ask_klein(run: Run, worker: Worker, request, expected: tuple[type, ...]):
+    """klein's answer to `request` (`Encode`, `Load` or `Draw`), one of `expected`; one that takes longer
+    than a picture's timeout fails the job. Encoding and loading are the start of the first picture:
+    the user sees the picture fail."""
     with _drawing_time():
         return run.ask(worker, request, expected, klein.draw_timeout())
 

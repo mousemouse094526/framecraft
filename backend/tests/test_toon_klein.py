@@ -1,6 +1,6 @@
 """The klein adapter's surface, the pure helpers of the Ref job and how the status check finds
-klein's files. The real `worker` needs the model and a GPU, so it is checked by hand on a Mac;
-its two children run here with the model stubbed."""
+klein's files. klein's real children (`encoder_worker`, `drawer_worker`) need the model and a
+GPU, so they are checked by hand on a Mac; here they run with the model stubbed."""
 
 import queue
 import subprocess

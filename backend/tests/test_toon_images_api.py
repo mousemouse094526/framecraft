@@ -21,6 +21,7 @@ from .fakes import (
     FakeKlein,
     Writer,
     cards_of,
+    gpu_refusal,
     item_with_ref,
     klein_timeouts,
     new_ep,
@@ -187,7 +188,7 @@ def test_an_image_job_whose_klein_never_answers_a_draw_fails_model_failed_keeps_
     assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
     assert [card["image_status"] for card in cards_of(get_ep(client, ep["id"]))[:2]] == ["ready", "no_image"]
     assert klein.processes[1].terminated  # the drawing child
-    assert gpu.slot.take("describe") is None
+    assert gpu_refusal() is None
 
 
 def test_drawing_a_card_again_keeps_the_old_picture_as_previous_drops_the_one_before_and_swaps_back(client, llm, project):
@@ -326,7 +327,7 @@ def test_an_image_job_on_a_full_disk_is_disk_full_and_frees_the_gpu(client, llm,
     response = start_image(client, ep["id"], scope="missing")
 
     assert (response.status_code, response.json()["code"]) == (507, "disk_full")
-    assert gpu.slot.take("describe") is None
+    assert gpu_refusal() is None
 
 
 def test_an_image_job_without_klein_s_marker_is_not_ready_naming_the_row(client, llm, project):
@@ -473,4 +474,4 @@ def test_an_image_job_whose_reference_can_t_be_copied_frees_the_gpu(client, llm,
     with pytest.raises(OSError):
         start_image(client, ep["id"], scope="missing")
 
-    assert gpu.slot.take("describe") is None
+    assert gpu_refusal() is None

@@ -1167,7 +1167,7 @@
 **Chosen:**
 - `klein.start_encoder` เริ่ม process ลูก `framecraft-klein-encoder` (`encoder_worker`): รับ `Encode` หนึ่งครั้ง ตอบ `Encoded(embeds)` แล้วจบเอง; `steps.open_klein` หยุดมัน (`stop_child`) ก่อนเริ่ม process ที่วาด (`start_drawer`, `drawer_worker`) ซึ่งได้ `Load(embeds)` เป็น request แรกและตอบ `Loaded()`; `None` ก่อน `Encode` ให้ encoder จบเงียบ
 - embeddings ข้าม backend เป็น `torch.save` ของแต่ละคำสั่ง (`klein.embeds_bytes` / `embeds_from`, `weights_only=True`): dtype bf16 คงเดิม seed เดียวกันจึงได้ภาพเดิม
-- `ModelJobSlot.start_child(worker, None)`: track แล้วไม่รอข้อความแรก (klein ทั้งสองไม่พูดก่อนถูกถาม); การรอ `Encoded` และ `Loaded` มี timeout ต่อภาพเหมือนเดิม
+- ~~`ModelJobSlot.start_child(worker, None)`~~ (D80: `steps._start_klein` แค่ `track`): track แล้วไม่รอข้อความแรก (klein ทั้งสองไม่พูดก่อนถูกถาม); การรอ `Encoded` และ `Loaded` มี timeout ต่อภาพเหมือนเดิม
 - `FakeKlein` ตัวเดียวแทนทั้งสอง process (`processes[0]` คือ encoder; `alive_at_start` ว่า process ก่อนหน้ายังรันไหมตอนแต่ละตัวเริ่ม; `silent_on` ไม่ตอบ request ชนิดนั้น; `draws()`) และ index ของ request นับต่อ process: `Load` เป็น 0 ของ process ที่วาด จึงเลขใน test เดิมไม่เปลี่ยน; timeout ของ test สลับ `klein.DRAW_TIMEOUTS` (`fakes.klein_timeouts`)
 - ภาพเดิมที่ seed เดียวกัน: เช็คบน M1 แล้ว (klein ก่อน ticket 15 กับขั้น 1, seed 7, 1024×576: PNG ตรงกันทุก byte)
 
@@ -1214,6 +1214,20 @@
 - เกณฑ์ของ D49 (432×768, ภาพอ้างอิง 3 ภาพ, คำสั่งและ seed เดียว 5 ภาพใน process เดียว): peak `driver_allocated_memory` 8.64 GB ทุกภาพ (≤ 12, ภาพ 3–5 ไม่สูงกว่าภาพ 2), 143 วิต่อภาพ — ผ่าน. pool ของ driver ไต่เฉพาะเมื่อภาพติดกันมีจำนวนภาพอ้างอิงต่างกัน (การ์ดของ EP จริง: 4.42 → 6.23 GB หลังภาพ) และเกณฑ์ทั้งเครื่องข้างบนวัดกรณีนั้นแล้ว
 
 **From:** build ticket 15 · **Status:** active
+
+## D80: feature review รอบเจ็ดของ toon
+
+**Chosen:**
+- `steps.draw` → `steps.ask_klein`: รอคำตอบของ `Encode`, `Load` และ `Draw` (timeout ต่อภาพเดียวกัน, spec › klein worker)
+- `ModelJobSlot.start_child(worker, first)` รอข้อความแรกเสมออีกครั้ง; process ลูกของ klein ซึ่งไม่พูดก่อนถูกถามเริ่มผ่าน `steps._start_klein` ที่แค่ `track` (`Run.track`) แทน `first=None` ของ D77 ที่ข้ามงานหลักของ method และทิ้ง `timeout` ไว้ไม่ใช้
+- test ที่เช็คว่าช่อง GPU ว่างใช้ `fakes.gpu_refusal() is None` ทุกไฟล์ (เดิม `gpu_is_free()` ของ test Ref job และ `gpu.slot.take(...) is None` ของ test Image job ซึ่งจริงเสมอและจองช่องค้าง)
+- docs: spec › Library assumptions ของ torch เป็น `torch.save`/`torch.load(weights_only=True)` (เดิมบอก pickle ของ tensor ซึ่ง D77 ไม่ใช้), ย่อหน้า klein worker บอกผลของ D79, SKILL.md (`start_encoder`/`start_drawer`, `ask_klein`, `track`), `rules/testing.md` (`klein_timeouts`), index ของ D37, ticket 15 บอกว่าล็อกรอบแรกหาย
+- `scripts/measure_toon_memory.py` เขียน header ของ `samples.tsv` เฉพาะไฟล์ใหม่
+- ไม่แก้: `FakeKlein.silent_on` (ตามชนิด request) คู่กับ `hang_at` (ตาม index ต่อ process) — test ที่ใช้ต้องการคนละแบบ; commit แก้ test ของ spoil-maker (`0da9252`) บน `feat/toon` อยู่ไปแล้ว; legal.md › 1 ที่พูดถึง Q3_K_M (ไม่ผิด แค่ไม่ได้ใช้); timeout ต่อภาพของ `Encode`/`Load` ตาม spec › klein worker; ฉากหลังที่ upload ครอปตาม D79; `now` tuple และ `run` ใน script (เครื่องมือมือ, D78)
+
+**Why:** feature review รอบเจ็ด: Standards (ชื่อ `draw`, `start_child` ที่ `None`, docstring ของ test, `klein_timeouts`), Spec (แถว torch ขัด D77, ย่อหน้าที่ยังเป็นอนาคต, test ที่จริงเสมอ, เช็คช่อง GPU สองแบบ, `start_worker` สองชื่อ), Newcomer (ชื่อ `draw`, `timeout` ที่ไม่ใช้, header ซ้ำ). auto mode เลือกตัวเลือกที่แนะนำ
+
+**From:** feature review · **Status:** active
 
 ## Sources
 

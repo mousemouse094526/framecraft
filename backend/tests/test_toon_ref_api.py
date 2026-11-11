@@ -13,7 +13,7 @@ from backend.models import KLEIN
 from backend.toon import series
 from backend.toon.klein import Draw, Encode, Load
 
-from .fakes import TOON_CURRENT, TOON_JOBS, TOON_SERIES, FakeKlein, klein_timeouts, new_series, png, toon_api, upload, wait_for_toon_job
+from .fakes import TOON_CURRENT, TOON_JOBS, TOON_SERIES, FakeKlein, gpu_refusal, klein_timeouts, new_series, png, toon_api, upload, wait_for_toon_job
 
 
 
@@ -32,15 +32,6 @@ def add_item(client, series_id: str, kind: str = "characters", **body) -> dict:
 
 def start_ref(client, series_id: str, item_id: str, kind: str = "characters"):
     return client.post(TOON_JOBS, json={"kind": "ref", "series_id": series_id, "item_kind": kind, "item_id": item_id})
-
-
-def gpu_is_free() -> bool:
-    try:
-        gpu.slot.take("describe")
-    except Exception:
-        return False
-    gpu.slot.release("describe")
-    return True
 
 
 def waiting_picture(client, series_id: str, item_id: str, n: int) -> bytes:
@@ -183,7 +174,7 @@ def test_a_ref_job_on_a_full_disk_after_gpu_busy_is_checked_is_disk_full_and_fre
     response = start_ref(client, series_id, item_id)
 
     assert (response.status_code, response.json()["code"]) == (507, "disk_full")
-    assert gpu_is_free()
+    assert gpu_refusal() is None
 
 
 def test_a_ref_job_on_a_full_disk_while_the_gpu_is_taken_is_gpu_busy(client, monkeypatch):
@@ -241,7 +232,7 @@ def test_every_ending_of_a_ref_job_frees_the_gpu(client, klein, ending):
     job = wait_for_toon_job(client)
 
     assert job["state"] == ending
-    assert gpu_is_free()
+    assert gpu_refusal() is None
 
 
 def test_a_failed_ref_job_leaves_nothing_waiting(client, klein):
@@ -402,7 +393,7 @@ def test_a_ref_job_whose_klein_dies_while_loading_fails_crashed_and_frees_the_gp
     job = wait_for_toon_job(client)
 
     assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
-    assert gpu_is_free()
+    assert gpu_refusal() is None
 
 
 def test_a_ref_job_whose_klein_never_answers_encode_fails_model_failed_stops_it_and_a_new_one_starts(client, klein, monkeypatch):
@@ -434,7 +425,7 @@ def test_a_ref_job_whose_drawing_child_never_answers_load_fails_model_failed_and
 
     assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
     assert klein.processes[1].terminated
-    assert gpu_is_free()
+    assert gpu_refusal() is None
 
 
 def test_a_backend_shutdown_stops_a_running_ref_job_s_child(client, klein):
