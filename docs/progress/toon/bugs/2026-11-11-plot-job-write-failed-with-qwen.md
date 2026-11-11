@@ -4,7 +4,7 @@
 
 **Summary:**
 - **Cause:** Qwen จริงตอบ `acts` เป็นรายการข้อความเสมอ (28/28) แต่ `writer.parse_plot` อ่านเฉพาะ `{"summary"}` จึงตัดทุกคำตอบ
-- **Fix:** `writer._summary` อ่าน act ที่เป็นข้อความเป็น summary (D81); Qwen จริงผ่าน 15/20 ครั้ง, ที่เหลือคือจำนวนองก์ผิด
+- **Fix:** `writer._summary` อ่าน act ที่เป็นข้อความเป็น summary (D81, `742c644`); Qwen จริงผ่าน 15/20 ครั้ง, ที่เหลือคือจำนวนองก์ผิด
 - **Prevention:** regression test ด้วยคำตอบรูปของ Qwen จริง; ticket 16 — log คำตอบที่อ่านไม่ได้, fixture จากคำตอบจริง, ลดจำนวนองก์ผิด
 
 ## Symptom
