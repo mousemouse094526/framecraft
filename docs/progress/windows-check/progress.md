@@ -1,5 +1,7 @@
 # Progress: windows-check
 
+> **ย้ายไป [windows-launch](../windows-launch/progress.md) แล้ว 2026-11-10** — งาน Windows ทั้งหมดถูกรวมเป็นแถวเดียวบน board (`Manual = true`) ไฟล์นี้เก็บไว้เป็นประวัติ; ticket 01–02 ถูกอ้างถึงใน progress ของ windows-launch
+
 **Now:** รอเครื่อง Windows NVIDIA (Blocked #1); ticket 01 กับ 02 พร้อมทำ
 
 **Next:**
