@@ -1267,6 +1267,19 @@
 
 **From:** feature review · **Status:** active
 
+## D84: `gpu.ADVICE` ไม่ต่อท้าย error ที่มาจากโค้ด
+
+**Chosen:** error ของ process ลูกที่เป็นชนิดของโค้ดผิด (`TypeError`, `AttributeError`, `NameError`, `KeyError`, `IndexError`, `ImportError`, `AssertionError`) ได้ข้อความ `{failure}: {ข้อความสั้นของ error}` ไม่มี "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง"; error อื่น (OOM ของ torch, `RuntimeError` ของ MPS/CUDA, `MemoryError` ฯลฯ), timeout และ process ลูกที่ตาย คง `gpu.ADVICE` ตามเดิม. `error.code` ยังเป็น `model_failed` (`crashed` ตามเดิม) และหน้าเว็บไม่เปลี่ยน. ใช้กับทุกงานที่อ่านคำตอบผ่าน `backend.jobs` และ Transcribe job ของ spoil: toon, spoil-maker, spoil. การแยกชนิดอยู่ที่เดียว; process ลูกส่งชื่อชนิดของ error มากับข้อความ.
+
+**Why:** Blocked #36: `TypeError` ของ #33 (process ลูกที่โหลดโค้ดใหม่คุยกับ backend ที่ใช้โค้ดเก่า) ขึ้น "ปิดโปรแกรมอื่นที่ใช้ GPU" ซึ่งพาไปผิดทาง; เปลี่ยนแค่ข้อความไม่กระทบ code ที่หน้าเว็บของ spoil-maker แปลเป็น "งานหยุดกลางทาง". auto mode เลือกตัวเลือกที่แนะนำ
+
+**Rejected:**
+- error ของโค้ดเป็น `internal` — spoil-maker แปล `model_failed` เป็น "งานหยุดกลางทาง" แต่ `internal` ขึ้นข้อความดิบ, ต้องแก้ spec ของสาม feature
+- `gpu.ADVICE` เฉพาะ OOM, timeout, process ตาย — error ของ GPU ที่ไม่ใช่ OOM (driver, MPS) จะหายคำแนะนำ
+- แก้เฉพาะ klein ของ toon — `jobs.ModelJobSlot.reply` ใช้ร่วม แยกแล้วสองงานพูดต่างกันกับ error เดียวกัน
+
+**From:** tickets · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

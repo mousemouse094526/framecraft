@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** feature review รอบแปดเสร็จ (`29dd048`, D83), CI เขียวทั้งหมด; ยังไม่พร้อม merge — Blocked ที่ยัง open: #36 (`gpu.ADVICE` ต่อท้าย error ของโค้ด → `/warroom tickets toon`), #11, #12, #34 (owner เช็คมือ/วัดซ้ำหลัง restart), #33 (รอจับถ้าค้างอีก), #37 (pool ของ MPS ใน EP ยาว, เมื่อวัดเจอ)
+**Now:** re-cut: ticket 17 (`gpu.ADVICE` เฉพาะ error ของ GPU, #36, D84) พร้อม build; Blocked ที่ยัง open: #11, #12, #34 (owner เช็คมือ/วัดซ้ำหลัง restart), #33 (รอจับถ้าค้างอีก), #37 (pool ของ MPS ใน EP ยาว, เมื่อวัดเจอ)
 
 **Next:**
 
 ```
-/warroom tickets toon
+/warroom-build toon 17
 ```
 
 ## Tickets
@@ -28,6 +28,7 @@
 | 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | done |
 | 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | done |
 | 16 | Plot job ที่ผ่านกับ Qwen จริงเกือบทุกครั้ง และ log ที่บอกว่าคำตอบผิดตรงไหน | done |
+| 17 | คำแนะนำ "ปิดโปรแกรมอื่นที่ใช้ GPU" เฉพาะ error ที่เกี่ยวกับ GPU | ready |
 
 ## Log
 
@@ -686,5 +687,5 @@ Cards prompt 4 องก์ (plot จากคำตอบ key ครั้ง�
 | 33 | 15 | Ref job รอบแรกใน #32 (`drawing 0/3` ไม่มี process ลูก) ยังไม่พบเหตุ: ไม่เกิดซ้ำใน 9 Ref job จริงของ ticket 15. `TypeError` ตอน 13:01 (บันทึกก่อนหน้าในแถวนี้) **ไม่ใช่บั๊กของโค้ด**: backend เดิมบน 8000 (โค้ดก่อน ticket 15 ใน memory) spawn process ลูกที่ import `klein.py` ใหม่จากดิสก์ จึงส่ง `Encode` ให้ตัววาดที่รอ `Load` ([record](bugs/2026-11-11-ref-job-hangs-on-m1.md) › Timeline 13:00); ครั้งหน้าที่ค้าง `[api]` มี stack ของ klein (ทุก 10 นาที) และ `kill -USR1 {pid backend}` | restart backend บน 8000 ก่อนเช็คมือ; ค้างอีก → `/kiki-debug toon: Ref job ค้าง` พร้อม stack และบรรทัด `toon job … started` ของรอบนั้น | open |
 | 34 | 15 | ตัวเลขของขั้น 0 และขั้น 3 (D79) วัดตอนเครื่องไม่ restart และแอปอื่นเปิดอยู่: วิธีวัดของ D74 ต้อง restart Mac และเปิดแค่ `npm run dev` กับหน้าเว็บหนึ่ง tab ซึ่ง agent ทำไม่ได้ | owner restart Mac, `npm run dev`, เปิดหน้าเว็บหนึ่ง tab, รัน `.venv/bin/python scripts/measure_toon_memory.py ~/toon-d79 ref s_73ac00e3 characters c_d0cd8188 3` แล้วจด swap เพิ่มใน `progress.md` (ไม่เกิน 1 GB, ไม่ critical); ไม่ผ่าน → `/warroom toon` | open |
 | 35 | 15 | Plot job กับ Qwen จริงบน M1 ล้ม `write_failed` สองครั้งติดกัน (6/6 attempt `plot attempt N is not the JSON asked for`, 129–149 วิ) ของ EP ใหม่ `e_14c37720` ใน Series `s_73ac00e3` (ตัวละครและฉากหลังไม่มีคำบรรยาย); log ไม่เก็บคำตอบของ Qwen จึงไม่รู้ว่าผิดตรงไหน. นอก ticket 15: การ์ด 20 ใบของการวัด D74 สร้างด้วยมือผ่าน API | `/kiki-debug toon: Plot job write_failed กับ Qwen จริง` | done (`742c644`; [record](bugs/2026-11-11-plot-job-write-failed-with-qwen.md): `acts` เป็นข้อความ, D81; จำนวนองก์ผิดที่เหลือ → ticket 16) |
-| 36 | review | `model_failed` จาก error ของโค้ด (เช่น `TypeError` ของ #33) ต่อท้าย `gpu.ADVICE` "ปิดโปรแกรมอื่นที่ใช้ GPU" ซึ่งหลอกทาง: `WorkerError` ของ klein บอกแค่ `model_failed` ทุกกรณี; `jobs.ModelJobSlot.reply` ใช้ร่วมกับ spoil/spoil-maker และข้อความในจอเปลี่ยน | `/warroom tickets toon` | open |
+| 36 | review | `model_failed` จาก error ของโค้ด (เช่น `TypeError` ของ #33) ต่อท้าย `gpu.ADVICE` "ปิดโปรแกรมอื่นที่ใช้ GPU" ซึ่งหลอกทาง: `WorkerError` ของ klein บอกแค่ `model_failed` ทุกกรณี; `jobs.ModelJobSlot.reply` ใช้ร่วมกับ spoil/spoil-maker และข้อความในจอเปลี่ยน | `/warroom tickets toon` | → ticket 17 |
 | 37 | review | pool ของ MPS driver ไต่เมื่อการ์ดติดกันมีจำนวนภาพอ้างอิงต่างกัน (768: 4.42 → 6.23 GB ใน 5 ภาพ, ticket 15): EP ยาวกว่า 20 การ์ดอาจ swap — เรียงการ์ดตามจำนวนภาพอ้างอิง หรือเริ่ม process ที่วาดใหม่ทุก N ภาพ | `/warroom toon` (เมื่อวัดเจอ) | open |

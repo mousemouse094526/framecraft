@@ -9,4 +9,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [spoil-maker](spoil-maker/progress.md) | false | done | 🎨 8/8 | ✅ 83821a9 | — | — |
 | [story-kb](story-kb/progress.md) | false | done | 🎨 4/4 | ✅ d75f574 | — | — |
 | [windows-launch](windows-launch/progress.md) | **true** | blocked | 🎨 1/1 | 2/3 | **งาน Windows ทั้งหมด** — รวม windows-check 01–02 (setup-status, spoil) + 03 ลอง Qwen บน RTX 30xx · รอเครื่อง | `/warroom-build windows-launch 03` (บนเครื่อง Windows) |
-| [toon](toon/progress.md) | false | blocked | 🎨 9/9 | 16/16 | #36 `gpu.ADVICE` ต้องตัด ticket · owner วัดซ้ำหลัง restart (#34) · เช็คมือ #11, #12 · #33, #37 | `/warroom tickets toon` |
+| [toon](toon/progress.md) | false | ready | 🎨 9/9 | 16/17 | 17 `gpu.ADVICE` · owner วัดซ้ำหลัง restart (#34) · เช็คมือ #11, #12 · #33, #37 | `/warroom-build toon 17` |
