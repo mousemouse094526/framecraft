@@ -63,7 +63,7 @@ def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | None:
     acts = found.get("acts")
     if not title or not isinstance(acts, list) or len(acts) != act_count:
         return None
-    summaries = [_cleaned(act.get("summary") if isinstance(act, dict) else None) for act in acts]
+    summaries = [_cleaned(_summary(act)) for act in acts]
     if not all(summaries):
         return None
     by_kind = {item_kind: found.get(item_kind) for item_kind in KINDS}
@@ -167,6 +167,12 @@ def _card(value: object, character_ids: set[str], taken: set[str]) -> Card | Non
         flicker=value.get("flicker") is True,
         hold_s=0 if text else episodes.SILENT_HOLD,
     )
+
+
+def _summary(act: object) -> object:
+    """An act of the answer: `{"summary": ...}` as asked, or the summary alone, which is how the
+    real Qwen writes it whatever the prompt shows (D81)."""
+    return act.get("summary") if isinstance(act, dict) else act
 
 
 def _cleaned(value: object) -> str:

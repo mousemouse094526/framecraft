@@ -154,6 +154,17 @@ def test_a_plot_job_writes_the_title_and_every_summary_and_keeps_new_items_in_th
     assert gpu_holder() is None
 
 
+def test_a_plot_answer_whose_acts_are_plain_summaries_is_read_as_one(client, llm):
+    # The real Qwen writes `"acts": ["...", ...]` whatever the prompt shows (D81).
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.respond.__self__.plot["acts"] = [f"สรุป中文องก์ {n}" for n in range(1, 4)] + [{"summary": "สรุปองก์ 4"}]
+
+    assert (run(client, "plot", ep_id)["state"], len(llm.requests)) == ("done", 1)
+    ep = client.get(f"/api/toon/eps/{ep_id}").json()
+    assert [act["summary"] for act in ep["acts"]] == [f"สรุปองก์ {n}" for n in range(1, 5)]
+
+
 def test_a_plot_answer_drops_a_non_object_a_null_or_repeated_id_and_a_nameless_item_and_cleans_a_new_name(client, llm):
     series_id, character, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]

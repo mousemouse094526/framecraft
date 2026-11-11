@@ -1229,6 +1229,18 @@
 
 **From:** feature review · **Status:** active
 
+## D81: คำตอบของ Plot job ที่ `acts` เป็นข้อความสรุปเฉย ๆ
+
+**Chosen:** `writer.parse_plot` อ่าน act ที่เป็นข้อความเป็น `summary` ขององก์นั้น และยังอ่าน `{"summary": "..."}` ตามเดิม (ปนกันได้); prompt คงเดิม; `acts` ที่จำนวนไม่เท่าองก์ของ EP ยังสั่งใหม่ตาม spec › Plot job ข้อ 4.
+
+**Why:** Qwen จริงตอบ `"acts": ["...", ...]` ทุกครั้งที่วัด (8/8) แม้ตัวอย่าง JSON ใน prompt จะเป็น object ต่อองก์ตามชื่อ จน Plot job ล้ม `write_failed` ทุกครั้ง ([record](../../progress/toon/bugs/2026-11-11-plot-job-write-failed-with-qwen.md)); อ่านข้อความเป็น summary ไม่เปลี่ยนสิ่งที่ spec สัญญา เหมือนที่ `llm_reply.json_object` อ่าน JSON ที่ขาด `}` ตัวท้าย (spoil-maker D61). auto mode เลือกตัวเลือกที่แนะนำ
+
+**Rejected:**
+- เปลี่ยน prompt ให้ขอเป็นข้อความ — parser ต้องรับทั้งสองรูปอยู่ดี และต้องวัดกับ Qwen ใหม่
+- รับเฉพาะ object แล้วแก้ prompt — prompt ที่แสดง object ต่อองก์ชัดแล้วยังได้ข้อความ 5/5
+
+**From:** /kiki-debug · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

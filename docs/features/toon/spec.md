@@ -348,7 +348,7 @@ media/toon/
 1. เช็ค: EP มีอยู่ (`404` `not_found`); `idea` 1–500 ตัวอักษร (`400` `invalid_request`); Saved voice ของ EP มีอยู่ (`400` `voice_not_found`); EP `stage` `cards` ต้องผ่าน Cards job แทน (`409` `plot_confirmed`); แถว Status check; `busy`, `gpu_busy`
 2. state `writing`: Qwen ร่างพล็อตจาก `idea`, ชื่อองก์ของ EP, `tone` ของ Series, ตัวละครและฉากหลังใน Series (`id`, ชื่อ, คำอธิบาย), ความยาวเป้า 90 วินาที × `chars_per_s`
 3. คำตอบ JSON: `{"title": "...", "acts": [{"summary": "..."}], "characters": [{"id": "c_01"} | {"name": "...", "tag": "...", "description": "..."}], "backgrounds": [{"id": "b_01"} | {"name": "...", "description": "..."}]}`
-4. ตรวจผล: JSON อ่านได้, `acts` ยาวเท่าองก์ของ EP, ตัวละครไม่เกิน 6, ฉากหลัง 1–6; `id` ที่ไม่มีใน Series ถูกทิ้ง; ไม่ผ่านสั่งใหม่รวม 3 ครั้งแบบ Draft job ของ spoil-maker (ค่าการสร้าง: `temperature` 0.3, thinking ปิด, timeout `llm.timeouts().write`); ครบ 3 ครั้ง → `failed` `write_failed`
+4. ตรวจผล: JSON อ่านได้, `acts` ยาวเท่าองก์ของ EP (act ที่เป็นข้อความคือ `summary` ขององก์นั้น, D81), ตัวละครไม่เกิน 6, ฉากหลัง 1–6; `id` ที่ไม่มีใน Series ถูกทิ้ง; ไม่ผ่านสั่งใหม่รวม 3 ครั้งแบบ Draft job ของ spoil-maker (ค่าการสร้าง: `temperature` 0.3, thinking ปิด, timeout `llm.timeouts().write`); ครบ 3 ครั้ง → `failed` `write_failed`
 5. ทำความสะอาดข้อความแบบ spoil-maker Draft job ข้อ 4; เขียน `title`, `summary` ทุกองก์, `plot` (ของใหม่เก็บใน `plot` ด้วย `name`, `tag`, `description` และ `new: true` ยังไม่เข้า Series)
 
 ผู้ใช้แก้ `title`, `summary`, และสลับของใหม่ใน `plot` ไปเป็น `id` ของเดิมได้ (D13); `plot` ต้องเหลือฉากหลังอย่างน้อยหนึ่งไม่งั้น `400` `invalid_request`.
