@@ -595,7 +595,7 @@ job object (ทุกชนิดมีฟิลด์เดียวกัน �
 | `disk_full` | "ที่ว่างดิสก์ไม่ถึง 1 GiB" | ลบผล render เก่า |
 | `has_edits` | "ถอดใหม่จะลบบทพูดที่แก้ไว้" | ยืนยัน → ส่งซ้ำพร้อม `confirm_edit_loss: true` (D54) |
 | `ffmpeg_failed` | "render ไม่สำเร็จ" | กด render ใหม่ |
-| `crashed`, `model_failed` | "งานหยุดกลางทาง" | กดใหม่ |
+| `crashed`, `model_failed` | "งานหยุดกลางทาง" (`error.message` ของ backend ลงท้าย "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง" ยกเว้น `model_failed` จาก error ของโค้ด, `jobs.CODE_ERROR_TYPES`, toon D84) | กดใหม่ |
 | `voice_in_use` | "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท" | — |
 | `busy` (Draft job `kind: "draft"`) | "มีงานร่างบทอยู่แล้ว" | อ่าน state ร่วมใหม่ ขั้น 1 ล็อก (D87) |
 | อื่นๆ | `message` จาก backend | — |

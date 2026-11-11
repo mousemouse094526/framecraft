@@ -233,7 +233,7 @@ def test_the_current_job_is_null_before_any(client):
     ("failure", "message"),
     [(CODE_ERROR, f"สร้างเสียงไม่สำเร็จ: {CODE_ERROR}"), (GPU_ERROR, f"สร้างเสียงไม่สำเร็จ: {GPU_ERROR}. {gpu.ADVICE}")],
 )
-def test_a_worker_error_fails_the_job_as_model_failed_and_only_one_of_the_gpu_ends_with_the_advice(client, tts, failure, message):
+def test_a_worker_error_fails_the_job_as_model_failed_and_only_a_gpu_error_ends_with_the_advice(client, tts, failure, message):
     """toon D84: an error of the code says what it is, without pointing at other apps on the GPU."""
     tts.fail_at, tts.fail_with = 0, failure
 

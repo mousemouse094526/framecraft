@@ -419,6 +419,7 @@ def test_a_voice_job_whose_omnivoice_errs_in_the_code_fails_model_failed_without
     job = voice(client, ep["id"], cards_of(ep)[0]["id"])
 
     assert (job["state"], job["error"]) == ("failed", {"code": "model_failed", "message": f"สร้างเสียงไม่สำเร็จ: {CODE_ERROR}"})
+    assert gpu_refusal() is None
 
 
 def test_deleting_a_series_during_its_voice_job_is_series_busy(client, llm, tts):

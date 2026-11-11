@@ -5,18 +5,26 @@ import beyond the standard library: a child imports its adapter, and this with i
 import faulthandler
 import signal
 import sys
+import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any, NamedTuple
 
 
+def as_worker_error(error_type: type, code: str, error: Exception):
+    """A child's `error` as its adapter's `error_type` (`WorkerError`) with `code`, after printing
+    it whole: the child shares the backend's terminal, so the full error shows in [api]."""
+    traceback.print_exc()
+    return error_type(code, error_detail(error))
+
+
 def error_detail(error: Exception) -> str:
-    """A child's error as its `WorkerError.detail`, `{type}: {error}`: `jobs.worker_failure` reads the type."""
+    """A child's error as its `WorkerError.detail`, `{type}: {error}`: `jobs.worker_error_message` reads the type."""
     return f"{type(error).__name__}: {error}"
 
 
-def type_name(detail: str) -> str:
-    """The type's name in an `error_detail`."""
+def error_type_of(detail: str) -> str:
+    """The exception type's name in an `error_detail`."""
     return detail.split(":", 1)[0]
 
 

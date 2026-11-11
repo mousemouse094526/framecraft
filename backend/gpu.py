@@ -32,6 +32,11 @@ RUNNING_NAMES: dict[Kind, str] = {
 ADVICE = "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง"
 
 
+def advised(message: str) -> str:
+    """`message`, then `ADVICE` (one full stop between them, even when `message` ends with one)."""
+    return f"{message.rstrip('.')}. {ADVICE}"
+
+
 class GpuSlot:
     """Who holds the GPU, and which Temp clips that job reads (spoil-maker D49).
 

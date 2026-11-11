@@ -473,7 +473,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 reply = self._ask(project, prompt, PICK_MAX_TOKENS, PICK_TEMPERATURE, self._timeouts.pick)
             except TimeoutError:
                 # Unlike the script, a stuck pick ends the job (spec › ค่าการสร้างข้อความ).
-                raise JobFailed("model_failed", f"เลือกภาพเกิน {self._timeouts.pick:g} วินาที. {gpu.ADVICE}") from None
+                raise JobFailed("model_failed", gpu.advised(f"เลือกภาพเกิน {self._timeouts.pick:g} วินาที")) from None
             picked = script.parse_pick(reply, asked) or script.nearest(asked, first.start_s)
         return [ShotRef(clip_id=window.clip_id, n=n) for n in picked]
 

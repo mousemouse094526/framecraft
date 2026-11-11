@@ -196,7 +196,7 @@ def os_timeouts(monkeypatch, darwin: float, win32: float) -> None:
 # A fake answer this slow outlasts a Mac timeout of 0.2 s and fits a Windows one of 1 s.
 SLOW_ANSWER_SECONDS = 0.5
 # A child's errors as a `WorkerError.detail`. One of the GPU, its message ending with `gpu.ADVICE`;
-# one of the code (the kind of `TypeError` toon #33 met), whose message has none (toon D84).
+# one of the code (the kind of `TypeError` of toon's Blocked #33), whose message has none (toon D84).
 GPU_ERROR = "RuntimeError: MPS out of memory"
 CODE_ERROR = "TypeError: Load.__new__() missing 1 required positional argument: 'embeds'"
 
@@ -545,6 +545,10 @@ class FakeModel:
     def answer(self, request, index: int):
         raise NotImplementedError
 
+    def failure(self):
+        """The model's `WorkerError` with `fail_with`, the answer to request `fail_at`."""
+        raise NotImplementedError
+
     def pause_at(self, index: int) -> None:
         self._paused[index] = threading.Event()
         self._reached[index] = threading.Event()
@@ -589,11 +593,14 @@ class FakeLlm(FakeModel):
 
         return Ready()
 
-    def answer(self, request, index: int):
-        from backend.spoil_maker.llm import Generated, WorkerError
+    def failure(self):
+        from backend.spoil_maker.llm import WorkerError
 
-        if index == self.fail_at:
-            return WorkerError("model_failed", self.fail_with)
+        return WorkerError("model_failed", self.fail_with)
+
+    def answer(self, request, index: int):
+        from backend.spoil_maker.llm import Generated
+
         text = self.respond(request)
         return text if text is self.HANG else Generated(text)
 
@@ -614,11 +621,14 @@ class FakeTts(FakeModel):
 
         return Ready()
 
-    def answer(self, request, index: int):
-        from backend.spoil_maker.tts import Designed, Speak, Spoken, WorkerError
+    def failure(self):
+        from backend.spoil_maker.tts import WorkerError
 
-        if index == self.fail_at:
-            return WorkerError("model_failed", self.fail_with)
+        return WorkerError("model_failed", self.fail_with)
+
+    def answer(self, request, index: int):
+        from backend.spoil_maker.tts import Designed, Speak, Spoken
+
         audio = b"\0\0" * round(self.SAMPLE_RATE * self.seconds)
         if isinstance(request, Speak):
             return Spoken(audio=audio, sample_rate=self.SAMPLE_RATE)
@@ -656,13 +666,16 @@ class FakeKlein(FakeModel):
     def ready(self):
         return None
 
+    def failure(self):
+        from backend.toon.klein import WorkerError
+
+        return WorkerError("model_failed", self.fail_with)
+
     def answer(self, request, index: int):
-        from backend.toon.klein import Drawn, Encode, Encoded, Load, Loaded, WorkerError
+        from backend.toon.klein import Drawn, Encode, Encoded, Load, Loaded
 
         if self.silent_on is not None and isinstance(request, self.silent_on):
             return self.HANG
-        if index == self.fail_at:
-            return WorkerError("model_failed", self.fail_with)
         if isinstance(request, Encode):
             return Encoded([self.embeds_of(prompt) for prompt in request.prompts])
         if isinstance(request, Load):
@@ -706,7 +719,12 @@ class FakeModelProcess(FakeProcess):
                 model._reached[index].set()
                 while not (model._paused[index].is_set() or self._killed.is_set()):
                     self._killed.wait(0.01)
-            answer = model.HANG if index == model.hang_at else model.answer(request, index)
+            if index == model.hang_at:
+                answer = model.HANG
+            elif index == model.fail_at:
+                answer = model.failure()
+            else:
+                answer = model.answer(request, index)
             if answer is model.HANG:
                 self._killed.wait()
             if self._killed.is_set():

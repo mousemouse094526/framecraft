@@ -134,7 +134,7 @@ class Describes(ModelJobSlot[DescribeJob]):
             try:
                 reply = self.ask(worker, request, (Generated,), seconds)
             except TimeoutError:
-                raise JobFailed("model_failed", f"บรรยายภาพเกิน {seconds:g} วินาที. {gpu.ADVICE}") from None
+                raise JobFailed("model_failed", gpu.advised(f"บรรยายภาพเกิน {seconds:g} วินาที")) from None
             described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
             self.update(done=n + 1)
         worker.end()

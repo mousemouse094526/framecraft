@@ -47,15 +47,16 @@ backend/
 │                    a child that says nothing until asked, klein's, is only
 │                    `track`ed) and stops only through `stop_child` (`free_gpu` also frees
 │                    the GPU mid-job); a slot's steps and its `Speaker` call
-│                    `update`, `start_child`, `ask`, `stop_child`; `worker_failure`, the
+│                    `update`, `start_child`, `ask`, `stop_child`; `worker_error_message`, the
 │                    message of a child's `WorkerError` (`gpu.ADVICE` unless one of
 │                    `CODE_ERROR_TYPES`, toon D84)
 ├── workers.py    ← `Worker`, a model's child with its request and reply queues:
 │                    every adapter's `start_worker` (klein's `start_encoder`,
 │                    `start_drawer`) returns one, `end` asks it to exit;
 │                    the stack dumpers of a child that hangs (`dump_stacks_on_signal`,
-│                    `dump_stacks_after`, toon D76), `error_detail`/`type_name` of a
-│                    `WorkerError.detail` (toon D85) (standard library only, as a child imports it)
+│                    `dump_stacks_after`, toon D76), `as_worker_error` (a child's error as its
+│                    `WorkerError`, printed whole) and `error_detail`/`error_type_of` of its
+│                    `detail` (toon D85) (standard library only, as a child imports it)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
@@ -64,7 +65,8 @@ backend/
 │                    `begin_trim` marks the clip a Trim job cuts, which every
 │                    job that reads it is refused until `end_trim` — the mark
 │                    outlives the `with` (spoil D42); `trimmed_clip_swap`
-│                    guards putting the new mp4 in place
+│                    guards putting the new mp4 in place; `advised` ends a failed
+│                    job's message with `ADVICE`
 ├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel)
 │                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
 │                    frames and compose share it

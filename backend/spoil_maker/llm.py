@@ -8,13 +8,12 @@ child only, never when the backend imports this module. On Windows the child run
 """
 
 import multiprocessing
-import traceback
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, NamedTuple
 
 from backend import checks
-from backend.workers import Worker, error_detail
+from backend.workers import Worker, as_worker_error
 
 # Sent to the child: one prompt, with one image or none. `None` asks it to exit.
 
@@ -108,14 +107,14 @@ def serve_requests(load: Callable, generate: Callable, snapshot_dir: Path, reque
     try:
         model, processor = load(snapshot_dir)
     except Exception as error:
-        _send_error(replies, error)
+        replies.put(as_worker_error(WorkerError, "model_failed", error))
         return
     replies.put(Ready())
     while (request := requests.get()) is not None:
         try:
             text = generate(model, processor, request)
         except Exception as error:
-            _send_error(replies, error)
+            replies.put(as_worker_error(WorkerError, "model_failed", error))
             return
         replies.put(Generated(text))
 
@@ -143,8 +142,3 @@ def generate(model, processor, request: Generate) -> str:
         model, processor, prompt, image=images, max_tokens=request.max_tokens, temperature=request.temperature
     )
     return result.text
-
-
-def _send_error(replies, error: Exception) -> None:
-    traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    replies.put(WorkerError("model_failed", error_detail(error)))

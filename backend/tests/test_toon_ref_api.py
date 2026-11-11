@@ -254,9 +254,10 @@ def test_a_failed_ref_job_leaves_nothing_waiting(client, klein):
         (GPU_ERROR, f"สร้างภาพไม่สำเร็จ: {GPU_ERROR}. {gpu.ADVICE}"),
     ],
 )
-def test_a_ref_job_whose_klein_errs_names_the_error_and_only_an_error_of_the_gpu_ends_with_the_advice(client, klein, failure, message):
+def test_a_ref_job_whose_klein_errs_names_the_error_and_only_a_gpu_error_ends_with_the_advice(client, klein, failure, message):
     """D84: an error of the code (a `TypeError`) says what it is, without pointing at other apps on the GPU."""
-    klein.fail_at, klein.fail_with = 2, failure  # request 0 is `Load`: the second picture
+    # `fail_at` counts each process's requests: the drawer's are `Load`, then a `Draw` per picture.
+    klein.fail_at, klein.fail_with = 2, failure  # the second picture's `Draw`
     series_id = new_series(client)["id"]
     item_id = add_item(client, series_id)["id"]
     start_ref(client, series_id, item_id)

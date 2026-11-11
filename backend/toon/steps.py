@@ -198,7 +198,7 @@ def _drawing_time() -> Iterator[None]:
     try:
         yield
     except TimeoutError:
-        raise JobFailed("model_failed", f"สร้างภาพเกิน {klein.draw_timeout() / 60:g} นาที. {gpu.ADVICE}") from None
+        raise JobFailed("model_failed", gpu.advised(f"สร้างภาพเกิน {klein.draw_timeout() / 60:g} นาที")) from None
 
 
 def image_rows(project: ProjectPaths) -> dict[str, Row]:

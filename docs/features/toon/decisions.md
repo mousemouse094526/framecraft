@@ -1289,7 +1289,24 @@
 **Rejected:**
 - field `error_type` ใน `WorkerError` ทุกตัว — สี่ module ของ process ลูกเปลี่ยน แต่ได้ข้อมูลเดิมที่มีใน `detail` แล้ว
 
+ชื่อ `worker_failure` → `worker_error_message`, `type_name` → `error_type_of` (D86).
+
 **From:** build ticket 17 · **Status:** active
+
+## D86: feature review รอบเก้าของ toon
+
+**Chosen:**
+- `jobs.worker_failure` → `jobs.worker_error_message`, `workers.type_name` → `workers.error_type_of`
+- `workers.as_worker_error(error_type, code, error)` พิมพ์ traceback แล้วคืน `WorkerError`: แทน `_send_error` ของ whisper, llm, tts และ `_worker_error` ของ klein
+- `gpu.advised(message)` ต่อ `gpu.ADVICE` ด้วยจุดเดียว (ข้อความที่จบ "." ไม่ได้ ".."): `worker_error_message`, `crashed` ของ `ModelJobSlot` และ Transcribe job, timeout สามที่ (`steps._drawing_time`, `describe`, `draft` › เลือกภาพ)
+- `FakeModel.failure()`: process ปลอมตอบ `fail_at` ที่เดียว (เดิมเช็คซ้ำใน `FakeLlm`, `FakeTts`, `FakeKlein`); `fail_at` มาก่อน `silent_on` ของ klein
+- test: Voice job ที่ OmniVoice ผิดในโค้ดเช็คว่า GPU ว่าง; Transcribe ใช้ `GPU_ERROR` และ `gpu.ADVICE`; ชื่อ test "only a gpu error"; คอมเมนต์ `fail_at` นับต่อ process; คอมเมนต์ใน `CODE_ERROR_TYPES` บอกว่า import ที่พังนับเป็นโค้ด
+- spec ของ spoil-maker › ตารางข้อความ: `crashed`/`model_failed` บอกกฎ `gpu.ADVICE` ของ D84
+- ไม่แก้: `detail` เป็นสตริงที่อ่านชื่อชนิดกลับ (D85 ปฏิเสธ field ใหม่); `CODE_ERROR_TYPES` ใน `jobs` แยกจาก `workers` (process ลูก import แค่ standard library); `steps.scenes` ยังได้ None (มีเงื่อนไข); log ของ spoil-maker `draft.py` (นอก feature)
+
+**Why:** feature review รอบเก้า: Standards (ชื่อ, `_send_error` ซ้ำสี่ child, `fail_at` ซ้ำสาม fake, ข้อความตรงใน test Transcribe), Spec (spec ของ spoil-maker ไม่มีกฎ, ".." , Voice job ไม่เช็ค GPU, `gpu.ADVICE` ต่อด้วยมือห้าที่), Newcomer (คอมเมนต์ `fail_at = 2`, ชื่อ test, ImportError, `#33`). auto mode เลือกตัวเลือกที่แนะนำ
+
+**From:** feature review · **Status:** active
 
 ## Sources
 

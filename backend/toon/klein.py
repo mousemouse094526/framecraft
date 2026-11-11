@@ -12,13 +12,12 @@ A request that runs past `DUMP_AFTER` prints the child's stacks to the backend's
 
 import io
 import multiprocessing
-import traceback
 from pathlib import Path
 from typing import Literal, NamedTuple
 
 from backend import checks
 from backend.spoil_maker import llm
-from backend.workers import Worker, dump_stacks_after, dump_stacks_on_signal, error_detail
+from backend.workers import Worker, as_worker_error, dump_stacks_after, dump_stacks_on_signal
 
 GGUF_FILE = "flux-2-klein-4b-Q4_K_M.gguf"  # Q8_0 and Q6_K peak over 12 GB on a 16 GB Mac (D51)
 STEPS = 4  # klein 4B is step-distilled (docs/library-notes/diffusers.md)
@@ -111,7 +110,7 @@ def encoder_worker(snapshot_dir: Path, device: str, requests, replies) -> None:
         with dump_stacks_after(DUMP_AFTER):
             reply = Encoded(encode(snapshot_dir, device, request.prompts))
     except Exception as error:
-        reply = _worker_error(error)
+        reply = as_worker_error(WorkerError, "model_failed", error)
     replies.put(reply)
 
 
@@ -129,16 +128,11 @@ def drawer_worker(snapshot_dir: Path, gguf_dir: Path, device: str, requests, rep
                 else:
                     reply = Drawn(draw(pipe, prompt_embeds[request.index], request, device))
         except Exception as error:
-            replies.put(_worker_error(error))
+            replies.put(as_worker_error(WorkerError, "model_failed", error))
             if not isinstance(request, Draw):
                 return
             continue  # one picture failed: the Image job counts it and asks for the next (spec › Image job)
         replies.put(reply)
-
-
-def _worker_error(error: Exception) -> WorkerError:
-    traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    return WorkerError("model_failed", error_detail(error))
 
 
 def embeds_bytes(embeds) -> bytes:
