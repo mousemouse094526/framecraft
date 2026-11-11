@@ -1,11 +1,11 @@
 # Progress: toon
 
-**Now:** ticket ครบ 16/16 (16: prompt key ต่อองก์ Qwen จริง 20/20, D82); รอ feature review; Blocked ที่ยัง open — #11, #12, #34 (owner เช็คมือ/วัดซ้ำหลัง restart), #33 (รอจับถ้าค้างอีก), #36 (`gpu.ADVICE` ต่อท้าย error ของโค้ด), #37 (pool ของ MPS ใน EP ยาว)
+**Now:** feature review รอบแปดเสร็จ (`29dd048`, D83), CI เขียวทั้งหมด; ยังไม่พร้อม merge — Blocked ที่ยัง open: #36 (`gpu.ADVICE` ต่อท้าย error ของโค้ด → `/warroom tickets toon`), #11, #12, #34 (owner เช็คมือ/วัดซ้ำหลัง restart), #33 (รอจับถ้าค้างอีก), #37 (pool ของ MPS ใน EP ยาว, เมื่อวัดเจอ)
 
 **Next:**
 
 ```
-/warroom-build toon --review-feature
+/warroom tickets toon
 ```
 
 ## Tickets
@@ -30,6 +30,23 @@
 | 16 | Plot job ที่ผ่านกับ Qwen จริงเกือบทุกครั้ง และ log ที่บอกว่าคำตอบผิดตรงไหน | done |
 
 ## Log
+
+### Feature review (รอบแปด) — done 2026-11-11
+
+**Built:**
+- log ของ Plot ที่เกินขอบบอกเหตุต่อขอบ (`: no background`, `7 characters (at most 6)`) แทน `: out of bounds`
+- `steps.REPLY_LOG_LETTERS` (เดิม `REPLY_LOGGED`); ชื่อใน `writer.plot_prompt` (`acts_shape`, `act_lines`, `acts_json`); docstring ของ `writer._summary`
+- test: Plot key ต่อองก์ที่ key เปลี่ยนชื่อและสลับที่ยังอ่านตามลำดับคำตอบ, เทียบสรุปเต็ม; ตัวละครเกิน 6 log ขอบ; ชื่อ test list ข้อความบอกว่าตัด CJK
+- spec › Plot job ข้อ 4: "ไม่ดูชื่อ key"
+
+**Decided:**
+- D83 — ข้างบนทั้งหมด และที่ไม่แก้ (`__self__` ของ fake, คำตอบจริงเป็น string ใน test, per-kind สามรอบ, `no JSON object` สองที่, `parse_scene` ยัง None, log ของ spoil-maker, test Cards องก์ 2); auto mode เลือกตัวเลือกที่แนะนำ
+
+**For the next ticket:**
+- For the next ticket ของ 16 ยังไม่หยิบ ทั้งสองข้อมีเงื่อนไข: `parse_scene` → `Unusable` เมื่อแปลคำบรรยายพังอีก (ถ้าทำ ย้าย `Unusable` ออกจาก `writer` ไปที่ `steps` ใช้ร่วม); Cards 2–3 การ์ดต่อองก์ → `/warroom toon` ถ้าเช็คมือ #11 เจอคลิปสั้น
+- spoil-maker `draft.py` ยัง log "is not the JSON asked for" แบบไม่มีเหตุ (นอก feature)
+
+**Checks:** `uv run pytest` 1118 passed (+1; รันจาก root — รันใน `backend/` test ของ `spoil_maker.thai` ล้มเพราะ import `backend` ไม่ได้); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 442 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `912c7c4` (เน้น `25b2df8..HEAD`): Standards 0 ข้อผิดกติกา + smell 6 (หนักสุด ชื่อใน `plot_prompt`), Spec 0 ผิดตรง + 6 ข้อ (หนักสุด log "out of bounds" ที่ AC1 ขอเหตุ), Newcomer สรุปตรง spec › Solution + เดา 8 จุด (หนักสุด `REPLY_LOGGED`)
 
 ### 16: Plot job ที่ผ่านกับ Qwen จริงเกือบทุกครั้ง และ log ที่บอกว่าคำตอบผิดตรงไหน — done 2026-11-11
 
