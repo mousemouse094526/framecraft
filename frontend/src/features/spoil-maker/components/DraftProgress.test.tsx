@@ -209,7 +209,10 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     expect(await screen.findByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).toBeInTheDocument();
 
     current.phases.at = 1;
-    await user.click(screen.getByRole("button", { name: "เลือก Shot ใหม่" }));
+    // ต้องให้ poll อ่านรอบใหม่ก่อน: ปุ่ม "เลือก Shot ใหม่" มีเฉพาะตอนที่ UI เห็น pick job แล้ว
+    // (shouldAdvanceTime: true ทำให้บางรอบ poll ยังไม่ทันยิง → getByRole ไม่เจอปุ่ม)
+    await nextPoll();
+    await user.click(await screen.findByRole("button", { name: "เลือก Shot ใหม่" }));
 
     await nextPoll();
     expect(screen.queryByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).not.toBeInTheDocument();
