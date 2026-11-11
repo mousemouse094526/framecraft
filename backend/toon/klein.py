@@ -5,6 +5,7 @@ loads klein's text encoder alone, encodes every prompt under `torch.no_grad()`, 
 encoder, then loads the GGUF transformer and the vae — the two never sit in memory together
 on a 16 GB Mac (D34) — and says `Encoded`. Each `Draw` then answers `Drawn` with a PNG's
 bytes and empties the GPU cache (D49); the backend thread writes every file. torch and diffusers are imported in the child only.
+A request that runs past `DUMP_AFTER` prints the child's stacks to the backend's terminal (D76).
 """
 
 import io
@@ -15,12 +16,15 @@ from typing import Literal, NamedTuple
 
 from backend import checks
 from backend.spoil_maker import llm
-from backend.workers import Worker
+from backend.workers import Worker, dump_stacks_after, dump_stacks_on_signal
 
 GGUF_FILE = "flux-2-klein-4b-Q4_K_M.gguf"  # Q8_0 and Q6_K peak over 12 GB on a 16 GB Mac (D51)
 STEPS = 4  # klein 4B is step-distilled (docs/library-notes/diffusers.md)
 GUIDANCE = 1.0
 REF_SIDE = 512  # a reference image's long side as it goes in (D49; D31 had 768)
+# A request that runs this long prints the child's stacks, again each time, before the
+# backend stops it at `draw_timeout` (D76): the 15 minutes leave room for one or two.
+DUMP_AFTER = 600
 
 # Seconds one picture may take before its child is stopped (spec › Image job): the Mac's
 # 15 minutes, and Windows at the same multiple as `llm.TIMEOUTS` starts from.
@@ -84,15 +88,17 @@ def start_worker(snapshot_dir: Path, gguf_dir: Path, device: str) -> Worker:
 
 def worker(snapshot_dir: Path, gguf_dir: Path, device: str, requests, replies) -> None:
     """The child process: klein from the pinned snapshots, never from the Hub (ADR 0008)."""
+    dump_stacks_on_signal()
     pipe, embeds = None, []
     while (request := requests.get()) is not None:
         try:
-            if isinstance(request, Encode):
-                embeds = encode(snapshot_dir, device, request.prompts)
-                pipe = load_pipeline(snapshot_dir, gguf_dir, device)
-                reply = Encoded(len(embeds))
-            else:
-                reply = Drawn(draw(pipe, embeds[request.index], request, device))
+            with dump_stacks_after(DUMP_AFTER):
+                if isinstance(request, Encode):
+                    embeds = encode(snapshot_dir, device, request.prompts)
+                    pipe = load_pipeline(snapshot_dir, gguf_dir, device)
+                    reply = Encoded(len(embeds))
+                else:
+                    reply = Drawn(draw(pipe, embeds[request.index], request, device))
         except Exception as error:
             traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
             replies.put(WorkerError("model_failed", f"{type(error).__name__}: {error}"))

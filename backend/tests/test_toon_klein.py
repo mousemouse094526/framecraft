@@ -1,15 +1,18 @@
 """The klein adapter's surface, the pure helpers of the Ref job and how the status check finds
-klein's files. The real `worker` needs the model and a GPU, so it is checked by hand on a Mac."""
+klein's files. The real `worker` needs the model and a GPU, so it is checked by hand on a Mac;
+its stack dumper runs here with the model stubbed."""
 
+import queue
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
 
 from backend.checks import named_patterns
 from backend.models import KLEIN, KLEIN_GGUF, QWEN_MAC
-from backend.toon import prompts
+from backend.toon import klein, prompts
 
 
 def test_importing_the_toon_jobs_and_their_klein_adapter_loads_neither_torch_nor_diffusers():
@@ -48,3 +51,25 @@ def test_status_check_compares_the_named_files_and_folders_of_a_model_and_skips_
     assert named_patterns(KLEIN_GGUF) == ["flux-2-klein-4b-Q4_K_M.gguf"]
     # The Qwen an Image job translates with lists only kinds of file (`*.json`, …): no file to look for.
     assert named_patterns(QWEN_MAC) == []
+
+
+def test_a_klein_request_that_runs_past_dump_after_prints_the_child_s_stacks_and_then_stops_printing(monkeypatch, capfd):
+    """The traceback dumper of D76: where a request that hangs waits, in the `[api]` terminal."""
+    def slow_encode(snapshot_dir, device, prompts):
+        time.sleep(0.3)
+        return ["embeds"]
+
+    monkeypatch.setattr(klein, "DUMP_AFTER", 0.1)
+    monkeypatch.setattr(klein, "encode", slow_encode)
+    monkeypatch.setattr(klein, "load_pipeline", lambda *args: "pipe")
+    requests, replies = queue.Queue(), queue.Queue()
+    requests.put(klein.Encode(["a prompt"]))
+    requests.put(None)
+
+    klein.worker(Path("snapshot"), Path("gguf"), "cpu", requests, replies)
+    printed = capfd.readouterr().err
+    time.sleep(0.3)
+
+    assert replies.get_nowait() == klein.Encoded(1)
+    assert "slow_encode" in printed
+    assert capfd.readouterr().err == ""  # cancelled once the request is answered

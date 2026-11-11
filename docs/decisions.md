@@ -352,3 +352,4 @@ question; the full entry is in the feature's decisions.md.
 | feature review รอบหกของ toon: ปุ่มหยุดของทุกงานผ่าน `stopJob` (notice เมื่อหยุดไม่ได้), `startRefJob` ถือ `NOT_NOW`, `sendChecked` คืน `ok`, id ขององก์ใน EP ใหม่ไม่ซ้ำ | [toon](features/toon/decisions.md) | D73 | — | — | active |
 | งานภาพบน M1 16 GB: swap เพิ่ม ≤ 1 GB, ไม่ critical, `done` ไม่มี `failed_cards`, เวลา ≤ 1.5× trial; วัดทีละช่วงก่อน แล้วลอง encode ใน process ลูกแยก → Q3_K_M → วาด 768×432 | [toon](features/toon/decisions.md) | D74 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
 | งานภาพที่ค้าง: `/kiki-debug` ก่อนวัด อ่าน log ก่อน; ไม่เกิดซ้ำใน 5 Ref job → ใส่ตัวดึง traceback แล้ววัดต่อ | [toon](features/toon/decisions.md) | D75 | — | — | active |
+| log ของ backend (logger `backend` INFO พร้อมเวลา) ใน `[api]`; `kill -USR1` พิมพ์ stack ของ backend และ klein; klein พิมพ์ stack เองเมื่อ request เกิน 600 วิ | [toon](features/toon/decisions.md) | D76 | — | — | active |

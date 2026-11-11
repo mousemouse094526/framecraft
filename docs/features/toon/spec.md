@@ -513,6 +513,8 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 
 - Setup script โหลดเพิ่มราว 11 GB (GGUF Q4_K_M 2.6 GB + text encoder และ vae ~8 GB, D34, D51); เครื่องที่โหลด Q8_0 ไว้แล้วเห็นแถว `model_klein_gguf` `missing` และ setup โหลดใหม่ (D50)
 - `NOTICE.md` และหน้า Setup status แสดง license ของ klein ทั้งสอง repo และ Qwen3-4B text encoder (setup-status D11, legal ข้อ 1)
+- `[api]` มีบรรทัด `toon job {kind} … started` / `ended {state} {code} after N s` พร้อมเวลา; งานภาพที่ค้าง: process ลูกของ klein พิมพ์ stack ของตัวเองเมื่อ request หนึ่งเกิน 10 นาที และ `kill -USR1 {pid}` พิมพ์ stack ของ backend หรือ klein (D76)
+- วัด memory ทั้งเครื่องระหว่างงานภาพจริง: `scripts/measure_toon_memory.py` (D74)
 
 ## Seams
 

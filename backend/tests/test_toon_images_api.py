@@ -13,6 +13,7 @@ from backend.errors import ApiError
 from backend.models import KLEIN, OMNIVOICE
 from backend.paths import EpAddress
 from backend.toon import images, series
+from backend.toon import klein as klein_module
 from backend.toon.klein import Draw, Encode
 
 from .fakes import (
@@ -172,6 +173,22 @@ def test_a_card_klein_fails_on_is_in_failed_cards_and_the_job_goes_on_to_done(cl
     cards = cards_of(get_ep(client, ep["id"]))
     assert (job["state"], job["done"], job["failed_cards"]) == ("done", 8, [cards[1]["id"]])
     assert [card["image_status"] for card in cards[:3]] == ["ready", "no_image", "ready"]
+
+
+def test_an_image_job_whose_klein_never_answers_a_draw_fails_model_failed_keeps_the_pictures_done_and_stops_it(
+    client, llm, klein, monkeypatch
+):
+    """Seam 1, klein silent: a `Draw` that takes longer than a picture may fails the job (D75)."""
+    _, _, _, ep = with_cards(client, llm)
+    monkeypatch.setattr(klein_module, "draw_timeout", lambda: 0.2)
+    klein.hang_at = 2  # request 0 is `Encode`: the second card's picture
+
+    job = draw(client, ep["id"], scope="missing")
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert [card["image_status"] for card in cards_of(get_ep(client, ep["id"]))[:2]] == ["ready", "no_image"]
+    assert klein.processes[0].terminated
+    assert gpu.slot.take("describe") is None
 
 
 def test_drawing_a_card_again_keeps_the_old_picture_as_previous_drops_the_one_before_and_swaps_back(client, llm, project):

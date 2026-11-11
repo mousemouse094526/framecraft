@@ -10,6 +10,7 @@ from PIL import Image
 from backend import gpu
 from backend.app import app
 from backend.models import KLEIN
+from backend.toon import klein as klein_module
 from backend.toon import series
 from backend.toon.klein import Draw, Encode
 
@@ -392,6 +393,25 @@ def test_a_ref_job_whose_klein_dies_while_loading_fails_crashed_and_frees_the_gp
 
     assert (job["state"], job["error"]["code"]) == ("failed", "crashed")
     assert gpu_is_free()
+
+
+def test_a_ref_job_whose_klein_never_answers_encode_fails_model_failed_stops_it_and_a_new_one_starts(
+    client, klein, monkeypatch
+):
+    """Seam 1, klein silent: the per-picture timeout covers the wait for `Encoded` (D75)."""
+    monkeypatch.setattr(klein_module, "draw_timeout", lambda: 0.2)
+    series_id = new_series(client)["id"]
+    item_id = add_item(client, series_id)["id"]
+    klein.hang_at = 0  # `Encode`
+
+    assert start_ref(client, series_id, item_id).status_code == 202
+    job = wait_for_toon_job(client)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert klein.processes[0].terminated
+    klein.hang_at = None
+    assert start_ref(client, series_id, item_id).status_code == 202
+    assert wait_for_toon_job(client)["state"] == "done"
 
 
 def test_a_backend_shutdown_stops_a_running_ref_job_s_child(client, klein):

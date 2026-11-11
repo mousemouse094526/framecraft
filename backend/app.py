@@ -12,7 +12,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.exceptions import HTTPException
 from starlette.requests import ClientDisconnect
 
-from backend import body_types, errors, files, paths, stories
+from backend import body_types, errors, files, paths, stories, workers
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil, spoil_maker, toon
@@ -74,8 +74,21 @@ JOB_HOLDERS = (
 )
 
 
+def log_to_terminal() -> None:
+    """The backend's own lines (a job started, ended after N s) in the `[api]` terminal with the
+    time: uvicorn sets up only its own loggers, so `backend.*` INFO went nowhere (toon D76)."""
+    logger = logging.getLogger("backend")
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s", "%H:%M:%S"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    log_to_terminal()
+    workers.dump_stacks_on_signal()  # a job that hangs: where it waits (toon D76)
     # Jobs don't survive a restart, so their leftovers go (spoil D15, D29).
     project = paths.project()
     for job in JOB_HOLDERS:

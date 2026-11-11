@@ -1,6 +1,6 @@
 # Progress: toon
 
-**Now:** `/warroom toon` รอบ Blocked #32 (D74, D75): ticket 15 ใหม่ — หาเหตุงานภาพที่ค้าง แล้ววัด memory ทั้งเครื่องบน M1 16 GB และลดตามขั้นจนผ่าน; หลัง 15 จบ owner เช็คมือ #11, #12 ใหม่ แล้ว feature review
+**Now:** ticket 15 หยุดกลางทาง (กลุ่ม D75 เสร็จ): Ref job จริง 5 ครั้งไม่ค้าง มี log พร้อมเวลาและตัวดึง stack (D76); ขั้น 0 ของ D74 วัดได้บนเครื่องที่เปิดแอปอื่นอยู่ ไม่ผ่าน (swap +2.8 GB, critical); ต่อด้วยขั้น 1 ใน session ใหม่ และ owner วัดขั้น 0 ตามวิธีของ D74 (#34)
 
 **Next:**
 
@@ -26,9 +26,46 @@
 | 12 | ItemRef และ ITEM_KINDS ของหน้าเว็บ toon | done |
 | 13 | คลังเสียงพื้นที่ไม่หายเมื่อ sounds.json เสีย | done |
 | 14 | ส่งแล้วเช็คคำตอบทางเดียวในหน้าเว็บ toon | done |
-| 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | ready |
+| 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | in-progress |
 
 ## Log
+
+### 15: งานภาพที่จบเองและไม่ swap บน Mac 16 GB — stopped 2026-11-11
+
+**Built (กลุ่ม D75 ครบ):**
+- bug record [2026-11-11-ref-job-hangs-on-m1](bugs/2026-11-11-ref-job-hangs-on-m1.md): ล็อกของรอบสอง (`~/.hermes/cache/scratch/api.log`) บอกว่าไม่ได้ค้าง — ภาพ 1–2 ครบ ภาพ 3 ถึง step 2/4 (26.4 วิ/step) แล้วมี `DELETE` (กดหยุด); รอบแรกล็อกถูกเขียนทับตอนรีสตาร์ท จึงไม่รู้ว่าค้างนานเท่าไร; Ref job จริง 5 ครั้งติดกัน `done` ทุกครั้ง 373–377 วิ
+- ล็อกของ backend ไม่ออกเลยมาก่อน (ไม่มีการตั้ง logging): `app.log_to_terminal` ให้บรรทัด `… started` / `… ended … after N s` ของทุกงานออกใน `[api]` พร้อมเวลา
+- ตัวดึง stack: `kill -USR1` ของ backend และ klein, และ klein พิมพ์ stack เองทุก 600 วิที่ request หนึ่งยังไม่จบ (`workers.dump_stacks_on_signal`, `dump_stacks_after`)
+- test: klein ปลอมไม่ตอบ `Encode` ของ Ref job, ไม่ตอบ `Draw` ใบที่สองของ Image job (ผ่านกับโค้ดเดิม: กติกา), stack ของ klein, บรรทัด log ของ backend (ล้มก่อนแก้)
+- `scripts/measure_toon_memory.py`: Ref/Image job จริงผ่าน API พร้อม swap, `memory_pressure`, pageouts/swapouts, footprint ของ backend และ process ลูก ทุก 5 วิ
+
+**ขั้น 0 ของ D74 (Q4_K_M, ขนาดเดิม) — ไม่ตามวิธีวัด:** เครื่องไม่ได้ restart (uptime 1:10, swap ก่อนเริ่ม 2.8 GB) และเปิด OrbStack, VS Code, Chrome, Claude สอง session, backend เดิมบน 8000 (idle) อยู่; วัดผ่าน backend ใหม่บน 8001 โดยไม่มี Vite หรือหน้าเว็บ. Ref job ของตัวละคร 1024×576 ไม่มีภาพอ้างอิง ×5:
+
+| ช่วง (run 3) | process ลูก footprint | swap ทั้งเครื่อง | pressure |
+|---|---|---|---|
+| Qwen แปลคำ (15 วิ) | Qwen 5.9–6.3 GB | 5.38 GB | normal |
+| โหลด text encoder + encode | klein 8.9–9.0 GB | 5.35 → 6.35 GB | warn |
+| ปล่อย encoder, โหลด transformer + vae | 2.0 → 7.1 GB | 6.06 GB | normal |
+| ภาพ 1 denoise (4 step × 26.4 วิ) | 8.2 GB | 5.85 GB | normal |
+| ภาพ 1 decode vae | 9.3 GB (run 1: 11.0) | 6.78 GB | **critical** |
+| ภาพ 2–3 denoise / decode | 6.65 / 9.3 GB | ~5.4 GB | normal / warn |
+| จบงาน | — | 3.9 GB | normal |
+
+- backend 0.17 GB ตลอด; swap ต่อ run: run 1 2.80 → 5.67 GB (+2.9), run 2–5 เริ่ม ~3.9 GB ขึ้นถึง 5.10–6.78 GB (+1.2 ถึง +2.9); pressure critical ใน run 1 และ 3 → ไม่ผ่านเกณฑ์ (+1 GB, ไม่ critical)
+- เวลา: ภาพละ 111–115 วิ (ภาพแรกรวมโหลด 136 วิ) เทียบ trial 89.6 วิ = 1.25× (ผ่าน ≤ 1.5×); ไม่มีการโหลดโมเดลใหม่ระหว่างภาพ ("8–10 นาที/ภาพ" ของ #32 ไม่ตรงล็อก)
+- ที่ตัวเลขบอก: peak คือ encoder (9.0 GB) และ decode ของภาพแรก (11.0 GB ซึ่ง 1.7 GB เป็นของ encoder ที่ยังไม่คืน) → ขั้น 1 น่าลดภาพแรกเหลือ ~9.3 GB; peak ของ encoder ไม่มีขั้นไหนของ D74 ลด
+
+**Decided:**
+- D76 — log ของ backend, ตัวดึง stack (ไม่ใช้ py-spy)
+- หยุดหลังกลุ่ม D75 ครบ: โค้ดของกลุ่มนี้อยู่บน `feat/toon` (ครบและเขียว) ไม่ใช่ `wip/`; ข้อเสนอความคืบหน้าระหว่างภาพในหน้าเว็บ: จดไว้ (auto mode เลือกตัวเลือกที่แนะนำ)
+
+**For the next ticket:**
+- ต่อ ticket 15 กลุ่ม D74: ทำขั้น 1 (encode ใน process ลูกแยก) แล้ววัดแบบเดียวกันบนเครื่องนี้เทียบกับข้างบน (A/B สภาพเดียวกัน); Image job กรณีหนักสุด และ 20 การ์ดยังไม่ได้วัด (ต้องสร้าง Series แบบเต็มจอ ตัวละคร 2 ฉากหลัง 1 มีภาพอ้างอิง และ EP ที่มีการ์ด)
+- encoder 9.0 GB ไม่ลดด้วยขั้นใดของ D74: ถ้าบนเครื่องที่ restart แล้วยังไม่ผ่าน ทางที่เหลือคือ text encoder ที่ quantize (ต้อง `/warroom toon`)
+- หน้าเว็บนับแค่ภาพที่เสร็จ จึงไม่ขยับราว 2 นาทีต่อภาพ: บอก step ของ klein ระหว่างภาพ (เปลี่ยนจอ: `/warroom toon`)
+- backend เดิม (pid 18096 บน 8000, `~/.hermes/cache/scratch/api.log`) ยังรันโค้ดก่อน ticket 15: restart ก่อนเช็คมือ
+
+**Checks:** `uv run pytest` 1098 passed (+4); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 442 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนยังไม่รัน: รันตอนจบ ticket 15
 
 ### Feature review (รอบหก) — done 2026-11-10
 
@@ -517,4 +554,6 @@
 | 29 | review | หน้าเว็บ: ส่งแล้วเช็ค status แล้ว `noticeOf` เขียนเองราว 10 ที่ (`useSounds` rename/delete/import, `useRender` start/delete, `useEp.start`, `useCast`, `useEpList`, `usePickRef.send`, `useSeriesForm`, `useSeriesList`) ขณะ `sendEdit` รับแค่ 200/201; `usePickRef`/`useSeriesForm`/`useSeriesList` เก็บ `error: string` แต่ hook อื่นเก็บ `Notice`: ขยาย `sendEdit` (status ที่ ok, warnings, คืน refusal ให้เช็ค code) และใช้ `Notice` ทุก hook | `/warroom tickets toon` | done (ticket 14) |
 | 30 | review | `store.read_sounds` คืน `[]` เมื่อ `sounds.json` อ่านไม่ได้ แล้วการ import เสียงครั้งถัดไปเขียนทับ คลังเสียงหายทั้งหมดและทุกช่วงชี้เสียงที่ไม่มี (render `CHANGED`); spec มีกติกาของ `ep.json` (log แล้วข้าม) แต่ไม่มีของการเขียนทับคลังที่อ่านไม่ได้: ปฏิเสธการเขียน (code ใหม่?) หรือย้ายไฟล์เสียเก็บไว้ | `/warroom toon` | done (ticket 13) |
 | 31 | review | test ล้มบางครั้งในชุดเต็ม — ตามได้แล้ว: **`spoil-maker/DraftProgress.test.tsx`** › "the failure's Alert stays until a new Draft job starts (D87)" ล้ม 1/8 รอบ (`Unable to find role "button" name "เลือก Shot ใหม่"`); `EpPage` เดี่ยว 30 รอบผ่านหมด | ไม่มี — แก้ที่เทสต์: `await nextPoll()` + `findByRole` ก่อนคลิก (`369a1fc`) | done |
-| 32 | 03/04 | **เช็คมือบน M1 16 GB ทำไม่ได้ตามเกณฑ์:** Ref job ค้าง 2 ครั้ง (ครั้งแรก `drawing 0/3` ไม่มี worker ทำงาน → รีสตาร์ท backend แล้วเดินต่อ; ครั้งที่สองค้างที่ `2/3` worker idle 1% CPU, ภาพใบ 3 ไม่มา) · swap ถูกใช้ **4.0–5.0 GB จาก 6 GB** ตลอดเวลา, หน่วยความจำว่าง <100 MB · denoise วัดได้ **26.4 วิ/step × 4 = ~105 วิ/ภาพ** บวกโหลดโมเดลใหม่ทุกภาพ (~40–60 วิ) → best case ~3 นาที/ภาพ, ที่เห็นจริง 8–10 นาที/ภาพ | ตัดสินใน `/warroom toon`: ลด ref ต่อภาพ, ย่อ ref 512 px, ถอด Qwen ออกจากหน่วยความจำก่อนเข้า klein, หรือยอมรับ swap / เครื่อง 24 GB+ | → D74, D75 (ticket 15) |
+| 32 | 03/04 | **เช็คมือบน M1 16 GB ทำไม่ได้ตามเกณฑ์:** Ref job ค้าง 2 ครั้ง (ครั้งแรก `drawing 0/3` ไม่มี worker ทำงาน → รีสตาร์ท backend แล้วเดินต่อ; ครั้งที่สองค้างที่ `2/3` worker idle 1% CPU, ภาพใบ 3 ไม่มา) · swap ถูกใช้ **4.0–5.0 GB จาก 6 GB** ตลอดเวลา, หน่วยความจำว่าง <100 MB · denoise วัดได้ **26.4 วิ/step × 4 = ~105 วิ/ภาพ** บวกโหลดโมเดลใหม่ทุกภาพ (~40–60 วิ) → best case ~3 นาที/ภาพ, ที่เห็นจริง 8–10 นาที/ภาพ | ตัดสินใน `/warroom toon`: ลด ref ต่อภาพ, ย่อ ref 512 px, ถอด Qwen ออกจากหน่วยความจำก่อนเข้า klein, หรือยอมรับ swap / เครื่อง 24 GB+ | done (ticket 15: รอบสองไม่ได้ค้าง; ดู #33, #34) |
+| 33 | 15 | Ref job รอบแรกใน #32 (`drawing 0/3` ไม่มี process ลูก) ยังไม่พบเหตุ: ไม่เกิดซ้ำใน 5 ครั้ง; ครั้งหน้าที่ค้าง `[api]` มี stack ของ klein (ทุก 10 นาที) และ `kill -USR1 {pid backend}` | `/kiki-debug toon: Ref job ค้าง` พร้อม stack และบรรทัด `toon job … started` ของรอบนั้น ([record](bugs/2026-11-11-ref-job-hangs-on-m1.md)) | open |
+| 34 | 15 | ขั้น 0 ของ D74 ตามวิธีวัดต้อง restart เครื่องและเปิดแค่ `npm run dev` กับหน้าเว็บหนึ่ง tab: agent ปิดแอปของ owner หรือ restart ไม่ได้ (ตัวเลขข้างบนวัดตอนแอปอื่นเปิดอยู่) | owner restart Mac, `npm run dev`, เปิดหน้าเว็บหนึ่ง tab, รัน `.venv/bin/python scripts/measure_toon_memory.py ~/toon-d74 ref s_73ac00e3 characters c_d0cd8188 3` แล้วบอก session ของ ticket 15 | open |

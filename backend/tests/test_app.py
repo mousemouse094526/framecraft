@@ -1,3 +1,7 @@
+import re
+import subprocess
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -88,3 +92,15 @@ def test_start_up_removes_what_every_job_left_unfinished(fake_root, monkeypatch)
     assert [path for path in leftovers if path.exists()] == []
     assert not project.new_shots_dir("a").exists()
     assert not project.pending_voice_dir.exists()
+
+
+def test_the_backend_s_own_info_lines_reach_the_terminal_with_the_time():
+    """A job's `started` / `ended … after N s` in `[api]` (toon D76): uvicorn's loggers only, before."""
+    script = (
+        "import logging; from backend import app; app.log_to_terminal(); "
+        "logging.getLogger('backend.jobs').info('toon job ref c_1 ended done  after 412 s')"
+    )
+
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True)
+
+    assert re.fullmatch(r"\d\d:\d\d:\d\d INFO backend.jobs: toon job ref c_1 ended done  after 412 s\n", result.stderr)

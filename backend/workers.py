@@ -2,6 +2,11 @@
 `spoil_maker.tts` and `toon.klein` return one, and job slots read its replies (`jobs`). No
 import beyond the standard library: a child imports its adapter, and this with it."""
 
+import faulthandler
+import signal
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any, NamedTuple
 
 
@@ -15,3 +20,20 @@ class Worker(NamedTuple):
     def end(self) -> None:
         """Asks the child to exit on its own once it has answered what it was asked."""
         self.requests.put(None)
+
+
+def dump_stacks_on_signal() -> None:
+    """`kill -USR1 {pid}` prints every thread's stack to stderr, the `[api]` terminal (toon D76):
+    what a job that hangs waits on. Windows has no SIGUSR1: `py-spy dump` there."""
+    if sys.platform != "win32":
+        faulthandler.register(signal.SIGUSR1, all_threads=True)
+
+
+@contextmanager
+def dump_stacks_after(seconds: float) -> Iterator[None]:
+    """Every thread's stack to stderr each `seconds` while the block runs (toon D76)."""
+    faulthandler.dump_traceback_later(seconds, repeat=True)
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()

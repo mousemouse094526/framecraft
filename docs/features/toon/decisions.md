@@ -1146,6 +1146,22 @@
 
 **From:** blocked #32 (auto mode, red team) · **Status:** active
 
+## D76: ตัวดึง traceback และบรรทัด log ของ backend ใน `[api]`
+
+**Chosen:**
+- backend ตั้ง logger `backend` ที่ INFO ส่งลง stderr (terminal `[api]`) รูป `HH:MM:SS LEVEL name: message` ตอนเริ่ม (`app.log_to_terminal`); uvicorn ตั้งแค่ logger ของตัวเอง จึงเดิมบรรทัด `… started` / `… ended … after N s` ของทุกงานไม่ออกเลย
+- `kill -USR1 {pid}` พิมพ์ stack ของทุก thread ลง `[api]` ทั้ง backend และ process ลูกของ klein (`workers.dump_stacks_on_signal`, Mac เท่านั้น)
+- process ลูกของ klein พิมพ์ stack ของตัวเองทุก `klein.DUMP_AFTER` = 600 วินาทีที่ request หนึ่งยังไม่จบ (`workers.dump_stacks_after`) ก่อน backend หยุดมันที่ 15 นาที; ยกเลิกเมื่อตอบ
+
+**Why:** build ticket 15 (D75): ล็อกของรอบที่ค้างใน Blocked #32 ไม่มีบรรทัดของงานและไม่มีเวลา จึงบอกไม่ได้ว่าค้างนานเท่าไร; งานที่ค้างครั้งหน้าต้องบอกได้เองว่ารออยู่ที่ไหนโดยไม่ต้องติดตั้งอะไรเพิ่ม. 600 วินาทียาวกว่าภาพที่ช้าสุดของ trial (252.5 วิ) และการโหลดตอน swap จึงไม่พิมพ์ในงานปกติ แต่ยังพิมพ์หนึ่งครั้งก่อน timeout.
+
+**Rejected:**
+- `py-spy dump` (D75 › Details) — library ใหม่ใน dev; `faulthandler` ของ stdlib ได้ stack เดียวกันโดยไม่ต้องติดตั้ง และ py-spy บน Mac ต้อง `sudo`; Windows ยังใช้ py-spy ด้วยมือได้
+- `logging.basicConfig` ที่ root — ให้ INFO ของทุก library (diffusers, httpx) ออกด้วย
+- dump stack ของ backend ตอน timeout — process ลูกถูกหยุดแล้ว stack ที่ต้องการคือของมัน ซึ่ง `DUMP_AFTER` จับไว้ก่อน
+
+**From:** build ticket 15 · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)
