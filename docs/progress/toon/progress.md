@@ -1,12 +1,14 @@
 # Progress: toon
 
-**Now:** ticket 17 done (`gpu.ADVICE` เฉพาะ error ของ GPU, #36, D84, D85); ทุก ticket done รอ feature review รอบเก้า; Blocked ที่ยัง open: #11, #12, #34 (owner เช็คมือ/วัดซ้ำหลัง restart), #33 (รอจับถ้าค้างอีก), #37 (pool ของ MPS ใน EP ยาว, เมื่อวัดเจอ)
+**Now:** feature review รอบเก้า done (D86, `4dbf9e4`); CI เขียวทั้งหมด; ไม่มีงานของ agent เหลือ. Blocked ที่ยัง open รอ owner: #11, #12 (เช็คมือบน Mac), #34 (วัดซ้ำหลัง restart); รอเกิดซ้ำ: #33 (Ref job ค้าง), #37 (pool ของ MPS ใน EP ยาว). PR เปิดได้เมื่อ owner ปิด #11, #12, #34 (และตัดสิน #33, #37: ปิดหรือเก็บเป็นงานหลัง merge)
 
 **Next:**
 
 ```
-/warroom-build toon --review-feature
+/pr-open
 ```
+
+(หลัง owner จดผลเช็คมือ #11, #12, #34 ใน `progress.md`; ไม่ผ่าน → `/warroom toon`)
 
 ## Tickets
 
@@ -31,6 +33,23 @@
 | 17 | คำแนะนำ "ปิดโปรแกรมอื่นที่ใช้ GPU" เฉพาะ error ที่เกี่ยวกับ GPU | done |
 
 ## Log
+
+### Feature review (รอบเก้า) — done 2026-11-11
+
+**Built:**
+- `workers.as_worker_error(error_type, code, error)` แทน `_send_error` ของ whisper, llm, tts และ `_worker_error` ของ klein; `gpu.advised(message)` แทนการต่อ `. {gpu.ADVICE}` ด้วยมือห้าที่ (ข้อความที่จบ "." ไม่ได้ "..")
+- ชื่อ `jobs.worker_error_message` (เดิม `worker_failure`), `workers.error_type_of` (เดิม `type_name`)
+- `FakeModel.failure()`: process ปลอมตอบ `fail_at` ที่เดียว (เดิมซ้ำสาม fake)
+- test: Voice job ที่ OmniVoice ผิดในโค้ดเช็ค GPU ว่าง; Transcribe ใช้ `GPU_ERROR`/`gpu.ADVICE`; ชื่อ test "only a gpu error"; คอมเมนต์ `fail_at` นับต่อ process; คอมเมนต์ `CODE_ERROR_TYPES` เรื่อง import ที่พัง
+- spec ของ spoil-maker › ตารางข้อความ `crashed`/`model_failed`; SKILL.md › `workers.py`, `gpu.py`
+
+**Decided:**
+- D86 — ข้างบนทั้งหมด และที่ไม่แก้ (`detail` เป็นสตริง ตาม D85, `CODE_ERROR_TYPES` อยู่ `jobs`, `steps.scenes` ยัง None, log ของ spoil-maker `draft.py`); auto mode เลือกตัวเลือกที่แนะนำ
+
+**For the next ticket:**
+- ของค้างที่มีเงื่อนไข (ไม่เปลี่ยน): `steps.scenes` → `Unusable` ถ้าแปลคำบรรยายพังอีก; Cards 2–3 การ์ดต่อองก์ → `/warroom toon` ถ้าเช็คมือ #11 เจอคลิปสั้น; spoil-maker `draft.py` log ไม่มีเหตุ (นอก feature)
+
+**Checks:** `uv run pytest` 1126 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 442 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `912c7c4` (เน้น `42756de..HEAD`): Standards 0 ข้อผิดกติกา + smell 6 (หนักสุด `_send_error` ซ้ำสี่ child), Spec 0 ผิด + 0 ขาด + 4 ข้อ (หนักสุด `gpu.ADVICE` สองทาง), Newcomer สรุปตรง spec › D84 + เดา 4 จุด (หนักสุด คอมเมนต์ `fail_at = 2`); recheck: `workers.worker_error` ชนกับ `ModelJobSlot.worker_error` → `as_worker_error`
 
 ### 17: คำแนะนำ "ปิดโปรแกรมอื่นที่ใช้ GPU" เฉพาะ error ที่เกี่ยวกับ GPU — done 2026-11-11
 
