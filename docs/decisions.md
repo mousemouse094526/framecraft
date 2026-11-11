@@ -359,3 +359,4 @@ question; the full entry is in the feature's decisions.md.
 | feature review รอบเจ็ดของ toon: `steps.ask_klein`, `start_child` รอข้อความแรกเสมอ (klein แค่ `track`), test ช่อง GPU ผ่าน `gpu_refusal`, spec ของ torch เป็น `torch.save` bytes | [toon](features/toon/decisions.md) | D80 | — | — | active |
 | Plot job อ่าน `acts` ที่เป็นข้อความเป็น `summary` ขององก์ (Qwen จริงตอบแบบนี้เสมอ); prompt เปลี่ยนใน D82 | [toon](features/toon/decisions.md) | D81 | — | — | active |
 | prompt ของ Plot job ให้ `acts` หนึ่ง key ต่อองก์ (Qwen จริง 20/20); คำตอบที่อ่านไม่ได้ของ Plot/Cards เป็น `writer.Unusable` และ log เหตุกับต้นคำตอบ 300 ตัวอักษร | [toon](features/toon/decisions.md) | D82 | — | — | active |
+| feature review รอบแปดของ toon: log ของ Plot บอกเหตุต่อขอบ, `REPLY_LOG_LETTERS`, test ที่ key สลับที่ยังอ่านตามลำดับคำตอบ | [toon](features/toon/decisions.md) | D83 | — | — | active |

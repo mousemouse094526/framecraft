@@ -45,20 +45,20 @@ class Known(BaseModel):
 def plot_prompt(cast: Series, idea: str, act_names: list[str], target_letters: int) -> str:
     """Spec › Plot job step 2: the idea, the EP's acts, the Series' tone and its cast. The answer's
     `acts` shows one key per act, which the real Qwen fills one summary each (D82)."""
-    asked = {f"{n}. {name}": f"สรุปองก์ {name} 1–3 ประโยค" for n, name in enumerate(act_names, start=1)}
-    acts, answer_acts = "\n".join(asked), json.dumps(asked, ensure_ascii=False)
+    acts_shape = {f"{n}. {name}": f"สรุปองก์ {name} 1–3 ประโยค" for n, name in enumerate(act_names, start=1)}
+    act_lines, acts_json = "\n".join(acts_shape.keys()), json.dumps(acts_shape, ensure_ascii=False)
     return (
         "เขียนพล็อตของคลิปการ์ตูนเล่าเรื่องแนวตั้งหนึ่งตอน เป็นภาษาไทย\n"
         f"ไอเดีย: {idea}\n"
         f"น้ำเสียงเล่า: {cast.tone}\n"
-        f"องก์ของตอนนี้ ({len(act_names)} องก์ ตามลำดับ):\n{acts}\n"
+        f"องก์ของตอนนี้ ({len(act_names)} องก์ ตามลำดับ):\n{act_lines}\n"
         f"ทั้งตอนเล่าราว {target_letters} ตัวอักษร\n"
         f"ตัวละครที่มีอยู่แล้ว:\n{_lines(cast.characters)}\n"
         f"ฉากหลังที่มีอยู่แล้ว:\n{_lines(cast.backgrounds)}\n"
         "ใช้ตัวละครและฉากหลังที่มีอยู่แล้วด้วย id เมื่อเข้ากับเรื่อง; ต้องการของใหม่ให้ตั้งชื่อและบรรยายหน้าตาหรือสถานที่\n"
         f"ตัวละครไม่เกิน 6, ฉากหลัง 1–6, สรุปองก์ละ 1–3 ประโยค: acts มี {len(act_names)} ช่องพอดี ช่องละหนึ่งองก์\n"
         "ตอบเป็น JSON อย่างเดียว:\n"
-        f'{{"title": "ชื่อตอน", "acts": {answer_acts}, '
+        f'{{"title": "ชื่อตอน", "acts": {acts_json}, '
         '"characters": [{"id": "c_..."} | {"name": "...", "tag": "คำสั้น", "description": "..."}], '
         '"backgrounds": [{"id": "b_..."} | {"name": "...", "description": "..."}]}'
     )
@@ -90,9 +90,16 @@ def parse_plot(reply: str, cast: Series, act_count: int) -> WrittenPlot | Unusab
             return Unusable(f"{item_kind} is not a list")
     plot = episodes.plot_of(cast, {item_kind: value or [] for item_kind, value in answered.items()}, from_qwen=True)
     in_plot = {item_kind: getattr(plot, item_kind) for item_kind in KINDS}
-    if not plot.backgrounds or episodes.over_max(in_plot):
+    if not plot.backgrounds:
         counts = ", ".join(f"{len(items)} {item_kind}" for item_kind, items in in_plot.items())
-        return Unusable(f"{counts} once unknown ids are dropped: out of bounds")
+        return Unusable(f"{counts} once unknown ids are dropped: no background")
+    if episodes.over_max(in_plot):
+        over = ", ".join(
+            f"{len(items)} {item_kind} (at most {KINDS[item_kind].plot_max})"
+            for item_kind, items in in_plot.items()
+            if len(items) > KINDS[item_kind].plot_max
+        )
+        return Unusable(f"{over} once unknown ids are dropped")
     return WrittenPlot(title=title, summaries=summaries, plot=plot)
 
 
@@ -193,8 +200,8 @@ def _card(value: object, character_ids: set[str], taken: set[str]) -> Card | Non
 
 
 def _summary(act: object) -> object:
-    """An act of the answer: `{"summary": ...}` as asked, or the summary alone, which is how the
-    real Qwen writes it whatever the prompt shows (D81)."""
+    """An act of an answer whose `acts` is a list: `{"summary": ...}`, or the summary alone, which is
+    how the real Qwen wrote a list before the prompt asked for one key per act (D81, D82)."""
     return act.get("summary") if isinstance(act, dict) else act
 
 

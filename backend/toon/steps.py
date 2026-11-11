@@ -25,7 +25,7 @@ from backend.workers import Worker
 log = logging.getLogger(__name__)
 
 SEED_MAX = 2**31 - 1
-REPLY_LOGGED = 300  # letters of a reply that can't be used the log keeps, enough to see its shape
+REPLY_LOG_LETTERS = 300  # how many letters of an unusable reply the log keeps: enough to see its shape
 
 T = TypeVar("T")
 
@@ -107,7 +107,7 @@ class Qwen:
                 what,
                 attempt,
                 parsed.why,
-                reply[:REPLY_LOGGED],
+                reply[:REPLY_LOG_LETTERS],
             )
         return None
 

@@ -1243,7 +1243,7 @@
 
 ## D82: prompt ของ Plot job ให้ `acts` หนึ่ง key ต่อองก์ และ log บอกว่าคำตอบผิดตรงไหน
 
-**Chosen:** ตัวอย่าง JSON ใน `writer.plot_prompt` แสดง `acts` เป็น object หนึ่ง key ต่อองก์ (`{"1. เปิด": "สรุปองก์ เปิด 1–3 ประโยค", …}`) และกฎ "acts มี N ช่องพอดี ช่องละหนึ่งองก์"; `parse_plot` อ่าน object ตามลำดับ key (ไม่ดูชื่อ key) และยังอ่าน list ของข้อความหรือ `{"summary"}` ตาม D81. คำตอบที่อ่านไม่ได้ของ Plot job และ Cards job เป็น `writer.Unusable(why)` แทน None; `steps.Qwen.answer` log `{งาน} attempt N is not the JSON asked for: {why}; it starts {ต้นคำตอบ 300 ตัวอักษร}` (`steps.REPLY_LOGGED`); ครั้งที่ timeout มีแค่บรรทัด timeout.
+**Chosen:** ตัวอย่าง JSON ใน `writer.plot_prompt` แสดง `acts` เป็น object หนึ่ง key ต่อองก์ (`{"1. เปิด": "สรุปองก์ เปิด 1–3 ประโยค", …}`) และกฎ "acts มี N ช่องพอดี ช่องละหนึ่งองก์"; `parse_plot` อ่าน object ตามลำดับ key (ไม่ดูชื่อ key) และยังอ่าน list ของข้อความหรือ `{"summary"}` ตาม D81. คำตอบที่อ่านไม่ได้ของ Plot job และ Cards job เป็น `writer.Unusable(why)` แทน None; `steps.Qwen.answer` log `{งาน} attempt N is not the JSON asked for: {why}; it starts {ต้นคำตอบ 300 ตัวอักษร}` (`steps.REPLY_LOG_LETTERS`); ครั้งที่ timeout มีแค่บรรทัด timeout.
 
 **Why:** ticket 16: prompt เดิม Qwen จริงบน M1 ตอบ `acts` จำนวนผิด 5/20 (3–55 ช่อง: ช่องละประโยค ไม่ใช่ช่องละองก์, record ของ #35 › Run 4); prompt ที่มี key ต่อองก์ ได้ 4 ช่อง 20/20 และผ่าน `parse_plot` 20/20 ของ EP `e_14c37720` (35–51 วิ/ครั้ง). log เดิมบอกแค่ "not the JSON asked for" จึงต้องรัน Qwen ซ้ำเพื่อวินิจฉัย #35; 300 ตัวอักษรพอเห็น `title` และต้นของ `acts`. ตัดสินเองใน build (เรื่องใน feature, ผู้ใช้ไม่เห็น)
 
@@ -1254,6 +1254,18 @@
 - log คำตอบทั้งหมด — ยาวถึง 4096 token ต่อครั้งท่วม `[api]`
 
 **From:** build ticket 16 · **Status:** active
+
+## D83: feature review รอบแปดของ toon
+
+**Chosen:**
+- log ของ Plot ที่เกินขอบบอกเหตุต่อขอบ: `… once unknown ids are dropped: no background` หรือ `7 characters (at most 6) once unknown ids are dropped` (เดิม `: out of bounds` บรรทัดเดียว)
+- `steps.REPLY_LOGGED` → `steps.REPLY_LOG_LETTERS`; ใน `writer.plot_prompt` `asked`/`acts`/`answer_acts` → `acts_shape`/`act_lines`/`acts_json`; docstring ของ `writer._summary` บอกว่า list คือรูปที่ Qwen ตอบก่อน D82
+- test: Plot แบบ key ต่อองก์ที่ key ถูกเปลี่ยนชื่อและสลับที่ ยังได้สรุปตามลำดับคำตอบ (เดิม key เรียงปกติ พิสูจน์ไม่ได้), เทียบสรุปเต็ม (เดิม 6 ตัวอักษรแรก); ชื่อ test ของ list ข้อความบอกว่าตัด CJK; test ใหม่ของตัวละครเกิน 6
+- ไม่แก้: `llm.respond.__self__` ของ fake (แบบเดิมทั้งไฟล์); คำตอบจริงใน test เป็น string ต่อกัน (เก็บใกล้ของจริง); per-kind สามรอบใน `parse_plot`; ต้น `no JSON object` สองที่; `prompts.parse_scene` ยังคืน None (For the next ticket ของ ticket 16 มีเงื่อนไข "ถ้าแปลคำบรรยายพังอีก"); log ของ spoil-maker ยังเป็นรูปเดิม (นอก feature); test Cards เช็คแค่องก์ 2 (คอมเมนต์บอกแล้ว)
+
+**Why:** feature review รอบแปด: Spec (AC1 ของ ticket 16 ให้ log บอกเหตุ เช่น "ไม่มีฉากหลัง"; test "answer's order" ไม่พิสูจน์ลำดับ), Standards (ชื่อใน `plot_prompt`, `REPLY_LOGGED`), Newcomer (`REPLY_LOGGED`, docstring `_summary`, "out of bounds", `[:6]`, ชื่อ test CJK). auto mode เลือกตัวเลือกที่แนะนำ
+
+**From:** feature review · **Status:** active
 
 ## Sources
 

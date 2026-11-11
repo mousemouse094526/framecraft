@@ -154,8 +154,8 @@ def test_a_plot_job_writes_the_title_and_every_summary_and_keeps_new_items_in_th
     assert gpu_holder() is None
 
 
-def test_a_plot_answer_whose_acts_are_plain_summaries_is_read_as_one(client, llm):
-    # The real Qwen writes `"acts": ["...", ...]` whatever the prompt shows (D81).
+def test_a_plot_answer_whose_acts_are_plain_summaries_is_read_and_cleaned_as_one(client, llm):
+    # The real Qwen wrote `"acts": ["...", ...]` to the prompt before D82 (D81); a summary is cleaned of CJK letters.
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
     llm.respond.__self__.plot["acts"] = [f"สรุป中文องก์ {n}" for n in range(1, 4)] + [{"summary": "สรุปองก์ 4"}]
@@ -165,24 +165,26 @@ def test_a_plot_answer_whose_acts_are_plain_summaries_is_read_as_one(client, llm
     assert [act["summary"] for act in ep["acts"]] == [f"สรุปองก์ {n}" for n in range(1, 5)]
 
 
-def test_a_plot_prompt_names_each_act_as_a_key_and_an_answer_by_act_name_is_read_in_the_answer_s_order(client, llm):
+def test_a_plot_prompt_names_each_act_as_a_key_and_an_answer_by_act_is_read_in_its_order_whatever_its_keys(client, llm):
     # The real Qwen fills one summary per key 20/20 times, where a list of acts came back 3 to 55 long (D82);
-    # the keys and the start of each summary are those of its answers to this prompt (ticket 16).
+    # the summaries are from its answers to this prompt (ticket 16). The keys aren't read: the third is renamed
+    # and put last, and the summaries still go to the acts in the answer's order.
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
-    llm.respond.__self__.plot["acts"] = {
-        "1. เปิด": "ฉันยืนเฝ้าห้องเรียนคืนสุดท้ายก่อนตึกจะถูกทุบทิ้ง",
-        "2. ปม": "ครูเอกผู้ตายไปแล้วเดินเข้ามาที่หน้าชั้นเรียน",
-        "3. หักมุม": "ครูเอกหันมาสบตาฉันด้วยรอยยิ้มที่ดูคุ้นเคย",
-        "4. จบหลอน": "ฉันสะดุ้งตื่นพบว่าตัวเองนอนหลับอยู่ที่โต๊ะ",
-    }
+    summaries = [
+        "ฉันยืนเฝ้าห้องเรียนคืนสุดท้ายก่อนตึกจะถูกทุบทิ้ง",
+        "ครูเอกผู้ตายไปแล้วเดินเข้ามาที่หน้าชั้นเรียน",
+        "ครูเอกหันมาสบตาฉันด้วยรอยยิ้มที่ดูคุ้นเคย",
+        "ฉันสะดุ้งตื่นพบว่าตัวเองนอนหลับอยู่ที่โต๊ะ",
+    ]
+    llm.respond.__self__.plot["acts"] = dict(zip(["1. เปิด", "2. ปม", "4. จบหลอน", "องก์ที่สาม"], summaries, strict=True))
 
     assert (run(client, "plot", ep_id)["state"], len(llm.requests)) == ("done", 1)
 
     assert '"acts": {"1. เปิด": "สรุปองก์ เปิด 1–3 ประโยค", "2. ปม": "สรุปองก์ ปม 1–3 ประโยค",' in llm.requests[0].prompt
     assert "acts มี 4 ช่องพอดี ช่องละหนึ่งองก์" in llm.requests[0].prompt
     ep = client.get(f"/api/toon/eps/{ep_id}").json()
-    assert [act["summary"][:6] for act in ep["acts"]] == ["ฉันยืน", "ครูเอก", "ครูเอก", "ฉันสะด"]
+    assert [act["summary"] for act in ep["acts"]] == summaries
 
 
 def test_a_plot_answer_the_way_the_real_qwen_writes_it_is_read(client, llm):
@@ -263,19 +265,29 @@ def test_a_plot_answer_with_no_background_is_logged_with_what_the_plot_holds(cli
 
     assert run(client, "plot", ep_id)["state"] == "failed"
 
-    assert "is not the JSON asked for: 2 characters, 0 backgrounds once unknown ids are dropped" in caplog.text
+    assert "is not the JSON asked for: 2 characters, 0 backgrounds once unknown ids are dropped: no background" in caplog.text
+
+
+def test_a_plot_answer_with_too_many_characters_is_logged_with_the_bound_it_breaks(client, llm, caplog):
+    series_id, _, _ = with_series(client, llm)
+    ep_id = new_ep(client, series_id)["id"]
+    llm.respond.__self__.plot["characters"] = [{"name": f"คนที่ {n}", "description": "ชาวบ้าน"} for n in range(1, 8)]
+
+    assert run(client, "plot", ep_id)["state"] == "failed"
+
+    assert "is not the JSON asked for: 7 characters (at most 6) once unknown ids are dropped;" in caplog.text
 
 
 def test_an_unreadable_answer_is_logged_cut_to_its_first_letters(client, llm, caplog):
     series_id, _, _ = with_series(client, llm)
     ep_id = new_ep(client, series_id)["id"]
-    reply = "ขอโทษครับ " + "ก" * steps.REPLY_LOGGED
+    reply = "ขอโทษครับ " + "ก" * steps.REPLY_LOG_LETTERS
     llm.respond = lambda request: reply
 
     assert run(client, "plot", ep_id)["state"] == "failed"
 
-    assert f"plot attempt 1 is not the JSON asked for: no JSON object; it starts {reply[: steps.REPLY_LOGGED]!r}" in caplog.text
-    assert reply[: steps.REPLY_LOGGED + 1] not in caplog.text
+    assert f"plot attempt 1 is not the JSON asked for: no JSON object; it starts {reply[: steps.REPLY_LOG_LETTERS]!r}" in caplog.text
+    assert reply[: steps.REPLY_LOG_LETTERS + 1] not in caplog.text
 
 
 def test_a_cards_answer_with_no_card_three_times_fails_write_failed_and_is_logged(client, llm, caplog):
