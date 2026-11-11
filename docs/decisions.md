@@ -282,7 +282,7 @@ question; the full entry is in the feature's decisions.md.
 | Series เก็บชื่อช่อง สไตล์ ตัวละคร ฉากหลัง; EP อยู่ใน Series เลข EP เดินต่อเอง | [toon](features/toon/decisions.md) | D3 | — | [0032](adr/0032-series-owns-characters.md) | active |
 | ภาพขยับต่อการ์ด: นิ่ง/ซูมเข้า/ซูมออก/เลื่อนซ้าย/ขวา + ไฟกะพริบทั้งภาพ, จางระหว่างการ์ด, ด้วย ffmpeg | [toon](features/toon/decisions.md) | D4 | — | — | active |
 | คลังเสียง (ไฟล์หรือลิงก์) AI เลือกตามชื่อต่อฉาก ผู้ใช้ปรับได้; AI สร้างเสียงที่ขาดเป็นรอบสอง | [toon](features/toon/decisions.md) | D5 | — | — | active |
-| สร้างภาพด้วย FLUX.2 klein 4B (Apache-2.0) ทั้งสอง OS พร้อมภาพอ้างอิง; ลองบน Mac ก่อนสร้าง tab | [toon](features/toon/decisions.md) | D6 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
+| สร้างภาพด้วย FLUX.2 klein 4B (Apache-2.0) ทั้งสอง OS พร้อมภาพอ้างอิง; ลองบน Mac ก่อนสร้าง tab | [toon](features/toon/decisions.md) | D6 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
 | แบบจอสองแบบเลือกต่อ Series: กรอบดำ (ภาพแนวนอน + ชื่อเรื่อง EP ชื่อช่อง) หรือเต็มจอ (ภาพ 9:16 + ซับทับภาพ) | [toon](features/toon/decisions.md) | D7 | — | — | active |
 | เสียงเล่าหลักหนึ่ง Saved voice ต่อ Series, EP เปลี่ยนเป็นเสียงอื่นได้; ไม่มีเสียงต่อตัวละคร | [toon](features/toon/decisions.md) | D8 | — | — | active |
 | เส้นเรื่อง องก์ → ช่วง → การ์ด; ช่วง = การ์ดติดกันในฉากหลังเดียว เสียงพื้นต่อช่วง; ไม่ใช้คำ "ฉาก" | [toon](features/toon/decisions.md) | D9 | — | — | active |
@@ -310,8 +310,8 @@ question; the full entry is in the feature's decisions.md.
 | ภาพอ้างอิงหนึ่งภาพต่อตัวละคร (เต็มตัว หน้าตรง พื้นเรียบ) หรือฉากหลัง (ไม่มีคน); สร้าง 3 แบบให้เลือก หรือเอาไฟล์ PNG/JPG เข้า | [toon](features/toon/decisions.md) | D31 | — | [0031](adr/0031-consistency-by-reference-images.md) | changed by toon D49 |
 | เปลี่ยนภาพอ้างอิงได้เสมอ; ภาพการ์ดเดิมคงอยู่พร้อมป้าย "ภาพอ้างอิงเปลี่ยน" | [toon](features/toon/decisions.md) | D32 | — | [0034](adr/0034-derived-media-records-inputs.md) | changed by toon D44 |
 | การ์ดละหนึ่งภาพ; ปุ่มสร้างทีละการ์ด + "สร้างภาพที่ขาดทั้งหมด" เป็นงานเดียวหยุดได้; เก็บภาพก่อนหน้าหนึ่งภาพให้สลับกลับ | [toon](features/toon/decisions.md) | D33 | — | — | active |
-| klein บน Mac: transformer GGUF Q8_0 (unsloth) + text encoder/vae จาก repo BFL pin commit; แยกขั้น encode → ปล่อย → transformer; เพิ่ม `diffusers`, `gguf` | [toon](features/toon/decisions.md) | D34 | — | [0035](adr/0035-klein-gguf-within-memory.md) | changed by toon D49 |
-| klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda; เช็คเครื่องจริงและ VRAM ขั้นต่ำใน windows-check | [toon](features/toon/decisions.md) | D35 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
+| klein บน Mac: transformer GGUF Q8_0 (unsloth) + text encoder/vae จาก repo BFL pin commit; แยกขั้น encode → ปล่อย → transformer; เพิ่ม `diffusers`, `gguf` | [toon](features/toon/decisions.md) | D34 | — | [0036](adr/0036-klein-within-whole-mac.md) | changed by toon D49 |
+| klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda; เช็คเครื่องจริงและ VRAM ขั้นต่ำใน windows-check | [toon](features/toon/decisions.md) | D35 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
 | คำสั่งภาพ: Qwen แปลคำบรรยายภาพเป็นอังกฤษตอนเริ่มงานภาพ แอปต่อแม่แบบ (ตัวละคร↔ภาพอ้างอิง N, ฉากหลัง, สไตล์, ห้ามตัวหนังสือ) | [toon](features/toon/decisions.md) | D36 | — | — | active |
 | ภาพการ์ดขนาดเท่าภาพฉากหลัง (1024×576 / 576×1024) ขยายด้วย lanczos ตอน render | [toon](features/toon/decisions.md) | D37 | — | — | active |
 | render สร้างเสียงเล่าที่ขาดหรือไม่ตรงให้ก่อน แบบ spoil-maker D30 | [toon](features/toon/decisions.md) | D38 | — | — | active |
@@ -325,9 +325,9 @@ question; the full entry is in the feature's decisions.md.
 | ยอมรับความเสี่ยง legal ข้อ 5 (ป้ายคลิป AI) ที่ยังไม่ได้เช็คจากราชกิจจานุเบกษา | [toon](features/toon/decisions.md) | D46 | — | — | active |
 | gguf pin 0.19.0 แทน 0.10.0: 0.10.0 อ่าน GGUF ไม่ได้บน numpy 2 | [toon](features/toon/decisions.md) | D47 | — | — | active |
 | ค่าเล็กของ Series และ Ref job: ความยาว style/tone, `file_too_large`, `item_id`, ค่าสำรองของคำแปลภาพอ้างอิง, `backend/uploads.py` | [toon](features/toon/decisions.md) | D48 | — | — | active |
-| klein: peak MPS ≤ 12 GB ที่กรณีหนักสุด; ลองตามลำดับ empty_cache + ภาพอ้างอิง ≤ 512 → Q6_K → Q4_K_M | [toon](features/toon/decisions.md) | D49 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
+| klein: peak MPS ≤ 12 GB ที่กรณีหนักสุด; ลองตามลำดับ empty_cache + ภาพอ้างอิง ≤ 512 → Q6_K → Q4_K_M | [toon](features/toon/decisions.md) | D49 | — | [0036](adr/0036-klein-within-whole-mac.md) | changed by toon D74 |
 | Status check: pattern ใน `allow_patterns` ที่ระบุไฟล์หรือ folder ต้องตรงไฟล์ใน marker; pattern ชนิดไฟล์ไม่เทียบ | [toon](features/toon/decisions.md) | D50 | — | — | active |
-| klein transformer เป็น GGUF Q4_K_M (Q8_0 13.08 GB, Q6_K 12.88 GB เกิน; Q4_K_M 11.83 GB) + ภาพอ้างอิง ≤ 512 + `empty_cache` ทุกภาพ | [toon](features/toon/decisions.md) | D51 | — | [0035](adr/0035-klein-gguf-within-memory.md) | active |
+| klein transformer เป็น GGUF Q4_K_M (Q8_0 13.08 GB, Q6_K 12.88 GB เกิน; Q4_K_M 11.83 GB) + ภาพอ้างอิง ≤ 512 + `empty_cache` ทุกภาพ | [toon](features/toon/decisions.md) | D51 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
 | หน้า tab การ์ตูนเล่า: hash `#/toon`, `/new`, `/series/{sid}`, `/settings`, `/{kind}/{id}/pick`; `POST /series` รับ style/tone/acts; ล้มหรือหยุด Ref job ไม่มีภาพให้เลือก | [toon](features/toon/decisions.md) | D52 | — | — | changed by toon D53 |
 | EP พล็อต เส้นเรื่อง: `/series/{sid}` เป็นรายการ EP ตัวละครย้ายไป `/cast`; EP ใหม่เริ่ม Plot job ทันที; `PATCH` องก์; Cards job เขียน Series กับ EP ตอนจบ; ขีดจำกัดข้อความ | [toon](features/toon/decisions.md) | D53 | — | — | active |
 | พล็อตที่ยืนยันแล้วไม่รับตัวละครหรือฉากหลังใหม่ (`invalid_request`); id ของ EP ไม่ซ้ำทั้ง tab; ชื่อองก์แก้ที่หัวองก์ | [toon](features/toon/decisions.md) | D54 | — | — | active |
@@ -350,3 +350,5 @@ question; the full entry is in the feature's decisions.md.
 | การตรวจคลังเสียงอยู่ที่ `store.reconcile_sounds` (ความยาวจากผู้เรียก), `ffmpeg.probe(timeout=)`, จำนวนสูงสุดของพล็อตใน `KindRow.plot_max` | [toon](features/toon/decisions.md) | D71 | — | — | active |
 | หน้าเว็บของ toon: ทุกคำขอที่เปลี่ยนของผ่าน `sendEdit` (status ที่ ok, code ที่เป็น warning, คืน refusal ให้เช็ค code), `startToonJob` คืนผลเดียวกัน, ทุก hook เก็บ `Notice` | [toon](features/toon/decisions.md) | D72 | — | — | active |
 | feature review รอบหกของ toon: ปุ่มหยุดของทุกงานผ่าน `stopJob` (notice เมื่อหยุดไม่ได้), `startRefJob` ถือ `NOT_NOW`, `sendChecked` คืน `ok`, id ขององก์ใน EP ใหม่ไม่ซ้ำ | [toon](features/toon/decisions.md) | D73 | — | — | active |
+| งานภาพบน M1 16 GB: swap เพิ่ม ≤ 1 GB, ไม่ critical, `done` ไม่มี `failed_cards`, เวลา ≤ 1.5× trial; วัดทีละช่วงก่อน แล้วลอง encode ใน process ลูกแยก → Q3_K_M → วาด 768×432 | [toon](features/toon/decisions.md) | D74 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
+| งานภาพที่ค้าง: `/kiki-debug` ก่อนวัด อ่าน log ก่อน; ไม่เกิดซ้ำใน 5 Ref job → ใส่ตัวดึง traceback แล้ววัดต่อ | [toon](features/toon/decisions.md) | D75 | — | — | active |

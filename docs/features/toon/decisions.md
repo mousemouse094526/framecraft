@@ -638,7 +638,7 @@
 
 **Sources:** [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ Q8_0 / Q6_K / Q4_K_M (accessed 2026-11-09)
 
-**From:** blocked #10 (auto mode) · **Status:** active (ขั้นที่ใช้: D51)
+**From:** blocked #10 (auto mode) · **Status:** changed by D74 (ขั้นที่ใช้: D51)
 
 ## D50: Status check เทียบเฉพาะ pattern ที่ระบุไฟล์หรือ folder กับไฟล์ใน marker
 
@@ -1092,7 +1092,62 @@
 
 **From:** feature review · **Status:** active
 
+## D74: งานภาพบน M1 16 GB ผ่านเกณฑ์ทั้งเครื่อง ด้วยขั้นที่ลองตามลำดับ
+
+**Chosen:** เกณฑ์ของ D49 (peak MPS ของ process ลูก ≤ 12 GB) คงอยู่ และเพิ่มเกณฑ์ทั้งเครื่องบน M1 16 GB (spec › How success is judged): Ref job 3 ครั้งติดกัน, Image job กรณีหนักสุดของ D49 และ "สร้างภาพที่ขาดทั้งหมด" 20 การ์ดหนึ่งครั้ง ใช้ swap เพิ่มไม่เกิน 1 GB, `memory_pressure` ไม่ถึง critical, ทุกงาน `done` โดยไม่มี `failed_cards` และเวลาต่อภาพไม่เกิน 1.5 เท่าของ trial. ticket 15 วัดของเดิมทีละช่วงก่อน แล้วลองขั้นตามลำดับ หยุดที่ขั้นแรกที่ผ่าน:
+0. ของเดิม (Q4_K_M, ขนาดภาพเดิม) — ผ่าน → ไม่เปลี่ยนการสร้างภาพ
+1. encode คำสั่งใน process ลูกของตัวเองที่จบก่อน process ลูกที่วาดเริ่ม (embeddings ส่งผ่าน queue)
+2. ข้อ 1 + transformer เป็น `flux-2-klein-4b-Q3_K_M.gguf` (2.12 GB)
+3. ข้อ 1 + Q4_K_M ที่ขนาดวาด 768×432 (`frame`) และ 432×768 (`full`, ตัวละคร); render ขยายเป็นขนาดแบบจอเหมือนเดิม
+
+ขั้น 2–3 ต้องผ่านการลองคงตัวละคร 10 ภาพแบบ D49 ด้วย. ไม่มีขั้นไหนผ่าน → Blocked row และ `/warroom toon` อีกรอบ (ตัวเลือกที่เหลือ: Mac 24 GB ขึ้นไป หรือยอมรับ swap).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: ทางแก้สามข้อใน Blocked #32 ทำแล้วหรือไม่ช่วย — ภาพอ้างอิงย่อ 512 แล้ว (D49), Qwen หยุดก่อน klein โหลดแล้ว (D36), และ Ref job ไม่ส่งภาพอ้างอิงเลยแต่เครื่องก็ swap. เกณฑ์ของ D49 วัดแค่ process ลูก จึงผ่านได้ทั้งที่ทั้งเครื่อง swap 4–5 GB. ขั้น 1 มาก่อนเพราะไม่เสียคุณภาพ: text encoder bf16 ราว 8 GB ถูกโหลดทุกงาน และ memory ที่ปล่อยใน process เดียวกันอาจไม่คืนให้เครื่อง (red team).
+
+**Rejected:**
+- ยอมรับ swap บน 16 GB — งานค้างสองครั้งและ 8–10 นาทีต่อภาพ เทียบกับ ~1.5–4 นาทีใน trial
+- toon ต้องใช้ Mac 24 GB ขึ้นไป — ตัดเครื่องที่ trial และ build ใช้ทั้งหมด ก่อนรู้ว่า memory ไปไหน; เหลือเป็นตัวเลือกถ้าสามขั้นไม่ผ่าน
+- ภาพอ้างอิงสูงสุดน้อยลง — ขัด D29/D30 และไม่ช่วย Ref job ที่ไม่มีภาพอ้างอิง
+- `PYTORCH_MPS_HIGH_WATERMARK_RATIO` — จำกัดแล้วได้ `out of memory` แทน swap ไม่ลดสิ่งที่งานต้องใช้
+- `vae.enable_tiling()` — vae ของ klein มี `sample_size` 1024 จึง tile เฉพาะด้านที่ยาวกว่า 1024; ทุกขนาดของ toon ไม่ถึง (red team)
+- ระดับ GGUF หรือขนาดวาดต่าง OS — D35 ใช้ไฟล์ชุดเดียว; windows-check ยังไม่ได้วัด VRAM
+
+**Details:**
+- วิธีวัด: เริ่มหลัง restart เครื่อง (swap ราว 0), เปิดแค่ `npm run dev` (backend และ Vite) กับหน้าเว็บหนึ่ง tab; จด `sysctl vm.swapusage`, `memory_pressure`, pageouts/swapouts ของ `vm_stat` ทุก 5 วินาที, และ MPS กับ RSS ของ backend, process ลูก และ browser ทุกช่วง (โหลด text encoder, encode, หลังปล่อย encoder, โหลด transformer, แต่ละ step, decode vae, เขียน PNG); จดใน `progress.md`
+- ตัวเลขทีละช่วงของขั้น 0 บอกว่าขั้นไหนน่าช่วย: ข้ามขั้นที่ตัวเลขบอกว่าไม่ช่วยได้ โดยจดเหตุ
+- เวลาของ trial ที่ใช้เทียบ (trial-klein-mac › 2, 1024×576, Q8_0, torch 2.15.0; Q8_0 กับ bf16 เร็วเท่ากันใน trial › 3): ภาพอ้างอิง 0 = 89.6, 1 = 110.4, 2 = 145.1, 3 = 252.5 วิ ต่อภาพ ไม่รวมโหลดโมเดลครั้งแรกของงาน; swap ผ่านแต่เวลาเกิน → หาเหตุใน ticket 15 ไม่เปลี่ยนขั้น
+- ขั้น 2 เปลี่ยนไฟล์ใน revision เดิม `a09d5bb` ทั้งสอง OS (D35): `allow_patterns`, `GGUF_FILE`, ขนาดดิสก์ของ spec; เครื่องที่มี Q4_K_M เห็น `model_klein_gguf` `missing` (D50)
+- ขั้น 3 เปลี่ยนขนาดในคำสั่งภาพของ spec, D31 และ D37; ภาพที่มีอยู่คงไว้ render ขยายทุกขนาดเหมือนกัน
+- ย้อนขั้น: revert commit ของขั้นนั้น แล้ว setup โหลดไฟล์เดิมกลับ (D50); ภาพที่สร้างด้วยขนาดของขั้น 3 ใช้ต่อได้
+- ขั้นที่ใช้จริงจดเป็น `D{n}` ตอน build (`From: build ticket 15`) พร้อมตัวเลขทุกขั้นที่ลอง
+- เวลาที่หน้าเลือกภาพบอก (ราว 4.5 นาทีบน M1, D31) แก้ตามที่วัดได้
+
+**Sources:** [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — Q3_K_M 2.12 GB (accessed 2026-11-11) · [autoencoder_kl_flux2.py v0.42.1](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/models/autoencoders/autoencoder_kl_flux2.py) — tile เมื่อด้านยาวกว่า `tile_sample_min_size`; klein vae `sample_size` 1024 (accessed 2026-11-11)
+
+**From:** blocked #32 (auto mode, red team) · **Status:** active
+
+## D75: Ref job และ Image job ที่ค้างเป็น bug ที่ ticket 15 หาเหตุก่อนวัด
+
+**Chosen:** งานภาพที่ค้างใน Blocked #32 (`drawing 0/3` ไม่มี process ลูก, `2/3` process ลูก idle) หาเหตุด้วย `/kiki-debug` ใน ticket 15 ก่อนวัดตาม D74. ไม่เกิดซ้ำใน Ref job จริง 5 ครั้ง → ใส่ตัวดึง traceback ใน backend และ process ลูก แล้ววัดตาม D74 ต่อ; ค้างระหว่างวัด → กลับมาหาเหตุจาก traceback นั้น.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ (D74): งานค้างเป็นพฤติกรรมผิดไม่ว่า memory จะพอหรือไม่ และถ้าค้างระหว่างวัด ตัวเลขของ D74 ใช้ไม่ได้. timebox 5 ครั้งเพราะแต่ละครั้งใช้ราว 15 นาทีบนเครื่องจริง (red team).
+
+**Rejected:**
+- ถือว่าค้างเพราะ swap แล้วรอผลของ D74 — ถ้าไม่ใช่ งานค้างยังอยู่หลังลด memory
+- ลด timeout ต่อภาพ หรือแยก timeout ของการโหลด — 15 นาทีเผื่อ Windows และภาพอ้างอิง 3 ภาพ (spec › Image job); การรอ `Encoded` มี timeout นี้อยู่แล้ว
+- เขียน test klein ปลอมเงียบเป็น regression test — code วันนี้ผ่านอยู่แล้ว (`steps.open_klein`, `steps.draw` ส่ง `klein.draw_timeout()`, `_finish` หยุด process ลูก) จึงพิสูจน์แค่กติกา ไม่ใช่เหตุ
+
+**Details:**
+- ขั้นแรก: อ่าน log `[api]` ของสองรอบที่ค้าง (`toon job ref … ended … after N s`) และจดว่าค้างนานเท่าไรก่อน restart; ไม่ถึง 15 นาที → timeout ยังไม่ทันทำงาน
+- จุดที่ timeout ต่อภาพไม่คุม: `process.start()` ของ `klein.start_worker` ก่อน `track`, งานของ thread ใน backend ระหว่างสอง reply, `drawer.end()` และ `series.put_pending`; `drawing 0/3` ที่ไม่มี process ลูกเข้ากับการค้างก่อน `track`
+- ตัวดึง traceback: `faulthandler.dump_traceback_later` ใน process ลูก และ `py-spy dump` ของ backend กับ process ลูกตอนค้าง
+- regression test เขียนตามเหตุที่พบ; test klein ปลอมเงียบของ Seams 1 เป็น test ของกติกา timeout ต่อภาพ
+- `bugs/` ของ toon เก็บ bug record และ postmortem ตาม `/kiki-debug`
+
+**From:** blocked #32 (auto mode, red team) · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)
-- [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ GGUF ทุกระดับ (accessed 2026-11-09)
+- [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ GGUF ทุกระดับ (accessed 2026-11-09; Q3_K_M 2026-11-11)
+- [autoencoder_kl_flux2.py v0.42.1](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/models/autoencoders/autoencoder_kl_flux2.py) — tile เฉพาะด้านที่ยาวกว่า `tile_sample_min_size` (`sample_size` ของ vae, klein 1024); อ่านใน package ที่ติดตั้ง (accessed 2026-11-11)

@@ -6,4 +6,4 @@ Source: toon D6, D34, D35, D49
 
 Links: [trial-klein-mac-2026-11-09](../features/toon/trial-klein-mac-2026-11-09.md)
 
-**Status:** accepted · supersedes ADR-0030
+**Status:** superseded by ADR-0036 (เดิม supersedes ADR-0030)

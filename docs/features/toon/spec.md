@@ -64,6 +64,8 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 - ทุกการ์ดในคลิปเป็นภาพการ์ดปัจจุบันของการ์ดนั้นตามลำดับ.
 - ปิด backend ระหว่าง "สร้างภาพที่ขาดทั้งหมด" แล้วเปิดใหม่: ภาพที่เสร็จก่อนปิดยังอยู่ กดใหม่สร้างเฉพาะที่เหลือ.
 - งานภาพบน M1 16 GB: peak `torch.mps.driver_allocated_memory()` ของ process ลูก klein ไม่เกิน 12 GB ที่กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพติดกันใน process เดียว, seed และคำสั่งตายตัว, ปิดแอปอื่น) และภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2 (D49).
+- งานภาพบน M1 16 GB ทั้งเครื่อง (หลัง restart เครื่อง, เปิดแค่ `npm run dev` (backend และ Vite) กับหน้าเว็บของแอปหนึ่ง tab): Ref job 3 ครั้งติดกัน, Image job กรณีหนักสุดข้างบน และ `scope: missing` 20 การ์ด ใช้ swap (`sysctl vm.swapusage`) เพิ่มจากก่อนเริ่มไม่เกิน 1 GB, `memory_pressure` ไม่ถึง critical, ทุกงาน `done` โดยไม่มี `failed_cards` และไม่ timeout, และเวลาต่อภาพไม่เกิน 1.5 เท่าของ trial ที่ภาพอ้างอิงเท่ากัน (0 = 89.6, 1 = 110.4, 2 = 145.1, 3 = 252.5 วิ) (D74).
+- Ref job และ Image job ไม่ค้าง: เหตุของงานค้างใน Blocked #32 มี bug record และ regression test (D75).
 - ลองด้วยมือ: ตัวละครหนึ่งตัวใน ~5 การ์ดของ EP แรกและ EP ที่สอง ดูด้วยตาว่าหน้าเหมือนภาพอ้างอิง จดผลใน `progress.md` (แบบ trial-klein-mac).
 
 ## Implementation
@@ -143,6 +145,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 | diffusers | 0.42.1 | `Flux2KleinPipeline(image=[...])` รับภาพอ้างอิงเป็น list, 4 steps `guidance_scale=1.0` | [Flux2 pipelines](https://huggingface.co/docs/diffusers/v0.42.1/en/api/pipelines/flux2) |
 | diffusers | 0.42.1 | `Flux2Transformer2DModel.from_single_file(path, config=…, quantization_config=GGUFQuantizationConfig(compute_dtype=torch.bfloat16))` | [GGUF](https://huggingface.co/docs/diffusers/v0.42.1/en/quantization/gguf) |
 | diffusers | 0.42.1 | `encode_prompt` แยกจากการ denoise; pipeline ที่โหลดด้วย `text_encoder=None` รับ `prompt_embeds` (และ `negative_prompt_embeds` ที่ encode จาก `""` ในขั้นเดียวกัน) โดยไม่เรียก text encoder — หน้า docs ไม่ได้เขียนไว้ อิงโค้ดที่ tag กับผลลอง (trial › ข้อ 1) | [pipeline_flux2_klein.py v0.42.1](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/pipelines/flux2/pipeline_flux2_klein.py) |
+| torch | 2.8.0 | tensor บน CPU ส่งผ่าน `multiprocessing` queue ได้ด้วย pickle (`prompt_embeds` จาก process ลูกที่ encode ไป process ลูกที่วาด) — ใช้เมื่อ ticket 15 ใช้ขั้น 1 ขึ้นไปของ D74 | [Serialization semantics](https://docs.pytorch.org/docs/2.8/notes/serialization.html) |
 | torch | 2.8.0 (pin ของ project) | MPS รัน pipeline ข้างบนได้; trial วัดบน 2.15.0 — Open Question 1 | [MPS backend](https://docs.pytorch.org/docs/2.8/notes/mps.html) |
 | omnivoice, Qwen, pythainlp, Kanit, libass | ตาม spoil-maker | เหมือน [spoil-maker spec](../spoil-maker/spec.md) › Library assumptions | ตาม spoil-maker |
 | ffmpeg (imageio-ffmpeg 0.7.0) | 7.1 | `scale=…:flags=lanczos`, `zoompan`, `eq=brightness` แบบ expression ตามเวลา, `xfade`, `acrossfade`, `amix`, `ass` | [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) |
@@ -410,7 +413,7 @@ media/toon/
 - สลับภาพก่อนหน้า: `POST …/cards/{card_id}/swap-image` สลับ `image` กับ `previous_image`
 - เปลี่ยนตัวละครของการ์ด หรือฉากหลังของช่วง ไม่ลบภาพ: การ์ดเป็น `stale_ref` ผ่าน `image.refs` เพราะ id ไม่ตรง
 
-klein worker (`toon.klein`): request `Encode(prompts)` → reply `Encoded(count)`; `Draw(index, ref_paths, width, height, seed)` → `Drawn(png: bytes)`; `None` ให้จบ; error → `WorkerError`. timeout ต่อภาพ 15 นาทีบน Mac, Windows ตาม `llm.timeouts` คูณเดียวกัน; เกิน → `model_failed`.
+klein worker (`toon.klein`): request `Encode(prompts)` → reply `Encoded(count)`; `Draw(index, ref_paths, width, height, seed)` → `Drawn(png: bytes)`; `None` ให้จบ; error → `WorkerError`. timeout ต่อภาพ 15 นาทีบน Mac, Windows ตาม `llm.timeouts` คูณเดียวกัน ใช้ทั้งการรอ `Encoded` และแต่ละ `Drawn`; เกิน → `model_failed` และหยุด process ลูก แม้ process ลูกยังอยู่. memory ทั้งเครื่องบน Mac 16 GB ตามเกณฑ์ D74: ticket 15 ใช้ขั้นแรกที่ผ่าน (encode ใน process ลูกแยก, Q3_K_M หรือขนาดวาด 768×432 / 432×768) และแก้ worker ไฟล์ ขนาด และเวลาในหน้าเลือกภาพตามขั้นนั้น.
 
 ### Voice job
 
@@ -524,6 +527,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
    - แก้ `summary` หนึ่งองก์ → Cards job แตกเฉพาะองก์นั้น การ์ดองก์อื่น id และภาพเดิม; องก์นั้นมีการ์ดที่มีภาพและไม่ยืนยัน → `409` `cards_will_be_lost` พร้อมจำนวน
    - Image job `scope: missing` → การ์ด `no_image` ได้ภาพ, `no_ref` นับ `skipped` และอยู่ใน `missing_refs`; ทุกการ์ด `no_ref` → `400` `nothing_to_draw` พร้อม `missing_refs`; ยกเลิกกลางงาน → ภาพที่เสร็จอยู่
    - klein ปลอมล้มหนึ่งการ์ด → การ์ดนั้นอยู่ใน `failed_cards` งานไปต่อจน `done`
+   - klein ปลอมเงียบ (ยังอยู่ ไม่ตอบ) ตอน `Encode` หรือ `Draw` ของ Ref job และ Image job, timeout ต่อภาพย่อใน test → งาน `failed` `model_failed`, process ปลอมหยุด, ช่อง GPU ว่าง (กติกา timeout ต่อภาพ; regression test ของงานค้างตามเหตุที่ D75 พบ)
    - สร้างภาพใหม่ → `previous_image` เป็นภาพเดิม; สร้างอีกครั้ง → ไฟล์ภาพก่อนหน้าเดิมหายจากดิสก์; ไฟล์ PNG ที่ไม่มี `ep.json` อ้างหายหลัง start ใหม่
    - เปลี่ยนภาพอ้างอิงตัวละคร หรือเปลี่ยนตัวละครของการ์ด → การ์ดเป็น `stale_ref`; `scope: missing` ไม่สร้างมัน; `scope: stale_ref` สร้างใหม่
    - เริ่ม Image job ใหม่หลัง app ใหม่ (`paths.ROOT` เดิม) → สร้างเฉพาะการ์ดที่ยังไม่มีภาพ
@@ -553,11 +557,12 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 
 - **Copy:** `backend/tests/test_spoil_maker_voices_api.py` — งาน GPU ใน process ลูกปลอม, ช่อง GPU, ยกเลิก, crash
 - **Copy:** `backend/tests/test_spoil_maker_render_api.py` — Render job ที่สร้างเสียงก่อน, `FakeFfmpeg`, และการอ่านไฟล์ด้วย `ffmpeg -i` (ราวบรรทัด 329); seam 2 ใช้ ffmpeg จริงแบบ test ที่มี `ok_ffmpeg` ใน `backend/tests/fakes.py`
+- **Copy:** `backend/tests/test_toon_eps_api.py` › `first_hangs` (ราวบรรทัด 206) — worker ปลอมที่ไม่ตอบ สำหรับ test klein ปลอมเงียบ
 - **Copy:** `backend/tests/test_spoil_import_api.py` — upload body ดิบ, `check`, `stalled`
 - **Copy:** `frontend/src/features/story-kb/components/StoryEditor.test.tsx` — seam 3 แบบ story-kb D18: `App` จริงกับ `testing/testBackend.ts`
 - **Copy:** `frontend/src/features/spoil-maker/components/SavedVoicePage.test.tsx` — หน้าที่ poll งาน (seam 3 ข้อภาพขึ้นระหว่างงาน)
 - klein ปลอมเป็น subclass ของ `FakeModel` ใน `backend/tests/fakes.py` ที่คืน PNG ขนาดตามคำขอ
-- klein จริงไม่อยู่ใน test; ticket 01 ลองด้วยมือบน Mac ตาม Open Question 1 และจดผลใน `progress.md`
+- klein จริงไม่อยู่ใน test; ticket 01 ลองด้วยมือบน Mac ตาม Open Question 1 และจดผลใน `progress.md`; ticket 15 วัดทั้งเครื่องตาม D74 แบบเดียวกัน
 
 ## Out of Scope
 
@@ -584,5 +589,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 - [diffusers Flux2 pipelines](https://huggingface.co/docs/diffusers/v0.42.1/en/api/pipelines/flux2) — `Flux2KleinPipeline`, `encode_prompt` (accessed 2026-11-09)
 - [diffusers GGUF](https://huggingface.co/docs/diffusers/v0.42.1/en/quantization/gguf) — `from_single_file` กับ `GGUFQuantizationConfig` (accessed 2026-11-09)
 - [PyTorch MPS backend](https://docs.pytorch.org/docs/2.8/notes/mps.html) — MPS ใน torch 2.8 (accessed 2026-11-09)
+- [PyTorch serialization semantics](https://docs.pytorch.org/docs/2.8/notes/serialization.html) — pickle ของ tensor (accessed 2026-11-11)
+- [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — Q3_K_M 2.12 GB (accessed 2026-11-11)
 - [ffmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) — `zoompan`, `eq`, `xfade`, `acrossfade`, `amix`, `ass` (accessed 2026-11-09)
 - [yt-dlp format selection](https://github.com/yt-dlp/yt-dlp#format-selection) — `bestaudio` (accessed 2026-11-09)
