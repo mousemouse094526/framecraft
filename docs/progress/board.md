@@ -6,8 +6,7 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 |---|---|---|---|---|---|---|
 | [setup-status](setup-status/progress.md) | false | done | 🎨 1/1 | ✅ a027e8f | — | — |
 | [spoil](spoil/progress.md) | false | done | 🎨 7/7 | ✅ 1c6606d | — | — |
-| [windows-check](windows-check/progress.md) | false | blocked | — | 0/2 | รอเครื่อง Windows NVIDIA | `/warroom-build windows-check 01` |
 | [spoil-maker](spoil-maker/progress.md) | false | done | 🎨 8/8 | ✅ 83821a9 | — | — |
 | [story-kb](story-kb/progress.md) | false | done | 🎨 4/4 | ✅ d75f574 | — | — |
-| [windows-launch](windows-launch/progress.md) | false | blocked | 🎨 1/1 | 2/3 | 03 ลองบนเครื่อง Windows RTX 30xx (รอเครื่อง) | `/warroom-build windows-launch 03` (บนเครื่อง Windows) |
-| [toon](toon/map.md) | false | mapping | — | — | 5 คำถามรอ interview (klein ลองบน Mac แล้ว 2026-11-09) | `/warroom toon` |
+| [windows-launch](windows-launch/progress.md) | **true** | blocked | 🎨 1/1 | 2/3 | **งาน Windows ทั้งหมด** — รวม windows-check 01–02 (setup-status, spoil) + 03 ลอง Qwen บน RTX 30xx · รอเครื่อง | `/warroom-build windows-launch 03` (บนเครื่อง Windows) |
+| [toon](toon/progress.md) | false | review | 🎨 9/9 | ✅ 17/17 | #33 (ค้างครั้งแรก), #37 (MPS pool EP ยาว) รอเกิดซ้ำ — ไม่บล็อก merge | `/pr-open` |

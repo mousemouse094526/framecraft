@@ -1,3 +1,4 @@
+import dataclasses
 import subprocess
 import sys
 
@@ -5,7 +6,7 @@ import pytest
 
 from backend import checks
 from backend.checks import DeviceProbe, run_checks
-from backend.models import OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
+from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 
 from .fakes import (
@@ -24,18 +25,18 @@ def checks_with_fakes(root, sys_platform=None, **probe_overrides):
     return run_checks(root, fake_probes(**probe_overrides), sys_platform)
 
 
-def test_a_complete_root_on_a_mac_is_ready_with_fifteen_ok(fake_root):
+def test_a_complete_root_on_a_mac_is_ready_with_nineteen_ok(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="darwin")
 
     assert result.ready is True
-    assert result.ok_count == 15
-    assert result.total == 15
+    assert result.ok_count == 19
+    assert result.total == 19
 
 
 def test_cpu_only_device_is_a_warning_but_still_ready(fake_root):
     result = checks_with_fakes(fake_root, device=lambda: "cpu")
 
-    assert result.ok_count == 14
+    assert result.ok_count == 18
     assert result.warning_count == 1
     assert item(result, "device").status == "warning"
     assert result.ready is True
@@ -82,7 +83,7 @@ def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
 
     assert item(result, "ffmpeg").status == "missing"
     assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
-    assert len(result.items) == 15
+    assert len(result.items) == 19
 
 
 def test_yt_dlp_and_deno_rows_follow_ffmpeg_with_their_versions(fake_root):
@@ -111,7 +112,7 @@ def test_deno_probe_that_raises_makes_only_deno_missing(fake_root):
 
     assert item(result, "deno").status == "missing"
     assert item(result, "deno").fix == "./setup.sh"
-    assert len(result.items) == 15
+    assert len(result.items) == 19
     assert result.missing_count == 1
 
 
@@ -160,6 +161,10 @@ def test_items_come_in_the_spec_order(fake_root):
         "mlx_vlm",
         "pythainlp",
         "font_kanit",
+        "model_klein",
+        "model_klein_gguf",
+        "diffusers",
+        "gguf",
     ]
 
 
@@ -260,7 +265,7 @@ def test_an_rtx_3060_with_everything_installed_is_ok_on_windows(fake_root):
     for row in ("device", *GPU_ROWS):
         assert item(result, row).status == "ok"
     assert "mlx_vlm" not in ids(result)
-    assert result.ok_count == result.total == 16
+    assert result.ok_count == result.total == 20
 
 
 def test_windows_rows_sit_where_mlx_vlm_was_with_gpu_right_after_device(fake_root):
@@ -403,7 +408,7 @@ def test_a_mac_has_no_gpu_or_bitsandbytes_row_and_never_reads_the_card(fake_root
     result = checks_with_fakes(fake_root, sys_platform="darwin", gpu=must_not_run, bitsandbytes=must_not_run)
 
     assert {"gpu", "bitsandbytes"} & set(ids(result)) == set()
-    assert result.ok_count == result.total == 15
+    assert result.ok_count == result.total == 19
 
 
 def test_the_qwen_row_on_a_mac_still_checks_the_mlx_model(fake_root):
@@ -513,3 +518,61 @@ def test_a_kanit_marker_with_another_sha256_makes_kanit_missing(fake_root):
 
     assert item(result, "font_kanit").status == "missing"
     assert item(result, "font_kanit").fix == "./setup.sh"
+
+
+def test_klein_rows_are_ok_on_windows_too_and_carry_each_repo_s_license(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="win32")
+
+    klein, gguf = item(result, "model_klein"), item(result, "model_klein_gguf")
+    assert (klein.status, klein.label, klein.license.author) == ("ok", "FLUX.2 klein 4B model", "Black Forest Labs")
+    assert (gguf.status, gguf.label, gguf.license.author) == ("ok", "FLUX.2 klein 4B GGUF", "Unsloth")
+    assert klein.license.name == gguf.license.name == "Apache-2.0"
+    assert gguf.license.model_url == "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF"
+
+
+@pytest.mark.parametrize("model", [KLEIN, KLEIN_GGUF])
+def test_a_missing_klein_marker_makes_only_its_row_missing(fake_root, model):
+    ProjectPaths(fake_root).marker(model).unlink()
+
+    result = checks_with_fakes(fake_root)
+
+    assert item(result, model.check_id).status == "missing"
+    assert result.missing_count == 1
+
+
+def test_diffusers_and_gguf_rows_show_their_pinned_versions(fake_root):
+    result = checks_with_fakes(fake_root)
+
+    assert (item(result, "diffusers").status, item(result, "diffusers").detail) == ("ok", "0.42.1")
+    assert (item(result, "gguf").status, item(result, "gguf").detail) == ("ok", "0.19.0")
+
+
+def test_another_diffusers_version_makes_diffusers_missing(fake_root):
+    result = checks_with_fakes(fake_root, diffusers=lambda: "0.43.0")
+
+    assert item(result, "diffusers").status == "missing"
+    assert item(result, "diffusers").detail == "version ไม่ตรง: ติดตั้งไว้ 0.43.0 ต้องการ 0.42.1"
+    assert result.missing_count == 1
+
+
+def test_gguf_not_installed_makes_gguf_missing_with_the_setup_command(fake_root):
+    def not_installed() -> str:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง")
+
+    result = checks_with_fakes(fake_root, gguf=not_installed)
+
+    assert (item(result, "gguf").status, item(result, "gguf").detail) == ("missing", "ยังไม่ได้ติดตั้ง")
+    assert item(result, "gguf").fix == "./setup.sh"
+
+
+def test_a_gguf_marker_of_the_q8_0_file_makes_the_gguf_row_missing(fake_root):
+    """D51 moved to Q4_K_M in the same pinned revision: a machine that downloaded Q8_0
+    downloads again."""
+    q8 = dataclasses.replace(KLEIN_GGUF, allow_patterns=("flux-2-klein-4b-Q8_0.gguf",))
+    write_marker(fake_root, q8)
+
+    result = checks_with_fakes(fake_root)
+
+    row = item(result, "model_klein_gguf")
+    assert (row.status, row.detail) == ("missing", "ไม่มีไฟล์ flux-2-klein-4b-Q4_K_M.gguf ใน marker")
+    assert result.missing_count == 1

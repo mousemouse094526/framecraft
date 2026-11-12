@@ -16,6 +16,11 @@
 - `gblur=sigma=…` (default 0.5, up to 1024); `steps` 1–6 trades speed for quality — [gblur](https://ffmpeg.org/ffmpeg-filters.html#gblur)
 - `scale=W:H:force_original_aspect_ratio=decrease|increase` fits inside or covers a box keeping the aspect ratio; follow with `pad` (fit) or `crop` (cover) to land on exactly W×H — [scale](https://ffmpeg.org/ffmpeg-filters.html#scale-1)
 - `-progress pipe:1` prints `key=value` blocks; `out_time_us` (or `out_time_ms`, also in microseconds) is how far the output is, `progress=end` closes the run — [ffmpeg -progress](https://ffmpeg.org/ffmpeg.html#Advanced-options)
+- `zoompan=z='…':x='…':y='…':d=1:s=WxH:fps=30` on a looped still (`-loop 1 -framerate 30 -i pic.png`): `d=1` makes one output frame per input frame and `on` counts them, so `z`/`x` written over `on` move across the card; `zoom` in `x`/`y` is the current zoom. It crops at whole pixels: work at 2× the output size or a slow zoom shakes — [zoompan](https://ffmpeg.org/ffmpeg-filters.html#zoompan)
+- `eq=eval=frame:brightness='expr'` re-reads `brightness` (−1–1, default 0) every frame, `t` the time in seconds — [eq](https://ffmpeg.org/ffmpeg-filters.html#eq)
+- `xfade=transition=fade:duration=D:offset=O` lays the second input's start over the first from `O` seconds (counted on the first input, which may itself be an earlier `xfade`); the output is `D` shorter than the two together. Both inputs need the same size, pixel format and frame rate — [xfade](https://ffmpeg.org/ffmpeg-filters.html#xfade)
+- `acrossfade=d=D` overlaps the end of the first audio with the start of the second by `D` seconds (`o` overlap, default on): `D` shorter in all — [acrossfade](https://ffmpeg.org/ffmpeg-filters.html#acrossfade)
+- `aloop=loop=-1:size=N` loops only the first `N` samples and holds them all in memory; to loop a whole long file put `-stream_loop -1` before its `-i` instead — [aloop](https://ffmpeg.org/ffmpeg-filters.html#aloop), [main options](https://ffmpeg.org/ffmpeg.html#Main-options)
 - `-movflags +faststart` moves the `moov` atom to the front so a player can start before the whole file arrives — [mov muxer](https://ffmpeg.org/ffmpeg-formats.html#mov_002c-mp4_002c-ismv)
 
 ## Pattern
@@ -47,6 +52,6 @@ command = [ffmpeg, "-nostdin", "-v", "error", "-y", "-ss", f"{start:.3f}", "-i",
 
 ## Sources
 
-- `ffmpeg -h filter=ass|tpad|amix|concat|gblur|apad` of the bundled 7.1 binary (read 2026-11-03)
+- `ffmpeg -h filter=ass|tpad|amix|concat|gblur|apad` of the bundled 7.1 binary (read 2026-11-03); `zoompan|eq|xfade|aloop|acrossfade` (read 2026-11-10)
 - [FFmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) — filtergraph escaping, `ass`, `scale` (accessed 2026-11-03)
 - [ASS override tags](https://aegisub.org/docs/latest/ass_tags/) — `\an`, `\pos`, `\fs`, `\bord`, colours (accessed 2026-11-03)

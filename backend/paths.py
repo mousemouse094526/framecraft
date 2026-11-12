@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 from backend.models import ModelSpec
 
@@ -133,6 +134,51 @@ class ProjectPaths:
         """Written by setup once both Kanit files match their sha256."""
         return self.markers_dir / "font_kanit"
 
+    @property
+    def toon_dir(self) -> Path:
+        """Everything the การ์ตูนเล่า tab keeps (toon spec › ข้อมูล, ADR 0003)."""
+        return self.root / "media" / "toon"
+
+    @property
+    def toon_series_dir(self) -> Path:
+        return self.toon_dir / "series"
+
+    def series_dir(self, series_id: str) -> Path:
+        """A Series' `series.json`, its reference images and its EPs."""
+        return self.toon_series_dir / series_id
+
+    def refs_dir(self, series_id: str) -> Path:
+        """The current reference image of each character and background, `{id}-{rev}.png`."""
+        return self.series_dir(series_id) / "refs"
+
+    def pending_refs_dir(self, series_id: str) -> Path:
+        """The three pictures of a Ref job not picked yet, `{id}-{1..3}.png`; emptied on every start."""
+        return self.refs_dir(series_id) / ".pending"
+
+    @property
+    def toon_sounds_dir(self) -> Path:
+        """The background sound library of the whole tab (toon D16): `sounds.json` and `{sound_id}.m4a`."""
+        return self.toon_dir / "sounds"
+
+    @property
+    def toon_sounds_file(self) -> Path:
+        return self.toon_sounds_dir / "sounds.json"
+
+    @property
+    def toon_render_dir(self) -> Path:
+        """The running Render job's copies, ASS file and narration; removed when it ends."""
+        return self.toon_dir / ".render"
+
+    @property
+    def toon_partial_dir(self) -> Path:
+        """Uploads not received in full yet; emptied on every start."""
+        return self.toon_dir / ".partial"
+
+    @property
+    def image_job_dir(self) -> Path:
+        """The reference images an Image job draws with, copied as it starts; emptied on every start."""
+        return self.toon_dir / ".image-job"
+
     def marker(self, model: ModelSpec) -> Path:
         return self.markers_dir / f"{model.cache_name}.json"
 
@@ -144,3 +190,33 @@ class ProjectPaths:
 def project() -> ProjectPaths:
     """The project at `ROOT`, read per call: tests point `ROOT` at a fake root."""
     return ProjectPaths(ROOT)
+
+
+class EpAddress(NamedTuple):
+    """Which EP of which Series of the การ์ตูนเล่า tab: the one value each function of one EP
+    takes instead of its three parts, with the EP's folders (toon D67). Whether the EP exists
+    is checked by the function, under the tab's store lock."""
+
+    project: ProjectPaths
+    series_id: str
+    ep_id: str
+
+    @property
+    def dir(self) -> Path:
+        """The EP's `ep.json`, its card images and narration, and its renders."""
+        return self.project.series_dir(self.series_id) / "eps" / self.ep_id
+
+    @property
+    def images_dir(self) -> Path:
+        """Each card's image and previous image, `{card_id}-{seed}.png`."""
+        return self.dir / "images"
+
+    @property
+    def audio_dir(self) -> Path:
+        """Each card's narration, `{card_id}.wav`."""
+        return self.dir / "audio"
+
+    @property
+    def renders_dir(self) -> Path:
+        """Each finished render of the EP: `{name}.mp4`, `.srt` and `.json`."""
+        return self.dir / "renders"

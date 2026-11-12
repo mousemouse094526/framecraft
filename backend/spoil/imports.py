@@ -18,7 +18,7 @@ import anyio
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from backend import checks, ffmpeg, gate_rows, paths
+from backend import checks, ffmpeg, gate_rows, paths, uploads
 from backend.errors import ApiError, JobFailed, invalid_request, require_rows
 from backend.paths import ProjectPaths
 from backend.spoil import clips, downloads, links, mp4check
@@ -26,16 +26,11 @@ from backend.spoil.mp4check import NotPlayable
 
 log = logging.getLogger(__name__)
 
-STALL_SECONDS = 60  # no new byte this long → `stalled` (D55)
-WRITE_BYTES = 2**20  # the body goes to its thread about a MiB at a time, not per chunk
 THUMBNAIL_AT = 0.1  # of the length (D52)
 SUFFIX = ".mp4"
 
 ONLY_MP4 = "รับเฉพาะไฟล์ mp4 แปลงไฟล์เองก่อน"
 DUPLICATE = "ไฟล์นี้เอาเข้าไว้แล้ว"
-SIZE_MISMATCH = "ได้ไฟล์ไม่ครบหรือเกินขนาดที่บอก ลองอีกครั้ง"
-# Names the app's limit; a test that shortens `stall_seconds` still gets these words.
-STALLED = f"ไม่ได้รับข้อมูลไฟล์นาน {STALL_SECONDS} วินาที ลองอีกครั้ง"
 CONVERT = "แปลงเป็น mp4 (H.264, AAC) ไม่เกิน 1080p ด้วยโปรแกรมอื่นแล้วลองอีกครั้ง"
 
 
@@ -57,7 +52,7 @@ class Imports:
     def __init__(
         self,
         check_mp4: Callable[[Path], mp4check.Mp4Info] = mp4check.check,
-        stall_seconds: float = STALL_SECONDS,
+        stall_seconds: float = uploads.STALL_SECONDS,
     ):
         self._check_mp4 = check_mp4
         self._stall_seconds = stall_seconds
@@ -78,7 +73,7 @@ class Imports:
         """Steps 1–7: checks again (things change between the two requests), then writes
         `body` to `.partial/`, checks it and moves it in. Raises `ApiError`, or
         `ClientDisconnect` once its files are gone."""
-        expected = _whole_number(size)
+        expected = uploads.whole_number(size)
         project, clip_id = await anyio.to_thread.run_sync(self._first_checks, name, expected)
         with downloads.downloads.receiving_file():
             try:
@@ -87,7 +82,7 @@ class Imports:
                     raise _duplicate(clip_id)
                 await anyio.to_thread.run_sync(_require_disk, project, expected)
                 partial = project.partial_dir / f"{clip_id}.import{SUFFIX}"
-                await self._write_body(body, partial, expected)
+                await uploads.receive(body, partial, expected, self._stall_seconds)
                 return await anyio.to_thread.run_sync(self._move_in, project, clip_id, name, partial)
             except ClientDisconnect:
                 log.info("the import of %s stopped: the page went away", clip_id)
@@ -112,38 +107,6 @@ class Imports:
         if clips.has_clip(project, clip_id):
             raise _duplicate(clip_id)
         return project, clip_id
-
-    async def _write_body(self, body: AsyncIterator[bytes], partial: Path, expected: int) -> None:
-        """Steps 2–3: the body to `partial`, never more than `expected` bytes and never
-        waiting `stall_seconds` for the next one."""
-        await anyio.to_thread.run_sync(lambda: partial.parent.mkdir(parents=True, exist_ok=True))
-        out = await anyio.to_thread.run_sync(partial.open, "wb")
-        received, waiting, waiting_bytes = 0, [], 0
-        try:
-            chunks = aiter(body)
-            while True:
-                try:
-                    with anyio.fail_after(self._stall_seconds):
-                        chunk = await anext(chunks, None)
-                except TimeoutError:
-                    raise ApiError(408, "stalled", STALLED) from None
-                if chunk is None:
-                    break
-                received += len(chunk)
-                if received > expected:
-                    raise ApiError(400, "size_mismatch", SIZE_MISMATCH)
-                waiting.append(chunk)
-                waiting_bytes += len(chunk)
-                if waiting_bytes >= WRITE_BYTES:
-                    await anyio.to_thread.run_sync(out.write, b"".join(waiting))
-                    waiting, waiting_bytes = [], 0
-            await anyio.to_thread.run_sync(out.write, b"".join(waiting))
-        finally:
-            # Closed before anything moves or removes it: Windows can't while it's open.
-            with anyio.CancelScope(shield=True):
-                await anyio.to_thread.run_sync(out.close)
-        if received != expected:
-            raise ApiError(400, "size_mismatch", SIZE_MISMATCH)
 
     def _move_in(self, project: ProjectPaths, clip_id: str, name: str, partial: Path) -> clips.TempClip:
         """Steps 4–6, in a thread: check the file, take a thumbnail, move it in, json last."""
@@ -178,11 +141,6 @@ class Imports:
 def _title(name: str) -> str:
     """The file's name without `.mp4`, as the page shows it (D52)."""
     return name[: -len(SUFFIX)].strip()
-
-
-def _whole_number(text: str | None) -> int | None:
-    """A query's `size`: digits only, so `1.5`, `-5` and `1e3` are no size."""
-    return int(text) if text and text.isascii() and text.isdigit() else None
 
 
 def _require_disk(project: ProjectPaths, size: int) -> None:

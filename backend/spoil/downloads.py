@@ -194,7 +194,7 @@ class Downloads(JobSlot[DownloadJob]):
                     clips.remove_unfinished(project, known_id)
                 except Exception:
                     log.exception("could not remove the files of %s", known_id)
-            self._update(percent=None, **ending)
+            self.update(percent=None, **ending)
 
     def _download(self, project: ProjectPaths, url: str) -> str:
         """Steps 2–8 of spec › Download; returns the new clip's id."""
@@ -206,14 +206,14 @@ class Downloads(JobSlot[DownloadJob]):
             # Before the id goes on the job: the clean-up in `_run` goes by that id, and
             # must not touch the clip already listed.
             raise _Duplicate(clip_id)
-        self._update(id=clip_id)
+        self.update(id=clip_id)
         if self._cancel.is_set():
             raise DownloadCancelled()
         if info.get("live_status") in ("is_live", "is_upcoming"):
             raise JobFailed("live", ERROR_MESSAGES["live"])
         estimate = estimate_bytes(info)
         require_disk(project, estimate)
-        self._update(state="downloading", title=info.get("title"))
+        self.update(state="downloading", title=info.get("title"))
         count = _ProgressCount(estimate, len(_formats(info)))
         mp4 = spoil.adapter.download(info, project, clip_id, lambda event: self._on_progress(count, event))
         # `format` picks by what the site says; this is the file (D54). A format that named
@@ -275,11 +275,7 @@ def estimate_bytes(info: dict) -> int:
 def _needed_rows() -> dict[str, Row]:
     """The Status check rows a download needs (D9), by id; the frontend's
     `DOWNLOAD_ITEMS` gates on the same rows."""
-    tools: dict[str, Row] = {
-        "yt_dlp": ("yt-dlp", lambda: checks.check_version(checks.probe_yt_dlp)),
-        "deno": ("Deno", lambda: checks.check_version(checks.probe_deno)),
-    }
-    return tools | gate_rows.FFMPEG
+    return gate_rows.LINK_TOOLS | gate_rows.FFMPEG
 
 
 def _yt_dlp_version() -> str:

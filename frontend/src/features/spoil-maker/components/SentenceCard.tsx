@@ -10,7 +10,7 @@ import trashRedIcon from "../assets/trash-red.svg";
 import trashWhiteIcon from "../assets/trash-white.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { reviewJobText, shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
-import { playAudio } from "../lib/audio";
+import { playAudio } from "../../../lib/audio";
 import { sentenceAudioUrl } from "../lib/render";
 
 // Figma component `Status badge` (spoil-maker D30).

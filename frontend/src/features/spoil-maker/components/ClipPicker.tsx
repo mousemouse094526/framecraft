@@ -2,7 +2,7 @@ import type { TempClip } from "../../../lib/clips";
 import { CLIPS_PATH } from "../../../lib/clips";
 import { formatDuration } from "../../../lib/format";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
-import radioSelectedIcon from "../assets/radio-selected.svg";
+import radioSelectedIcon from "../../../components/ui/assets/radio-selected.svg";
 import radioIcon from "../assets/radio.svg";
 import fileTextIcon from "../../../components/ui/assets/file-text-24.svg";
 import playIcon from "../../../components/ui/assets/play.svg";

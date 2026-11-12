@@ -120,26 +120,24 @@ class Describes(ModelJobSlot[DescribeJob]):
         shutil.rmtree(new, ignore_errors=True)
         (new / "frames").mkdir(parents=True)
         spans = self._cut(mp4, clip.duration_s)
-        self._update(state="describing", percent=None, done=0, total=len(spans))
+        self.update(state="describing", percent=None, done=0, total=len(spans))
         # Seconds one Shot's description may take on this OS; longer and the child is terminated (windows-launch D7).
         seconds = timeouts().describe
         qwen = qwen_for(checks.this_platform())
-        process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
-        self._track(process)
-        self._reply(process, replies, (Ready,))  # loading has no timeout
+        worker = self.start_child(spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision)), Ready)
         described = []
         for n, (start, end) in enumerate(spans):
             frame = new / "frames" / f"{n}.jpg"
             # The middle frame: the start and end of a Shot blur into its neighbours (D17).
             frames.extract_frame(mp4, (start + end) / 2, thumbnail=new / f"{n}.jpg", llm_frame=frame)
-            requests.put(Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE))
+            request = Generate(DESCRIBE_PROMPT, frame, DESCRIBE_MAX_TOKENS, DESCRIBE_TEMPERATURE)
             try:
-                reply = self._reply(process, replies, (Generated,), seconds)
+                reply = self.ask(worker, request, (Generated,), seconds)
             except TimeoutError:
-                raise JobFailed("model_failed", f"บรรยายภาพเกิน {seconds:g} วินาที. {gpu.ADVICE}") from None
+                raise JobFailed("model_failed", gpu.advised(f"บรรยายภาพเกิน {seconds:g} วินาที")) from None
             described.append(shots.Shot(n=n, start=round(start, 3), end=round(end, 3), description=reply.text.strip()))
-            self._update(done=n + 1)
-        requests.put(None)
+            self.update(done=n + 1)
+        worker.end()
         result = shots.ShotsFile(clip_id=clip.id, shots=described)
         (new / shots.SHOTS_FILE).write_text(result.model_dump_json(indent=2), encoding="utf-8")
         shutil.rmtree(new / "frames")
@@ -152,7 +150,7 @@ class Describes(ModelJobSlot[DescribeJob]):
         def on_progress(at_s: float) -> None:
             # 100 waits for the cut list: ffmpeg reads the last second before it ends.
             if duration_s:
-                self._update(percent=min(99, int(at_s * 100 / duration_s)))
+                self.update(percent=min(99, int(at_s * 100 / duration_s)))
 
         cuts, duration = self._find_cuts(mp4, on_progress, self._cancel)
         if self._cancel.is_set():

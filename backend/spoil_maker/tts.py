@@ -9,9 +9,10 @@ messages and swaps `worker`.
 
 import io
 import multiprocessing
-import traceback
 from pathlib import Path
 from typing import Literal, NamedTuple
+
+from backend.workers import Worker, as_worker_error
 
 LANGUAGE = "th"
 
@@ -62,8 +63,8 @@ class WorkerError(NamedTuple):
     detail: str  # "{exception type}: {message}", for the log
 
 
-def start_worker(snapshot_dir: Path, device: str):
-    """Starts the child; returns it with the queue of requests and the queue of replies.
+def start_worker(snapshot_dir: Path, device: str) -> Worker:
+    """Starts the child with its queue of requests and its queue of replies.
 
     Fresh queues per child: `terminate()` may corrupt a queue it was using.
     Daemonic, so the child dies with the backend.
@@ -77,7 +78,7 @@ def start_worker(snapshot_dir: Path, device: str):
         name="framecraft-tts",
     )
     process.start()
-    return process, requests, replies
+    return Worker(process, requests, replies)
 
 
 def worker(snapshot_dir: Path, device: str, requests, replies) -> None:
@@ -85,14 +86,14 @@ def worker(snapshot_dir: Path, device: str, requests, replies) -> None:
     try:
         model = load(snapshot_dir, device)
     except Exception as error:
-        _send_error(replies, error)
+        replies.put(as_worker_error(WorkerError, "model_failed", error))
         return
     replies.put(Ready())
     while (request := requests.get()) is not None:
         try:
             reply = design_voice(model, request) if isinstance(request, Design) else speak(model, request)
         except Exception as error:
-            _send_error(replies, error)
+            replies.put(as_worker_error(WorkerError, "model_failed", error))
             return
         replies.put(reply)
 
@@ -147,8 +148,3 @@ def _pcm16(samples) -> bytes:
     import numpy as np
 
     return (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2").tobytes()
-
-
-def _send_error(replies, error: Exception) -> None:
-    traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    replies.put(WorkerError("model_failed", f"{type(error).__name__}: {error}"))

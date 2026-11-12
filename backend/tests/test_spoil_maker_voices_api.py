@@ -12,7 +12,7 @@ from backend.models import OMNIVOICE, QWEN_MAC
 from backend.paths import ProjectPaths
 from backend.spoil_maker import voices
 
-from .fakes import FakeTts, cuda_device, card, on_windows, poll_until
+from .fakes import CODE_ERROR, GPU_ERROR, FakeTts, cuda_device, card, on_windows, poll_until
 
 FINISHED = {"done", "failed", "cancelled"}
 JOBS = "/api/spoil-maker/voice-jobs"
@@ -229,12 +229,17 @@ def test_the_current_job_is_null_before_any(client):
     assert client.get(CURRENT).json() is None
 
 
-def test_a_worker_error_fails_the_job_as_model_failed(client, tts):
-    tts.fail_at = 0
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [(CODE_ERROR, f"สร้างเสียงไม่สำเร็จ: {CODE_ERROR}"), (GPU_ERROR, f"สร้างเสียงไม่สำเร็จ: {GPU_ERROR}. {gpu.ADVICE}")],
+)
+def test_a_worker_error_fails_the_job_as_model_failed_and_only_a_gpu_error_ends_with_the_advice(client, tts, failure, message):
+    """toon D84: an error of the code says what it is, without pointing at other apps on the GPU."""
+    tts.fail_at, tts.fail_with = 0, failure
 
     job = design(client)
 
-    assert (job["state"], job["error"]["code"]) == ("failed", "model_failed")
+    assert (job["state"], job["error"]) == ("failed", {"code": "model_failed", "message": message})
     assert client.get(f"{JOBS}/preview.wav").status_code == 404
 
 

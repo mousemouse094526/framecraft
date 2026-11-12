@@ -198,7 +198,7 @@
 - แตกใหม่ทั้ง EP — ทุกอย่างที่แก้ไว้หาย
 - กันทีละช่องในการ์ด — ซับซ้อน และการ์ดอาจไม่เข้ากับพล็อตใหม่
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by toon D43
 
 ## D16: คลังเสียงพื้นเป็นคลังกลางของทั้ง tab
 
@@ -351,6 +351,965 @@
 
 **From:** interview · **Status:** active
 
+## D28: สไตล์ภาพของ Series เป็นข้อความ มีสไตล์ตั้งต้นสองแบบ
+
+**Chosen:** Series มีข้อความสไตล์ภาพช่องเดียว (ภาษาอังกฤษ) ที่แอปต่อท้ายทุกคำสั่งภาพ (D36) ทั้งภาพการ์ด ภาพตัวละคร และภาพฉากหลัง. ตอนสร้าง Series เลือกสไตล์ตั้งต้นได้สองแบบแล้วแก้ข้อความต่อได้: "หลอนมืด" (2D แบน หัวกลม ตาจุด โทนมืด สว่างแค่แหล่งแสง แบบคลิปตัวอย่างแรก) และ "ตลกสว่าง" (2D แบน โทนสว่าง แบบคลิปตัวอย่างที่สอง). ไม่มีภาพตัวอย่างสไตล์.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: ผลลองจริงทำโทนมืดสว่างแค่แสงไฟได้จากคำสั่งอย่างเดียว และภาพอ้างอิงแต่ละภาพที่เพิ่มทำให้ช้าลงมาก (1 ภาพ 104 วิ, 3 ภาพ 252 วิ บน M1) — [trial-klein-mac-2026-11-09.md](trial-klein-mac-2026-11-09.md); ช่องภาพอ้างอิงเก็บไว้ให้ตัวละครกับฉากหลัง.
+
+**Rejected:**
+- ข้อความไม่มีสไตล์ตั้งต้น — ผู้ใช้ต้องเขียนคำสั่งภาษาอังกฤษเองทุก Series
+- ข้อความ + ภาพตัวอย่างสไตล์ — ช้าขึ้น ~40–100 วินาทีต่อภาพ และกินช่องภาพอ้างอิง
+
+**From:** interview (auto mode) · **Status:** active
+
+## D29: ฉากหลังส่งเข้า klein เป็นภาพอ้างอิงคู่ตัวละคร
+
+**Chosen:** ภาพการ์ดสร้างครั้งเดียวด้วย klein โดยส่งภาพฉากหลังของช่วง (D9) กับภาพอ้างอิงของตัวละครในการ์ดเป็น `image=[...]` พร้อมกัน ให้โมเดลวาดรวม. ไม่ตัดพื้นหลังและไม่ซ้อนภาพ. การ์ดไม่มีตัวละครส่งแค่ภาพฉากหลัง.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: แสงไฟตกบนตัวละครถูกตามสไตล์มืด (D28) และไม่ต้องเพิ่มโมเดลตัดพื้น; ผลลองยืนยันว่าภาพฉากหลังไม่มีคนออกมาสะอาด ใช้เป็นภาพอ้างอิงได้. ยอมให้ฉากเพี้ยนเล็กน้อยระหว่างการ์ดในช่วงเดียว.
+
+**Rejected:**
+- วางตัวละครทับฉากหลัง — ต้องมีโมเดลตัดพื้นอีกตัว และแสงไฟไม่ตกบนตัวละคร
+- คำอธิบายฉากในคำสั่งอย่างเดียว — ฉากต่างกันทุกการ์ดในช่วงเดียว
+
+**From:** interview (auto mode) · **Status:** active
+
+## D30: ตัวละครในภาพการ์ดสูงสุด 2 ตัว
+
+**Chosen:** ช่องตัวละครในภาพของการ์ด (D21) เลือกได้ 0–2 ตัว. ภาพอ้างอิงต่อการ์ดจึงมากสุด 3 ภาพ (ตัวละคร 2 + ฉากหลัง 1, D29).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: ผลลอง 2 ตัวในภาพเดียวไม่ปนหน้า; 3 ภาพอ้างอิงใช้ ~4.2 นาทีต่อภาพบน M1 ซึ่งยังรับได้ ส่วน 4 ภาพยังไม่ได้ลอง.
+
+**Rejected:**
+- สูงสุด 1 ตัว — ทำฉากสองคนคุยกันไม่ได้
+- สูงสุด 3 ตัว — 4 ภาพอ้างอิงยังไม่ได้ลอง ช้ากว่าและอาจปนหน้า
+
+**From:** interview (auto mode) · **Status:** active
+
+## D31: ภาพอ้างอิงหนึ่งภาพต่อตัวละครหรือฉากหลัง สร้างเองหรือเอาไฟล์เข้า
+
+**Chosen:** ตัวละครแต่ละตัวมีภาพอ้างอิงหนึ่งภาพ: เต็มตัว หน้าตรง บนพื้นเรียบ. ฉากหลังแต่ละอันมีภาพอ้างอิงหนึ่งภาพ: สถานที่ไม่มีคน. ได้มาสองทาง: (1) กดสร้างจากคำอธิบาย (ของตัวละครหรือฉากหลัง) + สไตล์ของ Series ได้ 3 แบบในงานเดียว แล้วผู้ใช้เลือกหนึ่ง แบบที่ไม่เลือกถูกลบ; (2) เอาไฟล์ PNG หรือ JPG ของผู้ใช้เข้า ผ่าน route อัปโหลดแบบ body ดิบ (ADR-0028). ขนาดภาพฉากหลังตามแบบจอของ Series (D7): แนวนอน 1024×576 หรือแนวตั้ง 576×1024. ภาพอ้างอิงย่อเหลือด้านยาว ≤768 px ตอนส่งเข้าโมเดล.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: ผลลองสั่งแผ่นหลายมุมได้ภาพ bust แทน และภาพเดียวก็คงตัวละครครบ 10 ภาพ; หลายภาพต่อตัวละครกินช่องภาพอ้างอิง (D30). เอาไฟล์เข้าใช้ route แบบที่มีแล้ว งานเพิ่มน้อย.
+
+**Rejected:**
+- ภาพเดียว สร้างอย่างเดียว — ผู้ใช้ที่มีภาพตัวละครอยู่แล้วใช้ไม่ได้
+- หลายภาพต่อตัวละคร (หน้าตรง เฉียง สีหน้า) — ช้ามากและเกินช่องภาพอ้างอิง
+
+**Details:**
+- 3 แบบ ≈ 4.5 นาทีบน M1 (t2i ~90 วิต่อภาพ)
+
+**From:** interview (auto mode) · **Status:** changed by D49, D79
+
+## D32: เปลี่ยนภาพอ้างอิงได้เสมอ ภาพการ์ดเดิมได้ป้าย "ภาพอ้างอิงเปลี่ยน"
+
+**Chosen:** ภาพอ้างอิงของตัวละครหรือฉากหลังเปลี่ยนได้ทุกเมื่อ แม้มีการ์ดใช้อยู่. ภาพการ์ดที่สร้างแล้วไม่เปลี่ยนและไม่สร้างใหม่เอง; การ์ดที่ภาพสร้างจากภาพอ้างอิงที่ไม่ใช่ภาพปัจจุบันแสดงป้าย "ภาพอ้างอิงเปลี่ยน" จนกว่าจะสร้างภาพการ์ดใหม่. "สร้างภาพที่ขาดทั้งหมด" (D33) ไม่นับการ์ดที่มีป้ายนี้.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: แก้หน้าตัวละครได้โดยไม่เสียภาพที่สร้างแล้ว (ภาพละหลายนาที) และผู้ใช้เห็นว่าการ์ดไหนยังเป็นหน้าเก่า.
+
+**Rejected:**
+- เปลี่ยนได้ ไม่มีป้าย — ไม่รู้ว่าการ์ดไหนยังใช้หน้าเก่า
+- ล็อกเมื่อมีการ์ดใช้ — ต้องสร้างตัวละครใหม่แล้วเปลี่ยนทุกการ์ดเอง
+
+**From:** interview (auto mode) · **Status:** changed by toon D44
+
+## D33: การ์ดละหนึ่งภาพ มีปุ่มสร้างภาพที่ขาดทั้งหมด เก็บภาพก่อนหน้าหนึ่งภาพ
+
+**Chosen:** การ์ดมีภาพการ์ดหนึ่งภาพ. สร้างได้สองทาง: ปุ่มสร้างทีละการ์ด และปุ่ม "สร้างภาพที่ขาดทั้งหมด" ของ EP ที่เป็นงานเดียว (จองช่อง GPU ตาม ADR-0015) สร้างเฉพาะการ์ดที่ยังไม่มีภาพตามลำดับ หยุดได้ ภาพที่เสร็จแล้วคงอยู่. การ์ดที่ใช้ตัวละครหรือฉากหลังที่ไม่มีภาพอ้างอิงถูกข้ามและนับแยก (D13). สร้างใหม่แล้วแอปเก็บภาพก่อนหน้าไว้หนึ่งภาพ ผู้ใช้สลับกลับได้; สร้างใหม่อีกครั้งภาพก่อนหน้าเดิมถูกลบ.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: M1 ใช้ ~2–4 นาทีต่อภาพ EP ทั้งเรื่องเป็นหลายชั่วโมง จึงต้องทิ้งให้รันเป็นงานเดียวข้ามคืนได้; หลายแบบต่อการ์ดคูณเวลา; ภาพใหม่อาจแย่กว่า จึงเก็บภาพก่อนหน้าไว้ย้อน.
+
+**Rejected:**
+- 2–3 แบบต่อการ์ด — เวลา 2–3 เท่า (EP เกิน 10 ชั่วโมงบน M1)
+- ทีละการ์ดเท่านั้น — ต้องกดทุกการ์ด
+
+**From:** interview (auto mode) · **Status:** active
+
+## D34: klein บน Mac ใช้ transformer GGUF Q8_0 และแยกขั้น text encoder
+
+**Chosen:** spec ของ klein บน Mac ใน `backend.models` (ADR-0004, ADR-0025): transformer จาก `unsloth/FLUX.2-klein-4B-GGUF` ไฟล์ `flux-2-klein-4b-Q8_0.gguf` (4.3 GB) โหลดด้วย `from_single_file` พร้อม `config=` ชี้โฟลเดอร์ `transformer/` ของ repo BFL; text encoder, vae, tokenizer, scheduler จาก `black-forest-labs/FLUX.2-klein-4B` commit `e7b7dc27f91deacad38e78976d1f2b499d76a294` (ไม่โหลด `transformer/*.safetensors`). ทั้งสอง repo pin commit. งานภาพทุกงานทำสองขั้นใน process ลูกเดียว: โหลด text encoder ด้วย `device_map` → encode คำสั่งทั้งงานใต้ `torch.no_grad()` → ปล่อย text encoder → โหลด transformer กับ vae → สร้างภาพ. เพิ่ม dependency `diffusers` และ `gguf>=0.10.0` ใน `pyproject.toml` ผ่าน Setup script (ADR-0002).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: ผลลอง M1 16 GB — bf16 peak 14.96 GB เกือบเต็มเครื่อง, GGUF Q8_0 peak 11.2 GB เร็วเท่ากัน คุณภาพไม่ต่างที่ตาเห็น; โหลด text encoder พร้อม transformer ไม่ลง.
+
+**Rejected:**
+- bf16 + แยกขั้น — peak เกือบเต็ม 16 GB เปิดแอปอื่นแล้ว swap
+
+**Details:**
+- revision ของ repo GGUF ยังไม่ได้จด: pin ตอน build (ticket แรก)
+- ดิสก์ราว 4.3 GB + text encoder/vae ~8 GB
+
+**Sources:** [trial-klein-mac-2026-11-09.md](trial-klein-mac-2026-11-09.md) ข้อ 1, 3
+
+**From:** interview (auto mode) · **Status:** changed by D49
+
+## D35: klein บน Windows ใช้ไฟล์ชุดเดียวกับ Mac บน cuda เช็คใน windows-check
+
+**Chosen:** spec ของ klein บน Windows ใช้ไฟล์ชุดเดียวกับ D34 บน device `cuda` และแยกขั้นแบบเดียวกัน. โค้ดและ test ทำทั้งสอง OS; toon จบได้เมื่อผ่านบน Mac (ADR-0016). การเช็คบนเครื่อง Windows จริงและการ์ดขั้นต่ำ (VRAM) เป็น ticket ใน `windows-check`.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: diffusers กับ GGUF รันบน CUDA ได้ ตรงกับ D6 ที่เลือกโมเดลทั้งสอง OS; ยังไม่มีเครื่อง Windows จึงไม่ขวาง toon.
+
+**Rejected:**
+- Mac อย่างเดียว พอร์ตทีหลัง — ขัด D6
+
+**From:** interview (auto mode) · **Status:** active
+
+## D36: คำสั่งภาพ Qwen แปลเป็นอังกฤษตอนเริ่มงานภาพ แอปต่อด้วยแม่แบบ
+
+**Chosen:** งานภาพการ์ดทุกงาน (ทีละการ์ดหรือทั้งหมด, D33) เริ่มด้วยขั้น Qwen3.5 9B (spoil-maker D13) แปลงคำบรรยายภาพ (D20) ของทุกการ์ดในงานเป็นประโยคอังกฤษหนึ่งย่อหน้าต่อการ์ด: ตัวละครเป็นประธาน ท่าทาง สีหน้า มุมกล้องและระยะ แสง. ปล่อย Qwen แล้วแอปต่อคำสั่งภาพจากแม่แบบตายตัว: ข้อความนั้น + ตัวละครแต่ละตัวผูกกับภาพอ้างอิงลำดับที่ N + "in the setting of the background reference" + สไตล์ Series (D28) + "no text, no letters, no signs". คำบรรยายภาพว่างได้ แอปใช้แม่แบบพร้อมมุมกล้องตั้งต้น "medium shot". คำสั่งอังกฤษไม่แสดงในหน้าจอ แต่เก็บคู่ภาพการ์ดเพื่อดู bug. ภาพตัวละครและฉากหลัง (D31) แปลคำอธิบายแบบเดียวกัน.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: ผลลองว่าคำสั่งต้องมีตัวละครเป็นประธานและระบุมุม/ระยะ ไม่งั้นกรอบภาพไม่คงที่; ตัวหนังสือในภาพเพี้ยนจึงสั่งห้ามวาด (D19); ยังไม่รู้ว่า text encoder ของ klein เข้าใจไทยดีแค่ไหน. แปลตอนเริ่มงานทำให้คำบรรยายที่ผู้ใช้แก้ล่าสุดถูกใช้เสมอ.
+
+**Rejected:**
+- ส่งไทยตรงเข้า klein — ยังไม่ได้ลอง
+- Qwen เขียนตอนแตกการ์ดแล้วเก็บ — ผู้ใช้แก้คำบรรยายแล้วต้องแปลใหม่อยู่ดี
+
+**Details:**
+- Qwen กับ klein ไม่อยู่ใน memory พร้อมกัน: งานเดียวโหลดต่อกันใน process ลูก (ADR-0012, ADR-0015)
+
+**From:** interview (auto mode) · **Status:** active
+
+## D37: ภาพการ์ดสร้างขนาดเท่าภาพฉากหลัง แล้วขยายตอน render
+
+**Chosen:** ภาพการ์ดสร้างที่ขนาดเดียวกับภาพฉากหลังของ Series (D31): แบบกรอบดำ 1024×576, แบบเต็มจอ 576×1024. ตอน render ffmpeg ขยายด้วย lanczos เป็น 1080×608 (แบบกรอบดำ) หรือ 1080×1920 (แบบเต็มจอ).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: เร็วสุด และตรงกับตัวเลขที่วัดแล้วใน [trial-klein-mac-2026-11-09.md](trial-klein-mac-2026-11-09.md); ภาพการ์ตูน 2D แบนทนการขยายได้. ยอมให้แบบเต็มจอ (ขยาย ×1.9) นุ่มลงเล็กน้อย.
+
+**Rejected:**
+- เต็มจอ 768×1344 — ช้าลงราว 1.7 เท่า และยังไม่ได้วัด
+- ขนาดจริง 1088×608 กับ 1088×1920 — เต็มจอช้าลงราว 3.5 เท่า (~6 นาทีต่อภาพบน M1) และ peak memory ยังไม่ได้วัด
+
+**Details:**
+- 576×1024 ยังไม่ได้ลอง: ticket แรกวัดเวลาและ memory หนึ่งภาพก่อนทำต่อ
+
+**From:** interview (auto mode) · **Status:** changed by D79 (วาด 768×432 / 432×768)
+
+## D38: render สร้างเสียงเล่าที่ขาดให้ก่อน
+
+**Chosen:** กด render ตอนที่บางการ์ดยังไม่มีเสียงเล่า หรือเสียงไม่ตรงข้อความหรือ Saved voice ตอนนี้ Render job สร้างเสียงของการ์ดเหล่านั้นก่อน (จองช่อง GPU เฉพาะช่วงนี้) แล้วจึง render แบบ spoil-maker D30.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: กดครั้งเดียวได้คลิป และเป็นกติกาเดียวกับ tab สปอย.
+
+**Rejected:**
+- ไม่ให้ render จนกว่าทุกการ์ดมีเสียง — ผู้ใช้ต้องกดสร้างเสียงเองก่อน
+
+**From:** interview (auto mode) · **Status:** active
+
+## D39: เสียงในคลังเสียงพื้นแปลงเป็น m4a ตอนเอาเข้า
+
+**Chosen:** ทุกเสียงที่เข้าคลังเสียงพื้น (D5, D16) ทั้งจากไฟล์และจากลิงก์ ffmpeg แปลงเป็น m4a (aac) ตัดภาพปกทิ้ง; ไฟล์ใดที่ ffmpeg อ่านเสียงได้ก็เอาเข้าได้. render อ่านรูปแบบเดียว.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: รับไฟล์ได้กว้าง และ render ไม่ต้องรองรับหลายรูปแบบ. ต่างจาก Temp clip ที่ไม่แปลง (ADR-0027) เพราะเสียงพื้นไม่มีคนเล่นหรือตัดไฟล์ต้นฉบับ.
+
+**Rejected:**
+- เก็บไฟล์เดิม รับเฉพาะ mp3 wav m4a — render ต้องรองรับหลายรูปแบบ และไฟล์อื่นเข้าไม่ได้
+
+**From:** interview (auto mode) · **Status:** active
+
+## D40: เลข EP ใหม่เดินต่อจากเลขสูงสุดที่ Series เคยมี
+
+**Chosen:** Series จำเลข EP สูงสุดที่เคยสร้าง; EP ใหม่ได้เลขนั้น + 1 แม้ EP นั้นถูกลบไปแล้ว. ผู้ใช้แก้เลข EP ของ EP เองได้ (จำนวนเต็ม 1–999 ไม่ซ้ำใน Series).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: เลขไม่ซ้ำกับคลิปที่อาจเผยแพร่ไปแล้ว และยังแก้เองได้เมื่อต้องการ.
+
+**Rejected:**
+- เลขสูงสุดที่มีอยู่ + 1 — ลบ EP ล่าสุดแล้วได้เลขซ้ำกับคลิปที่อาจเผยแพร่แล้ว
+
+**From:** interview (auto mode) · **Status:** active
+
+## D41: น้ำเสียงเล่าเป็นข้อความไทยช่องเดียวของ Series
+
+**Chosen:** Series มีช่อง "น้ำเสียงเล่า" ข้อความไทยช่องเดียว ที่ AI ใช้ทุกครั้งที่ร่างพล็อตและแตกการ์ด. ตอนสร้าง Series ตั้งต้นตามแบบที่เลือก (แบบหลอน: เล่าเป็น "ฉัน" เรียบ ช้า ชวนขนลุก; แบบตลก: เล่ากวนๆ จังหวะเร็ว) แล้วแก้ได้ แบบเดียวกับสไตล์ภาพ (D28).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: แต่ละช่องมีน้ำเสียงของตัวเองได้ และใช้รูปแบบเดียวกับสไตล์ภาพที่ผู้ใช้รู้จักแล้ว.
+
+**Rejected:**
+- ตายตัวตามแบบหลอน/ตลก — ช่องที่เล่าต่างไปทำไม่ได้
+
+**From:** interview (auto mode) · **Status:** active
+
+## D42: test พิสูจน์ที่ API กับโมเดลปลอม, render ด้วย ffmpeg จริง และหน้าเว็บผ่าน `App`
+
+**Chosen:** สาม seam: (1) HTTP API ของ `/api/toon` ที่ใช้ worker ปลอมของ Qwen, OmniVoice และ klein; (2) Render job ที่ใช้ ffmpeg จริงแล้วอ่านขนาด fps codec และความยาวจาก `ffmpeg -i` (ไม่มี ffprobe ตาม ADR-0005); (3) หน้าเว็บผ่าน `App` จริงกับ fetch ปลอม (Vitest, `testing/testBackend.ts`) แบบ story-kb D18 เฉพาะกติกาที่เห็นได้แค่บนหน้าจอ. klein จริงลองด้วยมือบน Mac ใน ticket แรก ไม่อยู่ใน test.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ; red team ชี้ว่า project มีแบบ test หน้าเว็บผ่าน `App` อยู่แล้ว (story-kb D18) จึงใช้แทนเครื่องมือ e2e. klein จริงช้าหลายนาทีต่อภาพและต้องมีโมเดลในเครื่อง.
+
+**Rejected:**
+- เพิ่ม seam โมเดลจริงบน Mac แบบ spoil-maker — ช้าและต้องมีโมเดล ~12 GB ในเครื่องที่รัน test
+- ไม่มี seam หน้าเว็บ — คำเตือน legal, ช่องแก้ที่ปิดระหว่างงาน, ความยาวรวม พิสูจน์ไม่ได้จาก API
+
+**From:** interview (auto mode), red team · **Status:** active
+
+## D43: แตกองก์ใหม่ต้องยืนยันเมื่อจะเสียการ์ดแก้เอง ภาพ หรือเสียง
+
+**Chosen:** Cards job ที่แตกองก์ใหม่ (D15) ต้องยืนยันเมื่อองก์ที่จะแตกมีการ์ด "แก้เอง" หรือการ์ดที่มีภาพการ์ดหรือเสียงเล่า; คำยืนยันบอกต่อองก์ว่าจะเสียการ์ดแก้เองกี่ใบ ภาพกี่ภาพ เสียงกี่เสียง.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: red team (Advocate) ชี้ว่าแก้พล็อตหลังสร้างภาพข้ามคืนแล้ว ภาพหลายชั่วโมงหายโดยไม่ถาม.
+
+**Rejected:**
+- ยืนยันเฉพาะการ์ดแก้เอง (D15 เดิม) — ภาพที่สร้างนานหายเงียบ
+
+**From:** red team (auto mode) · **Status:** active
+
+## D44: "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน" เป็นงานเดียว
+
+**Chosen:** หน้าเส้นเรื่องมีปุ่มที่สองของ Image job ทั้ง EP: สร้างภาพใหม่ทุกการ์ดที่มีป้าย "ภาพอ้างอิงเปลี่ยน" (D32) ตามลำดับเป็นงานเดียว หยุดได้ ภาพเดิมกลายเป็นภาพก่อนหน้าให้สลับกลับ (D33).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: red team (Advocate) ชี้ว่าเปลี่ยนหน้าตัวละครแล้วต้องกดทีละการ์ด ซึ่ง D33 ปฏิเสธไปแล้ว.
+
+**Rejected:**
+- ทีละการ์ดเท่านั้น (D32 เดิม) — ต้องกดทุกการ์ด
+
+**From:** red team (auto mode) · **Status:** active
+
+## D45: Render job ของการ์ตูนเล่ามี slot ของตัวเอง
+
+**Chosen:** Render job ไม่ใช้ slot เดียวกับงานอื่นของ tab: มี slot ของตัวเองแบบ Sound import จึง render EP ที่มีเสียงครบได้ระหว่าง Image job ข้ามคืน. Render job ที่ต้องสร้างเสียงก่อน (D38) ยังจองช่อง GPU และได้ `gpu_busy` ระหว่างงานอื่นที่ใช้ GPU (ADR-0015).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: red team (Skeptic) ชี้ว่า render ใช้แค่ ffmpeg ไม่ต้องรอ GPU.
+
+**Rejected:**
+- ทุกงานของ tab ใช้ slot เดียว — render ต้องรองานภาพที่อาจนานหลายชั่วโมง
+
+**From:** red team (auto mode) · **Status:** active
+
+## D46: ยอมรับความเสี่ยงเรื่องติดป้ายคลิป AI ที่ยังไม่ได้เช็คจากแหล่งทางการ
+
+**Chosen:** สร้าง toon โดยไม่มีป้าย "สร้างด้วย AI" ในคลิป ทั้งที่ legal ข้อ 5 เป็น UNVERIFIED (สถานะร่าง พ.ร.บ. ว่าด้วยปัญญาประดิษฐ์ เช็คจากบทความสำนักกฎหมาย ไม่ใช่ราชกิจจานุเบกษา). กฎหมายผ่านและบังคับคลิปแบบนี้เมื่อไหร่ เปิด change request.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำที่ gate: ร่างที่มีอยู่ไม่รวมการ์ตูนเล่าเรื่องในหัวข้อที่ต้องแจ้ง และผู้ใช้ใส่ป้ายในคำอธิบายคลิปเองได้.
+
+**Rejected:**
+- คงเป็น draft จนเช็คราชกิจจานุเบกษา — ขวางการสร้างทั้ง feature ด้วยข้อที่ไม่น่ากระทบ
+
+**Accepted risk:** legal ข้อ 5 UNVERIFIED — ถ้ากฎหมายผ่านแล้วบังคับ คลิปที่เผยแพร่ไปแล้วอาจต้องแก้คำอธิบายหรือติดป้าย
+
+**From:** gate (auto mode) · **Status:** active
+
+## D47: gguf pin 0.19.0 แทน 0.10.0
+
+**Chosen:** `gguf==0.19.0` (ล่าสุด, 2026-05-06) ยังอยู่ในช่วง `>=0.10.0` ของ D34; แถว Status check `gguf` เทียบกับ 0.19.0.
+
+**Why:** ลองจริงใน ticket 01: gguf 0.10.0 อ่านไฟล์ GGUF ไม่ได้บน numpy 2.5.4 ของ project (`AttributeError: 'memmap' object has no attribute 'newbyteorder'` ตอน `from_single_file`); numpy 2 เอา `ndarray.newbyteorder` ออก และ gguf แก้ตั้งแต่ราว 0.17. auto mode เลือกตัวเลือกที่แนะนำ.
+
+**Rejected:**
+- 0.17.1 — แก้แล้วเหมือนกันแต่เก่ากว่า; dep `requests` ที่ 0.19.0 เพิ่มมีอยู่แล้วผ่าน huggingface_hub
+
+**From:** build ticket 01 (auto mode) · **Status:** active
+
+## D48: ค่าเล็กของ Series และ Ref job ที่ build เลือกเอง
+
+**Chosen:**
+- `style` 1–500 ตัวอักษร, `tone` 0–300
+- upload ภาพอ้างอิงเกิน 20 MB → `400` `file_too_large` (ที่ `check` และตอนรับ body)
+- Toon job มี `item_id`: ตัวละครหรือฉากหลังที่ Ref job สร้าง; body ของ Ref job คือ `{"kind": "ref", "series_id", "item_kind": "characters" | "backgrounds", "item_id"}`
+- Qwen แปลคำอธิบายของภาพอ้างอิงไม่ได้ (JSON พัง, `scene` ว่าง, timeout) → `{scene}` คือคำอธิบายไทยเดิม (ว่าง → ชื่อ) แทนค่าสำรอง "medium shot" ของภาพการ์ด ซึ่งขัดกับแม่แบบ "Full body" ของตัวละคร
+- body ที่รับ upload เขียนผ่าน `backend/uploads.py` ที่ย้ายออกมาจาก `spoil.imports` (ผู้ใช้คนที่สองตาม conventions)
+
+**Why:** ค่าในขอบของ feature ที่ spec ไม่ได้กำหนด; เลือกตามแบบของโค้ดเดิม (spoil-maker `NAME_MAX`, spoil `size_mismatch`).
+
+**From:** build ticket 01 · **Status:** active
+
+## D49: klein ให้ peak MPS ไม่เกิน 12 GB ด้วยขั้นที่ลองตามลำดับ
+
+**Chosen:** เกณฑ์ memory ของงานภาพคือ peak `torch.mps.driver_allocated_memory()` ของ process ลูก klein ไม่เกิน 12 GB ที่กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพติดกันใน process ลูกเดียว) และ peak ของภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2. ticket 01 ลองขั้นต่อไปนี้ตามลำดับ และหยุดที่ขั้นแรกที่ผ่าน:
+1. `torch.mps.empty_cache()` หลังทุกภาพ และภาพอ้างอิงย่อด้านยาว ≤ 512 px (แทน 768 ของ D31) โดยใช้ Q8_0 เหมือนเดิม
+2. ข้อ 1 + transformer เป็น `flux-2-klein-4b-Q6_K.gguf` (3.4 GB)
+3. ข้อ 1 + transformer เป็น `flux-2-klein-4b-Q4_K_M.gguf` (2.6 GB)
+
+ทุกขั้นต้องผ่านการลองคงตัวละครด้วย เพราะภาพอ้างอิง 512 ก็ลดรายละเอียดหน้า: 10 ภาพจากตัวละคร 1 ตัว ดูด้วยตาแบบ [trial-klein-mac-2026-11-09.md](trial-klein-mac-2026-11-09.md) ข้อ 4 ว่าหน้าตาไม่หลุด. ไม่มีขั้นไหนผ่าน → Blocked row และ `/warroom toon` อีกรอบ.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: peak รอบ 2 สูงกว่ารอบ 1 ใน process เดียว (13.09 → 13.98 GB) จึงน่าจะมี cache ของ MPS ค้างอยู่ และจำนวน token ของภาพอ้างอิงลดราว 2.25 เท่าเมื่อย่อจาก 768 เป็น 512 (attention โตตามกำลังสองของ token ทั้งหมด); ขั้นที่ถูกสุดลองก่อน และเปลี่ยนไฟล์เมื่อจำเป็น. ส่วนเกณฑ์ "ทั้งระบบ" วัดไม่ได้เพราะรวมแอปอื่นที่เปิดอยู่.
+
+**Rejected:**
+- Q4_K_M ทันที — ลด memory แน่กว่า แต่คุณภาพยังไม่ได้วัด และอาจไม่ต้องเสียคุณภาพเลย
+- ภาพอ้างอิงสูงสุด 2 ภาพ — ขัด D29/D30 (ฉากสองคนไม่มีฉากหลัง); ถ้าสามขั้นไม่ผ่าน เป็นตัวเลือกใน `/warroom toon` รอบหน้า
+- ยอมรับ 13–14 GB — swap และเครื่องช้าตอนเปิดแอปอื่น
+- torch รุ่นใหม่ — torch 2.8.0 ใช้ร่วมกับทุกโมเดลของ project (ADR-0006), เปลี่ยนแล้วกระทบ TTS และ Qwen
+
+**Details:**
+- changes D34 (ไฟล์ GGUF อาจเปลี่ยนเป็น Q6_K หรือ Q4_K_M) และ D31 (ภาพอ้างอิงด้านยาว ≤ 512 แทน 768)
+- ทั้งสามไฟล์อยู่ใน revision ที่ pin แล้ว `a09d5bb51ac4000ccd9643d10e9db3ed14200508`
+- วิธีวัด: seed และคำสั่งตายตัว, ปิดแอปอื่นนอกจาก backend, วัด 3 รอบเอาค่าสูงสุด, จด swap ก่อนและหลัง; ขั้น 1 จด `empty_cache` อย่างเดียว และภาพอ้างอิง 512 อย่างเดียวด้วย เพื่อรู้ว่าอะไรช่วย
+- เปลี่ยนไฟล์ใน revision เดิม: เครื่องที่มี marker ของ Q8_0 แล้วต้องเห็นแถว `model_klein_gguf` เป็น `missing` — `check_model` เทียบทุก pattern ใน `allow_patterns` กับไฟล์ใน marker ด้วย ไม่ใช่แค่ revision
+- ไฟล์ที่เลือกใช้ทั้งสอง OS (D35); windows-check วัด VRAM ขั้นต่ำกับไฟล์นั้น
+- ภาพอ้างอิงที่เก็บยังเป็นขนาดเดิม (ตัวละคร ≤ 1536, ฉากหลังเท่าแบบจอ) ย่อเป็น 512 เฉพาะตอนส่งเข้า klein
+- ขั้นที่ใช้จริงจดเป็น `D{n}` ตอน build (`From: build ticket 01`) พร้อมตัวเลขใน `progress.md`; เปลี่ยนไฟล์ → แก้ `allow_patterns`, `GGUF_FILE`, ขนาดดิสก์ใน spec
+
+**Sources:** [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ Q8_0 / Q6_K / Q4_K_M (accessed 2026-11-09)
+
+**From:** blocked #10 (auto mode) · **Status:** changed by D74 (ขั้นที่ใช้: D51)
+
+## D50: Status check เทียบเฉพาะ pattern ที่ระบุไฟล์หรือ folder กับไฟล์ใน marker
+
+**Chosen:** `checks.check_model` ได้ `missing` ("ไม่มีไฟล์ {pattern} ใน marker") เมื่อ pattern ใน `allow_patterns` ที่ส่วนแรกไม่มี `*` (ไฟล์อย่าง `flux-2-klein-4b-Q8_0.gguf`, `model_index.json` หรือ folder อย่าง `text_encoder/*`) ไม่ตรงไฟล์ใดใน marker. pattern ที่บอกชนิดไฟล์ (`*.json`, `*.jinja`) ไม่เทียบ.
+
+**Why:** D49 ต้องให้เครื่องที่โหลด Q8_0 แล้วเห็น `missing` เมื่อ spec เปลี่ยนไฟล์ใน revision เดิม; แต่ pattern ชนิดไฟล์ของ Qwen และ Whisper ไม่จำเป็นต้องมีไฟล์ตรงใน repo (`*.jinja`, `*.txt`) จะทำให้ model ที่โหลดครบแล้วกลายเป็น `missing`. กฎเดียวกับที่ setup ตรวจ folder หลังโหลด และที่ `write_snapshot` ของ test ใช้.
+
+**Rejected:**
+- ทุก pattern — Qwen ที่ไม่มีไฟล์ `.jinja` ใน revision จะ `missing` ตลอด
+
+**From:** build ticket 01 · **Status:** active
+
+## D51: transformer ของ klein เป็น Q4_K_M (ขั้น 3 ของ D49)
+
+**Chosen:** `KLEIN_GGUF.allow_patterns` และ `klein.GGUF_FILE` เป็น `flux-2-klein-4b-Q4_K_M.gguf` (2.6 GB) ใน revision เดิม `a09d5bb`, ทั้งสอง OS (D35). ภาพอ้างอิงย่อด้านยาว ≤ 512 และ `empty_cache` หลังทุกภาพตาม D49 ข้อ 1. `REQUIRED_FREE_BYTES` Mac 32 GB, Windows 42 GB, ไม่มี Qwen 27 GB (klein ราว 11 GB แทน 12).
+
+**Why:** ลองตาม D49 บน M1 16 GB, torch 2.8.0, กรณีหนักสุด (576×1024, 3 ภาพอ้างอิง, 5 ภาพต่อ process): ขั้น 1 (Q8_0) peak MPS 13.08 GB และขั้น 2 (Q6_K) 12.88 GB เกิน 12 GB ทุกภาพ; ขั้น 3 (Q4_K_M) 11.83 GB ทุกภาพทั้ง 3 รอบ และภาพที่ 3–5 ไม่สูงกว่าภาพที่ 2. ตัวเลขทุกขั้นอยู่ใน `progress.md` (ticket 01).
+
+**Rejected:**
+- Q8_0 กับภาพอ้างอิง 512 + `empty_cache` (ขั้น 1) — 13.08 GB
+- Q6_K (ขั้น 2) — 12.88 GB
+
+**Details:**
+- peak คงที่ทุกภาพเมื่อมี `empty_cache` และแทบไม่ขึ้นกับขนาดภาพอ้างอิง (768 → 512 ไม่ลด); ลดไฟล์ Q8_0 → Q6_K (−0.9 GB) ลด peak แค่ 0.2 GB แต่ Q6_K → Q4_K_M (−0.8 GB) ลด 1.05 GB
+- เครื่องที่โหลด Q8_0 ไว้แล้ว: แถว `model_klein_gguf` `missing` (D50) และ setup โหลด Q4_K_M ใหม่; ไฟล์ Q8_0 เดิมยังอยู่ใน `models/hub` (ราว 4.3 GB) จนกว่าผู้ใช้ลบเอง
+- windows-check วัด VRAM ขั้นต่ำกับไฟล์นี้ (D35)
+- วัดแยกของขั้น 1 (`empty_cache` อย่างเดียว, ref 512 อย่างเดียว) ไม่ครบ: Q8_0 thrash จน 10 นาทีต่อ step; ใช้ผลรอบก่อน (ref 768 ไม่มี `empty_cache`: 13.09 → 13.98 GB) เทียบแทน
+- คงตัวละคร 10 ภาพผ่าน (`progress.md`, trial-images/consistency-10-q4km.png)
+
+**From:** build ticket 01 (auto mode) · **Status:** active
+
+## D52: หน้าของ tab การ์ตูนเล่า ticket 01 และค่าเล็กของหน้าเว็บ
+
+**Chosen:**
+- hash: `#/toon` รายการ Series, `#/toon/new` สร้าง Series, `#/toon/series/{sid}` ตัวละครและฉากหลัง (จนกว่า ticket 02 จะทำรายการ EP), `#/toon/series/{sid}/settings` ตั้งค่า Series, `#/toon/series/{sid}/{characters|backgrounds}/{id}/pick` เลือกภาพอ้างอิง; หน้าตัวละครและฉากหลังมีปุ่ม "ตั้งค่า Series" (แบบไม่มี เพราะในแบบหน้านี้เปิดจากรายการ EP)
+- สร้าง Series ส่งครั้งเดียว: `POST /series` รับ `style`, `tone`, `acts` (กติกาเดียวกับ `PATCH`) แทนค่าตั้งต้นของแนว; ไม่ส่ง → ค่าตั้งต้นเดิม; หน้าเว็บเติมค่าตั้งต้นของแนวให้เห็นก่อน (`GENRE_DEFAULTS` ใน `features/toon/lib/series.ts` ต้องตรง `DEFAULTS` ของ backend)
+- Ref job เก็บ 3 ภาพเมื่อครบเท่านั้น: หน้าเลือกภาพตอนล้มหรือหยุดไม่มีภาพให้เลือก (แบบวาดว่าเลือกจากภาพที่เสร็จได้) → คำว่า "หยุดสร้างแล้ว ภาพที่สร้างไม่ครบ 3 แบบไม่ถูกเก็บ" และปุ่มสร้างใหม่
+- ปุ่ม "คลังเสียงพื้น" บนรายการ Series รอ ticket 04; ลบตัวละครหรือฉากหลังไม่ถามก่อน (แบบไม่มีคำยืนยัน)
+- คำเตือน legal ข้อ 2 ขึ้นใน dialog ก่อนช่องเลือกไฟล์ของตัวละครเท่านั้น ตามแบบ Figma (ปุ่ม "เลือกไฟล์" เปิดช่องเลือกไฟล์ ไม่มีช่องติ๊กยอมรับ); ฉากหลังเปิดช่องเลือกไฟล์ทันที
+- ชุด 3 แบบที่รอเลือกไม่ล็อก tile: สร้างใหม่ เอาไฟล์เข้า หรือลบได้ (Ref job ใหม่ทับชุดเดิม)
+
+**Why:** แบบใน Figma วาดหน้าตัวละครและฉากหลังโดยกลับไปรายการ EP ซึ่งยังไม่มีใน ticket 01; `POST` แล้ว `PATCH` สองครั้งทิ้ง Series ครึ่งเดียวเมื่อครั้งที่สองถูกปฏิเสธ.
+
+**Rejected:**
+- `POST` แล้ว `PATCH` — Series เกิดแล้วแต่ฟอร์มยังเป็น "สร้าง" กดซ้ำได้ Series ซ้ำ
+
+**From:** build ticket 01 · **Status:** changed by toon D53
+
+## D53: EP พล็อต และเส้นเรื่อง ticket 02: hash ใหม่ และค่าเล็กที่ build เลือกเอง
+
+**Chosen:**
+- hash: `#/toon/series/{sid}` เป็นรายการ EP (แทนหน้าตัวละครและฉากหลังของ D52), หน้าตัวละครและฉากหลังย้ายไป `#/toon/series/{sid}/cast`; `#/toon/eps/{eid}` เปิดพล็อตเมื่อ `stage` `plot` และเส้นเรื่องเมื่อ `cards`; `#/toon/eps/{eid}/plot` เปิดพล็อตเสมอ (แก้พล็อตแล้วแตกใหม่); ตั้งค่า Series และสร้าง Series เสร็จกลับไปรายการ EP
+- EP ใหม่: หน้าเว็บส่ง `POST /series/{sid}/eps` แล้ว `POST /jobs {"kind": "plot"}` ทันที (ปุ่ม "ให้ AI ร่างพล็อต" ของแบบ); Plot job ถูกปฏิเสธ EP ยังอยู่ในรายการพร้อมเหตุผล และหน้าพล็อตที่ยังว่างมีปุ่มร่างอีกครั้ง; Plot job อ่าน `idea` จาก EP ไม่รับในคำขอ
+- API ที่ spec ไม่ได้เขียน: `PATCH /eps/{eid}/acts/{aid}` แก้ `name` และ `summary` ขององก์ (หน้าพล็อตแก้สรุปทีละองก์); `PATCH /eps/{eid}` `plot` ส่งทั้งรายการ แต่ละรายการเป็น `{"id"}` ของ Series หรือ `{"name", "tag", "description"}` ของใหม่; `after` ของการเพิ่ม: ไม่ส่ง = ท้ายสุด, `null` = แรกสุด, id = ต่อจากนั้น
+- สลับของใหม่ในพล็อตเป็นของใน Series แทนที่รายการนั้นด้วย `{"id"}`: แถวกลายเป็น "ในชุด" และสลับกลับไม่ได้ (แบบวาดตัวเลือกค้างที่แถว "ใหม่")
+- Cards job ให้ id กับของใหม่ตอนเริ่มเพื่อใช้ในคำสั่ง แต่เขียน Series และ `ep.json` พร้อมกันตอนจบเท่านั้น: ยกเลิกหรือ crash แล้วทั้งสองไฟล์ไม่เปลี่ยน
+- `GET /eps/{eid}` มี `series_id` และ `locked` (Plot หรือ Cards job ของ EP นี้ยังไม่จบ); ไม่ส่ง `image.prompt` ไฟล์ภาพ หรือ `audio` ดิบ
+- ขีดจำกัด: ชื่อตอน 0–60, สรุปองก์ 0–1000, ข้อความเล่า 0–200, คำบรรยายภาพ 0–500 ตัวอักษร; คำตอบของ Qwen ที่ยาวกว่าถูกตัด; `max_tokens` Plot 2048 ต่อครั้ง, Cards 4096 ต่อองก์; `temperature` 0.3 ทั้งสอง (แบบ spoil-maker D61); ความเร็วพูดของเสียงที่อ่านไม่ได้ใช้ 15 ตัวอักษร/วินาทีแค่ประมาณความยาว
+- ช่วงใหม่ที่ผู้ใช้เพิ่มมีการ์ดเงียบหนึ่งใบ ค้าง 2 วินาที `edited` true; ฉากหลังตั้งต้นของปุ่ม "เพิ่มช่วง" = ฉากหลังของช่วงสุดท้ายขององก์ ไม่มีก็ฉากหลังแรกของพล็อต; องก์ที่เพิ่มจากเส้นเรื่องชื่อ "องก์ใหม่"
+- หน้าเส้นเรื่องของ ticket นี้มีแค่ข้อความ องก์ ช่วง การ์ด ความยาวรวม และการล็อก: ภาพการ์ด ปุ่มเสียงเล่า และเสียงพื้นของช่วงขึ้นใน ticket 03 และ 04; ตัวเลือกฉากหลังของช่วงอยู่ที่หัวช่วง (แบบวาดเป็นชื่ออย่างเดียว)
+
+**Why:** แบบใน Figma วาดหน้ารายการ EP เป็นหน้าแรกของ Series และหน้าตัวละครกลับมาที่รายการ EP; ของที่ spec ไม่ได้กำหนดเลือกตามโค้ดและแบบที่มีอยู่ (`series.py`, Draft job ของ spoil-maker) โดยไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Rejected:**
+- เพิ่มของใหม่เข้า Series ตอนเริ่ม Cards job — ยกเลิกแล้ว Series เปลี่ยน ขัดกับ "EP ไม่เปลี่ยน" ของ spec
+- เก็บของใหม่ที่ถูกสลับไว้ในพล็อตเพื่อสลับกลับ — เพิ่มช่องใน `ep.json` ที่ spec ไม่มี
+
+**From:** build ticket 02 · **Status:** active
+
+## D54: พล็อตที่ยืนยันแล้วไม่รับของใหม่ และชื่อองก์แก้ที่หัวองก์
+
+**Chosen:**
+- `PATCH /eps/{eid}` `plot` ที่ `stage` `cards` มีรายการ `{"name"}` ใหม่ → `400` `invalid_request` "ยืนยันพล็อตแล้ว: เพิ่มตัวละครหรือฉากหลังใหม่ที่หน้าตัวละครของชุด"; ของใน Series ด้วย `{"id"}` ยังแก้ได้
+- id ของ EP ไม่ซ้ำทั้ง tab (เทียบ folder ของ EP ทุก Series) เพราะ `/eps/{eid}` หา EP โดยไม่รู้ Series
+- ชื่อองก์แก้ได้ที่หัวองก์ของเส้นเรื่อง (ช่องที่ส่งเมื่อออกจากช่อง; ว่างแล้วกลับเป็นชื่อเดิม) ตาม D10
+
+**Why:** spec › Cards job ข้อ 2 ให้ของ `new: true` เข้า Series เฉพาะครั้งแรก: ของใหม่ที่เพิ่มหลังยืนยันจะค้างใน `plot` โดยไม่มี `id` ถ้าไม่มีองก์ที่เปลี่ยน (`nothing_to_split`) และการ์ดใช้ไม่ได้; หน้าเว็บไม่มีทางเพิ่มของใหม่ในพล็อตอยู่แล้ว (สลับได้อย่างเดียว). D10 ให้เปลี่ยนชื่อองก์ได้ แต่หน้าเว็บของ D53 ยังไม่มีช่อง.
+
+**Rejected:**
+- Cards job ที่ไม่มีองก์เปลี่ยนแต่มีของใหม่ยังทำงาน — เปลี่ยนความหมาย `nothing_to_split` ของ spec
+
+**From:** build ticket 02 · **Status:** active
+
+## D55: ภาพการ์ดและเสียงเล่า ticket 03: ค่าเล็กที่ build เลือกเอง
+
+**Chosen:**
+- Toon job มี `card_ids` (การ์ดที่งาน `image` หรือ `voice` ทำ ตามลำดับ: `card_ids[done]` คือใบที่กำลังวาด) และ `scope` (`missing`, `stale_ref`, หรือ null เมื่อเป็นการ์ดเดียว) ให้หน้าเว็บขึ้น "กำลังวาด…" ที่การ์ดนั้นและกดลองอีกครั้งได้งานเดิม; `missing_refs` แต่ละรายการมี `kind` (ตัวละครหรือฉากหลัง) เพิ่มจาก spec
+- การ์ดอยู่ในขอบเขตตามภาพ: `missing` = การ์ดที่ไม่มีภาพ, `stale_ref` = การ์ดที่มีภาพแต่ภาพอ้างอิงเปลี่ยน (รวมการ์ดที่มีภาพแต่ตอนนี้เป็น `no_ref`); การ์ดในขอบเขตที่ตัวละครหรือฉากหลังยังไม่มีภาพอ้างอิง → นับใน `skipped` และอยู่ใน `missing_refs`
+- Voice job การ์ดเงียบ → `400` `silent_card`; สลับภาพที่ไม่มีภาพก่อนหน้า → `404` `not_found`; สลับภาพเป็นการแก้ EP (`ep_locked` ระหว่าง Plot/Cards job)
+- klein ล้มที่ `Draw` หนึ่งภาพ: process ลูกตอบ `WorkerError` แล้วรอภาพถัดไป (ไม่จบ) ตาม spec › Image job ข้อ 5; ล้มตอน `Encode` ยังจบ
+- คำสั่งให้ Qwen แปลคำบรรยายการ์ดบอกว่าชื่อไทยไหนคือ `character 1`/`character 2`; คำบรรยายว่างไม่ถาม Qwen
+- `GET /eps/{eid}` การ์ดมี `has_image` (การ์ด `no_ref` อาจมีภาพเดิม); หน้าเว็บโหลดภาพและเสียงด้วย `?v=` ที่เพิ่มทุกครั้งที่อ่าน EP; ระหว่าง Image job `done` เปลี่ยนแล้วอ่าน EP ใหม่
+- หน้าเส้นเรื่อง: รายการ "ต้องสร้างภาพอ้างอิงก่อน" มาจาก `missing_refs` ของ Image job ล่าสุดของ EP หรือของ `nothing_to_draw`; ลิงก์ "ไปสร้างภาพอ้างอิง" ไปหน้าตัวละครและฉากหลัง; ปุ่ม "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน" ปิดเมื่อไม่มีการ์ด `stale_ref`; การ์ดที่ klein วาดไม่สำเร็จเป็นคำเตือนหลังงานจบ; เสียงเก่า (`stale_audio`) ได้ป้าย "เสียงเก่า"; ปุ่ม "คลังเสียงพื้น" และ "ไปหน้า render" ของแบบรอ ticket 04
+- ลูปสร้างเสียงทีละข้อความเป็น `speaking.Speaker._speak` (รับข้อความกับ Saved voice คือ clone prompt และ speed คืนเสียงทีละอัน) ใน module กลาง `backend/speaking.py` ที่ spoil-maker และ Toon job ใช้ร่วม; `voices.saved_voice` อ่าน speed กับ clone prompt ของ Saved voice ใต้ lock ของ draft
+
+**Why:** spec ไม่ได้กำหนด; เลือกตามโค้ดที่มี (Ref job, `SentenceVoicer`) และแบบใน Figma โดยไม่เปลี่ยนสิ่งที่ spec สัญญา. `card_ids` กับ `scope` ทำให้หน้าเว็บรู้ว่าการ์ดไหนกำลังวาดและลองงานเดิมซ้ำได้โดยไม่ต้องเดา.
+
+**Rejected:**
+- ส่งชื่อไฟล์ภาพให้หน้าเว็บเพื่อ cache — D53 ไม่ส่งไฟล์ภาพ
+- เริ่ม klein ใหม่หลังภาพล้ม — encode คำสั่งทั้งงานใหม่ทุกครั้งที่ล้ม
+
+**From:** build ticket 03 · **Status:** active
+
+## D56: คลังเสียงพื้นและ render ticket 04: ค่าเล็กที่ build เลือกเอง
+
+**Chosen:**
+- Sound import ไฟล์เป็น request เดียวแบบ File import ของ spoil (`201` พร้อมเสียง, ไม่ขึ้นใน `/sounds/import/current`); ลิงก์เป็นงานที่ poll ได้ (`202`, state `checking` → `downloading` → `converting`); ไฟล์กับลิงก์ใช้ slot เดียวกัน (`busy`); เกิน 200 MB → `400` `file_too_large` ที่ `check`; ลิงก์ที่ info บอกว่ายาวเกิน 20 นาที → งาน `failed` `too_long` ก่อนโหลด; error ของลิงก์อื่นจาก yt-dlp → `login_required` หรือ `download_error`
+- ลิงก์ไม่มี state `stalled` (Download job ของ spoil ก็ไม่มี): โหลดที่ค้างจบเองด้วย `socket_timeout` 30 วินาทีของ adapter เป็น `download_error`; ไฟล์ที่ body ค้างได้ `408` `stalled` ของ `uploads`
+- `YtDlpAdapter.download` และ `fetch_info` รับ `DownloadOptions` (`format`, `folder`, `name`, `thumbnail`, `merge_mp4`); ค่าตั้งต้นคือของ Temp clip
+- `in_use` ของเสียงส่ง `eps` เป็น `series_name`, `n`, `title` (เสียงเป็นของทั้ง tab จึงบอกชื่อ Series ด้วย)
+- เสียงพื้นวนด้วย `-stream_loop -1` ที่ input แทน `aloop`: `aloop` เก็บเสียงทั้งไฟล์ไว้ใน memory (ยาวได้ถึง 20 นาที); ผลเหมือน spec (วนจากต้นไฟล์)
+- `acrossfade` ระหว่างท่อนเสียงยาว 1 วินาที หรือสั้นกว่าเมื่อท่อนใดสั้นกว่า 1 วินาที; ท่อนก่อนหน้ายืดเท่าความยาวที่ผสม ความยาวรวมจึงไม่เปลี่ยน (แบบเดียวกับ `xfade` ระหว่างการ์ด)
+- ไฟกะพริบ: `eq` brightness = −0.03 + คลื่น sine สองลูก (2.9 และ 4.3 Hz) ที่เฟสสุ่มจาก `card_id`; อยู่ในช่วง −0.06–0 เปลี่ยนเรียบราว 6 ครั้งต่อวินาที; `zoompan` ทำที่ 2 เท่าของขนาดภาพบนจอ ไม่ให้ซูมช้าสั่น
+- ขนาดและตำแหน่งตัวหนังสือในคลิป (ชื่อตอน 76, ป้าย EP 48 พื้นแดง, ซับ 72 ใต้ภาพ / 84 ที่ 60%, ชื่อช่อง 40 เทา, ป้ายชื่อ 44 กล่องดำโปร่ง) ตั้งจาก spoil-maker layout A จนกว่าเช็คมือบน Mac จะบอกให้แก้ (D22)
+- ความยาวการ์ดใน render ปัดเป็นเฟรม (30 fps) แล้วต่อกัน; เสียงเล่าของการ์ดเติมเงียบถึงเฟรมสุดท้ายของการ์ด
+- Render job มี `name` (คลิปที่เขียน) เมื่อ `done`; ลบ Series ระหว่าง render → `series_busy`; `ListedEp.rendered_at` คือ `created_at` ของคลิปล่าสุด
+- หน้าเว็บ: `#/toon/sounds` (ลิงก์จากรายการ Series และ toolbar เส้นเรื่อง), `#/toon/eps/{eid}/render` (ลิงก์ "ไปหน้า render"); คำเตือน legal ข้อ 4 แสดงตลอดบนหน้าคลังเสียงพื้นเหนือช่องไฟล์และลิงก์; หน้า render รู้การ์ดที่ไม่มีภาพจาก EP ก่อนกด และ "ไปที่การ์ด N" ไปหน้าเส้นเรื่อง; ชื่อไฟล์ดาวน์โหลด `ep03-{ชื่อตอน}-{name}.mp4`; "เล่น" เปิด video ใต้แถว; หัวช่วงมีเสียงพื้น ("ไม่มีเสียงพื้น") และ slider ความดังที่ส่งเมื่อปล่อย
+- `GPU_JOB_PATHS` มี `toon_voice` และ `toon_render`; `RUNNING_NAMES` ของหน้าเว็บมี `toon_voice` และ `toon_render`
+- สิ่งที่ซับของทุก render ใช้ร่วม (header ASS, `event`, `chunks`, `split_time`, `cut_lines`, `.srt`) ย้ายจาก `spoil_maker.captions` เป็น `backend/subtitles.py` (ผู้ใช้คนที่สองคือ `toon.compose`); ASS กับ filter graph ของการ์ตูนเล่าอยู่ใน `toon.compose`, งานและผลใน `toon.render`, slot ของ Sound import ใน `toon.sounds` (spec › Modules touched วางไว้ใน `jobs`)
+
+**Why:** spec ไม่ได้กำหนด หรือกำหนดวิธีที่ใช้ memory เกิน (`aloop`); เลือกตามโค้ดที่มี (File import, Download job, render ของ spoil-maker) และแบบใน Figma โดยไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Rejected:**
+- ไฟล์เสียงเป็นงาน poll แบบลิงก์ — File import ของ spoil เป็น request เดียวอยู่แล้ว (ADR 0028)
+- `aloop` ตาม spec — เสียง 20 นาทีที่ 48 kHz stereo ใช้ memory ราว 460 MB
+
+**From:** build ticket 04 · **Status:** active
+
+## D57: Plot job และ Cards job บน EP ที่กำลัง render เป็น `ep_busy`
+
+**Chosen:**
+- เริ่ม Plot job หรือ Cards job บน EP ที่ Render job ยังไม่จบ → `409` `ep_busy` ("กำลัง render EP นี้: เขียนใหม่ได้เมื่อ render จบ") เช็คใน `jobs._writable` ทั้งก่อนและใต้ lock ของ store
+- ขาเดียวกับที่ Render job เช็ค `ep_locked` ตอนเริ่ม: spec › Toon job "ใช้ EP เดียวกันพร้อมกันได้ เฉพาะเมื่อไม่มีฝ่ายใดล็อก EP"
+
+**Why:** feature review พบว่า Render job คืนช่อง GPU หลัง `voicing` แล้ว Cards job เริ่มได้และล็อก EP ระหว่าง render; ใช้ `ep_busy` ที่มีอยู่แล้ว (ลบ EP ระหว่างงาน) แทนการตั้ง code ใหม่.
+
+**Rejected:**
+- `ep_locked` — หมายถึง EP ถูกล็อกโดย Plot หรือ Cards job; render ไม่ล็อก EP
+- `busy` — หมายถึงชนงานใน slot เดียวกัน
+
+**From:** feature review · **Status:** active
+
+## D58: แยกงานของ toon ออกเป็นส่วน ticket 05: ตัวพูดที่ slot ถือ และ `Work` ต่อ kind
+
+**Chosen:**
+- `speaking.Speaker` ไม่ใช่ job slot แล้ว: เป็นตัวพูดที่ slot ถือไว้ (`Speaker(self._track, self._reply)`) มี `start` และ `speak`; `ToonJobs`, `toon.render.RenderJobs` และ `spoil_maker.voices.SentenceVoicer` ถือตัวนี้
+- `SentenceVoicer` คงไว้เป็นฐานของ Voice job และ Render job ของ spoil-maker (ทั้งสองใช้ `_voice_sentences` จริง) แต่สืบทอด `ModelJobSlot` และถือ `Speaker` แทนการสืบทอด
+- แต่ละ kind ของ Toon job เป็น `steps.Work` ใน module ของตัวเอง: `toon.plot`, `toon.cards`, `toon.refs`, `toon.images`, `toon.voicing`; `toon.jobs` เหลือ slot ที่เริ่มและจบทุก kind แบบเดียวกัน: ตาราง `WORKS` ชี้ `WORK` ของแต่ละ module; `toon.steps` ถือส่วนที่ kind ใช้ร่วม (child ของ Qwen และ klein, `Child`, `image_rows`, `Run` ที่ขั้นของ kind เรียก slot)
+- ค่าที่ต่างกันระหว่างตัวละครกับฉากหลังอยู่ในตาราง `toon.kinds.KINDS` (model, ตัวนำหน้า id, มี `tag`, ขนาดภาพอ้างอิงต่อ layout, ครอบภาพที่เอาเข้า, แม่แบบภาพ, คำถามถึง Qwen); `CARD_SIZE` ขนาดภาพการ์ดต่อ layout อยู่ที่เดียวกัน
+- ทุก kind เริ่มงาน (อ่านแผนอีกครั้ง จองช่อง GPU ตั้งงาน) ใต้ `store.lock` (Voice job: `draft_lock` แล้ว `store.lock`); การลบ Series อ่าน `series.series_jobs` ใต้ `store.lock` (แบบ `episodes.ep_jobs`) แทน `ToonJobs.delete_series` ที่ถือ lock ของ slot: route เรียก `series.delete` ตรง
+
+**Why:** feature review (Blocked #13, #14): `Speaker` เป็น Refused Bequest และ `toon/jobs.py` 608 บรรทัดทำหลายเรื่อง. งานที่เริ่มใต้ `store.lock` ทำให้การลบ Series เห็นงานนั้นแล้ว หรือทำให้งานเจอ `not_found` เหมือนเดิม โดยไม่ต้องให้ `series` รู้จัก slot.
+
+**Rejected:**
+- ย้ายลูปของ `SentenceVoicer` ลง Voice job และ Render job ของ spoil-maker แยกกัน — ซ้ำโค้ดที่ทั้งสองใช้จริง
+- ให้ `toon.jobs` เรียก `start` ของแต่ละ module — ขั้นที่ 1 (busy, gate, `gpu_busy`) จะซ้ำห้าที่เหมือนเดิม
+
+**From:** build ticket 05 · **Status:** active
+
+## D59: ส่วนที่ซ้ำและช่องโหว่เล็ก ticket 06: `backend.renders`, หน้าเว็บหายระหว่างแปลงเสียง, ค่าตั้งต้นของแนวเทียบผ่านไฟล์เดียว
+
+**Chosen:**
+- ส่วนกลางของผล render อยู่ module ใหม่ `backend/renders.py` (ชื่อว่าง `free_name`, `complete_names`/`results` ผลที่ครบ, `latest_at`, `delete` mp4 ก่อน json ท้าย `409` `in_use`, `remove_partials`); `spoil_maker.render` และ `toon.render` ถือ folder ของตัวเองแล้วเรียกตัวนี้; ชื่อที่ถูกเช็คด้วยรูปวันเวลาจริง (`strptime`) ทั้งสอง feature แทน regex ของ spoil-maker (ชื่อแบบ `20261399-000000` ที่ `free_name` ไม่มีวันสร้าง ไม่ขึ้นรายการของสปอยแล้ว); แถว gate ของ render อยู่ `gate_rows.render` ไม่ใช่ `backend.renders` เพื่อให้ module กลางไม่ import `spoil_maker`
+- `episodes.list_for` อ่าน `renders.latest_at` จาก folder ของ EP: ไม่ import `toon.render` อีก; test อ่าน import ทุก module ของ `backend.toon` แล้วไม่เจอวง
+- แถว `diffusers` และ `gguf` อยู่ใน `checks.klein_packages(probes)` ที่ Status check และ `gate_rows.klein` อ่าน (แบบ `qwen_checks`)
+- Sound import ไฟล์: ระหว่างแปลง ffmpeg ถาม `request.is_disconnected()` ทุก 0.25 วินาที; หน้าเว็บหาย → ตั้ง `cancel` ของ ffmpeg, ไม่เขียน `sounds.json`, ลบ `.m4a.partial` และไฟล์ใน `.partial/`; หลัง ffmpeg จบถามหน้าเว็บอีกครั้ง (`anyio.from_thread.run`) ก่อนเสียงเข้าคลัง; ลิงก์ไม่เปลี่ยน (ยกเลิกหลัง ffmpeg จบยัง `done`)
+- `GENRE_DEFAULTS` ของหน้าเว็บกับ `DEFAULTS` ของ backend เทียบกับไฟล์เดียว `backend/tests/golden/toon_genre_defaults.json`: test ของ backend สร้าง Series ทั้งสองแนวผ่าน API แล้วเทียบ, test ของหน้าเว็บ import ไฟล์นั้นแล้วเทียบ
+- `playAudio` ย้ายจาก `features/spoil-maker/lib/audio.ts` เป็น `lib/audio.ts`: ปุ่ม "ฟัง" ของการ์ดและของคลังเสียงพื้นใช้ตัวเดียวกับสปอย (คลังเสียงพื้นเคยไม่จับ `play()` ที่ถูกปฏิเสธ)
+
+**Why:** feature review (Blocked #15–18). ไฟล์ golden ไฟล์เดียวให้ test สองชุดที่รันแยกกันจับค่าที่เปลี่ยนข้างเดียวได้ โดยไม่ต้องให้ test ของหน้าเว็บรัน Python. ถาม `is_disconnected` เป็นระยะเพราะ body อ่านจบแล้ว: Starlette ไม่ยกเลิก thread ของ ffmpeg เอง.
+
+**Rejected:**
+- `GENRE_DEFAULTS` อ่านจาก API — ต้องมี route ใหม่เพื่อค่าที่ไม่เปลี่ยน
+- รอ `receive()` ค้างไว้แทนการถามเป็นระยะ — อ่าน ASGI ตรง ไม่ผ่าน API ของ Starlette
+
+**From:** build ticket 06 · **Status:** active
+
+## D60: feature review รอบสอง: render จบที่ `backend.renders`, แถวของ Voice job ที่ `gate_rows.voice`, ตัวพูดถูกถามก่อน
+
+**Chosen:**
+- render ของทั้งสอง feature จบด้วย `renders.finish(folder, name, srt, info)` (srt และ json ข้าง `.mp4.partial` แล้วเอา `.partial` ออก json ท้าย) และอ่านรายการด้วย `renders.listed(folder, RenderResult)`; `renders.results` ให้ `Stored(name, info, size_bytes)` แทน tuple
+- แถวของ Voice job ย้ายจาก `spoil_maker.voices.needed_rows` เป็น `gate_rows.voice`; `gate_rows.render(project, voices_first)` เพิ่มแถวนั้นเองเมื่อ render ต้องพูดก่อน (เดิมทั้งสอง render เขียน `|` เอง)
+- Render job ของ toon `zip` ตัวพูดก่อนการ์ด (แบบ `SentenceVoicer`): ตัวพูดถูกถามอีกครั้งหลังข้อความสุดท้าย จึงส่ง `None` ให้ OmniVoice ออกเอง; `speaking.Voice` (Protocol) เป็นชนิดของ `voice`
+- `gpu_kind` ของงานสองขั้น (Qwen แล้ว klein) คงเป็น `toon_image` ทั้งงาน: เปลี่ยนแค่ child ที่ `reply` อ่าน (`ToonJobs.use_child`); spec เขียนตามนี้
+- ชื่อ: `ToonRenderJobError` (ไม่ซ้ำ `RenderJobError` ของ spoil-maker ใน OpenAPI), `_cards_to_voice`; หน้าเว็บ: `cancelToonJob` ข้าง `useToonJobPoll`, ชนิดและ path ของ Render job อยู่ `features/toon/lib/render.ts`, token `--color-info` สำหรับตัวหนังสือของ Alert แบบ info
+
+**Why:** feature review รอบสอง: สองฝั่งของ render เขียนการจบและรายการซ้ำกัน; `zip` ที่ถามการ์ดก่อนทำให้ OmniVoice ถูกหยุดแทนที่จะออกเอง.
+
+**Rejected:**
+- `gate_rows` import `spoil_maker.voices` — วน import (`voices` import `gate_rows`)
+
+**From:** feature review · **Status:** active
+
+## D61: โครงงานของ toon และชื่อที่ชนกัน ticket 07: `Worker`, `update`/`track`/`reply` ของ slot, `EpUse`, `ItemKind`
+
+**Chosen:**
+- process ของ child กับคิวคำขอและคิวคำตอบเป็นค่าเดียว `workers.Worker` (NamedTuple): `start_worker` ของ `spoil_maker.llm`, `spoil_maker.tts`, `toon.klein` คืนตัวนี้ และ `ModelJobSlot.reply(worker, expected, timeout)` รับตัวนี้; `backend/workers.py` import แค่ standard library เพราะ child import adapter ของมันพร้อมตัวนี้ (`backend.jobs` ดึง fastapi มาด้วย)
+- `JobSlot.update`, `ModelJobSlot.track`, `reply` เป็น public (เดิม `_update`, `_track`, `_reply`): ขั้นของงานเรียกตรง และ `speaking.Speaker(slot)` รับ slot แล้วเรียก `track`/`reply` ของมัน (เดิมรับสอง method); `ToonJobs.update`/`track`/`reply` ที่แค่ส่งต่อหายไป (ทุก slot ของสปอยและสปอยเมกเกอร์เปลี่ยนชื่อตาม)
+- `JobSlot.running()` คืนงานที่ยังไม่จบโดยไม่ถือ lock ของ slot (แทน `_running` ของ `ToonJobs` และ `RenderJobs`); `series.series_jobs` เก็บ slot (หาตอนถาม เพราะ test สลับ slot) แล้วอ่าน `series_id` ของ `running()` แทน `series_use` สองตัว
+- `episodes.ep_jobs` คืน `EpUse(ep_id, how)` (`how`: `works`, `locks`, `renders`); `plot.writable` ถาม `episodes.rendering(ep_id)` จึงไม่ import `toon.render`
+- `steps.open_klein(run, project, prompts)` เปิด klein ที่เดียว (start, `track`, `Encode`, รอ `Encoded`); Ref job และ Image job เรียกตัวนี้; test patch `backend.toon.klein.start_worker`; `toon/__init__.py` ไม่ re-export
+- ของใหม่ในพล็อตเป็นตัวละครและฉากหลังของ Series ผ่าน `series.new_items(series, plot)`
+- ชนิดของ item ชื่อ `kinds.ItemKind` (เดิม `Kind`), แถวของตารางเป็น `KindRow` (เดิม `ItemKind`); ตัวแปรและ path parameter ใน route เป็น `item_kind` (URL ไม่เปลี่ยน); หน้าเว็บเปลี่ยนชนิดเป็น `ItemKind` ด้วย; `MissingRef.kind` คงชื่อ field
+- ตัวพูดชื่อ `speaker` ใน `ToonJobs`, `RenderJobs`, `SentenceVoicer`; คอมเมนต์ขั้นบอกส่วนใน spec (`Spec › Plot job step 1`)
+
+**Why:** build ticket 07 (Blocked #19, #21): ทางเลือกในโค้ดล้วน ผู้ใช้ไม่เห็นอะไรเปลี่ยน; route, body และรหัส error เดิม.
+
+**Rejected:**
+- `Worker` ใน `backend.jobs` — child import fastapi ตาม `backend.errors`
+- `series_jobs` เก็บ slot ตรง — test ที่สลับ `toon_jobs` จะไม่เห็นงานของ slot ใหม่
+
+**From:** build ticket 07 · **Status:** active
+
+## D62: เริ่มและหยุด child และ render ที่ซ้ำข้าม feature ticket 08: `start_child`, `ask`, `stop_child`, `free_gpu`, `renders.Render`, `episodes.plot_items`
+
+**Chosen:**
+- `ModelJobSlot` (`backend.jobs`) มีทางเดียวที่เริ่ม child: `start_child(worker, first, timeout)` (`track` ก่อน แล้วรอข้อความแรก `first`: `Ready` ของ Qwen และ OmniVoice, `Encoded` ของ klein ที่ได้ `Encode` แล้ว); `ask(worker, request, expected, timeout)` (ส่งแล้วรอคำตอบ); `stop_child()` (ลืม child ก่อนแล้วหยุด: ลองที่ช้าเกิน, ขั้นที่จบแล้ว, และ `_finish` ตอนงานจบ); `free_gpu()` (`stop_child` แล้วคืนช่อง GPU ของ `gpu_kind`) แทน `_free_gpu` สองตัวของ render; `Worker.end()` ขอให้ child ออกเอง (แทน `requests.put(None)`)
+- `stop_on_shutdown` ยังเรียก `stop_process` ตรง: มันอยู่ใน thread ของ lifespan ไม่ใช่ของงาน และไม่ลืม child ให้ `_finish` ของ thread งานทำเอง
+- สปอยเมกเกอร์ (Describe, Draft, Voice job) ใช้สาม method เดียวกัน; Transcribe job ของ spoil ไม่ใช้ (child ของ Whisper ไม่มี `Worker` และไม่มีคำขอ)
+- `steps.draw(run, worker, request, expected)` แทน `klein_reply`: ทั้ง `open_klein` และ `draw` แปลงเวลาเกินเป็น `model_failed` ผ่านตัวเดียว
+- `renders.PIECES_SHARE`, `pieces_percent`, `encode_progress(update, total_s)`: `percent` ของ render ทั้งสอง feature (0–50 ตัดชิ้น, 50–100 ต่อชิ้น)
+- `renders.Render(folder, name)` เป็นค่าเดียวของ render หนึ่งชิ้น: `renders.next_free(folder)` ให้ตัวนี้ (แทน `free_name`) และการจบ การตรวจ การลบเป็น method ของมัน (`file`, `finish`, `require`, `complete`, `delete`; เดิม `renders.finish(folder, name, …)` ของ D60)
+- `series.ref_revs(series)` สร้าง map `ref_rev` ที่เดียว (หน้า EP, Image job, Render job)
+- `episodes.plot_items(series, item_kind, value, from_qwen)` ตัวเดียว: จากผู้ใช้ ของที่ผิด → `invalid_request`; จาก Qwen ของที่ผิดถูกตัดทิ้ง ข้อความตัด CJK และตัดความยาว; จำนวนเป็นของผู้เรียกตรวจ. ของ Qwen ที่มี key `id` อ้างของใน Series เสมอ (`"id": null` ถูกตัดทิ้งแบบเดิม); ของผู้ใช้ `"id": null` คือของใหม่แบบเดิม. id ของ Qwen ที่ไม่ใช่ string ถูกตัดทิ้ง (เดิม `TypeError` ทำให้งานล้ม `internal`)
+
+**Why:** build ticket 08 (Blocked #20): ทางเลือกในโค้ดล้วน ผู้ใช้เห็นทุกอย่างเหมือนเดิม; route, body และรหัส error เดิม. `stop_child` หยุด child ที่ slot `track` ไว้ ไม่รับ process: ทุกที่ที่หยุดเป็น child ตัวที่ track อยู่แล้ว.
+
+**Rejected:**
+- `stop_child(worker)` — ส่ง child ซ้ำกับที่ slot จำไว้ และ `_finish` ไม่มี worker
+- `free_gpu` ใน `backend.renders` — การคืนช่อง GPU เป็นเรื่องของ job slot ไม่ใช่ folder ผล; `percent` ของ render อยู่ `renders` เพราะสอง render ไม่มีคลาสฐานร่วมนอก `ModelJobSlot`
+
+**From:** build ticket 08 · **Status:** active
+
+## D63: feature review รอบสาม: `disk.require_free`, `series.require_series`, `Qwen.once`, เสียงที่ถูกลบระหว่าง Cards job, `missing_refs[].item_kind`
+
+**Chosen:**
+- เช็คดิสก์ 1 GiB (`507` `disk_full`) อยู่ที่ `backend.disk.require_free(root, incoming)` และ `disk.MIN_FREE_BYTES` ที่เดียว: Ref job, Image job, Render job ของ toon, Sound import และ Render job ของสปอยเมกเกอร์ (แทน `series.require_free_disk` และ `MIN_FREE_BYTES` สองตัว)
+- `series.require_series(project, series_id)` (`404` `not_found`) ตัวเดียว: `episodes` เรียกตัวนี้ (แทน `_series` ที่ซ้ำกันทีละบรรทัด)
+- `steps.Qwen.once(request, timeout)` ถาม Qwen หนึ่งครั้ง (เริ่ม child ตอนถามครั้งแรก, เวลาเกิน: หยุด child แล้วคืน None, ครั้งถัดไปเริ่มใหม่) และ `Qwen.end()`: ทั้ง `answer` (Plot, Cards job) และ `scenes` (Ref, Image job) ใช้ตัวนี้
+- Cards job อ่านคลังเสียงพื้นอีกครั้งตอนเขียนผลใต้ `store.lock`: `sound` ที่ถูกลบระหว่างงานเป็น `null` (spec › Cards job ขั้น 5)
+- `missing_refs[]` ของ Image job ใช้ `item_kind` (เดิม `kind`, ชนกับ `kind` ของงานใน JSON เดียวกัน; ข้อยกเว้นใน SKILL.md ของ D61 หายไป)
+- `Toon job` `error.code` ไม่มี `ffmpeg_failed` (ไม่มีงานไหนของ Toon job ใช้ ffmpeg)
+- หน้าเว็บ: `lib/kinds.ts` `ITEM_KINDS` (ชื่อและ icon ของตัวละครและฉากหลัง) แทนการแตกกิ่ง `=== "characters"` เพื่อเลือก icon และชื่อ; `VOICES_HASH` ย้ายไป `lib/voices.ts` ที่ทั้งสอง tab ใช้; `useEp` ใช้ `noticeOf` แบบ hook อื่น; test ข้อความ legal เขียนข้อความตรงตาม spec แทน import ค่าคงที่จาก component
+
+**Why:** feature review รอบสาม (Standards, Spec, Newcomer): ทางเลือกในโค้ดล้วน ยกเว้นข้อ Cards job ที่ทำตาม spec เดิม และ `item_kind` ที่เปลี่ยนชื่อ field ใน response (หน้าเว็บเปลี่ยนพร้อมกัน ยังไม่มีผู้ใช้นอก repo).
+
+**Rejected:**
+- `require_free_disk` ที่ `series` — ใช้กันห้า module สอง feature
+- ห่อ `OSError` ตอน copy ภาพอ้างอิงเป็น `ApiError` — ทั้งแอปไม่มี handler ของ error ที่ไม่คาด; ทำที่เดียวจะต่างจากทุก route
+
+**From:** feature review · **Status:** active
+
+## D64: `series.ItemRef` และ `toon_api` ของ test ticket 09
+
+**Chosen:**
+- `series.ItemRef(project, series_id, item_kind, item_id)` (`NamedTuple`) ค่าเดียวของตัวละครหรือฉากหลังหนึ่งตัว: `change_item`, `delete_item`, `ref_plan`, `ref_image`, `pending_image`, `pending_path`, `put_pending`, `pick`, `check_upload`, `receive_upload` และ helper ข้างในรับตัวนี้; `RefPlan.item_ref` แทน `series_id`/`item_kind`/`item_id`; ไม่เช็คว่ามีอยู่ตอนสร้าง (ฟังก์ชันเช็คเองใต้ `store.lock` เหมือนเดิม)
+- `routes/toon.py` สร้าง `ItemRef` จาก path ครั้งเดียวด้วย dependency `item_ref` (`Depends`) ใน 7 route ที่มี `{item_id}`; ที่ที่แปดที่สร้างคือ `refs.plan` จาก body ของ Ref job (ticket เขียน 8 route; `add_item` ไม่มี `item_id`); helper `_require_item` คืน Series และ item หรือ `404` ข้อความเดิม
+- `ItemRef` อยู่ใน `toon/series.py`: ผู้ใช้คือ `series`, `refs` และ route ของ toon feature เดียว ("Where shared code goes")
+- test: `fakes.toon_api(answers, tts_seconds=, uses=)` คืน fixture `llm`, `klein`, `tts`, `client` ที่ไฟล์ test API ของ toon ทั้งหกใช้ (ห้าไฟล์ของตั๋ว และ `test_toon_series_api.py`; `answers` None = คำตอบเดิมของ `FakeLlm`) (`llm, klein, tts, client = toon_api(...)`); `uses` คือ fixture ของไฟล์เองที่ client ต้องตั้งก่อน (`renderer`, `adapter`); `client` ตั้ง `sound_imports` ใหม่ทุกไฟล์; probe ของ yt-dlp และ Deno ย้ายเข้า fixture `adapter`; `TOON_VOICE` และ `write_toon_voice` ย้ายจาก `test_toon_series_api.py` ไป `fakes.py`
+
+**Why:** Blocked #23, #24: Data Clump สี่ค่าเดินด้วยกันใน 10 ฟังก์ชันและ 7 route; fixture เกือบซ้ำห้าไฟล์ ต่างกันแค่คำตอบของ Qwen, ความยาวเสียง และ fixture ที่ต้องมีก่อน. `NamedTuple` เหมือน `EpUse`, `KindRow`.
+
+**Rejected:**
+- fixture ใน `conftest.py` — conftest มีแค่ `fake_root` (rules › testing)
+- `ItemRef` ไม่มี `project` — ticket ให้สี่ค่าเป็นค่าเดียว และ route อ่าน `paths.project()` ทุก request อยู่แล้ว
+- `ItemRef` ที่ `backend/` ชั้นบน — ไม่มี feature ที่สองใช้
+
+**From:** build ticket 09 · **Status:** active
+
+## D65: `useReadyState` และ `sendEdit` ของหน้าเว็บ ticket 10
+
+**Chosen:**
+- `features/toon/hooks/useReadyState(initial)` คืน `[state, setState, update]`: `useMountedState` ของ state บวก `update` ที่แก้แค่ state `ready` (`loading`, `offline`, `missing` คงเดิม); `useRender`, `useSounds`, `usePickRef`, `useCast`, `useEp` ใช้ตัวนี้แทน `update` ที่เขียนเองห้าที่
+- `features/toon/lib/edit.sendEdit<T>(method, path, body, title)` คืน `EditReply`: `{ kind: "saved", value }` เมื่อได้ 200/201 หรือ `{ kind: "refused", notice }` (`noticeOf(title, …)` แบบ `error` เสมอ, ไม่มี backend = `OFFLINE_TEXT`); union มี `kind` แบบ `FileReply` ของ `sendFile`; `useCast.sendItem` และ `useEp.edit` แทนค่า (`series`, `ep`) และล้าง notice หรือตั้ง notice ใน `update` เดียว
+- `useReadyState` ตำแหน่งที่สองคือ `setIfMounted` ของ `useMountedState` (ชื่อ `setState` ใน hook ทั้งห้าเหมือนเดิม)
+- ทั้งสองอยู่ใน `features/toon`: ผู้ใช้คือ hook ของ toon อย่างเดียว ("Where shared code goes"); test ของตัวเองข้างไฟล์ (`useReadyState.test.ts` ผ่าน `renderHook`, `edit.test.ts` ผ่าน `testBackend`); `rules/testing.md` เขียนกติกานี้ให้ทุก feature (เดิมไม่มีกติกาของ test hook หรือ `lib/` ที่ใช้ร่วม)
+
+**Why:** Blocked #22: `update` รูปเดียวกันห้า hook; `sendItem` กับ `edit` ทำเหมือนกันต่างแค่ field. `sendEdit` คืนค่าแทนรับ callback จึงไม่มี React และ test ได้ตรง.
+
+**Rejected:**
+- `sendEdit` รับ `update` และชื่อ field — ต้องรู้รูปของ state ทุก hook และ type ของ field ยาก; สองบรรทัดที่เหลือใน `sendItem`/`edit` ต่างกันที่ field (`series`, `ep`)
+- `useSeriesForm` ใช้ `sendEdit` ด้วย — 200/201 ของมันเปิดหน้าใหม่และตั้งข้อความ error ของฟอร์ม ไม่ใช่ notice (เปลี่ยนใน D72: ticket 14 ให้ทุก hook ใช้)
+- `useReadyState` ใน `lib/` ชั้นบน — feature อื่นยังไม่ใช้
+
+**From:** build ticket 10 · **Status:** active
+
+## D66: feature review รอบสี่ของ toon
+
+**Chosen:**
+- `klein.DRAW_TIMEOUTS` ของ Windows = 900 × `llm.WINDOWS_START` (5); `llm.TIMEOUTS["win32"]` สร้างจากค่า Mac × ตัวเดียวกัน (spec › Image job "Windows ตาม `llm.timeouts` คูณเดียวกัน")
+- แถว gate `yt_dlp`, `deno` ของลิงก์เป็น `gate_rows.LINK_TOOLS` ที่เดียว: `spoil.downloads` และ `toon.sounds.link_rows` ใช้ร่วม (D59)
+- `useSeriesForm` ใช้ `useReadyState` ด้วย: hook ของ toon ที่มี state `ready` ทั้งหกใช้ตัวนี้ (D65 เดิมห้า)
+- `episodes._editing(project, ep_id)` (context manager): ล็อก, `editable`, เขียน EP เมื่อจบ block แล้วลบไฟล์ของการ์ดที่เอาออก (`removed`); การแก้ act/segment/card เก้าตัวใช้ตัวนี้; `_require_background`, `_placed_segments` (act, segment) แทนลูปซ้อนที่ซ้ำ; `card_seconds(status: AudioStatus)`
+- ชื่อ: `work` → `folder` ใน `refs.run`; คอมเมนต์ `choose`/`pick` ของ `usePickRef`, `nothing_to_draw` ที่ไปต่อแสดง notice ใน `useEp.start`
+
+**Why:** review รอบสี่: Spec (c) timeout ของ klein ไม่ผูกกับ `llm`, (e) แถว gate เขียนสองที่และ docstring ของ `useReadyState` ไม่ตรง; Standards: Duplicated ใน `episodes.py`; Newcomer เดาจุดเหล่านี้.
+
+**Rejected:**
+- ชื่อ `job` ของพารามิเตอร์ `steps.Run` ใน `refs.run` — ทุก `run` ของ toon (plot, cards, images, voicing) ใช้ชื่อนี้; เปลี่ยนที่เดียวเป็นสองแบบ
+- ย้ายค่าที่ "คงไว้ตอนโหลดใหม่" (`notice: s.kind === "ready" ? s.notice : null`) เข้า `useReadyState` — field ที่คงต่างกันทุก hook
+
+**From:** feature review รอบสี่ · **Status:** active
+
+## D67: `paths.EpAddress` และ helper ของ test toon ใน `fakes` ticket 11
+
+**Chosen:**
+- `paths.EpAddress(project, series_id, ep_id)` (`NamedTuple` แบบ `ItemRef`) ค่าเดียวของ EP หนึ่งตอน พร้อม folder ของ EP (`dir`, `images_dir`, `audio_dir`, `renders_dir`) ที่ย้ายมาจาก `ProjectPaths.ep_dir`/`card_images_dir`/`card_audio_dir`/`ep_renders_dir`; ไม่เช็คว่ามีอยู่ตอนสร้าง (ฟังก์ชันเช็คเองใต้ `store.lock`)
+- อยู่ใน `backend/paths.py`: path ของ `media/toon/` อยู่ที่นี่อยู่แล้ว (spec › Modules touched) และ `ProjectPaths` ต้องไม่ import `toon`; ชื่อไม่ชน `series.EpRef` (response) และ `ItemRef`
+- `store.read_ep(ep_address)`, `write_ep(ep_address, ep)`, `locate_ep(project, ep_id)` (เดิม `find_ep`) คืน `EpAddress | None`; `episodes.address_of(project, ep_id)` (id จาก path หรือ body ของงาน → `EpAddress` ไม่ปฏิเสธ: id ที่ไม่มี Series ใดถือได้ `series_id` ว่าง), `episodes.read(ep_address)` (เดิม `find`: อ่าน Series และ EP ตอนนี้ หรือ `404` "ไม่พบ EP นี้" เดิม), `episodes.look_up(project, ep_id)` (ทั้งสองรวมกันของ job ที่ start: Plot, Cards, Image, Voice, Render); ทุกฟังก์ชันของ EP หนึ่งตอนใน `episodes`, `images`, `voicing`, `render` รับ `EpAddress`; `ImagePlan.ep_address`, `VoicePlan.ep_address` แทน `series_id`/`ep_id`; `put_image`/`put_audio` ไม่รับ `project` แยก
+- `routes/toon.py`: dependency `ep_address` สร้างจาก `{ep_id}` ครั้งเดียวใน 19 route ของ `/eps/{ep_id}`; dependency ไม่ปฏิเสธ จึงยังเช็ค body ก่อน EP เหมือนเดิม (body ผิดไปยัง EP ที่ไม่มียัง `400`; test)
+- test: `fakes.toon_api` คืน fixture `project` ด้วย (`project, llm, klein, tts, client = toon_api(...)`); `new_series` (เดิม `create`), `Writer`, `with_series`, `new_ep`, `start`, `run`, `wait_for_toon_job`, `cards_of`, `edit_stored_ep`, `gpu_refusal`, `png`, `upload`, `item_with_ref` (เดิม `add`), `tone`, `import_file`, `import_tone` และ `TOON_SERIES`/`TOON_JOBS`/`TOON_CURRENT`/`TOON_SOUNDS`/`FINISHED` ย้ายเข้า `fakes.py`; ไฟล์ test ของ toon ไม่ import จากไฟล์ test อื่น; test ใหม่: 19 route ของ EP หนึ่งตอน `404` ข้อความเดิม (ผ่านกับโค้ดก่อนแก้ด้วย)
+
+**Why:** Blocked #26, #27: สามค่าเดินคู่กันราว 20 signature; fixture `project` ซ้ำหกไฟล์ และ helper import ข้ามไฟล์ test.
+
+**Rejected:**
+- `EpAddress` ใน `toon/store.py` — path ของ EP จะแยกจาก path อื่นของ `media/toon/`
+- `EpAddress` ไม่มี `project` — ticket ให้สามค่าเป็นค่าเดียว (เหมือน D64)
+- dependency `ep_address` ตอบ `404` เอง — body ผิดไปยัง EP ที่ไม่มีจะได้ `404` แทน `400` เดิม (ticket: "ทุก route ตอบ status และ body เหมือนเดิม")
+- `EpAddress.series()` อ่าน Series เอง — `paths` import `toon.store` ไม่ได้; `episodes.read` อ่านให้
+- `WritePlan`/`CardsPlan` ถือ `ep_address` — ถือ Series และ EP ทั้งตัวอยู่แล้ว; `run` สร้าง `EpAddress` ครั้งเดียว
+- ย้าย helper ที่ test ของ spoil และ spoil-maker import ข้ามไฟล์ (`test_spoil_maker_draft_api`, `test_spoil_trim_api`) — นอก feature นี้
+
+**From:** build ticket 11 · **Status:** active
+
+## D68: `ItemRef`, `ITEM_KINDS` และ `sendChecked` ของหน้าเว็บ ticket 12
+
+**Chosen:**
+- `lib/series.ItemRef = { seriesId, itemKind, itemId }` ค่าเดียวของตัวละครหรือฉากหลังหนึ่งตัวแบบ `series.ItemRef` ของ backend (D64): `itemPath(ref)`, `refUrl(ref, rev)`, `pendingUrl(ref, n)`, `pickHash(ref)`, `startRefJob(ref)`; `Page` ของหน้าเลือกภาพเป็น `{ kind: "pick", itemRef }`; `usePickRef(itemRef)`, `PickPage({ itemRef })`, `RefTile` ได้ `itemRef`
+- action ของ `useCast` (`remove`, `startRef`, `upload`) ยังรับ `(kind, item)`: `seriesId` เป็นของ hook อยู่แล้ว และ `item` ต้องมีชื่อให้ notice; hook สร้าง `ItemRef` เองที่ `refOf`
+- ชื่อ `sid`/`eid` ทุกที่ใน `features/toon/` (hook, lib, component, test รวมค่าคงที่ `SID`/`EID` ของ test) → `seriesId`/`epId` (`SERIES_ID`/`EP_ID`)
+- `ITEM_KINDS` (D58) มี `add`, `empty`, `form` (ข้อความของรายการ), `tagged`, `tileSlot`, `pickSlot` (กล่องภาพของสองหน้า) และ `fileNotice` (ข้อความ legal item 2 ก่อนเลือกไฟล์ตัวละคร; `null` = เปิดเลือกไฟล์ทันที); `SECTION` และ `CHARACTER_FILE_NOTICE` ของ `CastPage` ย้ายเข้าไป
+- `features/toon/lib/upload.sendChecked<T>(FileToSend, { started, progress })`: `FileToSend` = `path`, `checkBody`, `query`, `file`, `title`, `warnings`; `{path}/check` ก่อน แล้ว `sendFile` ไป `{path}?{query}`; คืน `sent` (200 หรือ 201 แบบ `sendEdit`: ภาพอ้างอิงตอบ 200, คลังเสียงพื้น 201 — เดิมแต่ละ hook รับแค่ของตัวเอง) / `refused` (notice, `warnings` = `NOT_NOW` ของคลังเสียงพื้น, ไม่มีของภาพอ้างอิงเหมือนเดิม) / `aborted` (ไม่มี notice; ภาพอ้างอิงไม่มีปุ่มยกเลิก เดิม abort ที่ไม่มีทางเกิดตกไปเป็น notice ติดต่อ backend ไม่ได้); `started` ได้ `FileUpload` ก่อน `progress` แรก (คลังเสียงพื้นเก็บไว้ `abort()`); อยู่ใน `lib/` ของ toon แบบ `sendEdit` (D65) และมี `upload.test.ts`
+- test ของกล่องภาพสองชนิด (ticket: "มี test ทั้งสองชนิด") เช็ค class ของ Tailwind ผ่านหน้า: jsdom ไม่มี layout จึงเป็นทางเดียวที่เห็นรูปกล่อง (คอมเมนต์ใน test บอก)
+
+**Why:** Blocked #25, #28: หน้าเว็บส่งสามค่าคู่กันขณะ backend ใช้ `ItemRef`; กิ่ง `kind === "characters"` สามที่ใน `CastPage` และหนึ่งที่ใน `PickPage`; flow เช็คแล้วส่งซ้ำใน `useCast` กับ `useSounds`.
+
+**Rejected:**
+- action ของ `useCast` รับ `(ItemRef, Item)` — `itemId` ซ้ำกับ `item.id`
+- `sendChecked` ใน `src/lib/` ชั้นบน — feature อื่นยังไม่ใช้ (spoil เอาไฟล์เข้าด้วย flow ของตัวเอง)
+- test ของกล่องภาพผ่าน class อย่างเดียวใน `kinds` — test ผ่านหน้าแทน (ตัวละคร/ฉากหลังทั้งสองหน้า)
+
+**From:** build ticket 12 · **Status:** active
+
+## D69: feature review รอบห้าของ toon
+
+**Chosen:**
+- คำตอบการ์ดของ Qwen: ค่าที่ไม่ใช่ข้อความ (list, object) ใน `background`, `sound`, `characters`, `motion` ทิ้งแบบค่าที่ไม่รู้จัก (spec › Cards job ขั้น 5) ด้วย `writer._one_of`; เดิม `TypeError` ทำให้งาน `failed` `internal`
+- ชื่อตั้งต้นของเสียงตัดที่เดียว `sounds._first_name` (ไฟล์และลิงก์); ชื่อคลิปของลิงก์ที่ว่างหรือมีแต่ช่องว่าง → id ของเสียง (เดิมได้ชื่อ `""` ที่ผิด 1–60)
+- `compose.AUDIO_RATE`, `compose.AUDIO_BITRATE` ที่เดียว (`sounds` ใช้ร่วม); `series.UPLOAD_MAX_BYTES` เขียน `1024**2` แบบ `sounds`
+- `Run.use_child(child)` เปลี่ยนแค่ child: `gpu_kind` ของงานตั้งครั้งเดียวตอน start (Ref และ Image job เป็น `toon_image` ตลอด)
+- หน้าเว็บ: `lib/series.startToonJob(body)` ที่ `startRefJob`, `useEp.start`, `useEpList` ใช้; `lib/episodes.readEpAndSeries` ของ `useEp` และ `useRender`; `usePickRef` ใช้ `getReply`
+- docstring และคอมเมนต์: `.new-{id}/` ของ Ref job, ลำดับการเพิ่มใน `ep_jobs`/`series_jobs`, การจบ child ของ `Speaker.speak`, `Draw(index=0)`, timeout ของ scene, `QWEN_MAC` ใน `test_toon_klein.py`
+
+**Why:** review รอบห้า: Spec (c) `TypeError` ของ Cards job, ชื่อ `""`; (e) การตัดชื่อสองที่, ค่าคงที่สองที่; Standards: Shotgun Surgery ของ body ของ job, โหลด EP กับ Series ซ้ำ, `sendJson("GET")`; Newcomer เดาจุดเหล่านี้.
+
+**Rejected:**
+- เปลี่ยนชื่อ `gpu.slot.draft_lock` — ของ spoil-maker ที่ toon ใช้ร่วมเพื่อเขียน `voice_id` (D25, `store` บอกลำดับล็อก); นอก feature
+- `done` ของ Toon job สองความหมาย, `scope: missing` คู่กับ `no_image`, `pending: int`, `how="works"` — spec และ D55 ตั้งไว้ มี docstring แล้ว
+- `reply` ที่คืน `worker_error` เมื่อขอไว้ — docstring บอกแล้ว (รอบสาม)
+
+**From:** feature review รอบห้า · **Status:** active
+
+## D70: คลังเสียงพื้นตรงกับไฟล์ m4a เสมอ: `sounds.json` ที่อ่านไม่ได้ไม่ถูกเขียนทับ
+
+**Chosen:**
+- ตรวจคลัง (`sounds.reconcile`) ภายใต้ `store.lock` ทำครั้งเดียวใน `sounds.clean_on_start` ก่อนรับ request:
+  - `sounds.json` อ่านไม่ได้ทั้งไฟล์ (JSON เสีย, ไม่มี list `sounds`, `version` ≠ `VERSION`) → rename เป็น `sounds.json.bad-{YYYYMMDD-HHMMSS}-{4 hex}` (UTC, ไม่ลบเอง) แล้วเริ่มจากไม่มีรายการ
+  - ทีละรายการ: เก็บรายการที่ผ่าน `StoredSound`, `id` fullmatch `SOUND_ID`, id ไม่ซ้ำ และมี `{id}.m4a`; รายการอื่นทิ้งพร้อม log
+  - `sounds/*.m4a` ที่ stem fullmatch `SOUND_ID` และไม่มีรายการ → เพิ่มต่อท้ายเรียงตาม id: `name` = id, `duration_s` จาก `ffmpeg.probe` timeout 10 วินาทีต่อไฟล์ (ล้มหรือเกิน → `0`), `source` `file`
+  - เขียน `sounds.json` เฉพาะเมื่อมีอะไรเปลี่ยน; log warning หนึ่งบรรทัดบอกจำนวนที่ทิ้งและที่เพิ่ม
+- ระหว่างทำงาน `store.read_sounds` ถือ `store.lock` เอง (RLock); เจอไฟล์อ่านไม่ได้ (แก้มือขณะ app เปิด) → ตรวจคลังแบบเดียวกันแต่ไม่ probe (`duration_s` `0`); เขียนไม่สำเร็จ → log แล้วคืนรายการในหน่วยความจำ ไม่ raise
+- Sound import ถือ `store.lock` ตั้งแต่ `read_sounds` ถึง `os.replace` ของ m4a และ `write_sounds`; การเพิ่มแทนรายการ id เดียวกัน ไม่เพิ่มซ้ำ
+- ลบเสียง: ลบ `{id}.m4a` ก่อน แล้วเขียน `sounds.json` (crash ระหว่างนั้น → รายการไม่มีไฟล์ ถูกทิ้งตอน start ใหม่; เสียงที่ลบไม่กลับมา)
+- ไม่มี error code ใหม่ ไม่มีอะไรเปลี่ยนบนจอ: เสียงที่กู้ได้ชื่อเป็น id ผู้ใช้แก้ชื่อได้ตามเดิม
+
+**Why:** Blocked #30: เดิม `read_sounds` คืน `[]` แล้ว import ครั้งถัดไปเขียนทับ คลังหายขณะไฟล์ m4a ยังอยู่. m4a คือข้อมูลจริง `sounds.json` เก็บแค่ชื่อและความยาว (ความยาวใช้แสดงอย่างเดียว). Breaker: ตรวจตอน read ทุกครั้งทำให้ import แรกได้ id ซ้ำ (m4a ถูก replace ก่อนเขียน json), probe ระหว่างถือ `store.lock` หยุดทั้ง tab, รายการเสียตัวเดียวไม่ควรล้างชื่อทั้งคลัง, crash กลาง import หรือลบทิ้งไฟล์กำพร้า. `.bad-*` เก็บไว้ให้กู้ชื่อเองได้.
+
+**Rejected:**
+- ย้ายไฟล์เสียแล้วเริ่มคลังว่าง — m4a กำพร้า ทุกช่วงที่ใช้เสียงเดิม render `CHANGED`
+- ปฏิเสธการเขียนด้วย `409` code ใหม่จนผู้ใช้แก้ไฟล์ — ผู้ใช้ทั่วไปแก้ JSON ไม่เป็น คลังใช้ไม่ได้ไปตลอด
+- กติกาแบบ `settings.json`/`clip-stories.json` (อ่านเป็นว่างแล้วเขียนใหม่) — สองไฟล์นั้นเสียแค่ค่าจำ; ไฟล์นี้เสียเสียงที่ผู้ใช้เอาเข้า
+- `version` ที่ใหม่กว่า (ใช้ app เก่ากับข้อมูลของ app ใหม่) อ่านอย่างเดียว — ต้องมีสถานะและข้อความใหม่บนจอเพื่อกรณีที่แอปเครื่องเดียวแทบไม่เกิด; ยอมเสียชื่อ ไฟล์เดิมอยู่ใน `.bad-*`
+- probe ทุกไฟล์ตอนกู้ระหว่างทำงาน — ถือ `store.lock` ที่ทุก request ของ tab รอ
+
+**From:** blocked #30 · **Status:** active
+
+## D71: `store.reconcile_sounds`, `ffmpeg.probe(timeout=)`, `KindRow.plot_max`
+
+**Chosen:**
+- การตรวจคลังของ D70 อยู่ที่ `store.reconcile_sounds(project, length)` ไม่ใช่ `sounds.reconcile`: `store.read_sounds` ต้องเรียกมัน และ `sounds` import `store` อยู่แล้ว; `sounds.clean_on_start` ส่ง `_length` (`ffmpeg.probe` timeout `PROBE_SECONDS` 10, ล้ม → `0`), `read_sounds` ส่งความยาว `0`
+- ระหว่างทำงาน "อ่านไม่ได้" = ทั้งไฟล์อ่านไม่ได้ หรือมีรายการที่ไม่ผ่าน schema/`SOUND_ID`/ซ้ำ; รายการที่ไม่มี m4a ไม่เช็คระหว่างทำงาน (ไม่สแกน folder ทุก read) ทิ้งตอน start
+- rename เป็น `.bad-*` ไม่สำเร็จ → log แล้วกู้จาก m4a ในหน่วยความจำ; `write_sounds` raise `OSError` แทนการเขียนทับ `sounds.json` ที่อ่านไม่ได้ (import, เปลี่ยนชื่อ, ลบ ตอบ `500` จนแก้ดิสก์ได้)
+- ตอน start รายการที่ `duration_s` `0` (กู้ระหว่างทำงาน) ถูก probe ใหม่ ตาม "ความยาวเป็น `0` จน start ใหม่"; `_length` ล้มด้วย `OSError` (ffmpeg ไม่รัน) → `0` เหมือน `FfmpegFailed`
+- test: เกินเวลาใช้ named pipe จริง (`os.mkfifo`, `PROBE_SECONDS` 0.5) ข้ามบน Windows; crash ระหว่างลบ patch `store.write_sounds`, เขียนไม่ได้ patch `files.write_atomic`, rename ไม่ได้ใช้ folder read-only — ไม่มีทางอื่นจาก API; `restart`, `write_library` อยู่ใน `fakes`
+- `_new_sound_id` ไม่ใช้ id ของ m4a ที่คลังไม่มี (start ถัดไปจะเพิ่มมัน)
+- `ffmpeg.input_info`/`probe` รับ `timeout`; เกิน → `FfmpegFailed` (`last_line` `timed out`); `store.m4a_ids` ที่เดียวของการสแกน folder
+- `kinds.KindRow.plot_max` (6 ทั้งสองชนิด) แทน `PLOT_CHARACTERS_MAX`/`PLOT_BACKGROUNDS_MAX`; `episodes.plot_of`/`over_max` วนตาม `KINDS`; `writer.WrittenPlot.plot: Plot`; `writer.known(plot, cast)` คืน dict ตามชนิด
+- `PATCH` plot ที่ไม่มี key `backgrounds` เลย: เดิม `invalid_request` ข้อความทั่วไป ตอนนี้ `invalid_request` "พล็อตต้องมีฉากหลังอย่างน้อยหนึ่ง" (status และ code เดิม; หน้าเว็บส่งทั้งสอง key เสมอ)
+
+**Why:** ticket 13 (D70, smell ค้างจาก feature review รอบห้า); review: Spec (c) rename ล้มแล้ว import เขียนทับไฟล์เสีย, `OSError` ของ ffmpeg; Newcomer ความยาว `0` ไม่เคยถูกอ่านใหม่; Standards test patch `ffmpeg.probe`, helper ที่สองไฟล์ใช้.
+
+**Rejected:**
+- `store` import `ffmpeg` เพื่อ probe เอง — store เป็นแค่ไฟล์บนดิสก์; ผู้เรียกบอกวิธีวัดความยาว
+- เช็ค m4a ทุก `read_sounds` — สแกน folder ทุก request ของ tab
+
+**From:** build ticket 13 · **Status:** active
+
+## D72: `sendEdit` ทางเดียวของทุกคำขอที่เปลี่ยนของ ticket 14
+
+**Chosen:**
+- `lib/edit.sendEdit<T, R extends Refusal = Refusal>(method, path, body, title, { ok, warnings })`: `ok` = status ที่ถือว่าสำเร็จ (ตั้งต้น 200, 201; ลบ 204, เริ่มงาน 202), `warnings` = code ที่ notice เป็น `warning` แบบ `noticeOf`; คืน `{ kind: "ok", value }` (เดิม `saved`: ตอนนี้รวมการลบและการเริ่มงาน) (`null` เมื่อ 204) หรือ `{ kind: "refused", notice, refusal }` — `refusal` เป็น `R` ที่มี field ของ code (`card_ids`, `eps`, `acts`, `missing_refs`) หรือ `null` เมื่อไม่มี refusal กลับมา
+- `lib/series.startToonJob(body, title, warnings)` และ `startRefJob(ref, warnings)` (title "ยังสร้างภาพอ้างอิงไม่ได้" ของทั้งสองหน้า) คืน `EditReply` ผ่าน `sendEdit` (`ok` 202); `sendChecked` เช็คไฟล์ผ่าน `sendEdit` (`ok` 200) — ส่งไฟล์ยังผ่าน `sendFile` (XHR ไม่ใช่ `sendJson`)
+- hook ที่ย้ายมา: `useSounds` (เปลี่ยนชื่อ, ลบ, โหลดจากลิงก์; `in_use` แทน `text` ของ notice ด้วยชื่อ EP), `useRender` (เริ่ม, ลบคลิป), `useEp.start`, `useCast.startRef`, `useEpList` (สร้าง, ลบ), `usePickRef` (ใช้ภาพนี้, สร้างใหม่), `useSeriesForm`, `useSeriesList`; ไม่มี hook ของ toon ที่อ่าน `status` ของคำขอที่เปลี่ยนของเอง (`usePickRef.load` อ่าน `getReply` ของ GET)
+- `usePickRef`, `useSeriesForm`, `useSeriesList` เก็บ `notice: Notice | null` แทน `error`/`refusal`; หน้าเลือกภาพและฟอร์ม Series แสดง `Alert` `error` ที่มีแค่ `notice.text` ไม่มี title เหมือนเดิม; รายการ Series ใช้ `NoticeLine` (title "ลบ {ชื่อ} ไม่ได้" เดิม); title ที่ไม่แสดง: "ใช้ภาพนี้ไม่ได้", "ยังสร้างภาพอ้างอิงไม่ได้", "หยุดงานไม่ได้", "บันทึก Series ไม่ได้"; `NoticeLine` ของรายการ Series จะมีลิงก์ ไปที่ ติดตั้ง ถ้าการลบได้ `not_ready` (ไม่มีทางเกิดในตอนนี้)
+- `refusalTextOf` รวมเข้า `noticeOf` (ไม่มีผู้ใช้อื่นแล้ว)
+- test หาค่า `Alert` ด้วย `src/testing/statusBox.findStatusWith(text)` (role `status`) และอ่าน tone จาก class (`rules/testing.md`)
+- EP ใหม่ที่สร้างแล้วแต่เริ่ม Plot job ไม่ได้รับคำตอบ (backend หายระหว่างสองคำขอ): notice `warning` "ยังร่างพล็อตไม่ได้" ติดต่อ backend ไม่ได้ และ EP อยู่ในรายการ แบบ Plot job ที่ถูกปฏิเสธ; เดิมได้ "สร้าง EP ไม่ได้" ทั้งที่ EP ถูกสร้างแล้ว และ dialog ค้าง — ถาม owner แล้ว (auto mode เลือกตัวเลือกที่แนะนำ: แบบใหม่); มี test
+- test: `edit.test.ts` (status ใน `ok`, 204, 200 ที่ไม่อยู่ใน `ok`, `warnings`, `refusal` พร้อม field); หน้า: ฟอร์ม Series และใช้ภาพนี้ที่ถูกปฏิเสธ (ไม่มี title), สร้างภาพ 3 แบบที่ถูกปฏิเสธและไม่มี backend, เปลี่ยนชื่อเสียงที่ถูกปฏิเสธ, ลบคลิปที่ถูกปฏิเสธ, render ที่ `busy` เป็น `warning`, EP ใหม่ที่ Plot job ถูกปฏิเสธ (`warning`) และ EP ที่ถูกปฏิเสธ — ทั้งหมดผ่านกับโค้ดก่อนแก้ด้วย
+
+**Why:** Blocked #29 (feature review รอบห้า): ราว 10 ที่ส่งแล้วเช็ค status แล้วสร้างข้อความเอง ขณะ `sendEdit` รับแค่ 200/201; สาม hook เก็บข้อความล้วน.
+
+**Rejected:**
+- เปลี่ยนชื่อ `sendEdit` (ตอนนี้รวมการเริ่มงาน) — ticket ตั้งชื่อนี้ และผู้เรียกเดิมไม่ต้องเปลี่ยน
+- หน้าเลือกภาพและฟอร์ม Series ใช้ `NoticeLine` ที่มี title — จอเปลี่ยน (ticket: "จอแสดงเหมือนเดิม")
+- ชุด `ok` ที่ตั้งชื่อ (`DELETED`, `STARTED`) — status ของ HTTP อ่านได้ตรงอยู่แล้ว
+- `NoticeLine` แบบไม่มี title แทน `Alert` สองที่ของหน้าเลือกภาพและฟอร์ม — tone และลิงก์ติดตั้งของ notice จะแสดง จอเปลี่ยน
+- `refused` บอกแยกว่าไม่มี backend เพื่อคงข้อความเดิมของ EP ใหม่ที่ Plot job ไม่ได้คำตอบ — ข้อความเดิมผิด (EP ถูกสร้างแล้ว) และต้องเพิ่ม field ที่ผู้เรียกอื่นไม่ใช้
+
+**From:** build ticket 14 · **Status:** active
+
+## D73: feature review รอบหกของ toon
+
+**Chosen:**
+- ปุ่มหยุดของทุกงานในหน้าเว็บ (Toon job ของ EP, ตัวละครและฉากหลัง, หน้าเลือกภาพ; render; โหลดเสียงจากลิงก์) ผ่าน `lib/edit.stopJob(path)`: `DELETE …/current` ผ่าน `sendEdit` (`ok` 202), `404` `not_found` เป็น `ended` (งานจบก่อน: poll ถัดไปบอกเอง ไม่มีข้อความ), ที่เหลือเป็น notice "หยุดงานไม่ได้" พร้อมข้อความของ backend หรือ `OFFLINE_TEXT`; เดิมสี่หน้าเงียบเมื่อหยุดไม่ได้ และหน้าเลือกภาพแสดง "หยุดงานไม่ได้" แทนข้อความของ backend; `cancelToonJob(onCancelling, onRefused)`
+- `startRefJob(itemRef)` ถือ `NOT_NOW` เอง: Ref job ที่ "ยังไม่ใช่ตอนนี้" เป็น `warning` ทั้งหน้ารายการและหน้าเลือกภาพ (เดิม parameter `warnings` มีผู้ส่งตัวเดียว)
+- `SendReply` ของ `sendChecked` ใช้ `ok` แทน `sent` แบบ `sendEdit`
+- `hooks/useToonJobPoll.test.ts` (hook ที่สาม hook ใช้ร่วม, `rules/testing.md`); `SKILL.md` folder map มี `testing/statusBox.ts`; `rules/testing.md` บอกว่า timeout ที่ไม่ต่างตาม OS และส่งเข้าไม่ได้ (`sounds.PROBE_SECONDS`) swap ที่ module
+- ชื่อและคอมเมนต์: `cards` `target` → `chars_per_act`; `useReadyState` `setIfMounted`; `_in_scope` บอกว่า `stale_ref` รวมการ์ด `no_ref` ที่มีภาพเพื่อนับเป็นข้าม; ลำดับของ `ref_paths`; `UNKNOWN_CHARS_PER_S`; prefix ของ id ใน `store.new_id`; เงื่อนไขของ `plot_items` เป็นค่าที่ตั้งชื่อ
+- องก์ของ EP ใหม่ได้ id ที่ไม่ซ้ำกันเอง (`new_id("a", …)` เช็คองก์ที่สร้างไปแล้ว)
+- test: หยุดที่ถูกปฏิเสธบนหน้า EP, หยุดที่ไม่มี backend บนหน้า render, `useToonJobPoll` (poll, จบ, ไม่ poll งานที่ไม่ได้ทำ, หยุดสี่แบบ)
+
+**Why:** feature review รอบหก: Spec (ปุ่มหยุดสองทาง, `sent`/`ok`), Standards (hook ร่วมไม่มี test, folder map, constant ของ timeout, `warnings` ของ `startRefJob`), Newcomer (ชื่อและคอมเมนต์ที่ต้องเดา). auto mode เลือกตัวเลือกที่แนะนำ: แก้ข้อเล็กทั้งหมดและปุ่มหยุด.
+
+**Rejected:**
+- รวม `useCast.sendItem`/`useEp.edit`/`useSounds.download` — ต่างกันที่ field (D65 เดิม)
+- accessor ต่อ kind ของ `Plot` และ `Series` (`getattr(plot, item_kind)` สี่ module) — ทุกที่วนตาม `KINDS` แล้ว (D71) และไม่มีกติกาซ้ำ: เหลือแค่การอ่าน field ตามชื่อของ kind
+- `OSError` ตอน copy ภาพอ้างอิงเป็น `ApiError` — D63 เดิม
+- ย้าย `test_toon_modules.py` และ test ที่ patch `shutil.copyfile` — D59 เดิม; ดิสก์ที่ copy ไม่ได้ทำผ่าน API ไม่ได้
+- ย้าย test ของ status check ออกจาก `test_toon_klein.py` — test ไฟล์ของ klein ที่ status check อ่าน
+- `plan` สองรอบ, `done` สองความหมาย, registry ของ `ep_jobs`/`series_jobs`, ข้อความล้มของ `TRANSLATOR`, `address_of` ที่ไม่ปฏิเสธ, `zip` ของผู้พูด — มีคอมเมนต์หรือ docstring บอกแล้ว (D66, D69)
+
+**From:** feature review · **Status:** active
+
+## D74: งานภาพบน M1 16 GB ผ่านเกณฑ์ทั้งเครื่อง ด้วยขั้นที่ลองตามลำดับ
+
+**Chosen:** เกณฑ์ของ D49 (peak MPS ของ process ลูก ≤ 12 GB) คงอยู่ และเพิ่มเกณฑ์ทั้งเครื่องบน M1 16 GB (spec › How success is judged): Ref job 3 ครั้งติดกัน, Image job กรณีหนักสุดของ D49 และ "สร้างภาพที่ขาดทั้งหมด" 20 การ์ดหนึ่งครั้ง ใช้ swap เพิ่มไม่เกิน 1 GB, `memory_pressure` ไม่ถึง critical, ทุกงาน `done` โดยไม่มี `failed_cards` และเวลาต่อภาพไม่เกิน 1.5 เท่าของ trial. ticket 15 วัดของเดิมทีละช่วงก่อน แล้วลองขั้นตามลำดับ หยุดที่ขั้นแรกที่ผ่าน:
+0. ของเดิม (Q4_K_M, ขนาดภาพเดิม) — ผ่าน → ไม่เปลี่ยนการสร้างภาพ
+1. encode คำสั่งใน process ลูกของตัวเองที่จบก่อน process ลูกที่วาดเริ่ม (embeddings ส่งผ่าน queue)
+2. ข้อ 1 + transformer เป็น `flux-2-klein-4b-Q3_K_M.gguf` (2.12 GB)
+3. ข้อ 1 + Q4_K_M ที่ขนาดวาด 768×432 (`frame`) และ 432×768 (`full`, ตัวละคร); render ขยายเป็นขนาดแบบจอเหมือนเดิม
+
+ขั้น 2–3 ต้องผ่านการลองคงตัวละคร 10 ภาพแบบ D49 ด้วย. ไม่มีขั้นไหนผ่าน → Blocked row และ `/warroom toon` อีกรอบ (ตัวเลือกที่เหลือ: Mac 24 GB ขึ้นไป หรือยอมรับ swap).
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ: ทางแก้สามข้อใน Blocked #32 ทำแล้วหรือไม่ช่วย — ภาพอ้างอิงย่อ 512 แล้ว (D49), Qwen หยุดก่อน klein โหลดแล้ว (D36), และ Ref job ไม่ส่งภาพอ้างอิงเลยแต่เครื่องก็ swap. เกณฑ์ของ D49 วัดแค่ process ลูก จึงผ่านได้ทั้งที่ทั้งเครื่อง swap 4–5 GB. ขั้น 1 มาก่อนเพราะไม่เสียคุณภาพ: text encoder bf16 ราว 8 GB ถูกโหลดทุกงาน และ memory ที่ปล่อยใน process เดียวกันอาจไม่คืนให้เครื่อง (red team).
+
+**Rejected:**
+- ยอมรับ swap บน 16 GB — งานค้างสองครั้งและ 8–10 นาทีต่อภาพ เทียบกับ ~1.5–4 นาทีใน trial
+- toon ต้องใช้ Mac 24 GB ขึ้นไป — ตัดเครื่องที่ trial และ build ใช้ทั้งหมด ก่อนรู้ว่า memory ไปไหน; เหลือเป็นตัวเลือกถ้าสามขั้นไม่ผ่าน
+- ภาพอ้างอิงสูงสุดน้อยลง — ขัด D29/D30 และไม่ช่วย Ref job ที่ไม่มีภาพอ้างอิง
+- `PYTORCH_MPS_HIGH_WATERMARK_RATIO` — จำกัดแล้วได้ `out of memory` แทน swap ไม่ลดสิ่งที่งานต้องใช้
+- `vae.enable_tiling()` — vae ของ klein มี `sample_size` 1024 จึง tile เฉพาะด้านที่ยาวกว่า 1024; ทุกขนาดของ toon ไม่ถึง (red team)
+- ระดับ GGUF หรือขนาดวาดต่าง OS — D35 ใช้ไฟล์ชุดเดียว; windows-check ยังไม่ได้วัด VRAM
+
+**Details:**
+- วิธีวัด: เริ่มหลัง restart เครื่อง (swap ราว 0), เปิดแค่ `npm run dev` (backend และ Vite) กับหน้าเว็บหนึ่ง tab; จด `sysctl vm.swapusage`, `memory_pressure`, pageouts/swapouts ของ `vm_stat` ทุก 5 วินาที, และ MPS กับ RSS ของ backend, process ลูก และ browser ทุกช่วง (โหลด text encoder, encode, หลังปล่อย encoder, โหลด transformer, แต่ละ step, decode vae, เขียน PNG); จดใน `progress.md`
+- ตัวเลขทีละช่วงของขั้น 0 บอกว่าขั้นไหนน่าช่วย: ข้ามขั้นที่ตัวเลขบอกว่าไม่ช่วยได้ โดยจดเหตุ
+- เวลาของ trial ที่ใช้เทียบ (trial-klein-mac › 2, 1024×576, Q8_0, torch 2.15.0; Q8_0 กับ bf16 เร็วเท่ากันใน trial › 3): ภาพอ้างอิง 0 = 89.6, 1 = 110.4, 2 = 145.1, 3 = 252.5 วิ ต่อภาพ ไม่รวมโหลดโมเดลครั้งแรกของงาน; swap ผ่านแต่เวลาเกิน → หาเหตุใน ticket 15 ไม่เปลี่ยนขั้น
+- ขั้น 2 เปลี่ยนไฟล์ใน revision เดิม `a09d5bb` ทั้งสอง OS (D35): `allow_patterns`, `GGUF_FILE`, ขนาดดิสก์ของ spec; เครื่องที่มี Q4_K_M เห็น `model_klein_gguf` `missing` (D50)
+- ขั้น 3 เปลี่ยนขนาดในคำสั่งภาพของ spec, D31 และ D37; ภาพที่มีอยู่คงไว้ render ขยายทุกขนาดเหมือนกัน
+- ย้อนขั้น: revert commit ของขั้นนั้น แล้ว setup โหลดไฟล์เดิมกลับ (D50); ภาพที่สร้างด้วยขนาดของขั้น 3 ใช้ต่อได้
+- ขั้นที่ใช้จริงจดเป็น `D{n}` ตอน build (`From: build ticket 15`) พร้อมตัวเลขทุกขั้นที่ลอง
+- เวลาที่หน้าเลือกภาพบอก (ราว 4.5 นาทีบน M1, D31) แก้ตามที่วัดได้
+
+**Sources:** [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — Q3_K_M 2.12 GB (accessed 2026-11-11) · [autoencoder_kl_flux2.py v0.42.1](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/models/autoencoders/autoencoder_kl_flux2.py) — tile เมื่อด้านยาวกว่า `tile_sample_min_size`; klein vae `sample_size` 1024 (accessed 2026-11-11)
+
+**From:** blocked #32 (auto mode, red team) · **Status:** active
+
+## D75: Ref job และ Image job ที่ค้างเป็น bug ที่ ticket 15 หาเหตุก่อนวัด
+
+**Chosen:** งานภาพที่ค้างใน Blocked #32 (`drawing 0/3` ไม่มี process ลูก, `2/3` process ลูก idle) หาเหตุด้วย `/kiki-debug` ใน ticket 15 ก่อนวัดตาม D74. ไม่เกิดซ้ำใน Ref job จริง 5 ครั้ง → ใส่ตัวดึง traceback ใน backend และ process ลูก แล้ววัดตาม D74 ต่อ; ค้างระหว่างวัด → กลับมาหาเหตุจาก traceback นั้น.
+
+**Why:** auto mode เลือกตัวเลือกที่แนะนำ (D74): งานค้างเป็นพฤติกรรมผิดไม่ว่า memory จะพอหรือไม่ และถ้าค้างระหว่างวัด ตัวเลขของ D74 ใช้ไม่ได้. timebox 5 ครั้งเพราะแต่ละครั้งใช้ราว 15 นาทีบนเครื่องจริง (red team).
+
+**Rejected:**
+- ถือว่าค้างเพราะ swap แล้วรอผลของ D74 — ถ้าไม่ใช่ งานค้างยังอยู่หลังลด memory
+- ลด timeout ต่อภาพ หรือแยก timeout ของการโหลด — 15 นาทีเผื่อ Windows และภาพอ้างอิง 3 ภาพ (spec › Image job); การรอ `Encoded` มี timeout นี้อยู่แล้ว
+- เขียน test klein ปลอมเงียบเป็น regression test — code วันนี้ผ่านอยู่แล้ว (`steps.open_klein`, `steps.draw` ส่ง `klein.draw_timeout()`, `_finish` หยุด process ลูก) จึงพิสูจน์แค่กติกา ไม่ใช่เหตุ
+
+**Details:**
+- ขั้นแรก: อ่าน log `[api]` ของสองรอบที่ค้าง (`toon job ref … ended … after N s`) และจดว่าค้างนานเท่าไรก่อน restart; ไม่ถึง 15 นาที → timeout ยังไม่ทันทำงาน
+- จุดที่ timeout ต่อภาพไม่คุม: `process.start()` ของ `klein.start_worker` ก่อน `track`, งานของ thread ใน backend ระหว่างสอง reply, `drawer.end()` และ `series.put_pending`; `drawing 0/3` ที่ไม่มี process ลูกเข้ากับการค้างก่อน `track`
+- ตัวดึง traceback: `faulthandler.dump_traceback_later` ใน process ลูก และ `py-spy dump` ของ backend กับ process ลูกตอนค้าง
+- regression test เขียนตามเหตุที่พบ; test klein ปลอมเงียบของ Seams 1 เป็น test ของกติกา timeout ต่อภาพ
+- `bugs/` ของ toon เก็บ bug record และ postmortem ตาม `/kiki-debug`
+
+**From:** blocked #32 (auto mode, red team) · **Status:** active
+
+## D76: ตัวดึง traceback และบรรทัด log ของ backend ใน `[api]`
+
+**Chosen:**
+- backend ตั้ง logger `backend` ที่ INFO ส่งลง stderr (terminal `[api]`) รูป `HH:MM:SS LEVEL name: message` ตอนเริ่ม (`app.log_to_terminal`); uvicorn ตั้งแค่ logger ของตัวเอง จึงเดิมบรรทัด `… started` / `… ended … after N s` ของทุกงานไม่ออกเลย
+- `kill -USR1 {pid}` พิมพ์ stack ของทุก thread ลง `[api]` ทั้ง backend และ process ลูกของ klein (`workers.dump_stacks_on_signal`, Mac เท่านั้น)
+- process ลูกของ klein พิมพ์ stack ของตัวเองทุก `klein.DUMP_AFTER` = 600 วินาทีที่ request หนึ่งยังไม่จบ (`workers.dump_stacks_after`) ก่อน backend หยุดมันที่ 15 นาที; ยกเลิกเมื่อตอบ
+
+**Why:** build ticket 15 (D75): ล็อกของรอบที่ค้างใน Blocked #32 ไม่มีบรรทัดของงานและไม่มีเวลา จึงบอกไม่ได้ว่าค้างนานเท่าไร; งานที่ค้างครั้งหน้าต้องบอกได้เองว่ารออยู่ที่ไหนโดยไม่ต้องติดตั้งอะไรเพิ่ม. 600 วินาทียาวกว่าภาพที่ช้าสุดของ trial (252.5 วิ) และการโหลดตอน swap จึงไม่พิมพ์ในงานปกติ แต่ยังพิมพ์หนึ่งครั้งก่อน timeout.
+
+**Rejected:**
+- `py-spy dump` (D75 › Details) — library ใหม่ใน dev; `faulthandler` ของ stdlib ได้ stack เดียวกันโดยไม่ต้องติดตั้ง และ py-spy บน Mac ต้อง `sudo`; Windows ยังใช้ py-spy ด้วยมือได้
+- `logging.basicConfig` ที่ root — ให้ INFO ของทุก library (diffusers, httpx) ออกด้วย
+- dump stack ของ backend ตอน timeout — process ลูกถูกหยุดแล้ว stack ที่ต้องการคือของมัน ซึ่ง `DUMP_AFTER` จับไว้ก่อน
+
+**From:** build ticket 15 · **Status:** active
+
+## D77: encode ใน process ลูกของตัวเอง (ขั้น 1 ของ D74) ส่ง embeddings เป็น bytes ผ่าน backend
+
+**Chosen:**
+- `klein.start_encoder` เริ่ม process ลูก `framecraft-klein-encoder` (`encoder_worker`): รับ `Encode` หนึ่งครั้ง ตอบ `Encoded(embeds)` แล้วจบเอง; `steps.open_klein` หยุดมัน (`stop_child`) ก่อนเริ่ม process ที่วาด (`start_drawer`, `drawer_worker`) ซึ่งได้ `Load(embeds)` เป็น request แรกและตอบ `Loaded()`; `None` ก่อน `Encode` ให้ encoder จบเงียบ
+- embeddings ข้าม backend เป็น `torch.save` ของแต่ละคำสั่ง (`klein.embeds_bytes` / `embeds_from`, `weights_only=True`): dtype bf16 คงเดิม seed เดียวกันจึงได้ภาพเดิม
+- ~~`ModelJobSlot.start_child(worker, None)`~~ (D80: `steps._start_klein` แค่ `track`): track แล้วไม่รอข้อความแรก (klein ทั้งสองไม่พูดก่อนถูกถาม); การรอ `Encoded` และ `Loaded` มี timeout ต่อภาพเหมือนเดิม
+- `FakeKlein` ตัวเดียวแทนทั้งสอง process (`processes[0]` คือ encoder; `alive_at_start` ว่า process ก่อนหน้ายังรันไหมตอนแต่ละตัวเริ่ม; `silent_on` ไม่ตอบ request ชนิดนั้น; `draws()`) และ index ของ request นับต่อ process: `Load` เป็น 0 ของ process ที่วาด จึงเลขใน test เดิมไม่เปลี่ยน; timeout ของ test สลับ `klein.DRAW_TIMEOUTS` (`fakes.klein_timeouts`)
+- ภาพเดิมที่ seed เดียวกัน: เช็คบน M1 แล้ว (klein ก่อน ticket 15 กับขั้น 1, seed 7, 1024×576: PNG ตรงกันทุก byte)
+
+**Why:** build ticket 15 (D74 › 1): ขั้น 0 วัดได้ว่า peak คือ encoder (9.0 GB) และ decode ของภาพแรก (11.0 GB ซึ่ง ~1.7 GB เป็นของ encoder ที่ปล่อยแล้วแต่ไม่คืนให้เครื่อง). backend ไม่ import torch (D34) จึงรับ tensor ที่ pickle ตรงไม่ได้: bytes ผ่านได้โดยไม่ import. ราว 8 MB ต่อคำสั่ง (512 token × 7680 × bf16), 20 การ์ดราว 160 MB.
+
+**Rejected:**
+- process ลูกของ encoder ที่ process ที่วาดเริ่มเอง — process daemonic เริ่ม child ของ `multiprocessing` ไม่ได้ (library-notes/python.md)
+- ไฟล์ชั่วคราวของ embeddings บนดิสก์ — ต้องลบเองทุกทางที่งานจบ; queue พอสำหรับขนาดนี้
+- ส่ง embeddings ใน `Draw` ทีละภาพ — backend ถือครบอยู่แล้ว แต่ต้องเปลี่ยน `Draw` และทุกผู้เรียก; `Load` เปลี่ยนแค่ request แรก
+- encoder บอก `Ready` หลังโหลด (แบบ Qwen) — `FakeKlein` ตัวเดียวแทนสอง process ไม่ได้ และไม่มีอะไรให้ทำระหว่างนั้น
+
+**From:** build ticket 15 · **Status:** active
+
+## D78: ไฟล์ Python ใน `scripts/` เป็นเครื่องมือที่รันด้วยมือ
+
+**Chosen:** `scripts/*.py` (วันนี้ `measure_toon_memory.py`) รันด้วย `.venv/bin/python scripts/….py`, backend ไม่ import, ใช้แค่ standard library และกติกา Python ของ `docs/library-notes/python.md` (เปิดไฟล์ด้วย `encoding="utf-8"`); เขียนเป็นข้อหนึ่งใน `fastapi-api` SKILL.md › Never break แทน rules file ของ layer ใหม่
+
+**Why:** build ticket 15 (review Standards): SKILL.md ให้หยุดถามเมื่อเขียน layer ที่ไม่มี rules file; ไฟล์เดียวที่ไม่มี test และไม่อยู่ในแอป ไม่คุ้ม rules file เต็ม. script เป็น macOS อย่างเดียวตาม docstring จึงไม่จับ `OSError` ของ `footprint`/`lsof`/`pgrep` ที่ไม่มี
+
+**From:** build ticket 15 · **Status:** active
+
+## D79: ขั้น 3 ของ D74 — วาด 768×432 / 432×768 (ข้ามขั้น 2)
+
+**Chosen:** ภาพการ์ดและฉากหลังวาดที่ 768×432 (`frame`) หรือ 432×768 (`full`), ตัวละคร 432×768 เสมอ (`kinds.CARD_SIZE`), ต่อจากขั้น 1 (D77) ด้วย Q4_K_M เดิม. ภาพฉากหลังที่ upload ครอปเป็นขนาดเดียวกัน (`KindRow.sizes` ค่าเดียวทั้งวาดและครอป). ภาพที่สร้างก่อนหน้านี้ (1024×576 / 576×1024) ใช้ต่อได้: render ขยายทุกขนาดเป็น `PICTURE_SIZES` (D37). เวลาบนหน้าเลือกภาพ "ราว 4.5 นาที" และ 90 วิต่อภาพของ Ref job คงเดิม: วัดได้ 277–281 วิต่องาน.
+
+**Why:** build ticket 15. ขั้น 1 ไม่ผ่าน 20 การ์ด (swap +3.19 GB, `progress.md` › Log ของ ticket 15 รอบสอง มีตัวเลขของขั้น 0 และขั้น 1 ครบ). วัดใน process ที่วาดตัวเดียว (การ์ดของ `e_14c37720` ตามลำดับ, seed 7): หลัง `empty_cache` memory ของ MPS driver ไต่ทีละภาพ 5.05 → 6.91 → 7.94 GB ขณะที่ `current_allocated_memory` คงที่ 2.58 GB (เท่า weights) — ไม่มี tensor ค้างใน Python จึง `gc.collect()` ไม่ช่วย, เป็น pool ของ driver ที่ `empty_cache` คืนไม่หมดและโตตามขนาดของ activation; peak 10.3 → 13.7 GB ที่ภาพที่ 4. ที่ 768×432 ชุดเดียวกัน peak 7.4 → 9.9 GB, swap ไม่ขยับ, 100–146 วิต่อภาพ. ขั้น 2 (Q3_K_M) ลด transformer ราว 0.5 GB ซึ่งน้อยกว่า ~2.2 GB ที่ 20 การ์ดต้องลด จึงข้ามตาม D74 › Details. ครอป upload ขนาดเดียวกับที่วาด: ภาพอ้างอิงเข้า klein ที่ด้านยาว 512 (D49) ทั้งสองขนาดจึงให้ภาพการ์ดเท่ากัน และฉากหลังที่สร้างกับที่ upload ขนาดเดียวกัน.
+
+**Rejected:**
+- `gc.collect()` ก่อน `empty_cache` — `current_allocated_memory` เท่า weights หลังทุกภาพ: ไม่มีของให้เก็บ
+- process ที่วาดใหม่ทุกภาพ (คืน pool ของ driver ทั้งหมด) — โหลด transformer ใหม่ทุกภาพ และไม่อยู่ในขั้นของ D74 (`/warroom toon` ถ้า 768 ไม่พอ)
+- ขั้น 2 — ดู Why
+- upload คงที่ 1024 — สองขนาดใน `KindRow` ทั้งที่ klein ได้ 512 เหมือนกัน
+
+**Details:**
+- เกณฑ์ทั้งเครื่องบน M1 16 GB (D74): backend ใหม่บน 8001 ไม่มี Vite และหน้าเว็บ, เครื่องไม่ restart และแอปอื่นเปิดอยู่ (ไม่ตามวิธีวัด: #34), swap ก่อนเริ่ม 1.1–1.3 GB; เทียบกับเวลาของ trial ที่ 1024×576 Q8_0 เดิม (D74 › Details) ไม่ปรับตามขนาดใหม่
+
+| งาน | ผล | swap เพิ่ม | pressure | เวลาต่อภาพ / trial |
+|---|---|---|---|---|
+| Ref job ×3 ติดกัน | `done` ทุกครั้ง 277–281 วิ | ทั้งชุด +0.23 GB | warn | ~81 วิ (ภาพแรกรวมโหลด ~105) = 0.90× |
+| Image job กรณีหนักสุด (2 ตัวละคร + ฉากหลัง) | `done` 184 วิ | +0.70 GB | warn | 172 วิ รวม encode และโหลด = 0.68× |
+| "สร้างภาพที่ขาดทั้งหมด" 20 การ์ด (ภาพอ้างอิง 1/2/3 = 4/8/8) | `done` 2732 วิ, 20/20, ไม่มี `failed_cards` | +0.32 GB | warn | ~100 / ~120 / ~142 วิ = 0.91× / 0.83× / 0.56× (Qwen 109 วิ, ภาพแรกรวม encode และโหลด 235 วิ) |
+
+- คงตัวละคร 10 ภาพที่ 768×432 (ภาพอ้างอิง 1 ภาพ, `c_d0cd8188`): ผมน้ำตาล เสื้อยืดฟ้า กางเกงกรมท่า ครบทุกภาพ ไม่มีหน้าบิดหรือตัวซ้ำ ([consistency-10-768.png](trial-images/consistency-10-768.png))
+- เกณฑ์ของ D49 (432×768, ภาพอ้างอิง 3 ภาพ, คำสั่งและ seed เดียว 5 ภาพใน process เดียว): peak `driver_allocated_memory` 8.64 GB ทุกภาพ (≤ 12, ภาพ 3–5 ไม่สูงกว่าภาพ 2), 143 วิต่อภาพ — ผ่าน. pool ของ driver ไต่เฉพาะเมื่อภาพติดกันมีจำนวนภาพอ้างอิงต่างกัน (การ์ดของ EP จริง: 4.42 → 6.23 GB หลังภาพ) และเกณฑ์ทั้งเครื่องข้างบนวัดกรณีนั้นแล้ว
+
+**From:** build ticket 15 · **Status:** active
+
+## D80: feature review รอบเจ็ดของ toon
+
+**Chosen:**
+- `steps.draw` → `steps.ask_klein`: รอคำตอบของ `Encode`, `Load` และ `Draw` (timeout ต่อภาพเดียวกัน, spec › klein worker)
+- `ModelJobSlot.start_child(worker, first)` รอข้อความแรกเสมออีกครั้ง; process ลูกของ klein ซึ่งไม่พูดก่อนถูกถามเริ่มผ่าน `steps._start_klein` ที่แค่ `track` (`Run.track`) แทน `first=None` ของ D77 ที่ข้ามงานหลักของ method และทิ้ง `timeout` ไว้ไม่ใช้
+- test ที่เช็คว่าช่อง GPU ว่างใช้ `fakes.gpu_refusal() is None` ทุกไฟล์ (เดิม `gpu_is_free()` ของ test Ref job และ `gpu.slot.take(...) is None` ของ test Image job ซึ่งจริงเสมอและจองช่องค้าง)
+- docs: spec › Library assumptions ของ torch เป็น `torch.save`/`torch.load(weights_only=True)` (เดิมบอก pickle ของ tensor ซึ่ง D77 ไม่ใช้), ย่อหน้า klein worker บอกผลของ D79, SKILL.md (`start_encoder`/`start_drawer`, `ask_klein`, `track`), `rules/testing.md` (`klein_timeouts`), index ของ D37, ticket 15 บอกว่าล็อกรอบแรกหาย
+- `scripts/measure_toon_memory.py` เขียน header ของ `samples.tsv` เฉพาะไฟล์ใหม่
+- ไม่แก้: `FakeKlein.silent_on` (ตามชนิด request) คู่กับ `hang_at` (ตาม index ต่อ process) — test ที่ใช้ต้องการคนละแบบ; commit แก้ test ของ spoil-maker (`0da9252`) บน `feat/toon` อยู่ไปแล้ว; legal.md › 1 ที่พูดถึง Q3_K_M (ไม่ผิด แค่ไม่ได้ใช้); timeout ต่อภาพของ `Encode`/`Load` ตาม spec › klein worker; ฉากหลังที่ upload ครอปตาม D79; `now` tuple และ `run` ใน script (เครื่องมือมือ, D78)
+
+**Why:** feature review รอบเจ็ด: Standards (ชื่อ `draw`, `start_child` ที่ `None`, docstring ของ test, `klein_timeouts`), Spec (แถว torch ขัด D77, ย่อหน้าที่ยังเป็นอนาคต, test ที่จริงเสมอ, เช็คช่อง GPU สองแบบ, `start_worker` สองชื่อ), Newcomer (ชื่อ `draw`, `timeout` ที่ไม่ใช้, header ซ้ำ). auto mode เลือกตัวเลือกที่แนะนำ
+
+**From:** feature review · **Status:** active
+
+## D81: คำตอบของ Plot job ที่ `acts` เป็นข้อความสรุปเฉย ๆ
+
+**Chosen:** `writer.parse_plot` อ่าน act ที่เป็นข้อความเป็น `summary` ขององก์นั้น และยังอ่าน `{"summary": "..."}` ตามเดิม (ปนกันได้); prompt คงเดิม (ภายหลังเปลี่ยนใน D82); `acts` ที่จำนวนไม่เท่าองก์ของ EP ยังสั่งใหม่ตาม spec › Plot job ข้อ 4.
+
+**Why:** Qwen จริงตอบ `"acts": ["...", ...]` ทุกครั้งที่วัด (8/8) แม้ตัวอย่าง JSON ใน prompt จะเป็น object ต่อองก์ตามชื่อ จน Plot job ล้ม `write_failed` ทุกครั้ง ([record](../../progress/toon/bugs/2026-11-11-plot-job-write-failed-with-qwen.md)); อ่านข้อความเป็น summary ไม่เปลี่ยนสิ่งที่ spec สัญญา เหมือนที่ `llm_reply.json_object` อ่าน JSON ที่ขาด `}` ตัวท้าย (spoil-maker D61). auto mode เลือกตัวเลือกที่แนะนำ
+
+**Rejected:**
+- เปลี่ยน prompt ให้ขอเป็นข้อความ — parser ต้องรับทั้งสองรูปอยู่ดี และต้องวัดกับ Qwen ใหม่
+- รับเฉพาะ object แล้วแก้ prompt — prompt ที่แสดง object ต่อองก์ชัดแล้วยังได้ข้อความ 5/5
+
+**From:** /kiki-debug · **Status:** active
+
+## D82: prompt ของ Plot job ให้ `acts` หนึ่ง key ต่อองก์ และ log บอกว่าคำตอบผิดตรงไหน
+
+**Chosen:** ตัวอย่าง JSON ใน `writer.plot_prompt` แสดง `acts` เป็น object หนึ่ง key ต่อองก์ (`{"1. เปิด": "สรุปองก์ เปิด 1–3 ประโยค", …}`) และกฎ "acts มี N ช่องพอดี ช่องละหนึ่งองก์"; `parse_plot` อ่าน object ตามลำดับ key (ไม่ดูชื่อ key) และยังอ่าน list ของข้อความหรือ `{"summary"}` ตาม D81. คำตอบที่อ่านไม่ได้ของ Plot job และ Cards job เป็น `writer.Unusable(why)` แทน None; `steps.Qwen.answer` log `{งาน} attempt N is not the JSON asked for: {why}; it starts {ต้นคำตอบ 300 ตัวอักษร}` (`steps.REPLY_LOG_LETTERS`); ครั้งที่ timeout มีแค่บรรทัด timeout.
+
+**Why:** ticket 16: prompt เดิม Qwen จริงบน M1 ตอบ `acts` จำนวนผิด 5/20 (3–55 ช่อง: ช่องละประโยค ไม่ใช่ช่องละองก์, record ของ #35 › Run 4); prompt ที่มี key ต่อองก์ ได้ 4 ช่อง 20/20 และผ่าน `parse_plot` 20/20 ของ EP `e_14c37720` (35–51 วิ/ครั้ง). log เดิมบอกแค่ "not the JSON asked for" จึงต้องรัน Qwen ซ้ำเพื่อวินิจฉัย #35; 300 ตัวอักษรพอเห็น `title` และต้นของ `acts`. ตัดสินเองใน build (เรื่องใน feature, ผู้ใช้ไม่เห็น)
+
+**Rejected:**
+- ตัวอย่างเป็น list ข้อความหนึ่งช่องต่อองก์ตามชื่อ (`"slots"`) — วัดได้ครั้งเดียว (4 ช่อง) ก่อนหยุดเพราะ keyed ผ่านครบแล้ว
+- list ของ object ต่อองก์ตามชื่อ — วัดใน #35 › Run 3 ได้ 12 ช่อง 1/5
+- รวบประโยคที่เกินเป็นองก์ใน parser — 55 หรือ 25 ช่องไม่บอกว่าประโยคไหนเป็นองก์ไหน
+- log คำตอบทั้งหมด — ยาวถึง 4096 token ต่อครั้งท่วม `[api]`
+
+**From:** build ticket 16 · **Status:** active
+
+## D83: feature review รอบแปดของ toon
+
+**Chosen:**
+- log ของ Plot ที่เกินขอบบอกเหตุต่อขอบ: `… once unknown ids are dropped: no background` หรือ `7 characters (at most 6) once unknown ids are dropped` (เดิม `: out of bounds` บรรทัดเดียว)
+- `steps.REPLY_LOGGED` → `steps.REPLY_LOG_LETTERS`; ใน `writer.plot_prompt` `asked`/`acts`/`answer_acts` → `acts_shape`/`act_lines`/`acts_json`; docstring ของ `writer._summary` บอกว่า list คือรูปที่ Qwen ตอบก่อน D82
+- test: Plot แบบ key ต่อองก์ที่ key ถูกเปลี่ยนชื่อและสลับที่ ยังได้สรุปตามลำดับคำตอบ (เดิม key เรียงปกติ พิสูจน์ไม่ได้), เทียบสรุปเต็ม (เดิม 6 ตัวอักษรแรก); ชื่อ test ของ list ข้อความบอกว่าตัด CJK; test ใหม่ของตัวละครเกิน 6
+- ไม่แก้: `llm.respond.__self__` ของ fake (แบบเดิมทั้งไฟล์); คำตอบจริงใน test เป็น string ต่อกัน (เก็บใกล้ของจริง); per-kind สามรอบใน `parse_plot`; ต้น `no JSON object` สองที่; `prompts.parse_scene` ยังคืน None (For the next ticket ของ ticket 16 มีเงื่อนไข "ถ้าแปลคำบรรยายพังอีก"); log ของ spoil-maker ยังเป็นรูปเดิม (นอก feature); test Cards เช็คแค่องก์ 2 (คอมเมนต์บอกแล้ว)
+
+**Why:** feature review รอบแปด: Spec (AC1 ของ ticket 16 ให้ log บอกเหตุ เช่น "ไม่มีฉากหลัง"; test "answer's order" ไม่พิสูจน์ลำดับ), Standards (ชื่อใน `plot_prompt`, `REPLY_LOGGED`), Newcomer (`REPLY_LOGGED`, docstring `_summary`, "out of bounds", `[:6]`, ชื่อ test CJK). auto mode เลือกตัวเลือกที่แนะนำ
+
+**From:** feature review · **Status:** active
+
+## D84: `gpu.ADVICE` ไม่ต่อท้าย error ที่มาจากโค้ด
+
+**Chosen:** error ของ process ลูกที่เป็นชนิดของโค้ดผิด (`TypeError`, `AttributeError`, `NameError`, `KeyError`, `IndexError`, `ImportError`, `AssertionError`) ได้ข้อความ `{failure}: {ข้อความสั้นของ error}` ไม่มี "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง"; error อื่น (OOM ของ torch, `RuntimeError` ของ MPS/CUDA, `MemoryError` ฯลฯ), timeout และ process ลูกที่ตาย คง `gpu.ADVICE` ตามเดิม. `error.code` ยังเป็น `model_failed` (`crashed` ตามเดิม) และหน้าเว็บไม่เปลี่ยน. ใช้กับทุกงานที่อ่านคำตอบผ่าน `backend.jobs` และ Transcribe job ของ spoil: toon, spoil-maker, spoil. การแยกชนิดอยู่ที่เดียว; process ลูกส่งชื่อชนิดของ error มากับข้อความ.
+
+**Why:** Blocked #36: `TypeError` ของ #33 (process ลูกที่โหลดโค้ดใหม่คุยกับ backend ที่ใช้โค้ดเก่า) ขึ้น "ปิดโปรแกรมอื่นที่ใช้ GPU" ซึ่งพาไปผิดทาง; เปลี่ยนแค่ข้อความไม่กระทบ code ที่หน้าเว็บของ spoil-maker แปลเป็น "งานหยุดกลางทาง". auto mode เลือกตัวเลือกที่แนะนำ
+
+**Rejected:**
+- error ของโค้ดเป็น `internal` — spoil-maker แปล `model_failed` เป็น "งานหยุดกลางทาง" แต่ `internal` ขึ้นข้อความดิบ, ต้องแก้ spec ของสาม feature
+- `gpu.ADVICE` เฉพาะ OOM, timeout, process ตาย — error ของ GPU ที่ไม่ใช่ OOM (driver, MPS) จะหายคำแนะนำ
+- แก้เฉพาะ klein ของ toon — `jobs.ModelJobSlot.reply` ใช้ร่วม แยกแล้วสองงานพูดต่างกันกับ error เดียวกัน
+
+**From:** tickets · **Status:** active
+
+## D85: `jobs.CODE_ERROR_TYPES` แยกด้วยชื่อชนิด และนับ subclass ที่โค้ดโยนเองด้วย
+
+**Chosen:** ทุก process ลูกสร้าง `WorkerError.detail` ด้วย `workers.error_detail` (`{type}: {error}`, รูปเดิม) และ `jobs.worker_failure(failure, detail)` อ่านชื่อชนิดด้วย `workers.type_name` แล้วเทียบกับ `jobs.CODE_ERROR_TYPES`: เจ็ดชนิดของ D84 บวก `UnboundLocalError` (ของ `NameError`) และ `ModuleNotFoundError` (ของ `ImportError`). error ของโค้ดได้ `{failure}: {บรรทัดแรก}` ไม่มีจุดท้าย (รูปเดียวกับ `internal`). `ModelJobSlot.reply` และ Transcribe job ของ spoil ใช้ตัวเดียวกัน.
+
+**Why:** ชื่อเท่านั้นที่ข้าม queue; รูปของ `detail` เดิมสร้างแยกสี่ที่ (review ticket 17) จึงย้ายมาสร้างและอ่านที่ `workers` ที่เดียว แทนเพิ่ม field ใน `WorkerError` สี่ตัว. import ที่พัง (`ModuleNotFoundError`) และตัวแปรที่ยังไม่ตั้ง (`UnboundLocalError`) เป็นโค้ดผิดเหมือนชนิดแม่ แต่ชื่อไม่ตรง
+
+**Rejected:**
+- field `error_type` ใน `WorkerError` ทุกตัว — สี่ module ของ process ลูกเปลี่ยน แต่ได้ข้อมูลเดิมที่มีใน `detail` แล้ว
+
+ชื่อ `worker_failure` → `worker_error_message`, `type_name` → `error_type_of` (D86).
+
+**From:** build ticket 17 · **Status:** active
+
+## D86: feature review รอบเก้าของ toon
+
+**Chosen:**
+- `jobs.worker_failure` → `jobs.worker_error_message`, `workers.type_name` → `workers.error_type_of`
+- `workers.as_worker_error(error_type, code, error)` พิมพ์ traceback แล้วคืน `WorkerError`: แทน `_send_error` ของ whisper, llm, tts และ `_worker_error` ของ klein
+- `gpu.advised(message)` ต่อ `gpu.ADVICE` ด้วยจุดเดียว (ข้อความที่จบ "." ไม่ได้ ".."): `worker_error_message`, `crashed` ของ `ModelJobSlot` และ Transcribe job, timeout สามที่ (`steps._drawing_time`, `describe`, `draft` › เลือกภาพ)
+- `FakeModel.failure()`: process ปลอมตอบ `fail_at` ที่เดียว (เดิมเช็คซ้ำใน `FakeLlm`, `FakeTts`, `FakeKlein`); `fail_at` มาก่อน `silent_on` ของ klein
+- test: Voice job ที่ OmniVoice ผิดในโค้ดเช็คว่า GPU ว่าง; Transcribe ใช้ `GPU_ERROR` และ `gpu.ADVICE`; ชื่อ test "only a gpu error"; คอมเมนต์ `fail_at` นับต่อ process; คอมเมนต์ใน `CODE_ERROR_TYPES` บอกว่า import ที่พังนับเป็นโค้ด
+- spec ของ spoil-maker › ตารางข้อความ: `crashed`/`model_failed` บอกกฎ `gpu.ADVICE` ของ D84
+- ไม่แก้: `detail` เป็นสตริงที่อ่านชื่อชนิดกลับ (D85 ปฏิเสธ field ใหม่); `CODE_ERROR_TYPES` ใน `jobs` แยกจาก `workers` (process ลูก import แค่ standard library); `steps.scenes` ยังได้ None (มีเงื่อนไข); log ของ spoil-maker `draft.py` (นอก feature)
+
+**Why:** feature review รอบเก้า: Standards (ชื่อ, `_send_error` ซ้ำสี่ child, `fail_at` ซ้ำสาม fake, ข้อความตรงใน test Transcribe), Spec (spec ของ spoil-maker ไม่มีกฎ, ".." , Voice job ไม่เช็ค GPU, `gpu.ADVICE` ต่อด้วยมือห้าที่), Newcomer (คอมเมนต์ `fail_at = 2`, ชื่อ test, ImportError, `#33`). auto mode เลือกตัวเลือกที่แนะนำ
+
+**From:** feature review · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)
+- [unsloth/FLUX.2-klein-4B-GGUF @ a09d5bb](https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/tree/a09d5bb51ac4000ccd9643d10e9db3ed14200508) — ขนาดไฟล์ GGUF ทุกระดับ (accessed 2026-11-09; Q3_K_M 2026-11-11)
+- [autoencoder_kl_flux2.py v0.42.1](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/models/autoencoders/autoencoder_kl_flux2.py) — tile เฉพาะด้านที่ยาวกว่า `tile_sample_min_size` (`sample_size` ของ vae, klein 1024); อ่านใน package ที่ติดตั้ง (accessed 2026-11-11)

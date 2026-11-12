@@ -16,6 +16,8 @@ from backend.spoil import clips, downloads, transcribe
 from backend.spoil.whisper import Done, WorkerError
 
 from .fakes import (
+    CODE_ERROR,
+    GPU_ERROR,
     poll_until,
     FakeAdapter,
     FakeMp4Check,
@@ -468,9 +470,12 @@ def test_cancel_during_the_first_segment_terminates_the_worker_and_keeps_the_old
         ("no_audio", "ffmpeg exited with 1", "คลิปนี้ไม่มีเสียง หรืออ่านเสียงไม่ได้"),
         (
             "model_failed",
-            "RuntimeError: MPS backend out of memory",
-            "ถอดไม่สำเร็จ: RuntimeError: MPS backend out of memory. ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง",
+            GPU_ERROR,
+            f"ถอดไม่สำเร็จ: {GPU_ERROR}. {gpu.ADVICE}",
         ),
+        ("model_failed", CODE_ERROR, f"ถอดไม่สำเร็จ: {CODE_ERROR}"),  # an error of the code: no advice (toon D84)
+        # A subclass of one, by its own name (toon D85).
+        ("model_failed", "ModuleNotFoundError: No module named 'torch'", "ถอดไม่สำเร็จ: ModuleNotFoundError: No module named 'torch'"),
     ],
 )
 def test_a_worker_error_fails_the_job(client, project, worker, code, detail, message):

@@ -8,9 +8,10 @@ backend imports this module. Steps are in docs/features/spoil/spec.md › Transc
 
 import multiprocessing
 import subprocess
-import traceback
 from pathlib import Path
 from typing import Literal, NamedTuple
+
+from backend.workers import as_worker_error
 
 SEGMENT_SECONDS = 300
 MIN_LAST_SECONDS = 30  # a shorter last piece joins the one before: Whisper invents words from a few seconds (D29)
@@ -66,7 +67,7 @@ def worker(mp4: Path, duration_s: int | None, snapshot_dir: Path, device: str, q
     try:
         asr = load(snapshot_dir, device)
     except Exception as error:
-        _send_error(queue, "model_failed", error)
+        queue.put(as_worker_error(WorkerError, "model_failed", error))
         return
     segments = plan_segments(duration_s)
     for index, (start_s, length_s) in enumerate(segments):
@@ -74,12 +75,12 @@ def worker(mp4: Path, duration_s: int | None, snapshot_dir: Path, device: str, q
             audio = read_audio(mp4, start_s, length_s)
         except Exception as error:
             # The first segment can't be read: the clip has no sound. Later ones are a failure.
-            _send_error(queue, "no_audio" if index == 0 else "model_failed", error)
+            queue.put(as_worker_error(WorkerError, "no_audio" if index == 0 else "model_failed", error))
             return
         try:
             lines, language = transcribe(asr, audio, start_s, length_s)
         except Exception as error:
-            _send_error(queue, "model_failed", error)
+            queue.put(as_worker_error(WorkerError, "model_failed", error))
             return
         queue.put(Segment(index, len(segments), lines, language))
     queue.put(Done())
@@ -160,8 +161,3 @@ def to_lines(chunks: list[dict], start_s: int, length_s: int | None) -> list[Lin
             end = begin
         lines.append((round(start_s + begin, 2), round(start_s + max(begin, end), 2), chunk["text"]))
     return lines
-
-
-def _send_error(queue, code: str, error: Exception) -> None:
-    traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    queue.put(WorkerError(code, f"{type(error).__name__}: {error}"))

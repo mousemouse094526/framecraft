@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { VOICES_PATH } from "../../../lib/voices";
 import { getJson, headStatus, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { GPU_JOB_PATHS } from "../../../lib/gpu";
 import { isRunning, isUnfinishedIn, onlyWhen } from "../../../lib/job";
@@ -52,7 +53,6 @@ type Loaded = Extract<VoicesState, { kind: "loaded" }>;
 /** Why a save, rename or delete was refused, to show the user; null when it went through. */
 export type RefusalText = string | null;
 
-const VOICES_PATH = "/api/spoil-maker/voices";
 const JOBS_PATH = "/api/spoil-maker/voice-jobs";
 const CURRENT_PATH = "/api/spoil-maker/voice-jobs/current";
 const PREVIEW_PATH = "/api/spoil-maker/voice-jobs/preview.wav";

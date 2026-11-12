@@ -5,6 +5,7 @@ everything else happens here. Every step can be re-run: models that are
 already `ok` are skipped and snapshot_download skips finished files.
 """
 
+import fnmatch
 import json
 import os
 import shutil
@@ -19,6 +20,7 @@ from backend.checks import (
     Probes,
     StatusResponse,
     check_model,
+    named_patterns,
     now_iso,
     qwen_gpu_problem,
     real_probes,
@@ -29,11 +31,11 @@ from backend.paths import ROOT, ProjectPaths
 
 IS_WINDOWS = sys.platform == "win32"
 BACKEND_ADDRESS = ("127.0.0.1", 8000)
-# The models are about 11 GB on a Mac and 24 GB on Windows, whose Qwen is bf16 (19 GB);
-# the rest is headroom for partial downloads (windows-launch D12). A Windows card under
-# Qwen's target skips it, and needs only the 5 GB of the others (windows-launch D14).
-REQUIRED_FREE_BYTES = {"darwin": 20_000_000_000, "win32": 30_000_000_000}
-REQUIRED_FREE_BYTES_WITHOUT_QWEN = 15_000_000_000
+# The models are about 22 GB on a Mac and 35 GB on Windows, whose Qwen is bf16 (19 GB), with
+# klein's 11 GB on both (toon D34, D51); the rest is headroom for partial downloads (windows-launch
+# D12). A Windows card under Qwen's target skips it, and needs only the 16 GB of the others (D14).
+REQUIRED_FREE_BYTES = {"darwin": 32_000_000_000, "win32": 42_000_000_000}
+REQUIRED_FREE_BYTES_WITHOUT_QWEN = 27_000_000_000
 STATUS_ICONS = {"ok": "✓", "warning": "!", "missing": "✗"}
 
 Download = Callable[..., str]
@@ -97,6 +99,7 @@ def run_setup(
                 cache_dir=project.hub_dir,
                 allow_patterns=list(model.allow_patterns),
             )
+            _check_named_files(model, Path(snapshot))
             _write_marker(project, model, Path(snapshot))
         if fonts.check_kanit(project)[0] != "ok":
             step = "โหลด Kanit"
@@ -213,6 +216,16 @@ def _windows_pid_alive(pid: int) -> bool:
         return code.value == still_active
     finally:
         kernel32.CloseHandle(handle)
+
+
+def _check_named_files(model: ModelSpec, snapshot: Path) -> None:
+    """Every pattern that names a file or a folder (`text_encoder/*`) matched a file: a download
+    can finish with a folder holding nothing (toon trial-klein-mac › 5.3), so its exit isn't trusted.
+    The same patterns the Status check looks for in the marker (`checks.named_patterns`, D50)."""
+    found = [path.relative_to(snapshot).as_posix() for path in snapshot.rglob("*") if path.is_file()]
+    for pattern in named_patterns(model):
+        if not any(fnmatch.fnmatch(name, pattern) for name in found):
+            raise RuntimeError(f"ไม่พบไฟล์ {pattern} หลังโหลด")
 
 
 def _write_marker(project: ProjectPaths, model: ModelSpec, snapshot: Path) -> None:

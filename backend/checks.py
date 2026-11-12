@@ -4,6 +4,7 @@ Never imports `omnivoice` or `transformers` and never uses the network.
 Packages are checked through their installed metadata only.
 """
 
+import fnmatch
 import importlib.util
 import json
 import os
@@ -20,7 +21,7 @@ from typing import Literal, NamedTuple, get_args
 from pydantic import BaseModel
 
 from backend import fonts, paths
-from backend.models import OMNIVOICE, WHISPER, ModelSpec, qwen_for
+from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, WHISPER, ModelSpec, qwen_for
 from backend.paths import ProjectPaths
 
 ItemStatus = Literal["ok", "missing", "warning"]
@@ -30,6 +31,8 @@ FixKind = Literal["command", "hint"]
 VERSION_TIMEOUT_SECONDS = 5
 MLX_VLM_VERSION = "0.7.11"  # the pin in pyproject.toml (spoil-maker spec › Dependencies)
 PYTHAINLP_VERSION = "5.4.0"  # the pin in pyproject.toml (spoil-maker spec › Dependencies)
+DIFFUSERS_VERSION = "0.42.1"  # the pin in pyproject.toml (toon spec › Dependencies)
+GGUF_VERSION = "0.19.0"  # the pin in pyproject.toml (toon D47)
 
 
 @dataclass(frozen=True)
@@ -234,6 +237,24 @@ def probe_bitsandbytes() -> str:
         raise RuntimeError("ยังไม่ได้ติดตั้ง") from None
 
 
+def probe_diffusers() -> str:
+    """The installed diffusers version, from its metadata only: importing it pulls in torch."""
+    return _installed_version("diffusers")
+
+
+def probe_gguf() -> str:
+    """The installed gguf version, from its metadata only (docs/library-notes/gguf.md)."""
+    return _installed_version("gguf")
+
+
+def _installed_version(name: str) -> str:
+    """Raises when the package isn't installed."""
+    try:
+        return metadata.version(name)
+    except metadata.PackageNotFoundError:
+        raise RuntimeError("ยังไม่ได้ติดตั้ง") from None
+
+
 def probe_pythainlp() -> str:
     """The installed pythainlp version, from its metadata only: importing pythainlp may
     create its data folder (docs/library-notes/pythainlp.md). Raises when it isn't installed;
@@ -298,6 +319,8 @@ class Probes:
     pythainlp: Callable[[], str]
     gpu: Callable[[], GpuInfo]  # Windows only
     bitsandbytes: Callable[[], str]  # Windows only
+    diffusers: Callable[[], str]
+    gguf: Callable[[], str]
 
 
 def real_probes() -> Probes:
@@ -311,6 +334,8 @@ def real_probes() -> Probes:
         pythainlp=probe_pythainlp,
         gpu=probe_gpu,
         bitsandbytes=probe_bitsandbytes,
+        diffusers=probe_diffusers,
+        gguf=probe_gguf,
     )
 
 
@@ -370,6 +395,10 @@ def run_checks(
         *qwen_rows,
         _item("pythainlp", "pythainlp", lambda: check_pinned(probes.pythainlp, PYTHAINLP_VERSION), fixes.setup),
         _item(fonts.CHECK_ID, fonts.LABEL, lambda: fonts.check_kanit(project), fixes.setup),
+        # The การ์ตูนเล่า tab's rows follow Kanit (toon spec › Status check).
+        _model_item(project, KLEIN, fixes.setup, sys_platform),
+        _model_item(project, KLEIN_GGUF, fixes.setup, sys_platform),
+        *(_item(row_id, label, check, fixes.setup) for row_id, (label, check) in klein_packages(probes).items()),
     ]
     counts = {s: sum(1 for i in items if i.status == s) for s in get_args(ItemStatus)}
     return StatusResponse(
@@ -407,13 +436,29 @@ def qwen_checks(
     }
 
 
+def klein_packages(probes: Probes) -> dict[str, tuple[str, Check]]:
+    """The two packages klein's child imports, id → (label, check): the Status check and
+    klein's gate both read them (toon spec › Status check)."""
+    return {
+        "diffusers": ("diffusers", lambda: check_pinned(probes.diffusers, DIFFUSERS_VERSION)),
+        "gguf": ("gguf", lambda: check_pinned(probes.gguf, GGUF_VERSION)),
+    }
+
+
 def device_check(device: Callable[[], str], sys_platform: str, gpu: Callable[[], GpuInfo]) -> Check:
     """The `device` row's check on this OS; on Windows it reads the card too (windows-launch D8)."""
     return lambda: check_device(device, gpu if sys_platform == "win32" else None)
 
 
+def named_patterns(model: ModelSpec) -> list[str]:
+    """The patterns of `allow_patterns` that name a file or a folder (`text_encoder/*`),
+    not a kind of file (`*.json`): each must match a downloaded file (toon D50)."""
+    return [pattern for pattern in model.allow_patterns if "*" not in pattern.split("/")[0]]
+
+
 def check_model(project: ProjectPaths, model: ModelSpec) -> tuple[ItemStatus, str]:
-    """Whether a model's marker, revision, and files all match. Used by setup too."""
+    """Whether a model's marker, revision, and files all match, and every file or folder
+    `allow_patterns` names is among its files. Used by setup too."""
     marker_path = project.marker(model)
     if not marker_path.is_file():
         return "missing", "ไม่พบ marker ใน models/.setup"
@@ -426,6 +471,11 @@ def check_model(project: ProjectPaths, model: ModelSpec) -> tuple[ItemStatus, st
         return "missing", (
             f"revision ไม่ตรง: โหลดไว้ {revision[:7]} ต้องการ {model.short_revision}"
         )
+    names = [file["path"] for file in files]
+    for pattern in named_patterns(model):
+        if not any(fnmatch.fnmatch(name, pattern) for name in names):
+            # Another file of the same revision was downloaded (toon D49).
+            return "missing", f"ไม่มีไฟล์ {pattern} ใน marker"
     snapshot = project.snapshot_dir(model, model.revision)
     for file in files:
         path = snapshot / file["path"]

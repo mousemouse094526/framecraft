@@ -1,22 +1,25 @@
 import { useEffect, useState } from "react";
 
-// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9).
+// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, toon spec › Frontend).
 export const TABS = [
   { id: "setup", label: "ติดตั้ง", hash: "#/setup" },
   { id: "clips", label: "คลิป", hash: "#/clips" },
   { id: "stories", label: "คลังความรู้", hash: "#/stories" },
   { id: "spoil", label: "สปอย", hash: "#/spoil" },
+  { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon" },
 ] as const;
 
 export type TabId = (typeof TABS)[number]["id"];
 
 /**
- * `#/spoil/…` is a step of สปอย and `#/stories/…` a Story of คลังความรู้; an empty or
+ * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้ and `#/toon/…` a page of
+ * การ์ตูนเล่า; an empty or
  * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9).
  */
 export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/spoil/")) return "spoil";
   if (hash.startsWith("#/stories/")) return "stories";
+  if (hash.startsWith("#/toon/")) return "toon";
   return TABS.find((tab) => tab.hash === hash)?.id ?? "setup";
 }
 

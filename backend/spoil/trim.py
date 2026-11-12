@@ -347,7 +347,7 @@ class Trims(JobSlot[TrimJob]):
             trimmed_partial(plan.project, plan.clip.id).unlink(missing_ok=True)
             # Before the state reads as finished: a client that sees it may use the clip at once.
             gpu.slot.end_trim()
-        self._update(percent=None, **ending)
+        self.update(percent=None, **ending)
 
     def _trim(self, plan: TrimPlan) -> None:
         """Steps 2–6: encode the kept spans into `.partial/`, check the result, then put it in place."""
@@ -363,7 +363,7 @@ class Trims(JobSlot[TrimJob]):
         argv = command(mp4, out, plan.spans, media.has_audio, video_bps(file_bytes, media.duration_s))
 
         def on_progress(seconds: float) -> None:
-            self._update(percent=min(99, math.floor(seconds / kept * 100)))
+            self.update(percent=min(99, math.floor(seconds / kept * 100)))
 
         try:
             self._run_ffmpeg(argv, project.partial_dir, self._cancel, on_progress)

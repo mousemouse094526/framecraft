@@ -7,7 +7,7 @@ import pytest
 
 from backend import fonts
 from backend.checks import run_checks
-from backend.models import MODELS, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
+from backend.models import KLEIN, KLEIN_GGUF, MODELS, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
@@ -62,18 +62,24 @@ class FakeFetch:
 class FakeDownload:
     """Stands in for huggingface_hub.snapshot_download."""
 
-    def __init__(self, root, fail=False):
+    def __init__(self, root, fail=False, leave_empty: str | None = None):
         self.root = root
         self.fail = fail
+        self.leave_empty = leave_empty  # a folder the download "finishes" without (trial-klein-mac › 5.3)
         self.calls = []
+        self.patterns: dict[str, list[str]] = {}
 
     def __call__(self, repo_id, *, revision, cache_dir, allow_patterns):
         self.calls.append(repo_id)
+        self.patterns[repo_id] = allow_patterns
         if self.fail:
             raise OSError("connection reset")
         model = next(m for m in MODELS if m.repo_id == repo_id)
         assert cache_dir == ProjectPaths(self.root).hub_dir
-        return str(write_snapshot(self.root, model, revision))
+        snapshot = write_snapshot(self.root, model, revision)
+        if self.leave_empty:
+            shutil.rmtree(snapshot / self.leave_empty, ignore_errors=True)
+        return str(snapshot)
 
 
 def run_with_fakes(root, download, probes=None, **overrides):
@@ -140,7 +146,7 @@ def test_stale_lock_from_a_dead_process_is_taken_over(empty_root):
     assert not lock.exists()
 
 
-@pytest.mark.parametrize(("sys_platform", "required"), [("darwin", "20 GB"), ("win32", "30 GB")])
+@pytest.mark.parametrize(("sys_platform", "required"), [("darwin", "32 GB"), ("win32", "42 GB")])
 def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys, sys_platform, required):
     download = FakeDownload(empty_root)
 
@@ -229,7 +235,13 @@ def test_mac_setup_downloads_qwen_too(empty_root):
 
     run_with_fakes(empty_root, download, sys_platform="darwin")
 
-    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo", "mlx-community/Qwen3.5-9B-MLX-4bit"]
+    assert download.calls == [
+        "k2-fsa/OmniVoice",
+        "openai/whisper-large-v3-turbo",
+        "mlx-community/Qwen3.5-9B-MLX-4bit",
+        "black-forest-labs/FLUX.2-klein-4B",
+        "unsloth/FLUX.2-klein-4B-GGUF",
+    ]
     assert ProjectPaths(empty_root).marker(QWEN_MAC).is_file()
 
 
@@ -239,7 +251,13 @@ def test_windows_setup_downloads_qwen_s_own_repo_on_a_card_that_meets_its_target
     exit_code = run_with_fakes(empty_root, download, sys_platform="win32")
 
     assert exit_code == 0
-    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo", "Qwen/Qwen3.5-9B"]
+    assert download.calls == [
+        "k2-fsa/OmniVoice",
+        "openai/whisper-large-v3-turbo",
+        "Qwen/Qwen3.5-9B",
+        "black-forest-labs/FLUX.2-klein-4B",
+        "unsloth/FLUX.2-klein-4B-GGUF",
+    ]
     assert ProjectPaths(empty_root).marker(QWEN_WINDOWS).is_file()
     assert not ProjectPaths(empty_root).marker(QWEN_MAC).exists()
 
@@ -262,29 +280,34 @@ def test_windows_setup_skips_qwen_on_a_card_under_its_target_and_still_exits_0(e
     assert f"ข้าม Qwen3.5 9B model: {says}" in out
 
 
-def test_windows_setup_wants_30_gb_free_to_download_qwen(empty_root, capsys):
+def test_windows_setup_wants_42_gb_free_to_download_qwen(empty_root, capsys):
     download = FakeDownload(empty_root)
 
-    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 20 * GB, sys_platform="win32")
+    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 40 * GB, sys_platform="win32")
 
     assert exit_code == 1
     assert download.calls == []
-    assert "ที่ว่างบนดิสก์ไม่พอ: มี 20.0 GB ต้องการ 30 GB" in capsys.readouterr().out
+    assert "ที่ว่างบนดิสก์ไม่พอ: มี 40.0 GB ต้องการ 42 GB" in capsys.readouterr().out
 
 
-def test_windows_setup_that_skips_qwen_wants_only_15_gb_free(empty_root):
+def test_windows_setup_that_skips_qwen_wants_only_27_gb_free(empty_root):
     download = FakeDownload(empty_root)
 
     exit_code = run_with_fakes(
         empty_root,
         download,
         probes=fake_probes(gpu=card("NVIDIA GeForce RTX 2060", 6, (7, 5))),
-        free_bytes=lambda path: 20 * GB,
+        free_bytes=lambda path: 27 * GB,
         sys_platform="win32",
     )
 
     assert exit_code == 0
-    assert download.calls == ["k2-fsa/OmniVoice", "openai/whisper-large-v3-turbo"]
+    assert download.calls == [
+        "k2-fsa/OmniVoice",
+        "openai/whisper-large-v3-turbo",
+        "black-forest-labs/FLUX.2-klein-4B",
+        "unsloth/FLUX.2-klein-4B-GGUF",
+    ]
 
 
 def test_mac_setup_never_reads_the_card(empty_root):
@@ -328,3 +351,46 @@ def test_kanit_already_there_is_not_fetched_again(fake_root):
 
     assert exit_code == 0
     assert fetch.urls == []
+
+
+def test_setup_downloads_klein_without_its_bf16_transformer_and_writes_both_markers(empty_root):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download)
+
+    assert exit_code == 0
+    assert download.patterns["black-forest-labs/FLUX.2-klein-4B"] == [
+        "model_index.json",
+        "text_encoder/*",
+        "tokenizer/*",
+        "vae/*",
+        "scheduler/*",
+        "transformer/config.json",
+    ]
+    assert download.patterns["unsloth/FLUX.2-klein-4B-GGUF"] == ["flux-2-klein-4b-Q4_K_M.gguf"]
+    result = run_checks(empty_root, fake_probes())
+    assert item(result, "model_klein").status == item(result, "model_klein_gguf").status == "ok"
+
+
+def test_a_klein_folder_left_empty_by_the_download_fails_setup_without_a_marker(empty_root, capsys):
+    download = FakeDownload(empty_root, leave_empty="text_encoder")
+
+    exit_code = run_with_fakes(empty_root, download)
+
+    assert exit_code == 1
+    assert not ProjectPaths(empty_root).marker(KLEIN).exists()
+    out = capsys.readouterr().out
+    assert "ล้มที่ขั้น โหลด black-forest-labs/FLUX.2-klein-4B" in out
+    assert "text_encoder/*" in out
+    assert "unsloth/FLUX.2-klein-4B-GGUF" not in download.calls
+
+
+def test_a_rerun_after_an_empty_klein_folder_downloads_klein_again(empty_root):
+    run_with_fakes(empty_root, FakeDownload(empty_root, leave_empty="vae"))
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download)
+
+    assert exit_code == 0
+    assert download.calls == ["black-forest-labs/FLUX.2-klein-4B", "unsloth/FLUX.2-klein-4B-GGUF"]
+    assert ProjectPaths(empty_root).marker(KLEIN_GGUF).is_file()

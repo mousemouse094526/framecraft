@@ -8,12 +8,12 @@ child only, never when the backend imports this module. On Windows the child run
 """
 
 import multiprocessing
-import traceback
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, NamedTuple
 
 from backend import checks
+from backend.workers import Worker, as_worker_error
 
 # Sent to the child: one prompt, with one image or none. `None` asks it to exit.
 
@@ -52,11 +52,13 @@ class Timeouts(NamedTuple):
     pick: float  # one sentence's Shots
 
 
-# Windows starts at the Mac's × 5; the trial on a Windows card (windows-launch ticket 03)
+# Windows starts at the Mac's × WINDOWS_START; the trial on a Windows card (windows-launch ticket 03)
 # measures each step and replaces these with max(this, longest × 3 in whole minutes) (D7).
+WINDOWS_START = 5
+_MAC = Timeouts(describe=60, write=600, polish=300, pick=60)
 TIMEOUTS = {
-    "darwin": Timeouts(describe=60, write=600, polish=300, pick=60),
-    "win32": Timeouts(describe=300, write=3000, polish=1500, pick=300),
+    "darwin": _MAC,
+    "win32": Timeouts(*(seconds * WINDOWS_START for seconds in _MAC)),
 }
 
 
@@ -75,8 +77,8 @@ def worker_for(sys_platform: str) -> Callable:
     return worker
 
 
-def start_worker(snapshot_dir: Path):
-    """Starts this OS's child; returns it with the queue of requests and the queue of replies.
+def start_worker(snapshot_dir: Path) -> Worker:
+    """Starts this OS's child with its queue of requests and its queue of replies.
 
     Fresh queues per child: `terminate()` may corrupt a queue it was using.
     Daemonic, so the child dies with the backend.
@@ -90,7 +92,7 @@ def start_worker(snapshot_dir: Path):
         name="framecraft-llm",
     )
     process.start()
-    return process, requests, replies
+    return Worker(process, requests, replies)
 
 
 def worker(snapshot_dir: Path, requests, replies) -> None:
@@ -105,14 +107,14 @@ def serve_requests(load: Callable, generate: Callable, snapshot_dir: Path, reque
     try:
         model, processor = load(snapshot_dir)
     except Exception as error:
-        _send_error(replies, error)
+        replies.put(as_worker_error(WorkerError, "model_failed", error))
         return
     replies.put(Ready())
     while (request := requests.get()) is not None:
         try:
             text = generate(model, processor, request)
         except Exception as error:
-            _send_error(replies, error)
+            replies.put(as_worker_error(WorkerError, "model_failed", error))
             return
         replies.put(Generated(text))
 
@@ -140,8 +142,3 @@ def generate(model, processor, request: Generate) -> str:
         model, processor, prompt, image=images, max_tokens=request.max_tokens, temperature=request.temperature
     )
     return result.text
-
-
-def _send_error(replies, error: Exception) -> None:
-    traceback.print_exc()  # the child shares the backend's terminal: the full error shows in [api]
-    replies.put(WorkerError("model_failed", f"{type(error).__name__}: {error}"))

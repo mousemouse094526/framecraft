@@ -7,7 +7,7 @@ docs/library-notes/yt-dlp.md › Traps.
 
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
 import yt_dlp
 from yt_dlp.utils import DownloadCancelled, GeoRestrictedError
@@ -15,7 +15,7 @@ from yt_dlp.utils import DownloadCancelled, GeoRestrictedError
 from backend.paths import ProjectPaths
 from backend.spoil.mp4check import MAX_SHORT_SIDE
 
-__all__ = ["DownloadCancelled", "ErrorCode", "YtDlpAdapter", "error_code", "select_formats"]
+__all__ = ["DownloadCancelled", "DownloadOptions", "ErrorCode", "YtDlpAdapter", "error_code", "select_formats"]
 
 ErrorCode = Literal[
     "live",
@@ -43,46 +43,70 @@ AAC = ("mp4a", "aac")
 SOCKET_TIMEOUT_S = 30
 
 
+class DownloadOptions(NamedTuple):
+    """What a download asks yt-dlp for and where it lands; the defaults are a Temp clip's
+    (an h264/aac mp4 in media/temp/ with its thumbnail). toon's background sounds take the
+    best audio alone into their own folder, with no thumbnail and no merge (toon spec ›
+    Modules touched)."""
+
+    format: str | None = None  # None: `select_formats`
+    # Where it lands, written there too; None: media/temp/, written in media/temp/.partial/.
+    folder: Callable[[ProjectPaths], Path] | None = None
+    name: str = "{id}.%(ext)s"  # yt-dlp's `outtmpl`; `{id}` is `download`'s `clip_id` (a sound's id for toon)
+    thumbnail: bool = True
+    merge_mp4: bool = True
+
+
 class YtDlpAdapter:
-    def fetch_info(self, url: str) -> dict:
-        """The video's metadata and the formats `select_formats` picked, without downloading."""
-        with yt_dlp.YoutubeDL(self._params(None, None)) as ydl:
+    def fetch_info(self, url: str, options: DownloadOptions = DownloadOptions()) -> dict:
+        """The video's metadata and the formats `options` picks, without downloading."""
+        with yt_dlp.YoutubeDL(self._params(None, None, options)) as ydl:
             return ydl.extract_info(url, download=False)
 
     def download(
-        self, info: dict, project: ProjectPaths, clip_id: str, on_progress: Callable[[dict], None]
+        self,
+        info: dict,
+        project: ProjectPaths,
+        clip_id: str,
+        on_progress: Callable[[dict], None],
+        options: DownloadOptions = DownloadOptions(),
     ) -> Path:
-        """Downloads from `info` without asking the site again, into `{clip_id}.mp4`.
+        """Downloads from `info` without asking the site again, into `options.name` (by
+        default `{clip_id}.mp4`).
 
         `on_progress` gets yt-dlp's progress hook dicts and may raise
         `DownloadCancelled` to stop.
         """
-        params = self._params(project, clip_id) | {"progress_hooks": [on_progress]}
+        params = self._params(project, clip_id, options) | {"progress_hooks": [on_progress]}
         with yt_dlp.YoutubeDL(params) as ydl:
             result = ydl.process_ie_result(info, download=True)
         # `result["filepath"]` is None after a merge.
         return Path(result["requested_downloads"][0]["filepath"])
 
-    def _params(self, project: ProjectPaths | None, clip_id: str | None) -> dict:
+    def _params(self, project: ProjectPaths | None, clip_id: str | None, options: DownloadOptions) -> dict:
         import deno
         import imageio_ffmpeg
 
         params = {
-            "format": select_formats,
+            "format": options.format or select_formats,
             # Only sites with their own extractor: no generic page scraping (D55, ADR 0029).
             "allowed_extractors": ["default", "-generic"],
             "socket_timeout": SOCKET_TIMEOUT_S,
-            "merge_output_format": "mp4",
             "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
             "js_runtimes": {"deno": {"path": deno.find_deno_bin()}},
-            "writethumbnail": True,
+            "writethumbnail": options.thumbnail,
             "noplaylist": True,
             "quiet": True,
             "noprogress": True,
         }
+        if options.merge_mp4:
+            params["merge_output_format"] = "mp4"
         if project and clip_id:
-            params["paths"] = {"home": str(project.media_temp_dir), "temp": str(project.partial_dir)}
-            params["outtmpl"] = f"{clip_id}.%(ext)s"
+            if options.folder is None:
+                params["paths"] = {"home": str(project.media_temp_dir), "temp": str(project.partial_dir)}
+            else:
+                params["paths"] = {"home": str(options.folder(project)), "temp": str(options.folder(project))}
+            params["outtmpl"] = options.name.format(id=clip_id)
         return params
 
 

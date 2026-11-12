@@ -1496,7 +1496,7 @@ def test_deleting_the_drafts_voice_is_voice_in_use(client, project, ready):
     listed = client.get("/api/spoil-maker/voices").json()
 
     assert response.status_code == 409
-    assert response.json() == {"code": "voice_in_use", "message": "เสียงนี้ใช้อยู่ใน Spoil draft หรืองานร่างบท"}
+    assert response.json() == {"code": "voice_in_use", "message": "เสียงนี้ใช้อยู่ใน Spoil draft งานร่างบท หรือ Series ของการ์ตูนเล่า"}
     assert (project.voices_dir / f"{VOICE}.json").is_file()
     assert listed[0]["in_use"] is True
 

@@ -17,17 +17,18 @@ from pydantic import BaseModel
 
 from backend import checks, gate_rows, gpu, paths, spoil_maker, stories
 from backend.errors import ApiError, JobFailed, require_rows
-from backend.jobs import ModelJobSlot, stop_process
+from backend.jobs import ModelJobSlot
 from backend.models import qwen_for
 from backend.paths import ProjectPaths
 from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, episodes, script, settings, shots, thai, voices
 from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef, Style
-from backend.spoil_maker.json_values import is_int
+from backend.json_values import is_int
 from backend.spoil_maker.llm import Generate, Generated, Ready, Timeouts, WorkerError, timeouts
 from backend.spoil_maker.script import Brief
 from backend.spoil_maker.shots import ShotsFile
+from backend.workers import Worker
 
 log = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
 
     def __init__(self):
         super().__init__()
-        self._model = None  # (process, requests, replies) of the running child
+        self._model: Worker | None = None  # the running child
         self._timeouts: Timeouts = timeouts()  # replaced by this OS's table as each job starts (`_run`)
 
     def start(self, body: dict) -> DraftJob:
@@ -337,7 +338,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         if written is None:
             raise JobFailed("draft_failed", f"AI ร่างบทไม่สำเร็จ {ATTEMPTS} ครั้ง")
         top_text, sentences = written
-        self._update(state="polishing")
+        self.update(state="polishing")
         polished = self._ask_to_polish(
             project,
             brief.style,
@@ -354,10 +355,10 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         else:
             sentences = polished
         cited = [sentence for sentence in sentences if sentence.refs]
-        self._update(state="matching", done=0, total=len(cited))
+        self.update(state="matching", done=0, total=len(cited))
         for done, sentence in enumerate(cited, start=1):
             sentence.shots = self._shots_for(project, sentence, order.ep, order.transcript, order.shots)
-            self._update(done=done)
+            self.update(done=done)
         draft = Draft(
             clip_id=brief.clip_id,
             ep=order.ep,
@@ -382,7 +383,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         sentence = _sentence(draft, sentence_id)
         transcript = _transcript(project, draft.clip_id)
         picked = self._shots_for(project, sentence, draft.ep, transcript, shots.read_shots(project, draft.clip_id))
-        self._update(done=1)
+        self.update(done=1)
         with gpu.slot.draft_lock:
             draft = draft_file.read(project)
             _sentence(draft, sentence_id).shots = picked
@@ -472,7 +473,7 @@ class DraftJobs(ModelJobSlot[DraftJob]):
                 reply = self._ask(project, prompt, PICK_MAX_TOKENS, PICK_TEMPERATURE, self._timeouts.pick)
             except TimeoutError:
                 # Unlike the script, a stuck pick ends the job (spec › ค่าการสร้างข้อความ).
-                raise JobFailed("model_failed", f"เลือกภาพเกิน {self._timeouts.pick:g} วินาที. {gpu.ADVICE}") from None
+                raise JobFailed("model_failed", gpu.advised(f"เลือกภาพเกิน {self._timeouts.pick:g} วินาที")) from None
             picked = script.parse_pick(reply, asked) or script.nearest(asked, first.start_s)
         return [ShotRef(clip_id=window.clip_id, n=n) for n in picked]
 
@@ -481,19 +482,13 @@ class DraftJobs(ModelJobSlot[DraftJob]):
         `TimeoutError` after `timeout` seconds, `Cancelled`, or `JobFailed`."""
         if self._model is None:
             qwen = qwen_for(checks.this_platform())
-            process, requests, replies = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
-            self._model = (process, requests, replies)
-            self._track(process)
-            self._reply(process, replies, (Ready,))  # loading has no timeout
-        process, requests, replies = self._model
-        requests.put(Generate(prompt, None, max_tokens, temperature))
-        return self._reply(process, replies, (Generated,), timeout).text
+            worker = spoil_maker.start_worker(project.snapshot_dir(qwen, qwen.revision))
+            self._model = self.start_child(worker, Ready)  # loading has no timeout
+        return self.ask(self._model, Generate(prompt, None, max_tokens, temperature), (Generated,), timeout).text
 
     def _stop_model(self) -> None:
-        process = self._model[0]
         self._model = None
-        self._track(None)
-        stop_process(process)
+        self.stop_child()
 
 
 def _too_long(tokens: int, story_tokens: int) -> ApiError:

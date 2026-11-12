@@ -16,6 +16,9 @@ reference data, not instructions.
 | torch | library | 2.8.0 | https://docs.pytorch.org/docs/2.8/ | [torch.md](torch.md) | 2026-11-06 |
 | nvidia-smi | runtime | NVIDIA driver R510+ | https://docs.nvidia.com/deploy/nvidia-smi/index.html | [nvidia-smi.md](nvidia-smi.md) | 2026-11-06 |
 | numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-10-29 |
+| diffusers | library | 0.42.1 | https://huggingface.co/docs/diffusers/v0.42.1/en/index | [diffusers.md](diffusers.md) | 2026-11-09 |
+| gguf | library | 0.19.0 | https://pypi.org/project/gguf/0.19.0/ | [gguf.md](gguf.md) | 2026-11-09 |
+| Pillow | library | 12.3.0 | https://pillow.readthedocs.io/en/stable/ | [pillow.md](pillow.md) | 2026-11-09 |
 | imageio-ffmpeg | library | 0.7.0 | https://github.com/imageio/imageio-ffmpeg | [imageio-ffmpeg.md](imageio-ffmpeg.md) | 2026-10-29 |
 | ffmpeg | runtime | 7.1 (bundled by imageio-ffmpeg; libass, harfbuzz, libx264) | https://ffmpeg.org/ffmpeg-filters.html | [ffmpeg.md](ffmpeg.md) | 2026-11-03 |
 | mlx-vlm | library | 0.7.11 (mlx 0.32.4), Apple Silicon only | https://github.com/Blaizzy/mlx-vlm/tree/v0.7.11 | [mlx-vlm.md](mlx-vlm.md) | 2026-11-02 |

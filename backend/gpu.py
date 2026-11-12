@@ -13,7 +13,7 @@ from typing import Literal
 
 from backend.errors import ApiError
 
-Kind = Literal["transcribe", "describe", "draft", "voice", "render"]
+Kind = Literal["transcribe", "describe", "draft", "voice", "render", "toon_write", "toon_image", "toon_voice", "toon_render"]
 
 # How `gpu_busy` names the running job (spoil-maker spec › Frontend).
 RUNNING_NAMES: dict[Kind, str] = {
@@ -22,10 +22,19 @@ RUNNING_NAMES: dict[Kind, str] = {
     "draft": "ร่างบท",
     "voice": "สร้างเสียง",
     "render": "render",
+    "toon_write": "ร่างการ์ตูนเล่า",
+    "toon_image": "สร้างภาพ",
+    "toon_voice": "สร้างเสียงเล่า",
+    "toon_render": "render การ์ตูนเล่า",
 }
 
 # Ends the message of a job whose model failed or stopped: another app may hold the GPU.
 ADVICE = "ปิดโปรแกรมอื่นที่ใช้ GPU แล้วลองอีกครั้ง"
+
+
+def advised(message: str) -> str:
+    """`message`, then `ADVICE` (one full stop between them, even when `message` ends with one)."""
+    return f"{message.rstrip('.')}. {ADVICE}"
 
 
 class GpuSlot:

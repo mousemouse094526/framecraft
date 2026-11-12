@@ -57,8 +57,10 @@ def test_missing_marker(tmp_path):
   the real `worker`s are checked by hand with the model (seam 3); the Windows
   worker's steps are also tested against stand-in `torch` and `transformers`
   modules put in `sys.modules` (`test_spoil_maker_llm_windows.py`). A timeout test
-  swaps the per-OS table with `os_timeouts(monkeypatch, darwin=…, win32=…)`, never
-  a constant. Its pure helpers
+  swaps the per-OS table with `os_timeouts(monkeypatch, darwin=…, win32=…)` (klein's
+  picture timeout: `klein_timeouts(monkeypatch, seconds)`, one value for both OSes), never
+  a constant; a timeout that is the same on every OS and that a request can't pass in
+  (`sounds.PROBE_SECONDS`, read at start-up) is swapped on its module. Its pure helpers
   (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
   `python -c` to prove importing the adapter loads neither torch nor
   transformers.
@@ -69,7 +71,13 @@ def test_missing_marker(tmp_path):
 ## Good examples
 
 - [backend/tests/conftest.py](../../../../backend/tests/conftest.py) — the `fake_root` fixture only.
-- [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — plain helpers tests import: `write_snapshot`, `write_marker`, fake probes.
+- [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — helpers tests import: `write_snapshot`, `write_marker`, fake probes, and `Upload`/`Gate`/`play`, which play a raw upload through the app as ASGI (a page that pauses, stalls, drops or leaves).
+  `toon_api(answers, tts_seconds=, uses=)` makes the `project`, `llm`, `klein`, `tts` and
+  `client` fixtures every toon API test file takes (`project, llm, klein, tts, client =
+  toon_api(...)`, kept under those names: pytest finds a fixture by its module-level name);
+  a file writes none of them itself, and conftest keeps `fake_root` only. The calls more than
+  one toon test file makes (`new_series`, `new_ep`, `run`, `upload`, `import_tone`, …) and the toon paths (`TOON_SERIES`, …) live in
+  `fakes.py` too: a toon test file never imports another test file.
 - [backend/tests/test_setup.py](../../../../backend/tests/test_setup.py) — `FakeDownload` stands in for `snapshot_download`.
 - [backend/tests/test_app.py](../../../../backend/tests/test_app.py) — API tests monkeypatch `backend.paths.ROOT` and the default probes in `backend.checks`.
 - [backend/tests/test_spoil_api.py](../../../../backend/tests/test_spoil_api.py) — `FakeAdapter` from `fakes.py` stands in for yt-dlp; `wait_for_end` polls the job.

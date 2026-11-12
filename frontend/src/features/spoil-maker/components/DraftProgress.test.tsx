@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
@@ -209,10 +209,15 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     expect(await screen.findByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).toBeInTheDocument();
 
     current.phases.at = 1;
-    await user.click(screen.getByRole("button", { name: "เลือก Shot ใหม่" }));
+    // ต้องให้ poll อ่านรอบใหม่ก่อน: ปุ่ม "เลือก Shot ใหม่" มีเฉพาะตอนที่ UI เห็น pick job แล้ว
+    // (shouldAdvanceTime: true ทำให้บางรอบ poll ยังไม่ทันยิง → getByRole ไม่เจอปุ่ม)
+    await nextPoll();
+    await user.click(await screen.findByRole("button", { name: "เลือก Shot ใหม่" }));
+    expect(sent("POST", JOBS_PATH)).toHaveLength(1);
 
     await nextPoll();
-    expect(screen.queryByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).not.toBeInTheDocument();
+    // poll รอบใหม่ต้องมาถึงก่อน alert จึงหาย (shouldAdvanceTime ทำให้ลำดับ poll ไม่แน่นอน)
+    await waitFor(() => expect(screen.queryByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).not.toBeInTheDocument());
   });
 
   it("ยกเลิก with no answer from the backend says offline", async () => {

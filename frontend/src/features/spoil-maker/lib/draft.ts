@@ -143,13 +143,11 @@ export const DRAFT_PATH = "/api/spoil-maker/draft";
 export const DRAFT_JOBS_PATH = "/api/spoil-maker/draft-jobs";
 export const DRAFT_JOB_PATH = "/api/spoil-maker/draft-jobs/current";
 export const SETTINGS_PATH = "/api/spoil-maker/settings";
-export const VOICES_PATH = "/api/spoil-maker/voices";
 
 // The สปอย tab's hashes: its steps and the Saved voice page (spoil-maker D53, D59).
 export const SETUP_HASH = "#/spoil";
 export const REVIEW_HASH = "#/spoil/review";
 export const RENDERS_HASH = "#/spoil/renders";
-export const VOICES_HASH = "#/spoil/voices";
 
 
 /** A model or a child that stopped says the same thing (spec › Frontend); the rest say the API's message. */

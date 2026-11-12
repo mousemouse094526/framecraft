@@ -1,5 +1,12 @@
 # Progress: windows-launch
 
+**แถวเดียวของงาน Windows** (board `Manual = true`, 2026-11-10) — ทุกอย่างที่ต้องทำบนเครื่อง Windows อยู่ที่นี่ รวม `windows-check` (ticket 01–02 ของแถวนั้น) เข้ามาด้วย เพราะเป็นเช็คบนเครื่องเดียวกันและต้องรอเครื่องเดียวกัน
+
+| ที่มา | งาน | สถานะ |
+|---|---|---|
+| windows-check 01 | เช็ค setup-status บน Windows NVIDIA | ready (ย้ายมา) |
+| windows-check 02 | เช็ค spoil บน Windows NVIDIA | ready (ย้ายมา) |
+
 **Now:** 01, 02 done — โค้ด Windows ครบ เช็คด้วย worker ปลอมบน Mac แล้ว; 03 รอเครื่อง Windows RTX 30xx ขึ้นไป (Blocked #2)
 
 **Next:** บนเครื่อง Windows ที่ clone `develop` แล้ว (หลัง merge branch นี้):

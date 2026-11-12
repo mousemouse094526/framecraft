@@ -89,5 +89,36 @@ def qwen_for(sys_platform: str) -> ModelSpec:
     return QWEN_WINDOWS if sys_platform == "win32" else QWEN_MAC
 
 
+# FLUX.2 klein 4B's text encoder, vae and configs; its bf16 transformer is left out, the
+# GGUF below replaces it (toon D34). `transformer/config.json` is the `config=` the GGUF loads with.
+KLEIN = ModelSpec(
+    check_id="model_klein",
+    label="FLUX.2 klein 4B model",
+    repo_id="black-forest-labs/FLUX.2-klein-4B",
+    revision="e7b7dc27f91deacad38e78976d1f2b499d76a294",
+    allow_patterns=(
+        "model_index.json",
+        "text_encoder/*",
+        "tokenizer/*",
+        "vae/*",
+        "scheduler/*",
+        "transformer/config.json",
+    ),
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Black Forest Labs",
+)
+
+KLEIN_GGUF = ModelSpec(
+    check_id="model_klein_gguf",
+    label="FLUX.2 klein 4B GGUF",
+    repo_id="unsloth/FLUX.2-klein-4B-GGUF",
+    revision="a09d5bb51ac4000ccd9643d10e9db3ed14200508",
+    allow_patterns=("flux-2-klein-4b-Q4_K_M.gguf",),
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Unsloth",
+)
+
 # Setup downloads in this order and the checklist lists them in it too.
-MODELS = (OMNIVOICE, WHISPER, QWEN_MAC, QWEN_WINDOWS)
+MODELS = (OMNIVOICE, WHISPER, QWEN_MAC, QWEN_WINDOWS, KLEIN, KLEIN_GGUF)

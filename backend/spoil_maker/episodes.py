@@ -19,7 +19,7 @@ from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, script, settings, shots
 from backend.spoil_maker.draft_file import Ep
-from backend.spoil_maker.json_values import is_int, is_number
+from backend.json_values import is_int, is_number
 from backend.spoil_maker.script import NumberedLine
 from backend.spoil_maker.shots import ShotsFile
 

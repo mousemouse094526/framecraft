@@ -19,10 +19,14 @@ backend/
 │                    lists every job holder once, and the lifespan runs each
 │                    one's start-up clean and `stop_on_shutdown` from it
 ├── paths.py      ← project root, models/ and media/ paths (ADR 0003);
-│                    `paths.project()` is the one routes read per request
+│                    `paths.project()` is the one routes read per request;
+│                    `EpAddress` (one toon EP: project, Series, EP, and its
+│                    folders) is what every function of one EP and its
+│                    `/eps/{ep_id}` routes take (`episodes.address_of`
+│                    makes it and never refuses; `episodes.read` gives `404`)
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
 ├── checks.py     ← Status check, shared by setup and the API
-├── disk.py       ← free disk space, shared by setup, spoil and the Render job
+├── disk.py       ← free disk space and the 1 GiB `disk_full` check: setup, spoil, both renders, toon jobs
 ├── fonts.py      ← Kanit Bold pinned by commit and sha256: setup fetches it, the
 │                    Status check checks it, the Render job draws with it
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
@@ -33,12 +37,26 @@ backend/
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
-│                    `PYTHAINLP`, `qwen_jobs`), named once (ADR 0009)
-├── jobs.py       ← JobSlot (one job of a kind, ADR 0010), ModelJobSlot (a job
-│                    whose model runs in a child: cancel, shutdown,
-│                    `_run_job`, the one ending of every job's thread that
-│                    frees the GPU) and the child process helpers every GPU
-│                    job uses (ADR 0012)
+│                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
+├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
+│                    ModelJobSlot (a job whose model runs in a child: cancel,
+│                    shutdown, `_run_job`, the one ending of every job's thread
+│                    that frees the GPU) and the child process helpers every GPU
+│                    job uses (ADR 0012); a child starts only through
+│                    `start_child` (tracked, then its first message waited for;
+│                    a child that says nothing until asked, klein's, is only
+│                    `track`ed) and stops only through `stop_child` (`free_gpu` also frees
+│                    the GPU mid-job); a slot's steps and its `Speaker` call
+│                    `update`, `start_child`, `ask`, `stop_child`; `worker_error_message`, the
+│                    message of a child's `WorkerError` (`gpu.ADVICE` unless one of
+│                    `CODE_ERROR_TYPES`, toon D84)
+├── workers.py    ← `Worker`, a model's child with its request and reply queues:
+│                    every adapter's `start_worker` (klein's `start_encoder`,
+│                    `start_drawer`) returns one, `end` asks it to exit;
+│                    the stack dumpers of a child that hangs (`dump_stacks_on_signal`,
+│                    `dump_stacks_after`, toon D76), `as_worker_error` (a child's error as its
+│                    `WorkerError`, printed whole) and `error_detail`/`error_type_of` of its
+│                    `detail` (toon D85) (standard library only, as a child imports it)
 ├── gpu.py        ← the one GPU slot every model job takes (ADR 0015), the
 │                    Spoil draft's lock (`slot.draft_lock`, spoil-maker D51);
 │                    its own lock also guards a clip's files: `clip_untouched`
@@ -47,7 +65,8 @@ backend/
 │                    `begin_trim` marks the clip a Trim job cuts, which every
 │                    job that reads it is refused until `end_trim` — the mark
 │                    outlives the `with` (spoil D42); `trimmed_clip_swap`
-│                    guards putting the new mp4 in place
+│                    guards putting the new mp4 in place; `advised` ends a failed
+│                    job's message with `ADVICE`
 ├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel)
 │                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
 │                    frames and compose share it
@@ -74,8 +93,7 @@ backend/
 │                    llm (the only mlx-vlm import; picks the child per OS), tts (the only omnivoice
 │                    import), voices (Saved voices, Voice job), thai
 │                    (numbers as words, letter count, the only pythainlp
-│                    import), json_values (int and number checks of a JSON
-│                    value), draft_file (the Spoil draft on disk; spoil
+│                    import), draft_file (the Spoil draft on disk; spoil
 │                    imports it), draft (the draft's view and edits, the
 │                    Draft job), episodes (a clip's EP cuts on disk, the
 │                    EP list and its token count, D66), script (the
@@ -88,6 +106,64 @@ backend/
 │                    transformers VLM and bitsandbytes import, windows-launch
 │                    D3); llm's, llm_windows's and tts's `worker` run in a
 │                    child process; `llm.TIMEOUTS` holds each OS's timeouts
+├── toon/         ← the การ์ตูนเล่า tab (toon spec): store (`series.json`,
+│                    `ep.json` and `sounds.json` on disk, the tab's one lock),
+│                    kinds (what differs between characters and backgrounds,
+│                    one row each: code that handles both reads it, never
+│                    `kind == "characters"`), series (Series, characters,
+│                    backgrounds, reference pictures and their uploads,
+│                    `ItemRef` (one item: project, Series, kind, id; what
+│                    every function of one item and its routes take),
+│                    `in_use`, `new_items` of a plot, `ref_revs`; `series_jobs`, each job
+│                    slot, whose running job's Series can't go), episodes
+│                    (EPs, their plot (`plot_items`, the user's or Qwen's),
+│                    acts, segments and cards, each card's
+│                    state; `ep_jobs`, where each job slot says the EP it
+│                    works on as an `EpUse`: locks it, renders it), writer
+│                    (the Plot and Cards prompts and the reading of Qwen's
+│                    answers through llm_reply), prompts
+│                    (the picture prompts and the reading of Qwen's scene),
+│                    jobs (the Toon job slot: it starts and ends every kind
+│                    the same way from each kind's `WORK`, a `steps.Work`),
+│                    steps (what the kinds share: Qwen's and klein's children,
+│                    `open_klein` the one start of klein, `ask_klein`, `Run`, what a kind's
+│                    steps call on the slot); a variable of `kinds.ItemKind`
+│                    (characters or backgrounds) is `item_kind`, as `kind`
+│                    names a job's (in a response too, as
+│                    `missing_refs[].item_kind`); one module per kind: plot, cards, refs (Ref job), images (Image job:
+│                    which cards it draws, each picture it writes, swapping
+│                    back), voicing (Voice job: a card's narration), klein (the
+│                    only diffusers import; two children one after the other:
+│                    `encoder_worker`, then `drawer_worker`, D34, D77), sounds (the background sound library and
+│                    its Sound import slot: a file in one request, which a page
+│                    gone during ffmpeg never brings in, a link
+│                    through spoil's adapter with `LINK_OPTIONS`), render (the
+│                    Render job, its own slot, and an EP's renders), compose (a
+│                    render's timeline, its ffmpeg commands and its ASS file,
+│                    through `subtitles`)
+├── speaking.py   ← `Speaker`, which speaks texts in a Saved voice in an
+│                    OmniVoice child for the job slot that holds it (it is
+│                    given the slot and calls its `track` and `reply`, never
+│                    as its base), and
+│                    the wav it writes: spoil_maker's Voice and Render jobs,
+│                    toon's Voice and Render jobs
+├── subtitles.py  ← what every render's text shares: the ASS header, a Dialogue line,
+│                    Thai text cut into lines or short chunks and their times, the
+│                    `.srt`; spoil_maker's captions and toon's compose lay them out
+├── renders.py    ← what every render's results folder shares: a `Render` (folder and
+│                    name as one value, `next_free` picks it; its `finish`,
+│                    `require`, `delete`), the complete
+│                    renders (`results`, `listed`), `latest_at`, the job's `percent`
+│                    (`pieces_percent`, `encode_progress`), the finish (`finish`: json last), the
+│                    delete (mp4 first, `409` `in_use`, json last), leftover `.partial`s;
+│                    spoil_maker's and toon's render keep their folders and call it, and gate
+│                    on `gate_rows.render`
+├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
+│                    File import and toon's reference uploads share it
+├── json_values.py← int and number checks of a JSON value (JSON `true` is an
+│                    int to Python): spoil_maker and toon share it
+├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK
+│                    letters: spoil_maker's script and toon's writer share it
 ├── routes/       ← one router file per feature, e.g. setup_status.py, stories.py
 └── tests/        ← pytest, test_{module}.py
 ```
@@ -120,16 +196,19 @@ through a queue; the thread writes the result file (ADR 0012).
 - Only one module per library that talks to the outside world (the yt-dlp
   adapter, the Whisper adapter in `backend.spoil`, the mlx-vlm adapter
   `spoil_maker.llm`, the OmniVoice adapter `spoil_maker.tts`, the tokenizer
-  `spoil_maker.tokens`); tests replace it with a fake (`spoil.adapter`,
-  `spoil.start_worker`, `spoil_maker.start_worker`, `spoil_maker.start_tts_worker`,
-  `spoil_maker.count_tokens`).
-- torch, transformers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
+  `spoil_maker.tokens`, the diffusers adapter `toon.klein`); tests replace it with a
+  fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
+  `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_encoder`,
+  `toon.klein.start_drawer`).
+- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
 - Locks are taken in one order: a job slot's, then `spoil.clips.files_lock`
   (a Temp clip's mp4 and Transcript, spoil D46), then `gpu.slot.draft_lock`,
   then the GPU slot's own (inside `GpuSlot`); never the other way round.
+  `toon.store.lock` comes after `draft_lock` and before the GPU slot's own (a
+  Series' `voice_id` is written under `draft_lock`, toon D25).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
@@ -158,6 +237,9 @@ through a queue; the thread writes the result file (ADR 0012).
 - Qwen's spec comes from `models.qwen_for(checks.this_platform())` when it is used,
   never `QWEN_MAC` or `QWEN_WINDOWS` directly (ADR 0025).
 - `setup.ps1` stays ASCII-only; Thai text is printed from Python.
+- A Python file in `scripts/` is a tool run by hand (`.venv/bin/python scripts/….py`), never
+  imported by the backend: standard library only, and the Python rules of
+  `docs/library-notes/python.md` (files opened with `encoding="utf-8"`) (toon D78).
 
 ## Rules by layer
 
