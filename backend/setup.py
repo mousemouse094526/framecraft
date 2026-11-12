@@ -5,6 +5,7 @@ everything else happens here. Every step can be re-run: models that are
 already `ok` are skipped and snapshot_download skips finished files.
 """
 
+import fnmatch
 import json
 import os
 import shutil
@@ -14,21 +15,27 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from backend import disk
+from backend import disk, fonts
 from backend.checks import (
-    FfmpegInfo,
+    Probes,
     StatusResponse,
     check_model,
+    named_patterns,
     now_iso,
+    qwen_gpu_problem,
+    real_probes,
     run_checks,
 )
-from backend.models import MODELS, ModelSpec
+from backend.models import MODELS, ModelSpec, qwen_for
 from backend.paths import ROOT, ProjectPaths
 
 IS_WINDOWS = sys.platform == "win32"
 BACKEND_ADDRESS = ("127.0.0.1", 8000)
-# Both models are about 5 GB; the rest is headroom for partial downloads.
-REQUIRED_FREE_BYTES = 15_000_000_000
+# The models are about 22 GB on a Mac and 35 GB on Windows, whose Qwen is bf16 (19 GB), with
+# klein's 11 GB on both (toon D34, D51); the rest is headroom for partial downloads (windows-launch
+# D12). A Windows card under Qwen's target skips it, and needs only the 16 GB of the others (D14).
+REQUIRED_FREE_BYTES = {"darwin": 32_000_000_000, "win32": 42_000_000_000}
+REQUIRED_FREE_BYTES_WITHOUT_QWEN = 27_000_000_000
 STATUS_ICONS = {"ok": "✓", "warning": "!", "missing": "✗"}
 
 Download = Callable[..., str]
@@ -39,18 +46,19 @@ def run_setup(
     *,
     download: Download | None = None,
     npm_install: Callable[[Path], None] | None = None,
+    fetch: Callable[[str], bytes] | None = None,
     backend_running: Callable[[], bool] | None = None,
     free_bytes: Callable[[Path], int] | None = None,
-    device_probe: Callable[[], str] | None = None,
-    ffmpeg_probe: Callable[[], FfmpegInfo] | None = None,
-    deno_probe: Callable[[], str] | None = None,
-    yt_dlp_probe: Callable[[], str] | None = None,
+    probes: Probes | None = None,
+    sys_platform: str = sys.platform,
 ) -> int:
     """Downloads what is missing and prints the checklist. Returns the exit code."""
     download = download or _snapshot_download
     npm_install = npm_install or _npm_install
+    fetch = fetch or fonts.fetch_https
     backend_running = backend_running or _backend_running
     free_bytes = free_bytes or disk.free_bytes
+    probes = probes or real_probes()
     project = ProjectPaths(root)
 
     # A running backend holds torch's files open, so Windows can't update them.
@@ -63,15 +71,24 @@ def run_setup(
         return 1
     step = "เช็คโมเดล"
     try:
-        to_download = [m for m in MODELS if check_model(project, m)[0] != "ok"]
+        # Each OS downloads only its own models: the MLX one doesn't run on Windows (spoil-maker D50).
+        to_download = [
+            m for m in MODELS if sys_platform in m.platforms and check_model(project, m)[0] != "ok"
+        ]
+        skip = _qwen_skip_reason(probes, sys_platform)
+        if skip:
+            qwen = qwen_for(sys_platform)
+            to_download = [m for m in to_download if m != qwen]
+            print(f"ข้าม {qwen.label}: {skip}")
         if to_download:
             step = "เช็คที่ว่างบนดิสก์"
             free = free_bytes(root)
-            if free < REQUIRED_FREE_BYTES:
-                print(
-                    f"ที่ว่างบนดิสก์ไม่พอ: มี {free / 1e9:.1f} GB "
-                    f"ต้องการ {REQUIRED_FREE_BYTES // 1_000_000_000} GB"
-                )
+            # Another OS (Linux, for tests) is held to the larger, Mac figure.
+            required = REQUIRED_FREE_BYTES.get(sys_platform, REQUIRED_FREE_BYTES["darwin"])
+            if skip:
+                required = REQUIRED_FREE_BYTES_WITHOUT_QWEN
+            if free < required:
+                print(f"ที่ว่างบนดิสก์ไม่พอ: มี {free / 1e9:.1f} GB ต้องการ {required // 1_000_000_000} GB")
                 return 1
         for model in to_download:
             step = f"โหลด {model.repo_id}"
@@ -82,7 +99,12 @@ def run_setup(
                 cache_dir=project.hub_dir,
                 allow_patterns=list(model.allow_patterns),
             )
+            _check_named_files(model, Path(snapshot))
             _write_marker(project, model, Path(snapshot))
+        if fonts.check_kanit(project)[0] != "ok":
+            step = "โหลด Kanit"
+            print("กำลังโหลด font Kanit…")
+            fonts.install_kanit(project, fetch)
         step = "npm install"
         print("กำลังรัน npm install…", flush=True)  # before npm writes its own output
         npm_install(root)
@@ -93,13 +115,7 @@ def run_setup(
     finally:
         project.setup_lock.unlink(missing_ok=True)
 
-    result = run_checks(
-        root,
-        device_probe=device_probe,
-        ffmpeg_probe=ffmpeg_probe,
-        deno_probe=deno_probe,
-        yt_dlp_probe=yt_dlp_probe,
-    )
+    result = run_checks(root, probes, sys_platform)
     _print_checklist(result)
     if not result.ready:
         missing = [i.label for i in result.items if i.status == "missing"]
@@ -107,6 +123,16 @@ def run_setup(
         return 1
     print("ขั้นต่อไป: รัน npm run dev แล้วเปิด http://localhost:5173")
     return 0
+
+
+def _qwen_skip_reason(probes: Probes, sys_platform: str) -> str | None:
+    """Why Qwen isn't downloaded here: on Windows, the gpu row's fix when the card misses
+    Qwen's target or nvidia-smi can't read it, so 19 GB it may not run never come down
+    (windows-launch D9). The rows warn, and setup still exits 0."""
+    if sys_platform != "win32":
+        return None
+    problem = qwen_gpu_problem(probes.gpu)
+    return problem.text if problem else None
 
 
 def _snapshot_download(repo_id: str, **kwargs) -> str:
@@ -136,6 +162,7 @@ def _backend_running() -> bool:
 def _take_lock(lock: Path) -> bool:
     """Creates the lock with our PID unless a live process already holds it."""
     lock.parent.mkdir(parents=True, exist_ok=True)
+    # Two tries: the second follows removing a lock whose setup died.
     for _ in range(2):
         try:
             # O_EXCL: of two setups started together, only one creates the file.
@@ -189,6 +216,16 @@ def _windows_pid_alive(pid: int) -> bool:
         return code.value == still_active
     finally:
         kernel32.CloseHandle(handle)
+
+
+def _check_named_files(model: ModelSpec, snapshot: Path) -> None:
+    """Every pattern that names a file or a folder (`text_encoder/*`) matched a file: a download
+    can finish with a folder holding nothing (toon trial-klein-mac › 5.3), so its exit isn't trusted.
+    The same patterns the Status check looks for in the marker (`checks.named_patterns`, D50)."""
+    found = [path.relative_to(snapshot).as_posix() for path in snapshot.rglob("*") if path.is_file()]
+    for pattern in named_patterns(model):
+        if not any(fnmatch.fnmatch(name, pattern) for name in found):
+            raise RuntimeError(f"ไม่พบไฟล์ {pattern} หลังโหลด")
 
 
 def _write_marker(project: ProjectPaths, model: ModelSpec, snapshot: Path) -> None:

@@ -1,0 +1,41 @@
+import type { Refusal } from "./refusal";
+
+// How the app names the job holding the GPU (spoil-maker spec › Frontend, `gpu_busy`).
+const RUNNING_NAMES: Record<string, string> = {
+  transcribe: "ถอดบทพูด",
+  describe: "บรรยายฉาก",
+  draft: "ร่างบท",
+  voice: "สร้างเสียง",
+  render: "render",
+  toon_write: "ร่างการ์ตูนเล่า",
+  toon_image: "สร้างภาพ",
+  toon_voice: "สร้างเสียงเล่า",
+  toon_render: "render การ์ตูนเล่า",
+};
+
+/** The `…/current` of each GPU job the Saved voice page polls to see it end. A render holds
+ * the GPU only while it voices, which its `…/current` can't tell apart, so it names itself. */
+export const GPU_JOB_PATHS: Record<string, string> = {
+  transcribe: "/api/spoil/transcriptions/current",
+  describe: "/api/spoil-maker/describes/current",
+  draft: "/api/spoil-maker/draft-jobs/current",
+  toon_write: "/api/toon/jobs/current",
+  toon_image: "/api/toon/jobs/current",
+  toon_voice: "/api/toon/jobs/current",
+  toon_render: "/api/toon/render/current",
+};
+
+/** "รอให้งาน{running}เสร็จก่อน": why a GPU job can't start while `running` holds the GPU (spoil-maker D45). */
+export function gpuBusyText(running: string): string {
+  return `รอให้งาน${RUNNING_NAMES[running] ?? running}เสร็จก่อน`;
+}
+
+/**
+ * What to tell the user for a refusal that means "not now, another job has it":
+ * `gpu_busy` names the running job, `clip_busy` says the API's message. Null for any other refusal.
+ */
+export function busyText(refusal: Refusal | null): string | null {
+  if (refusal?.code === "gpu_busy") return gpuBusyText(refusal.running ?? "");
+  if (refusal?.code === "clip_busy") return refusal.message;
+  return null;
+}

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ModelSpec:
-    check_id: str
+    check_id: str  # the model's Checklist item id, e.g. "model_omnivoice"
     label: str
     repo_id: str
     revision: str
@@ -17,6 +17,8 @@ class ModelSpec:
     license: str
     license_url: str
     author: str
+    # The `sys.platform` values the model runs on; setup skips it elsewhere (spoil-maker D50).
+    platforms: tuple[str, ...] = ("darwin", "win32")
 
     @property
     def model_url(self) -> str:
@@ -54,5 +56,69 @@ WHISPER = ModelSpec(
     author="OpenAI",
 )
 
+QWEN_MAC = ModelSpec(
+    check_id="model_qwen",
+    label="Qwen3.5 9B model",
+    repo_id="mlx-community/Qwen3.5-9B-MLX-4bit",
+    revision="938d8919941c6e7efd3c7150eff7fe9d12afa631",
+    # Tokenizer and chat template included: `AutoTokenizer` counts tokens from them (spoil-maker D46).
+    allow_patterns=("*.json", "*.safetensors", "*.txt", "*.jinja"),
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Qwen",
+    platforms=("darwin",),  # an MLX model: Apple Silicon only (spoil-maker D50)
+)
+
+# bf16 weights that transformers shrinks to 4-bit with bitsandbytes as it loads them (windows-launch D3).
+QWEN_WINDOWS = ModelSpec(
+    check_id="model_qwen",
+    label="Qwen3.5 9B model",
+    repo_id="Qwen/Qwen3.5-9B",
+    revision="c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    allow_patterns=QWEN_MAC.allow_patterns,
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Qwen",
+    platforms=("win32",),
+)
+
+
+def qwen_for(sys_platform: str) -> ModelSpec:
+    """Qwen as the OS runs it; one Checklist item, `model_qwen`, either way (windows-launch D6).
+    Callers pass `checks.this_platform()` when they use it, so tests can swap the OS."""
+    return QWEN_WINDOWS if sys_platform == "win32" else QWEN_MAC
+
+
+# FLUX.2 klein 4B's text encoder, vae and configs; its bf16 transformer is left out, the
+# GGUF below replaces it (toon D34). `transformer/config.json` is the `config=` the GGUF loads with.
+KLEIN = ModelSpec(
+    check_id="model_klein",
+    label="FLUX.2 klein 4B model",
+    repo_id="black-forest-labs/FLUX.2-klein-4B",
+    revision="e7b7dc27f91deacad38e78976d1f2b499d76a294",
+    allow_patterns=(
+        "model_index.json",
+        "text_encoder/*",
+        "tokenizer/*",
+        "vae/*",
+        "scheduler/*",
+        "transformer/config.json",
+    ),
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Black Forest Labs",
+)
+
+KLEIN_GGUF = ModelSpec(
+    check_id="model_klein_gguf",
+    label="FLUX.2 klein 4B GGUF",
+    repo_id="unsloth/FLUX.2-klein-4B-GGUF",
+    revision="a09d5bb51ac4000ccd9643d10e9db3ed14200508",
+    allow_patterns=("flux-2-klein-4b-Q4_K_M.gguf",),
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Unsloth",
+)
+
 # Setup downloads in this order and the checklist lists them in it too.
-MODELS = (OMNIVOICE, WHISPER)
+MODELS = (OMNIVOICE, WHISPER, QWEN_MAC, QWEN_WINDOWS, KLEIN, KLEIN_GGUF)

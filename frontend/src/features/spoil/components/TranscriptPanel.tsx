@@ -1,0 +1,289 @@
+import { useLayoutEffect, useState, type RefObject } from "react";
+import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { useCopy } from "../../../lib/useCopy";
+import { notice, type Notice } from "../lib/notice";
+import { videoUrl, type TempClip } from "../../../lib/clips";
+import { transcriptPath, type LineEditResult, type TranscribeJob, type Transcript } from "../hooks/useTranscribe";
+import clockIcon from "../assets/clock.svg";
+import copyIcon from "../../../components/ui/assets/copy.svg";
+import fileIcon from "../assets/file-text.svg";
+import fileText24Icon from "../../../components/ui/assets/file-text-24.svg";
+import { formatClock, formatDuration } from "../../../lib/format";
+import { DraftWarning } from "./DraftWarning";
+import { NoticeAlert } from "./NoticeAlert";
+import { NotReady } from "./NotReady";
+import { ProgressCard } from "./ProgressCard";
+import { TranscriptLineItem } from "./TranscriptLineItem";
+import { TrimSection, type TrimControls } from "./TrimSection";
+import type { TrimView } from "../hooks/useTrim";
+import { TRIMMING_THIS_CLIP } from "../lib/trim";
+
+type Props = {
+  /** The selected clip, or null (D25). */
+  clip: TempClip | null;
+  videoRef: RefObject<HTMLVideoElement | null>;
+  /** Start the player: the user picked the clip, rather than the tab opening on its job. */
+  autoPlay: boolean;
+  /** Labels of the Transcribe job's items that aren't ok (D27). */
+  missing: string[];
+  /** The unfinished Transcribe job, of this clip or another. */
+  job: TranscribeJob | null;
+  /** The title of the clip `job` is on. */
+  jobTitle: string | null;
+  /** The message after this clip's last job or refusal (D33); also shown once the clip is gone. */
+  notice: Notice | null;
+  transcript: Transcript | null;
+  /** `confirmDraftLoss`: the user went on past the Spoil draft warning (spoil-maker D49). */
+  onStart: (confirmDraftLoss?: boolean) => void;
+  onCancel: () => void;
+  /** Saves line `index`'s new text (spoil-maker D54). */
+  onEditLine: (clipId: string, index: number, text: string) => Promise<LineEditResult>;
+  /** The player holds no file while the clip is posted to, or being, trimmed (D41). */
+  playerReleased: boolean;
+  /** The message after this clip's last trim or refusal (D33). */
+  trimNotice: Notice | null;
+  /** The ตัดช่วง section of `clip`, under its title (D38); null with no clip. */
+  trim: TrimControls | null;
+};
+
+/** What stands under the clip's title: one state of the panel's table (spec › Frontend). */
+type Action =
+  | { kind: "progress"; job: TranscribeJob }
+  | { kind: "notReady" }
+  /** ถอดบทพูด disabled, saying why: another clip's job, or the ตัดช่วง section (D38). */
+  | { kind: "blocked"; reason: string }
+  | { kind: "transcribed" }
+  | { kind: "start" };
+
+function actionOf(clip: TempClip, missing: string[], job: TranscribeJob | null, jobTitle: string | null, trimView: TrimView): Action {
+  if (job !== null && job.clip_id === clip.id) return { kind: "progress", job };
+  if (missing.length > 0) return { kind: "notReady" };
+  if (job !== null) return { kind: "blocked", reason: `กำลังถอด ${jobTitle}` };
+  if (trimView.kind === "running") return { kind: "blocked", reason: TRIMMING_THIS_CLIP };
+  if (trimView.kind === "editing") return { kind: "blocked", reason: "กดตัดคลิปหรือยกเลิกก่อน" };
+  return clip.transcribed ? { kind: "transcribed" } : { kind: "start" };
+}
+
+const TRANSCRIBED = notice("info", "คลิปนี้ถอดแล้ว");
+
+/** Figma component `Transcript panel`: the selected clip's player, its Transcribe job and Transcript (D22–D27, D33). */
+export function TranscriptPanel(props: Props) {
+  const { clip, videoRef, autoPlay, missing, job, jobTitle, notice, transcript, onStart, onCancel, onEditLine } = props;
+  const { playerReleased, trimNotice, trim } = props;
+
+  // Without `src` the player still holds its file until `load()` (D41); a new `src` loads by itself.
+  useLayoutEffect(() => {
+    if (playerReleased) videoRef.current?.load();
+  }, [playerReleased, videoRef]);
+
+  // `trim` is null exactly when `clip` is.
+  if (clip === null || trim === null) {
+    return (
+      <section
+        aria-label="กล่องถอดบทพูด"
+        className="flex min-w-0 flex-1 flex-col items-center gap-2 rounded-2xl border border-border bg-card px-4 py-16"
+      >
+        {/* A clip that turned out to be gone (404) leaves its message here (D33). */}
+        {notice && (
+          <div className="w-full pb-6">
+            <NoticeAlert notice={notice} />
+          </div>
+        )}
+        <img src={fileText24Icon} alt="" width={24} height={24} />
+        <p className="text-sm leading-[1.5] text-muted-foreground">เลือกคลิปจากรายการ</p>
+      </section>
+    );
+  }
+
+  const action = actionOf(clip, missing, job, jobTitle, trim.view);
+  return (
+    <section
+      aria-label="กล่องถอดบทพูด"
+      className="flex min-w-0 flex-1 flex-col gap-4 rounded-2xl border border-border bg-card p-4"
+    >
+      {/* Figma component `Player`; keyed so another clip starts a fresh element. */}
+      <video
+        ref={videoRef}
+        key={clip.id}
+        // Each trim changes `?v=`, so the new file plays, not a cached old one (D41).
+        src={playerReleased ? undefined : videoUrl(clip)}
+        controls
+        autoPlay={autoPlay}
+        className="h-[284px] w-full rounded-2xl bg-surface-inverse"
+      />
+      <div className="flex flex-col gap-0.5 leading-[1.5]">
+        <p className="text-sm font-medium break-words text-foreground">{clip.title}</p>
+        {clip.duration_s !== null && (
+          <p className="font-mono text-[13px] text-muted-foreground">{formatDuration(clip.duration_s)}</p>
+        )}
+      </div>
+      {trimNotice && <NoticeAlert notice={trimNotice} />}
+      {notice && <NoticeAlert notice={notice} />}
+      <TrimSection key={`trim-${clip.id}`} videoRef={videoRef} durationS={clip.duration_s} {...trim} />
+      <ActionArea
+        // Keyed apart from the player: another clip starts with no warning open.
+        key={`action-${clip.id}`}
+        action={action}
+        transcribed={clip.transcribed}
+        inDraft={clip.in_draft}
+        missing={missing}
+        onStart={onStart}
+        onCancel={onCancel}
+      />
+      {/* A new job replaces the Transcript when it ends; until then only its progress shows. */}
+      {clip.transcribed && transcript && action.kind !== "progress" && (
+        // Keyed apart from the player beside it, so another clip starts with no field open.
+        <TranscriptView key={`lines-${clip.id}`} transcript={transcript} videoRef={videoRef} onEditLine={(index, text) => onEditLine(clip.id, index, text)} />
+      )}
+    </section>
+  );
+}
+
+type ActionProps = {
+  action: Action;
+  transcribed: boolean;
+  /** The Spoil draft is made from this clip: ถอดใหม่ warns first (spoil-maker D49). */
+  inDraft: boolean;
+  missing: string[];
+  onStart: (confirmDraftLoss?: boolean) => void;
+  onCancel: () => void;
+};
+
+function ActionArea({ action, transcribed, inDraft, missing, onStart, onCancel }: ActionProps) {
+  const [warning, setWarning] = useState(false);
+  if (warning) {
+    const go = () => {
+      setWarning(false);
+      onStart(true);
+    };
+    return <DraftWarning onGo={go} onCancel={() => setWarning(false)} />;
+  }
+  switch (action.kind) {
+    case "progress":
+      return <JobProgress job={action.job} onCancel={onCancel} />;
+    case "notReady":
+      return <NotReady missing={missing} />;
+    case "blocked":
+      return (
+        <div className="flex items-center gap-3">
+          <button type="button" disabled className={`h-9 px-4 ${PRIMARY_BUTTON}`}>
+            {transcribed ? "ถอดใหม่" : "ถอดบทพูด"}
+          </button>
+          <img src={clockIcon} alt="" width={16} height={16} className="shrink-0" />
+          <p className="min-w-0 flex-1 text-sm leading-[1.5] text-mid">{action.reason}</p>
+        </div>
+      );
+    case "transcribed":
+      return (
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <NoticeAlert notice={TRANSCRIBED} />
+          </div>
+          <button type="button" onClick={() => (inDraft ? setWarning(true) : onStart())} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
+            ถอดใหม่
+          </button>
+        </div>
+      );
+    case "start":
+      return (
+        <button type="button" onClick={() => onStart()} className={`h-9 w-fit px-4 ${PRIMARY_BUTTON}`}>
+          ถอดบทพูด
+        </button>
+      );
+  }
+}
+
+/** "กำลังเตรียมเสียง…" with a bar and no number, then "กำลังถอด" with its percent (D33). */
+function JobProgress({ job, onCancel }: { job: TranscribeJob; onCancel: () => void }) {
+  const transcribing = job.state === "transcribing";
+  const headline = job.cancel_requested ? "กำลังยกเลิก…" : transcribing ? "กำลังถอด" : "กำลังเตรียมเสียง…";
+  const percent = transcribing ? job.percent : null;
+  return (
+    <ProgressCard
+      headline={headline}
+      percent={percent}
+      bar={percent ?? "unknown"}
+      cancelling={job.cancel_requested}
+      onCancel={onCancel}
+    />
+  );
+}
+
+type ViewProps = {
+  transcript: Transcript;
+  videoRef: RefObject<HTMLVideoElement | null>;
+  onEditLine: (index: number, text: string) => Promise<LineEditResult>;
+};
+
+/** The heading, Copy and the two files, then the lines; none of the buttons when there are no lines (D33). */
+function TranscriptView({ transcript, videoRef, onEditLine }: ViewProps) {
+  const empty = transcript.lines.length === 0;
+  // One line at a time is a field; opening another drops the first one's unsaved text.
+  const [editing, setEditing] = useState<number | null>(null);
+
+  const save = async (index: number, text: string) => {
+    const result = await onEditLine(index, text);
+    if (result.kind === "saved") setEditing(null);
+    return result;
+  };
+
+  const jumpTo = (seconds: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = seconds;
+    // A refused autoplay leaves the player paused at the line; it's still there to press play.
+    void video.play()?.catch(() => {});
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-col leading-[1.5] whitespace-nowrap">
+          <h3 className="text-sm font-medium text-foreground">บทพูด</h3>
+          <p className="truncate font-mono text-xs text-muted-foreground">ภาษา: {transcript.language ?? "ไม่ทราบ"}</p>
+        </div>
+        {!empty && <TranscriptActions transcript={transcript} />}
+      </div>
+      {empty ? (
+        <p className="rounded-xl bg-muted px-2 py-8 text-center text-sm leading-[1.5] text-muted-foreground">
+          ไม่พบคำพูดในคลิปนี้
+        </p>
+      ) : (
+        <ol className="flex max-h-[320px] flex-col overflow-y-auto rounded-xl bg-muted p-2 leading-[1.5]">
+          {transcript.lines.map((line, index) => (
+            <TranscriptLineItem
+              key={index}
+              line={line}
+              editing={editing === index}
+              onJump={() => jumpTo(line.start_s)}
+              onStartEdit={() => setEditing(index)}
+              onClose={() => setEditing(null)}
+              onSave={(text) => save(index, text)}
+            />
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** Copy takes the same text as `.txt` (spec › Frontend); the files are links the browser downloads. */
+function TranscriptActions({ transcript }: { transcript: Transcript }) {
+  const text = transcript.lines.map((line) => `[${formatClock(line.start_s)}] ${line.text}\n`).join("");
+  const { copied, copy } = useCopy(text);
+  const path = transcriptPath(transcript.clip_id);
+  return (
+    <>
+      <button type="button" onClick={copy} title={copied ? "คัดลอกแล้ว" : "คัดลอก"} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
+        <img src={copyIcon} alt="" width={16} height={16} />
+        {/* English, as on the Button in Figma (D19). */}
+        Copy
+      </button>
+      {(["txt", "srt"] as const).map((extension) => (
+        <a key={extension} href={`${path}.${extension}`} download className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
+          <img src={fileIcon} alt="" width={16} height={16} />.{extension}
+        </a>
+      ))}
+    </>
+  );
+}

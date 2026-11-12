@@ -1,97 +1,100 @@
-import { useEffect, useRef } from "react";
-import { CLIPS_PATH, type TempClip } from "../hooks/useTempClips";
-import deleteErrorIcon from "../assets/delete-error.svg";
+import { useEffect, useRef, useState } from "react";
+import { CLIPS_PATH, LOCAL_SITE, YOUTUBE_SITE, type TempClip } from "../../../lib/clips";
+import { DescribeControls, type DescribeProps } from "./DescribeControls";
+import { DraftWarning } from "./DraftWarning";
+import { formatDuration } from "../../../lib/format";
+import circleAlertIcon from "../../../components/ui/assets/circle-alert.svg";
 import playActiveIcon from "../assets/thumb-play-active.svg";
-import playIcon from "../assets/thumb-play.svg";
-import trashIcon from "../assets/trash.svg";
+import playIcon from "../../../components/ui/assets/play.svg";
+import trashIcon from "../../../components/ui/assets/trash.svg";
 
 type Props = {
   clips: TempClip[];
-  playingId: string | null;
+  /** The clip in the transcript panel's player (D25). */
+  selectedId: string | null;
+  /** The clips an unfinished Transcribe or Trim job is on: the API refuses their delete. */
+  busyIds: string[];
   deleteErrors: Record<string, string>;
   /** The row the message above is about: a new clip or a duplicate link (D12). */
   highlightId: string | null;
-  /** A clip id to play, or null to close the player. */
-  onPlay: (id: string | null) => void;
-  /** Called once the player has let go of the clip (D15). */
+  onSelect: (clip: TempClip) => void;
+  /** Lets go of the selected clip's file and empties the panel (D15). */
+  onClosePlayer: () => void;
   onDelete: (id: string) => void;
+  describe: DescribeProps;
 };
 
-/** The player of the clicked clip, then the list, newest first (D7, D18). */
-export function TempClipList({ clips, playingId, deleteErrors, highlightId, onPlay, onDelete }: Props) {
-  const video = useRef<HTMLVideoElement>(null);
-
+/** The Temp clip list, newest first; a row puts its clip in the transcript panel (D7, D18, D25). */
+export function TempClipList(props: Props) {
+  const { clips, selectedId, busyIds, deleteErrors, highlightId, onSelect, onClosePlayer, onDelete, describe } = props;
+  /** After the row's confirm: the browser's for most clips, the draft warning for one in the Spoil draft. */
   const remove = (clip: TempClip) => {
-    if (!window.confirm(`ลบ ${clip.title}?`)) return;
-    if (clip.id === playingId && video.current) {
-      // Windows can't delete a file the player still holds open (D15). The
-      // player stays closed even when the delete is refused.
-      video.current.removeAttribute("src");
-      video.current.load();
-      onPlay(null);
-    }
+    // Windows can't delete a file the player still holds open (D15). The panel
+    // stays empty even when the delete is refused, except for the clip being
+    // transcribed or trimmed: the API refuses that one, so its progress stays (D34, D41).
+    if (clip.id === selectedId && !busyIds.includes(clip.id)) onClosePlayer();
     onDelete(clip.id);
   };
 
   return (
-    <>
-      {playingId && (
-        <video
-          ref={video}
-          key={playingId}
-          src={`${CLIPS_PATH}/${playingId}/video`}
-          controls
-          autoPlay
-          className="aspect-video w-full rounded-2xl bg-surface-inverse"
-        />
+    <section className="overflow-hidden rounded-2xl border border-border bg-card">
+      <h2 className="flex items-center gap-2 px-4 py-3 whitespace-nowrap">
+        <span className="text-sm leading-[1.5] font-medium text-foreground">คลิปที่โหลดมา</span>{" "}
+        <span className="font-mono text-[13px] leading-[1.5] font-normal text-muted-foreground">{clips.length}</span>
+      </h2>
+      {clips.length === 0 ? (
+        <p className="border-t border-border pt-10 pb-11 text-center text-sm leading-[1.5] text-muted-foreground">
+          ยังไม่มีคลิป วางลิงก์หรือเลือกไฟล์ด้านบน
+        </p>
+      ) : (
+        <ul>
+          {clips.map((clip) => (
+            <ClipRow
+              key={clip.id}
+              clip={clip}
+              selected={clip.id === selectedId}
+              highlighted={clip.id === highlightId}
+              deleteError={deleteErrors[clip.id] ?? null}
+              onSelect={() => onSelect(clip)}
+              onDelete={() => remove(clip)}
+              describe={describe}
+            />
+          ))}
+        </ul>
       )}
-      <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        <h2 className="flex items-center gap-2 px-4 py-3 whitespace-nowrap">
-          <span className="text-sm leading-[1.5] font-medium text-foreground">คลิปที่โหลดมา</span>{" "}
-          <span className="font-mono text-[13px] leading-[1.5] font-normal text-muted-foreground">{clips.length}</span>
-        </h2>
-        {clips.length === 0 ? (
-          <p className="border-t border-border pt-10 pb-11 text-center text-sm leading-[1.5] text-muted-foreground">
-            ยังไม่มีคลิป วางลิงก์ YouTube ด้านบน
-          </p>
-        ) : (
-          <ul>
-            {clips.map((clip) => (
-              <ClipRow
-                key={clip.id}
-                clip={clip}
-                playing={clip.id === playingId}
-                highlighted={clip.id === highlightId}
-                deleteError={deleteErrors[clip.id] ?? null}
-                onPlay={() => onPlay(clip.id)}
-                onDelete={() => remove(clip)}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-    </>
+    </section>
   );
 }
 
 type RowProps = {
   clip: TempClip;
-  playing: boolean;
+  /** In the panel's player; the row says กำลังเล่น (D18). */
+  selected: boolean;
   highlighted: boolean;
   deleteError: string | null;
-  onPlay: () => void;
+  onSelect: () => void;
   onDelete: () => void;
+  describe: DescribeProps;
 };
 
-/** Figma component `Clip row`: default, highlight, playing, and a delete error under it. */
-function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: RowProps) {
+/**
+ * Figma component `Clip row`: default, highlight, playing, ตัดแล้ว (D44), ถอดแล้ว (D23), บรรยายฉาก
+ * under a transcribed clip and บรรยายฉากแล้ว (spoil-maker D16), and a delete error under it.
+ */
+function ClipRow({ clip, selected, highlighted, deleteError, onSelect, onDelete, describe }: RowProps) {
   const row = useRef<HTMLLIElement>(null);
+  // Deleting a clip of the Spoil draft deletes the draft too, so the row warns first (spoil-maker D29).
+  const [warning, setWarning] = useState(false);
+  const askDelete = () => {
+    if (clip.in_draft) setWarning(true);
+    else if (window.confirm(`ลบ ${clip.title}?`)) onDelete();
+  };
 
   useEffect(() => {
     if (highlighted) row.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [highlighted]);
 
-  const look = highlighted ? "border-l-3 border-l-brand-accent bg-accent-subtle" : playing ? "bg-muted" : "";
+  const look = highlighted ? "border-l-3 border-l-brand-accent bg-accent-subtle" : selected ? "bg-muted" : "";
 
   return (
     <li
@@ -101,7 +104,7 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
       className={`flex flex-col gap-2 border-t border-border py-3 pr-3 pl-4 ${look}`}
     >
       <div className="flex items-center gap-3">
-        <button type="button" onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <span className="relative h-[54px] w-24 shrink-0 overflow-hidden rounded bg-surface-strong">
             {clip.thumbnail && (
               <img
@@ -111,7 +114,7 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
               />
             )}
             <img
-              src={playing ? playActiveIcon : playIcon}
+              src={selected ? playActiveIcon : playIcon}
               alt=""
               width={20}
               height={20}
@@ -119,13 +122,14 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
             />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-sm leading-[1.5] font-medium text-foreground">{clip.title}</span>
-              {playing && (
-                <span className="shrink-0 rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
-                  กำลังเล่น
-                </span>
-              )}
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="min-w-[160px] flex-1 truncate text-sm leading-[1.5] font-medium text-foreground">
+                {clip.title}
+              </span>
+              {selected && <AccentBadge>กำลังเล่น</AccentBadge>}
+              {clip.trimmed.length > 0 && <AccentBadge>ตัดแล้ว</AccentBadge>}
+              {clip.transcribed && <DoneBadge>ถอดแล้ว</DoneBadge>}
+              {clip.described && <DoneBadge>บรรยายฉากแล้ว</DoneBadge>}
             </span>
             <span className="text-[13px] leading-[1.5] text-mid">{sourceLine(clip)}</span>
             <span className="font-mono text-xs leading-[1.5] text-muted-foreground">{fileLine(clip)}</span>
@@ -133,7 +137,7 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
         </button>
         <button
           type="button"
-          onClick={onDelete}
+          onClick={askDelete}
           aria-label={`ลบ ${clip.title}`}
           title="ลบ"
           className="flex size-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
@@ -141,9 +145,22 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
           <img src={trashIcon} alt="" width={16} height={16} />
         </button>
       </div>
+      {warning ? (
+        <div className="lg:pl-[108px]">
+          <DraftWarning
+            onGo={() => {
+              setWarning(false);
+              onDelete();
+            }}
+            onCancel={() => setWarning(false)}
+          />
+        </div>
+      ) : (
+        clip.transcribed && <DescribeControls clip={clip} describe={describe} />
+      )}
       {deleteError && (
         <p className="flex items-center gap-1.5 pl-[108px] text-[13px] leading-[1.5] text-destructive">
-          <img src={deleteErrorIcon} alt="" width={14} height={14} className="shrink-0" />
+          <img src={circleAlertIcon} alt="" width={14} height={14} className="shrink-0" />
           {deleteError}
         </p>
       )}
@@ -151,10 +168,32 @@ function ClipRow({ clip, playing, highlighted, deleteError, onPlay, onDelete }: 
   );
 }
 
-/** "ช่อง · 1:35:42" (spec › Frontend). */
+/** Figma `Badge` accent: กำลังเล่น (D18) and ตัดแล้ว (D44). */
+function AccentBadge({ children }: { children: string }) {
+  return (
+    <span className="shrink-0 rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
+      {children}
+    </span>
+  );
+}
+
+function DoneBadge({ children }: { children: string }) {
+  return (
+    <span className="shrink-0 rounded-full bg-success-surface px-2 py-0.5 font-button text-xs leading-4 font-medium text-success">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * "ช่อง · 1:35:42", "ช่อง · Facebook · 0:30" for another site's clip, or "ไฟล์ในเครื่อง · 0:30" for a
+ * file imported from this computer (spec › Frontend, D52).
+ */
 function sourceLine(clip: TempClip): string {
   const duration = clip.duration_s === null ? null : formatDuration(clip.duration_s);
-  return [clip.channel, duration].filter(Boolean).join(" · ");
+  if (clip.site === LOCAL_SITE) return ["ไฟล์ในเครื่อง", duration].filter(Boolean).join(" · ");
+  const site = clip.site === YOUTUBE_SITE ? null : clip.site;
+  return [clip.channel, site, duration].filter(Boolean).join(" · ");
 }
 
 /** "1920×1080 นอน · 1.6 GB · 29 ต.ค. 18:52" (spec › Frontend). */
@@ -162,14 +201,6 @@ function fileLine(clip: TempClip): string {
   const orientation = clip.orientation === "portrait" ? "ตั้ง" : "นอน";
   const frame = clip.width && clip.height ? `${clip.width}×${clip.height} ${orientation}` : orientation;
   return [frame, formatSize(clip.file_bytes), formatTime(clip.downloaded_at)].join(" · ");
-}
-
-/** `h:mm:ss`, or `m:ss` under an hour. */
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = String(seconds % 60).padStart(2, "0");
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
 /** MB or GB with one decimal, in powers of 1000 like the backend's disk message. */

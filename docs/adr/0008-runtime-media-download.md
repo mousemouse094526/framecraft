@@ -5,3 +5,5 @@ Backend โหลดสื่อตามลิงก์ที่ผู้ใช
 **Status:** accepted — supersedes ADR-0002
 
 Source: spoil D1 · setup-status D3, D8
+
+**Extended by:** ADR-0029

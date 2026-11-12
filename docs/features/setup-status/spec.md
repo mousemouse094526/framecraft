@@ -44,8 +44,8 @@
 
 **How success is judged:**
 - Mac Apple Silicon ที่ไม่มี uv และ ffmpeg: `./setup.sh` จบด้วย exit 0 โดยไม่มีขั้นตอนมือนอกจากติดตั้ง Node.js. หน้าเว็บแสดง 9/9 และ Device `mps`
-- Windows ที่มีการ์ด NVIDIA และ execution policy เป็น `Restricted`: ดับเบิลคลิกหรือรัน `setup.cmd` จบด้วย exit 0. หน้าเว็บแสดง 9/9 และ Device `cuda`
-- Windows: project อยู่ใน path ที่มีช่องว่างและภาษาไทย (เช่น `C:\Users\me\งาน ทดสอบ\framecraft`) ยังผ่านข้อบน
+- Windows ที่มีการ์ด NVIDIA และ execution policy เป็น `Restricted`: ดับเบิลคลิกหรือรัน `setup.cmd` จบด้วย exit 0. หน้าเว็บแสดง 9/9 และ Device `cuda` (เช็คใน `windows-check` 01 ไม่ขวางการจบ feature, D25)
+- Windows: project อยู่ใน path ที่มีช่องว่างและภาษาไทย (เช่น `C:\Users\me\งาน ทดสอบ\framecraft`) ยังผ่านข้อบน (`windows-check` 01, D25)
 - Refresh ได้ผลภายใน 3 วินาทีหลังครั้งแรก. ครั้งแรกหลัง backend start ไม่เกิน 20 วินาที (import torch)
 - ปิด internet แล้ว Refresh ได้ผลเหมือนเดิม
 - ลบไฟล์ `*.safetensors` หนึ่งไฟล์ใน snapshot ของ OmniVoice แล้ว Refresh: แถว OmniVoice model เป็น `missing`
@@ -166,11 +166,11 @@ Marker (JSON):
 
 ### Status check
 
-`backend.checks.run_checks(root, device_probe, ffmpeg_probe, sys_platform)` สร้าง 9 รายการตามลำดับนี้ (D7, D13). ค่า default ของ probe คือของจริง และ `sys_platform` คือ OS ที่รันอยู่ (D23); test ส่งตัวปลอม.
+`backend.checks.run_checks(root, probes, sys_platform)` สร้าง 9 รายการตามลำดับนี้ (D7, D13). `probes` รวม probe ทุกตัวไว้ใน `Probes` ตัวเดียว ค่า default คือของจริง และ `sys_platform` คือ OS ที่รันอยู่ (D23, D26); test ส่งตัวปลอม. spoil เพิ่มแถว `yt_dlp` และ `deno` ต่อจาก `ffmpeg` เป็น 11 รายการ (spoil D9, ADR-0009); ตัวเลข 9 ใน spec นี้คือของ setup-status เอง.
 
 | `id` | `label` | `ok` เมื่อ | ไม่ `ok` | `fix` |
 |---|---|---|---|---|
-| `python` | Python venv | Python `3.12.x` และ `sys.prefix` คือ `{root}/.venv` | `warning` ถ้ารันนอก `.venv` ของ project | รัน backend ด้วย `npm run dev` |
+| `python` | Python venv | Python `3.12.x` และ `sys.prefix` คือ `{root}/.venv` | `warning` ถ้ารันนอก `.venv` ของ project หรือ `.venv` ไม่ใช่ 3.12; `detail` บอกว่าเป็นกรณีไหน (D26) | รัน backend ด้วย `npm run dev` |
 | `torch` | torch | `importlib.metadata.version("torch")` ได้ | `missing` | คำสั่ง setup |
 | `transformers` | transformers | metadata version ได้ | `missing` | คำสั่ง setup |
 | `omnivoice` | omnivoice | metadata version ได้ | `missing` | คำสั่ง setup |
@@ -213,6 +213,7 @@ Backend ฟังที่ `127.0.0.1:8000` เท่านั้น (D10).
       "status": "missing",
       "detail": "ไม่พบ marker ใน models/.setup",
       "fix": "./setup.sh",
+      "fix_kind": "command",
       "license": {
         "name": "CC BY-NC 4.0",
         "url": "https://creativecommons.org/licenses/by-nc/4.0/",
@@ -226,6 +227,7 @@ Backend ฟังที่ `127.0.0.1:8000` เท่านั้น (D10).
 
 - `status` เป็นหนึ่งใน `ok`, `missing`, `warning`
 - `fix` เป็น `null` เมื่อ `ok`
+- `fix_kind` เป็น `command` (คัดลอกไปรันได้เลย) หรือ `hint` (ประโยค); `null` เมื่อ `fix` เป็น `null` (D26)
 - `license` มีเฉพาะแถวโมเดล แถวอื่นเป็น `null`
 
 ### Frontend
@@ -314,7 +316,7 @@ Uninstall (เขียนใน `README.md`):
 
 ## Open Questions
 
-1. มีเครื่อง Windows ที่มีการ์ด NVIDIA ให้ทดสอบหรือไม่ — non-blocking: งาน Windows อยู่ ticket แยก ปิดได้เมื่อทดสอบบนเครื่องจริงผ่านเท่านั้น
+1. มีเครื่อง Windows ที่มีการ์ด NVIDIA ให้ทดสอบหรือไม่ — non-blocking: การเช็คบนเครื่องจริงอยู่ที่ `windows-check` 01 และไม่ขวางการจบ feature (D25)
 2. feature ถัดไปที่ส่งไฟล์เสียงให้ Whisper ผ่าน `transformers` pipeline อาจต้องมี `ffmpeg` บน PATH — non-blocking: ขั้นนี้ไม่ transcribe
 
 ## Sources

@@ -1,15 +1,17 @@
+import hashlib
 import json
 import os
 import shutil
 
 import pytest
 
+from backend import fonts
 from backend.checks import run_checks
-from backend.models import MODELS, OMNIVOICE
+from backend.models import KLEIN, KLEIN_GGUF, MODELS, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
-from .fakes import cuda_device, item, ok_deno, ok_ffmpeg, ok_yt_dlp, write_snapshot
+from .fakes import MODEL_FILES, broken_gpu, card, fake_probes, item, write_snapshot
 
 GB = 1_000_000_000
 
@@ -34,33 +36,61 @@ class FakeNpmInstall:
             raise RuntimeError("npm ERR! network")
 
 
+KANIT_BYTES = {"Kanit-Bold.ttf": b"ttf bytes", "OFL.txt": b"license text"}
+
+
+@pytest.fixture(autouse=True)
+def fake_kanit(monkeypatch):
+    """The pinned sha256 of the fake files, so setup can check them without the network.
+    Autouse fixtures run first, so `fake_root` writes its marker with these too."""
+    monkeypatch.setattr(fonts, "KANIT_SHA256", {n: hashlib.sha256(b).hexdigest() for n, b in KANIT_BYTES.items()})
+
+
+class FakeFetch:
+    """Stands in for fetching a Kanit file over HTTPS; `wrong` serves other bytes for that file."""
+
+    def __init__(self, wrong: str | None = None):
+        self.wrong = wrong
+        self.urls: list[str] = []
+
+    def __call__(self, url: str) -> bytes:
+        self.urls.append(url)
+        name = url.rsplit("/", 1)[1]
+        return b"something else" if name == self.wrong else KANIT_BYTES[name]
+
+
 class FakeDownload:
     """Stands in for huggingface_hub.snapshot_download."""
 
-    def __init__(self, root, fail=False):
+    def __init__(self, root, fail=False, leave_empty: str | None = None):
         self.root = root
         self.fail = fail
+        self.leave_empty = leave_empty  # a folder the download "finishes" without (trial-klein-mac › 5.3)
         self.calls = []
+        self.patterns: dict[str, list[str]] = {}
 
     def __call__(self, repo_id, *, revision, cache_dir, allow_patterns):
         self.calls.append(repo_id)
+        self.patterns[repo_id] = allow_patterns
         if self.fail:
             raise OSError("connection reset")
         model = next(m for m in MODELS if m.repo_id == repo_id)
         assert cache_dir == ProjectPaths(self.root).hub_dir
-        return str(write_snapshot(self.root, model, revision))
+        snapshot = write_snapshot(self.root, model, revision)
+        if self.leave_empty:
+            shutil.rmtree(snapshot / self.leave_empty, ignore_errors=True)
+        return str(snapshot)
 
 
-def run_with_fakes(root, download, **overrides):
+def run_with_fakes(root, download, probes=None, **overrides):
     options = {
         "download": download,
         "npm_install": FakeNpmInstall(),
+        "fetch": FakeFetch(),
         "backend_running": lambda: False,
         "free_bytes": lambda path: 100 * GB,
-        "device_probe": cuda_device,
-        "ffmpeg_probe": ok_ffmpeg,
-        "deno_probe": ok_deno,
-        "yt_dlp_probe": ok_yt_dlp,
+        "probes": probes or fake_probes(),
+        "sys_platform": "darwin",  # the machine running the tests never decides (rules › testing)
     }
     return run_setup(root, **(options | overrides))
 
@@ -73,8 +103,8 @@ def test_successful_download_writes_markers_and_exits_0(empty_root, capsys):
     assert exit_code == 0
     marker = json.loads(ProjectPaths(empty_root).marker(OMNIVOICE).read_text(encoding="utf-8"))
     assert marker["revision"] == OMNIVOICE.revision
-    assert marker["size_bytes"] == 4216
-    result = run_checks(empty_root, device_probe=cuda_device, ffmpeg_probe=ok_ffmpeg)
+    assert marker["size_bytes"] == sum(MODEL_FILES.values())
+    result = run_checks(empty_root, fake_probes())
     assert item(result, "model_omnivoice").status == "ok"
     assert item(result, "model_whisper").status == "ok"
     assert "ขั้นต่อไป: รัน npm run dev แล้วเปิด http://localhost:5173" in capsys.readouterr().out
@@ -116,16 +146,17 @@ def test_stale_lock_from_a_dead_process_is_taken_over(empty_root):
     assert not lock.exists()
 
 
-def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys):
+@pytest.mark.parametrize(("sys_platform", "required"), [("darwin", "32 GB"), ("win32", "42 GB")])
+def test_low_disk_space_with_models_to_download_exits_1(empty_root, capsys, sys_platform, required):
     download = FakeDownload(empty_root)
 
-    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 9 * GB)
+    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 9 * GB, sys_platform=sys_platform)
 
     assert exit_code == 1
     assert download.calls == []
     out = capsys.readouterr().out
     assert "9.0 GB" in out
-    assert "15 GB" in out
+    assert f"ต้องการ {required}" in out
 
 
 def test_running_backend_stops_setup_before_anything(empty_root, capsys):
@@ -151,7 +182,7 @@ def test_missing_items_after_download_exit_1(empty_root, capsys):
     def broken_ffmpeg():
         raise RuntimeError("no ffmpeg")
 
-    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), ffmpeg_probe=broken_ffmpeg)
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fake_probes(ffmpeg=broken_ffmpeg))
 
     assert exit_code == 1
     assert "ffmpeg" in capsys.readouterr().out
@@ -186,7 +217,7 @@ def test_npm_install_runs_after_the_models_are_downloaded(empty_root):
     exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), npm_install=npm_install)
 
     assert exit_code == 0
-    assert len(markers_at_install) == len(MODELS)
+    assert len(markers_at_install) == len([m for m in MODELS if "darwin" in m.platforms])
 
 
 def test_failed_npm_install_removes_lock_and_exits_1(fake_root, capsys):
@@ -197,3 +228,169 @@ def test_failed_npm_install_removes_lock_and_exits_1(fake_root, capsys):
     assert exit_code == 1
     assert not ProjectPaths(fake_root).setup_lock.exists()
     assert "ล้มที่ขั้น npm install: npm ERR! network" in capsys.readouterr().out
+
+
+def test_mac_setup_downloads_qwen_too(empty_root):
+    download = FakeDownload(empty_root)
+
+    run_with_fakes(empty_root, download, sys_platform="darwin")
+
+    assert download.calls == [
+        "k2-fsa/OmniVoice",
+        "openai/whisper-large-v3-turbo",
+        "mlx-community/Qwen3.5-9B-MLX-4bit",
+        "black-forest-labs/FLUX.2-klein-4B",
+        "unsloth/FLUX.2-klein-4B-GGUF",
+    ]
+    assert ProjectPaths(empty_root).marker(QWEN_MAC).is_file()
+
+
+def test_windows_setup_downloads_qwen_s_own_repo_on_a_card_that_meets_its_target(empty_root):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download, sys_platform="win32")
+
+    assert exit_code == 0
+    assert download.calls == [
+        "k2-fsa/OmniVoice",
+        "openai/whisper-large-v3-turbo",
+        "Qwen/Qwen3.5-9B",
+        "black-forest-labs/FLUX.2-klein-4B",
+        "unsloth/FLUX.2-klein-4B-GGUF",
+    ]
+    assert ProjectPaths(empty_root).marker(QWEN_WINDOWS).is_file()
+    assert not ProjectPaths(empty_root).marker(QWEN_MAC).exists()
+
+
+@pytest.mark.parametrize(
+    ("card", "says"),
+    [
+        (card("NVIDIA GeForce RTX 2060", 6, (7, 5)), "Qwen ต้องใช้การ์ด NVIDIA RTX 30xx ขึ้นไปที่มี VRAM อย่างน้อย 8 GB"),
+        (broken_gpu, "อ่านข้อมูลการ์ดไม่ได้ ตรวจ driver NVIDIA"),
+    ],
+)
+def test_windows_setup_skips_qwen_on_a_card_under_its_target_and_still_exits_0(empty_root, capsys, card, says):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download, probes=fake_probes(gpu=card), sys_platform="win32")
+
+    assert exit_code == 0
+    assert "Qwen/Qwen3.5-9B" not in download.calls
+    out = capsys.readouterr().out
+    assert f"ข้าม Qwen3.5 9B model: {says}" in out
+
+
+def test_windows_setup_wants_42_gb_free_to_download_qwen(empty_root, capsys):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download, free_bytes=lambda path: 40 * GB, sys_platform="win32")
+
+    assert exit_code == 1
+    assert download.calls == []
+    assert "ที่ว่างบนดิสก์ไม่พอ: มี 40.0 GB ต้องการ 42 GB" in capsys.readouterr().out
+
+
+def test_windows_setup_that_skips_qwen_wants_only_27_gb_free(empty_root):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(
+        empty_root,
+        download,
+        probes=fake_probes(gpu=card("NVIDIA GeForce RTX 2060", 6, (7, 5))),
+        free_bytes=lambda path: 27 * GB,
+        sys_platform="win32",
+    )
+
+    assert exit_code == 0
+    assert download.calls == [
+        "k2-fsa/OmniVoice",
+        "openai/whisper-large-v3-turbo",
+        "black-forest-labs/FLUX.2-klein-4B",
+        "unsloth/FLUX.2-klein-4B-GGUF",
+    ]
+
+
+def test_mac_setup_never_reads_the_card(empty_root):
+    def must_not_run():
+        raise AssertionError("the gpu probe ran on a Mac")
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), probes=fake_probes(gpu=must_not_run))
+
+    assert exit_code == 0
+
+
+def test_setup_fetches_kanit_at_the_pinned_commit_and_writes_its_marker(empty_root):
+    fetch = FakeFetch()
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    assert exit_code == 0
+    base = "https://raw.githubusercontent.com/google/fonts/130fcfb0ff422fec96b335616b2ca99f91914792/ofl/kanit/"
+    assert fetch.urls == [base + "Kanit-Bold.ttf", base + "OFL.txt"]
+    project = ProjectPaths(empty_root)
+    assert (project.kanit_dir / "Kanit-Bold.ttf").read_bytes() == b"ttf bytes"
+    marker = json.loads(project.kanit_marker.read_text(encoding="utf-8"))
+    assert marker["files"] == fonts.KANIT_SHA256
+    assert item(run_checks(empty_root, fake_probes()), "font_kanit").status == "ok"
+
+
+def test_a_kanit_file_with_another_sha256_is_removed_and_setup_fails(empty_root, capsys):
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=FakeFetch(wrong="OFL.txt"))
+
+    project = ProjectPaths(empty_root)
+    assert exit_code == 1
+    assert not (project.kanit_dir / "OFL.txt").exists()
+    assert not project.kanit_marker.exists()
+    assert "ล้มที่ขั้น โหลด Kanit: sha256 ของ OFL.txt ไม่ตรง" in capsys.readouterr().out
+
+
+def test_kanit_already_there_is_not_fetched_again(fake_root):
+    fetch = FakeFetch()
+
+    exit_code = run_with_fakes(fake_root, FakeDownload(fake_root), fetch=fetch)
+
+    assert exit_code == 0
+    assert fetch.urls == []
+
+
+def test_setup_downloads_klein_without_its_bf16_transformer_and_writes_both_markers(empty_root):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download)
+
+    assert exit_code == 0
+    assert download.patterns["black-forest-labs/FLUX.2-klein-4B"] == [
+        "model_index.json",
+        "text_encoder/*",
+        "tokenizer/*",
+        "vae/*",
+        "scheduler/*",
+        "transformer/config.json",
+    ]
+    assert download.patterns["unsloth/FLUX.2-klein-4B-GGUF"] == ["flux-2-klein-4b-Q4_K_M.gguf"]
+    result = run_checks(empty_root, fake_probes())
+    assert item(result, "model_klein").status == item(result, "model_klein_gguf").status == "ok"
+
+
+def test_a_klein_folder_left_empty_by_the_download_fails_setup_without_a_marker(empty_root, capsys):
+    download = FakeDownload(empty_root, leave_empty="text_encoder")
+
+    exit_code = run_with_fakes(empty_root, download)
+
+    assert exit_code == 1
+    assert not ProjectPaths(empty_root).marker(KLEIN).exists()
+    out = capsys.readouterr().out
+    assert "ล้มที่ขั้น โหลด black-forest-labs/FLUX.2-klein-4B" in out
+    assert "text_encoder/*" in out
+    assert "unsloth/FLUX.2-klein-4B-GGUF" not in download.calls
+
+
+def test_a_rerun_after_an_empty_klein_folder_downloads_klein_again(empty_root):
+    run_with_fakes(empty_root, FakeDownload(empty_root, leave_empty="vae"))
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download)
+
+    assert exit_code == 0
+    assert download.calls == ["black-forest-labs/FLUX.2-klein-4B", "unsloth/FLUX.2-klein-4B-GGUF"]
+    assert ProjectPaths(empty_root).marker(KLEIN_GGUF).is_file()

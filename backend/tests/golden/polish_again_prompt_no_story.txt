@@ -1,0 +1,18 @@
+Polish the narration script of a short vertical video that spoils a story, so its sentences tell one story.
+How to tell it: A hook, the story, the twist, the motives, and a question at the end that invites comments.
+Write in Thai only.
+The script, one sentence each as [i] text, then the transcript lines it tells about:
+[0] กกกกกกกกกก
+    [1 00:00:10] Line 1.
+[1] (fixed) ขขขขขขขขขข
+    [2 00:00:20] Line 2.
+[2] คคคคคคคคคค
+    [3 00:00:30] Line 3.
+
+Rules:
+- Rewrite only the sentences not marked (fixed); fit the others around the fixed ones.
+- Each sentence carries on from the one before and leads into the next; add linking words only where needed.
+- Add nothing that is not in the lines a sentence tells about. A sentence with no lines keeps its meaning: change only how it joins the others.
+- Never merge, split or reorder sentences.
+- Keep each sentence about as long as it is.
+Answer with JSON only: {"sentences": [{"i": 0, "text": "..."}]}, one item for each i not marked (fixed).

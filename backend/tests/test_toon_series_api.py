@@ -1,0 +1,165 @@
+"""Series, characters and backgrounds under /api/toon (toon seam 1 › Series)."""
+
+import json
+import logging
+from pathlib import Path
+
+import pytest
+
+from backend.paths import ProjectPaths
+
+from .fakes import TOON_SERIES, TOON_VOICE, new_series, toon_api
+
+GOLDEN = Path(__file__).parent / "golden"
+
+
+project, llm, klein, tts, client = toon_api()
+
+
+def write_ep(project: ProjectPaths, series_id: str, ep_id: str, n: int, title: str) -> None:
+    folder = project.series_dir(series_id) / "eps" / ep_id
+    folder.mkdir(parents=True)
+    ep = {"version": 1, "id": ep_id, "n": n, "idea": "ไอเดีย", "title": title, "voice_id": TOON_VOICE, "acts": []}
+    (folder / "ep.json").write_text(json.dumps(ep), encoding="utf-8")
+
+
+def test_a_horror_series_starts_with_the_horror_acts_style_and_tone(client):
+    series = new_series(client)
+
+    assert series["acts"] == ["เปิด", "ปม", "หักมุม", "จบหลอน"]
+    assert series["style"].startswith("flat 2D cartoon illustration") and "dark night scene" in series["style"]
+    assert series["tone"] == 'เล่าเป็น "ฉัน" น้ำเสียงเรียบ ช้า ชวนขนลุก ประโยคสั้น'
+    assert (series["max_ep"], series["name_tags"], series["characters"]) == (0, True, [])
+
+
+@pytest.mark.parametrize("genre", ["horror", "comedy"])
+def test_a_new_series_starts_with_the_genre_defaults_the_page_shows(client, genre):
+    # The page's GENRE_DEFAULTS is checked against the same file (features/toon/lib/series.test.ts).
+    shown = json.loads((GOLDEN / "toon_genre_defaults.json").read_text(encoding="utf-8"))[genre]
+
+    series = new_series(client, genre=genre)
+
+    assert {field: series[field] for field in shown} == shown
+
+
+def test_a_new_series_takes_the_style_tone_and_acts_it_is_sent_in_place_of_its_genre_defaults(client):
+    series = new_series(client, style="ink wash", tone="", acts=["ต้น", "จบ"])
+
+    assert (series["style"], series["tone"], series["acts"]) == ("ink wash", "", ["ต้น", "จบ"])
+
+
+def test_a_new_series_with_no_acts_is_invalid_request(client):
+    response = client.post(TOON_SERIES, json={"name": "ช่อง", "layout": "frame", "genre": "horror", "voice_id": TOON_VOICE, "acts": []})
+
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
+
+
+def test_a_series_with_a_voice_that_isn_t_saved_is_voice_not_found(client):
+    response = client.post(TOON_SERIES, json={"name": "ช่อง", "layout": "frame", "genre": "horror", "voice_id": "v_00000000"})
+
+    assert (response.status_code, response.json()["code"]) == (400, "voice_not_found")
+
+
+def test_patching_layout_or_genre_changes_neither(client):
+    series = new_series(client)
+
+    response = client.patch(f"{TOON_SERIES}/{series['id']}", json={"layout": "full", "genre": "comedy", "name": "ช่องใหม่"})
+
+    assert response.status_code == 200
+    assert (response.json()["layout"], response.json()["genre"], response.json()["name"]) == ("frame", "horror", "ช่องใหม่")
+
+
+@pytest.mark.parametrize("acts", [[f"องก์ {n}" for n in range(9)], ["ก" * 21], []])
+def test_acts_outside_1_to_8_names_of_1_to_20_letters_are_refused(client, acts):
+    series = new_series(client)
+
+    response = client.patch(f"{TOON_SERIES}/{series['id']}", json={"acts": acts})
+
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
+
+
+def test_new_acts_are_kept(client):
+    series = new_series(client)
+
+    response = client.patch(f"{TOON_SERIES}/{series['id']}", json={"acts": ["หนึ่ง", "สอง"]})
+
+    assert response.json()["acts"] == ["หนึ่ง", "สอง"]
+
+
+def test_the_list_counts_each_series_eps(client, project):
+    series = new_series(client)
+    write_ep(project, series["id"], "e_00000001", 1, "เสียงเรียกจากป่า")
+
+    listed = client.get(TOON_SERIES).json()
+
+    assert [(s["id"], s["ep_count"], s["layout"]) for s in listed] == [(series["id"], 1, "frame")]
+
+
+def test_deleting_a_series_without_confirm_eps_is_confirm_needed_with_its_eps(client, project):
+    series = new_series(client)
+    write_ep(project, series["id"], "e_00000002", 2, "ตอนสอง")
+    write_ep(project, series["id"], "e_00000001", 1, "ตอนหนึ่ง")
+
+    response = client.request("DELETE", f"{TOON_SERIES}/{series['id']}", json={"confirm_eps": 1})
+
+    assert (response.status_code, response.json()["code"]) == (409, "confirm_needed")
+    assert response.json()["eps"] == [{"n": 1, "title": "ตอนหนึ่ง"}, {"n": 2, "title": "ตอนสอง"}]
+
+
+def test_a_confirmed_delete_removes_the_series_folder_and_keeps_the_saved_voice_and_the_sounds(client, project):
+    series = new_series(client)
+    write_ep(project, series["id"], "e_00000001", 1, "ตอนหนึ่ง")
+    sound = project.toon_sounds_dir / "m_00000001.m4a"  # the tab's library, not the Series'
+    sound.parent.mkdir(parents=True)
+    sound.write_bytes(b"sound")
+
+    response = client.request("DELETE", f"{TOON_SERIES}/{series['id']}", json={"confirm_eps": 1})
+
+    assert response.status_code == 204
+    assert not project.series_dir(series["id"]).exists()
+    assert (project.voices_dir / f"{TOON_VOICE}.json").is_file()
+    assert sound.read_bytes() == b"sound"
+    assert client.get(f"{TOON_SERIES}/{series['id']}").status_code == 404
+
+
+def test_a_saved_voice_a_series_uses_can_t_be_deleted(client):
+    new_series(client)
+
+    response = client.delete(f"/api/spoil-maker/voices/{TOON_VOICE}")
+
+    assert (response.status_code, response.json()["code"]) == (409, "voice_in_use")
+
+
+def test_a_series_json_of_another_version_or_unreadable_is_skipped_and_logged(client, project, caplog):
+    kept = new_series(client)
+    newer = project.series_dir("s_0000000a")
+    newer.mkdir(parents=True)
+    (newer / "series.json").write_text(json.dumps({"version": 2, "id": "s_0000000a"}), encoding="utf-8")
+    broken = project.series_dir("s_0000000b")
+    broken.mkdir(parents=True)
+    (broken / "series.json").write_text("{not json", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="backend.toon.store"):
+        listed = client.get(TOON_SERIES).json()
+
+    assert [s["id"] for s in listed] == [kept["id"]]
+    assert sum("skipped" in record.message for record in caplog.records) == 2
+
+
+def test_characters_and_backgrounds_start_without_a_reference_image(client):
+    series = new_series(client)
+
+    client.post(f"{TOON_SERIES}/{series['id']}/characters", json={"name": "พีค", "tag": "สายแฟ", "description": "เสื้อฮาวาย"})
+    after = client.post(f"{TOON_SERIES}/{series['id']}/backgrounds", json={"name": "กองไฟในป่า"}).json()
+
+    assert [(c["name"], c["tag"], c["ref_rev"], c["pending"]) for c in after["characters"]] == [("พีค", "สายแฟ", 0, 0)]
+    assert [(b["name"], b["ref_rev"]) for b in after["backgrounds"]] == [("กองไฟในป่า", 0)]
+    assert after["characters"][0]["id"].startswith("c_") and after["backgrounds"][0]["id"].startswith("b_")
+
+
+def test_a_character_name_over_30_letters_is_refused(client):
+    series = new_series(client)
+
+    response = client.post(f"{TOON_SERIES}/{series['id']}/characters", json={"name": "ก" * 31})
+
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")

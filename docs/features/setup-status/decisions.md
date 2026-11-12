@@ -71,7 +71,7 @@
 
 **Sources:** [OmniVoice install](https://github.com/k2-fsa/OmniVoice) · [uv with PyTorch](https://docs.astral.sh/uv/guides/integration/pytorch/)
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by D25
 
 ## D6: เก็บโมเดลใน `models/` ของ project
 
@@ -262,7 +262,7 @@
 **Details:**
 - ถ้าวันหนึ่ง `fix` เป็นคำสั่งที่มีช่องว่าง ให้เพิ่ม field บอกชนิดใน API แทน
 
-**From:** build ticket 02 · **Status:** active
+**From:** build ticket 02 · **Status:** changed by D26
 
 ## D21: รายละเอียดหน้า Setup status ที่ spec ไม่ได้บอก
 
@@ -327,6 +327,47 @@
 **Sources:** [docs/library-notes/concurrently.md](../../library-notes/concurrently.md)
 
 **From:** build ticket 03 · **Status:** active
+
+## D25: feature จบได้เมื่อผ่านบน Mac, เช็คมือบน Windows รวมไว้ที่ `windows-check`
+
+**Chosen:** ยังรองรับ Mac Apple Silicon และ Windows NVIDIA ตาม D5. ทุก feature ยังเขียนโค้ดทาง Windows และ test ด้วย fake ตามเดิม แต่ feature จบได้ (feature review, PR) เมื่อเช็คบน Mac ผ่าน. การเช็คมือบนเครื่อง Windows จริงเป็น ticket ใน feature `windows-check` ticket ละ feature.
+
+**Why:** ผู้ใช้อยากไป feature ใหม่เร็ว ไม่อยากให้การเช็ค Windows ขวางจังหวะงานบน Mac.
+
+**Rejected:**
+- ทดสอบสองแพลตฟอร์มก่อนจบ feature (ADR-0006 เดิม) — การเช็ค Windows ขวางทุก feature
+- เลื่อนโค้ด Windows ไปด้วย — งานกองเยอะตอนได้เครื่อง Windows และโค้ดที่เขียนแล้วอาจต้องรื้อ
+- ตัด Windows ออกจาก scope — ผู้ใช้ยังต้องการใช้บน Windows
+- เก็บ ticket Windows ไว้ในแต่ละ feature พร้อมสถานะ deferred — warroom-build ต้องให้ทุก ticket `done` ก่อน feature review จึงต้องทำนอกกติกาทุกครั้ง
+
+**Details:**
+- changes D5: เปลี่ยนแค่เงื่อนไขจบ feature ส่วนแพลตฟอร์มที่รองรับยังเหมือนเดิม
+- ticket ที่มีแค่การเช็คมือบน Windows ย้ายไป `windows-check`; ticket ที่มีโค้ดด้วยเหลือแค่ข้อที่พิสูจน์บน Mac หรือด้วย test
+- setup-status 03: ข้อเช็คมือย้ายไป `windows-check` 01; spoil 06 ทั้ง ticket ย้ายไป `windows-check` 02
+- feature ใหม่ที่มีของเฉพาะ Windows (path, process, file lock, `cuda`) เพิ่ม ticket ใน `windows-check` ตอนตัด ticket ของตัวเอง
+- เช็คบน Windows แล้วพัง → แก้ใน ticket ของ `windows-check` นั้น ด้วย regression test ถ้าทำได้
+- README ยังบอกวิธีรันบน Windows; ยังไม่เคยลองบนเครื่องจริงจนกว่า `windows-check` 01 จะ `done`
+
+**From:** change request · **Status:** active
+
+## D26: แก้จาก feature review — `fix_kind`, `Probes`, แถว Python
+
+**Chosen:**
+- API ส่ง `fix_kind` (`command` หรือ `hint`) คู่กับ `fix`; หน้าเว็บแสดง chip พร้อมปุ่ม copy เมื่อเป็น `command` ไม่ดูช่องว่างอีก
+- `run_checks(root, probes, sys_platform)` และ `run_setup(..., probes=)` รับ probe ทั้งสี่ (device, ffmpeg, deno, yt-dlp) เป็น dataclass `Probes` ตัวเดียว; test ใช้ `fake_probes(**overrides)`
+- probe ของ ffmpeg กับ Deno รันคำสั่งเวอร์ชันผ่าน helper เดียว timeout 5 วินาที
+- แถว `python`: รันนอก `.venv` → "ไม่ใช่ .venv ของ project"; อยู่ใน `.venv` แต่ไม่ใช่ 3.12 → "ใน .venv ต้องเป็น 3.12"
+
+**Why:** review พบว่า frontend เดาชนิดของ `fix` จากช่องว่าง (สัญญาที่ไม่ได้เขียนไว้), probe สี่ตัวเดินทางด้วยกันทุก call, และแถว Python บอกสาเหตุผิดเมื่อ `.venv` เป็นเวอร์ชันอื่น. ผู้ใช้เลือกแก้ทั้งหมดใน feature review.
+
+**Rejected:**
+- คงกฎช่องว่างของ D20 — คำสั่งที่มีช่องว่าง (เช่น `uv sync`) จะกลายเป็นข้อความ
+
+**Details:**
+- changes D20; D18 จุด inject เหมือนเดิม แค่ probe รวมเป็น `Probes`
+- `fix` ของแถว `python` ยังเป็น "รัน backend ด้วย `npm run dev`" (`hint`) ทั้งสองกรณี
+
+**From:** feature review · **Status:** active
 
 ## Sources
 

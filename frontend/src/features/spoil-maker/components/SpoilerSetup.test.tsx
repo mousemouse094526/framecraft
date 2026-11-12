@@ -1,0 +1,667 @@
+import { act, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { App } from "../../../App";
+import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
+import {
+  CLIPS_PATH,
+  CURRENT_PATH,
+  cutOf,
+  DRAFT_PATH,
+  EMPTY_DRAFT,
+  EPISODES,
+  epOf,
+  FILM,
+  jobOf,
+  JOBS_PATH,
+  ORDER,
+  OTHER,
+  REVIEW_HASH,
+  SETTINGS_PATH,
+  ALIEN,
+  CONAN,
+  setupDefaults,
+  storyRowOf,
+  UNCLE,
+  UNDESCRIBED,
+  UNTRANSCRIBED,
+  VOICES_PATH,
+} from "./setupFixtures";
+import { STORIES_PATH, STORY_CLIPS_PATH } from "../../../lib/stories";
+
+/** Fake backend: the first matching route answers; one of several for a path answers once, the last keeps answering. */
+function backend(routes: Route[]) {
+  serve(fetchMock, routes, setupDefaults());
+}
+
+const reads = (path: string) =>
+  fetchMock.mock.calls.filter(([input, init]) => String(input) === path && (init?.method ?? "GET") === "GET").length;
+
+async function nextPoll() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1000);
+  });
+}
+
+async function openSetup() {
+  window.location.hash = "#/spoil";
+  render(<App />);
+  await screen.findByRole("region", { name: "เลือกคลิป" });
+  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+}
+
+/** Opens the setup and picks FILM; resolves once its EPs are listed. */
+async function pickFilm() {
+  const user = await openSetup();
+  await user.click(screen.getByRole("radio", { name: `เลือก ${FILM.title}` }));
+  await screen.findByRole("radio", { name: "เลือก EP 1" });
+  return user;
+}
+
+const draftButton = () => screen.getByRole("button", { name: "ร่างบท" });
+const epRow = (n: number) => screen.getByRole("radio", { name: `เลือก EP ${n}` }).closest("label") as HTMLElement;
+
+const fetchMock = vi.fn<typeof fetch>();
+const sent = (method: string, path: string) => sentTo(fetchMock, method, path);
+
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  fetchMock.mockReset();
+  window.location.hash = "";
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+describe("ตั้งค่าคลิปสปอย", () => {
+  it("#/spoil opens the สปอย tab on step 1 with the setup", async () => {
+    backend([]);
+    await openSetup();
+
+    const steps = screen.getByRole("navigation", { name: "ขั้นของสปอย" });
+    expect(within(steps).getByText("เลือกคลิป").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("region", { name: "ตั้งค่า" })).toBeInTheDocument();
+  });
+
+  it("picking a clip lists its EPs with their range and renders, one clip and one EP at a time", async () => {
+    backend([]);
+    const user = await pickFilm();
+
+    expect(within(epRow(1)).getByText("0:00–29:59")).toBeInTheDocument();
+    expect(within(epRow(2)).getByText("29:59–1:00:00")).toBeInTheDocument();
+    expect(within(epRow(2)).getByText("render แล้ว 2")).toBeInTheDocument();
+    expect(epRow(2).querySelector("img[src*='/shots/']")).toHaveAttribute("src", `/api/spoil-maker/clips/${FILM.id}/shots/20.jpg`);
+    expect(screen.getByRole("radio", { name: "เลือก EP 1" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "เลือก EP 2" }));
+    expect(screen.getByRole("radio", { name: "เลือก EP 2" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "เลือก EP 1" })).not.toBeChecked();
+
+    await user.click(screen.getByRole("radio", { name: `เลือก ${OTHER.title}` }));
+    expect(screen.getByRole("radio", { name: `เลือก ${FILM.title}` })).not.toBeChecked();
+    expect(await screen.findByText("0:00–23:40")).toBeInTheDocument();
+  });
+
+  it("an EP over 32,000 tokens can't be drafted and the meter says so", async () => {
+    backend([get(EPISODES, cutOf({ episodes: [epOf(1, 0, 3600, { tokens: 40_000 })] }))]);
+    await pickFilm();
+
+    expect(screen.getByText("40,000 / 32,000")).toBeInTheDocument();
+    expect(screen.getByText("Transcript ของ EP นี้ 40,000 token เกิน 32,000")).toBeInTheDocument();
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("an EP without lines, or without a token count, can't be drafted and says why", async () => {
+    const episodes = [epOf(1, 0, 1799, { lines: 0 }), epOf(2, 1799, 3600, { tokens: null })];
+    backend([get(EPISODES, cutOf({ episodes, tokens_not_ready: "ยังติดตั้งไม่ครบ: Qwen3.5 9B model" }))]);
+    const user = await pickFilm();
+
+    expect(screen.getByText("EP นี้ไม่มีบทพูด")).toBeInTheDocument();
+    expect(draftButton()).toBeDisabled();
+    await user.click(screen.getByRole("radio", { name: "เลือก EP 2" }));
+    expect(screen.getByText(/^ยังติดตั้งไม่ครบ: Qwen3.5 9B model/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ไปที่ Setup status" })).toHaveAttribute("href", "#/setup");
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("a new length per EP is sent; with cuts moved by hand it asks first", async () => {
+    backend([send("PUT", EPISODES, cutOf({ minutes: 25 }), 200)]);
+    const user = await pickFilm();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "ความยาวต่อ EP" }), "25");
+
+    expect(sent("PUT", EPISODES)).toEqual([{ minutes: 25 }]);
+  });
+
+  it("with cuts moved by hand, a new length asks first and ตัดใหม่ตามความยาว cuts again", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    backend([get(EPISODES, cutOf({ custom: true })), send("PUT", EPISODES, cutOf(), 200)]);
+    const user = await pickFilm();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "ความยาวต่อ EP" }), "25");
+    expect(confirm).toHaveBeenCalledWith("จุดตัดที่เลื่อนเองจะหาย เปลี่ยนความยาวต่อ EP ไหม");
+    expect(sent("PUT", EPISODES)).toEqual([]);
+
+    await user.click(screen.getByRole("button", { name: "ตัดใหม่ตามความยาว" }));
+    expect(sent("PUT", EPISODES)).toEqual([{ minutes: 30 }]);
+  });
+
+  it("a cut changed and left sends every cut; a refusal says why", async () => {
+    backend([
+      send("PUT", EPISODES, { code: "invalid_episodes", message: "ตัด EP แบบนี้ไม่ได้: ทุก EP ต้องยาวอย่างน้อย 1 นาทีและเรียงตามเวลา" }, 400),
+    ]);
+    const user = await pickFilm();
+    const field = screen.getByRole("textbox", { name: "จุดตัดระหว่าง EP 1 กับ EP 2" });
+
+    await user.clear(field);
+    await user.type(field, "1:59:00");
+    await user.tab();
+
+    expect(sent("PUT", EPISODES)).toEqual([{ minutes: 30, cuts: [7140] }]);
+    expect(await screen.findByText("ตัด EP แบบนี้ไม่ได้: ทุก EP ต้องยาวอย่างน้อย 1 นาทีและเรียงตามเวลา")).toBeInTheDocument();
+  });
+
+  it("ร่างบท waits for a cut being saved and sends the clip and the EP's range from it", async () => {
+    let answer: (response: Response) => void = () => {};
+    const moved = cutOf({ custom: true, episodes: [epOf(1, 0, 1001), epOf(2, 1001, 3600)] });
+    const current = phased(CURRENT_PATH, null, jobOf({}));
+    backend([
+      { method: "PUT", path: EPISODES, reply: () => new Promise<Response>((resolve) => (answer = resolve)) },
+      send("POST", JOBS_PATH, jobOf({}), 202),
+      current.route,
+    ]);
+    const user = await pickFilm();
+    await user.click(screen.getByRole("radio", { name: "เลือก EP 2" }));
+    const field = screen.getByRole("textbox", { name: "จุดตัดระหว่าง EP 1 กับ EP 2" });
+    await user.clear(field);
+    await user.type(field, "16:40");
+
+    await user.click(draftButton()); // leaving the field saves the cut first
+    expect(sent("POST", JOBS_PATH)).toEqual([]);
+    current.phases.at = 1; // the job the POST starts
+    await act(async () => answer(jsonResponse(moved)));
+
+    await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
+    expect(window.location.hash).toBe(REVIEW_HASH);
+    expect(sent("POST", JOBS_PATH)).toEqual([
+      {
+        kind: "draft",
+        clip_id: FILM.id,
+        ep: { n: 2, start_s: 1001, end_s: 3600 },
+        style: "drama",
+        layout: "B",
+        target_s: 60,
+        voice_id: UNCLE.id,
+        story_id: null,
+        replace: false,
+      },
+    ]);
+  });
+
+  it("episodes_changed says so and reads the EPs again", async () => {
+    backend([
+      send("POST", JOBS_PATH, { code: "episodes_changed", message: "การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง" }, 409),
+    ]);
+    const user = await pickFilm();
+    expect(reads(EPISODES)).toBe(1);
+
+    await user.click(draftButton());
+
+    expect(await screen.findByText("การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง")).toBeInTheDocument();
+    expect(reads(EPISODES)).toBe(2);
+  });
+
+  it("with a Spoil draft of EP 2, its clip and EP are picked and marked", async () => {
+    backend([
+      get(DRAFT_PATH, { ...EMPTY_DRAFT, clip_id: FILM.id, clip_title: FILM.title, ep: { n: 2, start_s: 1799, end_s: 3600 } }),
+      get(EPISODES, cutOf({ episodes: [epOf(1, 0, 1799), epOf(2, 1799, 3600, { in_draft: true })] })),
+    ]);
+    await openSetup();
+
+    expect(screen.getByRole("radio", { name: `เลือก ${FILM.title}` })).toBeChecked();
+    expect(await screen.findByRole("radio", { name: "เลือก EP 2" })).toBeChecked();
+    expect(within(epRow(2)).getByText("อยู่ใน Spoil draft")).toBeInTheDocument();
+  });
+
+  it("a clip not described can't be picked and says why, with a way to the คลิป tab", async () => {
+    backend([get(CLIPS_PATH, { clips: [FILM, UNDESCRIBED, UNTRANSCRIBED] })]);
+    await openSetup();
+
+    const undescribed = screen.getByRole("listitem", { name: "ไททัน ตอนที่ 3" });
+    expect(within(undescribed).getByRole("radio")).toBeDisabled();
+    expect(within(undescribed).getByText("ยังไม่บรรยายฉาก")).toBeInTheDocument();
+    expect(within(undescribed).getByRole("link", { name: "ไปบรรยายฉาก" })).toHaveAttribute("href", "#/clips");
+    expect(within(screen.getByRole("listitem", { name: "นางนาก" })).getByText("ยังไม่ถอด")).toBeInTheDocument();
+  });
+
+  it("with no clip ready, says so with a link to the clips", async () => {
+    backend([get(CLIPS_PATH, { clips: [UNDESCRIBED] })]);
+    await openSetup();
+
+    expect(screen.getByText("ยังไม่มีคลิปที่ถอดและบรรยายฉากแล้ว")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ไปที่รายการคลิป" })).toHaveAttribute("href", "#/clips");
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("picking a style keeps the layout the user picked (D90)", async () => {
+    backend([]);
+    const user = await openSetup();
+
+    await user.click(screen.getByRole("radio", { name: "Layout C" }));
+    await user.click(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" }));
+    expect(screen.getByRole("radio", { name: "Layout C" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "เล่าละครหักมุม" }));
+
+    expect(screen.getByRole("radio", { name: "Layout C" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "เล่าละครหักมุม" })).toBeChecked();
+  });
+
+  it("with no Saved voice, links to the voice page and the draft button can't be pressed", async () => {
+    backend([get(VOICES_PATH, [])]);
+    await pickFilm();
+
+    expect(screen.getByRole("link", { name: "สร้างเสียงบรรยาย" })).toHaveAttribute("href", "#/spoil/voices");
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("starts from the voice of the last draft", async () => {
+    const sister = { ...UNCLE, id: "v_1111abcd", name: "พี่สาว" };
+    backend([
+      get(VOICES_PATH, [UNCLE, sister]),
+      get(SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: sister.id, ep_minutes: 30 }),
+    ]);
+    await openSetup();
+
+    expect(screen.getByRole("combobox", { name: "เสียงบรรยาย" })).toHaveValue(sister.id);
+  });
+
+  it("ร่างบท opens ตรวจแก้บท on the draft's progress card, then reads the draft once it is done (D81)", async () => {
+    const current = phased(
+      CURRENT_PATH,
+      null,
+      jobOf({}),
+      jobOf({ state: "polishing" }),
+      jobOf({ state: "matching", done: 4, total: 12 }),
+      jobOf({ state: "done", done: 12, total: 12 }),
+    );
+    backend([send("POST", JOBS_PATH, jobOf({}), 202), current.route]);
+    const user = await pickFilm();
+
+    current.phases.at = 1;
+    await user.click(draftButton());
+
+    expect(window.location.hash).toBe(REVIEW_HASH);
+    const card = await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
+    expect(screen.queryByRole("link", { name: "ไปที่ตั้งค่าคลิปสปอย" })).not.toBeInTheDocument();
+    expect(within(card).getByText(`${FILM.title} · EP 1`)).toBeInTheDocument();
+    expect(within(card).getByText("เล่าละครหักมุม · 60 วินาที")).toBeInTheDocument();
+    expect(within(card).getByRole("listitem", { current: "step" })).toHaveTextContent("เขียนบท");
+    current.phases.at = 2;
+    await nextPoll();
+    expect(within(card).getByRole("listitem", { current: "step" })).toHaveTextContent("เรียบเรียง");
+    current.phases.at = 3;
+    await nextPoll();
+    expect(within(card).getByRole("listitem", { current: "step" })).toHaveTextContent("เลือกภาพ 4/12");
+    const draftReads = reads(DRAFT_PATH);
+    current.phases.at = 4;
+    await nextPoll();
+    expect(await screen.findByRole("link", { name: "ไปที่ตั้งค่าคลิปสปอย" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "ความคืบหน้าการร่างบท" })).not.toBeInTheDocument();
+    expect(reads(DRAFT_PATH)).toBeGreaterThan(draftReads);
+  });
+
+  it("with a Spoil draft there, asks before sending replace: true", async () => {
+    const current = phased(CURRENT_PATH, null, jobOf({}));
+    backend([get(DRAFT_PATH, EMPTY_DRAFT), send("POST", JOBS_PATH, jobOf({}), 202), current.route]);
+    const user = await pickFilm();
+
+    await user.click(draftButton());
+
+    expect(screen.getByText("มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม")).toBeInTheDocument();
+    expect(sent("POST", JOBS_PATH)).toEqual([]);
+    current.phases.at = 1;
+    await user.click(screen.getByRole("button", { name: "ร่างทับ" }));
+    await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
+    expect(window.location.hash).toBe(REVIEW_HASH);
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ replace: true })]);
+  });
+
+  it("while a draft runs, step 1 shows its order, every field locked and no ร่างบท (D82)", async () => {
+    backend([get(CURRENT_PATH, jobOf({ order: { ...ORDER, style: "fast", layout: "A", target_s: 90 } }))]);
+    await openSetup();
+
+    expect(await screen.findByText(`กำลังร่างบท ${FILM.title} · EP 1: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้`)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ไปที่ตรวจแก้บท" })).toHaveAttribute("href", REVIEW_HASH);
+    expect(screen.getByRole("radio", { name: `เลือก ${FILM.title}` })).toBeChecked();
+    expect(screen.getByRole("radio", { name: `เลือก ${FILM.title}` })).toBeDisabled();
+    expect(await screen.findByRole("radio", { name: "เลือก EP 1" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Layout A" })).toBeChecked();
+    expect(screen.getByRole("slider", { name: "ความยาว" })).toHaveValue("90");
+    expect(screen.queryByRole("button", { name: "ร่างบท" })).not.toBeInTheDocument();
+  });
+
+  it("locked on an order whose clip and voice are gone: the clip's title, and เสียงถูกลบแล้ว (D87)", async () => {
+    backend([get(CURRENT_PATH, jobOf({ order: { ...ORDER, clip_id: "zzzzzzzzzzz", clip_title: "คลิปที่ลบแล้ว", voice_id: "v_0000dead" } }))]);
+    await openSetup();
+
+    // Once in the form, once in the step bar's line for step 1 (D87).
+    expect(await screen.findAllByText("คลิปที่ลบแล้ว · EP 1")).toHaveLength(2);
+    expect(screen.queryByRole("region", { name: "เลือก EP" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "เสียงบรรยาย" })).toHaveDisplayValue("เสียงถูกลบแล้ว");
+  });
+
+  it("after a cancelled draft, its order is picked again and the fields can change (D87)", async () => {
+    backend([get(CURRENT_PATH, jobOf({ state: "cancelled", order: { ...ORDER, ep: { n: 2, start_s: 1799, end_s: 3600 }, target_s: 120 } }))]);
+    await openSetup();
+
+    expect(await screen.findByRole("radio", { name: "เลือก EP 2" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: `เลือก ${FILM.title}` })).toBeEnabled();
+    expect(screen.getByRole("slider", { name: "ความยาว" })).toHaveValue("120");
+    expect(draftButton()).toBeEnabled();
+  });
+
+  it("after a cancelled draft whose EP the cut no longer has, the first EP is picked (spec › Frontend)", async () => {
+    backend([get(CURRENT_PATH, jobOf({ state: "cancelled", order: { ...ORDER, ep: { n: 2, start_s: 1500, end_s: 3600 } } }))]);
+    await openSetup();
+
+    expect(await screen.findByRole("radio", { name: "เลือก EP 1" })).toBeChecked();
+  });
+
+  it("after a cancelled draft whose voice was deleted, the form starts from a voice still saved (D87)", async () => {
+    backend([get(CURRENT_PATH, jobOf({ state: "cancelled", order: { ...ORDER, voice_id: "v_0000dead" } }))]);
+    await openSetup();
+
+    expect(await screen.findByRole("combobox", { name: "เสียงบรรยาย" })).toHaveDisplayValue(UNCLE.name);
+  });
+
+  it("busy from ร่างบท says มีงานร่างบทอยู่แล้ว and reads the steps again (D87)", async () => {
+    backend([send("POST", JOBS_PATH, { code: "busy", message: "กำลังร่างบทอยู่" }, 409), get(CURRENT_PATH, null), get(CURRENT_PATH, jobOf({}))]);
+    const user = await pickFilm();
+
+    await user.click(draftButton());
+
+    expect(await screen.findByText("มีงานร่างบทอยู่แล้ว")).toBeInTheDocument();
+    expect(await screen.findByText(`กำลังร่างบท ${FILM.title} · EP 1: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้`)).toBeInTheDocument();
+  });
+
+  it("each style says how it tells the story (D84)", async () => {
+    backend([]);
+    await openSetup();
+
+    expect(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" })).toHaveAccessibleDescription("ประโยคสั้น ตลก เร็ว เล่าเหตุการณ์เด่น");
+    expect(screen.getByRole("radio", { name: "เล่าละครหักมุม" })).toHaveAccessibleDescription(
+      "hook เรื่อง หักมุม แรงจูงใจ คำถามชวนคอมเมนต์ท้ายคลิป",
+    );
+    expect(screen.getByRole("radio", { name: "เล่าตามลำดับ" })).toHaveAccessibleDescription("เล่าทีละฉากตามเวลา มีบทพูดตัวละครแทรกได้");
+  });
+
+  it("gpu_busy names the running job", async () => {
+    backend([send("POST", JOBS_PATH, { code: "gpu_busy", message: "รอให้งานบรรยายฉากเสร็จก่อน", running: "describe" }, 409)]);
+    const user = await pickFilm();
+
+    await user.click(draftButton());
+
+    expect(await screen.findByText("รอให้งานบรรยายฉากเสร็จก่อน")).toBeInTheDocument();
+  });
+});
+
+describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
+  const storyField = () => screen.getByRole("combobox", { name: "เรื่องในคลังความรู้" });
+  /** The Stories listed, and the Story each clip remembers: FILM remembers CONAN unless `links` says otherwise. */
+  const remembering = (stories = [CONAN, ALIEN], links: Record<string, string> = { [FILM.id]: CONAN.id }): Route[] => [
+    get(STORIES_PATH, stories),
+    get(STORY_CLIPS_PATH, links),
+  ];
+  const BOTH_REMEMBER = { [FILM.id]: CONAN.id, [OTHER.id]: ALIEN.id };
+  const clipRadio = (clip: { title: string }) => screen.getByRole("radio", { name: `เลือก ${clip.title}` });
+  /** The API's story_not_found message, worded apart from the app's own texts: the field says what the API says. */
+  const GONE_TEXT = "ไม่พบเรื่องนี้แล้ว (ข้อความของ API)";
+
+  it("a clip that remembers a Story starts with it, and the meter adds the Story's tokens", async () => {
+    backend(remembering());
+    await pickFilm();
+
+    expect(storyField()).toHaveDisplayValue(CONAN.title);
+    expect(screen.getByText("Transcript ของ EP 1 + เรื่อง")).toBeInTheDocument();
+    expect(screen.getByText("21,500 / 32,000")).toBeInTheDocument();
+    expect(screen.getByText("เรื่อง 3,100 token")).toBeInTheDocument();
+    expect(screen.getByText("จำให้คลิปนี้ทุก EP เมื่อกดร่างบท")).toBeInTheDocument();
+    expect(draftButton()).toBeEnabled();
+  });
+
+  it("a clip whose Story was deleted starts with ไม่ใช้ and the meter counts the EP only", async () => {
+    backend(remembering([ALIEN]));
+    await pickFilm();
+
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+    expect(screen.getByText("Transcript ของ EP 1")).toBeInTheDocument();
+    expect(screen.getByText("18,400 / 32,000")).toBeInTheDocument();
+    expect(screen.queryByText(/^เรื่อง .* token$/)).not.toBeInTheDocument();
+  });
+
+  it("lists ไม่ใช้ then every Story by title; picking one calls the API for nothing until ร่างบท", async () => {
+    backend(remembering());
+    const user = await pickFilm();
+    const before = fetchMock.mock.calls.length;
+
+    expect(within(storyField()).getAllByRole("option").map((option) => option.textContent)).toEqual(["ไม่ใช้", CONAN.title, ALIEN.title]);
+    await user.selectOptions(storyField(), ALIEN.title);
+
+    expect(fetchMock.mock.calls.length).toBe(before);
+    expect(screen.getByText("19,300 / 32,000")).toBeInTheDocument();
+  });
+
+  it("sorts the Stories as Thai is sorted, a leading vowel after its consonant", async () => {
+    // By code point ข (U+0E02) comes before เ (U+0E40); in Thai order เกมล่า reads from ก.
+    const stories = [storyRowOf("st_000000b0", "ขุนพันธ์"), storyRowOf("st_000000a0", "เกมล่า")];
+    backend([get(STORIES_PATH, stories)]);
+    await pickFilm();
+
+    expect(within(storyField()).getAllByRole("option").map((option) => option.textContent)).toEqual(["ไม่ใช้", "เกมล่า", "ขุนพันธ์"]);
+  });
+
+  it("drafting with a Story, then opening step 1 of the clip again, starts with that Story", async () => {
+    const current = phased(CURRENT_PATH, null, jobOf({ state: "done", order: { ...ORDER, story_id: ALIEN.id, story_title: ALIEN.title } }));
+    backend([
+      get(STORIES_PATH, [CONAN, ALIEN]),
+      get(STORY_CLIPS_PATH, {}),
+      get(STORY_CLIPS_PATH, { [FILM.id]: ALIEN.id }),
+      send("POST", JOBS_PATH, jobOf({}), 202),
+      current.route,
+    ]);
+    const user = await pickFilm();
+    await user.selectOptions(storyField(), ALIEN.title);
+    current.phases.at = 1;
+    await user.click(draftButton());
+    expect(window.location.hash).toBe(REVIEW_HASH);
+
+    await act(async () => {
+      window.location.hash = "#/spoil";
+    });
+    await user.click(await screen.findByRole("radio", { name: `เลือก ${FILM.title}` }));
+
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: ALIEN.id })]);
+    expect(await screen.findByRole("combobox", { name: "เรื่องในคลังความรู้" })).toHaveDisplayValue(ALIEN.title);
+  });
+
+  it("a Story without a token count shows — / — and ร่างบท can't be pressed", async () => {
+    backend(remembering([{ ...CONAN, tokens: null }]));
+    await pickFilm();
+
+    expect(screen.getByText("— / —")).toBeInTheDocument();
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("an EP and a Story over 32,000 together can't be drafted and the meter says so", async () => {
+    backend([...remembering([{ ...CONAN, tokens: 14_800 }])]);
+    await pickFilm();
+
+    expect(screen.getByText("33,200 / 32,000")).toBeInTheDocument();
+    expect(screen.getByText("EP กับเรื่องรวม 33,200 token เกิน 32,000 (เรื่อง 14,800)")).toBeInTheDocument();
+    expect(draftButton()).toBeDisabled();
+  });
+
+  it("ร่างบท sends the field's Story; story_not_found reads the Stories again and says so with ไม่ใช้", async () => {
+    backend([
+      ...remembering(),
+      get(STORIES_PATH, [ALIEN]),
+      send("POST", JOBS_PATH, { code: "story_not_found", message: GONE_TEXT }, 400),
+    ]);
+    const user = await pickFilm();
+    const read = reads(STORIES_PATH);
+
+    await user.click(draftButton());
+
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: CONAN.id })]);
+    expect(await screen.findByText(GONE_TEXT)).toBeInTheDocument();
+    expect(reads(STORIES_PATH)).toBe(read + 1);
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+  });
+
+  it("left untouched, the field follows the picked clip's own Story", async () => {
+    backend(remembering([CONAN, ALIEN], BOTH_REMEMBER));
+    const user = await pickFilm();
+    expect(storyField()).toHaveDisplayValue(CONAN.title);
+
+    await user.click(clipRadio(OTHER));
+
+    expect(storyField()).toHaveDisplayValue(ALIEN.title);
+  });
+
+  it("a Story picked for one clip is dropped for the next: ไม่ใช้ for a clip without one, the clip's own coming back", async () => {
+    backend(remembering());
+    const user = await pickFilm();
+    await user.selectOptions(storyField(), ALIEN.title);
+
+    await user.click(clipRadio(OTHER));
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+
+    await user.click(clipRadio(FILM));
+    expect(storyField()).toHaveDisplayValue(CONAN.title);
+  });
+
+  it("ไม่ใช้ picked over the clip's Story sends story_id null", async () => {
+    backend([...remembering(), send("POST", JOBS_PATH, jobOf({}), 202)]);
+    const user = await pickFilm();
+
+    await user.selectOptions(storyField(), "ไม่ใช้");
+    await user.click(draftButton());
+
+    expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: null })]);
+  });
+
+  describe("after story_not_found", () => {
+    const goneMessage = () => screen.queryByText(GONE_TEXT);
+
+    /** Picks FILM, which remembers CONAN (OTHER remembers ALIEN), and presses ร่างบท; every ร่างบท is refused as story_not_found. */
+    async function draftDeletedStory() {
+      backend([
+        ...remembering([CONAN, ALIEN], BOTH_REMEMBER),
+        get(STORIES_PATH, [ALIEN]),
+        send("POST", JOBS_PATH, { code: "story_not_found", message: GONE_TEXT }, 400),
+      ]);
+      const user = await pickFilm();
+      await user.click(draftButton());
+      expect(await screen.findByText(GONE_TEXT)).toBeInTheDocument();
+      return user;
+    }
+
+    it("picking a Story clears the message and the field shows it", async () => {
+      const user = await draftDeletedStory();
+
+      await user.selectOptions(storyField(), ALIEN.title);
+
+      expect(goneMessage()).not.toBeInTheDocument();
+      expect(storyField()).toHaveDisplayValue(ALIEN.title);
+    });
+
+    it("picking another clip clears the message and the field follows that clip's Story", async () => {
+      const user = await draftDeletedStory();
+
+      await user.click(clipRadio(OTHER));
+
+      expect(goneMessage()).not.toBeInTheDocument();
+      expect(storyField()).toHaveDisplayValue(ALIEN.title);
+    });
+
+    it("the next ร่างบท sends story_id null, not the deleted Story", async () => {
+      const user = await draftDeletedStory();
+
+      await user.click(draftButton());
+
+      expect(sent("POST", JOBS_PATH).at(-1)).toEqual(expect.objectContaining({ story_id: null }));
+    });
+  });
+
+  it("the links open a new tab; coming back reads the Stories again and keeps what was set", async () => {
+    backend([...remembering([ALIEN]), get(STORIES_PATH, [ALIEN, CONAN])]);
+    const user = await pickFilm();
+    await user.click(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" }));
+    await user.selectOptions(storyField(), ALIEN.title);
+
+    const add = screen.getByRole("link", { name: "เพิ่มเรื่องในคลังความรู้" });
+    expect(add).toHaveAttribute("href", "#/stories/new");
+    expect(add).toHaveAttribute("target", "_blank");
+    const edit = screen.getByRole("link", { name: "แก้เรื่องนี้" });
+    expect(edit).toHaveAttribute("href", `#/stories/${ALIEN.id}`);
+    expect(edit).toHaveAttribute("target", "_blank");
+
+    const read = reads(STORIES_PATH);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(reads(STORIES_PATH)).toBe(read + 1);
+    expect(await within(storyField()).findByRole("option", { name: CONAN.title })).toBeInTheDocument();
+    expect(storyField()).toHaveDisplayValue(ALIEN.title);
+    expect(screen.getByRole("radio", { name: "ปั่นตัดเร็ว" })).toBeChecked();
+  });
+
+  it("ไม่ใช้ has no แก้เรื่องนี้ link", async () => {
+    backend([get(STORIES_PATH, [CONAN])]);
+    await pickFilm();
+
+    expect(storyField()).toHaveDisplayValue("ไม่ใช้");
+    expect(screen.queryByRole("link", { name: "แก้เรื่องนี้" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "เพิ่มเรื่องในคลังความรู้" })).toBeInTheDocument();
+  });
+
+  it("a failed draft's order starts the field with its Story", async () => {
+    const failed = jobOf({ state: "failed", order: { ...ORDER, story_id: ALIEN.id, story_title: ALIEN.title } });
+    backend([get(STORIES_PATH, [CONAN, ALIEN]), get(CURRENT_PATH, failed)]);
+    await openSetup();
+
+    expect(await screen.findByRole("combobox", { name: "เรื่องในคลังความรู้" })).toHaveDisplayValue(ALIEN.title);
+  });
+
+  it("a failed draft's order with ไม่ใช้ starts the field at ไม่ใช้, not at the clip's own Story (spoil-maker D87)", async () => {
+    const failed = jobOf({ state: "failed", order: { ...ORDER, story_id: null, story_title: null } });
+    backend([...remembering(), get(CURRENT_PATH, failed)]);
+    await openSetup();
+
+    expect(await screen.findByRole("combobox", { name: "เรื่องในคลังความรู้" })).toHaveDisplayValue("ไม่ใช้");
+  });
+
+  it("while a draft runs the field is its order's Story title as text", async () => {
+    const running = jobOf({ order: { ...ORDER, story_id: CONAN.id, story_title: "ชื่อตอนเริ่ม" } });
+    backend([get(STORIES_PATH, [CONAN]), get(CURRENT_PATH, running)]);
+    await openSetup();
+
+    const section = await screen.findByRole("region", { name: "เรื่องในคลังความรู้" });
+    expect(within(section).getByText("ชื่อตอนเริ่ม")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "เรื่องในคลังความรู้" })).not.toBeInTheDocument();
+  });
+
+  it("while a draft without a Story runs the field reads ไม่ใช้", async () => {
+    backend([get(STORIES_PATH, [CONAN]), get(CURRENT_PATH, jobOf({}))]);
+    await openSetup();
+
+    const section = await screen.findByRole("region", { name: "เรื่องในคลังความรู้" });
+    expect(within(section).getByText("ไม่ใช้")).toBeInTheDocument();
+  });
+});

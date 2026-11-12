@@ -1,0 +1,22 @@
+"""How many tokens a text is to Qwen, gated on its Status check row: an EP's lines
+(spoil-maker D46) and a Story block (story-kb D14) count the same way.
+
+`spoil_maker.count_tokens` is looked up at call time, so tests swap it for a fake.
+"""
+
+from backend import checks, gate_rows, spoil_maker
+from backend.errors import ApiError, require_rows
+from backend.models import qwen_for
+from backend.paths import ProjectPaths
+
+
+def count(project: ProjectPaths, text: str) -> int:
+    """Raises `ApiError` 503 `not_ready` without Qwen's tokenizer (spoil-maker D60)."""
+    require_rows(gate_rows.qwen_model(project))
+    # The OS's own repo: both tokenizers count alike (windows-launch spec › Library assumptions).
+    qwen = qwen_for(checks.this_platform())
+    try:
+        return spoil_maker.count_tokens(project.snapshot_dir(qwen, qwen.revision), text)
+    except OSError:
+        # A marker without its snapshot, or with files transformers can't read: the install is broken the same way.
+        raise ApiError(503, "not_ready", f"ยังติดตั้งไม่ครบ: {qwen.label}", rows=[qwen.check_id]) from None

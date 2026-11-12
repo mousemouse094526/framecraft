@@ -29,6 +29,8 @@
   --color-border-strong: #78716c;
   --color-surface-strong: #e7e5e4;
   --color-surface-inverse: #121110;
+  /* `stroke/input/disable`: the dashed edge of a disabled File drop (spoil D50). */
+  --color-border-disabled: #d6d3d1;
 
   --color-destructive: #dc2626;
   --color-error-surface: #fef2f2;
@@ -39,8 +41,35 @@
   --color-warning: #b45309;
   --color-warning-surface: #fffbeb;
   --color-warning-border: #b45309;
+  --color-info: #1d4ed8;
   --color-info-surface: #eff6ff;
   --color-info-border: #1d4ed8;
+
+  /* The small drawings of the 3 video layouts (Figma `Layout option`, spoil-maker D8, D22). */
+  --color-preview-blur: #a8a29e;
+  --color-preview-title: #facc15;
+
+  /* A running job's bar moves even when its percent doesn't (ProgressBar). */
+  --animate-progress-slide: progress-slide 1.4s ease-in-out infinite;
+  --animate-progress-shimmer: progress-shimmer 1.6s linear infinite;
+
+  @keyframes progress-slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(435%);
+    }
+  }
+
+  @keyframes progress-shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
 }
 
 body {

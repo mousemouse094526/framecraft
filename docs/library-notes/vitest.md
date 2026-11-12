@@ -48,6 +48,9 @@ Follows [Config](https://vitest.dev/config/) and [vi API](https://vitest.dev/api
 - jsdom 30 needs Node `^22.22.2 || ^24.15.0 || >=26` — [jsdom releases](https://github.com/jsdom/jsdom/releases)
 - jsdom 30 has no media playback or layout: `HTMLMediaElement.load/play/pause` and `window.confirm` log "Not implemented", and `Element.scrollIntoView` is missing. Stub them per test (`vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {})`, `vi.stubGlobal("confirm", ...)`, assign `Element.prototype.scrollIntoView = vi.fn()`) — [jsdom README › Unimplemented parts](https://github.com/jsdom/jsdom#unimplemented-parts-of-the-web-platform)
 
+- jsdom 30 never fires `timeupdate`, `seeked` or `durationchange`, and `HTMLMediaElement.duration` stays `NaN`: a test that moves the player sets `currentTime` and fires the event itself (`fireEvent(video, new Event("timeupdate"))`); a length is `Object.defineProperty(video, "duration", { value, configurable: true })` then `durationchange` — checked in jsdom 30.1.3 (spoil ticket 07)
+- jsdom has no layout: `getBoundingClientRect()` is all zeros, so pointer drags on a timeline can't be tested there; test its sliders with the keyboard — [jsdom README › Unimplemented parts](https://github.com/jsdom/jsdom#unimplemented-parts-of-the-web-platform)
+
 ## Sources
 
 - [Config reference](https://vitest.dev/config/) — `test` in Vite config, priority of config files (accessed 2026-10-29)

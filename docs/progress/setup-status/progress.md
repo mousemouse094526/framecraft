@@ -1,12 +1,8 @@
 # Progress: setup-status
 
-**Now:** 03 in-progress — โค้ด Windows เสร็จ, `npm run dev` ไม่พึ่ง uv ใน PATH แล้ว (D24); รอเช็คมือบนเครื่อง Windows NVIDIA (Blocked #2)
+**Now:** merged (PR #1, `a027e8f`); เช็คมือบน Windows อยู่ที่ `windows-check` 01 (D25)
 
-**Next:**
-
-```
-/warroom-build setup-status 03
-```
+**Next:** —
 
 ## Tickets
 
@@ -14,9 +10,41 @@
 |---|---|---|
 | 01 | Setup บน Mac และ Status API | done |
 | 02 | หน้า Setup status และ npm run dev | done |
-| 03 | Windows NVIDIA | in-progress |
+| 03 | Windows NVIDIA | done |
 
 ## Log
+
+### Feature review — done 2026-10-30
+
+**Built:**
+- review สามแกนบนโค้ดทั้ง feature (ba1700a..aee14b7 ซึ่งอยู่บน `develop` แล้ว) แก้ทุกข้อที่ผู้ใช้เลือกใน `2ed158b` บน `feat/setup-status`
+- API ส่ง `fix_kind` (`command`/`hint`); หน้าเว็บแสดง chip จาก `fix_kind` ไม่ดูช่องว่าง (D26 เปลี่ยน D20)
+- probe สี่ตัวรวมเป็น `Probes`; ffmpeg กับ Deno ใช้ helper อ่านเวอร์ชันเดียวกัน
+- แถว Python: `.venv` ผิดเวอร์ชัน → "ใน .venv ต้องเป็น 3.12" (เดิมบอกผิดว่าไม่ใช่ .venv)
+- NOTICE บอก `setup.cmd`, spec บอกว่า spoil ทำให้เป็น 11 แถว, test fixture ใช้ URL license ของ Whisper ตรง backend, comment และตัวเลขใน test ชัดขึ้น
+- รัน Status check จริงบนเครื่องนี้: 11/11
+
+**Decided:**
+- D26 — `fix_kind`, `Probes`, ข้อความแถว Python
+
+**For the next ticket:**
+- ทิ้งตามที่ผู้ใช้เลือก: ข้อความ link "license"/"model" กับ "Installing uv..." เป็นอังกฤษ, font size แบบ `text-[13px]`, `snapshot_dir(revision)` ที่มีแค่ test ใช้, traceback `CancelledError` ตอน Ctrl+C, แยก schema ของ API ออกจาก `checks.py`
+
+**Checks:** `uv run pytest` — 168 passed; `npm --prefix frontend test` — 67 passed; `npm --prefix frontend run typecheck` — pass; `npm --prefix frontend run build` — pass
+
+### 03: Windows NVIDIA — done 2026-10-30 (change request D25)
+
+**Built:**
+- ไม่มีโค้ดใหม่. ticket จบด้วยข้อที่ test พิสูจน์แล้ว: wrapper เรียก `setup.ps1` ด้วย Bypass, `setup.ps1` ASCII, แถว `fix` เป็น `setup.cmd`, backend เปิดอยู่ → exit 1
+- เช็คมือบนเครื่อง Windows จริงทั้งหมด (Blocked #2 และ For the next ticket ของ 02 และ 03) ย้ายไป `windows-check` 01
+
+**Decided:**
+- D25 — feature จบได้เมื่อผ่านบน Mac; เช็คมือบน Windows เป็น ticket ใน `windows-check` (ADR-0014 แทน ADR-0006)
+
+**For the next ticket:**
+- feature review: ข้อที่ยังไม่เคยลองบน Windows อยู่ใน `windows-check` 01 ไม่ต้องตามใน review นี้
+
+**Checks:** docs only — ไม่ได้รัน
 
 ### 03: Windows NVIDIA — fix ระหว่างรอเช็ค Windows 2026-10-29
 
@@ -108,4 +136,4 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 02 | design: Setup status | `/warroom setup-status` พร้อมลิงก์ Figma frame | done |
-| 2 | 03 | เช็คมือบนเครื่อง Windows ที่มีการ์ด NVIDIA (spec Open Question 1): policy `Restricted` ไม่มี uv → `setup.cmd` exit 0 กับ 9/9 `cuda`; ซ้ำใน path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9 และ Ctrl+C ปิดทั้งสอง; ข้อความไทยของ `scripts/dev-api.mjs` อ่านออก; backend เปิดอยู่ → `setup.cmd` พิมพ์ "ปิด npm run dev ก่อนรัน setup" exit 1 | ผู้ใช้รันบน Windows แล้ว `/warroom-build setup-status 03` พร้อมผล | open |
+| 2 | 03 | เช็คมือบนเครื่อง Windows ที่มีการ์ด NVIDIA (spec Open Question 1): policy `Restricted` ไม่มี uv → `setup.cmd` exit 0 กับ 9/9 `cuda`; ซ้ำใน path `C:\Users\{user}\งาน ทดสอบ\framecraft` และภาษาไทยอ่านออก; `npm run dev` → "พร้อมใช้งาน" 9/9 และ Ctrl+C ปิดทั้งสอง; ข้อความไทยของ `scripts/dev-api.mjs` อ่านออก; backend เปิดอยู่ → `setup.cmd` พิมพ์ "ปิด npm run dev ก่อนรัน setup" exit 1 | ผู้ใช้รันบน Windows แล้ว `/warroom-build setup-status 03` พร้อมผล | → D25 |

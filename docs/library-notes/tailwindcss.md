@@ -13,6 +13,7 @@
 - Define design tokens in `@theme` (`--color-*`, `--font-*`, `--radius-*`, …); each generates utilities and a CSS variable — [Theme variables](https://tailwindcss.com/docs/theme)
 - Reset a namespace with `--color-*: initial;` before defining your own palette — [Theme variables](https://tailwindcss.com/docs/theme)
 - Use `@theme inline` when a token references another variable; use `:root` for variables that should not make utilities — [Theme variables](https://tailwindcss.com/docs/theme)
+- `motion-safe:animate-spin` spins only when the user has not asked for reduced motion (`prefers-reduced-motion: no-preference`) — [Animation](https://tailwindcss.com/docs/animation)
 - **Avoid:** `@layer utilities` for custom classes; use `@utility` — [Upgrade guide](https://tailwindcss.com/docs/upgrade-guide)
 
 ## Pattern
@@ -52,3 +53,4 @@ Follows [Using Vite](https://tailwindcss.com/docs/installation/using-vite) and [
 - [Theme variables](https://tailwindcss.com/docs/theme) — `@theme`, namespaces, `inline`, constraints (accessed 2026-10-29)
 - [Upgrade guide](https://tailwindcss.com/docs/upgrade-guide) — v3 → v4 breaking changes (accessed 2026-10-29)
 - [Changelog](https://github.com/tailwindlabs/tailwindcss/blob/main/CHANGELOG.md) — 4.1–4.3 changes, Vite 8 support (accessed 2026-10-29)
+- [Animation](https://tailwindcss.com/docs/animation) — `animate-spin` and `motion-safe:` for reduced motion (accessed 2026-11-04)

@@ -10,7 +10,7 @@ machine's GPU.
 ```python
 def test_missing_marker(tmp_path):
     root = make_fake_root(tmp_path, models={"whisper": "ok"})
-    result = run_checks(root, device_probe=lambda: "cuda", ffmpeg_probe=ok_ffmpeg)
+    result = run_checks(root, fake_probes(device=lambda: "cpu"))
     assert item(result, "model_omnivoice").status == "missing"
 ```
 
@@ -22,18 +22,63 @@ def test_missing_marker(tmp_path):
   the default `testserver` host fails `TrustedHostMiddleware` (ADR 0011).
 - Fake the project root in `tmp_path`; inject probes instead of monkeypatching
   globals where the code takes them as arguments.
+- Tests never depend on the machine that runs them: what an installed package
+  or the OS says goes through a probe or `checks.this_platform()`, and
+  `fake_root` sets both to a Mac with everything installed (ADR 0016).
+- A Windows case: `run_checks(..., sys_platform="win32")` with `fake_probes(gpu=gpu(...))`,
+  or `on_windows(monkeypatch, gpu(...))` for an API test; `fake_root` holds both Qwen
+  models, and `gpu()` is an RTX 3060 against torch's cu128 arch list (`CU128_ARCHS`).
 - Each case asserts one exact count or status, never "8 or 9".
 - No browser e2e tool yet; UI is tested in the frontend with Vitest.
 - Background jobs are tested without sleeps on a timer: the fake pauses at a
   named point (`pause_at`, `wait_until`, `release`) and the test polls the API
   until the job's state is final. Swap the job holder for a fresh one per test
-  (`monkeypatch.setattr(jobs, "downloads", jobs.Downloads())`).
+  (`monkeypatch.setattr(downloads, "downloads", downloads.Downloads())`).
+  A job that runs ffmpeg takes its runner as an argument of the holder
+  (`RenderJobs(run_ffmpeg=…)`, `Describes(find_cuts=…)`), so a test pauses
+  ffmpeg or makes up its output by swapping in a holder with a stand-in, never
+  by patching a module function the job calls.
 - A lifespan only runs inside `with TestClient(app, ...)`.
+- `TestClient` sends a body in one go. A body that pauses, stalls or is dropped mid-way
+  is played through the app as ASGI with a scripted `receive` (`Upload`, `Gate` and
+  `play` in `test_spoil_import_api.py`), and the requests made meanwhile go through
+  `httpx.AsyncClient(transport=httpx.ASGITransport(app=app))` in the same `anyio.run`
+  event loop, so a blocked loop shows as a slow answer.
+- ffmpeg is real in tests: `make_test_clip` builds clips with `lavfi` in a
+  session fixture, never a media file in git (spoil-maker seam 1). The scene
+  filter goes by brightness: colours of the same luma (red, green) make no cut.
+- A test that leaves a job unfinished must not leak the GPU: every API test
+  fixture swaps `gpu.slot` for a fresh `gpu.GpuSlot()`.
+- The Whisper, LLM and TTS child processes are never started in tests (`FakeWorker`,
+  and `FakeLlm` and `FakeTts`, both a `FakeModel` that answers a request queue;
+  `FakeLlm.respond(request)` makes each reply, and `FakeModel.HANG` as a reply
+  never comes, for a timeout in any process); Qwen's tokenizer neither (a
+  `count_tokens` stand-in that counts characters);
+  the real `worker`s are checked by hand with the model (seam 3); the Windows
+  worker's steps are also tested against stand-in `torch` and `transformers`
+  modules put in `sys.modules` (`test_spoil_maker_llm_windows.py`). A timeout test
+  swaps the per-OS table with `os_timeouts(monkeypatch, darwin=…, win32=…)` (klein's
+  picture timeout: `klein_timeouts(monkeypatch, seconds)`, one value for both OSes), never
+  a constant; a timeout that is the same on every OS and that a request can't pass in
+  (`sounds.PROBE_SECONDS`, read at start-up) is swapped on its module. Its pure helpers
+  (`plan_segments`, `to_lines`) have unit tests, and one test runs a plain
+  `python -c` to prove importing the adapter loads neither torch nor
+  transformers.
+
+- A prompt promised not to change is compared letter for letter with a file in
+  `backend/tests/golden/`, captured from the code before the change (story-kb D19).
 
 ## Good examples
 
 - [backend/tests/conftest.py](../../../../backend/tests/conftest.py) — the `fake_root` fixture only.
-- [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — plain helpers tests import: `write_snapshot`, `write_marker`, fake probes.
+- [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — helpers tests import: `write_snapshot`, `write_marker`, fake probes, and `Upload`/`Gate`/`play`, which play a raw upload through the app as ASGI (a page that pauses, stalls, drops or leaves).
+  `toon_api(answers, tts_seconds=, uses=)` makes the `project`, `llm`, `klein`, `tts` and
+  `client` fixtures every toon API test file takes (`project, llm, klein, tts, client =
+  toon_api(...)`, kept under those names: pytest finds a fixture by its module-level name);
+  a file writes none of them itself, and conftest keeps `fake_root` only. The calls more than
+  one toon test file makes (`new_series`, `new_ep`, `run`, `upload`, `import_tone`, …) and the toon paths (`TOON_SERIES`, …) live in
+  `fakes.py` too: a toon test file never imports another test file.
 - [backend/tests/test_setup.py](../../../../backend/tests/test_setup.py) — `FakeDownload` stands in for `snapshot_download`.
 - [backend/tests/test_app.py](../../../../backend/tests/test_app.py) — API tests monkeypatch `backend.paths.ROOT` and the default probes in `backend.checks`.
 - [backend/tests/test_spoil_api.py](../../../../backend/tests/test_spoil_api.py) — `FakeAdapter` from `fakes.py` stands in for yt-dlp; `wait_for_end` polls the job.
+- [backend/tests/test_spoil_transcribe_api.py](../../../../backend/tests/test_spoil_transcribe_api.py) — `FakeWorker` stands in for the Whisper child process: a thread feeds the queue and pauses at a message index.

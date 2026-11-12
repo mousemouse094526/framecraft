@@ -1,0 +1,22 @@
+{
+  "horror": {
+    "acts": [
+      "เปิด",
+      "ปม",
+      "หักมุม",
+      "จบหลอน"
+    ],
+    "style": "flat 2D cartoon illustration, simple round heads, dot eyes, thick clean outlines, dark night scene, only light sources are bright and saturated, deep shadows",
+    "tone": "เล่าเป็น \"ฉัน\" น้ำเสียงเรียบ ช้า ชวนขนลุก ประโยคสั้น"
+  },
+  "comedy": {
+    "acts": [
+      "ตั้งเรื่อง",
+      "ปั่น",
+      "พลิก",
+      "ตบมุก"
+    ],
+    "style": "flat 2D cartoon illustration, simple round heads, dot eyes, thick clean outlines, bright cheerful colors, soft daylight",
+    "tone": "เล่ากวนๆ จังหวะเร็ว มีมุกตบท้าย ประโยคสั้น"
+  }
+}
