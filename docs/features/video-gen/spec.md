@@ -154,10 +154,10 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 | `kick` | ล่าง | แดง `#E84A6B` | `kick_24/kick` | เท้าขวา `RF` |
 | `hihat_pedal` | ล่าง | เหลือง `#E8C547` | `hihat_14/chik` | เท้าซ้าย `LF` |
 
-- Setup script โหลดเฉพาะชั้นเบาสุด กลาง แรงสุด ของแต่ละชิ้น ทุก round-robin ไมค์ `cl` ลง `models/drums/` ตาม path เดิมใน repo (D19)
+- Setup script โหลดเฉพาะชั้นเบาสุด กลาง แรงสุด ของแต่ละชิ้น ทุก round-robin ไมค์ `cl` (snare ไมค์ `top`, kick ไมค์ `kick`: ไม่มี `cl`) ลง `models/drums/` ตาม path ใต้ `Samples/` ของ repo (D19, D26)
 - ตาราง (`piece`, ชั้น `soft`/`mid`/`hard`, round-robin, path, sha256) อยู่ใน `backend.drum_kit`; ticket แรกสร้างจาก `.sfz` ของ repo ที่ commit ที่ pin (D19)
 - ไม่มีไฟล์ใด = แถว `drum_kit` เป็น `missing` พร้อม `fix` คำสั่ง Setup script (setup-status D26)
-- `chik` คือไฮแฮทเท้าหรือไม่ และทอม 14/15/18 เหมาะกับสูง กลาง ต่ำหรือไม่ — Open Question 1
+- `chik` เป็นไฮแฮทเท้า และทอม 14/15/18 เป็นสูง กลาง ต่ำ — ตรวจแล้วใน D30 (Open Question 1)
 
 ### Timeline and audio
 
@@ -286,7 +286,7 @@ restart ระหว่างรัน: start ล้าง `.render/` และ 
    - `POST /copy` → id ใหม่ ไม่มีผล render; `DELETE` → folder หาย; `lesson.json` เสีย → ไม่อยู่ในรายการ แต่ `DELETE` ได้
    - `POST /listen` → wav ยาว `length_s`
 2. **ตารางเวลาและเฟรม** `timeline.build(lesson)`, `frames.frame_at(scene, t)`
-   - BPM 120 ท่อนแรกความเร็ว 50 → นับเข้ายาว 4.0 วินาที โน้ต step 4 ของห้องแรกอยู่ที่ 4.5 วินาที
+   - BPM 120 ท่อนแรกความเร็ว 50 → นับเข้ายาว 4.0 วินาที โน้ต step 2 ของห้องแรกอยู่ที่ 4.5 วินาที (step 4 ที่ 5.0, D27)
    - `flam` → สองการตี ห่าง 0.03 วินาที มือสลับ `soft` ก่อน
    - เฟรมที่เวลาของโน้ต snare → พิกเซลที่จุดกระทบของ snare เป็นสีแดง; เฟรมก่อนหน้า 1 เฟรม (1/30 วินาที) ไม่แดง
    - ท่อนที่ `focus` = `["kick"]` → พิกเซลกลาง snare มืดกว่าในท่อนที่ไม่มี focus
@@ -324,7 +324,7 @@ restart ระหว่างรัน: start ล้าง `.render/` และ 
 
 ## Open Questions
 
-1. `hihat_14/chik` เป็นไฮแฮทเท้าจริงไหม และทอม 14/15/18 นิ้วเหมาะกับสูง กลาง ต่ำไหม — non-blocking: ticket แรกฟังจริงแล้วแก้ตาราง Drum kit; ทั้งสองทางใช้ไฟล์ใน repo เดียวกัน
+1. ~~`hihat_14/chik` เป็นไฮแฮทเท้าจริงไหม และทอม 14/15/18 นิ้วเหมาะกับสูง กลาง ต่ำไหม~~ — ปิดแล้วใน D30: ตารางคงเดิม (ตรวจจาก keymap ของ repo และ f0 ของไฟล์ ยังไม่ได้ฟังด้วยหู)
 2. legal ข้อ 2 UNVERIFIED: โน้ตกลองไม่กี่ห้องของเพลงที่มีลิขสิทธิ์เป็น "สาระสำคัญ" ของงานดนตรีหรือไม่ และ s.32(6) ครอบคลิปสอนของเพจส่วนตัวหรือไม่ — non-blocking: รับความเสี่ยงแล้วใน D25
 3. legal ข้อ 3 UNVERIFIED: ปกอัลบั้มที่เบลอหนักเข้าข้อยกเว้นหรือไม่ (แอปเตือนห้ามใช้อยู่แล้ว D23) — non-blocking: รับความเสี่ยงแล้วใน D25
 4. legal ข้อ 4 UNVERIFIED: "Your Turn" จดเครื่องหมายการค้าในไทยหรือไม่ (ป้ายตั้งต้นไม่ใช้คำนี้แล้ว D23) — non-blocking: รับความเสี่ยงแล้วใน D25

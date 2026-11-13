@@ -15,7 +15,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from backend import disk, fonts
+from backend import disk, drum_kit, fonts
 from backend.checks import (
     Probes,
     StatusResponse,
@@ -105,6 +105,10 @@ def run_setup(
             step = "โหลด Kanit"
             print("กำลังโหลด font Kanit…")
             fonts.install_kanit(project, fetch)
+        if drum_kit.check_drum_kit(project)[0] != "ok":
+            step = "โหลดเสียงกลอง"
+            print("กำลังโหลดเสียงกลอง Big Rusty Drums…")
+            drum_kit.install_drum_kit(project, fetch)
         step = "npm install"
         print("กำลังรัน npm install…", flush=True)  # before npm writes its own output
         npm_install(root)

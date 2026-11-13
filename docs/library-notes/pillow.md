@@ -2,7 +2,7 @@
 
 **Kind:** library
 
-**Version:** 12.3.0 (pulled in by diffusers; not pinned)
+**Version:** 12.3.0 (pinned in `pyproject.toml`, video-gen D3)
 
 **Docs:** https://pillow.readthedocs.io/en/stable/
 

@@ -2,6 +2,7 @@
 of the toon API tests (`toon_api`) and the calls they share."""
 
 import dataclasses
+import functools
 import io
 import json
 import queue
@@ -14,7 +15,9 @@ from pathlib import Path
 import anyio
 import httpx
 import imageio_ffmpeg
+import numpy as np
 import pytest
+import soundfile
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -91,6 +94,32 @@ def write_kanit(root: Path) -> None:
         (project.kanit_dir / name).write_bytes(b"font file")
     project.kanit_marker.parent.mkdir(parents=True, exist_ok=True)
     project.kanit_marker.write_text(json.dumps({"files": dict(fonts.KANIT_SHA256)}), encoding="utf-8")
+
+
+@functools.cache
+def fake_sample() -> bytes:
+    """A 0.1 s mono FLAC at 44.1 kHz whose first sample is at full scale, then silence: where a
+    hit starts is the first loud sample (video-gen spec › Testing decisions). Made once."""
+    audio = np.zeros(4410, dtype=np.float32)
+    audio[0] = 1.0
+    buffer = io.BytesIO()
+    soundfile.write(buffer, audio, 44100, subtype="PCM_16", format="FLAC")
+    return buffer.getvalue()
+
+
+def write_drum_kit(root: Path) -> None:
+    """Every drum sample as `fake_sample` and the marker setup writes once their sha256 match
+    the pins; nothing is fetched."""
+    from backend import drum_kit
+
+    project = ProjectPaths(root)
+    for sample in drum_kit.SAMPLES:
+        path = drum_kit.sample_path(project, sample)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(fake_sample())
+    project.drum_kit_marker.parent.mkdir(parents=True, exist_ok=True)
+    pinned = {sample.path: sample.sha256 for sample in drum_kit.SAMPLES}
+    project.drum_kit_marker.write_text(json.dumps({"files": pinned}), encoding="utf-8")
 
 
 def ok_ffmpeg() -> FfmpegInfo:

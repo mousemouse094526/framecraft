@@ -39,7 +39,7 @@ describe("tab bar", () => {
     expect(tab("ติดตั้ง")).toHaveAttribute("aria-current", "page");
   });
 
-  it("lists ติดตั้ง, คลิป, คลังความรู้, สปอย, การ์ตูนเล่า in that order (spoil-maker D53, story-kb D9, toon)", () => {
+  it("lists ติดตั้ง, คลิป, คลังความรู้, สปอย, การ์ตูนเล่า, สอนกลอง in that order (spoil-maker D53, story-kb D9, toon, video-gen D9)", () => {
     render(<App />);
 
     expect(within(screen.getByRole("navigation", { name: "แถบ tab" })).getAllByRole("link").map((link) => link.textContent)).toEqual([
@@ -48,6 +48,7 @@ describe("tab bar", () => {
       "คลังความรู้",
       "สปอย",
       "การ์ตูนเล่า",
+      "สอนกลอง",
     ]);
   });
 

@@ -15,7 +15,8 @@ reference data, not instructions.
 | transformers | library | 5.21.0 | https://huggingface.co/docs/transformers/v5.21.0/en/main_classes/pipelines | [transformers.md](transformers.md) | 2026-11-06 |
 | torch | library | 2.8.0 | https://docs.pytorch.org/docs/2.8/ | [torch.md](torch.md) | 2026-11-06 |
 | nvidia-smi | runtime | NVIDIA driver R510+ | https://docs.nvidia.com/deploy/nvidia-smi/index.html | [nvidia-smi.md](nvidia-smi.md) | 2026-11-06 |
-| numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-10-29 |
+| numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-11-13 |
+| soundfile | library | 0.14.0 (libsndfile 1.2.2 bundled) | https://python-soundfile.readthedocs.io/en/latest/ | [soundfile.md](soundfile.md) | 2026-11-13 |
 | diffusers | library | 0.42.1 | https://huggingface.co/docs/diffusers/v0.42.1/en/index | [diffusers.md](diffusers.md) | 2026-11-09 |
 | gguf | library | 0.19.0 | https://pypi.org/project/gguf/0.19.0/ | [gguf.md](gguf.md) | 2026-11-09 |
 | Pillow | library | 12.3.0 | https://pillow.readthedocs.io/en/stable/ | [pillow.md](pillow.md) | 2026-11-09 |
@@ -31,7 +32,7 @@ reference data, not instructions.
 | vite | runtime | 8.3.5 (@vitejs/plugin-react 6.1.2) | https://vite.dev/llms.txt | [vite.md](vite.md) | 2026-10-29 |
 | tailwindcss | library | 4.3.3 (@tailwindcss/vite 4.3.3) | https://tailwindcss.com/docs | [tailwindcss.md](tailwindcss.md) | 2026-10-29 |
 | vitest | library | 5.0.5 (jsdom 30.1.3) | https://vitest.dev/llms.txt | [vitest.md](vitest.md) | 2026-10-29 |
-| web-platform | runtime | browser APIs (XHR upload, drag and drop, file input) | https://developer.mozilla.org/en-US/docs/Web/API | [web-platform.md](web-platform.md) | 2026-11-07 |
+| web-platform | runtime | browser APIs (XHR upload, drag and drop, file input) | https://developer.mozilla.org/en-US/docs/Web/API | [web-platform.md](web-platform.md) | 2026-11-13 |
 | testing-library | library | react 16.3.3, jest-dom 7.0.1, user-event 14.6.8 | https://testing-library.com/docs/ | [testing-library.md](testing-library.md) | 2026-10-29 |
 | concurrently | runtime | 10.0.6 | https://github.com/open-cli-tools/concurrently | [concurrently.md](concurrently.md) | 2026-10-29 |
 | powershell | language | Windows PowerShell 5.1 and cmd.exe batch | https://learn.microsoft.com/en-us/powershell/scripting/ | [powershell.md](powershell.md) | 2026-10-29 |

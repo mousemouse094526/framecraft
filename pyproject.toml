@@ -19,6 +19,8 @@ dependencies = [
     "pythainlp==5.4.0",
     "diffusers==0.42.1",
     "gguf==0.19.0",
+    "pillow==12.3.0",
+    "soundfile==0.14.0",
 ]
 
 [dependency-groups]

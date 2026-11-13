@@ -393,3 +393,8 @@ question; the full entry is in the feature's decisions.md.
 | ข้อแก้ legal: ป้ายตั้งต้น `ลองเล่นเอง`, คำเตือนข้างปุ่มภาพพื้นหลัง, ไม่มีช่องโลโก้, ตรวจใหม่ก่อนหารายได้ | [video-gen](features/video-gen/decisions.md) | D23 | — | — | active |
 | คลิปสอนกลองทำตาม ADR-0017 ไม่หารายได้; หารายได้ = change request ตรวจ legal ข้อ 2 ใหม่ | [video-gen](features/video-gen/decisions.md) | D24 | — | — | active |
 | รับความเสี่ยง legal ข้อ 2–4 (UNVERIFIED) ของการเผยแพร่คลิปสอนกลอง (Accepted risk) | [video-gen](features/video-gen/decisions.md) | D25 | — | — | active |
+| ตาราง sample จาก `.sfz` ไมค์ใกล้: ชั้นแรก กลาง สุดท้าย ทุก round-robin; snare ไมค์ `top`, kick ไมค์ `kick` | [video-gen](features/video-gen/decisions.md) | D26 | — | [0039](adr/0039-drum-samples-pinned-cc0.md) | active |
+| ตัวอย่างเวลาใน AC: BPM 120 ความเร็ว 50 → step 2 ที่ 4.5 วิ (step 4 ที่ 5.0 วิ); สูตรคงเดิม | [video-gen](features/video-gen/decisions.md) | D27 | — | [0038](adr/0038-one-timeline-drives-sound-and-picture.md) | active |
+| ทางเลือกเล็กของ backend บทเรียน: gate ของ listen แถวเดียว, `field` ทุกค่าผิด, ปัด 16-bit ด้วย numpy, ทำซ้ำ copy ภาพพื้นหลัง | [video-gen](features/video-gen/decisions.md) | D28 | — | — | active |
+| ทางเลือกเล็กของหน้าสอนกลองก่อนมีแบบ: dialog แบบ story-kb, confirm ตอนลดห้อง, ฟังจังหวะ `PUT` เมื่อยังไม่บันทึก, `FixCommand` ใช้ร่วม | [video-gen](features/video-gen/decisions.md) | D29 | — | — | active |
+| ตาราง Drum kit คงเดิม: `chik` = ไฮแฮทเท้า (key 44), ทอม 14/15/18 = สูง กลาง ต่ำ (key 47/45/43) | [video-gen](features/video-gen/decisions.md) | D30 | — | [0039](adr/0039-drum-samples-pinned-cc0.md) | active |

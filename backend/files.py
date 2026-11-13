@@ -1,5 +1,6 @@
 """Writing files so a crash never leaves half of one: shared by every feature that keeps JSON."""
 
+import json
 import os
 import uuid
 from pathlib import Path
@@ -17,6 +18,15 @@ def write_atomic(target: Path, text: str, unique: bool = False) -> None:
     except OSError:
         temporary.unlink(missing_ok=True)
         raise
+
+
+def write_marker(marker: Path, files: dict[str, str]) -> None:
+    """A Setup marker naming each pinned file's sha256, through `{marker}.partial` then a
+    rename, written last so a marker always means every file is there (ADR 0004)."""
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    partial = marker.with_name(marker.name + ".partial")
+    partial.write_text(json.dumps({"files": files}, indent=2), encoding="utf-8")
+    os.replace(partial, marker)
 
 
 def remove_unfinished(folder: Path) -> None:

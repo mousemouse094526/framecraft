@@ -1,25 +1,27 @@
 import { useEffect, useState } from "react";
 
-// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, toon spec › Frontend).
+// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, toon spec › Frontend, video-gen D9).
 export const TABS = [
   { id: "setup", label: "ติดตั้ง", hash: "#/setup" },
   { id: "clips", label: "คลิป", hash: "#/clips" },
   { id: "stories", label: "คลังความรู้", hash: "#/stories" },
   { id: "spoil", label: "สปอย", hash: "#/spoil" },
   { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon" },
+  { id: "drums", label: "สอนกลอง", hash: "#/drums" },
 ] as const;
 
 export type TabId = (typeof TABS)[number]["id"];
 
 /**
- * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้ and `#/toon/…` a page of
- * การ์ตูนเล่า; an empty or
+ * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/toon/…` a page of
+ * การ์ตูนเล่า and `#/drums/…` a page of สอนกลอง; an empty or
  * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9).
  */
 export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/spoil/")) return "spoil";
   if (hash.startsWith("#/stories/")) return "stories";
   if (hash.startsWith("#/toon/")) return "toon";
+  if (hash.startsWith("#/drums/")) return "drums";
   return TABS.find((tab) => tab.hash === hash)?.id ?? "setup";
 }
 

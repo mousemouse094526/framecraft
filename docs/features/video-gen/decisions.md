@@ -328,3 +328,61 @@
 **Accepted risk:** โน้ตกลองไม่กี่ห้องของเพลงที่มีลิขสิทธิ์อาจนับเป็นสาระสำคัญของงานดนตรี และ s.32(6) อาจไม่ครอบคลิปของเพจส่วนตัว; ปกอัลบั้มเบลออาจไม่เข้าข้อยกเว้น; "Your Turn" อาจเป็นเครื่องหมายการค้า — ยอมได้เพราะคลิปไม่หารายได้ ใช้ช่วงสั้น ไม่ใช้ปก โลโก้ หรือชื่อเพจ.
 
 **From:** gate · **Status:** active
+
+## D26: ตาราง sample จาก `.sfz` ไมค์ใกล้ของแต่ละชิ้น
+
+**Chosen:** `backend.drum_kit.SAMPLES` สร้างจาก mapping ไมค์ใกล้ของแต่ละชิ้นใน `Programs/mappings/` ที่ commit `f07ce00`: ชั้น `soft` = กลุ่มความแรงแรก, `mid` = กลุ่ม `len // 2`, `hard` = กลุ่มสุดท้าย ทุก round-robin (117 ไฟล์ 13 MB, 44.1 kHz mono 16-bit). snare ใช้ไมค์ `top` และ kick ใช้ไมค์ `kick` เพราะสองชิ้นนี้ไม่มี folder `cl`. ไฟล์อยู่ใต้ `models/drums/` ตาม path ใต้ `Samples/` ของ repo.
+
+**Why:** ไมค์ใกล้ของ snare และ kick ใน repo ชื่อ `top` กับ `kick`; ride มี 3 round-robin ต่อชั้น ชิ้นอื่น 4.
+
+**From:** build ticket 01 · **Status:** active
+
+## D27: ตัวอย่างเวลาของโน้ตใน AC ใช้ step 2
+
+**Chosen:** AC และ Seams 2 ที่ว่า "BPM 120 ท่อนแรกความเร็ว 50 → โน้ต step 4 อยู่ที่ 4.5 วินาที" แก้เป็น step 2 ที่ 4.5 วินาที (step 4 ที่ 5.0 วินาที); สูตรใน spec › Timeline and audio คงเดิม.
+
+**Why:** ที่ 60 BPM ช่องละ 0.25 วินาที step 4 จึงเป็น 4 + 1.0 = 5.0; ตัวเลขเดิมขัดสูตรข้อ 1 และ 3 ของ spec เอง.
+
+**From:** build ticket 01 · **Status:** active
+
+## D28: ทางเลือกเล็กของ backend บทเรียนและเสียง
+
+**Chosen:**
+- `POST /listen` gate แค่แถว `drum_kit` (`gate_rows.drum_kit_row`) ตามลำดับ: id ผิดรูป `404` → `not_ready` → ไม่พบ `404` → `too_long`
+- ทุกค่าที่ผิด รวมชนิดผิด (`bpm` เป็น `true` หรือทศนิยม) ตอบ `invalid_request` พร้อม `field`; ข้อความบรรทัดเดียวยุบช่องว่างแบบ story-kb D16
+- ช่องเดียวกันที่มีชิ้นเดิมซ้ำ = `400` ที่โน้ตตัวหลัง (spec › Data: คู่ `piece`, `step` ไม่ซ้ำ)
+- `mixer` ปัด float เป็น 16-bit ด้วย numpy (`rint`, `clip`) ไม่ให้ libsndfile ปัด เพื่อให้ wav เหมือนเดิมทุก byte; เสียง mono ลงสองช่องเท่ากัน
+- round-robin ของการตีที่ sample เดียวกันเรียงตามลำดับ `kit`
+- ทำซ้ำบทเรียน copy `background.jpg` ด้วย (ไม่ copy ผล render)
+- folder ที่ไม่มี `lesson.json` = `404` ที่ `DELETE`
+
+**Why:** ทางที่ conventions และโค้ดเดิม (`stories`, `fonts`) ชี้; wav ต้องเหมือนเดิมทุก byte ตาม D13.
+
+**From:** build ticket 01 · **Status:** active
+
+## D29: ทางเลือกเล็กของหน้า tab สอนกลองก่อนมีแบบ Figma
+
+**Chosen:**
+- รายการชื่อ "บทเรียนกลอง" ปุ่ม "บทเรียนใหม่" (ว่าง: "สร้างบทเรียนแรก"); สร้างและลบใช้ `ModalDialog` แบบ story-kb; ลบไม่ได้ (`in_use`) → โหลดรายการใหม่แล้วแสดงข้อความ เพราะผล render บางอันอาจหายไปแล้ว
+- ลดห้องที่มีโน้ตเลยห้อง → `window.confirm` บอกจำนวนโน้ตที่จะหาย; ห้องว่างลดเลย
+- "ฟังจังหวะ" ส่ง `PUT` เฉพาะเมื่อยังไม่บันทึก (กันบทเรียนเดิมเด้งขึ้นบนสุดของรายการ); บันทึกไม่ผ่านไม่เรียก `/listen`
+- `not_ready` อ่าน `GET /api/setup/status` แล้วแสดง `fix` ของแถวใน `rows` เป็นคำสั่ง copy ได้ (`components/ui/FixCommand`, ย้ายจาก spoil เพราะมีผู้ใช้คนที่สอง)
+- ช่องในตาราง: โน้ตมือแสดง R/L, เท้าแสดง ●, flam มี f ยก, เน้นและเบาใช้สีพื้นต่างกัน; flam นับว่าใช้ทั้งสองมือ
+- คำบอก "ว่าง = แสดงหัวเรื่อง" อยู่ที่ป้ายท่อนแรกเท่านั้น (D12)
+- หน้าเว็บตรวจขอบของค่าก่อนส่งด้วย key เดียวกับ `field` ของ API; error ของ `groove.notes[i]` ทำเครื่องหมายที่ช่องนั้น; `field` ที่ไม่มีช่องของตัวเอง (`chapters[0].speed`, `background`) แสดงเป็น Alert เหนือปุ่มบันทึก
+- `not_ready` แสดงเฉพาะ `fix` ที่ `fix_kind` เป็น `command` เป็นคำสั่ง copy ได้ (setup-status D26)
+- หน้าเว็บคำนวณความยาวคลิปเองด้วยสูตรเดียวกับ `timeline.length_s` (`lib/lesson.ts` `lengthOf`) เพื่อบอกเกินเพดานทันทีที่พิมพ์ก่อนบันทึก (D16); คำตอบของ API ยังเป็นค่าจริง
+- state ของหน้าแก้เป็น `kind: "ready"` ที่มี `saving` กับ `justSaved` เป็น flag ไม่แยก kind เพื่อให้ฟอร์มไม่ถูกสร้างใหม่ระหว่างบันทึก (story-kb D18)
+- ชื่อชิ้น: ไฮแฮทปิด, ไฮแฮทเปิด, แครช, ไรด์, สแนร์, ทอมสูง, ทอมกลาง, ทอมต่ำ, กระเดื่อง, ไฮแฮทเท้า
+
+**Why:** แบบ Figma ยัง `pending`; ใช้ component และแบบเดิมของแอป (story-kb D18) จนกว่า Blocked แถว design ปิด.
+
+**From:** build ticket 01 · **Status:** active
+
+## D30: ตาราง Drum kit คงเดิมหลังตรวจ Open Question 1
+
+**Chosen:** `hihat_pedal` = `hihat_14/chik` และ `tom_high`/`tom_mid`/`tom_floor` = ทอม 14/15/18 ตามเดิม.
+
+**Why:** keymap ของ repo ให้ `chik` ที่ key 44 (GM Pedal Hi-Hat) และ mapping ของมันเขียนว่า "Foot chiks"; ทอม 14/15/18 อยู่ที่ key 47/45/43 (GM Low-Mid Tom, Low Tom, High Floor Tom) และ f0 ที่วัดจากชั้นกลางเป็น 96/93/61 Hz เรียงสูงไปต่ำ. ตรวจจากไฟล์และการวิเคราะห์ ไม่ได้ฟังด้วยหู: เจ้าของฟังตอน "ฟังจังหวะ" ครั้งแรกแล้วแก้ได้ใน `drum_kit.SAMPLES` ที่เดียว.
+
+**From:** build ticket 01 · **Status:** active

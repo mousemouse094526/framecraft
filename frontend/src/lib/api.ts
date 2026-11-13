@@ -107,3 +107,22 @@ export function sendFile<T>(
   xhr.send(file);
   return { reply, abort: () => xhr.abort() };
 }
+
+/** A file answer (`audio/wav`) or, for a refusal, its JSON body. */
+export type BlobReply = { status: number; blob: Blob | null; body: unknown };
+
+/**
+ * A `POST` of `body` as JSON whose answer is a file: `blob` when the response isn't JSON,
+ * else `body` holds the refusal. Throws as `sendJson` does.
+ */
+export async function postForBlob(path: string, body: unknown): Promise<BlobReply> {
+  const response = await fetchWithTimeout(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (response.headers.get("Content-Type")?.startsWith("application/json")) {
+    return { status: response.status, blob: null, body: await response.json() };
+  }
+  return { status: response.status, blob: await response.blob(), body: null };
+}

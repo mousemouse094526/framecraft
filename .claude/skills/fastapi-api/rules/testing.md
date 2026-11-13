@@ -70,7 +70,9 @@ def test_missing_marker(tmp_path):
 
 ## Good examples
 
-- [backend/tests/conftest.py](../../../../backend/tests/conftest.py) — the `fake_root` fixture only.
+- [backend/tests/conftest.py](../../../../backend/tests/conftest.py) — the `fake_root` fixture only; it holds
+  every model, Kanit and the drum samples (`fakes.write_drum_kit`: each file a `fake_sample`, a 0.1 s
+  FLAC that starts with a full-scale click, so a test finds where a hit starts).
 - [backend/tests/fakes.py](../../../../backend/tests/fakes.py) — helpers tests import: `write_snapshot`, `write_marker`, fake probes, and `Upload`/`Gate`/`play`, which play a raw upload through the app as ASGI (a page that pauses, stalls, drops or leaves).
   `toon_api(answers, tts_seconds=, uses=)` makes the `project`, `llm`, `klein`, `tts` and
   `client` fixtures every toon API test file takes (`project, llm, klein, tts, client =

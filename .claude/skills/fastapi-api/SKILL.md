@@ -29,6 +29,9 @@ backend/
 ├── disk.py       ← free disk space and the 1 GiB `disk_full` check: setup, spoil, both renders, toon jobs
 ├── fonts.py      ← Kanit Bold pinned by commit and sha256: setup fetches it, the
 │                    Status check checks it, the Render job draws with it
+├── drum_kit.py   ← the drum samples (Big Rusty Drums, CC0, ADR 0039) pinned the same
+│                    way: `SAMPLES` (piece, layer, round-robin, path, sha256), setup's
+│                    `install_drum_kit` (three tries a file), the `drum_kit` row's check
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
 ├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
 ├── body_types.py ← what a POST/PUT/PATCH body may be: JSON everywhere, a raw
@@ -37,7 +40,8 @@ backend/
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
-│                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
+│                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
+│                    `drum_kit_row`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
 │                    shutdown, `_run_job`, the one ending of every job's thread
@@ -141,6 +145,13 @@ backend/
 │                    Render job, its own slot, and an EP's renders), compose (a
 │                    render's timeline, its ffmpeg commands and its ASS file,
 │                    through `subtitles`)
+├── video_gen/    ← the สอนกลอง tab (video-gen spec): kit (the ten pieces: lane, colour,
+│                    foot), lessons (`lesson.json` under `media/drums/lessons/{id}/`, its
+│                    checks with D20's rules, the tab's one lock; `require_id` before any
+│                    path), timeline (every hit, beat and chapter span in samples at
+│                    44.1 kHz: the one place a note's time is worked out, ADR 0038), mixer
+│                    (the wav from the samples, ฟังจังหวะ's `listen`; numpy and soundfile
+│                    imported inside)
 ├── speaking.py   ← `Speaker`, which speaks texts in a Saved voice in an
 │                    OmniVoice child for the job slot that holds it (it is
 │                    given the slot and calls its `track` and `reply`, never
@@ -200,7 +211,7 @@ through a queue; the thread writes the result file (ADR 0012).
   fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
   `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_encoder`,
   `toon.klein.start_drawer`).
-- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
+- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, soundfile, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
