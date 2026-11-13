@@ -63,7 +63,7 @@ export function SoundsPage() {
     <PageLayout tab="sounds" wide>
       <div className="flex flex-wrap items-center gap-2">
         {back && (
-          <a href={back} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+          <a href={back} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
             <img src={arrowLeftIcon} alt="" width={16} height={16} />
             กลับ
           </a>
@@ -122,7 +122,7 @@ export function SoundsPage() {
               </span>
             )}
           </label>
-          <button type="submit" disabled={busy || url.trim() === ""} className={`h-9 px-4 ${PRIMARY_BUTTON}`}>
+          <button type="submit" disabled={busy || url.trim() === ""} className={`flex h-9 items-center gap-2 px-4 ${PRIMARY_BUTTON}`}>
             <img src={downloadWhiteIcon} alt="" width={16} height={16} />
             {loading ? "กำลังโหลด…" : "โหลด"}
           </button>
@@ -147,8 +147,8 @@ export function SoundsPage() {
         {importNotice && <NoticeLine notice={importNotice} />}
       </section>
       <section aria-label="เสียงพื้น" className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-2">
-        <div className="flex items-center gap-2 px-4 py-2 leading-[1.5]">
-          <h3 className="text-base font-semibold text-foreground">เสียงพื้น {count} เสียง</h3>
+        <div className="flex flex-wrap items-baseline gap-x-2 px-4 py-2 leading-[1.5]">
+          <h3 className="text-base font-semibold whitespace-nowrap text-foreground">เสียงพื้น {count} เสียง</h3>
           <p className="text-[13px] text-mid">ใช้ร่วมกันทั้งการ์ตูนเล่าและสปอย</p>
         </div>
         {listNotice && (
@@ -208,7 +208,7 @@ function HowTo() {
         aria-expanded={open}
         aria-controls={boxId}
         onClick={() => setOpen((was) => !was)}
-        className="flex size-8 items-center justify-center rounded-lg hover:bg-muted"
+        className="flex size-11 items-center justify-center rounded-lg hover:bg-muted sm:size-8"
       >
         <img src={infoIcon} alt="" width={16} height={16} />
       </button>
@@ -256,7 +256,7 @@ function SoundRow({ sound, onRename, onDelete }: { sound: Sound; onRename: (name
         type="button"
         aria-label={`ฟัง ${sound.name}`}
         onClick={() => playAudio(soundFilePath(sound.id))}
-        className="flex size-9 items-center justify-center rounded-lg hover:bg-muted"
+        className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted sm:size-9"
       >
         <img src={playIcon} alt="" width={16} height={16} />
       </button>
@@ -264,7 +264,7 @@ function SoundRow({ sound, onRename, onDelete }: { sound: Sound; onRename: (name
         type="button"
         aria-label={`ลบ ${sound.name}`}
         onClick={onDelete}
-        className="flex size-9 items-center justify-center rounded-lg hover:bg-muted"
+        className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted sm:size-9"
       >
         <img src={trashIcon} alt="" width={16} height={16} />
       </button>

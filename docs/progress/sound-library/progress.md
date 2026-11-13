@@ -1,24 +1,40 @@
 # Progress: sound-library
 
-**Now:** ทั้งสาม ticket สร้างครบทุกข้อ เหลือแค่ "หน้าตาตรงแบบ" ที่รอ design ใน Figma (Blocked #1–4); ได้แบบแล้วปรับหน้าตาและปิดทั้งสาม ticket แล้วจึง feature review
+**Now:** ticket 01–03 done; หน้าตาทั้งสี่จอตาม `ui-prompt.md` กับ design system เดิม (D18); เหลือ feature review
 
 **Next:**
 
 ```
-/warroom sound-library
+/warroom-build sound-library --review-feature
 ```
-
-(พร้อมลิงก์ design จาก `ui-prompt.md`)
 
 ## Tickets
 
 | # | Title | Status |
 |---|---|---|
-| 01 | คลังเสียงกลางที่ tab คลังเสียง | in-progress |
-| 02 | แถบนำทางแบบกลุ่มและเมนูจอแคบ | in-progress |
-| 03 | เสียงพื้นในคลิปสปอย | in-progress |
+| 01 | คลังเสียงกลางที่ tab คลังเสียง | done |
+| 02 | แถบนำทางแบบกลุ่มและเมนูจอแคบ | done |
+| 03 | เสียงพื้นในคลิปสปอย | done |
 
 ## Log
+
+### Ticket 01–03: หน้าตาสี่จอตาม ui-prompt.md — done 2026-11-13
+
+**Built:**
+- เจ้าของสั่งไม่รอ Figma: ใช้สเปก `ui-prompt.md` กับ design system เดิม เช็คทั้งสี่จอบนแอปจริง (worktree แยก, media ชั่วคราว) ที่ 375px และ 1440px
+- เป้ากด 44px ต่ำกว่า 640px สำหรับปุ่มที่ feature เพิ่ม: ปุ่มเมนูและรายการในเมนู (`PageLayout`), ปุ่ม info, "← กลับ", ปุ่มฟัง/ลบในรายการเสียง, ตัวเลือกเสียงพื้น ปุ่มฟัง ลิงก์ "ไปคลังเสียง"
+- ปุ่ม "โหลด" ของหน้าคลังเสียง: ไอคอนกับข้อความซ้อนสองแถว (`PRIMARY_BUTTON` ไม่มี `flex`, มีตั้งแต่หน้าเดิมของ toon) → แถวเดียว
+- หัวรายการ "เสียงพื้น N เสียง" ตัดคำอธิบายลงแถวใหม่ที่จอแคบ; slider ความดังเสียงพื้นมีบรรทัด 0/100 เหมือนเสียงคลิปต้นฉบับ
+- spec › Design: Source ทั้งสี่จอเป็น `ui-prompt.md (D18)`
+
+**Decided:**
+- D18 — ไม่มีแบบใน Figma, ใช้ `ui-prompt.md` + design system เดิม; เป้ากด 44px บนจอแคบ
+
+**For the next ticket:**
+- feature review: `PRIMARY_BUTTON` ไม่มี `flex items-center gap-2` แบบปุ่มอื่น ทำให้ผู้เรียกที่มีไอคอนต้องเติมเอง (`PickPage`, `RenderPage`, `CastPage`, `ToonDialog` ไม่มีไอคอนจึงยังไม่เห็นผล) — รวมเข้า style ได้
+- ชื่อเสียงในรายการที่ 375px แคบ (ช่องชื่อ ~90px) ตัดท้าย; ui-prompt ไม่ได้ขอแบบอื่น
+
+**Checks:** `uv run pytest` 1172 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 473 passed (รอบแรก `DraftProgress.test.tsx` D87 ตก 1 ครั้งตอนเครื่องรัน dev server สองชุดพร้อมกัน, รันไฟล์ซ้ำสามรอบและทั้งชุดอีกรอบผ่าน; ไม่ได้แตะไฟล์นั้น); `npm --prefix frontend run build` ผ่าน. เช็คมือ: 375px `scrollWidth` 375 ทุกหน้า ปุ่มเมนูเปิดรายการกลุ่มครบ; 1440px แถบ tab แบบกลุ่ม; หน้าคลังเสียง (ปกติ, info เปิด, "← กลับ"), ตรวจแก้ (เลือกเสียงแล้ว, คลังว่าง), ผล render (มี/ไม่มีเสียงพื้น). Review: diff เป็น class ของ Tailwind 3 ไฟล์ ตรวจเองเทียบ `vite-react-web` (ไม่มี subagent): ไม่มีข้อผิด
 
 ### Ticket 03: เสียงพื้นในคลิปสปอย — in-progress (เหลือ design) 2026-11-13
 
@@ -84,7 +100,7 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 02 | design: แถบนำทาง | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | open |
-| 2 | 01 | design: หน้าคลังเสียง | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | open |
-| 3 | 03 | design: เสียงพื้นในหน้าตรวจแก้ของสปอย | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | open |
-| 4 | 03 | design: ผล render ของสปอย | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | open |
+| 1 | 02 | design: แถบนำทาง | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | done (D18) |
+| 2 | 01 | design: หน้าคลังเสียง | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | done (D18) |
+| 3 | 03 | design: เสียงพื้นในหน้าตรวจแก้ของสปอย | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | done (D18) |
+| 4 | 03 | design: ผล render ของสปอย | `/warroom sound-library` พร้อมลิงก์ design จาก `ui-prompt.md` | done (D18) |

@@ -241,3 +241,11 @@
 - test: Spoil draft `in_use` และการลบชน `PATCH /draft` อยู่ใน `test_sounds_api.py` (seam 1, `write_spoil_draft` ใน `fakes.py`); Render job และคำสั่ง ffmpeg ที่ไม่มีเสียงพื้นเทียบกับ `golden/spoil_render_commands_no_sound.txt` ที่จับจากโค้ดก่อน ticket นี้ (seam 2); `PATCH /draft` และ settings อยู่ใน `test_spoil_maker_draft_api.py`
 
 **From:** build ticket 03 · **Status:** active
+
+## D18: สี่จอสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่มีแบบใน Figma
+
+**Chosen:** แถบนำทาง หน้าคลังเสียง เสียงพื้นในหน้าตรวจแก้ และผล render ของสปอย ใช้สเปกใน [ui-prompt.md](ui-prompt.md) และ spec › Design เป็นแบบ ทำด้วยของที่มีอยู่แล้ว (token, `buttonStyles`, `Alert`, การ์ด `rounded-2xl`, แถบ tab เดิม, slider ของเสียงคลิปต้นฉบับ) ไม่ต้องมี frame ใน Figma. ตอนปรับหน้าตา: ปุ่มและลิงก์ที่ feature นี้เพิ่มเป็นเป้ากด 44px บนจอแคบกว่า 640px และเล็กลงเท่าของเดิมตั้งแต่ 640px (ปุ่มเมนูและรายการในเมนู, ปุ่ม info, "← กลับ", ปุ่มฟังและลบในรายการเสียง, ตัวเลือกเสียงพื้น ปุ่มฟัง และลิงก์ "ไปคลังเสียง"); slider ความดังเสียงพื้นมีบรรทัด 0/100 เหมือน slider เสียงคลิปต้นฉบับ; หัวรายการ "เสียงพื้น N เสียง" ตัดบรรทัดคำอธิบายลงแถวใหม่แทนตัดกลางหัวข้อ; ปุ่ม "โหลด" ไอคอนกับข้อความแถวเดียว (เดิมซ้อนสองแถวเพราะ `PRIMARY_BUTTON` ไม่มี `flex`). เช็คบนแอปจริงที่ 375px และ 1440px.
+
+**Why:** เจ้าของสั่ง 2026-11-13 ให้ทำต่อโดยไม่รอ Figma ใช้ `ui-prompt.md` ให้ตรง design system เดิม แล้วปิด ticket 01–03. ui-prompt ขอเป้ากด ≥ 44px; หน้าอื่นของแอปใช้ `h-11` บนจอแคบแล้วเล็กลงที่ `sm` อยู่แล้ว (เช่น ปุ่มของคลังความรู้และ `ReviewFooter`).
+
+**From:** build ticket 01–03 (เจ้าของ) · **Status:** active

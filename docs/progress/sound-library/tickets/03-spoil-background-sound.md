@@ -12,7 +12,7 @@
 - User stories: 4, 5
 - Legal: 1 (`sound_name` ในผล render)
 
-**Status:** in-progress
+**Status:** done
 
 ## Acceptance criteria
 
@@ -50,4 +50,4 @@
 - render ได้ `400` `sound_not_found` → Alert "ไม่พบเสียงพื้นนี้ในคลังเสียง เลือกเสียงใหม่ก่อน render" และอ่าน draft ใหม่ (e2e)
 - ระหว่างงานที่ล็อก draft → ตัวเลือกและ slider กดไม่ได้
 - ผล render ที่ `sound_name` "ฝนตก" → บรรทัด "เสียงพื้น: ฝนตก" ใต้ "ต้นฉบับ"; `null` → ไม่มีบรรทัด (e2e)
-- หน้าตาตรงแบบของจอเสียงพื้นในหน้าตรวจแก้และผล render (Blocked #3–4)
+- หน้าตาตรงแบบของจอเสียงพื้นในหน้าตรวจแก้และผล render — ตาม `ui-prompt.md` กับ design system เดิม ไม่มีแบบใน Figma (D18)

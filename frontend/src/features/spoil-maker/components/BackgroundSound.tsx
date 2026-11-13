@@ -47,7 +47,7 @@ export function BackgroundSound({ sound, sounds, locked, onChange, onSoundGone }
         <label htmlFor={id} className="flex-1 font-medium text-foreground">
           เสียงพื้น
         </label>
-        <a href={soundsHash(REVIEW_HASH)} className="font-medium text-link underline">
+        <a href={soundsHash(REVIEW_HASH)} className="flex min-h-11 items-center font-medium text-link underline sm:min-h-0">
           ไปคลังเสียง
         </a>
       </div>
@@ -55,7 +55,7 @@ export function BackgroundSound({ sound, sounds, locked, onChange, onSoundGone }
         <p className="text-sm text-mid">ยังไม่มีเสียงในคลัง</p>
       ) : (
         <div className="flex items-center gap-2">
-          <span className="relative flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 has-disabled:bg-muted">
+          <span className="relative flex h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 has-disabled:bg-muted sm:h-10">
             <img src={musicIcon} alt="" width={16} height={16} />
             <select
               id={id}
@@ -79,7 +79,7 @@ export function BackgroundSound({ sound, sounds, locked, onChange, onSoundGone }
               type="button"
               aria-label={`ฟัง ${chosen.name}`}
               onClick={() => playAudio(soundFilePath(chosen.id))}
-              className="flex size-10 items-center justify-center rounded-lg hover:bg-muted"
+              className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted sm:size-10"
             >
               <img src={playIcon} alt="" width={16} height={16} />
             </button>
@@ -130,6 +130,10 @@ function SoundVolume({ volume, disabled, onCommit }: { volume: number; disabled:
         onBlur={commit}
         className="h-11 w-full accent-brand-accent"
       />
+      <div className="flex justify-between font-mono text-xs text-muted-foreground">
+        <span>0</span>
+        <span>100</span>
+      </div>
     </div>
   );
 }

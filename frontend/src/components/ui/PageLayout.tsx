@@ -96,7 +96,7 @@ function TabMenu({ active }: { active: TabId }) {
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((was) => !was)}
-        className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-sm leading-[1.5] font-semibold whitespace-nowrap text-brand"
+        className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-sm leading-[1.5] font-semibold whitespace-nowrap text-brand"
       >
         <img src={menuIcon} alt="" width={16} height={16} />
         {label}
@@ -140,7 +140,8 @@ function TabLink({ tab, active, onClick }: { tab: Tab; active: TabId; onClick?: 
       href={tab.hash}
       aria-current={isActive ? "page" : undefined}
       onClick={onClick}
-      className={`rounded-lg px-3.5 py-1.5 text-sm leading-[1.5] whitespace-nowrap ${
+      // In the phone menu each item is a 44px touch target.
+      className={`rounded-lg px-3.5 py-1.5 text-sm leading-[1.5] whitespace-nowrap ${onClick ? "flex min-h-11 items-center" : ""} ${
         isActive ? "bg-accent-subtle font-semibold text-brand" : "font-medium text-mid hover:bg-muted"
       }`}
     >
