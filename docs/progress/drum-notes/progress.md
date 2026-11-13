@@ -1,6 +1,6 @@
 # Progress: drum-notes
 
-**Now:** 02 done (แกะโน้ตกลองจากช่วงที่เลือก: Pick job + หน้าเพลง); 03 next
+**Now:** 03 stopped part-way (โค้ดครบและ CI เขียวบน `wip/drum-notes-03`; เหลือ fix review แล้ว commit); usage limit หมดกลางรีวิว
 
 **Next:**
 
@@ -14,10 +14,24 @@
 |---|---|---|
 | 01 | เอาเพลงเข้า: ลิงก์ ไฟล์เสียง ไฟล์ MIDI และโมเดล | done |
 | 02 | แกะโน้ตกลองจากช่วงที่เลือก | done |
-| 03 | เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง | ready |
+| 03 | เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง | in-progress |
 | 04 | โหมดทำนอง | ready |
 
 ## Log
+
+### 03: เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง — stopped 2026-11-14
+
+**Done (บน `wip/drum-notes-03`, ทุก CI check เขียว: `uv run pytest` 1368 passed, typecheck, `npm test` 539 passed, build):**
+- backend: `score.preview` (ขั้น 3–8: quantize, ตัด, มือ L/R, BPM ตั้งต้น) + test seam 2 ครบทุก AC ของ Score รวม round trip และ activation สุ่ม 100 ชุด; module ใหม่ `drum_notes.lesson` (`preview`/`listen`/`create`, Score ขั้น 2); `video_gen.lessons.from_song`/`create_from`/`unsaved`; `songs.add_lesson`; สาม route `POST /preview|/listen|/lessons` + `test_drum_notes_lesson_api.py` 10 test ด้วยเพลง MIDI
+- frontend: `kit.ts`/`lesson.ts`/`useListen` ย้ายไป `src/lib/`, `GrooveGrid` ไป `components/ui/` มีโหมดอ่านอย่างเดียว (`editing` prop); หน้าเพลงมีส่วน "สร้างบทเรียน" (`useLessonPreview`: debounce 300 ms, จำนวนห้อง 1–4, BPM, ตาราง, รายการที่ตัด, ฟัง, สร้าง → `#/drums/{id}`) และ "บทเรียนจากเพลงนี้"; e2e 10 test ใน `SongsPage.test.tsx`
+- D25 เขียนแล้ว (decisions.md + index); SKILL ทั้งสองอัปเดต folder map
+
+**Left:**
+- รีวิวสามแกน: Newcomer เสร็จ (ข้อที่ควรแก้: ชื่อ `preview.preview` ซ้อน; `_new_fields("x")` ไม่มี comment; ข้อความ "ห้องนี้ไม่ใช่ 4/4" ใช้กับกรณีเลยห้องสุดท้ายด้วย; `lessons.delete` ใน `lesson.create` อาจโยน `in_use`; `_hand` อ้าง D20 ควรอธิบายในโค้ด); Standards และ Spec ยังไม่ได้อ่านผล → รันรีวิวใหม่ตอนต่อ
+- ตัดสินโดยเจ้าของ: script `scratchpad/judge/run.py` (โมเดล pinned บน `reel.mp4` + YouTube) รันไม่ผ่าน ยังไม่ได้ดูสาเหตุ; โมเดลไม่อยู่ใน worktree นี้ (`models/` ว่าง)
+- แล้วค่อย: ticket `done`, Log จริง, board, commit `feat(drum-notes): เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง (#03)`
+
+**How to go on:** `git merge --squash wip/drum-notes-03` (หรือ `git checkout wip/drum-notes-03 -- .`) บน `feat/drum-notes` แล้วทำ review → fix → commit ตามข้างบน
 
 ### 02: แกะโน้ตกลองจากช่วงที่เลือก — done 2026-11-14
 
