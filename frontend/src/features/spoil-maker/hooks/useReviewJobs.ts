@@ -92,6 +92,7 @@ export function useReviewJobs(onChange: () => void, onOffline: () => void) {
         setIfMounted((s) => ({ ...s, banner: { ...reply.banner, kind } }));
       } else if (reply.kind === "refused") {
         setIfMounted((s) => ({ ...s, refused: reply.refused }));
+        onChange(); // the page may show an older draft than the refusal read: a Shot gone, a sound gone (sound-library D13)
       } else {
         onOffline();
       }

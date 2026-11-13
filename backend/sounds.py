@@ -26,7 +26,7 @@ import secrets
 import shutil
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
-from contextlib import ExitStack, contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, NamedTuple, get_args
@@ -99,12 +99,13 @@ class SoundView(BaseModel):
 
 
 class SoundUser(NamedTuple):
-    """A feature that keeps a `sound_id` (ADR 0038): its tab, the lock it writes a `sound_id`
-    under, and `check`, a label of each of its things that play the sound. `check` is called
+    """A feature that keeps a `sound_id` (ADR 0038): its tab, `lock`, which gives the lock it
+    writes a `sound_id` under (asked at each delete: spoil's belongs to `gpu.slot`, which a test
+    replaces), and `check`, a label of each of its things that play the sound. `check` is called
     with `lock` and every user's lock held, takes no other lock and never calls this module."""
 
     tab: Tab
-    lock: threading.RLock
+    lock: Callable[[], AbstractContextManager]
     check: Callable[[ProjectPaths, str], list[str]]
 
 
@@ -379,9 +380,15 @@ def list_all(project: ProjectPaths) -> list[SoundView]:
 
 
 def exists(project: ProjectPaths, sound_id: object) -> bool:
-    """Whether the library lists the sound. A feature asks with its own lock held (ADR 0038)."""
+    """Whether the library lists the sound. A feature asks with its own lock held, so `lock`
+    comes after it: the order a delete takes them in (ADR 0038)."""
+    return name_of(project, sound_id) is not None
+
+
+def name_of(project: ProjectPaths, sound_id: object) -> str | None:
+    """The sound's name, or None when the library doesn't list it."""
     with lock:
-        return any(sound.id == sound_id for sound in read_sounds(project))
+        return next((sound.name for sound in read_sounds(project) if sound.id == sound_id), None)
 
 
 def path(project: ProjectPaths, sound_id: str) -> Path:
@@ -406,7 +413,7 @@ def delete(project: ProjectPaths, sound_id: str) -> None:
     start drops (toon D70)."""
     with ExitStack() as held:
         for user in sorted(sound_users, key=lambda user: LOCK_ORDER.index(user.tab)):
-            held.enter_context(user.lock)
+            held.enter_context(user.lock())
         held.enter_context(lock)
         sounds = read_sounds(project)
         sound = _find(sounds, sound_id)

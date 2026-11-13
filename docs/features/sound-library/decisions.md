@@ -230,3 +230,14 @@
 **Why:** ลิงก์ในรายการเป็นลิงก์ `#/…` ธรรมดา ปุ่ม disclosure ไม่บังคับปุ่มลูกศรแบบ `menu`; ชื่อปุ่มต้องมีข้อความที่เห็นอยู่ด้วยแต่ต้องไม่ชนกับปุ่ม "ติดตั้ง" ของหน้าติดตั้ง; ปุ่มเดียวยาวพอจะดัน Refresh ล้นแถวแรกที่ 375px. auto mode: design ของแถบนำทางยัง pending (Blocked #1) จึงสร้างตามแถบ tab เดิม.
 
 **From:** build ticket 02 · **Status:** active
+
+## D17: เสียงพื้นของสปอย: ตัวเช็คอ่าน lock ตอนลบ, สำเนา `sound.m4a`, ตัวเลือกในการ์ดตั้งค่าวิดีโอ
+
+**Chosen:** `SoundUser.lock` เป็นฟังก์ชันที่คืน lock (`lambda: gpu.slot.draft_lock`, toon `lambda: store.lock`) อ่านทุกครั้งที่ลบ. `PATCH /draft` เช็ครูปของ `sound` และ `volume` ก่อน (`invalid_request`) แล้ว `draft_locked` แล้ว `sound_not_found` ใต้ `draft_lock` (ticket: ระหว่างงานที่ล็อก draft ตอบ `409` เสมอ); `sound_volume` จำเฉพาะเมื่อ body ส่ง `volume`. Render job ก๊อปเสียงเป็น `.render/sound.m4a` และอ่านชื่อจากคลัง (`sounds.name_of`) ใน `draft_lock` เดียวกัน: ไม่มีรายการหรือไม่มีไฟล์ → `failed` `sound_not_found`. หน้าเว็บ: ตัวเลือก "เสียงพื้น" อยู่ในการ์ดตั้งค่าวิดีโอใต้ slider เสียงคลิปต้นฉบับ ลิงก์ "ไปคลังเสียง" อยู่บรรทัดชื่อ; slider "ความดังเสียงพื้น" ทีละ 5 ส่งครั้งเดียวเมื่อปล่อย; ปุ่ม "ฟัง {ชื่อ}"; draft ที่ชี้เสียงที่คลังไม่มีแสดงตัวเลือก "ไม่พบเสียงนี้ในคลังเสียง"; error ของตัวเลือกแสดงใต้ตัวเลือกที่เดียว ไม่ซ้ำที่ Alert ใต้ภาพรวมบท; render ที่ถูกปฏิเสธด้วยเหตุใดก็อ่าน draft ใหม่ (`RefusalLine` ไม่มี code และการอ่านซ้ำไม่เปลี่ยนอะไรบนหน้า); slider ความดังกลับค่าของ draft เมื่อถูกปฏิเสธ.
+
+**Why:** `draft_lock` เป็นของ `gpu.slot` ที่ test สร้างใหม่ทุกครั้ง: lock ที่จำไว้ตอน import ไม่ใช่ตัวที่ `PATCH /draft` ถือ. ลำดับ error ตาม AC ของ ticket 03. `select` ของ HTML ต้องมี option ตรงกับค่า ไม่งั้นแสดง "ไม่มีเสียงพื้น" ทั้งที่ draft ยังมีเสียง (D13 ไม่มีสถานะอื่นบอก); ข้อความเดียวกับ D8. การ์ดตั้งค่าวิดีโอคือที่ของเสียงต้นฉบับอยู่แล้ว (spec › Design "ใต้ระดับเสียงต้นฉบับ"). หน้าตาสุดท้ายรอแบบใน Figma (Blocked #3–4).
+
+**Details:**
+- test: Spoil draft `in_use` และการลบชน `PATCH /draft` อยู่ใน `test_sounds_api.py` (seam 1, `write_spoil_draft` ใน `fakes.py`); Render job และคำสั่ง ffmpeg ที่ไม่มีเสียงพื้นเทียบกับ `golden/spoil_render_commands_no_sound.txt` ที่จับจากโค้ดก่อน ticket นี้ (seam 2); `PATCH /draft` และ settings อยู่ใน `test_spoil_maker_draft_api.py`
+
+**From:** build ticket 03 · **Status:** active

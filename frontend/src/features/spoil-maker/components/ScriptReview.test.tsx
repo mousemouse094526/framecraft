@@ -6,6 +6,7 @@ import type { Draft, DraftJob, Sentence, Shot } from "../lib/draft";
 import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
 import { ALIEN, clipOf, CONAN } from "./setupFixtures";
 import { STORIES_PATH, STORY_CLIPS_PATH } from "../../../lib/stories";
+import { SOUNDS_PATH, type Sound } from "../../sound-library/lib/sounds";
 
 const DRAFT_PATH = "/api/spoil-maker/draft";
 const JOBS_PATH = "/api/spoil-maker/draft-jobs";
@@ -16,6 +17,8 @@ const RENDERS = "/api/spoil-maker/renders";
 const RENDER_CURRENT = "/api/spoil-maker/renders/current";
 const SETTINGS_PATH = "/api/spoil-maker/settings";
 const EP1 = "aaaaaaaaaaa"; // the draft is of its EP 2, 50–250 s
+const RAIN: Sound = { id: "m_0000abcd", name: "ฝนตก", duration_s: 20, source: "file" };
+const CRICKETS: Sound = { id: "m_0000ef01", name: "จิ้งหรีด", duration_s: 12, source: "link" };
 
 /** A Shot every 5 s: Shot n is n × 5 s. */
 function shotsOf(count: number): Shot[] {
@@ -53,6 +56,7 @@ function draftOf(change: Partial<Draft> = {}): Draft {
     original_volume: 20,
     top_text: "คดีที่หลอนที่สุด",
     sentences: [sentenceOf("s_00000001"), sentenceOf("s_00000002", { text: "ประโยคสอง" })],
+    sound: null,
     estimated_total_s: 31,
     locked: false,
     ...change,
@@ -80,6 +84,7 @@ function backend(routes: Route[]) {
     [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null }],
     [STORIES_PATH, []],
     [STORY_CLIPS_PATH, {}],
+    [SOUNDS_PATH, [RAIN, CRICKETS]],
   ];
   serve(fetchMock, routes, defaults);
 }
@@ -547,6 +552,136 @@ describe("ตรวจแก้บท: เสียง ลายน้ำ แล
     await user.click(screen.getByRole("button", { name: "render" }));
 
     expect(await screen.findByText("ลบ render เก่าในหน้าผล render เพื่อเพิ่มที่ว่าง")).toBeInTheDocument();
+  });
+});
+
+describe("ตรวจแก้บท › เสียงพื้น", () => {
+  const picker = () => screen.getByRole("combobox", { name: "เสียงพื้น" });
+  const options = () => within(picker()).getAllByRole("option").map((option) => option.textContent);
+
+  it("sits under the original sound: ไม่มีเสียงพื้น first, then the library's sounds", async () => {
+    backend([]);
+    await openReview();
+    await waitFor(() => expect(options()).toEqual(["ไม่มีเสียงพื้น", "ฝนตก", "จิ้งหรีด"]));
+
+    const original = screen.getByRole("slider", { name: "เสียงคลิปต้นฉบับ" });
+    expect(original.compareDocumentPosition(picker()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(picker()).toHaveValue("");
+    expect(screen.queryByRole("slider", { name: "ความดังเสียงพื้น" })).not.toBeInTheDocument();
+  });
+
+  it("choosing a sound sends it without a volume; letting go of the slider sends the volume once", async () => {
+    const chosen = draftOf({ sound: { sound_id: RAIN.id, volume: 30 } });
+    backend([send("PATCH", DRAFT_PATH, chosen, 200), send("PATCH", DRAFT_PATH, draftOf({ sound: { sound_id: RAIN.id, volume: 45 } }), 200)]);
+    const user = await openReview();
+    await waitFor(() => expect(options()).toContain("ฝนตก"));
+
+    await user.selectOptions(picker(), "ฝนตก");
+    const slider = await screen.findByRole("slider", { name: "ความดังเสียงพื้น" });
+    fireEvent.change(slider, { target: { value: "45" } });
+    fireEvent.pointerUp(slider);
+    fireEvent.blur(slider);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(sent("PATCH", DRAFT_PATH)).toEqual([{ sound: { sound_id: RAIN.id } }, { sound: { sound_id: RAIN.id, volume: 45 } }]);
+    expect(screen.getByRole("button", { name: "ฟัง ฝนตก" })).toBeInTheDocument();
+  });
+
+  it("ไม่มีเสียงพื้น sends null", async () => {
+    backend([get(DRAFT_PATH, draftOf({ sound: { sound_id: RAIN.id, volume: 30 } })), send("PATCH", DRAFT_PATH, draftOf(), 200)]);
+    const user = await openReview();
+    await waitFor(() => expect(picker()).toHaveValue(RAIN.id));
+
+    await user.selectOptions(picker(), "ไม่มีเสียงพื้น");
+
+    expect(sent("PATCH", DRAFT_PATH)).toEqual([{ sound: null }]);
+  });
+
+  it("an empty library says so with ไปคลังเสียง", async () => {
+    backend([get(SOUNDS_PATH, [])]);
+    await openReview();
+
+    expect(await screen.findByText("ยังไม่มีเสียงในคลัง")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "เสียงพื้น" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ไปคลังเสียง" })).toHaveAttribute("href", "#/sounds?back=#/spoil/review");
+  });
+
+  it("ไปคลังเสียง opens the library with ← กลับ, which comes back and reads the sounds again", async () => {
+    backend([
+      get(SOUNDS_PATH, [RAIN]),
+      get(SOUNDS_PATH, [RAIN]),
+      get(SOUNDS_PATH, [RAIN, CRICKETS]),
+      get("/api/sounds/legacy", { left_behind: null }),
+      get("/api/sounds/import/current", null),
+    ]);
+    const user = await openReview();
+    await waitFor(() => expect(options()).toEqual(["ไม่มีเสียงพื้น", "ฝนตก"]));
+
+    await user.click(screen.getByRole("link", { name: "ไปคลังเสียง" }));
+    expect(window.location.hash).toBe("#/sounds?back=#/spoil/review");
+    await user.click(await screen.findByRole("link", { name: "กลับ" })); // "←" is its icon
+
+    await screen.findByRole("region", { name: "ภาพรวมบท" });
+    expect(window.location.hash).toBe("#/spoil/review");
+    await waitFor(() => expect(options()).toEqual(["ไม่มีเสียงพื้น", "ฝนตก", "จิ้งหรีด"]));
+  });
+
+  it("a sound deleted meanwhile puts the picker back, says so under it and reads the library again", async () => {
+    backend([
+      send("PATCH", DRAFT_PATH, { code: "sound_not_found", message: "เสียงนี้ถูกลบจากคลังเสียงแล้ว เลือกเสียงอื่น" }, 400),
+      get(SOUNDS_PATH, [RAIN, CRICKETS]),
+      get(SOUNDS_PATH, [CRICKETS]),
+    ]);
+    const user = await openReview();
+    await waitFor(() => expect(options()).toContain("ฝนตก"));
+
+    await user.selectOptions(picker(), "ฝนตก");
+
+    expect(await screen.findByText("เสียงนี้ถูกลบจากคลังเสียงแล้ว เลือกเสียงอื่น")).toBeInTheDocument();
+    expect(picker()).toHaveValue("");
+    await waitFor(() => expect(options()).toEqual(["ไม่มีเสียงพื้น", "จิ้งหรีด"]));
+    expect(screen.getAllByText("เสียงนี้ถูกลบจากคลังเสียงแล้ว เลือกเสียงอื่น")).toHaveLength(1);
+  });
+
+  it("a render refused for a sound the library lost says so and reads the draft again", async () => {
+    backend([
+      get(DRAFT_PATH, draftOf({ sentences: [readyOf("s_00000001")] })),
+      send("POST", RENDERS, { code: "sound_not_found", message: "ไม่พบเสียงพื้นนี้ในคลังเสียง เลือกเสียงใหม่ก่อน render" }, 400),
+    ]);
+    const user = await openReview();
+    const draftReads = () => fetchMock.mock.calls.filter(([input, init]) => String(input) === DRAFT_PATH && !init?.method).length;
+    const reads = draftReads();
+
+    await user.click(screen.getByRole("button", { name: "render" }));
+
+    expect(await screen.findByText("ไม่พบเสียงพื้นนี้ในคลังเสียง เลือกเสียงใหม่ก่อน render")).toBeInTheDocument();
+    await waitFor(() => expect(draftReads()).toBeGreaterThan(reads));
+  });
+
+  it("a refused volume puts the slider back at the draft's", async () => {
+    backend([
+      get(DRAFT_PATH, draftOf({ sound: { sound_id: RAIN.id, volume: 30 } })),
+      send("PATCH", DRAFT_PATH, { code: "draft_locked", message: "รอให้งานที่ใช้ Spoil draft เสร็จก่อนแล้วแก้" }, 409),
+    ]);
+    await openReview();
+    const slider = await screen.findByRole("slider", { name: "ความดังเสียงพื้น" });
+
+    fireEvent.change(slider, { target: { value: "60" } });
+    fireEvent.pointerUp(slider);
+
+    expect(await screen.findByText("รอให้งานที่ใช้ Spoil draft เสร็จก่อนแล้วแก้")).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "ความดังเสียงพื้น" })).toHaveValue("30");
+  });
+
+  it("waits while a job changes the draft", async () => {
+    backend([get(DRAFT_PATH, draftOf({ locked: true, sound: { sound_id: RAIN.id, volume: 30 } })), get(VOICE_CURRENT, VOICING)]);
+    await openReview();
+    await waitFor(() => expect(picker()).toHaveValue(RAIN.id));
+
+    expect(picker()).toBeDisabled();
+    expect(screen.getByRole("slider", { name: "ความดังเสียงพื้น" })).toBeDisabled();
   });
 });
 

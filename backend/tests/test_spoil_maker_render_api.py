@@ -1,6 +1,7 @@
 """The Spoil draft's voice (Voice job `sentences`), what the tab remembers (`/settings`)
-and the Render job with its results, under /api/spoil-maker: a fake OmniVoice worker
-and real ffmpeg on a 3-second test clip (spoil-maker seam 1 › เสียงและตัวเลข, › Render)."""
+and the Render job with its results and background sound, under /api/spoil-maker: a fake
+OmniVoice worker and real ffmpeg on a 3-second test clip (spoil-maker seam 1 › เสียงและตัวเลข,
+› Render; sound-library seam 2)."""
 
 import io
 import json
@@ -17,7 +18,7 @@ from backend.paths import ProjectPaths
 from backend.spoil_maker import render as render_module
 from backend.spoil_maker import thai, voices
 
-from .fakes import FakeFfmpeg, FakeTts, cuda_device, make_test_clip, ok_ffmpeg
+from .fakes import FakeFfmpeg, FakeTts, cuda_device, make_test_clip, ok_ffmpeg, write_sound
 from .test_spoil_maker_draft_api import (
     EP1,
     VOICE,
@@ -205,7 +206,13 @@ def test_watermarks_are_remembered(client):
 
     assert response.status_code == 200
     assert response.json()["watermarks"] == marks
-    assert client.get(SETTINGS).json() == {"watermarks": marks, "original_volume": 20, "last_voice_id": None, "ep_minutes": 30}
+    assert client.get(SETTINGS).json() == {
+        "watermarks": marks,
+        "original_volume": 20,
+        "last_voice_id": None,
+        "ep_minutes": 30,
+        "sound_volume": 30,
+    }
 
 
 def test_a_switched_off_watermark_keeps_its_text_position_and_size(client):
@@ -640,3 +647,144 @@ def test_the_srt_keeps_numbers_as_written(client, project, renderable, tts):
     assert job["state"] == "done", job
     assert tts.requests[0].text == NUMBERS_SPOKEN
     assert NUMBERS in (project.renders_dir / f"{only_render(project)}.srt").read_text(encoding="utf-8")
+
+
+# --- The background sound (sound-library seam 1, seam 2) ---
+
+GOLDEN = Path(__file__).parent / "golden"
+
+
+@pytest.fixture
+def recorded_ffmpeg(monkeypatch) -> FakeFfmpeg:
+    """A Render job holder whose runner keeps each command and runs the real ffmpeg."""
+    run = FakeFfmpeg(progress=(), then=ffmpeg.run)
+    monkeypatch.setattr(render_module, "render_jobs", render_module.RenderJobs(run_ffmpeg=run))
+    return run
+
+
+def as_text(project: ProjectPaths, commands: list[list[str]]) -> str:
+    """The commands one per line, without what changes between runs: the ffmpeg binary,
+    the project root and the render's name."""
+    name = only_render(project)
+    lines = (" ".join(command) for command in commands)
+    return "".join(
+        line.replace(ffmpeg.exe(), "ffmpeg").replace(str(project.root), "{root}").replace(name, "{name}") + "\n"
+        for line in lines
+    )
+
+
+def test_a_render_without_a_sound_runs_ffmpeg_exactly_as_before(client, project, renderable, recorded_ffmpeg):
+    """The golden file was captured from the code before the background sound came in."""
+    two_sentence_draft(project, sound=None)
+
+    assert render(client)["state"] == "done"
+
+    assert as_text(project, recorded_ffmpeg.commands) == (GOLDEN / "spoil_render_commands_no_sound.txt").read_text(
+        encoding="utf-8"
+    )
+
+
+SOUND = "m_0000abcd"
+
+
+def loudness(mp4: Path, start: float, seconds: float) -> float:
+    """The mean volume in dB of that stretch of the mp4's sound; silence is about -91."""
+    import re
+    import subprocess
+
+    import imageio_ffmpeg
+
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-ss", str(start), "-t", str(seconds), "-i", str(mp4),
+        "-vn", "-af", "volumedetect", "-f", "null", "-",
+    ]  # fmt: skip
+    result = subprocess.run(command, capture_output=True, text=True)
+    return float(re.search(r"mean_volume: (-?[\d.]+) dB", result.stderr).group(1))
+
+
+def silent_draft(project: ProjectPaths, **fields) -> None:
+    """Two sentences of silent voice over the clip's sound turned off: 3.5 s with nothing to hear."""
+    two_sentence_draft(project, original_volume=0, **fields)
+
+
+def test_a_one_second_sound_loops_under_the_whole_clip_and_names_itself(client, project, renderable):
+    write_sound(project, "ฝนตก", seconds=1.0)
+    silent_draft(project, sound={"sound_id": SOUND, "volume": 50})
+
+    job = render(client)
+
+    assert job["state"] == "done", job
+    mp4 = project.renders_dir / f"{only_render(project)}.mp4"
+    assert media(mp4)["duration"] == pytest.approx(3.5, abs=0.2)
+    assert loudness(mp4, 2.0, 1.0) > -60
+    assert client.get(RENDERS).json()[0]["sound_name"] == "ฝนตก"
+
+
+def test_without_a_sound_the_clip_stays_silent_and_names_none(client, project, renderable):
+    silent_draft(project)
+
+    render(client)
+
+    assert loudness(project.renders_dir / f"{only_render(project)}.mp4", 2.0, 1.0) < -80
+    assert client.get(RENDERS).json()[0]["sound_name"] is None
+
+
+def test_a_render_from_before_the_sound_lists_without_one(client, project, renderable):
+    two_sentence_draft(project)
+    render(client)
+    meta = project.renders_dir / f"{only_render(project)}.json"
+    info = json.loads(meta.read_text(encoding="utf-8"))
+    del info["sound_name"]
+    meta.write_text(json.dumps(info), encoding="utf-8")
+
+    assert client.get(RENDERS).json()[0]["sound_name"] is None
+
+
+def test_a_draft_on_a_sound_the_library_lacks_is_sound_not_found(client, project, renderable):
+    two_sentence_draft(project, sound={"sound_id": SOUND, "volume": 30})
+
+    response = client.post(RENDERS, json={})
+
+    assert (response.status_code, response.json()["code"]) == (400, "sound_not_found")
+    assert response.json()["message"] == "ไม่พบเสียงพื้นนี้ในคลังเสียง เลือกเสียงใหม่ก่อน render"
+
+
+def test_a_render_keeps_its_sound_after_the_draft_drops_it_and_the_library_deletes_it(
+    client, project, renderable, paused_ffmpeg
+):
+    """sound-library D12: the render plays its own copy."""
+    write_sound(project, seconds=1.0)
+    silent_draft(project, sound={"sound_id": SOUND, "volume": 50})
+
+    client.post(RENDERS, json={})
+    paused_ffmpeg.wait_until(0)
+    dropped = client.patch(DRAFT, json={"sound": None})
+    deleted = client.delete(f"/api/sounds/{SOUND}")
+    paused_ffmpeg.release(0)
+
+    assert (dropped.status_code, deleted.status_code) == (200, 204)
+    assert wait_for_end(client, RENDER_CURRENT)["state"] == "done"
+    assert loudness(project.renders_dir / f"{only_render(project)}.mp4", 2.0, 1.0) > -60
+
+
+@pytest.mark.parametrize("gone", ["its file", "its entry"])
+def test_a_sound_gone_before_the_render_copies_it_fails_sound_not_found(client, project, renderable, tts, gone):
+    write_sound(project)
+    write_draft(
+        project,
+        sentences=[sentence("s_00000001", "ยังไม่มีเสียง", refs=[{"clip_id": EP1, "line": 1}], shots=shots(0, 1))],
+        sound={"sound_id": SOUND, "volume": 30},
+    )
+    tts.pause_at(0)
+
+    client.post(RENDERS, json={})
+    tts.wait_until(0)
+    if gone == "its file":
+        (project.sounds_dir / f"{SOUND}.m4a").unlink()
+    else:
+        project.sounds_file.write_text(json.dumps({"version": 1, "sounds": []}), encoding="utf-8")
+    tts.release(0)
+    job = wait_for_end(client, RENDER_CURRENT)
+
+    assert (job["state"], job["error"]["code"]) == ("failed", "sound_not_found")
+    assert not list(project.renders_dir.glob("*.mp4"))

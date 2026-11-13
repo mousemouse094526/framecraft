@@ -1,12 +1,14 @@
 # Progress: sound-library
 
-**Now:** 01 และ 02 สร้างครบ เหลือข้อ "หน้าตาตรงแบบ" ที่รอ design (Blocked #2, #1); ต่อ 03 ด้วยกติกาเดียวกัน
+**Now:** ทั้งสาม ticket สร้างครบทุกข้อ เหลือแค่ "หน้าตาตรงแบบ" ที่รอ design ใน Figma (Blocked #1–4); ได้แบบแล้วปรับหน้าตาและปิดทั้งสาม ticket แล้วจึง feature review
 
 **Next:**
 
 ```
-/warroom-build sound-library 03
+/warroom sound-library
 ```
+
+(พร้อมลิงก์ design จาก `ui-prompt.md`)
 
 ## Tickets
 
@@ -14,9 +16,29 @@
 |---|---|---|
 | 01 | คลังเสียงกลางที่ tab คลังเสียง | in-progress |
 | 02 | แถบนำทางแบบกลุ่มและเมนูจอแคบ | in-progress |
-| 03 | เสียงพื้นในคลิปสปอย | ready |
+| 03 | เสียงพื้นในคลิปสปอย | in-progress |
 
 ## Log
+
+### Ticket 03: เสียงพื้นในคลิปสปอย — in-progress (เหลือ design) 2026-11-13
+
+**Built:**
+- Spoil draft มี `sound` (`DraftSound` `{sound_id, volume}`, ไฟล์เก่าอ่านเป็น `null`, `version` คง 2); settings มี `sound_volume` ตั้งต้น 30 แก้ได้ใน `PATCH /settings`
+- `PATCH /draft` รับ `sound`: รูปผิดหรือ `volume` ไม่ใช่ 0–100 ทีละ 5 → `invalid_request`; แล้ว `draft_locked`; แล้ว `sound_not_found` ใต้ `draft_lock`; ไม่ส่ง `volume` → ใช้ `sound_volume`, ส่ง → จำลง settings
+- spoil ลงทะเบียน `SoundUser(tab="spoil")` ด้วย `draft_playing` (label `Spoil draft: {ชื่อคลิป} · EP {n}`); `SoundUser.lock` เป็นฟังก์ชันที่คืน lock (toon ด้วย); `sounds.name_of`
+- Render job: เช็ค `sound_not_found` ต่อจาก `missing_shots`; ใน `draft_lock` ที่อ่าน draft ก๊อปเป็น `.render/sound.m4a` พร้อมอ่านชื่อ (ไม่มี → `failed` `sound_not_found`); `compose.final_command` รับ `Background` เป็น input ที่สาม `-stream_loop -1`, `atrim`, `volume`, `amix=inputs=3 normalize=0`; ไม่มีเสียง → คำสั่งเดิมทุกตัวอักษร (golden); `{name}.json` มี `sound_name`
+- frontend: `BackgroundSound` ในการ์ดตั้งค่าวิดีโอใต้เสียงคลิปต้นฉบับ (ตัวเลือก "เสียงพื้น", ลิงก์ "ไปคลังเสียง" → `#/sounds?back=#/spoil/review`, slider "ความดังเสียงพื้น" ส่งครั้งเดียวตอนปล่อย, ปุ่มฟัง, คลังว่าง "ยังไม่มีเสียงในคลัง", Alert ใต้ตัวเลือก, กลับค่า draft เมื่อถูกปฏิเสธ); `useLibrarySounds` (อ่านตอนเปิดหน้าและ `visibilitychange`); render ถูกปฏิเสธอ่าน draft ใหม่; ผล render บรรทัด "เสียงพื้น: {ชื่อ}"; `PlayedSound` และ `fetchSounds` ใน `sound-library/lib/sounds` ที่ toon ใช้ด้วย
+- README ส่วนตรวจแก้และผล render; conventions `fastapi-api` (`sound_users`)
+
+**Decided:**
+- D17 — `SoundUser.lock` เป็นฟังก์ชัน, ลำดับ error ของ `PATCH /draft`, สำเนา `sound.m4a`, ที่อยู่และข้อความของตัวเลือก, ตัวเลือก "ไม่พบเสียงนี้ในคลังเสียง", ที่ของ test
+- auto mode: design ของสองจอยัง pending → สร้างตามหน้าเดิม ข้อ "หน้าตาตรงแบบ" ค้างกับ Blocked #3–4; ticket ยัง in-progress
+
+**For the next ticket:**
+- feature review: ข้อความ volume ของ `original_volume` กับ `sound_volume` ซ้ำรูปเดียวกันในสองที่ (`settings.change`, `draft.change_draft`) — รวมเป็นตัวช่วยเดียวได้
+- เมื่อได้แบบใน Figma: หน้าตาของตัวเลือกเสียงพื้น (ขนาด, ไอคอน, ตำแหน่งลิงก์ "ไปคลังเสียง") และบรรทัด "เสียงพื้น" ในผล render
+
+**Checks:** `uv run pytest` 1172 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 473 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `bf11311`: Standards 3 ข้อผิดกติกา (fetch ไม่กันคำตอบเก่า, type และการอ่านคลังซ้ำกับ toon, SKILL.md ยังพูดถึง lock แบบเดิม) + smell 5, Spec 2 ขาด (slider ไม่กลับค่าเมื่อถูกปฏิเสธ, ไม่ test ลำดับบรรทัด) + ลำดับ `draft_locked` ผิด AC + `uses_sound` ไม่มีที่ใช้ + test ไม่ครอบทางรายการหาย, Newcomer สรุปตรง What to build + เดา 9 จุด; แก้ทุกข้อ ยกเว้น: อ่าน draft ใหม่ทุกครั้งที่ render ถูกปฏิเสธ (D17, `RefusalLine` ไม่มี code), ข้อความ volume ซ้ำรูป (ด้านบน), golden ครอบคำสั่ง piece ด้วย (ตาม "เหมือนเดิมทุกตัวอักษร")
 
 ### Ticket 02: แถบนำทางแบบกลุ่มและเมนูจอแคบ — in-progress (เหลือ design) 2026-11-13
 

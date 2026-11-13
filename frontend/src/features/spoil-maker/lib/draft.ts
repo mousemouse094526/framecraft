@@ -2,6 +2,7 @@
 import { sendJson } from "../../../lib/api";
 import { isRunning } from "../../../lib/job";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
+import type { PlayedSound } from "../../sound-library/lib/sounds";
 
 export type Style = "fast" | "drama" | "chrono";
 export type Layout = "A" | "B" | "C";
@@ -39,6 +40,9 @@ export type Sentence = {
 /** An EP of a Temp clip by its number and range: [start_s, end_s) (spoil-maker spec › EP). */
 export type Ep = { n: number; start_s: number; end_s: number };
 
+/** What `PATCH /draft` sends as `sound`: without a volume, the backend takes the remembered one (sound-library D5). */
+export type SoundChoice = { sound_id: string; volume?: number } | null;
+
 export type Draft = {
   clip_id: string;
   /** The EP as the clip was cut when the draft was written (D70). */
@@ -51,6 +55,8 @@ export type Draft = {
   original_volume: number;
   top_text: string;
   sentences: Sentence[];
+  /** Kept as chosen, even after the library loses the sound: the render says so (sound-library D13). */
+  sound: PlayedSound | null;
   estimated_total_s: number;
   /** A job changes the draft: every field waits (D51). */
   locked: boolean;

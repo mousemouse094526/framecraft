@@ -1,3 +1,4 @@
+import { getJson } from "../../../lib/api";
 import { isUnfinishedIn } from "../../../lib/job";
 
 // The sound library of the whole app (sound-library spec, ADR 0037) as the API sends it: its
@@ -28,6 +29,12 @@ export const userLine = (user: SoundUser) => `${USER_TABS[user.tab]} · ${user.l
 export type Legacy = { left_behind: string | null };
 
 export type Sound = { id: string; name: string; duration_s: number; source: "file" | "link" };
+
+/** A sound of the library a toon segment or a Spoil draft plays, and its volume 0–100. */
+export type PlayedSound = { sound_id: string; volume: number };
+
+/** `GET /api/sounds`: every sound of the library. */
+export const fetchSounds = () => getJson<Sound[]>(SOUNDS_PATH);
 
 /** A link's Sound import; a file's is one request and never shows here. */
 export type SoundImport = {

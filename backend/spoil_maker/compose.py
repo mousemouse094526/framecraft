@@ -1,7 +1,7 @@
-"""ffmpeg for a render (spoil-maker spec › Render job step 3, D9, D22, D31, D40, D45):
+"""ffmpeg for a render (spoil-maker spec › Render job step 3, D22, D31, D40, D45):
 each half-sentence Shot becomes a 1080×1920 30 fps piece with the original sound
-turned down, then the pieces are joined, the voice mixed in, the ASS text drawn and
-the whole encoded for phones.
+turned down, then the pieces are joined, the voice and the background sound mixed in
+(sound-library D5), the ASS text drawn and the whole encoded for phones.
 
 Every command runs with `cwd` at the render's work folder and names files there
 bare, so no path goes through ffmpeg's filter escaping (docs/library-notes/ffmpeg.md).
@@ -66,17 +66,36 @@ def piece_command(piece: Piece, mp4: Path, media: Media, layout: str, volume: in
     ]  # fmt: skip
 
 
-def final_command(pieces_list: str, narration: str, captions: str, fonts_dir: str, seconds: float, out: str) -> list[str]:
+class Background(BaseModel):
+    """The background sound's file in the work folder and its volume, 0–100."""
+
+    file: str
+    volume: int
+
+
+def final_command(
+    pieces_list: str, narration: str, captions: str, fonts_dir: str, seconds: float, out: str, background: Background | None
+) -> list[str]:
     """Joins the pieces, mixes the voice over their sound (`normalize=0`, so neither is
-    turned down) and draws the text (spec › Render job step 3.4)."""
+    turned down) and draws the text (spec › Render job step 3.4). A background sound loops
+    from its start under both and is cut at the clip's end (sound-library spec › Render job)."""
+    inputs = ["-f", "concat", "-safe", "0", "-i", pieces_list, "-i", narration]
+    mix = "[0:a][voice]amix=inputs=2:duration=first:normalize=0[a]"
+    if background is not None:
+        # The input loops, not `aloop`: that holds the whole sound in memory (docs/library-notes/ffmpeg.md).
+        inputs += ["-stream_loop", "-1", "-i", background.file]
+        mix = (
+            f"[2:a]aresample={AUDIO_RATE},aformat=channel_layouts=stereo,"
+            f"atrim=duration={seconds:.3f},volume={background.volume / 100:.2f}[bed];"
+            "[0:a][voice][bed]amix=inputs=3:duration=first:normalize=0[a]"
+        )
     graph = (
         f"[0:v]ass=filename={captions}:fontsdir={fonts_dir}[v];"
         f"[1:a]aresample={AUDIO_RATE},aformat=channel_layouts=stereo[voice];"
-        f"[0:a][voice]amix=inputs=2:duration=first:normalize=0[a]"
+        f"{mix}"
     )
     return [
-        exe(), "-nostdin", "-hide_banner", "-y", "-progress", "pipe:1", "-nostats",
-        "-f", "concat", "-safe", "0", "-i", pieces_list, "-i", narration,
+        exe(), "-nostdin", "-hide_banner", "-y", "-progress", "pipe:1", "-nostats", *inputs,
         "-filter_complex", graph, "-map", "[v]", "-map", "[a]", "-t", f"{seconds:.3f}",
         "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE),

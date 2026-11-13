@@ -1,6 +1,7 @@
 """The sound library under /api/sounds: a file's Sound import with real ffmpeg, a link's with a
-fake yt-dlp adapter, `in_use`, `sound: null`, the Cards job picking a sound, and the move from
-`media/toon/sounds/` at start (sound-library seam 1, toon seam 1 › Sound import)."""
+fake yt-dlp adapter, `in_use` by EPs and the Spoil draft, a delete racing a draft's choice,
+`sound: null`, the Cards job picking a sound, and the move from `media/toon/sounds/` at start
+(sound-library seam 1, toon seam 1 › Sound import)."""
 
 import ast
 import json
@@ -39,10 +40,12 @@ from .fakes import (
     toon_api,
     with_series,
     write_library,
+    write_spoil_draft,
     youtube_info,
 )
 
 IMPORT = "/api/sounds/import/current"
+SPOIL_DRAFT = "/api/spoil-maker/draft"
 
 
 project, llm, klein, tts, client = toon_api(lambda: Writer().respond, uses=("adapter",))
@@ -294,6 +297,58 @@ def test_eps_using_a_sound_are_listed_by_series_name_then_ep_number(client, proj
         {"tab": "toon", "label": "ผีบ้านไม้ · EP 1"},
         {"tab": "toon", "label": "ผีบ้านไม้ · EP 2 คืนฝนตก"},
     ]
+
+
+def test_a_sound_the_spoil_draft_plays_is_in_use_after_the_eps_that_play_it(client, project, tmp_path):
+    sound = import_tone(client, tmp_path)
+    write_ep_playing(project, new_series(client, name="ผีบ้านไม้")["id"], "e_00000001", 1, "", sound["id"])
+    write_spoil_draft(project, n=2, sound={"sound_id": sound["id"], "volume": 30})
+
+    refused = client.delete(f"{SOUNDS}/{sound['id']}")
+
+    assert (refused.status_code, refused.json()["code"]) == (409, "in_use")
+    assert refused.json()["users"] == [
+        {"tab": "toon", "label": "ผีบ้านไม้ · EP 1"},
+        {"tab": "spoil", "label": "Spoil draft: ชื่อคลิป · EP 2"},
+    ]
+
+
+def test_a_sound_the_spoil_draft_dropped_is_deleted(client, project, tmp_path):
+    sound = import_tone(client, tmp_path)
+    write_spoil_draft(project, sound={"sound_id": sound["id"], "volume": 30})
+
+    dropped = client.patch(SPOIL_DRAFT, json={"sound": None})
+
+    assert dropped.status_code == 200, dropped.json()
+    assert client.delete(f"{SOUNDS}/{sound['id']}").status_code == 204
+
+
+def test_a_delete_racing_a_draft_choosing_the_same_sound_ends_one_way_or_the_other(client, project, tmp_path):
+    """sound-library seam 1: either the delete goes and the choice is `sound_not_found`, or the
+    choice stays and the delete is `in_use`; never a draft on a sound that is gone."""
+    m4a = import_tone(client, tmp_path)
+    m4a_bytes = (project.sounds_dir / f"{m4a['id']}.m4a").read_bytes()
+    write_spoil_draft(project)
+    for _ in range(50):
+        # The round before may have deleted the sound: back to the draft without it and the library with it.
+        client.patch(SPOIL_DRAFT, json={"sound": None})
+        (project.sounds_dir / f"{m4a['id']}.m4a").write_bytes(m4a_bytes)
+        write_library(project, {"version": 1, "sounds": [m4a]})
+        answers = {}
+        threads = [
+            threading.Thread(target=lambda: answers.update(delete=client.delete(f"{SOUNDS}/{m4a['id']}"))),
+            threading.Thread(
+                target=lambda: answers.update(choose=client.patch(SPOIL_DRAFT, json={"sound": {"sound_id": m4a["id"]}}))
+            ),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+            assert not thread.is_alive(), "a delete and a choice of the same sound held each other up"
+        outcome = (answers["delete"].status_code, answers["choose"].status_code, answers["choose"].json().get("code"))
+        assert outcome in {(204, 400, "sound_not_found"), (409, 200, None)}, outcome
+        assert (client.get(SPOIL_DRAFT).json()["sound"] is None) == (outcome[0] == 204)
 
 
 def test_the_old_toon_sound_routes_are_gone(client, tmp_path):

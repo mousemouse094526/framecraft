@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import plusIcon from "../../../components/ui/assets/plus.svg";
@@ -30,6 +30,8 @@ const SIZES: { size: MarkSize; label: string }[] = [
 type Props = {
   volume: number;
   onVolume: (volume: number) => Promise<boolean>;
+  /** The background sound's picker, under the original sound (sound-library D5). */
+  backgroundSound: ReactNode;
   settings: SettingsState;
   /** `useVideoSettings().watermarks`: the list as loaded, empty until then. */
   watermarks: Watermark[];
@@ -40,7 +42,8 @@ type Props = {
   onRemove: (index: number) => Promise<boolean>;
 };
 
-/** Figma `Settings card` of ตรวจแก้บท: the original sound's level and the watermarks (D40, D41). */
+/** Figma `Settings card` of ตรวจแก้บท: the original sound's level, the background sound and the
+ * watermarks (D40, D41, sound-library D5). */
 export function VideoSettings(props: Props) {
   const { settings, watermarks: marks, locked } = props;
   // The slider saves itself like a text field: 800 ms after the last move, or on release.
@@ -76,6 +79,7 @@ export function VideoSettings(props: Props) {
           <span>100</span>
         </div>
       </div>
+      {props.backgroundSound}
       <hr className="border-border" />
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">

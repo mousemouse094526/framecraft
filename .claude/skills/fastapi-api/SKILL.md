@@ -79,8 +79,8 @@ backend/
 │                    lock, its Sound import slot (a file in one request, which a page
 │                    gone during ffmpeg never brings in, a link through spoil's adapter
 │                    with `LINK_OPTIONS`), `exists`/`path` for the tabs that keep a
-│                    `sound_id`, `sound_users` (each registers its tab, lock and
-│                    check, taken in `LOCK_ORDER`, ADR 0038), and `move_legacy` at start (D10); it imports
+│                    `sound_id`, `sound_users` (each registers its tab, a function
+│                    giving its lock, and check, taken in `LOCK_ORDER`, ADR 0038), and `move_legacy` at start (D10); it imports
 │                    neither toon nor spoil_maker
 ├── stories.py    ← the คลังความรู้ tab (story-kb, ADR 0023): Stories and the
 │                    Story each clip remembers in `media/stories/`, their

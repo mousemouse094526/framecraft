@@ -12,7 +12,7 @@
 - User stories: 4, 5
 - Legal: 1 (`sound_name` ในผล render)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Acceptance criteria
 
