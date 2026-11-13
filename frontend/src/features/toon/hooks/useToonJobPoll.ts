@@ -1,5 +1,5 @@
-import { stopJob } from "../lib/edit";
-import type { Notice } from "../lib/notice";
+import { stopJob } from "../../../lib/edit";
+import type { Notice } from "../../../lib/notice";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isRunning, JOB_PATH, type ToonJob } from "../lib/series";
 

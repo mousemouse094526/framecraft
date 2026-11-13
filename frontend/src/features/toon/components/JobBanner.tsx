@@ -3,7 +3,7 @@ import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import { OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import circleAlertIcon from "../assets/circle-alert.svg";
 import circleCheckIcon from "../assets/circle-check.svg";
-import loaderIcon from "../assets/loader.svg";
+import loaderIcon from "../../../components/ui/assets/loader.svg";
 import squareIcon from "../assets/square.svg";
 
 type Props =

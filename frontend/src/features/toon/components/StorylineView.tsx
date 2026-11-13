@@ -7,26 +7,26 @@ import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../component
 import arrowRightIcon from "../assets/arrow-right.svg";
 import chevronRightIcon from "../assets/chevron-right-16.svg";
 import mountainIcon from "../assets/mountain.svg";
-import musicIcon from "../assets/music.svg";
+import musicIcon from "../../../components/ui/assets/music.svg";
 import triangleAlertIcon from "../assets/triangle-alert.svg";
 import volumeIcon from "../assets/volume.svg";
 import wandWhiteIcon from "../assets/wand-white.svg";
-import { cardsOf, type Act, type Ep, type Segment } from "../lib/episodes";
+import { cardsOf, DEFAULT_VOLUME, VOLUME_MAX, type Act, type Ep, type Segment } from "../lib/episodes";
 import {
   ACT_NAME_MAX,
   castHash,
+  epHash,
   isRunning,
   renderHash,
-  SOUNDS_HASH,
   type ImageScope,
   type MissingRef,
   type Series,
   type ToonJob,
 } from "../lib/series";
 import { ITEM_KINDS } from "../lib/kinds";
-import { DEFAULT_VOLUME, VOLUME_MAX, type Sound } from "../lib/sounds";
+import { soundsHash, type Sound } from "../../sound-library/lib/sounds";
 import { CardEditor, type CardWork } from "./CardEditor";
-import { CommitField } from "./CommitField";
+import { CommitField } from "../../../components/ui/CommitField";
 import { LengthMeter } from "./LengthMeter";
 
 type Edit = (method: string, path: string, body: unknown) => Promise<boolean>;
@@ -92,9 +92,9 @@ export function StorylineView({ ep, series, sounds, locked, edit, job, busy, mis
           สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน
         </button>
         <div className="flex w-full flex-wrap gap-2">
-          <a href={SOUNDS_HASH} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+          <a href={soundsHash(epHash(ep.id))} className={`h-8 px-3 ${GHOST_BUTTON}`}>
             <img src={musicIcon} alt="" width={16} height={16} />
-            คลังเสียงพื้น
+            คลังเสียง
           </a>
           <a href={renderHash(ep.id)} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
             <img src={arrowRightIcon} alt="" width={16} height={16} />

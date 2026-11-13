@@ -18,7 +18,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend import checks, gpu, paths, spoil_maker
+from backend import checks, gpu, paths, sounds, spoil_maker
 from backend.app import app
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
 from backend.errors import ApiError
@@ -28,7 +28,7 @@ from backend.workers import Worker
 from backend.spoil import clips
 from backend.spoil.mp4check import Mp4Info, NotPlayable
 from backend.spoil.whisper import Done, Segment
-from backend.toon import jobs, sounds, store
+from backend.toon import jobs, store
 
 
 
@@ -889,7 +889,7 @@ TOON_VOICE = "v_8f2c01ab"
 TOON_SERIES = "/api/toon/series"
 TOON_JOBS = "/api/toon/jobs"
 TOON_CURRENT = "/api/toon/jobs/current"
-TOON_SOUNDS = "/api/toon/sounds"
+SOUNDS = "/api/sounds"
 FINISHED = {"done", "failed", "cancelled"}
 
 
@@ -1087,13 +1087,13 @@ def restart(client) -> None:
 
 def write_library(project: ProjectPaths, body: object) -> None:
     """`sounds.json` as `body` says: a text as it is (a broken one), anything else as JSON."""
-    project.toon_sounds_dir.mkdir(parents=True, exist_ok=True)
-    project.toon_sounds_file.write_text(body if isinstance(body, str) else json.dumps(body), encoding="utf-8")
+    project.sounds_dir.mkdir(parents=True, exist_ok=True)
+    project.sounds_file.write_text(body if isinstance(body, str) else json.dumps(body), encoding="utf-8")
 
 
 def import_file(client, name: str, body: bytes):
     return client.post(
-        f"{TOON_SOUNDS}/imports?name={name}&size={len(body)}", content=body, headers={"Content-Type": "application/octet-stream"}
+        f"{SOUNDS}/imports?name={name}&size={len(body)}", content=body, headers={"Content-Type": "application/octet-stream"}
     )
 
 

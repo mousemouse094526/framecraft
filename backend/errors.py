@@ -30,6 +30,14 @@ def invalid_request() -> ApiError:
     return ApiError(400, "invalid_request", "ข้อมูลที่ส่งมาไม่ถูกต้อง")
 
 
+def checked_text(value: object, low: int, high: int) -> str:
+    """A text of `low`–`high` letters once the spaces around it are cut."""
+    text = value.strip() if isinstance(value, str) else None
+    if text is None or not low <= len(text) <= high:
+        raise ApiError(400, "invalid_request", f"ข้อความต้องยาว {low}–{high} ตัวอักษร")
+    return text
+
+
 class JobFailed(Exception):
     """Ends a job as `failed` with an error `code` the job's API defines."""
 

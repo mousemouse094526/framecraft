@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 
-// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, toon spec › Frontend).
+// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, sound-library D2).
 export const TABS = [
   { id: "setup", label: "ติดตั้ง", hash: "#/setup" },
   { id: "clips", label: "คลิป", hash: "#/clips" },
   { id: "stories", label: "คลังความรู้", hash: "#/stories" },
+  { id: "sounds", label: "คลังเสียง", hash: "#/sounds" },
   { id: "spoil", label: "สปอย", hash: "#/spoil" },
   { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon" },
 ] as const;
@@ -12,12 +13,13 @@ export const TABS = [
 export type TabId = (typeof TABS)[number]["id"];
 
 /**
- * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้ and `#/toon/…` a page of
- * การ์ตูนเล่า; an empty or
+ * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/sounds?…` คลังเสียง
+ * with the page it came from (sound-library D11) and `#/toon/…` a page of การ์ตูนเล่า; an empty or
  * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9).
  */
 export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/spoil/")) return "spoil";
+  if (hash.startsWith("#/sounds?")) return "sounds";
   if (hash.startsWith("#/stories/")) return "stories";
   if (hash.startsWith("#/toon/")) return "toon";
   return TABS.find((tab) => tab.hash === hash)?.id ?? "setup";
@@ -63,13 +65,24 @@ export function useLeaveGuard(unsaved: LeaveGuard) {
  * clicking one and the browser's back button both change the hash; this only follows it.
  */
 export function useHash(): string {
-  const [hash, setHash] = useState(() => window.location.hash);
+  const [hash, setHash] = useState(movedHash);
 
   useEffect(() => {
-    const follow = () => setHash(window.location.hash);
+    const follow = () => setHash(movedHash());
     window.addEventListener("hashchange", follow);
     return () => window.removeEventListener("hashchange", follow);
   }, []);
 
   return hash;
+}
+
+// The sound library was a page of การ์ตูนเล่า before it had its own tab (sound-library D6, D11).
+const MOVED: Record<string, string> = { "#/toon/sounds": "#/sounds" };
+
+/** The hash, with one of a page that moved put back as its new one: `replaceState` fires no
+ * `hashchange`, so the caller reads the new hash straight from the answer. */
+function movedHash(): string {
+  const moved = MOVED[window.location.hash];
+  if (moved) history.replaceState(history.state, "", moved);
+  return window.location.hash;
 }

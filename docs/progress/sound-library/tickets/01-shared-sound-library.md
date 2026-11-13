@@ -12,7 +12,7 @@
 - User stories: 1, 3, 5, 6
 - Legal: 1 (คำเตือนสิทธิ์ของเสียงบนหน้าคลังเสียง)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Acceptance criteria
 

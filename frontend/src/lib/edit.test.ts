@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { OFFLINE_TEXT } from "../../../lib/api";
-import { send, sent, serve } from "../../../testing/testBackend";
+import { OFFLINE_TEXT } from "./api";
+import { send, sent, serve } from "../testing/testBackend";
 import { sendEdit } from "./edit";
 
 const PATH = "/api/toon/eps/e_1";

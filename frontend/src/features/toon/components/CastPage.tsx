@@ -8,10 +8,10 @@ import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import loader24Icon from "../assets/loader-24.svg";
-import uploadIcon from "../assets/upload.svg";
+import uploadIcon from "../../../components/ui/assets/upload.svg";
 import wandIcon from "../assets/wand.svg";
 import { useCast, type ItemFields } from "../hooks/useCast";
-import { NoticeLine } from "./NoticeLine";
+import { NoticeLine } from "../../../components/ui/NoticeLine";
 import {
   DESCRIPTION_MAX,
   isRunning,

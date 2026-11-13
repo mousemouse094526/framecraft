@@ -14,8 +14,9 @@ from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
 
-from backend import gpu, llm_reply, renders
-from backend.errors import ApiError, invalid_request
+from backend import gpu, llm_reply, renders, sounds
+from backend.errors import ApiError, checked_text, invalid_request
+from backend.ids import new_id
 from backend.json_values import is_int, is_number
 from backend.paths import EpAddress, ProjectPaths
 from backend.spoil_maker import thai, voices
@@ -141,16 +142,16 @@ def list_for(project: ProjectPaths, series_id: str) -> list[ListedEp]:
 def create(project: ProjectPaths, series_id: str, body: dict) -> EpView:
     """A new EP numbered past the highest the Series ever had (D40), with the Series' acts
     and voice (D8, D11); its plot comes from a Plot job."""
-    idea = series_module.checked_text(body.get("idea"), 1, IDEA_MAX)
+    idea = checked_text(body.get("idea"), 1, IDEA_MAX)
     with gpu.slot.draft_lock, store.lock:
         series = series_module.require_series(project, series_id)
         taken = store.ep_ids(project)
         series.max_ep += 1
         acts: list[Act] = []
         for name in series.acts:
-            acts.append(Act(id=store.new_id("a", {act.id for act in acts}), name=name))
+            acts.append(Act(id=new_id("a", {act.id for act in acts}), name=name))
         ep = Ep(
-            id=store.new_id("e", taken),
+            id=new_id("e", taken),
             n=series.max_ep,
             idea=idea,
             voice_id=series.voice_id,
@@ -208,7 +209,7 @@ def change(ep_address: EpAddress, body: dict) -> EpView:
     with gpu.slot.draft_lock, store.lock:
         series, ep = editable(ep_address)
         if "title" in body:
-            ep.title = series_module.checked_text(body["title"], 0, TITLE_MAX)
+            ep.title = checked_text(body["title"], 0, TITLE_MAX)
         if "n" in body:
             ep.n = _ep_number(ep_address, body["n"])
             if ep.n > series.max_ep:
@@ -238,10 +239,10 @@ def delete(ep_address: EpAddress) -> None:
 
 def add_act(ep_address: EpAddress, body: dict) -> EpView:
     """An act the user adds: never split, so a Cards job counts it as changed (D10, D15)."""
-    name = series_module.checked_text(body.get("name"), 1, series_module.ACT_NAME_MAX)
-    summary = series_module.checked_text(body.get("summary", ""), 0, SUMMARY_MAX)
+    name = checked_text(body.get("name"), 1, series_module.ACT_NAME_MAX)
+    summary = checked_text(body.get("summary", ""), 0, SUMMARY_MAX)
     with _editing(ep_address) as (_, ep, _):
-        act = Act(id=store.new_id("a", {a.id for a in ep.acts}), name=name, summary=summary)
+        act = Act(id=new_id("a", {a.id for a in ep.acts}), name=name, summary=summary)
         _insert(ep.acts, act, body)
     return view(ep_address)
 
@@ -251,9 +252,9 @@ def change_act(ep_address: EpAddress, act_id: str, body: dict) -> EpView:
     with _editing(ep_address) as (_, ep, _):
         act = _find(ep.acts, act_id)
         if "name" in body:
-            act.name = series_module.checked_text(body["name"], 1, series_module.ACT_NAME_MAX)
+            act.name = checked_text(body["name"], 1, series_module.ACT_NAME_MAX)
         if "summary" in body:
-            act.summary = series_module.checked_text(body["summary"], 0, SUMMARY_MAX)
+            act.summary = checked_text(body["summary"], 0, SUMMARY_MAX)
     return view(ep_address)
 
 
@@ -275,8 +276,8 @@ def add_segment(ep_address: EpAddress, body: dict) -> EpView:
         act = _find(ep.acts, body.get("act_id"))
         background_id = _require_background(series, body.get("background_id"))
         taken = _ids(ep)
-        card = Card(id=store.new_id("k", taken), hold_s=SILENT_HOLD, edited=True)
-        segment = Segment(id=store.new_id("g", taken), background_id=background_id, cards=[card])
+        card = Card(id=new_id("k", taken), hold_s=SILENT_HOLD, edited=True)
+        segment = Segment(id=new_id("g", taken), background_id=background_id, cards=[card])
         _insert(act.segments, segment, body)
     return view(ep_address)
 
@@ -308,7 +309,7 @@ def add_card(ep_address: EpAddress, body: dict) -> EpView:
     """A card the user inserts is `edited` (spoil-maker D74); a silent one holds 2 s (D21)."""
     with _editing(ep_address) as (series, ep, _):
         segment = _segment(ep, body.get("segment_id"))
-        card = Card(id=store.new_id("k", _ids(ep)), edited=True)
+        card = Card(id=new_id("k", _ids(ep)), edited=True)
         _apply_card(series, card, body)
         if "hold_s" not in body and not card.text:
             card.hold_s = SILENT_HOLD
@@ -402,9 +403,9 @@ def _card_view(ep: Ep, segment: Segment, card: Card, refs: dict[str, int], chars
 
 def _apply_card(series: Series, card: Card, body: dict) -> None:
     if "text" in body:
-        card.text = series_module.checked_text(body["text"], 0, TEXT_MAX)
+        card.text = checked_text(body["text"], 0, TEXT_MAX)
     if "description" in body:
-        card.description = series_module.checked_text(body["description"], 0, CARD_DESCRIPTION_MAX)
+        card.description = checked_text(body["description"], 0, CARD_DESCRIPTION_MAX)
     if "character_ids" in body:
         ids = body["character_ids"]
         if (
@@ -472,7 +473,7 @@ def plot_items(series: Series, item_kind: ItemKind, value: list, from_qwen: bool
         found = item.get(field, "")
         if from_qwen:
             return llm_reply.clean(found)[:most] if isinstance(found, str) else ""
-        return series_module.checked_text(found, least, most)
+        return checked_text(found, least, most)
 
     def drop() -> None:
         """An item that isn't one: Qwen's is dropped, the user's refused."""
@@ -510,8 +511,8 @@ def _sound(project: ProjectPaths, value: object, now: Sound | None) -> Sound | N
         raise invalid_request()
     sound_id = value.get("sound_id", now.sound_id if now else None)
     volume = value.get("volume", now.volume if now else Sound.model_fields["volume"].default)
-    if sound_id not in {sound.id for sound in store.read_sounds(project)}:
-        raise ApiError(400, "invalid_request", "ไม่พบเสียงนี้ในคลังเสียงพื้น")
+    if not sounds.exists(project, sound_id):  # with the store's lock held (ADR 0038)
+        raise ApiError(400, "invalid_request", "ไม่พบเสียงนี้ในคลังเสียง")
     if not is_int(volume) or not 0 <= volume <= VOLUME_MAX:
         raise ApiError(400, "invalid_request", f"ความดังต้องเป็น 0–{VOLUME_MAX}")
     return Sound(sound_id=sound_id, volume=volume)
@@ -634,3 +635,17 @@ def _insert(items: list, item, body: dict) -> None:
         items.insert(0, item)
     else:
         items.insert(items.index(_find(items, body["after"])) + 1, item)
+
+
+def eps_playing(project: ProjectPaths, sound_id: str) -> list[str]:
+    """`{Series} · EP {n} {title}` of each EP with a segment that plays the sound, by Series
+    name then EP number. `sounds.delete` calls it with the store's lock held (D25, sound-library D7)."""
+    return [
+        f"{found.name} · EP {ep.n} {ep.title}".rstrip()
+        for found in store.list_series(project)
+        for ep in store.list_eps(project, found.id)
+        if any(segment.sound and segment.sound.sound_id == sound_id for _, segment in _placed_segments(ep))
+    ]
+
+
+sounds.sound_users.append(sounds.SoundUser(tab="toon", lock=store.lock, check=eps_playing))

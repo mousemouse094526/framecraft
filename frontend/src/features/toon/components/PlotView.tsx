@@ -5,7 +5,7 @@ import wandWhiteIcon from "../assets/wand-white.svg";
 import { actsToSplit, SUMMARY_MAX, TITLE_MAX, type Ep, type LostCards, type PlotItem } from "../lib/episodes";
 import type { ItemKind, Series } from "../lib/series";
 import { ITEM_KINDS } from "../lib/kinds";
-import { CommitField } from "./CommitField";
+import { CommitField } from "../../../components/ui/CommitField";
 import { ToonDialog } from "./ToonDialog";
 
 type Edit = (method: string, path: string, body: unknown) => Promise<boolean>;

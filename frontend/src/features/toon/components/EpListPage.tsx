@@ -13,7 +13,7 @@ import wandWhiteIcon from "../assets/wand-white.svg";
 import { useEpList } from "../hooks/useEpList";
 import { epLabel, IDEA_MAX, madeAt, type ListedEp } from "../lib/episodes";
 import { castHash, epHash, GENRE_LABELS, LAYOUT_LABELS, LIST_HASH, settingsHash, type Series } from "../lib/series";
-import { NoticeLine } from "./NoticeLine";
+import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { ToonDialog } from "./ToonDialog";
 
 const STAGE_LABELS: Record<ListedEp["stage"], string> = { plot: "พล็อต", cards: "การ์ด" };

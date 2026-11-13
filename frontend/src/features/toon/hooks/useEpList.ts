@@ -3,8 +3,8 @@ import { getJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, seriesEpsPath, type Ep, type ListedEp } from "../lib/episodes";
 import { epHash, seriesPath, startToonJob, type Series } from "../lib/series";
-import { sendEdit } from "../lib/edit";
-import type { Notice } from "../lib/notice";
+import { sendEdit } from "../../../lib/edit";
+import type { Notice } from "../../../lib/notice";
 
 export type EpListState =
   | { kind: "loading" }

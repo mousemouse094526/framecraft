@@ -109,7 +109,7 @@ def test_deleting_a_series_without_confirm_eps_is_confirm_needed_with_its_eps(cl
 def test_a_confirmed_delete_removes_the_series_folder_and_keeps_the_saved_voice_and_the_sounds(client, project):
     series = new_series(client)
     write_ep(project, series["id"], "e_00000001", 1, "ตอนหนึ่ง")
-    sound = project.toon_sounds_dir / "m_00000001.m4a"  # the tab's library, not the Series'
+    sound = project.sounds_dir / "m_00000001.m4a"  # the app's library, not the Series'
     sound.parent.mkdir(parents=True)
     sound.write_bytes(b"sound")
 

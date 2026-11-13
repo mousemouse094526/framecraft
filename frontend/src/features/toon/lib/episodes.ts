@@ -4,6 +4,10 @@
 import { getJson } from "../../../lib/api";
 import { seriesPath, type Series } from "./series";
 
+// A segment's sound volume (backend/toon/episodes.py, spec › Cards job step 5).
+export const VOLUME_MAX = 100;
+export const DEFAULT_VOLUME = 30;
+
 export const EPS_PATH = "/api/toon/eps";
 export const epPath = (epId: string) => `${EPS_PATH}/${epId}`;
 const cardPath = (epId: string, cardId: string) => `${epPath(epId)}/cards/${cardId}`;

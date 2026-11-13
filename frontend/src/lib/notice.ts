@@ -1,8 +1,9 @@
-import { OFFLINE_TEXT } from "../../../lib/api";
-import { refusalLine, refusalOf } from "../../../lib/refusal";
+import { OFFLINE_TEXT } from "./api";
+import { refusalLine, refusalOf } from "./refusal";
 
-/** A line above the lists: why an action was refused (Figma toon / 3, states 3–6). */
-export type Notice = { tone: "warning" | "error"; title: string; text: string; setupLink: boolean };
+/** A line above the lists: why an action was refused (Figma toon / 3, states 3–6), and
+ * `lines`, what the refusal names one by one (the users of a sound, sound-library D7). */
+export type Notice = { tone: "warning" | "error"; title: string; text: string; setupLink: boolean; lines?: string[] };
 
 /** The notice of a refused or failed request: its refusal line, or OFFLINE_TEXT when no
  * refusal came back (no backend); a `warning` for the codes that mean "not now". */

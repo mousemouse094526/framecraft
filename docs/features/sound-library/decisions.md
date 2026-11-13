@@ -198,3 +198,27 @@
 
 **From:** red team · **Status:** active
 
+
+## D14: การย้ายคลังเดิมไม่ลบไฟล์ที่ไม่รู้จัก และ `backend.sounds` ใช้ตัวโหลดลิงก์ของ spoil ได้
+
+**Chosen:** ตอนรวมทีละไฟล์ m4a ที่ id ยังไม่มี m4a ใน `media/sounds/` ย้ายมา แล้วเขียน `sounds.json` ทันที (รายการใหม่ของ id นั้นมีอยู่แล้วใช้ของใหม่); `media/toon/sounds/` ถูกลบเมื่อทุก m4a ในนั้นมีสำเนาใน `media/sounds/` แล้วเท่านั้น. m4a ที่ชื่อไม่ใช่ id ของเสียงไม่เคยเป็นเสียง (toon D70): อยู่ที่เดิม ไม่ถูกลบ และไม่นับใน `left_behind` (Alert บอกให้เปิดแอปใหม่ ซึ่งไม่ช่วยไฟล์แบบนี้). `backend.sounds` ไม่ import `backend.toon` หรือ `backend.spoil_maker` (tab ที่ใช้คลัง) แต่ import `backend.spoil.adapter` และ `links` ตามเดิม (ADR-0037 แก้คำตามนี้); `checked_text` ย้ายจาก `toon.series` ไป `backend.errors` ข้าง `invalid_request`, `new_id` ไป `backend.ids`; ลำดับ lock ของผู้ใช้เสียงเป็น `LOCK_ORDER` ตาม tab (spoil ก่อน toon) แทนเลข rank.
+
+**Why:** ไฟล์เสียงที่ผู้ใช้วางไว้เองไม่ควรหายเพราะการย้าย; เขียนต่อไฟล์ทำให้ล้มกลางทางแล้วชื่อของเสียงที่ย้ายแล้วไม่หาย. adapter ของ spoil เป็นที่เดียวที่ import yt-dlp (`fastapi-api` › Folder structure) ไม่ใช่ feature ที่อ้างเสียง จึงไม่ขัด ADR-0037 ที่กันไม่ให้คลังวนกลับไปหา feature ที่ใช้มัน.
+
+**Rejected:**
+- ลบ folder เดิมเมื่อเหลือแค่ไฟล์ที่ไม่ใช่ id ของเสียง — ลบไฟล์ที่แอปไม่รู้จักโดยผู้ใช้ไม่รู้
+- ย้าย Download job ของลิงก์ออกจาก `backend.spoil` — งานใหญ่ที่ไม่เปลี่ยนสิ่งที่ผู้ใช้เห็น
+- `rank` เป็นตัวเลขที่แต่ละ feature ส่งมา (spec › Sound users) — ตัวเลขไม่บอกว่าอยู่ก่อนใคร; ลำดับเดียวกันอยู่ที่เดียว
+
+**Details:**
+- กติกา "ไม่ import feature ที่ใช้คลัง" เช็คด้วย test อ่าน import ของ `backend/sounds.py` และของ `features/sound-library/` นอก seam ของ D9 เพราะ AC ของ ticket 01 ขอโดยตรงและไม่มี lint ที่เช็คได้
+
+**From:** build ticket 01 · **Status:** active
+
+## D15: หน้าคลังเสียง: ข้อความที่พูดถึงการ์ตูนเล่าอย่างเดียว, "← กลับ" ไปรายการ Series, icon ที่ใช้ร่วม
+
+**Chosen:** หัวรายการเปลี่ยน "ใช้ร่วมกันทุก Series" เป็น "ใช้ร่วมกันทั้งการ์ตูนเล่าและสปอย"; คลังว่างเหลือบรรทัด "ยังไม่มีเสียงในคลัง" บรรทัดเดียว (บรรทัดรอง "…AI จะเลือกเสียงให้แต่ละช่วง" ของการ์ตูนเล่าออก); `back` รับ `#/toon` (รายการ Series) ด้วยนอกจาก `#/toon/…` และ `#/spoil/…`; `in_use` แสดง Alert error หัวข้อ "ลบ {ชื่อ} ไม่ได้" ข้อความของ backend แล้วบรรทัดละ user. icon ที่ toon ใช้ด้วยย้ายไป `components/ui/assets/` (`play.svg` ของ toon เป็น `play-16.svg` เพราะชื่อชนกับปุ่มเล่นสีขาว) ส่วน `download-white.svg` ที่หน้าคลังใช้อย่างเดียวอยู่ใน `features/sound-library/assets/`.
+
+**Why:** ข้อความเดิมพูดถึงการ์ตูนเล่าอย่างเดียวผิดเมื่อสปอยใช้คลังด้วย (D1); ปุ่ม "คลังเสียง" ของรายการ Series ส่ง hash ของหน้าที่อยู่ (spec › Frontend) ซึ่งคือ `#/toon` ที่ไม่ขึ้นต้นด้วย `#/toon/`; icon ตามกติกา `vite-react-web` › components (icon ที่สอง feature ใช้อยู่ที่เดียวใน `components/ui/assets/`). หน้าตาสุดท้ายรอแบบใน Figma (Blocked #2).
+
+**From:** build ticket 01 · **Status:** active

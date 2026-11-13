@@ -6,11 +6,11 @@ import xIcon from "../../../components/ui/assets/x.svg";
 import { playAudio } from "../../../lib/audio";
 import flameIcon from "../assets/flame.svg";
 import imageIcon from "../assets/image.svg";
-import loaderIcon from "../assets/loader.svg";
+import loaderIcon from "../../../components/ui/assets/loader.svg";
 import micDarkIcon from "../assets/mic-dark.svg";
 import micIcon from "../assets/mic.svg";
 import minusIcon from "../assets/minus.svg";
-import playIcon from "../assets/play.svg";
+import playIcon from "../../../components/ui/assets/play-16.svg";
 import undoIcon from "../assets/undo.svg";
 import {
   cardAudioPath,
@@ -25,7 +25,7 @@ import {
   type Motion,
 } from "../lib/episodes";
 import type { Series } from "../lib/series";
-import { CommitField } from "./CommitField";
+import { CommitField } from "../../../components/ui/CommitField";
 import type { CardJobs } from "./StorylineView";
 
 type Props = {

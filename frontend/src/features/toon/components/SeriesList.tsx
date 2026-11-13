@@ -5,13 +5,14 @@ import { RefreshButton } from "../../../components/ui/RefreshButton";
 import plusWhiteIcon from "../../../components/ui/assets/plus-white.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
-import musicIcon from "../assets/music.svg";
+import musicIcon from "../../../components/ui/assets/music.svg";
 import chevronRightIcon from "../assets/chevron-right.svg";
 import film24Icon from "../assets/film-24.svg";
 import filmIcon from "../assets/film.svg";
 import { useSeriesList } from "../hooks/useSeriesList";
-import { LAYOUT_LABELS, NEW_HASH, seriesHash, SOUNDS_HASH, type ListedSeries } from "../lib/series";
-import { NoticeLine } from "./NoticeLine";
+import { soundsHash } from "../../sound-library/lib/sounds";
+import { LAYOUT_LABELS, LIST_HASH, NEW_HASH, seriesHash, type ListedSeries } from "../lib/series";
+import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { ToonDialog } from "./ToonDialog";
 
 /** `#/toon`: the Series, each a link to its page, with delete behind a confirm (Figma toon / 1). */
@@ -31,9 +32,9 @@ export function SeriesList() {
     <PageLayout tab="toon" wide>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="min-w-0 flex-1 text-xl leading-[1.5] font-semibold text-foreground">การ์ตูนเล่า</h2>
-        <a href={SOUNDS_HASH} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
+        <a href={soundsHash(LIST_HASH)} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
           <img src={musicIcon} alt="" width={16} height={16} />
-          คลังเสียงพื้น
+          คลังเสียง
         </a>
         <NewSeriesLink />
       </div>
@@ -55,7 +56,7 @@ export function SeriesList() {
       {confirming && (
         <ToonDialog
           title={`ลบชุด ${confirming.name}?`}
-          message={`ลบชุดนี้และ EP ทั้งหมด ${confirming.ep_count} ตอน? กู้คืนไม่ได้ Saved voice และคลังเสียงพื้นยังอยู่`}
+          message={`ลบชุดนี้และ EP ทั้งหมด ${confirming.ep_count} ตอน? กู้คืนไม่ได้ Saved voice และคลังเสียงยังอยู่`}
           confirmLabel="ลบชุด"
           destructive
           onClose={() => setConfirming(null)}
