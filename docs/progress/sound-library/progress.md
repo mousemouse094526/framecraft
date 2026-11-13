@@ -1,11 +1,11 @@
 # Progress: sound-library
 
-**Now:** ticket 01–03 done; หน้าตาทั้งสี่จอตาม `ui-prompt.md` กับ design system เดิม (D18); เหลือ feature review
+**Now:** ready to merge — ticket 01–03 done, feature review แก้แล้ว (D19), CI ผ่านทุกข้อ
 
 **Next:**
 
 ```
-/warroom-build sound-library --review-feature
+/pr-open
 ```
 
 ## Tickets
@@ -17,6 +17,21 @@
 | 03 | เสียงพื้นในคลิปสปอย | done |
 
 ## Log
+
+### Feature review — done 2026-11-13
+
+**Built:**
+- หน้าตรวจแก้: อ่านคลังเสียงไม่ได้ → ตัวเลือกของ draft แสดง "อ่านคลังเสียงไม่ได้" (เดิม "กำลังโหลด…" ค้าง); `useLibrarySounds` คืน `unreadable`; test ใหม่ใน `ScriptReview.test.tsx`
+- `SoundUser.check` → `playing`; `settings.checked_volume` + `VOLUME_RULES` แทนข้อความ volume ซ้ำ; `VolumeRange` ใช้ร่วมสอง slider; `PRIMARY_BUTTON` เป็น flex (ผู้เรียกเลิกเติมเอง); บรรทัด `in_use` ใช้ `tabLabel`
+- conventions `fastapi-api` (`errors.py` มี `checked_text`, `playing`), spec › lock bullet เป็น `SoundUser(tab, lock, playing)` + `LOCK_ORDER`, docstring `read_sounds`
+
+**Decided:**
+- D19 — ข้อความคลังอ่านไม่ได้, ชื่อ `playing`, ของที่ใช้ร่วม; ข้อที่ไม่แก้และเหตุผล
+
+**For the next ticket:**
+- —
+
+**Checks:** `uv run pytest` 1172 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 474 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก merge-base `e85a1f4`: Standards 0 ผิดกติกาแข็ง, 3 อ่อน (SKILL.md errors/`check`, test คลังตั้งบน fixture ของ toon) + smell 7; Spec 0 AC ขาด, 2 "ผิด" (ลบเสียงตอบ 404 เมื่อคลิปหาย — ลองแล้วไม่เกิด: `draft_file.read` นับ draft ที่คลิปหายว่าไม่มี; ตัวเลือกค้าง "กำลังโหลด…" — แก้), spec lock bullet เก่า, รหัส error ต่างกันสอง tab; Newcomer สรุปตรง spec › Solution + เดา 13 จุด (แก้ชื่อ `check`, docstring `read_sounds`; ที่เหลือมีคำอธิบายในโค้ดหรือ D-ref). ไม่แก้: ดู D19 › Why; ไอคอนปุ่มสามที่ขนาด `sm` ต่างกันตามบริบท, TabBar/TabMenu วนรูปเดียวกันแต่ markup ต่าง, `movedHash` ใน `useState` เรียกซ้ำได้ไม่มีผล, `final_command` arg รูปเดิม, golden ของ seam 2. "For the next ticket" เดิม (`PRIMARY_BUTTON`, ข้อความ volume) แก้แล้ว; ชื่อเสียงตัดท้ายที่ 375px คงไว้ (ui-prompt ไม่ขอ)
 
 ### Ticket 01–03: หน้าตาสี่จอตาม ui-prompt.md — done 2026-11-13
 
