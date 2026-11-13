@@ -13,7 +13,7 @@ def test_importing_the_app_loads_no_model_library():
     # The Windows Qwen worker's module loads in its child only (ADR 0012).
     code = (
         "import sys, backend.app; "
-        "loaded = {'mlx', 'mlx_vlm', 'PIL', 'transformers', 'torch', 'omnivoice', 'pythainlp', 'numpy', 'bitsandbytes', 'backend.spoil_maker.llm_windows'} & set(sys.modules); "
+        "loaded = {'mlx', 'mlx_vlm', 'PIL', 'transformers', 'torch', 'omnivoice', 'pythainlp', 'numpy', 'bitsandbytes', 'onnxruntime', 'backend.spoil_maker.llm_windows'} & set(sys.modules); "
         "sys.exit(f'loaded {loaded}' if loaded else 0)"
     )
     root = Path(__file__).resolve().parents[2]

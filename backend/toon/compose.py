@@ -15,6 +15,7 @@ path goes through ffmpeg's filter escaping (docs/library-notes/ffmpeg.md).
 import random
 from typing import NamedTuple
 
+from backend.audio_imports import M4A_BITRATE, M4A_RATE
 from backend.ffmpeg import exe
 from backend.paths import ProjectPaths
 from backend import subtitles
@@ -23,8 +24,8 @@ from backend.toon.store import Layout, Motion
 
 FPS = 30
 WIDTH, HEIGHT = 1080, 1920
-AUDIO_RATE = 48_000  # the mix's, and the sound library's (`sounds`)
-AUDIO_BITRATE = "192k"
+# The mix's format, the one the sound library's m4a files are in too (D39, ADR 0045).
+AUDIO_RATE, AUDIO_BITRATE = M4A_RATE, M4A_BITRATE
 FADE_S = 0.3  # between cards (D4)
 SOUND_FADE_S = 1.0  # between background sounds (D17)
 

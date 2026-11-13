@@ -4,7 +4,7 @@ import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { CANCEL_PATH, isRendering, RENDER_PATH, type DrumRenderJob } from "../lib/render";
-import { fixesOf } from "../lib/setupFixes";
+import { fixesOf } from "../../../lib/setupFixes";
 
 const OFFLINE = { text: OFFLINE_TEXT, fixes: [] };
 

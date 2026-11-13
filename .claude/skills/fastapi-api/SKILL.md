@@ -41,7 +41,7 @@ backend/
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`, `drums`), named once (ADR 0009)
+│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
 │                    shutdown, `_run_job`, the one ending of every job's thread
@@ -176,8 +176,22 @@ backend/
 │                    spoil_maker's, toon's and video_gen's render keep their folders and call
 │                    it; the first two gate on `gate_rows.render`, video_gen's on `gate_rows.drums`
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
-│                    File import, toon's reference uploads and video_gen's
-│                    backgrounds share it
+│                    File import, toon's reference uploads, video_gen's
+│                    backgrounds and drum_notes' songs share it
+├── audio_imports.py ← audio from a link (`bestaudio` through spoil's adapter) or a file,
+│                    its length read and refused (`too_long`, `too_short`, `unsupported_file`),
+│                    converted to aac in m4a through a `.partial`, then the caller's `place`
+│                    moves it in and writes the entry (ADR 0045): toon's sounds and
+│                    drum_notes' songs share it; it takes the folder, the `Limits` and the
+│                    callback from the caller and imports nothing of the features
+├── drum_notes/   ← the แกะเพลง tab (drum-notes spec): songs (`song.json` under
+│                    `media/songs/{id}/` beside `audio.m4a`, its checks, the tab's one lock;
+│                    the id is `spoil.links`' (ADR 0046) and checked before any path),
+│                    imports (Song import: a link's job in its own slot and a file in one
+│                    request, both on `audio_imports`; a `.mid` goes to midi), midi (the
+│                    app's own Standard MIDI File parser: channel 10 on the GM map as an
+│                    `analysis`, D10), onnx_runner (the only onnxruntime import: `open_session`,
+│                    which setup's smoke test and the Pick job share, ADR 0041)
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK
@@ -217,8 +231,8 @@ through a queue; the thread writes the result file (ADR 0012).
   `spoil_maker.tokens`, the diffusers adapter `toon.klein`); tests replace it with a
   fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
   `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_encoder`,
-  `toon.klein.start_drawer`).
-- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, soundfile, pythainlp and Pillow are imported
+  `toon.klein.start_drawer`); onnxruntime is imported by `drum_notes.onnx_runner` alone.
+- torch, transformers, diffusers, mlx-vlm, omnivoice, onnxruntime, numpy, soundfile, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
@@ -229,10 +243,14 @@ through a queue; the thread writes the result file (ADR 0012).
   Series' `voice_id` is written under `draft_lock`, toon D25).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
   `video_gen.lessons.lock` comes after the drum Render job slot's own (video-gen D33).
+  `drum_notes.songs.lock` comes after the Song import slot's own and is innermost: nothing
+  else is taken while it is held.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
-- Every job that loads a model takes `gpu.slot` before it starts and releases
-  it on every ending, before its state reads as finished (ADR 0015).
+- Every job that loads a model onto the card (Metal or CUDA), or one that takes GBs of
+  memory, takes `gpu.slot` before it starts and releases it on every ending, before its
+  state reads as finished (ADR 0015). A small ONNX model on the CPU (the แกะเพลง tab's
+  Pick job) is a plain `JobSlot` in a thread with no GPU slot and no `device` row (ADR 0040).
 - Every `POST`, `PUT` and `PATCH` must be `application/json`, else `415` (ADR 0013);
   `app.py` enforces it with an app-wide dependency, `body_types.require_json`. A route
   that takes a raw file lists `Depends(body_types.require_octet_stream)` itself, and

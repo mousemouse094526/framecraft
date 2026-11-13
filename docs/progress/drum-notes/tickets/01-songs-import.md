@@ -12,7 +12,7 @@
 - User stories: 1, 4 (เห็นห้องจาก MIDI; สร้างบทเรียนใน 03), 6 (รายการและลบ)
 - Legal: 1, 2, 3 (เครดิตใน `NOTICE.md` และหน้าสถานะ), 4
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

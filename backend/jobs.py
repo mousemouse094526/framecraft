@@ -1,6 +1,10 @@
 """What every long job shares: one job of a kind at a time, held in memory behind
 one lock with a cancel flag its thread checks (ADR 0010), and the child process a
-model runs in, reporting through a queue (ADR 0012)."""
+model runs in, reporting through a queue (ADR 0012).
+
+A model that runs on the card, or takes GBs of memory, is a `ModelJobSlot` in a child; a
+small ONNX model on the CPU (the แกะเพลง tab's Pick job) is a plain `JobSlot` in a thread,
+with no GPU slot (drum-notes D8, ADR 0040)."""
 
 import logging
 import threading

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, toon spec › Frontend, video-gen D9).
+// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, toon spec › Frontend, video-gen D9, drum-notes D2).
 export const TABS = [
   { id: "setup", label: "ติดตั้ง", hash: "#/setup" },
   { id: "clips", label: "คลิป", hash: "#/clips" },
@@ -8,20 +8,22 @@ export const TABS = [
   { id: "spoil", label: "สปอย", hash: "#/spoil" },
   { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon" },
   { id: "drums", label: "สอนกลอง", hash: "#/drums" },
+  { id: "songs", label: "แกะเพลง", hash: "#/songs" },
 ] as const;
 
 export type TabId = (typeof TABS)[number]["id"];
 
 /**
  * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/toon/…` a page of
- * การ์ตูนเล่า and `#/drums/…` a page of สอนกลอง; an empty or
- * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9).
+ * การ์ตูนเล่า, `#/drums/…` a page of สอนกลอง and `#/songs/…` a song of แกะเพลง; an empty or
+ * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9, drum-notes D2).
  */
 export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/spoil/")) return "spoil";
   if (hash.startsWith("#/stories/")) return "stories";
   if (hash.startsWith("#/toon/")) return "toon";
   if (hash.startsWith("#/drums/")) return "drums";
+  if (hash.startsWith("#/songs/")) return "songs";
   return TABS.find((tab) => tab.hash === hash)?.id ?? "setup";
 }
 

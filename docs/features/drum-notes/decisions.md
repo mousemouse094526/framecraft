@@ -357,6 +357,29 @@
 
 **From:** red team · **Status:** active
 
+## D22: ไฟล์ MIDI ที่ไม่รับทุกกรณีตอบข้อความเดียว; ความแรงจาก velocity สามระดับ
+
+**Chosen:** `unsupported_file` ของไฟล์ MIDI ใช้ข้อความเดียว "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลอง" ทุกเหตุ (ไม่ใช่ 4/4, ไม่มีโน้ตช่อง 10, tempo หรือ division นอกช่วง, SMPTE, format 2, การตีเกิน 20,000, ไฟล์อ่านไม่ได้) ตาม ticket 01 และ spec › Design; ข้อความ "ไฟล์นี้ไม่มีแทร็กกลอง" ใน D20 ไม่ใช้. velocity → `level`: ≤ 50 `ghost`, ≥ 100 `accent`, อื่น `normal`. ความยาว = เวลาโน้ตสุดท้าย + 1 ห้อง (spec › Data ตามตัวอักษร) จังหวะและต้นห้องถึงเวลานั้นรวมตัวสุดท้าย ห้องที่มีโน้ตสุดท้ายจึงปิดเสมอ. ไฟล์ที่ไม่มี time signature หรือ tempo ใช้ค่าตั้งต้นของรูปแบบ (4/4, 120 BPM) ไม่ปฏิเสธ.
+
+**Why:** ผู้ใช้แก้ไฟล์ไม่ได้อยู่ดี ข้อความเดียวบอกเงื่อนไขทั้งสองที่ไฟล์ส่วนใหญ่ขาด; D9 บอกว่า MIDI ใช้ velocity แต่ไม่ได้ตั้งเกณฑ์.
+
+**From:** build ticket 01 · **Status:** active
+
+## D23: ทางเลือกเล็กของ API และหน้าเว็บจาก ticket 01
+
+**Chosen:**
+- แถวใน `GET /songs` ส่ง `source_kind` (ไม่ใช่ `source` ทั้งก้อน) และ `analysis` เป็น `{mode, bars}` โดย `bars` = จำนวน downbeat − 1; `lessons` เป็นจำนวน
+- `POST /songs/import/cancel` ตอนไม่มีงาน → `409` `not_running` ตาม spec › API (toon และ spoil ใช้ `404`)
+- `PUT /songs` ของไฟล์ที่เป็นเพลงอยู่แล้ว (ชื่อ+ขนาดซ้ำ หลัง `check` ตอบ `200` ไปแล้ว) ตอบ Song เดิม ไม่เขียนทับ
+- ลิงก์เว็บอื่นที่ซ้ำ: งานบอก `song_id` ตั้งแต่รู้ id (หลัง `fetch_info`) ไม่ใช่ตอน `done` เท่านั้น เพื่อให้ปลายทางล้างไฟล์ตาม id ได้
+- `audio_imports` รับ `Limits(max_seconds, too_long, min_seconds, too_short)` และ `place(seconds)` จากผู้เรียก; คำสั่งแปลงของทั้ง toon และ songs มี `-t {max_seconds}` (toon 1,200 ไม่เปลี่ยนผล: ไฟล์ยาวกว่าถูกปฏิเสธก่อน)
+- ข้อความ "เพลงนี้มีอยู่แล้ว" แสดงเป็น Alert บนหน้าเพลงที่พาไป (ไม่ค้างบนรายการ); กล่องไฟล์ของ tab เป็นปุ่มเดียวทั้งกล่องพร้อม input ซ่อน `aria-label="ไฟล์เพลง"` (แบบ spoil D58 แต่ไม่ใช้ `FileDropArea` ของ spoil ที่ผูกข้อความ mp4)
+- `setupFixes.ts` ย้ายจาก video-gen ไป `src/lib/` เมื่อ drum-notes เป็นผู้ใช้ที่สอง; helper `edit`/`notice`/`upload` ของ toon ไม่ย้าย (hook ของ tab นี้ใช้ `sendJson`/`refusalOf` ตรงแบบ video-gen) — รวมสามทางเป็นหนึ่งเป็นงานข้าม feature ถ้าเจ้าของต้องการ
+
+**Why:** ทางเลือกที่ spec ไม่ได้ตั้ง ตัดสินตามโค้ดเดิมที่ใกล้ที่สุด (video-gen) และ spec › API.
+
+**From:** build ticket 01 · **Status:** active
+
 ## Sources
 
 - [ADTOF Frame_RNN (ONNX) model card](https://huggingface.co/thebluescreen/adtof-drums-onnx) — input/output, threshold, peak picking, license CC BY-NC-SA 4.0, revision (accessed 2026-11-14)

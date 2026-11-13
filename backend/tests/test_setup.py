@@ -2,12 +2,13 @@ import hashlib
 import json
 import os
 import shutil
+from pathlib import Path
 
 import pytest
 
 from backend import drum_kit, fonts
 from backend.checks import run_checks
-from backend.models import KLEIN, KLEIN_GGUF, MODELS, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
+from backend.models import ADTOF, BASIC_PITCH, BEAT_THIS, KLEIN, KLEIN_GGUF, MODELS, OMNIVOICE, ONNX_MODELS, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 from backend.setup import run_setup
 
@@ -103,11 +104,30 @@ class FakeDownload:
         return str(snapshot)
 
 
+class FakeOpenSession:
+    """Stands in for `onnx_runner.open_session`, the smoke test of a downloaded ONNX file (D20):
+    records the files opened and raises for `broken`."""
+
+    def __init__(self, broken: str | None = None):
+        self.broken = broken
+        self.opened: list[Path] = []
+
+    def __call__(self, model_file: Path):
+        self.opened.append(model_file)
+        if model_file.name == self.broken:
+            raise RuntimeError("[ONNXRuntimeError] : 7 : INVALID_PROTOBUF : Protobuf parsing failed.")
+        return object()
+
+
+ONNX_REPOS = [model.repo_id for model in ONNX_MODELS]
+
+
 def run_with_fakes(root, download, probes=None, **overrides):
     options = {
         "download": download,
         "npm_install": FakeNpmInstall(),
         "fetch": FakeFetch(),
+        "open_session": FakeOpenSession(),
         "backend_running": lambda: False,
         "free_bytes": lambda path: 100 * GB,
         "probes": probes or fake_probes(),
@@ -262,6 +282,7 @@ def test_mac_setup_downloads_qwen_too(empty_root):
         "mlx-community/Qwen3.5-9B-MLX-4bit",
         "black-forest-labs/FLUX.2-klein-4B",
         "unsloth/FLUX.2-klein-4B-GGUF",
+        *ONNX_REPOS,
     ]
     assert ProjectPaths(empty_root).marker(QWEN_MAC).is_file()
 
@@ -278,6 +299,7 @@ def test_windows_setup_downloads_qwen_s_own_repo_on_a_card_that_meets_its_target
         "Qwen/Qwen3.5-9B",
         "black-forest-labs/FLUX.2-klein-4B",
         "unsloth/FLUX.2-klein-4B-GGUF",
+        *ONNX_REPOS,
     ]
     assert ProjectPaths(empty_root).marker(QWEN_WINDOWS).is_file()
     assert not ProjectPaths(empty_root).marker(QWEN_MAC).exists()
@@ -328,6 +350,7 @@ def test_windows_setup_that_skips_qwen_wants_only_27_gb_free(empty_root):
         "openai/whisper-large-v3-turbo",
         "black-forest-labs/FLUX.2-klein-4B",
         "unsloth/FLUX.2-klein-4B-GGUF",
+        *ONNX_REPOS,
     ]
 
 
@@ -465,5 +488,52 @@ def test_a_rerun_after_an_empty_klein_folder_downloads_klein_again(empty_root):
     exit_code = run_with_fakes(empty_root, download)
 
     assert exit_code == 0
-    assert download.calls == ["black-forest-labs/FLUX.2-klein-4B", "unsloth/FLUX.2-klein-4B-GGUF"]
+    assert download.calls == ["black-forest-labs/FLUX.2-klein-4B", "unsloth/FLUX.2-klein-4B-GGUF", *ONNX_REPOS]
     assert ProjectPaths(empty_root).marker(KLEIN_GGUF).is_file()
+
+
+# --- the แกะเพลง tab's ONNX models (drum-notes D7, D20) ---
+
+
+def test_setup_downloads_the_onnx_models_after_the_drum_kit_opens_each_file_once_and_writes_their_markers(empty_root):
+    download, fetch, open_session = FakeDownload(empty_root), FakeFetch(), FakeOpenSession()
+    project = ProjectPaths(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download, fetch=fetch, open_session=open_session)
+
+    assert exit_code == 0
+    assert download.calls[-3:] == ONNX_REPOS
+    assert fetch.urls  # the drum kit came first: setup fetched it before the ONNX models' turn
+    assert download.patterns["Andremi/audioweb-models"] == ["analysis/basic_pitch_nmp.onnx"]
+    assert open_session.opened == [
+        project.snapshot_dir(ADTOF, ADTOF.revision) / "adtof_frame_rnn.onnx",
+        project.snapshot_dir(BEAT_THIS, BEAT_THIS.revision) / "beat_this.onnx",
+        project.snapshot_dir(BASIC_PITCH, BASIC_PITCH.revision) / "analysis/basic_pitch_nmp.onnx",
+    ]
+    result = run_checks(empty_root, fake_probes())
+    assert [item(result, m.check_id).status for m in ONNX_MODELS] == ["ok"] * 3
+
+
+def test_an_onnx_file_no_session_opens_ends_setup_naming_it_without_a_marker(empty_root, capsys):
+    download = FakeDownload(empty_root)
+
+    exit_code = run_with_fakes(empty_root, download, open_session=FakeOpenSession(broken="beat_this.onnx"))
+
+    project = ProjectPaths(empty_root)
+    assert exit_code == 1
+    assert project.marker(ADTOF).is_file()
+    assert not project.marker(BEAT_THIS).exists()
+    assert "Andremi/audioweb-models" not in download.calls
+    out = capsys.readouterr().out
+    assert "ล้มที่ขั้น โหลด thebluescreen/beat-this-onnx" in out
+    assert "beat_this.onnx" in out
+
+
+def test_onnx_models_already_ok_are_neither_downloaded_nor_opened_again(fake_root):
+    download, open_session = FakeDownload(fake_root), FakeOpenSession()
+
+    exit_code = run_with_fakes(fake_root, download, open_session=open_session)
+
+    assert exit_code == 0
+    assert download.calls == []
+    assert open_session.opened == []

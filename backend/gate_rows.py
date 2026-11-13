@@ -75,6 +75,11 @@ def render(project: ProjectPaths, voices_first: bool) -> dict[str, Row]:
     return FFMPEG | _kanit(project) | PYTHAINLP | (voice(project) if voices_first else {})
 
 
+# The แกะเพลง tab's imports (drum-notes D7): a link needs yt-dlp and Deno too, a file ffmpeg alone.
+SONGS_LINK: dict[str, Row] = FFMPEG | LINK_TOOLS
+SONGS_FILE: dict[str, Row] = FFMPEG
+
+
 def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:
     """The drum samples, all ฟังจังหวะ needs (video-gen spec › API)."""
     return {drum_kit.CHECK_ID: (drum_kit.LABEL, lambda: drum_kit.check_drum_kit(project))}

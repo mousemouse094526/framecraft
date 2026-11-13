@@ -6,6 +6,7 @@ import functools
 import io
 import json
 import queue
+import struct
 import subprocess
 import threading
 import time
@@ -210,6 +211,10 @@ def ok_gguf() -> str:
     return "0.19.0"
 
 
+def ok_onnxruntime() -> str:
+    return "1.32.0"
+
+
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
     probes = Probes(
@@ -223,6 +228,7 @@ def fake_probes(**overrides) -> Probes:
         bitsandbytes=ok_bitsandbytes,
         diffusers=ok_diffusers,
         gguf=ok_gguf,
+        onnxruntime=ok_onnxruntime,
     )
     return dataclasses.replace(probes, **overrides)
 
@@ -393,6 +399,37 @@ class FakeAdapter:
         if point in self._paused:
             self._reached[point].set()
             assert self._paused[point].wait(5), f"test never released {point}"
+
+
+class AudioLinkAdapter(FakeAdapter):
+    """yt-dlp for a link's audio (toon's sounds, drum-notes' songs): the options it was asked with,
+    and the audio file it leaves where they say, named by `outtmpl`."""
+
+    def __init__(self, audio: Path, info: dict | None = None, **kwargs):
+        super().__init__(info=info, **kwargs)
+        self.audio = audio
+        self.options: list = []
+        self.landed: list[str] = []
+
+    def fetch_info(self, url: str, options=None) -> dict:
+        self.options.append(options)
+        return super().fetch_info(url)
+
+    def download(self, info, project, clip_id, on_progress, options=None) -> Path:
+        self.options.append(options)
+        self.download_calls += 1
+        self.clip_ids.append(clip_id)
+        folder = options.folder(project)
+        for index, event in enumerate(self.events):
+            on_progress(event)
+            if index == 0:
+                self._checkpoint("progress")
+        if self.download_error:
+            raise self.download_error
+        target = folder / options.name.format(id=clip_id).replace("%(ext)s", "webm")
+        target.write_bytes(self.audio.read_bytes())
+        self.landed = sorted(path.name for path in folder.iterdir())
+        return target
 
 
 class FakeMp4Check:
@@ -912,14 +949,16 @@ class Gate:
         self.opened.set()
 
 
-async def play(upload: Upload, name: str, size: int, path: str = "/api/spoil/imports") -> tuple[int | None, dict | None]:
-    """POST `path` through the app as ASGI; returns the status and the JSON body."""
+async def play(
+    upload: Upload, name: str, size: int, path: str = "/api/spoil/imports", method: str = "POST"
+) -> tuple[int | None, dict | None]:
+    """`method` `path` through the app as ASGI; returns the status and the JSON body."""
     query = httpx.QueryParams({"name": name, "size": size})
     scope = {
         "type": "http",
         "asgi": {"version": "3.0"},
         "http_version": "1.1",
-        "method": "POST",
+        "method": method,
         "scheme": "http",
         "path": path,
         "raw_path": path.encode(),
@@ -940,6 +979,74 @@ async def play(upload: Upload, name: str, size: int, path: str = "/api/spoil/imp
     status = next((m["status"] for m in sent if m["type"] == "http.response.start"), None)
     body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
     return status, json.loads(body) if body else None
+
+
+# --- MIDI files, built with struct (drum-notes spec › Testing decisions) ---
+
+
+def vlq(value: int) -> bytes:
+    """A variable-length quantity, as the file format writes delta times and lengths."""
+    out = [value & 0x7F]
+    value >>= 7
+    while value:
+        out.append((value & 0x7F) | 0x80)
+        value >>= 7
+    return bytes(reversed(out))
+
+
+def meta(kind: int, body: bytes) -> bytes:
+    return bytes([0xFF, kind]) + vlq(len(body)) + body
+
+
+def tempo_meta(bpm: float) -> bytes:
+    return meta(0x51, round(60_000_000 / bpm).to_bytes(3, "big"))
+
+
+def time_signature(numerator: int = 4, denominator_power: int = 2) -> bytes:
+    return meta(0x58, bytes([numerator, denominator_power, 24, 8]))
+
+
+def track(events: bytes) -> bytes:
+    body = events + b"\x00" + meta(0x2F, b"")
+    return b"MTrk" + struct.pack(">I", len(body)) + body
+
+
+def notes_track(notes: list[tuple[int, int, int]], channel: int = 9, *, running_status: bool = False) -> bytes:
+    """Note-ons at ascending absolute ticks (tick, note, velocity), each followed by its note-off at
+    the same tick as a note-on of velocity 0, so running status can carry through the whole track."""
+    events, last, on = b"", 0, bytes([0x90 | channel])
+    for index, (tick, note, velocity) in enumerate(notes):
+        status = b"" if running_status and index else on
+        events += vlq(tick - last) + status + bytes([note, velocity]) + vlq(0) + (b"" if running_status else on) + bytes([note, 0])
+        last = tick
+    return events
+
+
+def midi_file(
+    notes: list[tuple[int, int, int]],
+    bpm: float = 100,
+    division: int = 480,
+    signature: tuple[int, int] | None = (4, 2),
+    fmt: int = 1,
+    name: bytes | None = None,
+    channel: int = 9,
+    smpte: bool = False,
+) -> bytes:
+    """A format 1 file (format 0 puts everything in one track): a tempo track with the time
+    signature and name, then the notes' track."""
+    header = b"\x00" + tempo_meta(bpm) + (b"\x00" + time_signature(*signature) if signature else b"") + (b"\x00" + meta(0x03, name) if name else b"")
+    division_field = 0x8000 | (0xE8 << 8) | 40 if smpte else division  # SMPTE: -24 fps, 40 ticks a frame
+    if fmt == 1:
+        tracks = track(header) + track(notes_track(notes, channel))
+        count = 2
+    else:
+        tracks = track(header + notes_track(notes, channel))
+        count = 1
+    return b"MThd" + struct.pack(">IHHH", 6, fmt, count, division_field) + tracks
+
+
+BEAT = 480  # ticks of a quarter at division 480
+ROCK = [(0, 36, 110), (0, 42, 110), (BEAT, 42, 110), (2 * BEAT, 38, 110), (2 * BEAT, 42, 110), (3 * BEAT, 42, 110)]
 
 
 # --- toon API tests ---

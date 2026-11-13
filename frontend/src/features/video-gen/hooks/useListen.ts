@@ -3,7 +3,7 @@ import { OFFLINE_TEXT, postForBlob } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { lessonPath } from "../lib/lesson";
-import { fixesOf } from "../lib/setupFixes";
+import { fixesOf } from "../../../lib/setupFixes";
 
 export type ListenState =
   | { kind: "idle" }

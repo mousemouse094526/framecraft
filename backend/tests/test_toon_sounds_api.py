@@ -12,14 +12,14 @@ import anyio
 import deno
 import pytest
 
-from backend import checks, ffmpeg, files, spoil
+from backend import audio_imports, checks, ffmpeg, files, spoil
 from backend.spoil.adapter import DownloadOptions, YtDlpAdapter, select_formats
 from backend.toon import sounds, store
 
 from .fakes import (
     FINISHED,
     TOON_SOUNDS,
-    FakeAdapter,
+    AudioLinkAdapter,
     Upload,
     Writer,
     cards_of,
@@ -47,39 +47,13 @@ project, llm, klein, tts, client = toon_api(lambda: Writer().respond, uses=("ada
 
 
 @pytest.fixture
-def adapter(monkeypatch, tmp_path_factory) -> FakeAdapter:
+def adapter(monkeypatch, tmp_path_factory) -> AudioLinkAdapter:
     """yt-dlp, and the Status check rows a link needs, ready."""
-    fake = LinkAdapter(tone(tmp_path_factory.mktemp("link") / "tone.webm", 2))
+    fake = AudioLinkAdapter(tone(tmp_path_factory.mktemp("link") / "tone.webm", 2), info=youtube_info(title="ฝนตกในป่า", duration=2))
     monkeypatch.setattr(spoil, "adapter", fake)
     monkeypatch.setattr(checks, "probe_yt_dlp", ok_yt_dlp)
     monkeypatch.setattr(checks, "probe_deno", ok_deno)
     return fake
-
-
-class LinkAdapter(FakeAdapter):
-    """yt-dlp for a link's sound: the options it was asked with, and the audio file it
-    leaves where they say."""
-
-    def __init__(self, audio: Path):
-        super().__init__(info=youtube_info(title="ฝนตกในป่า", duration=2))
-        self.audio = audio
-        self.options: list[DownloadOptions] = []
-
-    def fetch_info(self, url: str, options: DownloadOptions = DownloadOptions()) -> dict:
-        self.options.append(options)
-        return super().fetch_info(url)
-
-    def download(self, info, project, clip_id, on_progress, options: DownloadOptions = DownloadOptions()) -> Path:
-        self.options.append(options)
-        self.clip_ids.append(clip_id)
-        folder = options.folder(project)
-        for event in self.events:
-            on_progress(event)
-        self._checkpoint("progress")
-        target = folder / options.name.format(id=clip_id).replace("%(ext)s", "webm")
-        target.write_bytes(self.audio.read_bytes())
-        self.landed = sorted(path.name for path in folder.iterdir())
-        return target
 
 
 def download(client, url: str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ") -> dict:
@@ -304,7 +278,7 @@ def test_a_page_that_goes_away_while_ffmpeg_converts_its_file_stops_ffmpeg_and_a
 def test_a_page_that_goes_away_as_ffmpeg_ends_adds_no_sound(client, project, tmp_path, monkeypatch):
     # The page is asked about once a second at most here, so only the last question before
     # the sound comes in can see it gone.
-    monkeypatch.setattr(sounds, "GONE_POLL_SECONDS", 1)
+    monkeypatch.setattr(audio_imports, "GONE_POLL_SECONDS", 1)
     data = tone(tmp_path / "in.wav", 1).read_bytes()
     upload = Upload(data, then="leave")
 

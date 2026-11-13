@@ -120,5 +120,46 @@ KLEIN_GGUF = ModelSpec(
     author="Unsloth",
 )
 
-# Setup downloads in this order and the checklist lists them in it too.
-MODELS = (OMNIVOICE, WHISPER, QWEN_MAC, QWEN_WINDOWS, KLEIN, KLEIN_GGUF)
+# The แกะเพลง tab's ONNX models, run on the CPU by onnxruntime (drum-notes D7, ADR 0041): setup
+# downloads them after the drum kit and opens each file once before its marker (D20). ADTOF's
+# author line credits the model's authors and its converter, as its NOTICE.md asks (legal 3).
+ADTOF = ModelSpec(
+    check_id="model_adtof",
+    label="ADTOF drum model",
+    repo_id="thebluescreen/adtof-drums-onnx",
+    revision="d0e809bb1c1b6fe8a4a00c576852117a0636ab5a",
+    allow_patterns=("adtof_frame_rnn.onnx",),
+    license="CC BY-NC-SA 4.0",
+    license_url="https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    author="Zehren, Alunno, Bientinesi · ONNX by thebluescreen",
+)
+
+BEAT_THIS = ModelSpec(
+    check_id="model_beat_this",
+    label="Beat This! model",
+    repo_id="thebluescreen/beat-this-onnx",
+    revision="92842057ebb781a31fcf0d638f04a098fb887313",
+    allow_patterns=("beat_this.onnx",),
+    license="MIT",
+    license_url="https://opensource.org/license/mit",
+    author="Foscarin, Schlüter, Widmer (CPJKU) · ONNX by thebluescreen",
+)
+
+# One file of a repo that holds other models too (a demucs ONNX among them): the pattern names it (D7).
+BASIC_PITCH = ModelSpec(
+    check_id="model_basic_pitch",
+    label="Basic Pitch model",
+    repo_id="Andremi/audioweb-models",
+    revision="953d0a9e46fd364860c9413ee4c7a9aa4fbcae4b",
+    allow_patterns=("analysis/basic_pitch_nmp.onnx",),
+    license="Apache-2.0",
+    license_url="https://www.apache.org/licenses/LICENSE-2.0",
+    author="Spotify",
+)
+
+ONNX_MODELS = (ADTOF, BEAT_THIS, BASIC_PITCH)
+
+# Setup downloads in this order and the checklist lists them in it too, except the ONNX models:
+# setup downloads those after the drum kit, and the checklist shows their rows right after the
+# drum kit's, before klein's (D7; `checks.run_checks`).
+MODELS = (OMNIVOICE, WHISPER, QWEN_MAC, QWEN_WINDOWS, KLEIN, KLEIN_GGUF, *ONNX_MODELS)

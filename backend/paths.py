@@ -165,6 +165,20 @@ class ProjectPaths:
         return self.drums_dir / ".render"
 
     @property
+    def songs_dir(self) -> Path:
+        """Everything the แกะเพลง tab keeps: one folder per Song (drum-notes spec › Data, D3)."""
+        return self.root / "media" / "songs"
+
+    def song_dir(self, song_id: str) -> Path:
+        """A Song's `song.json` and `audio.m4a`; the caller checks the id first."""
+        return self.songs_dir / song_id
+
+    @property
+    def songs_partial_dir(self) -> Path:
+        """Audio being loaded, received or converted; emptied on every start (D3, D20)."""
+        return self.songs_dir / ".partial"
+
+    @property
     def toon_dir(self) -> Path:
         """Everything the การ์ตูนเล่า tab keeps (toon spec › ข้อมูล, ADR 0003)."""
         return self.root / "media" / "toon"
