@@ -6,4 +6,6 @@
 
 Source: setup-status D11 · spoil-maker D3, D41 · legal 2
 
+**Extended by:** ADR-0043 (ADTOF เป็น dependency NC ตัวที่สอง)
+
 Links: [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)

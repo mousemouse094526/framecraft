@@ -6,4 +6,4 @@ Source: windows-launch D8, D2; "อยู่ใน arch list" = มี `sm_` maj
 
 Links: [PyTorch: Maxwell and Pascal removed in CUDA 12.8 builds](https://dev-discuss.pytorch.org/t/cuda-toolkit-version-and-architecture-support-update-maxwell-and-pascal-architecture-support-removed-in-cuda-12-8-and-12-9-builds/3128)
 
-**Status:** accepted
+**Status:** accepted — narrowed by ADR-0040 (งาน ONNX บน CPU ไม่มีแถว `device`)

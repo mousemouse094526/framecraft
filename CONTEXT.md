@@ -160,3 +160,43 @@ _Avoid_: articulation (ในหน้าจอ), ความแรง
 **นับเข้า**:
 ห้องแรกก่อนท่อนสอนแรกที่มีแค่ไฮแฮทเบานับ 1–4 ให้ผู้ชมเตรียมตัว (video-gen D13).
 _Avoid_: count-in (ในหน้าจอ), intro
+
+**แกะเพลง**:
+tab ในแอปที่เอาเพลงจากลิงก์ ไฟล์เสียง หรือไฟล์ MIDI เข้ามา แกะโน้ตกลองของช่วงที่เลือก แล้วสร้างบทเรียนกลองให้ tab สอนกลอง (drum-notes D2). ไม่ render เอง.
+_Avoid_: ถอดโน้ต, drum transcription (ในหน้าจอ), สร้างจากเพลง
+
+**Song**:
+เพลงหนึ่งเพลงใน tab แกะเพลง: `song.json` กับ `audio.m4a` ใน `media/songs/{id}/` (ไม่มี m4a เมื่อมาจาก MIDI) อยู่จนผู้ใช้กดลบ; id ตามกฎของ Temp clip (drum-notes D3). ภาษาไทยในหน้าจอเรียก "เพลง".
+_Avoid_: Temp clip, track, แทร็ก, ไฟล์เสียง (คำกว้าง)
+
+**Song import**:
+การเอาเพลงหนึ่งเพลงเข้า: ลิงก์เป็นงานเบื้องหลังที่โหลดเสียงแล้วแปลงเป็น m4a, ไฟล์เป็น request เดียวที่ส่งไฟล์ดิบแล้วแปลง (drum-notes D4). ทีละงานใน slot ของตัวเอง.
+_Avoid_: Download job (ของ Temp clip), File import (ของ Temp clip), upload
+
+**Pick job**:
+งานแกะโน้ตของ Song หนึ่งเพลงในช่วงแกะ: รัน ADTOF กับ Beat This! (หรือ Basic Pitch ในโหมดทำนอง) บน CPU ใน thread ของ backend แล้วเขียน `analysis` (drum-notes D6, D8). ภาษาไทยในหน้าจอเรียก "แกะโน้ต".
+_Avoid_: Transcribe job (ของ Whisper), ถอดเสียง, transcription, analyse job
+
+**การตีที่พบ**:
+การตีกลองหนึ่งครั้งที่ Pick job หรือไฟล์ MIDI ให้มา: เวลาเป็นวินาทีของเพลง ชิ้นกลอง และระดับความแรง (`ghost`, `normal`, `accent`); อยู่ใน `analysis.hits` (drum-notes D9). ต่างจาก "โน้ต" ซึ่งอยู่บนช่องของ Groove แล้ว.
+_Avoid_: onset, note (ก่อน quantize), event
+
+**ห้องที่พบ**:
+ช่วงระหว่าง downbeat สองตัวติดกันใน `analysis` (หรือห้องจาก tempo ของ MIDI); หน่วยที่ผู้ใช้เลือก 1–4 ห้องเป็น Groove (drum-notes D11).
+_Avoid_: measure, bar (ในหน้าจอ), ช่วง
+
+**ช่วงแกะ**:
+ส่วนของเพลง 4–90 วินาทีที่ผู้ใช้ตั้งไว้ให้ Pick job วิเคราะห์; เก็บใน `song.json` › `range` พร้อมโหมด (drum-notes D5).
+_Avoid_: ช่วงบทเรียน, selection, clip
+
+**ช่วงบทเรียน**:
+ห้องที่พบ 1–4 ห้องติดกันที่ผู้ใช้เลือกบนหน้าเพลง ให้ Score ปัดเป็น Groove ของบทเรียนใหม่ (drum-notes D11).
+_Avoid_: ช่วงแกะ, window, loop
+
+**Score**:
+ขั้นเลขล้วนใน `drum_notes.score` ที่แปลง `analysis` กับช่วงบทเรียนเป็น Groove: quantize ลง 16 ช่อง ตัดโน้ตที่ขัดกฎมือ เลือกมือ L/R และเติม pattern ของโหมดทำนอง (drum-notes D11, D13, D14).
+_Avoid_: quantizer, converter, โน้ตเพลง (score ในความหมายโน้ตดนตรี)
+
+**โหมดทำนอง**:
+โหมดของ Pick job ที่ใช้ Basic Pitch หา onset ของโน้ตทำนอง (piano, kalimba) แทนกลอง; Score ทำ onset เป็น snare และเติม kick กับไฮแฮทพื้นฐาน (drum-notes D14).
+_Avoid_: melody transcription, pitch mode, โหมด kalimba
