@@ -204,7 +204,7 @@ restart ระหว่างรัน: งานหาย `analysis` เดิ�
 | `GET` | `/songs/{id}/audio.m4a` | `FileResponse` (ตอบ `Range` ให้ player เลื่อนได้) | `404` |
 | `PUT` | `/songs/{id}/range` | `{start_s, end_s, mode}` → Song | `400` `invalid_request` (มี `field`), `409` `not_applicable` (MIDI), `404` |
 | `POST` | `/songs/{id}/pick` | `{}` → `202` งาน | ตาม Pick job |
-| `GET` | `/songs/pick` | งานล่าสุด: `song_id`, `state`, `percent`, `error`, `message`, `rows`, `fix` หรือ `null` | — |
+| `GET` | `/songs/pick` | งานล่าสุด: `song_id`, `state`, `percent`, `error`, `message`, `rows`, `fix`, `cancel_requested`, `started_at` (D24) หรือ `null` | — |
 | `POST` | `/songs/pick/cancel` | `{}` → งาน | `409` `not_running` |
 | `POST` | `/songs/{id}/preview` | `{bar, bars, bpm?}` → `{groove, bpm, dropped: [{piece, step}]}` ของ Score ขั้น 2–8 | `400` `invalid_request` (field `bar` เมื่อห้องไม่ใช่ 4/4), `409` `no_analysis`, `404` |
 | `POST` | `/songs/{id}/listen` | `{bar, bars, bpm}` → `audio/wav` ของ Groove ตัวอย่าง (นับเข้า 1 ห้อง + ท่อนสอนตั้งต้นของ video-gen) `Cache-Control: no-store` (D21) | `503` `not_ready` (`drum_kit`), `400`, `409` `no_analysis`, `404` |
@@ -284,7 +284,7 @@ restart ระหว่างรัน: งานหาย `analysis` เดิ�
 - **Copy:** `backend/tests/test_video_gen_timeline.py` — สร้างบทเรียนตัวอย่างและอ่าน `Hit.at` สำหรับ round trip
 - **Copy:** `backend/tests/test_setup.py` — การโหลดโมเดลด้วย `fetch` ปลอมและ marker; smoke ของ session ผ่าน runner ปลอม
 - **Copy:** `frontend/src/features/video-gen/components/DrumsPage.test.tsx` — หน้าเว็บผ่าน `App` กับ fetch ปลอม และ `sendFile` ด้วย `fakeXhr`
-- `fakes.FakeOnnxRunner`: คืน array ที่ test ตั้ง (`activations`, `beat`/`downbeat` ต่อ chunk, `onset`), นับการเรียก, `pause_at(step)`/`wait_until()`/`release()` แบบ `FakeAdapter`; โยนตอนสร้าง session ได้; `PickJobs(run_model=…, run_ffmpeg=…)` รับทาง constructor (กติกา testing)
+- `fakes.FakeOnnxRunner`: คืน array ที่ test ตั้ง (`activations`, `beat`/`downbeat` ต่อ chunk, `onset`), นับการเรียก, `pause_at(step)`/`wait_until()`/`release()` แบบ `FakeAdapter`; โยนตอนสร้าง session ได้; `PickJobs(open_session=…, run_ffmpeg=…)` รับทาง constructor (กติกา testing; ชื่อตาม D24)
 - ModelSpec สามตัวอยู่ใน `MODELS` จึงมี snapshot กับ marker จาก `fake_root` ของ conftest; test `not_ready` ลบ marker
 - เสียงปลอมสำหรับ ffmpeg: wav สั้นจาก `soundfile` และ mp3 สั้นที่ ffmpeg สร้างใน fixture (ไม่ commit ไฟล์เสียง)
 - ไฟล์ MIDI ใน test สร้างด้วย `struct` ใน fixture

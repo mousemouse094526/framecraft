@@ -1,7 +1,8 @@
 """Songs of the แกะเพลง tab (drum-notes spec › Data, D3, D12, D18, D20).
 
 A Song is `media/songs/{song_id}/song.json`, written with `write_atomic`, beside its `audio.m4a`
-(none for a MIDI file). Every read and write of the folder takes `lock`. A `song_id` is the one
+(none for a MIDI file). Every read and write of the folder takes `lock`. The API answers a Song as
+a `SongView`: the Song and the bars its analysis found, worked out on read (spec › Score step 1). A `song_id` is the one
 `spoil.links` gives imported media (ADR 0046): a YouTube id, `{site}-{id}` or `local-{sha1}`,
 `[A-Za-z0-9_-]{1,64}`; every function checks it before it builds a path, so `..` never reaches
 the disk. Start-up removes `.partial/` and any folder without a `song.json`: no json, no Song.
@@ -11,14 +12,15 @@ import json
 import logging
 import shutil
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from backend import files
+from backend import files, json_values
 from backend.checks import now_iso
-from backend.errors import ApiError
+from backend.errors import ApiError, invalid_request
 from backend.paths import ProjectPaths
 from backend.spoil import links
 from backend.video_gen import kit, lessons
@@ -39,6 +41,13 @@ MAX_HITS = 20_000
 TOO_LONG = f"เพลงยาวเกิน {MAX_SECONDS // 60} นาที"
 TOO_SHORT = f"เพลงสั้นกว่า {MIN_SECONDS} วินาที"
 IN_USE = "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"
+SONG_BUSY = "กำลังแกะเพลงนี้อยู่"
+NOT_APPLICABLE = "เพลงจาก MIDI ไม่มีช่วงแกะ: การตีทั้งไฟล์คือผลอยู่แล้ว"
+RANGE_RULE = f"ช่วงต้องยาว {RANGE_MIN_S}–{RANGE_MAX_S} วินาที และอยู่ในเพลง"
+
+# The song an unfinished job works on, or None: `drum_notes.pick` adds its own as it is imported,
+# which the routes do, so `delete` sees a Pick job before the app answers anything (D18; as `lessons.lesson_jobs`).
+song_jobs: list[Callable[[], str | None]] = []
 
 SourceKind = Literal["link", "file", "midi"]
 Mode = Literal["drums", "melody"]
@@ -116,6 +125,25 @@ class SongRow(BaseModel):
     updated_at: str
 
 
+class FoundBar(BaseModel):
+    """One bar between two downbeats of `analysis`, as `GET /songs/{id}` lists them: its number
+    from 1, its seconds, how many beats and hits it holds, and whether four beats make it 4/4
+    (spec › Score step 1, D20); worked out when the Song is read, never stored."""
+
+    n: int
+    start_s: float
+    end_s: float
+    beats: int
+    hits: int
+    four_four: bool
+
+
+class SongView(Song):
+    """A Song as the API answers it: the Song and the bars its analysis found (empty with none)."""
+
+    bars: list[FoundBar]
+
+
 class KnownSong(BaseModel):
     """The answer when what was asked in is a Song already: its id (D3, D20)."""
 
@@ -150,6 +178,21 @@ def default_range(duration_s: float) -> Range:
     return Range(start_s=0.0, end_s=min(float(DEFAULT_RANGE_END_S), duration_s), mode="drums")
 
 
+def checked_range(body: dict, duration_s: float) -> Range:
+    """The rules of spec › Data: `start_s` ≥ 0, `end_s` ≤ `duration_s`, 4 ≤ `end_s − start_s` ≤ 90, a
+    known `mode` (D5, D18). Raises `invalid_request` with the field that fails."""
+    start_s, end_s, mode = body.get("start_s"), body.get("end_s"), body.get("mode")
+    if not json_values.is_number(start_s) or not json_values.is_number(end_s) or mode not in ("drums", "melody"):
+        raise invalid_request()
+    if start_s < 0:
+        raise invalid("start_s", RANGE_RULE)
+    if end_s > duration_s:
+        raise invalid("end_s", RANGE_RULE)
+    if not RANGE_MIN_S <= end_s - start_s <= RANGE_MAX_S:
+        raise invalid("end_s", RANGE_RULE)
+    return Range(start_s=round(float(start_s), 3), end_s=round(float(end_s), 3), mode=mode)
+
+
 def invalid(field: str, message: str) -> ApiError:
     return ApiError(400, "invalid_request", message, field=field)
 
@@ -177,10 +220,56 @@ def list_rows(project: ProjectPaths) -> list[SongRow]:
     return rows
 
 
-def get(project: ProjectPaths, song_id: str) -> Song:
-    """`GET`: the whole Song, its `lessons` without the ones deleted since. Raises `ApiError` 404."""
+def get(project: ProjectPaths, song_id: str) -> SongView:
+    """`GET`: the whole Song with its bars, its `lessons` without the ones deleted since. Raises `ApiError` 404."""
     with lock:
-        return _with_live_lessons(project, _read_known(project, song_id))
+        return view(_with_live_lessons(project, _read_known(project, song_id)))
+
+
+def view(song: Song) -> SongView:
+    """The Song as the API answers it, its bars worked out from the analysis (none: no bars)."""
+    return SongView(**song.model_dump(), bars=bars_of(song.analysis) if song.analysis else [])
+
+
+def bars_of(analysis: Analysis) -> list[FoundBar]:
+    """Score step 1: the bars between consecutive downbeats, each with its beats (the downbeat among
+    them) and hits counted; four beats make a 4/4 bar, any other count can't be picked for a lesson (D20)."""
+    bars = []
+    for index, (start, end) in enumerate(zip(analysis.downbeats, analysis.downbeats[1:])):
+        beats = sum(1 for t in analysis.beats if start <= t < end)
+        hits = sum(1 for hit in analysis.hits if start <= hit.t < end)
+        bars.append(FoundBar(n=index + 1, start_s=start, end_s=end, beats=beats, hits=hits, four_four=beats == 4))
+    return bars
+
+
+def set_range(project: ProjectPaths, song_id: str, body: dict) -> SongView:
+    """`PUT /range`: the stretch the next Pick job works on and its mode (D5). Raises `ApiError` 404,
+    409 `not_applicable` for a MIDI song (D18), or 400 `invalid_request` with the field."""
+    with lock:
+        song = _read_known(project, song_id)
+        if song.source.kind == "midi":
+            raise ApiError(409, "not_applicable", NOT_APPLICABLE)
+        song = song.model_copy(update={"range": checked_range(body, song.duration_s), "updated_at": now_iso()})
+        _write(project, song)
+        return view(_with_live_lessons(project, song))
+
+
+def set_analysis(project: ProjectPaths, song_id: str, analysis: Analysis) -> None:
+    """A Pick job's result in place of the old one, whole (D6). Raises `ApiError` 404 when the song went."""
+    with lock:
+        song = _read_known(project, song_id)
+        _write(project, song.model_copy(update={"analysis": checked_analysis(analysis), "updated_at": now_iso()}))
+
+
+def read_under_lock(project: ProjectPaths, song_id: str) -> Song:
+    """The stored Song, for a caller that holds `lock`. Raises `ApiError` 404 `not_found`."""
+    return _read_known(project, song_id)
+
+
+def require_idle(song_id: str) -> None:
+    """Raises `ApiError` 409 `song_busy` while a Pick job works on the song (D18). Call with `lock` held."""
+    if any(job() == song_id for job in song_jobs):
+        raise ApiError(409, "song_busy", SONG_BUSY)
 
 
 def exists(project: ProjectPaths, song_id: str) -> bool:
@@ -206,6 +295,7 @@ def delete(project: ProjectPaths, song_id: str) -> None:
         folder = checked_dir(project, song_id)
         if not (folder / SONG_FILE).is_file():
             raise not_found()
+        require_idle(song_id)
         try:
             (folder / AUDIO_FILE).unlink(missing_ok=True)
         except PermissionError:

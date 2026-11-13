@@ -25,7 +25,8 @@ backend/
 │                    `/eps/{ep_id}` routes take (`episodes.address_of`
 │                    makes it and never refuses; `episodes.read` gives `404`)
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
-├── checks.py     ← Status check, shared by setup and the API
+├── checks.py     ← Status check, shared by setup and the API; `setup_fix` is the Setup
+│                    script's command on this OS, the `fix` a job answers with
 ├── disk.py       ← free disk space and the 1 GiB `disk_full` check: setup, spoil, both renders, toon jobs
 ├── fonts.py      ← Kanit Bold pinned by commit and sha256: setup fetches it, the
 │                    Status check checks it, the Render job draws with it
@@ -41,7 +42,7 @@ backend/
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`), named once (ADR 0009)
+│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
 │                    shutdown, `_run_job`, the one ending of every job's thread
@@ -72,9 +73,11 @@ backend/
 │                    guards putting the new mp4 in place; `advised` ends a failed
 │                    job's message with `ADVICE`
 ├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel),
-│                    `run_piped` (frames through stdin, video-gen D22), `h264_args`
+│                    `run_piped` (frames through stdin, video-gen D22), `run_capture` (stdout
+│                    as bytes: a stretch of a song as raw PCM, drum-notes D20), `h264_args`
 │                    (videotoolbox or libx264, spoil D36) and `ffmpeg -i` reading;
-│                    spoil's trim, spoil_maker's frames and compose, video_gen's render share it
+│                    spoil's trim, spoil_maker's frames and compose, video_gen's render,
+│                    drum_notes' pick share it
 ├── setup.py      ← entry point: python -m backend.setup
 ├── qwen_tokens.py← an EP's lines and a Story block counted to Qwen behind its
 │                    Status check row (spoil-maker D46, story-kb D14)
@@ -191,7 +194,13 @@ backend/
 │                    request, both on `audio_imports`; a `.mid` goes to midi), midi (the
 │                    app's own Standard MIDI File parser: channel 10 on the GM map as an
 │                    `analysis`, D10), onnx_runner (the only onnxruntime import: `open_session`,
-│                    which setup's smoke test and the Pick job share, ADR 0041)
+│                    which setup's smoke test and the Pick job share, and the two models' runs,
+│                    ADR 0041), pick (the Pick job in its own `JobSlot`, no GPU, ADR 0040:
+│                    ffmpeg decodes the range, ADTOF once and Beat This! by chunk, then
+│                    `songs.set_analysis`; `PickJobs(open_session=…, run_ffmpeg=…)` for tests;
+│                    registers itself in `songs.song_jobs` for `song_busy`), score (pure maths:
+│                    the Beat This! chunk plan and `stitch`, ADTOF peak picking into hits, beats
+│                    and downbeats from logits; the bars found are `songs.bars_of`)
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK

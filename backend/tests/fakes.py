@@ -1276,3 +1276,122 @@ def import_tone(client, tmp_path, name: str = "ฝนตก.wav", seconds: float
     response = import_file(client, name, tone(tmp_path / "in.wav", seconds).read_bytes())
     assert response.status_code == 201, response.json()
     return response.json()
+
+
+# --- drum-notes API tests (the แกะเพลง tab) ---
+
+SONGS = "/api/songs"
+OCTET = {"Content-Type": "application/octet-stream"}
+
+
+def put_song_file(client, name: str, body: bytes, size: int | None = None, headers: dict = OCTET):
+    """`PUT /api/songs?name=&size=` with `body` as the file (ADR 0028)."""
+    return client.put(f"{SONGS}?name={name}&size={len(body) if size is None else size}", content=body, headers=headers)
+
+
+def import_song_tone(client, tmp_path, name: str = "song.mp3", seconds: float = 6) -> dict:
+    """A sine tone of `seconds` as a Song, as `PUT /api/songs` answers it."""
+    response = put_song_file(client, name, tone(tmp_path / "in.mp3", seconds).read_bytes())
+    assert response.status_code == 201, response.json()
+    return response.json()
+
+
+def song_refusal(response) -> tuple[int, str]:
+    return response.status_code, response.json()["code"]
+
+
+BEAT_THIS_FPS = 50
+ADTOF_FPS = 100
+
+
+def logit_peaks(frames: int, every: int, pad_before: int = 0) -> np.ndarray:
+    """Beat This! logits over `frames` output frames: 3.0 every `every` frames counted from the
+    range's first frame (the `pad_before` frames before it are padding), −5.0 elsewhere."""
+    logits = np.full(frames, -5.0, np.float32)
+    first = pad_before % every
+    logits[first::every] = 3.0
+    return logits
+
+
+def drum_activations(frames: int) -> np.ndarray:
+    """ADTOF activations over `frames`: a kick on every second (frame 0, 100, …), a snare half a
+    second after each, nothing else."""
+    activations = np.zeros((frames, 5), np.float32)
+    activations[0::ADTOF_FPS, 0] = 1.0
+    activations[ADTOF_FPS // 2 :: ADTOF_FPS, 1] = 1.0
+    return activations
+
+
+class FakeOnnxRunner:
+    """Stands in for `onnx_runner.open_session` (drum-notes D17, D20): opens a model file as a
+    `FakeSession` whose `run` answers arrays of the real models' shapes, made up from the input's
+    length — `activations(frames)` for ADTOF, `beat(T, pad_before)` and `downbeat(T, pad_before)`
+    for a Beat This! chunk of `T` output frames. It counts what it opened and ran, pauses at a step
+    ("adtof", "chunk 0", "chunk 1", …) until released, raises `open_error` at `open_session` or
+    `run_error` at the first `run`."""
+
+    def __init__(self, activations=drum_activations, beat=None, downbeat=None, open_error: Exception | None = None, run_error: Exception | None = None):
+        self.activations = activations
+        self.beat = beat or (lambda frames, pad_before: logit_peaks(frames, BEAT_THIS_FPS // 2, pad_before))  # every 0.5 s
+        self.downbeat = downbeat or (lambda frames, pad_before: logit_peaks(frames, 2 * BEAT_THIS_FPS, pad_before))  # every 2 s
+        self.open_error, self.run_error = open_error, run_error
+        self.opened: list[str] = []
+        self.runs: list[tuple[str, dict[str, tuple[int, ...]]]] = []  # the file run and each input's shape
+        self.pad_frames: list[list[int]] = []
+        self.chunks = 0
+        self._paused: dict[str, threading.Event] = {}
+        self._reached: dict[str, threading.Event] = {}
+
+    def pause_at(self, step: str) -> None:
+        self._paused[step] = threading.Event()
+        self._reached[step] = threading.Event()
+
+    def wait_until(self, step: str) -> None:
+        assert self._reached[step].wait(5), f"the runner never reached {step}"
+
+    def release(self, step: str) -> None:
+        self._paused[step].set()
+
+    def __call__(self, model_file: Path) -> "FakeSession":
+        self.opened.append(model_file.name)
+        if self.open_error is not None:
+            raise self.open_error
+        if not model_file.is_file():
+            raise FileNotFoundError(str(model_file))  # as onnxruntime: `NoSuchFile`
+        return FakeSession(self, model_file.name)
+
+    def _checkpoint(self, step: str) -> None:
+        if step in self._paused:
+            self._reached[step].set()
+            assert self._paused[step].wait(5), f"test never released {step}"
+
+
+class FakeSession:
+    """What `FakeOnnxRunner` opens: `run(output_names, feeds)` as onnxruntime's session."""
+
+    def __init__(self, runner: FakeOnnxRunner, name: str):
+        self.runner, self.name = runner, name
+
+    def run(self, output_names, feeds: dict) -> list:
+        from backend.drum_notes import score
+
+        waveform = feeds["waveform"]
+        self.runner.runs.append((self.name, {key: tuple(value.shape) for key, value in feeds.items()}))
+        if "pad_frames" in feeds:
+            step = f"chunk {self.runner.chunks}"
+            self.runner.chunks += 1
+            pad_before, pad_after = (int(n) for n in feeds["pad_frames"])
+            self.runner.pad_frames.append([pad_before, pad_after])
+            frames = pad_before + score.beat_this_frames(waveform.shape[1]) + pad_after
+            self.runner._checkpoint(step)
+            self._maybe_fail()
+            return [self.runner.beat(frames, pad_before)[None, :], self.runner.downbeat(frames, pad_before)[None, :]]
+        self.runner._checkpoint("adtof")
+        self._maybe_fail()
+        frames = -(-waveform.shape[1] // 441)  # ceil(samples / 441)
+        return [self.runner.activations(frames)[None, :, :]]
+
+    def _maybe_fail(self) -> None:
+        if self.runner.run_error is not None:
+            error, self.runner.run_error = self.runner.run_error, None
+            raise error

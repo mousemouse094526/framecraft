@@ -12,7 +12,7 @@
 - User stories: 2
 - Legal: 3 (ใช้โมเดลในเครื่อง ไม่หารายได้)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

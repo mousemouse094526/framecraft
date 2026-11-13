@@ -23,7 +23,7 @@ from starlette.requests import ClientDisconnect
 from backend import audio_imports, checks, disk, gate_rows, paths, uploads
 from backend.audio_imports import ImportSlot, Limits, State
 from backend.drum_notes import midi, songs
-from backend.drum_notes.songs import TOO_LONG, TOO_SHORT, KnownSong, Song, Source
+from backend.drum_notes.songs import TOO_LONG, TOO_SHORT, KnownSong, Song, SongView, Source
 from backend.errors import ApiError, JobFailed, invalid_request, require_rows
 from backend.jobs import Cancelled
 from backend.paths import ProjectPaths
@@ -113,10 +113,10 @@ class SongImports(ImportSlot[SongImport]):
 
     async def receive(
         self, name: str | None, size: str | None, body: AsyncIterator[bytes], page_gone: Callable[[], Awaitable[bool]]
-    ) -> Song:
-        """Checks again, writes `body` to `.partial/`, then the Song: a `.mid` read by `midi`, anything
-        else converted to `audio.m4a`. `page_gone` says whether the page went away: ffmpeg stops then
-        and no song comes in. Raises `ApiError`, or `ClientDisconnect` once its file is gone."""
+    ) -> SongView:
+        """Checks again, writes `body` to `.partial/`, then the Song with its bars: a `.mid` read by
+        `midi`, anything else converted to `audio.m4a`. `page_gone` says whether the page went away:
+        ffmpeg stops then and no song comes in. Raises `ApiError`, or `ClientDisconnect` once its file is gone."""
         project = paths.project()
         name, expected = await anyio.to_thread.run_sync(_file_checks, project, name, uploads.whole_number(size))
         song_id = links.local_id(name, expected)
@@ -128,15 +128,16 @@ class SongImports(ImportSlot[SongImport]):
             try:
                 await uploads.receive(body, partial, expected, self._stall_seconds)
                 if source.kind == "midi":
-                    return await anyio.to_thread.run_sync(_midi_song, project, song_id, partial, source)
+                    return songs.view(await anyio.to_thread.run_sync(_midi_song, project, song_id, partial, source))
                 cancel = threading.Event()
-                return await audio_imports.run_unless_gone(
+                song = await audio_imports.run_unless_gone(
                     page_gone,
                     cancel,
                     lambda: self._take_in(
                         project, song_id, partial, audio_imports.file_title(name), "", source, cancel, audio_imports.still_wanted(page_gone, cancel)
                     ),
                 )
+                return songs.view(song)
             except (Cancelled, ClientDisconnect):  # `Cancelled`: the page left during ffmpeg
                 log.info("the song import %s stopped: the page went away", song_id)
                 raise ClientDisconnect() from None

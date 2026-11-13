@@ -59,3 +59,32 @@ def test_a_frame_that_cant_be_drawn_stops_ffmpeg_and_raises_its_error(tmp_path):
 
     with pytest.raises(ValueError, match="no picture"):
         ffmpeg.run_piped(command(tmp_path / "out.mp4"), tmp_path, threading.Event(), frames(), lambda _: None)
+
+
+# --- run_capture (drum-notes D20) ---
+
+
+def test_run_capture_returns_the_raw_pcm_ffmpeg_writes_to_stdout():
+    command = [ffmpeg.exe(), "-nostdin", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=8000:duration=0.5", "-ac", "1", "-ar", "8000", "-f", "f32le", "-"]
+
+    pcm = ffmpeg.run_capture(command, threading.Event())
+
+    assert len(pcm) == 4000 * 4  # 0.5 s of float32 mono at 8 kHz
+
+
+def test_run_capture_kills_ffmpeg_on_cancel_and_raises_cancelled():
+    cancel = threading.Event()
+    command = [ffmpeg.exe(), "-nostdin", "-v", "error", "-re", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=8000:duration=30", "-f", "f32le", "-"]
+    threading.Timer(0.3, cancel.set).start()
+
+    with pytest.raises(Cancelled):
+        ffmpeg.run_capture(command, cancel)
+
+
+def test_run_capture_of_a_file_that_is_not_there_fails_with_the_last_line_of_stderr(tmp_path):
+    command = [ffmpeg.exe(), "-nostdin", "-v", "error", "-i", str(tmp_path / "missing.m4a"), "-f", "f32le", "-"]
+
+    with pytest.raises(FfmpegFailed) as caught:
+        ffmpeg.run_capture(command, threading.Event())
+
+    assert caught.value.last_line == "Error opening input files: No such file or directory"

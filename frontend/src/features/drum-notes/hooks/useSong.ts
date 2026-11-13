@@ -24,5 +24,8 @@ export function useSong(id: string) {
     void load();
   }, [load]);
 
-  return { state, reload: load };
+  /** The song as a `PUT` answered it, in place of the one read. */
+  const replace = useCallback((song: Song) => setIfMounted({ kind: "ready", song }), [setIfMounted]);
+
+  return { state, reload: load, replace };
 }

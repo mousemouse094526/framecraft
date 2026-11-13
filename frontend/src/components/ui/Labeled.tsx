@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// The editor's labelled fields; the input inside takes `inputClass` (components/ui/inputStyles).
+// A labelled field with its hint and error line; the input inside takes `inputClass` (inputStyles). The lesson editor and the song page use it.
 
 type LabeledProps = { label: string; htmlFor: string; error?: string; hint?: string; children: ReactNode };
 

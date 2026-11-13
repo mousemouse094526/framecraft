@@ -6,6 +6,7 @@ import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { IMPORT_PATH, isImporting, songHash, songPath, SONGS_PATH, type Song, type SongImport, type SongRow } from "../lib/songs";
+import { usePick } from "./usePick";
 
 /** A line above the list: why a link, a file or a delete was refused, with the fix commands a `not_ready` names. */
 export type Notice = { tone: "error" | "warning"; text: string; fixes: string[] };
@@ -44,8 +45,8 @@ function knownIdOf(status: number, body: unknown): string | undefined {
 }
 
 /**
- * รายการเพลง: the songs newest change first as the API sorts them, the link import polled while it
- * runs, a file sent after its check, and delete (spec › Frontend, D18). `onKnownSong` gets the id of
+ * รายการเพลง: the songs newest change first as the API sorts them, the link import and the Pick job
+ * polled while they run, a file sent after its check, and delete (spec › Frontend, D18). `onKnownSong` gets the id of
  * a link or file that is a song already (D3, D20).
  */
 export function useSongs(onKnownSong: (id: string) => void) {
@@ -76,6 +77,12 @@ export function useSongs(onKnownSong: (id: string) => void) {
       if (next === null || !isImporting(next)) void load();
     },
     () => setIfMounted({ kind: "offline" }),
+  );
+
+  // The latest Pick job, of any song: a row says "กำลังแกะ n%" while it is its own, and the list is read again once it ends (D18).
+  const { job: pick } = usePick(
+    () => {},
+    () => void load(),
   );
 
   useLeaveGuard(useCallback(() => sending.current !== null, []));
@@ -169,5 +176,5 @@ export function useSongs(onKnownSong: (id: string) => void) {
     [load, showNotice],
   );
 
-  return { state, reload: load, startLink, importFile, cancelUpload, cancelImport, remove };
+  return { state, pick, reload: load, startLink, importFile, cancelUpload, cancelImport, remove };
 }

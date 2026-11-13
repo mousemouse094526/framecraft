@@ -29,7 +29,7 @@ import { isRendering, jobOf, renderingOf } from "../lib/render";
 import { BackgroundPicker } from "./BackgroundPicker";
 import { ChapterList } from "./ChapterList";
 import { GrooveGrid } from "./GrooveGrid";
-import { Labeled } from "./Labeled";
+import { Labeled } from "../../../components/ui/Labeled";
 import { NoteBox } from "./NoteBox";
 import { RenderProgress } from "./RenderProgress";
 

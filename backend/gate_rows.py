@@ -4,7 +4,7 @@ Each check looks its probe and the OS up when it runs, so a test's fakes are the
 
 from backend import checks, drum_kit, fonts
 from backend.errors import Row
-from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE
+from backend.models import ADTOF, BEAT_THIS, KLEIN, KLEIN_GGUF, OMNIVOICE, ModelSpec
 from backend.paths import ProjectPaths
 
 FFMPEG: dict[str, Row] = {"ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg))}
@@ -78,6 +78,18 @@ def render(project: ProjectPaths, voices_first: bool) -> dict[str, Row]:
 # The แกะเพลง tab's imports (drum-notes D7): a link needs yt-dlp and Deno too, a file ffmpeg alone.
 SONGS_LINK: dict[str, Row] = FFMPEG | LINK_TOOLS
 SONGS_FILE: dict[str, Row] = FFMPEG
+ONNXRUNTIME: dict[str, Row] = {"onnxruntime": ("onnxruntime", lambda: checks.onnxruntime_check(checks.real_probes()))}
+
+
+def _model_row(project: ProjectPaths, model: ModelSpec) -> dict[str, Row]:
+    return {model.check_id: (model.label, lambda: checks.check_model(project, model))}
+
+
+def pick_drums(project: ProjectPaths) -> dict[str, Row]:
+    """What a Pick job in drums mode needs: ADTOF, Beat This!, onnxruntime and ffmpeg (drum-notes D7, ADR 0040: no
+    `device`). Melody mode's gate (Basic Pitch in place of ADTOF) comes with its job in ticket 04."""
+    return _model_row(project, ADTOF) | _model_row(project, BEAT_THIS) | ONNXRUNTIME | FFMPEG
+
 
 
 def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:

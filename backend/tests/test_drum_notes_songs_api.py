@@ -17,25 +17,28 @@ from backend.paths import ProjectPaths
 
 from .fakes import (
     FINISHED,
+    OCTET,
     ROCK,
+    SONGS,
     AudioLinkAdapter,
     Upload,
+    import_song_tone,
     midi_file,
     ok_deno,
     ok_ffmpeg,
     ok_yt_dlp,
     play,
     poll_until,
+    put_song_file,
     restart,
     site_info,
+    song_refusal,
     tone,
     yt_dlp_error,
     youtube_info,
 )
 
-SONGS = "/api/songs"
 IMPORT = f"{SONGS}/import"
-OCTET = {"Content-Type": "application/octet-stream"}
 YOUTUBE = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 
@@ -70,20 +73,6 @@ def import_link(client, url: str = YOUTUBE) -> dict:
     response = link(client, url)
     assert response.status_code == 202, response.json()
     return poll_until(client, IMPORT, lambda job: job["state"] in FINISHED)
-
-
-def put_file(client, name: str, body: bytes, size: int | None = None, headers: dict = OCTET):
-    return client.put(f"{SONGS}?name={name}&size={len(body) if size is None else size}", content=body, headers=headers)
-
-
-def import_tone(client, tmp_path, name: str = "song.mp3", seconds: float = 6) -> dict:
-    response = put_file(client, name, tone(tmp_path / "in.mp3", seconds).read_bytes())
-    assert response.status_code == 201, response.json()
-    return response.json()
-
-
-def refusal(response) -> tuple[int, str]:
-    return response.status_code, response.json()["code"]
 
 
 def song_file(project: ProjectPaths, song_id: str) -> Path:
@@ -243,7 +232,7 @@ def test_a_live_stream_fails_live(client, adapter):
 
 @pytest.mark.parametrize("url", ["http://127.0.0.1/a.mp3", "http://192.168.1.5/song", "ftp://example.com/a.mp3", "not a link"])
 def test_a_private_host_or_no_link_is_invalid_request(client, url):
-    assert refusal(link(client, url)) == (400, "invalid_request")
+    assert song_refusal(link(client, url)) == (400, "invalid_request")
 
 
 def test_without_yt_dlp_a_link_is_not_ready_naming_the_rows(client, monkeypatch):
@@ -253,7 +242,7 @@ def test_without_yt_dlp_a_link_is_not_ready_naming_the_rows(client, monkeypatch)
 
     response = link(client)
 
-    assert refusal(response) == (503, "not_ready")
+    assert song_refusal(response) == (503, "not_ready")
     assert response.json()["rows"] == ["deno"]
 
 
@@ -262,8 +251,8 @@ def test_while_a_link_runs_another_link_and_a_file_check_are_busy_and_a_cancel_e
     assert link(client).status_code == 202
     adapter.wait_until("progress")
 
-    assert refusal(link(client, "https://youtu.be/aaaaaaaaaaa")) == (409, "busy")
-    assert refusal(client.post(f"{SONGS}/check", json={"name": "a.mp3", "size": 10})) == (409, "busy")
+    assert song_refusal(link(client, "https://youtu.be/aaaaaaaaaaa")) == (409, "busy")
+    assert song_refusal(client.post(f"{SONGS}/check", json={"name": "a.mp3", "size": 10})) == (409, "busy")
     cancelled = client.post(f"{IMPORT}/cancel", json={})
     assert (cancelled.status_code, cancelled.json()["cancel_requested"]) == (200, True)
     adapter.release("progress")
@@ -275,7 +264,7 @@ def test_while_a_link_runs_another_link_and_a_file_check_are_busy_and_a_cancel_e
 
 
 def test_a_cancel_with_no_job_running_is_not_running(client):
-    assert refusal(client.post(f"{IMPORT}/cancel", json={})) == (409, "not_running")
+    assert song_refusal(client.post(f"{IMPORT}/cancel", json={})) == (409, "not_running")
     assert client.get(IMPORT).json() is None
 
 
@@ -284,15 +273,15 @@ def test_a_cancel_with_no_job_running_is_not_running(client):
 
 def test_the_check_answers_the_size_or_refuses_the_file_before_its_body_is_sent(client, tmp_path):
     assert client.post(f"{SONGS}/check", json={"name": "song.mp3", "size": 1000}).json() == {"size": 1000}
-    assert refusal(client.post(f"{SONGS}/check", json={"name": "big.mp3", "size": imports.UPLOAD_MAX_BYTES + 1})) == (413, "file_too_large")
+    assert song_refusal(client.post(f"{SONGS}/check", json={"name": "big.mp3", "size": imports.UPLOAD_MAX_BYTES + 1})) == (413, "file_too_large")
     assert client.post(f"{SONGS}/check", json={"name": "ok.mid", "size": imports.MIDI_MAX_BYTES}).json() == {"size": imports.MIDI_MAX_BYTES}
-    assert refusal(client.post(f"{SONGS}/check", json={"name": "big.mid", "size": imports.MIDI_MAX_BYTES + 1})) == (413, "file_too_large")
-    assert refusal(client.post(f"{SONGS}/check", json={"name": "", "size": 10})) == (400, "invalid_request")
-    assert refusal(client.post(f"{SONGS}/check", json={"name": "a.mp3", "size": True})) == (400, "invalid_request")
+    assert song_refusal(client.post(f"{SONGS}/check", json={"name": "big.mid", "size": imports.MIDI_MAX_BYTES + 1})) == (413, "file_too_large")
+    assert song_refusal(client.post(f"{SONGS}/check", json={"name": "", "size": 10})) == (400, "invalid_request")
+    assert song_refusal(client.post(f"{SONGS}/check", json={"name": "a.mp3", "size": True})) == (400, "invalid_request")
 
 
 def test_the_check_of_a_file_already_in_answers_its_id(client, tmp_path):
-    song = import_tone(client, tmp_path, "song.mp3")
+    song = import_song_tone(client, tmp_path, "song.mp3")
 
     response = client.post(f"{SONGS}/check", json={"name": "song.mp3", "size": song["source"]["size"]})
 
@@ -302,12 +291,12 @@ def test_the_check_of_a_file_already_in_answers_its_id(client, tmp_path):
 def test_a_full_disk_is_507_at_the_check_and_the_put(client, monkeypatch, tmp_path):
     monkeypatch.setattr(disk, "free_bytes", lambda path: 2**20)
 
-    assert refusal(client.post(f"{SONGS}/check", json={"name": "a.mp3", "size": 1000})) == (507, "disk_full")
-    assert refusal(put_file(client, "a.mp3", tone(tmp_path / "a.mp3", 6).read_bytes())) == (507, "disk_full")
+    assert song_refusal(client.post(f"{SONGS}/check", json={"name": "a.mp3", "size": 1000})) == (507, "disk_full")
+    assert song_refusal(put_song_file(client, "a.mp3", tone(tmp_path / "a.mp3", 6).read_bytes())) == (507, "disk_full")
 
 
 def test_an_mp3_comes_in_as_a_song_with_its_audio_named_after_the_file(client, project, tmp_path):
-    song = import_tone(client, tmp_path, "My Song (demo).mp3")
+    song = import_song_tone(client, tmp_path, "My Song (demo).mp3")
 
     assert (song["title"], song["subtitle"], song["source"]["kind"], song["source"]["name"]) == ("My Song (demo)", "", "file", "My Song (demo).mp3")
     assert song["id"].startswith("local-")
@@ -319,11 +308,11 @@ def test_an_mp3_comes_in_as_a_song_with_its_audio_named_after_the_file(client, p
 
 
 def test_a_two_second_wav_is_too_short_and_a_text_file_has_no_sound(client, project, tmp_path):
-    short = put_file(client, "short.wav", tone(tmp_path / "short.wav", 2).read_bytes())
-    assert refusal(short) == (422, "too_short")
+    short = put_song_file(client, "short.wav", tone(tmp_path / "short.wav", 2).read_bytes())
+    assert song_refusal(short) == (422, "too_short")
 
-    text = put_file(client, "notes.mp3", "ไม่ใช่เสียง".encode() * 100)
-    assert refusal(text) == (415, "unsupported_file")
+    text = put_song_file(client, "notes.mp3", "ไม่ใช่เสียง".encode() * 100)
+    assert song_refusal(text) == (415, "unsupported_file")
     assert text.json()["message"] == "ไฟล์นี้ไม่มีเสียงที่อ่านได้"
     assert client.get(SONGS).json() == []
     assert sorted(p.name for p in project.songs_dir.iterdir()) == [".partial"]
@@ -333,8 +322,8 @@ def test_a_two_second_wav_is_too_short_and_a_text_file_has_no_sound(client, proj
 def test_a_body_of_another_size_than_said_is_size_mismatch(client, tmp_path):
     data = tone(tmp_path / "a.mp3", 6).read_bytes()
 
-    assert refusal(put_file(client, "a.mp3", data, size=len(data) - 1)) == (400, "size_mismatch")
-    assert refusal(put_file(client, "a.mp3", data, size=len(data) + 1)) == (400, "size_mismatch")
+    assert song_refusal(put_song_file(client, "a.mp3", data, size=len(data) - 1)) == (400, "size_mismatch")
+    assert song_refusal(put_song_file(client, "a.mp3", data, size=len(data) + 1)) == (400, "size_mismatch")
 
 
 def test_a_body_that_stops_coming_is_stalled(client, project, monkeypatch, tmp_path):
@@ -345,12 +334,12 @@ def test_a_body_that_stops_coming_is_stalled(client, project, monkeypatch, tmp_p
 
     assert (status, body["code"]) == (408, "stalled")
     assert partial_files(project) == []
-    assert put_file(client, "a.mp3", data).status_code == 201
+    assert put_song_file(client, "a.mp3", data).status_code == 201
 
 
 def test_a_put_that_is_not_octet_stream_is_415(client):
-    assert refusal(put_file(client, "a.mp3", b"x", headers={"Content-Type": "application/json"})) == (415, "unsupported_media_type")
-    assert refusal(put_file(client, "a.mp3", b"x", headers={"Content-Type": "multipart/form-data"})) == (415, "unsupported_media_type")
+    assert song_refusal(put_song_file(client, "a.mp3", b"x", headers={"Content-Type": "application/json"})) == (415, "unsupported_media_type")
+    assert song_refusal(put_song_file(client, "a.mp3", b"x", headers={"Content-Type": "multipart/form-data"})) == (415, "unsupported_media_type")
 
 
 class PausedConvert:
@@ -386,14 +375,14 @@ def test_a_page_that_goes_away_while_ffmpeg_converts_stops_ffmpeg_and_makes_no_s
     assert partial_files(project) == []
     assert [p.name for p in project.songs_dir.iterdir()] == [".partial"]
     monkeypatch.setattr(imports, "song_imports", imports.SongImports())
-    assert put_file(client, "in.mp3", data).status_code == 201
+    assert put_song_file(client, "in.mp3", data).status_code == 201
 
 
 # --- a MIDI file ---
 
 
 def test_a_mid_file_comes_in_with_its_analysis_and_no_audio(client, project):
-    response = put_file(client, "rock.mid", midi_file(ROCK, bpm=100))
+    response = put_song_file(client, "rock.mid", midi_file(ROCK, bpm=100))
 
     assert response.status_code == 201, response.json()
     song = response.json()
@@ -404,17 +393,17 @@ def test_a_mid_file_comes_in_with_its_analysis_and_no_audio(client, project):
     assert [(hit["piece"], hit["level"]) for hit in song["analysis"]["hits"]][:2] == [("kick", "accent"), ("hihat_closed", "accent")]
     assert {hit["piece"] for hit in song["analysis"]["hits"]} == {"kick", "snare", "hihat_closed"}
     assert sorted(p.name for p in project.song_dir(song["id"]).iterdir()) == ["song.json"]
-    assert refusal(client.get(f"{SONGS}/{song['id']}/audio.m4a")) == (404, "not_found")
+    assert song_refusal(client.get(f"{SONGS}/{song['id']}/audio.m4a")) == (404, "not_found")
     [row] = client.get(SONGS).json()
     assert (row["source_kind"], row["analysis"]) == ("midi", {"mode": "drums", "bars": 1})
 
 
 def test_a_mid_file_that_is_not_a_4_4_drum_track_is_unsupported_file_and_a_long_one_too_long(client):
-    response = put_file(client, "waltz.mid", midi_file(ROCK, signature=(3, 2)))
-    assert refusal(response) == (415, "unsupported_file")
+    response = put_song_file(client, "waltz.mid", midi_file(ROCK, signature=(3, 2)))
+    assert song_refusal(response) == (415, "unsupported_file")
     assert response.json()["message"] == "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลอง"
-    assert refusal(put_file(client, "piano.mid", midi_file(ROCK, channel=0))) == (415, "unsupported_file")
-    assert refusal(put_file(client, "long.mid", midi_file([(0, 36, 100), (480 * 4 * 250, 36, 100)]))) == (422, "too_long")
+    assert song_refusal(put_song_file(client, "piano.mid", midi_file(ROCK, channel=0))) == (415, "unsupported_file")
+    assert song_refusal(put_song_file(client, "long.mid", midi_file([(0, 36, 100), (480 * 4 * 250, 36, 100)]))) == (422, "too_long")
     assert client.get(SONGS).json() == []
 
 
@@ -424,9 +413,9 @@ def test_a_mid_file_that_is_not_a_4_4_drum_track_is_unsupported_file_and_a_long_
 def test_the_list_puts_the_latest_change_first_and_leaves_an_unreadable_song_out_with_a_log_line(client, project, tmp_path, caplog, monkeypatch):
     clock = iter(["2026-11-14T10:00:00+07:00", "2026-11-14T10:00:01+07:00", "2026-11-14T10:00:02+07:00"])
     monkeypatch.setattr(songs, "now_iso", lambda: next(clock))
-    first = import_tone(client, tmp_path, "first.mp3")
-    second = import_tone(client, tmp_path, "second.mp3")
-    broken = import_tone(client, tmp_path, "broken.mp3")
+    first = import_song_tone(client, tmp_path, "first.mp3")
+    second = import_song_tone(client, tmp_path, "second.mp3")
+    broken = import_song_tone(client, tmp_path, "broken.mp3")
     song_file(project, broken["id"]).write_text("{not json", encoding="utf-8")
 
     with caplog.at_level("WARNING"):
@@ -440,17 +429,17 @@ def test_the_list_puts_the_latest_change_first_and_leaves_an_unreadable_song_out
 
 @pytest.mark.parametrize("song_id", ["..", "%2E%2E", "a" * 65, "with.dot"])
 def test_an_id_off_the_pattern_is_not_found_and_touches_no_file(client, project, tmp_path, song_id):
-    import_tone(client, tmp_path)
+    import_song_tone(client, tmp_path)
     before = sorted(project.root.rglob("*"))
 
-    assert refusal(client.get(f"{SONGS}/{song_id}")) == (404, "not_found")
-    assert refusal(client.delete(f"{SONGS}/{song_id}")) == (404, "not_found")
-    assert refusal(client.get(f"{SONGS}/{song_id}/audio.m4a")) == (404, "not_found")
+    assert song_refusal(client.get(f"{SONGS}/{song_id}")) == (404, "not_found")
+    assert song_refusal(client.delete(f"{SONGS}/{song_id}")) == (404, "not_found")
+    assert song_refusal(client.get(f"{SONGS}/{song_id}/audio.m4a")) == (404, "not_found")
     assert sorted(project.root.rglob("*")) == before
 
 
 def test_the_audio_answers_a_range_with_206_so_the_player_can_seek(client, tmp_path):
-    song = import_tone(client, tmp_path)
+    song = import_song_tone(client, tmp_path)
 
     whole = client.get(f"{SONGS}/{song['id']}/audio.m4a")
     part = client.get(f"{SONGS}/{song['id']}/audio.m4a", headers={"Range": "bytes=0-99"})
@@ -461,16 +450,16 @@ def test_the_audio_answers_a_range_with_206_so_the_player_can_seek(client, tmp_p
 
 
 def test_delete_removes_the_folder_and_a_second_delete_is_not_found(client, project, tmp_path):
-    song = import_tone(client, tmp_path)
+    song = import_song_tone(client, tmp_path)
 
     assert client.delete(f"{SONGS}/{song['id']}").status_code == 204
     assert not project.song_dir(song["id"]).exists()
-    assert refusal(client.delete(f"{SONGS}/{song['id']}")) == (404, "not_found")
+    assert song_refusal(client.delete(f"{SONGS}/{song['id']}")) == (404, "not_found")
     assert client.get(SONGS).json() == []
 
 
 def test_a_start_empties_partial_and_removes_a_folder_with_no_song_json(client, project, tmp_path):
-    kept = import_tone(client, tmp_path)
+    kept = import_song_tone(client, tmp_path)
     project.songs_partial_dir.mkdir(parents=True, exist_ok=True)
     (project.songs_partial_dir / "dQw4w9WgXcQ.webm").write_bytes(b"half")
     (project.songs_dir / "local-000000000000").mkdir()

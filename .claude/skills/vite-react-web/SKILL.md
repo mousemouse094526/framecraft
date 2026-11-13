@@ -26,7 +26,7 @@ frontend/src/
 ├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
 │                        tab bar, action; `wide` = 1120px from lg for two
 │                        columns), OfflinePanel, RefreshButton, ProgressBar,
-│                        Alert (the Figma toned box, optional title), FixCommand (a `fix` command with
+│                        Alert (the Figma toned box, optional title), Labeled (a field with its label, hint and error), FixCommand (a `fix` command with
 │                        its copy button: spoil's notices, a `not_ready` of สอนกลอง), ModalDialog (overlay, Esc,
 │                        focus kept inside), buttonStyles; assets/
 │                        holds the icons two features use (copy, trash, x, …)

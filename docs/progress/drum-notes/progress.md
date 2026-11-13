@@ -1,11 +1,11 @@
 # Progress: drum-notes
 
-**Now:** 01 done (spike ผ่าน เพลงเข้าได้สามทาง โมเดลสามตัวใน Setup); 02 next
+**Now:** 02 done (แกะโน้ตกลองจากช่วงที่เลือก: Pick job + หน้าเพลง); 03 next
 
 **Next:**
 
 ```
-/warroom-build drum-notes 02
+/warroom-build drum-notes 03
 ```
 
 ## Tickets
@@ -13,11 +13,33 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | เอาเพลงเข้า: ลิงก์ ไฟล์เสียง ไฟล์ MIDI และโมเดล | done |
-| 02 | แกะโน้ตกลองจากช่วงที่เลือก | ready |
+| 02 | แกะโน้ตกลองจากช่วงที่เลือก | done |
 | 03 | เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง | ready |
 | 04 | โหมดทำนอง | ready |
 
 ## Log
+
+### 02: แกะโน้ตกลองจากช่วงที่เลือก — done 2026-11-14
+
+**Built:**
+- หน้าเพลง: ส่วน "ช่วงแกะ" มีช่องเริ่มและจบ (วินาที) ปุ่ม "ใช้เวลาที่เล่นอยู่" ทั้งสองช่อง บรรทัด "ยาว n s (ไม่เกิน 90 วินาที)" โหมด "กลอง" | "ทำนอง" (ทำนองกดไม่ได้จน 04) ปุ่ม "แกะโน้ต" → `PUT /range` แล้ว `POST /pick` → แถบ % ("กำลังเตรียมเสียง…" → "กำลังแกะโน้ต… n%") กับยกเลิก → "BPM ที่พบ" และแถบห้องจาก `bars` ของ server (ห้องที่ไม่ใช่ 4/4 จาง tooltip "ห้องนี้ไม่ใช่ 4/4" กดไม่ได้); ช่วงผิดเตือนที่ช่องก่อนถาม backend; Alert ของ `no_beats`, `model_failed`, `model_broken` (+ FixCommand), `busy`, `not_ready` (+ fix); รายการเพลงแสดง "กำลังแกะ n%" ระหว่างงานและโหลดใหม่เมื่อจบ
+- backend `drum_notes.pick` (`PickJobs(open_session=…, run_ffmpeg=…)`, `JobSlot` ธรรมดา ไม่จอง GPU): `preparing` ถอดช่วงด้วย `ffmpeg.run_capture` (ใหม่) เป็น float32 mono 44.1 kHz และ 22.05 kHz → `picking` ADTOF ทั้งช่วงครั้งเดียว แล้ว Beat This! ทีละ chunk 1,500 เฟรม (`percent` ต่อ chunk, เช็คยกเลิกก่อนทุกโมเดลและ chunk และหลัง chunk สุดท้าย) → `score` → `songs.set_analysis` ทับทั้งก้อน; error `no_beats`/`model_broken` (rows + fix)/`model_failed`/`internal`; `409` `busy` (song_id), `song_busy` ตอนลบ (`songs.song_jobs` hook), `not_applicable` ของ MIDI, `not_running`
+- `drum_notes.score` (เลขล้วน): `beat_this_chunks`/`chunk_samples`/`stitch`, peak picking ตาม model card (`drum_hits` → ชิ้นตาม D9 `normal`), `beats_and_downbeats` (หน้าต่าง 7 เฟรม logit > 0 ติดกันรวม downbeat ย้ายไปจังหวะใกล้สุด), `songs.bars_of` → `SongView.bars` ใน `GET /songs/{id}`; `onnx_runner.run_adtof`/`run_beat_this`; `gate_rows.pick_drums`; `checks.setup_fix`; `PUT /songs/{id}/range` (`songs.checked_range`, `400` มี `field`, MIDI `409`)
+- วัดมือ D19 (Mac Apple Silicon, โมเดลจริงจาก revision ที่ pin): ช่วง 90 วินาทีของ Smells Like Teen Spirit (`hTWKbfoikeg` bestaudio) → `done` ใน 4.5 วินาที (preparing 0.2 s, ADTOF 0.8 s, Beat This! 4 chunk ≈ 0.8–0.95 s ต่อ chunk → ยกเลิกมีผลภายใน 1 วินาที); พบ 51 ห้อง BPM ~117 การตี 594; `reel.mp4` (19 s) → 0.8 วินาที 14 ห้อง BPM ~117 ห้อง 1 kick 7 snare 4 tom 4 (intro fill) ห้อง 12–14 kick 4–7 snare 4 hihat 4–5 crash 1 ตรงกับ spike; intro ของเพลงเต็ม 0–30 s → ห้อง 4 (7.58–9.70 s) kick 7 snare 4 tom 4 = fill เดียวกัน ห้อง 5–7 kick 6–7 snare 4 hihat 4–5 crash 1–2 (groove); ท่อน pre-chorus เบา (24–40 s) Beat This! ให้ downbeat ทุก 1.04 s = ห้อง 2 จังหวะ ถูกทำเครื่องหมาย "ไม่ใช่ 4/4" (เจ้าของยังควรฟังเทียบและตัดสินเต็มใน 03)
+
+**Decided:**
+- D24 — ทางเลือกเล็ก: `SongView.bars` คำนวณตอนอ่าน, ขอบโมเดลที่ `open_session` (fake ระดับ session), แผน chunk (ขยับ 1,488 ตัวสุดท้ายเลื่อนให้จบที่ท้าย เช็คยกเลิกหลัง chunk สุดท้าย), จังหวะติดกันรวม, `percent` ต่อ chunk, โหมดทำนอง `400` field `mode` จน 04, ข้อความ error ทั้งชุด, หน้าเพลงเช็คกฎช่วงก่อน, `songs.song_jobs`, `Labeled` ย้ายไป `components/ui/`
+
+**For the next ticket:**
+- `songs.bars_of(analysis)` คือห้องที่พบ (ขั้น 1 ของ Score) ที่ `POST /preview` ควรใช้; `bpmOf` ฝั่งหน้าเว็บยังคำนวณ "BPM ที่พบ" เอง — ticket 03 ให้ BPM มาจาก `/preview` แล้วตัด
+- fake: `FakeOnnxRunner(activations=, beat=, downbeat=)` รับ callable ต่อ chunk (`frames, pad_before`) โดยนับเฟรมจากต้นช่วง จึงถูกต้องเฉพาะ chunk แรก (test ของ chunk ที่สองดูแค่รูปร่าง input); `import_song_tone`/`put_song_file`/`song_refusal` อยู่ใน `fakes.py`
+- Beat This! บนท่อนเบา (half-time) ให้ downbeat ทุก 2 จังหวะ → ห้องเหล่านั้นเลือกไม่ได้; ถ้าเจ้าของเจอบ่อย ค่อยคิดเรื่องรวมห้อง 2 จังหวะเป็นคู่ (เปลี่ยน spec ต้อง `/warroom`)
+- โหมดทำนอง (04): `pick._pickable` ปฏิเสธ `mode` `melody` ที่บรรทัด `MELODY_NOT_YET`; gate `pick_melody` (Basic Pitch, Beat This!, onnxruntime, ffmpeg ตาม D7) ยังต้องเพิ่มใน `gate_rows`; ปุ่ม "ทำนอง" บนหน้าเพลง `disabled` ที่ `option === "melody"`
+- `setup.py` มี `OpenSession` alias ของตัวเอง ซ้ำกับ `onnx_runner.OpenSession`
+- test `run_capture` ยกเลิกใช้ `threading.Timer(0.3)` ตั้ง cancel ระหว่าง ffmpeg `-re` รัน 30 วินาที (unit test ไม่ใช่งาน): ถ้ากะพริบ ให้เปลี่ยนเป็นตั้ง cancel หลังอ่าน byte แรก
+- แบบ Figma สองหน้า (Blocked 1–2) แล้วปรับหน้าเว็บตามแบบ
+
+**Checks:** `uv run pytest` 1349 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 529 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `09ab458`: Standards 3 ผิดกติกา (แก้: โครง folder ใน SKILL `fastapi-api` เพิ่ม pick/score/`run_capture`/`pick_drums`/`setup_fix`; test state `in ("preparing", "picking")` → หยุดที่ `adtof` แล้ว assert แน่ชัด; `lib/songs.ts` ได้ `songs.test.ts`) + smell 7 (แก้: `FoundBar` สองชนิด → `songs.bars_of` ตัวเดียว ไม่มี import ซ้อน; `ffmpeg` สามตัวแชร์ `_watch_stderr`/`_ended`; ตัด `pick_melody` ที่ไม่มีผู้เรียก; รายการเพลงใช้ `usePick` แทน poll ซ้ำ; `own` → `picking`; type ของ `_run_model`/`_decode`; test สามกรณีแยกเป็นสาม `it`; ไม่แก้: `threading.Timer` ใน test `run_capture` — unit test ไม่ใช่งาน บันทึกไว้ For the next ticket); Spec 0 ผิด + 2 ขาด (Checks ยังว่างตอนรีวิว → เติม; เจ้าของยังไม่ได้ฟังเทียบ → บันทึกใน Log และ board) + 3 นอกขอบ (ตัด `pick_melody`; `started_at`/`cancel_requested` และชื่อ `open_session` บันทึกใน D24 แล้วแก้ spec › API/Testing decisions และ Status ของ D20) + 2 สังเกต (แก้: เฟรมติดกันหลายเฟรมรวมเป็นจังหวะเดียวทั้งชุด; ไม่แก้: `_window` ตัดขอบแทน pad ศูนย์ของ madmom — spec บอก "ทำเองด้วย numpy") + 2 test (แก้: test คำสั่ง ffmpeg เหลือแค่ `-ss`/`-t` ที่ตัวเลข sample พิสูจน์ไม่ได้; percent สังเกตที่ 33 → 66 บนช่วงสอง chunk); Newcomer สรุปตรง What to build + เดา 9 จุด (แก้ 7: ตั้งงานใต้ `songs.lock` ปิดช่องลบระหว่างอ่านกับเริ่ม; `_pickable` อธิบายว่าทำไมเช็ค range ซ้ำและ `range is None`; guard `if frames` ตาย; `_window` เป็น `sliding_window_view` ครั้งเดียว; ชื่อ test chunk ที่สาม; docstring body `{}` ของ route pick; `pick_melody` ตัด; ไม่แก้: `findStatusWith` = กติกา testing)
 
 ### 01: เอาเพลงเข้า: ลิงก์ ไฟล์เสียง ไฟล์ MIDI และโมเดล — done 2026-11-14
 

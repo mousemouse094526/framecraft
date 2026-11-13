@@ -85,6 +85,11 @@ def _fix_texts(sys_platform: str) -> FixTexts:
     )
 
 
+def setup_fix() -> str:
+    """The Setup script's command on this OS, the `fix` of a job that finds a model file broken (drum-notes D20)."""
+    return _fix_texts(this_platform()).setup.text
+
+
 class License(BaseModel):
     name: str
     url: str

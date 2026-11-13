@@ -4,7 +4,7 @@ import { inputClass } from "../../../components/ui/inputStyles";
 import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { PIECES, type PieceId } from "../lib/kit";
-import { Labeled } from "./Labeled";
+import { Labeled } from "../../../components/ui/Labeled";
 import { CHAPTERS_MAX, NEW_CHAPTER, REPEATS_MAX, SPEEDS, type Chapter, type FieldErrors } from "../lib/lesson";
 
 type Props = {

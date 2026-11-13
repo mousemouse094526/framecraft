@@ -338,7 +338,7 @@
 - **คำใน D1:** โมเดล Basic Pitch คือ "โมเดลที่เจ้าของหามา" ไม่ใช่ "ทดสอบแล้ว" (เจ้าของทดสอบเฉพาะ ADTOF บนคลิปอ้างอิง)
 - **ลิงก์เอกสาร:** overlap 30 เฟรมของ Basic Pitch อยู่ใน `inference.py` ไม่ใช่ `constants.py`
 
-**From:** red team · **Status:** active
+**From:** red team · **Status:** active — changed by D24 (ชื่อ `run_model` → `open_session`)
 
 ## D21: ฟังโน้ตที่เลือกก่อนสร้างบทเรียน
 
@@ -379,6 +379,24 @@
 **Why:** ทางเลือกที่ spec ไม่ได้ตั้ง ตัดสินตามโค้ดเดิมที่ใกล้ที่สุด (video-gen) และ spec › API.
 
 **From:** build ticket 01 · **Status:** active
+
+## D24: ทางเลือกเล็กของ Pick job และหน้าเพลงจาก ticket 02
+
+**Chosen:**
+- `GET /songs/{id}`, `PUT /songs`, `PUT /range` ตอบ `SongView` = Song + `bars` (`n`, `start_s`, `end_s`, `beats`, `hits`, `four_four`) ที่ `songs.bars_of` (Score ขั้น 1 อยู่ข้างชนิดข้อมูลของมัน ไม่ใช่ใน `score` ที่ import `songs`) คำนวณตอนอ่าน ไม่เก็บลง `song.json`; เพลงจาก MIDI ได้ `bars` ทางเดียวกัน; หน้าเพลงวาดแถบจาก `bars` ของ server (ตัด `barsOf` ฝั่งหน้าเว็บ) เหลือ `bpmOf(bars)` ไว้แสดง "BPM ที่พบ" จน ticket 03 ให้ BPM มาจาก `POST /preview`
+- ขอบของโมเดลคือ `PickJobs(open_session=…, run_ffmpeg=…)` (เปลี่ยนชื่อ `run_model` ของ D20 และ spec › Testing decisions): fake แทนที่ระดับ session (`FakeOnnxRunner(model_file)` → `FakeSession.run(names, feeds)` คืน array รูปเดียวกับโมเดลจริงจากความยาว input และ `pad_frames`) ไม่ใช่ `run_model`; แผน chunk, `pad_frames`, การตัดและต่ออยู่ใน `score` จึงถูกทดสอบด้วย fake นี้
+- `GET /songs/pick` มี `cancel_requested` และ `started_at` เพิ่มจากรายการช่องใน spec › API ตามแบบงานทุก slot (`SongImport`, `DrumRenderJob`): ปุ่มยกเลิกปิดตัวเองจาก `cancel_requested`
+- แผน chunk ของ Beat This!: เริ่มที่ −6 แล้วเลื่อนทีละ 1,488 ตราบที่เฟรมที่เก็บยังไม่ถึงท้ายช่วง; chunk สุดท้ายเลื่อนให้เริ่มที่ `F + 6 − 1500` (chunk ก่อนหน้าเก็บเฟรมที่ซ้ำกันไว้ก่อน) ช่วงสั้นกว่า 1,494 เฟรมเป็น chunk เดียว pad 6 ทั้งสองข้าง; เช็คยกเลิกอีกครั้งหลัง chunk สุดท้ายก่อนให้คะแนน จึงไม่เขียนอะไรเมื่อยกเลิกระหว่าง chunk สุดท้าย
+- จังหวะ: peak ของ logit > 0 ที่เป็นค่าสูงสุดในหน้าต่าง ±3 เฟรม เฟรมติดกันที่สูงเท่ากันนับเป็นจังหวะเดียว (ตัวแรก); downbeat ย้ายไปจังหวะใกล้สุด ซ้ำแล้วทิ้ง; เวลาปัด 3 ตำแหน่ง
+- `percent` = (โมเดลและ chunk ที่เสร็จ) / (1 + จำนวน chunk) × 100 ค้างที่ 99 จน `done`
+- โหมดทำนอง: `PUT /range` รับ `melody` ได้ แต่ `POST /pick` ตอบ `400` `invalid_request` field `mode` "โหมดทำนองยังไม่เปิดใช้" จน ticket 04; หน้าเพลงแสดงปุ่ม "ทำนอง" กดไม่ได้พร้อมคำอธิบายของ D14
+- ข้อความ: `busy` "กำลังแกะเพลงอื่นอยู่ รอให้เสร็จก่อน"; `song_busy` "กำลังแกะเพลงนี้อยู่"; `not_applicable` "เพลงจาก MIDI ไม่มีช่วงแกะ: การตีทั้งไฟล์คือผลอยู่แล้ว"; ช่วงผิดทุกเหตุ "ช่วงต้องยาว 4–90 วินาที และอยู่ในเพลง" ที่ field `start_s` (< 0) หรือ `end_s` (เกินเพลง ยาวผิด); `model_broken` "ไฟล์โมเดลเสีย รัน Setup script ใหม่ ({label})" `rows` = แถวของโมเดลนั้น `fix` = `checks.setup_fix()`; `model_failed` "โมเดลทำงานผิดพลาด: {บรรทัดแรก}"; ffmpeg พัง = `internal` "แกะโน้ตไม่สำเร็จ: {บรรทัดท้าย}"
+- หน้าเพลงเช็คกฎช่วงเดียวกันก่อนถาม backend (ไม่ส่ง `PUT` เมื่อผิด); ปุ่ม "ใช้เวลาที่เล่นอยู่" ปัด `currentTime` เป็น 0.1 วินาที; Alert ของงานที่ `failed` แสดงเฉพาะบนหน้าเพลงของงานนั้น; งานของเพลงอื่นที่รันอยู่แค่ปิดปุ่ม "แกะโน้ต" พร้อมบรรทัดบอก; รายการเพลง poll `GET /songs/pick` ระหว่างงานและโหลดรายการใหม่เมื่อจบ
+- `songs.song_jobs` hook แบบ `lessons.lesson_jobs` ให้ `delete` ตอบ `song_busy`; `PickJobs.start` ตั้งงานใต้ lock ของ slot แล้ว `songs.lock` (ลำดับตาม SKILL) จึงไม่มีช่องให้ลบเพลงระหว่างอ่านกับเริ่มงาน; `pick_jobs` อยู่ใน `JOB_HOLDERS` โดยไม่มี clean (งานไม่ทิ้งอะไรบนดิสก์); gate `pick_melody` ยังไม่สร้างจน ticket 04 (ไม่สร้างของใช้ร่วมล่วงหน้า); `Labeled` ย้ายไป `components/ui/` เมื่อหน้าเพลงเป็นผู้ใช้ที่สอง; รายการเพลงใช้ `usePick` ตัวเดียวกับหน้าเพลงอ่านและ poll งาน
+
+**Why:** ทางเลือกที่ spec ไม่ได้ตั้ง ตัดสินตามโค้ดเดิมที่ใกล้ที่สุด (`video_gen.render`, `useDrumRender`) และ spec › API; `bars` จาก server ให้ "ไม่ใช่ 4/4" มาจากกฎเดียวกับ `POST /preview` ที่จะมา (ข้อของ Log ticket 01).
+
+**From:** build ticket 02 · **Status:** active — changes D20 (ชื่อ `run_model`)
 
 ## Sources
 

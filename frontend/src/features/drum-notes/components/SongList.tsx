@@ -12,11 +12,11 @@ import trashIcon from "../../../components/ui/assets/trash.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
 import { useSongs, type Notice, type Upload } from "../hooks/useSongs";
-import { FILE_ACCEPT, FILE_HINT, importText, isImporting, NOTES_ONLY, pickedText, songHash, SOURCE_LABELS, type SongImport, type SongRow } from "../lib/songs";
+import { FILE_ACCEPT, FILE_HINT, importText, isImporting, NOTES_ONLY, pickedText, songHash, SOURCE_LABELS, type PickJob, type SongImport, type SongRow } from "../lib/songs";
 
 /** รายการเพลง (`#/songs`): the link box and file box, the running import, the songs newest first, delete (spec › Design). The design is pending, so the app's own parts. */
 export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void }) {
-  const { state, reload, startLink, importFile, cancelUpload, cancelImport, remove } = useSongs(onKnownSong);
+  const { state, pick, reload, startLink, importFile, cancelUpload, cancelImport, remove } = useSongs(onKnownSong);
   const [deleting, setDeleting] = useState<SongRow | null>(null);
 
   if (state.kind === "offline") {
@@ -50,7 +50,7 @@ export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void })
         ) : (
           <ul className="divide-y divide-border">
             {ready.songs.map((song) => (
-              <Row key={song.id} song={song} onDelete={() => setDeleting(song)} />
+              <Row key={song.id} song={song} pick={pick} onDelete={() => setDeleting(song)} />
             ))}
           </ul>
         )}
@@ -209,8 +209,8 @@ function NoticeAlert({ notice }: { notice: Notice }) {
   );
 }
 
-/** One song: title, subtitle, where it came from, its length, whether it was picked, its lessons (spec › Design). */
-function Row({ song, onDelete }: { song: SongRow; onDelete: () => void }) {
+/** One song: title, subtitle, where it came from, its length, whether it was or is being picked, its lessons (spec › Design). */
+function Row({ song, pick, onDelete }: { song: SongRow; pick: PickJob | null; onDelete: () => void }) {
   return (
     <li className="flex items-center gap-1 pr-2">
       <a href={songHash(song.id)} className="flex min-w-0 flex-1 flex-col gap-0.5 py-3 pl-4 leading-[1.5] hover:bg-muted">
@@ -221,7 +221,7 @@ function Row({ song, onDelete }: { song: SongRow; onDelete: () => void }) {
           <span className="text-muted-foreground">·</span>
           <span>{formatDuration(Math.round(song.duration_s))}</span>
           <span className="text-muted-foreground">·</span>
-          <span>{pickedText(song)}</span>
+          <span>{pickedText(song, pick)}</span>
           <span className="text-muted-foreground">·</span>
           <span>{song.lessons} บทเรียน</span>
         </span>
