@@ -1,11 +1,11 @@
 # Progress: video-gen
 
-**Now:** ทุก ticket done; รอ feature review
+**Now:** feature review เสร็จ (`43ed0a9`) CI เขียว; ยังเปิด PR ไม่ได้: Blocked 1–3 แบบ Figma ของสามหน้ายังไม่มี และเจ้าของยังต้องเช็คเอง (render คลิปจริงเทียบคลิปอ้างอิง, ฟัง sample จริง, ภาพพื้นหลังจริง)
 
-**Next:**
+**Next:** ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) แล้ว
 
 ```
-/warroom-build video-gen --review-feature
+/warroom video-gen
 ```
 
 ## Tickets
@@ -17,6 +17,25 @@
 | 03 | ภาพพื้นหลังของผู้ใช้ | done |
 
 ## Log
+
+### Feature review — 2026-11-14
+
+**Built:** `refactor(video-gen): feature review fixes` (`43ed0a9`), review สามแกนจาก merge-base `e85a1f4`
+- ทางเดียวต่อเรื่อง: `renderingOf` (บทเรียนนี้ render อยู่ไหม — เดิมสามแบบใน LessonList/LessonEditor/RendersPage), `lessons.require_short` (`too_long` เดิมสองที่), `lessons.LESSON_FILE`/`BACKGROUND` (render ประกาศซ้ำ), `gate_rows._kanit`, `lessons.lesson_dir` แทน wrapper + `_folder`
+- listen เช็คตามลำดับของ render: gate ก่อน แล้วค่อยบทเรียน (เดิม id ผิดรูปได้ 404 ก่อน 503)
+- `inputClass` ย้ายไป `components/ui/inputStyles.ts` ใช้ร่วมกับ story-kb (กติกา "Where shared code goes")
+- `lib/lesson.test.ts` และ `lib/render.test.ts` ตามกติกา testing ("lib/ helper ที่หลาย hook ใช้มี test ของตัวเอง") — ticket 01 เคยลบ `lesson.test.ts` ว่านอก seam; กติกาของ repo ชนะ
+- test แยกไฟล์ตามโมดูล: `test_video_gen_mixer.py`, `test_video_gen_captions.py`; test เท้าเหยียบไฮแฮทตัดเสียงเปิด (AC ticket 01 ที่ขาด); ลบ test `JOB_HOLDERS` (แค่การต่อสาย; test restart ครอบแล้ว)
+- ชื่อ: `played` → `timing` (Timeline), `Segment.chapter_index`, `Scene.shown_hits`/`shown_times`, `frames.frame_count` (captions เคยคำนวณซ้ำ), `backgrounds.partial_file` (test ใช้ด้วย); docstring `_tip_before` อธิบาย recursion, `cancel_render` body, `mixing` รวมขั้นบันทึก, ที่อยู่ jpg ของ `_take_upload`
+- `legal.md` ข้อ 4 ตาม D23 (`ลองเล่นเอง`)
+
+**Decided:** ไม่แก้ — `render._run` ซ้ำโครง `ModelJobSlot._run_job` (และ `toon/sounds._run`): ยกขึ้น `JobSlot` แตะสาม feature และรูป error ของ job ไม่เหมือนกัน (spec ขอ `error` แบบแบน) — ทิ้งไว้เป็นงาน refactor ข้าม feature ถ้าเจ้าของต้องการ; flag `too_large_status` (spec ขอ 413); ป้าย "(e2e)" ใน Vitest (กติกา testing: e2e = Vitest ผ่าน `App`); `lesson_jobs` เติมตอน import `render` (คอมเมนต์บอกแล้ว); `isRendering` ไม่ใช้ `isUnfinishedIn` (รับ null และเป็น type guard); `size_bytes` ใน `RenderResult` (มากับ `renders.listed` ที่ใช้ร่วม); `NOTICE.md` ไม่มี Big Rusty Drums (CC0 ไม่ต้องให้เครดิต, ADR-0039)
+
+**For the next ticket:**
+- เจ้าของ: render Smells Like Teen Spirit intro fill เทียบคลิปอ้างอิง, ฟัง `chik` และทอม (D30), render บทเรียนที่มีภาพจริงดูความอ่านง่าย
+- แบบ Figma สามหน้า (Blocked 1–3) แล้วปรับหน้าเว็บตามแบบ
+
+**Checks:** `uv run pytest` 1243 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 497 passed; build ผ่าน. Standards 2 ผิดกติกา (lib ไม่มี test, `inputClass` ซ้ำ) + smell 2 — แก้ทั้งสอง; Spec 0 ผิด + 3 ขาด + 1 เกิน + 1 test + 5 ทำสองแบบ — แก้ทั้งหมดยกเว้น `size_bytes`, `NOTICE.md`; Newcomer สรุปตรง spec › Solution + เดา 13 จุด — แก้ 10, ไม่แก้ 3 (`lesson_jobs`, "(e2e)", อ่านบทเรียนหลายทาง: `get` view / `stored` / `read_under_lock` มี docstring บอกต่างกันแล้ว)
 
 ### 03: ภาพพื้นหลังของผู้ใช้ — done 2026-11-13
 
