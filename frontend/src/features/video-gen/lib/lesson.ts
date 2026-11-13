@@ -27,10 +27,15 @@ export const LESSONS_PATH = "/api/drums/lessons";
 export const lessonPath = (id: string) => `${LESSONS_PATH}/${id}`;
 export const DRUMS_HASH = "#/drums";
 export const lessonHash = (id: string) => `${DRUMS_HASH}/${id}`;
+export const rendersHash = (id: string) => `${lessonHash(id)}/renders`;
 
-/** The lesson `#/drums/{id}` opens; any other hash under `#/drums` is the list (spec › Frontend). */
-export function lessonIdOf(hash: string): string | null {
-  return /^#\/drums\/([a-z0-9]{12})$/.exec(hash)?.[1] ?? null;
+export type DrumsView = { kind: "list" } | { kind: "edit"; id: string } | { kind: "renders"; id: string };
+
+/** `#/drums/{id}` edits a lesson, `#/drums/{id}/renders` shows its renders; any other hash under `#/drums` is the list (spec › Frontend). */
+export function drumsViewOf(hash: string): DrumsView {
+  const found = /^#\/drums\/([a-z0-9]{12})(\/renders)?$/.exec(hash);
+  if (!found) return { kind: "list" };
+  return found[2] ? { kind: "renders", id: found[1] } : { kind: "edit", id: found[1] };
 }
 
 export const STEPS_PER_BAR = 16;

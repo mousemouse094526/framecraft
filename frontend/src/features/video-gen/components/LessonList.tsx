@@ -10,12 +10,17 @@ import plusIcon from "../../../components/ui/assets/plus.svg";
 import plusWhiteIcon from "../../../components/ui/assets/plus-white.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { editedAt, formatDuration } from "../../../lib/format";
+import { useDrumRender } from "../hooks/useDrumRender";
 import { useLessons } from "../hooks/useLessons";
 import { lessonHash, TITLE_MAX, type LessonRow } from "../lib/lesson";
+import { isRendering } from "../lib/render";
 
 /** รายการบทเรียนกลอง (`#/drums`): newest edit first; new, copy and delete (D10). The design is pending, so the app's own parts. */
 export function LessonList() {
   const { state, reload, create, copy, remove } = useLessons();
+  // A render that ends may add to its lesson's count.
+  const { job } = useDrumRender(() => void reload());
+  const rendering = isRendering(job) ? job : null;
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<LessonRow | null>(null);
 
@@ -51,7 +56,13 @@ export function LessonList() {
         ) : (
           <ul className="divide-y divide-border">
             {state.lessons.map((lesson) => (
-              <Row key={lesson.id} lesson={lesson} onCopy={() => void copy(lesson.id)} onDelete={() => setDeleting(lesson)} />
+              <Row
+                key={lesson.id}
+                lesson={lesson}
+                renderingPercent={rendering?.lesson_id === lesson.id ? rendering.percent : null}
+                onCopy={() => void copy(lesson.id)}
+                onDelete={() => setDeleting(lesson)}
+              />
             ))}
           </ul>
         )}
@@ -71,11 +82,17 @@ export function LessonList() {
   );
 }
 
-function Row({ lesson, onCopy, onDelete }: { lesson: LessonRow; onCopy: () => void; onDelete: () => void }) {
+/** `renderingPercent`: how far the render running on this lesson is, or null (D22). */
+function Row({ lesson, renderingPercent, onCopy, onDelete }: { lesson: LessonRow; renderingPercent: number | null; onCopy: () => void; onDelete: () => void }) {
   return (
     <li className="flex items-center gap-1 pr-2">
       <a href={lessonHash(lesson.id)} className="flex min-w-0 flex-1 flex-col gap-0.5 py-3 pl-4 leading-[1.5] hover:bg-muted">
-        <span className="truncate text-sm font-medium text-foreground">{lesson.title}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium text-foreground">{lesson.title}</span>
+          {renderingPercent !== null && (
+            <span className="shrink-0 rounded-full bg-accent-subtle px-2 font-button text-xs leading-5 font-medium text-link">กำลัง render {renderingPercent}%</span>
+          )}
+        </span>
         <span className="flex flex-wrap gap-x-1.5 text-[13px] text-mid">
           <span>{formatDuration(Math.round(lesson.length_s))}</span>
           <span className="text-muted-foreground">·</span>

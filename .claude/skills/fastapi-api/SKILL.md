@@ -41,7 +41,7 @@ backend/
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`), named once (ADR 0009)
+│                    `drum_kit_row`, `drums`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
 │                    shutdown, `_run_job`, the one ending of every job's thread
@@ -71,9 +71,10 @@ backend/
 │                    outlives the `with` (spoil D42); `trimmed_clip_swap`
 │                    guards putting the new mp4 in place; `advised` ends a failed
 │                    job's message with `ADVICE`
-├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel)
-│                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
-│                    frames and compose share it
+├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel),
+│                    `run_piped` (frames through stdin, video-gen D22), `h264_args`
+│                    (videotoolbox or libx264, spoil D36) and `ffmpeg -i` reading;
+│                    spoil's trim, spoil_maker's frames and compose, video_gen's render share it
 ├── setup.py      ← entry point: python -m backend.setup
 ├── qwen_tokens.py← an EP's lines and a Story block counted to Qwen behind its
 │                    Status check row (spoil-maker D46, story-kb D14)
@@ -151,7 +152,11 @@ backend/
 │                    path), timeline (every hit, beat and chapter span in samples at
 │                    44.1 kHz: the one place a note's time is worked out, ADR 0038), mixer
 │                    (the wav from the samples, ฟังจังหวะ's `listen`; numpy and soundfile
-│                    imported inside)
+│                    imported inside); kit also holds the diagram's points (kit-sketch);
+│                    lane (where the note lanes put a time), frames (`Scene` drawn once,
+│                    `frame_at` per frame, Pillow imported inside), captions (the ASS file
+│                    and `.srt`), render (the Render job in its own `JobSlot`, no GPU;
+│                    registers itself in `lessons.lesson_jobs` for `lesson_busy`)
 ├── speaking.py   ← `Speaker`, which speaks texts in a Saved voice in an
 │                    OmniVoice child for the job slot that holds it (it is
 │                    given the slot and calls its `track` and `reply`, never
@@ -167,8 +172,8 @@ backend/
 │                    renders (`results`, `listed`), `latest_at`, the job's `percent`
 │                    (`pieces_percent`, `encode_progress`), the finish (`finish`: json last), the
 │                    delete (mp4 first, `409` `in_use`, json last), leftover `.partial`s;
-│                    spoil_maker's and toon's render keep their folders and call it, and gate
-│                    on `gate_rows.render`
+│                    spoil_maker's, toon's and video_gen's render keep their folders and call
+│                    it; the first two gate on `gate_rows.render`, video_gen's on `gate_rows.drums`
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
 │                    File import and toon's reference uploads share it
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
@@ -221,6 +226,7 @@ through a queue; the thread writes the result file (ADR 0012).
   `toon.store.lock` comes after `draft_lock` and before the GPU slot's own (a
   Series' `voice_id` is written under `draft_lock`, toon D25).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
+  `video_gen.lessons.lock` comes after the drum Render job slot's own (video-gen D33).
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases

@@ -1,7 +1,7 @@
 """Drum lessons of the สอนกลอง tab (video-gen spec › Data, D10, D16, D20, D22).
 
 A lesson is `media/drums/lessons/{lesson_id}/lesson.json`, written with `write_atomic`; its
-renders sit in `renders/` beside it. Every read and write of the folder takes `_lock`.
+renders sit in `renders/` beside it. Every read and write of the folder takes `lock`.
 A `lesson_id` is 12 letters `[a-z0-9]`: every function checks it before it builds a path,
 so `..` never reaches the disk (D22).
 """
@@ -14,6 +14,7 @@ import shutil
 import string
 import threading
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
@@ -44,6 +45,11 @@ SPEED_STEP = 5
 COPY_SUFFIX = " (สำเนา)"
 NEW_LABEL = "ลองเล่นเอง"  # the reference clip's "YOUR TURN." may be its page's trademark (D23)
 MAX_LENGTH_S = 90  # listen and render refuse a longer clip; saving doesn't (D16)
+LESSON_BUSY = "กำลัง render บทเรียนนี้อยู่"
+
+# The lesson an unfinished job works on, or None: `video_gen.render` adds its own as it is imported,
+# which the routes do, so `delete` sees a render before the app answers anything (D22).
+lesson_jobs: list[Callable[[], str | None]] = []
 
 
 class Note(BaseModel):
@@ -102,7 +108,7 @@ class LessonRow(BaseModel):
     updated_at: str
 
 
-_lock = threading.Lock()
+lock = threading.Lock()
 
 
 # --- Checking a body ---
@@ -244,7 +250,7 @@ def list_rows(project: ProjectPaths) -> list[LessonRow]:
     """Every readable lesson, latest change first; a `lesson.json` that can't be read is
     logged and left out, and can still be deleted (D22)."""
     rows = []
-    with _lock:
+    with lock:
         folders = sorted(project.lessons_dir.iterdir()) if project.lessons_dir.is_dir() else []
         for folder in folders:
             if not LESSON_ID.fullmatch(folder.name):
@@ -269,7 +275,7 @@ def create(project: ProjectPaths, body: dict[str, Any]) -> LessonView:
     """`POST`: a lesson with the given title and the defaults of spec › Data (D22, D23)."""
     title = _text(body, "title", 1, TITLE_MAX, "หัวเรื่อง")
     fields = _new_fields(title)
-    with _lock:
+    with lock:
         lesson = _write_new(project, fields)
     log.info("created lesson %s", lesson.id)
     return _view(lesson)
@@ -278,7 +284,7 @@ def create(project: ProjectPaths, body: dict[str, Any]) -> LessonView:
 def copy(project: ProjectPaths, lesson_id: str) -> LessonView:
     """`POST …/copy`: the lesson under a new id, its title ending " (สำเนา)" cut at 40; its
     background picture comes along, its renders don't (spec › API)."""
-    with _lock:
+    with lock:
         source = _read_known(project, lesson_id)
         title = (source.title + COPY_SUFFIX)[:TITLE_MAX]
         fields = LessonFields.model_validate(source.model_dump() | {"title": title})
@@ -288,20 +294,20 @@ def copy(project: ProjectPaths, lesson_id: str) -> LessonView:
 
 
 def get(project: ProjectPaths, lesson_id: str) -> LessonView:
-    with _lock:
+    with lock:
         return _view(_read_known(project, lesson_id))
 
 
 def stored(project: ProjectPaths, lesson_id: str) -> Lesson:
     """The lesson as stored, without `length_s` (`get` is the API's view), for listen and render. Raises `ApiError` 404 `not_found`."""
-    with _lock:
+    with lock:
         return _read_known(project, lesson_id)
 
 
 def replace(project: ProjectPaths, lesson_id: str, body: dict[str, Any]) -> LessonView:
     """`PUT`: every field but `id`, `version` and `updated_at`. A lesson over 90 s is saved
     (D16); a value outside the rules changes nothing."""
-    with _lock:
+    with lock:
         _read_known(project, lesson_id)
         fields = _checked_fields(body, _folder(project, lesson_id))
         lesson = Lesson(version=VERSION, id=lesson_id, updated_at=now_iso(), **fields.model_dump())
@@ -313,10 +319,11 @@ def delete(project: ProjectPaths, lesson_id: str) -> None:
     """Each render (stopping at the first `in_use`; one deleted stays deleted), then
     `background.jpg`, then `lesson.json` last, then the folder. A `lesson.json` that can't be
     read is deleted all the same (D22)."""
-    with _lock:
+    with lock:
         folder = _folder(project, lesson_id)
         if not (folder / "lesson.json").is_file():
             raise _not_found()
+        require_idle(lesson_id)
         for name in renders.complete_names(folder / "renders"):
             renders.Render(folder / "renders", name).delete()
         (folder / "background.jpg").unlink(missing_ok=True)
@@ -325,7 +332,23 @@ def delete(project: ProjectPaths, lesson_id: str) -> None:
     log.info("deleted lesson %s", lesson_id)
 
 
-# --- Files; call with `_lock` held ---
+def require_idle(lesson_id: str) -> None:
+    """Raises `ApiError` 409 `lesson_busy` while a job works on the lesson. Call with `lock` held."""
+    if any(job() == lesson_id for job in lesson_jobs):
+        raise ApiError(409, "lesson_busy", LESSON_BUSY)
+
+
+def read_under_lock(project: ProjectPaths, lesson_id: str) -> Lesson:
+    """`stored`, for a caller that holds `lock`. Raises `ApiError` 404 `not_found`."""
+    return _read_known(project, lesson_id)
+
+
+def lesson_dir(project: ProjectPaths, lesson_id: str) -> Path:
+    """The lesson's folder: `lesson.json`, `background.jpg` and `renders/`. Raises `ApiError` 404 for a bad id."""
+    return _folder(project, lesson_id)
+
+
+# --- Files; call with `lock` held ---
 
 
 def _new_fields(title: str) -> LessonFields:

@@ -4,13 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { StatusResponse } from "../../../lib/statusTypes";
 import { findStatusWith } from "../../../testing/statusBox";
-import { get, jsonResponse, send, sent, serve, type Route } from "../../../testing/testBackend";
+import { get, jsonResponse, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import type { Lesson, LessonRow } from "../lib/lesson";
+import type { DrumRenderJob, RenderResult } from "../lib/render";
 
 const ID = "k3v9x0a1b2c4";
 const LIST_PATH = "/api/drums/lessons";
 const PATH = `${LIST_PATH}/${ID}`;
 const LISTEN_PATH = `${PATH}/listen`;
+const RENDER_PATH = "/api/drums/render";
+const RENDERS_PATH = `${PATH}/renders`;
 
 const fetchMock = vi.fn<typeof fetch>();
 const confirmMock = vi.fn<(message?: string) => boolean>();
@@ -76,6 +79,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   fetchMock.mockReset();
   confirmMock.mockReset();
   vi.unstubAllGlobals();
@@ -84,10 +88,13 @@ afterEach(() => {
 });
 
 function open(hash: string, routes: Route[]) {
-  serve(fetchMock, routes, [[LIST_PATH, []]]);
+  serve(fetchMock, routes, [
+    [LIST_PATH, []],
+    [RENDER_PATH, null],
+  ]);
   window.location.hash = hash;
   render(<App />);
-  return userEvent.setup();
+  return userEvent.setup({ advanceTimers: (ms) => vi.isFakeTimers() && vi.advanceTimersByTime(ms) });
 }
 
 async function openEditor(routes: Route[] = [], lesson = lessonOf()) {
@@ -498,5 +505,147 @@ describe("บันทึก", () => {
     open(`#/drums/${ID}`, [send("GET", PATH, { code: "not_found", message: "ไม่พบ" }, 404)]);
 
     expect(await screen.findByText("ไม่พบบทเรียนนี้")).toBeInTheDocument();
+  });
+});
+
+function jobOf(change: Partial<DrumRenderJob> = {}): DrumRenderJob {
+  return { state: "rendering", lesson_id: ID, title: "ร็อกพื้นฐาน", percent: 0, result: null, error: null, message: null, ...change };
+}
+
+function resultOf(name: string): RenderResult {
+  return { name, lesson_id: ID, title: "ร็อกพื้นฐาน", length_s: 13.5, created_at: "2026-11-13T11:00:00+07:00", size_bytes: 1_000_000 };
+}
+
+describe("render", () => {
+  it("saves first, shows the percent with ยกเลิก, then opens the results with the newest playing", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const job = phased(RENDER_PATH, null, jobOf({ percent: 40 }), jobOf({ state: "done", percent: 100, result: "20261113-110500" }));
+    const user = await openEditor([
+      savedReply(),
+      job.route,
+      { method: "POST", path: RENDER_PATH, reply: () => ((job.phases.at = 1), jsonResponse(jobOf(), 202)) },
+      get(RENDERS_PATH, [resultOf("20261113-110500"), resultOf("20261113-100000")]),
+    ]);
+
+    await user.click(cell("แครช", "1e"));
+    await user.click(screen.getByRole("button", { name: "render" }));
+
+    expect(await screen.findByRole("progressbar", { name: "กำลัง render" })).toBeInTheDocument();
+    expect(sent(fetchMock, "POST", RENDER_PATH)).toEqual([{ lesson_id: ID }]);
+    const order = fetchMock.mock.calls.map(([input, init]) => `${init?.method ?? "GET"} ${String(input)}`);
+    expect(order.indexOf(`PUT ${PATH}`)).toBeLessThan(order.indexOf(`POST ${RENDER_PATH}`));
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    expect(await screen.findByText("40%")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeInTheDocument();
+
+    job.phases.at = 2;
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    await waitFor(() => expect(window.location.hash).toBe(`#/drums/${ID}/renders`));
+    expect(await screen.findByLabelText("ผล render 20261113-110500")).toBeInTheDocument();
+  });
+
+  it("ยกเลิก POSTs the cancel; a cancelled render says so with ลองอีกครั้ง", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const job = phased(RENDER_PATH, jobOf({ percent: 20 }), jobOf({ state: "cancelled", percent: 20 }));
+    const user = await openEditor([job.route, { method: "POST", path: `${RENDER_PATH}/cancel`, reply: () => ((job.phases.at = 1), jsonResponse(jobOf({ percent: 20 }))) }]);
+
+    await user.click(await screen.findByRole("button", { name: "ยกเลิก" }));
+    expect(sent(fetchMock, "POST", `${RENDER_PATH}/cancel`)).toEqual([{}]);
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+
+    expect(await screen.findByText("ยกเลิก render แล้ว")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ลองอีกครั้ง" })).toBeInTheDocument();
+  });
+
+  it("a render this page didn't start ends done without leaving the page", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const job = phased(RENDER_PATH, jobOf({ percent: 42 }), jobOf({ state: "done", percent: 100, result: "20261113-110500" }));
+    await openEditor([job.route]);
+    expect(await screen.findByText("42%")).toBeInTheDocument();
+
+    job.phases.at = 1;
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    await waitFor(() => expect(screen.queryByText("42%")).not.toBeInTheDocument());
+    expect(window.location.hash).toBe(`#/drums/${ID}`);
+  });
+
+  it("a failed render shows its message, and ลองอีกครั้ง starts it again", async () => {
+    const failed = jobOf({ state: "failed", error: "ffmpeg_failed", message: "render ไม่สำเร็จ: Error opening output files" });
+    const user = await openEditor([get(RENDER_PATH, failed), send("POST", RENDER_PATH, jobOf(), 202)]);
+
+    expect(await screen.findByText("render ไม่สำเร็จ: Error opening output files")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "ลองอีกครั้ง" }));
+
+    await waitFor(() => expect(sent(fetchMock, "POST", RENDER_PATH)).toEqual([{ lesson_id: ID }]));
+    expect(await screen.findByRole("progressbar", { name: "กำลัง render" })).toBeInTheDocument();
+  });
+
+  it("another lesson's render is named and render can't be pressed", async () => {
+    await openEditor([get(RENDER_PATH, jobOf({ lesson_id: "zzzzzzzzzzzz", title: "เพลงอื่น", percent: 10 }))]);
+
+    expect(await screen.findByText("กำลัง render เพลงอื่น อยู่ รอให้เสร็จก่อน")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
+  });
+
+  it("busy says which lesson renders", async () => {
+    const user = await openEditor([send("POST", RENDER_PATH, { code: "busy", message: "กำลัง render เพลงอื่น อยู่", lesson_id: "zzzzzzzzzzzz" }, 409)]);
+
+    await user.click(screen.getByRole("button", { name: "render" }));
+    expect(await screen.findByText("กำลัง render เพลงอื่น อยู่")).toBeInTheDocument();
+  });
+
+  it("a lesson over 90 s can't be rendered", async () => {
+    await openEditor([], lessonOf({ bpm: 40, chapters: [{ label: "", text: "", focus: [], repeats: 8, speed: 50 }] }));
+
+    expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
+  });
+
+  it("the list badges the lesson that renders with its percent", async () => {
+    open("#/drums", [get(LIST_PATH, [rowOf(), rowOf({ id: "zzzzzzzzzzzz", title: "เพลงอื่น" })]), get(RENDER_PATH, jobOf({ percent: 35 }))]);
+
+    expect(await screen.findByText("กำลัง render 35%")).toBeInTheDocument();
+    expect(screen.getAllByText(/กำลัง render/)).toHaveLength(1);
+  });
+});
+
+describe("ผล render", () => {
+  it("plays the newest in a 9:16 player, links the mp4 and .srt, and deletes after asking", async () => {
+    const user = open(`#/drums/${ID}/renders`, [
+      get(PATH, lessonOf()),
+      get(RENDERS_PATH, [resultOf("20261113-110500"), resultOf("20261113-100000")]),
+      send("DELETE", `${RENDERS_PATH}/20261113-100000`, null, 204),
+      get(RENDERS_PATH, [resultOf("20261113-110500")]),
+    ]);
+
+    const player = await screen.findByLabelText("ผล render 20261113-110500");
+    expect(player).toHaveAttribute("src", `${RENDERS_PATH}/20261113-110500.mp4`);
+    expect(player).toHaveClass("aspect-[9/16]");
+    const [newest] = within(screen.getByRole("list", { name: "ผล render ทั้งหมด" })).getAllByRole("listitem");
+    expect(within(newest).getByRole("link", { name: "mp4" })).toHaveAttribute("href", `${RENDERS_PATH}/20261113-110500.mp4`);
+    expect(within(newest).getByRole("link", { name: ".srt" })).toHaveAttribute("href", `${RENDERS_PATH}/20261113-110500.srt`);
+
+    await user.click(screen.getByRole("button", { name: "ลบผล render 20261113-100000" }));
+    await user.click(screen.getByRole("button", { name: "ลบ" }));
+    await waitFor(() => expect(sent(fetchMock, "DELETE", `${RENDERS_PATH}/20261113-100000`)).toEqual([null]));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "ลบผล render 20261113-100000" })).not.toBeInTheDocument());
+  });
+
+  it("with none says it was never rendered, and this lesson's render shows its percent on top", async () => {
+    open(`#/drums/${ID}/renders`, [get(PATH, lessonOf()), get(RENDERS_PATH, []), get(RENDER_PATH, jobOf({ percent: 55 }))]);
+
+    expect(await screen.findByText("ยังไม่เคย render บทเรียนนี้")).toBeInTheDocument();
+    expect(await screen.findByRole("progressbar", { name: "กำลัง render" })).toHaveAttribute("aria-valuenow", "55");
+  });
+
+  it("a render held open says in_use", async () => {
+    const user = open(`#/drums/${ID}/renders`, [
+      get(PATH, lessonOf()),
+      get(RENDERS_PATH, [resultOf("20261113-110500")]),
+      send("DELETE", `${RENDERS_PATH}/20261113-110500`, { code: "in_use", message: "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง" }, 409),
+    ]);
+
+    await user.click(await screen.findByRole("button", { name: "ลบผล render 20261113-110500" }));
+    await user.click(screen.getByRole("button", { name: "ลบ" }));
+    expect(await screen.findByText("ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง")).toBeInTheDocument();
   });
 });

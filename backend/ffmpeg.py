@@ -3,15 +3,16 @@
 streams from `ffmpeg -i`, since there is no ffprobe (docs/library-notes/ffmpeg.md).
 
 spoil_maker's `frames` (Shots) and `compose` (renders), and spoil's `trim` (cut ranges)
-run ffmpeg through these.
+run ffmpeg through these; video_gen's render sends its frames through `run_piped`.
 """
 
 import logging
 import re
 import subprocess
+import sys
 import threading
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import NamedTuple, Protocol
 
@@ -75,12 +76,24 @@ def probe(path: Path, timeout: float | None = None) -> Media:
     return Media(duration_s=seconds_of(found), has_audio=re.search(r"Stream #\S+.*: Audio:", stderr) is not None)
 
 
+def h264_args(platform: str = sys.platform) -> list[str]:
+    """The h264 encoder: videotoolbox on a Mac, libx264 elsewhere (spoil D36)."""
+    return ["-c:v", "h264_videotoolbox"] if platform == "darwin" else ["-c:v", "libx264", "-preset", "veryfast"]
+
+
 def kill_on_cancel(process: subprocess.Popen, cancel: threading.Event, finished: threading.Event) -> None:
     """Run in a thread beside ffmpeg: kills it once `cancel` is set, until `finished` is."""
     while not finished.is_set():
         if cancel.wait(KILL_POLL_SECONDS):
             process.kill()
             return
+
+
+def _failed(returncode: int, stderr: deque[str]) -> FfmpegFailed:
+    """ffmpeg's failure: the last 20 lines of stderr to the log, the last one in the error."""
+    log.error("ffmpeg exited with %s:\n%s", returncode, "\n".join(stderr))
+    last_line = stderr[-1] if stderr else "no output"
+    return FfmpegFailed(f"ffmpeg exited with {returncode}: {last_line}", last_line)
 
 
 class Runner(Protocol):
@@ -117,6 +130,52 @@ def run(command: list[str], cwd: Path, cancel: threading.Event, on_progress: Cal
     if cancel.is_set():
         raise Cancelled()
     if process.returncode != 0:
-        log.error("ffmpeg exited with %s:\n%s", process.returncode, "\n".join(stderr))
-        last_line = stderr[-1] if stderr else "no output"
-        raise FfmpegFailed(f"ffmpeg exited with {process.returncode}: {last_line}", last_line)
+        raise _failed(process.returncode, stderr)
+
+
+class PipedRunner(Protocol):
+    """What runs an ffmpeg command fed through stdin: `run_piped`, or a test's stand-in."""
+
+    def __call__(
+        self, command: list[str], cwd: Path, cancel: threading.Event, frames: Iterable[bytes], on_frame: Callable[[int], None]
+    ) -> None: ...
+
+
+def run_piped(
+    command: list[str], cwd: Path, cancel: threading.Event, frames: Iterable[bytes], on_frame: Callable[[int], None]
+) -> None:
+    """Runs ffmpeg in `cwd`, writing each of `frames` to its stdin and calling `on_frame` with
+    how many went (video-gen D22). `cancel` is checked before every frame: once set, ffmpeg is
+    killed and `Cancelled` raised. A write that breaks while `cancel` is set is `Cancelled` too.
+    Any other broken write means ffmpeg stopped by itself: the frames stop and its exit code
+    decides — not 0 is `FfmpegFailed` with the last line of stderr, which one thread reads meanwhile."""
+    if cancel.is_set():
+        raise Cancelled()
+    stderr: deque[str] = deque(maxlen=STDERR_LINES)
+    process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    reader = threading.Thread(
+        target=lambda: stderr.extend(line.decode(errors="replace").rstrip() for line in process.stderr), daemon=True
+    )
+    reader.start()
+    try:
+        for sent, frame in enumerate(frames, start=1):
+            if cancel.is_set():
+                break
+            process.stdin.write(frame)
+            on_frame(sent)
+        if not cancel.is_set():
+            process.stdin.close()
+    except OSError:  # BrokenPipeError, or a plain OSError on Windows: ffmpeg is gone
+        pass
+    except BaseException:  # a frame that couldn't be drawn: ffmpeg must not wait for more
+        process.kill()
+        raise
+    finally:
+        if cancel.is_set():
+            process.kill()
+        process.wait()
+        reader.join()
+    if cancel.is_set():
+        raise Cancelled()
+    if process.returncode != 0:
+        raise _failed(process.returncode, stderr)

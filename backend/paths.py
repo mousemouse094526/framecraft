@@ -154,6 +154,11 @@ class ProjectPaths:
         return self.drums_dir / "lessons"
 
     @property
+    def drums_render_dir(self) -> Path:
+        """The running Render job's copies, wav and ASS file; removed when it ends (video-gen spec › Data)."""
+        return self.drums_dir / ".render"
+
+    @property
     def toon_dir(self) -> Path:
         """Everything the การ์ตูนเล่า tab keeps (toon spec › ข้อมูล, ADR 0003)."""
         return self.root / "media" / "toon"

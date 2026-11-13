@@ -9,32 +9,12 @@ import soundfile
 from backend import drum_kit
 from backend.paths import ProjectPaths
 from backend.video_gen import mixer, timeline
-from backend.video_gen.lessons import Chapter, Groove, Lesson, Note
+
+from .fakes import drum_chapter as chapter
+from .fakes import drum_lesson as lesson
+from .fakes import drum_note as note
 
 RATE = 44_100
-
-
-def lesson(*notes: Note, bpm: int = 120, bars: int = 1, chapters: list[Chapter] | None = None) -> Lesson:
-    return Lesson(
-        version=1,
-        id="k3v9x0a1b2c4",
-        title="FILL",
-        subtitle="",
-        caption="",
-        bpm=bpm,
-        background="color",
-        groove=Groove(bars=bars, notes=list(notes)),
-        chapters=chapters or [Chapter(label="", text="", focus=[], repeats=1, speed=100)],
-        updated_at="2026-11-13T10:30:00+07:00",
-    )
-
-
-def chapter(repeats: int = 1, speed: int = 100) -> Chapter:
-    return Chapter(label="", text="", focus=[], repeats=repeats, speed=speed)
-
-
-def note(piece: str, step: int, hand: str | None = "R", hit: str = "normal") -> Note:
-    return Note(piece=piece, step=step, hand=hand, hit=hit)
 
 
 def hits_of(played: timeline.Timeline, piece: str) -> list[timeline.Hit]:

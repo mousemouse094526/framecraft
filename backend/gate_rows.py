@@ -74,3 +74,9 @@ def render(project: ProjectPaths, voices_first: bool) -> dict[str, Row]:
 def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:
     """The drum samples, all ฟังจังหวะ needs (video-gen spec › API)."""
     return {drum_kit.CHECK_ID: (drum_kit.LABEL, lambda: drum_kit.check_drum_kit(project))}
+
+
+def drums(project: ProjectPaths) -> dict[str, Row]:
+    """What a drum lesson's Render job needs: the samples, Kanit, ffmpeg and pythainlp (video-gen D11, D22)."""
+    kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
+    return drum_kit_row(project) | kanit | FFMPEG | PYTHAINLP

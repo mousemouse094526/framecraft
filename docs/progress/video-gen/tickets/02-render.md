@@ -12,7 +12,7 @@
 - User stories: 3 (ชิ้นที่ไม่เน้นหรี่, ป้ายท่อน), 4, 5 (ผล render ทุกครั้ง)
 - Legal: 2 (หัวเรื่องและบรรทัดรองแสดงชื่อเพลงและศิลปินบนจอ), 4 (วาดชุดกลองเองด้วยโค้ด)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 
@@ -42,7 +42,7 @@
 - render ซ้อน → `409` `busy` มี `lesson_id` ของงานที่รันอยู่
 - ลบบทเรียนระหว่าง render ของมัน → `409` `lesson_busy`; `PUT` บทเรียนนั้นระหว่าง render → `200` และผลยังมาจากสำเนาตอนเริ่ม
 - ยกเลิกกลางการส่งเฟรม → `cancelled` ไม่มี `.partial` เหลือ
-- `fontsdir` ผิด → `failed` `ffmpeg_failed` มีบรรทัดของ stderr ใน `message`
+- ตัวเลือกของ filter `ass` ผิด (`fontsdir` ที่ไม่มีอยู่ไม่ทำให้ ffmpeg จบ, D34) → `failed` `ffmpeg_failed` มีบรรทัดของ stderr ใน `message`
 - start backend ใหม่ → `.render/` และ `.partial` หาย
 - render บทเรียนเดิมสองครั้ง → `audio.wav` เหมือนกันทุก byte
 - `GET /lessons/{id}/renders` เรียงใหม่สุดก่อน; โหลด `.mp4` และ `.srt` ได้; `DELETE` ผลที่ไฟล์เปิดอยู่ → `409` `in_use`

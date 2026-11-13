@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, OFFLINE_TEXT, postForBlob } from "../../../lib/api";
+import { OFFLINE_TEXT, postForBlob } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
-import type { StatusResponse } from "../../../lib/statusTypes";
 import { useMountedState } from "../../../lib/useMountedState";
 import { lessonPath } from "../lib/lesson";
+import { fixesOf } from "../lib/setupFixes";
 
 export type ListenState =
   | { kind: "idle" }
@@ -56,15 +56,4 @@ export function useListen(id: string, saveFirst: () => Promise<boolean>) {
   }, [id, saveFirst, stop, setIfMounted]);
 
   return { state, listen };
-}
-
-/** The fix command of each named row that has one, from the Status check; none when it can't be read. */
-async function fixesOf(rows: string[]): Promise<string[]> {
-  try {
-    const status = await getJson<StatusResponse>("/api/setup/status");
-    // A `hint` is advice, not a command to copy (setup-status D26).
-    return status.items.filter((item) => rows.includes(item.id) && item.fix && item.fix_kind === "command").map((item) => item.fix as string);
-  } catch {
-    return [];
-  }
 }

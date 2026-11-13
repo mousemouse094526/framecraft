@@ -198,7 +198,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 3. มี Render job ของ tab นี้รันอยู่ → `409` `busy` (มี `lesson_id` ของงานนั้น)
 4. อ่านบทเรียนครั้งเดียว: ไม่พบ → `404` `not_found`; `length_s` > 90 → `422` `too_long` (D16)
 5. `disk.require_free` ด้วย `length_s × 2 MB` → `507` `disk_full`
-6. ตอบ `202` แล้วทำต่อใน thread: copy `lesson.json` และ `background.jpg` เข้า `.render/` (แก้ระหว่าง render ไม่มีผลกับงานนี้, ทางเดียวกับ ADR-0024)
+6. copy `lesson.json` และ `background.jpg` เข้า `.render/` ใต้ lock ของบทเรียน (แก้ระหว่าง render ไม่มีผลกับงานนี้, ทางเดียวกับ ADR-0024) แล้วตอบ `202` และทำต่อใน thread (D33)
 7. `timeline` → `mixer` เขียน `audio.wav`; `captions` เขียน `text.ass`; สร้าง `Scene` (ชั้นนิ่ง) (D18)
 8. `ffmpeg.run_piped`: rawvideo `rgb24` 1080×1920 30 fps จาก stdin + `audio.wav`, filter `ass` (Kanit ผ่าน `fontsdir`), `h264_args`, aac 48 kHz, เขียน `{name}.mp4.partial`; ส่ง `frame_at` ของเฟรม 0 ถึง `ceil(length_s × 30) − 1`; `percent` = เฟรมที่ส่ง / เฟรมทั้งหมด (D21, D22)
 9. `renders.Render.finish` เขียน `.srt` (ป้ายและคำบรรยายตามเวลา) กับ `.json` (`lesson_id`, `title`, `length_s`, `created_at`)
@@ -281,7 +281,7 @@ restart ระหว่างรัน: start ล้าง `.render/` และ 
    - **เสียงตรงภาพ:** บทเรียน snare ตัวเดียวกับ sample ปลอมที่เริ่มด้วยเสียงคลิกชัด → หา sample แรกของเสียงจาก mp4 และเฟรมแรกที่จุดกระทบของ snare เป็นสีแดง (ดึงเฟรมแบบ `backend/tests/test_toon_render_api.py`) → ห่างไม่เกิน 1 เฟรม
    - ไม่มี sample → `503` `not_ready` มี `rows: ["drum_kit"]`
    - render ซ้อน → `409` `busy`; ลบบทเรียนระหว่าง render → `409` `lesson_busy`; ยกเลิกกลางการส่งเฟรม → `cancelled` ไม่มี `.partial` เหลือ
-   - `fontsdir` ผิด (ffmpeg จบตอนเริ่ม) → `failed` `ffmpeg_failed` มีบรรทัดของ stderr
+   - ตัวเลือกของ filter `ass` ผิด (ffmpeg จบตอนเริ่ม; `fontsdir` ที่ไม่มีอยู่ไม่ทำให้ ffmpeg จบ, D34) → `failed` `ffmpeg_failed` มีบรรทัดของ stderr
    - `PUT /background` PNG → `background.jpg` 1080×1920, `background` = `image`; ไฟล์ข้อความ → `415`; เกิน 20 MB → `413`
    - `POST /copy` → id ใหม่ ไม่มีผล render; `DELETE` → folder หาย; `lesson.json` เสีย → ไม่อยู่ในรายการ แต่ `DELETE` ได้
    - `POST /listen` → wav ยาว `length_s`

@@ -22,6 +22,7 @@ from backend.spoil_maker import describe, draft, episodes, render, shots, voices
 from backend.toon import jobs as toon_jobs
 from backend.toon import render as toon_render
 from backend.toon import sounds as toon_sounds
+from backend.video_gen import render as drum_render
 
 log = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ JOB_HOLDERS = (
     JobEntry(lambda: toon_jobs.toon_jobs, toon_jobs.clean_on_start),
     JobEntry(lambda: toon_render.render_jobs, toon_render.clean_on_start),
     JobEntry(lambda: toon_sounds.sound_imports, toon_sounds.clean_on_start),
+    JobEntry(lambda: drum_render.render_jobs, drum_render.clean_on_start),
 )
 
 

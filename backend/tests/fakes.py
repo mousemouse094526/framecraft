@@ -122,6 +122,36 @@ def write_drum_kit(root: Path) -> None:
     project.drum_kit_marker.write_text(json.dumps({"files": pinned}), encoding="utf-8")
 
 
+def drum_lesson(*notes, bpm: int = 120, bars: int = 1, chapters=None, **fields):
+    """A drum lesson as `lesson.json` holds it (video-gen spec › Data): one plain chapter unless given."""
+    from backend.video_gen.lessons import Groove, Lesson
+
+    return Lesson(
+        version=1,
+        id="k3v9x0a1b2c4",
+        title="FILL",
+        subtitle="",
+        caption="",
+        bpm=bpm,
+        background="color",
+        groove=Groove(bars=bars, notes=list(notes)),
+        chapters=chapters or [drum_chapter()],
+        updated_at="2026-11-13T10:30:00+07:00",
+    ).model_copy(update=fields)
+
+
+def drum_chapter(repeats: int = 1, speed: int = 100, **fields):
+    from backend.video_gen.lessons import Chapter
+
+    return Chapter(**({"label": "", "text": "", "focus": [], "repeats": repeats, "speed": speed} | fields))
+
+
+def drum_note(piece: str, step: int, hand: str | None = "R", hit: str = "normal"):
+    from backend.video_gen.lessons import Note
+
+    return Note(piece=piece, step=step, hand=hand, hit=hit)
+
+
 def ok_ffmpeg() -> FfmpegInfo:
     return FfmpegInfo(version="7.1", source="imageio-ffmpeg")
 

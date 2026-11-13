@@ -1,10 +1,12 @@
 from typing import Any
 
 from fastapi import APIRouter, Response
+from fastapi.responses import FileResponse
 
 from backend import paths
-from backend.video_gen import lessons, mixer
+from backend.video_gen import lessons, mixer, render
 from backend.video_gen.lessons import LessonRow, LessonView
+from backend.video_gen.render import DrumRenderJob, RenderResult
 
 router = APIRouter(prefix="/drums")
 
@@ -46,3 +48,43 @@ def listen(lesson_id: str) -> Response:
     """The clip's drum sound, never cached: the lesson may change before the next press (D8)."""
     wav = mixer.listen(paths.project(), lesson_id)
     return Response(wav, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/render", status_code=202)
+def start_render(body: dict[str, Any]) -> DrumRenderJob:
+    return render.render_jobs.start(body)
+
+
+@router.get("/render")
+def get_render() -> DrumRenderJob | None:
+    """The latest job, or null when none ran since the backend started."""
+    return render.render_jobs.current()
+
+
+@router.post("/render/cancel")
+def cancel_render(body: dict[str, Any]) -> DrumRenderJob:
+    return render.render_jobs.cancel()
+
+
+@router.get("/lessons/{lesson_id}/renders")
+def list_renders(lesson_id: str) -> list[RenderResult]:
+    """Newest first."""
+    return render.list_results(paths.project(), lesson_id)
+
+
+@router.get("/lessons/{lesson_id}/renders/{name}.mp4")
+def get_render_video(lesson_id: str, name: str) -> FileResponse:
+    """`FileResponse` answers `Range` with `206`, so the player can seek."""
+    return FileResponse(render.result_file(paths.project(), lesson_id, name, ".mp4"), media_type="video/mp4")
+
+
+@router.get("/lessons/{lesson_id}/renders/{name}.srt")
+def get_render_subtitles(lesson_id: str, name: str) -> FileResponse:
+    path = render.result_file(paths.project(), lesson_id, name, ".srt")
+    return FileResponse(path, media_type="application/x-subrip", filename=f"{name}.srt")
+
+
+@router.delete("/lessons/{lesson_id}/renders/{name}", status_code=204)
+def delete_render(lesson_id: str, name: str) -> Response:
+    render.delete_result(paths.project(), lesson_id, name)
+    return Response(status_code=204)

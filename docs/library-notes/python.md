@@ -50,6 +50,8 @@ Follows [subprocess](https://docs.python.org/3.12/library/subprocess.html).
 - A child that put items on a queue doesn't exit until they are flushed; joining it before consuming them can deadlock — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
 - A daemonic process can't start `multiprocessing` children (a `subprocess` is fine) and is terminated when its parent exits — [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
 
+- Writing to a `subprocess.Popen(stdin=PIPE)` whose process has exited raises `BrokenPipeError` (a subclass of `OSError`; Windows may raise a plain `OSError` with `EINVAL`); closing `stdin` can raise it too, as it flushes. Catch `OSError`, then `wait()` the process and read its exit code — [BrokenPipeError](https://docs.python.org/3.12/library/exceptions.html#BrokenPipeError), [Popen.stdin](https://docs.python.org/3.12/library/subprocess.html#subprocess.Popen.stdin)
+
 ## Sources
 
 - [importlib.metadata](https://docs.python.org/3.12/library/importlib.metadata.html) — `version()`, `PackageNotFoundError` (accessed 2026-10-29)
@@ -61,3 +63,4 @@ Follows [subprocess](https://docs.python.org/3.12/library/subprocess.html).
 - [datetime](https://docs.python.org/3.12/library/datetime.html) — `astimezone`, `isoformat`, `utcnow` (accessed 2026-10-29)
 - [socket](https://docs.python.org/3.12/library/socket.html) — `create_connection`, timeouts (accessed 2026-10-29)
 - [multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html) — spawn, `terminate`, `exitcode`, queues, daemons (accessed 2026-10-29)
+- [subprocess](https://docs.python.org/3.12/library/subprocess.html), [BrokenPipeError](https://docs.python.org/3.12/library/exceptions.html#BrokenPipeError) — writing to a pipe whose reader is gone (accessed 2026-11-13)

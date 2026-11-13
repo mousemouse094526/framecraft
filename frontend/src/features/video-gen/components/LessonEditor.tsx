@@ -5,6 +5,7 @@ import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../compone
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
+import { useDrumRender } from "../hooks/useDrumRender";
 import { useLessonEditor, type Editing } from "../hooks/useLessonEditor";
 import { useListen } from "../hooks/useListen";
 import type { PieceId } from "../lib/kit";
@@ -17,17 +18,20 @@ import {
   noteFor,
   noteIndexOf,
   notesPast,
+  rendersHash,
   sameFields,
   STEPS_PER_BAR,
   type LessonFields,
   type Note,
 } from "../lib/lesson";
+import { isRendering, jobOf } from "../lib/render";
 import { ChapterList } from "./ChapterList";
 import { GrooveGrid } from "./GrooveGrid";
 import { inputClass, Labeled } from "./Labeled";
 import { NoteBox } from "./NoteBox";
+import { RenderProgress } from "./RenderProgress";
 
-/** หน้าแก้บทเรียนกลอง (`#/drums/{id}`) without render and background, which come later. The design is pending, so the app's own parts. */
+/** หน้าแก้บทเรียนกลอง (`#/drums/{id}`) without the background, which comes later. The design is pending, so the app's own parts. */
 export function LessonEditor({ id }: { id: string }) {
   const { state, edit, save } = useLessonEditor(id);
 
@@ -39,7 +43,12 @@ export function LessonEditor({ id }: { id: string }) {
           กลับ
         </a>
         {state.kind === "ready" && (
-          <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">{state.saved.title}</h2>
+          <>
+            <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">{state.saved.title}</h2>
+            <a href={rendersHash(id)} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
+              ผล render
+            </a>
+          </>
         )}
       </div>
       {state.kind === "loading" && <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>}
@@ -67,6 +76,10 @@ function LessonForm({ editing, edit, save }: FormProps) {
   const { form, errors } = editing;
   const id = useId();
   const listen = useListen(editing.id, save);
+  // Only this page moves on to the results, and only for the render it started (D22).
+  const render = useDrumRender((job, startedHere) => {
+    if (startedHere && job.state === "done") window.location.hash = rendersHash(job.lesson_id);
+  });
   /** The selected note's place, `piece:step`: its object changes with every edit. */
   const [selectedAt, setSelectedAt] = useState<string | null>(null);
   const unsaved = !sameFields(form, editing.saved);
@@ -168,6 +181,7 @@ function LessonForm({ editing, edit, save }: FormProps) {
 
       <div className="flex flex-wrap items-start gap-3">
         <ListenControl fields={form} listen={listen} />
+        <RenderControl id={editing.id} fields={form} render={render} save={save} />
         <div className="flex-1" />
         {editing.justSaved && !unsaved && (
           <p role="status" className="self-center text-[13px] leading-[1.5] text-success">
@@ -217,6 +231,57 @@ function ListenControl({ fields, listen }: { fields: LessonFields; listen: Retur
         <div className="flex flex-col gap-2">
           <Alert tone="error">{listen.state.text}</Alert>
           {listen.state.fixes.map((fix) => (
+            <FixCommand key={fix} command={fix} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * render: saves first, then starts the job; its percent and ยกเลิก while it runs; a failed or
+ * cancelled one says so with ลองอีกครั้ง; another lesson's render names that lesson (D14, D22).
+ * Can't be pressed over the cap (D16) or while any render runs.
+ */
+function RenderControl({ id, fields, render, save }: { id: string; fields: LessonFields; render: ReturnType<typeof useDrumRender>; save: () => Promise<boolean> }) {
+  const seconds = lengthOf(fields);
+  const running = isRendering(render.job) ? render.job : null;
+  const own = jobOf(render.job, id);
+  const start = async () => {
+    if (await save()) await render.start(id);
+  };
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <button
+        type="button"
+        disabled={running !== null || !Number.isFinite(seconds) || seconds > MAX_SECONDS}
+        onClick={() => void start()}
+        className={`h-11 w-fit px-4 sm:h-10 ${SECONDARY_BUTTON}`}
+      >
+        render
+      </button>
+      {running && running.lesson_id === id && (
+        <div className="flex w-64 max-w-full items-center gap-3">
+          <RenderProgress percent={running.percent} />
+          <button type="button" onClick={() => void render.cancel()} className={`h-9 px-3 ${GHOST_BUTTON}`}>
+            ยกเลิก
+          </button>
+        </div>
+      )}
+      {running && running.lesson_id !== id && <Alert tone="warning">กำลัง render {running.title} อยู่ รอให้เสร็จก่อน</Alert>}
+      {!running && own && own.state !== "done" && (
+        <div className="flex flex-col gap-2">
+          <Alert tone="error">{own.state === "cancelled" ? "ยกเลิก render แล้ว" : (own.message ?? "render ไม่สำเร็จ")}</Alert>
+          <button type="button" onClick={() => void start()} className={`h-9 w-fit px-3 ${GHOST_BUTTON}`}>
+            ลองอีกครั้ง
+          </button>
+        </div>
+      )}
+      {render.refused && (
+        <div className="flex flex-col gap-2">
+          <Alert tone="error">{render.refused.text}</Alert>
+          {render.refused.fixes.map((fix) => (
             <FixCommand key={fix} command={fix} />
           ))}
         </div>

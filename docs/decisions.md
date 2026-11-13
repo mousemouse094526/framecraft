@@ -398,3 +398,8 @@ question; the full entry is in the feature's decisions.md.
 | ทางเลือกเล็กของ backend บทเรียน: gate ของ listen แถวเดียว, `field` ทุกค่าผิด, ปัด 16-bit ด้วย numpy, ทำซ้ำ copy ภาพพื้นหลัง | [video-gen](features/video-gen/decisions.md) | D28 | — | — | active |
 | ทางเลือกเล็กของหน้าสอนกลองก่อนมีแบบ: dialog แบบ story-kb, confirm ตอนลดห้อง, ฟังจังหวะ `PUT` เมื่อยังไม่บันทึก, `FixCommand` ใช้ร่วม | [video-gen](features/video-gen/decisions.md) | D29 | — | — | active |
 | ตาราง Drum kit คงเดิม: `chik` = ไฮแฮทเท้า (key 44), ทอม 14/15/18 = สูง กลาง ต่ำ (key 47/45/43) | [video-gen](features/video-gen/decisions.md) | D30 | — | [0039](adr/0039-drum-samples-pinned-cc0.md) | active |
+| ภาพที่ขยับ: ตัว L/R บนหัวไม้เป็น ASS ตามตำแหน่งหัวไม้ทีละช่วงเฟรม, วงแหวนกับจุดแดงทับไม้, เท้าเต้น, ตำแหน่งเลนที่ `video_gen.lane` | [video-gen](features/video-gen/decisions.md) | D31 | — | [0038](adr/0038-one-timeline-drives-sound-and-picture.md) | active |
+| ตัวหนังสือใน render: ป้ายว่าง = หัวเรื่อง, สีตัวหนังสือบนกล่อง, ตัดบรรทัด 40/34, `BAR 2 3 4`, srt ต่อช่วง | [video-gen](features/video-gen/decisions.md) | D32 | — | — | active |
+| Render job copy บทเรียนเข้า `.render/` ก่อนตอบ 202 ใต้ lock ของบทเรียน; `lesson_busy` ผ่าน `lessons.lesson_jobs` | [video-gen](features/video-gen/decisions.md) | D33 | — | [0024](adr/0024-llm-jobs-read-story-at-start.md) | active |
+| Render job: `title` ในงาน, cancel ตอบ 200, `-b:v 8M` yuv420p aac 192k, AC `fontsdir` test ด้วยตัวเลือก `ass` ที่ผิด | [video-gen](features/video-gen/decisions.md) | D34 | — | — | active |
+| หน้า render ก่อนมีแบบ: เล่นผลใหม่สุด, ปุ่มกดไม่ได้ระหว่าง render, ลิงก์ผล render | [video-gen](features/video-gen/decisions.md) | D35 | — | — | active |
