@@ -25,13 +25,14 @@ class UploadCheck(BaseModel):
     size: int
 
 
-def require_size(size: object, max_bytes: int, too_large: str) -> int:
+def require_size(size: object, max_bytes: int, too_large: str, too_large_status: int = 400) -> int:
     """The size a page says it will send: a whole number of bytes from 1 to `max_bytes`.
-    Raises `invalid_request`, or 400 `file_too_large` with `too_large`."""
+    Raises `invalid_request`, or `file_too_large` with `too_large` (400 unless the route's
+    spec says otherwise)."""
     if not is_int(size) or size <= 0:
         raise invalid_request()
     if size > max_bytes:
-        raise ApiError(400, "file_too_large", too_large)
+        raise ApiError(too_large_status, "file_too_large", too_large)
     return size
 
 

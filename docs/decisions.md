@@ -76,7 +76,7 @@ question; the full entry is in the feature's decisions.md.
 | ลิงก์คลิปเดียวจากทุกเว็บที่ yt-dlp โหลดได้แบบสาธารณะ ไม่ใช้ cookies; ที่เหลือผู้ใช้โหลดเองแล้วเลือกไฟล์ในเครื่อง | [spoil](features/spoil/decisions.md) | D47 | — | [0029](adr/0029-media-links-dedicated-extractors-only.md) | active |
 | ไฟล์ในเครื่องรับทุกชนิดที่ ffmpeg อ่านได้, copy เข้า Temp clip; mp4 h264/aac ≤ 1080 copy ตรง นอกนั้นแปลง (มี %, ยกเลิกได้) | [spoil](features/spoil/decisions.md) | D48 | — | [0005](adr/0005-ffmpeg-from-imageio.md) | superseded by spoil D49 |
 | ไฟล์ในเครื่องรับแค่ mp4 h264/aac ≤ 1080 copy ตรง ไม่แปลง; ไม่ตรง → error ให้ผู้ใช้แปลงเอง | [spoil](features/spoil/decisions.md) | D49 | — | [0027](adr/0027-temp-clip-one-format-owned-copy.md) | active |
-| เลือกไฟล์/ลากวางในเว็บ ส่ง body ดิบ `application/octet-stream`; ADR-0013 ขยายรับ octet-stream | [spoil](features/spoil/decisions.md) | D50 | — | [0013](adr/0013-post-requires-json.md), [0028](adr/0028-raw-file-upload-per-route.md) | active |
+| เลือกไฟล์/ลากวางในเว็บ ส่ง body ดิบ `application/octet-stream`; ADR-0013 ขยายรับ octet-stream | [spoil](features/spoil/decisions.md) | D50 | video-gen | [0013](adr/0013-post-requires-json.md), [0028](adr/0028-raw-file-upload-per-route.md) | active |
 | คลิปซ้ำชี้แถวเดิม: ลิงก์ = เว็บ+id, ไฟล์ = ชื่อ+ขนาด; id: YouTube 11 ตัวเดิม, `{extractor}-{id}`, `local-{sha1}` ตรง `[A-Za-z0-9_-]{1,64}` | [spoil](features/spoil/decisions.md) | D51 | — | — | active |
 | ทางเลือกเล็ก: กันลิงก์ localhost/private, error `unsupported`/`playlist`/`download_error`, File import เป็น request เดียวส่งไฟล์ดิบ, ทีละงานกับ Download job, แถว "ไฟล์ในเครื่อง" | [spoil](features/spoil/decisions.md) | D52 | — | — | active |
 | ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของเว็บอื่นและไฟล์ในเครื่องแบบ D13 (Accepted risk) | [spoil](features/spoil/decisions.md) | D53 | — | — | active |
@@ -403,3 +403,5 @@ question; the full entry is in the feature's decisions.md.
 | Render job copy บทเรียนเข้า `.render/` ก่อนตอบ 202 ใต้ lock ของบทเรียน; `lesson_busy` ผ่าน `lessons.lesson_jobs` | [video-gen](features/video-gen/decisions.md) | D33 | — | [0024](adr/0024-llm-jobs-read-story-at-start.md) | active |
 | Render job: `title` ในงาน, cancel ตอบ 200, `-b:v 8M` yuv420p aac 192k, AC `fontsdir` test ด้วยตัวเลือก `ass` ที่ผิด | [video-gen](features/video-gen/decisions.md) | D34 | — | — | active |
 | หน้า render ก่อนมีแบบ: เล่นผลใหม่สุด, ปุ่มกดไม่ได้ระหว่าง render, ลิงก์ผล render | [video-gen](features/video-gen/decisions.md) | D35 | — | — | active |
+| ภาพพื้นหลังบทเรียนกลองส่งแบบ ADR-0028: `background/check` ก่อน แล้ว `PUT ?size=` body ดิบ | [video-gen](features/video-gen/decisions.md) | D36 | — | [0028](adr/0028-raw-file-upload-per-route.md) | active |
+| ภาพพื้นหลัง: `GET background.jpg?v=`, `PUT`/`DELETE` ตอบบทเรียน, `413`, `.tmp` ใน `drums/.partial`, JPEG 92, ไม่มีแถบ %, ฟอร์มที่ยังไม่บันทึกอยู่ต่อ | [video-gen](features/video-gen/decisions.md) | D37 | — | — | active |

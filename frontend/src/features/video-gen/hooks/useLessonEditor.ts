@@ -11,6 +11,8 @@ export type Editing = {
   id: string;
   /** The lesson as the backend last answered it: the form is unsaved while it differs. */
   saved: LessonFields;
+  /** The saved lesson's `updated_at`: the background picture's URL changes with it. */
+  updatedAt: string;
   form: LessonFields;
   errors: FieldErrors;
   saving: boolean;
@@ -39,7 +41,18 @@ export function useLessonEditor(id: string) {
       const fields = fieldsOf(lesson);
       form.current = kept ?? fields;
       saved.current = fields;
-      setIfMounted({ kind: "ready", id, saved: fields, form: form.current, errors: {}, saving: false, justSaved: false, failure: null, ...change });
+      setIfMounted({
+        kind: "ready",
+        id,
+        saved: fields,
+        updatedAt: lesson.updated_at,
+        form: form.current,
+        errors: {},
+        saving: false,
+        justSaved: false,
+        failure: null,
+        ...change,
+      });
     },
     [id, setIfMounted],
   );
@@ -114,5 +127,20 @@ export function useLessonEditor(id: string) {
     }
   }, [state.kind, id, unsaved, patch, ready, setIfMounted]);
 
-  return { state, edit, save };
+  /**
+   * Takes the lesson the background routes answered: only `background` changed on the backend,
+   * so the form takes that and keeps whatever else is typed and unsaved. The errors of those
+   * unsaved fields stay too; a `background` one is answered by the new picture.
+   */
+  const applyBackground = useCallback(
+    (lesson: Lesson) => {
+      if (form.current === null) return;
+      const kept = unsaved() ? { ...form.current, background: lesson.background } : null;
+      const errors = state.kind === "ready" ? Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== "background")) : {};
+      ready(lesson, kept, { errors });
+    },
+    [state, unsaved, ready],
+  );
+
+  return { state, edit, save, applyBackground };
 }

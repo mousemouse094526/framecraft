@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import type { StatusResponse } from "../../../lib/statusTypes";
+import { FakeXhr } from "../../../testing/fakeXhr";
 import { findStatusWith } from "../../../testing/statusBox";
 import { get, jsonResponse, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import type { Lesson, LessonRow } from "../lib/lesson";
@@ -14,6 +15,7 @@ const PATH = `${LIST_PATH}/${ID}`;
 const LISTEN_PATH = `${PATH}/listen`;
 const RENDER_PATH = "/api/drums/render";
 const RENDERS_PATH = `${PATH}/renders`;
+const BACKGROUND_PATH = `${PATH}/background`;
 
 const fetchMock = vi.fn<typeof fetch>();
 const confirmMock = vi.fn<(message?: string) => boolean>();
@@ -76,6 +78,8 @@ const status: StatusResponse = {
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal("confirm", confirmMock);
+  vi.stubGlobal("XMLHttpRequest", FakeXhr);
+  FakeXhr.sent = [];
 });
 
 afterEach(() => {
@@ -647,5 +651,83 @@ describe("ผล render", () => {
     await user.click(await screen.findByRole("button", { name: "ลบผล render 20261113-110500" }));
     await user.click(screen.getByRole("button", { name: "ลบ" }));
     expect(await screen.findByText("ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง")).toBeInTheDocument();
+  });
+});
+
+describe("พื้นหลัง", () => {
+  const png = () => new File(["png"], "drums.png", { type: "image/png" });
+  const PICTURED_AT = "2026-11-13T11:30:00+07:00";
+
+  it("says to use only the user's own picture beside the button, with the app's colours until one is picked (e2e)", async () => {
+    await openEditor();
+
+    const section = screen.getByRole("region", { name: "พื้นหลัง" });
+    expect(within(section).getByText("ใช้ภาพของคุณเองหรือภาพที่มีสิทธิ์ใช้ ห้ามใช้ปกอัลบั้ม")).toBeInTheDocument();
+    expect(within(section).getByText("สีของแอป")).toBeInTheDocument();
+    expect(within(section).queryByRole("button", { name: "ลบภาพ" })).not.toBeInTheDocument();
+  });
+
+  it("a picked picture is checked, PUT as the raw body and shown; ลบภาพ goes back to the app's colours (e2e)", async () => {
+    const user = await openEditor([
+      send("POST", `${BACKGROUND_PATH}/check`, { size: 3 }, 200),
+      send("DELETE", BACKGROUND_PATH, lessonOf({ updated_at: "2026-11-13T11:40:00+07:00" }), 200),
+    ]);
+    const section = screen.getByRole("region", { name: "พื้นหลัง" });
+
+    await user.upload(within(section).getByLabelText("ไฟล์ภาพพื้นหลัง"), png());
+
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    expect(sent(fetchMock, "POST", `${BACKGROUND_PATH}/check`)).toEqual([{ size: 3 }]);
+    expect([FakeXhr.sent[0].method, FakeXhr.sent[0].url]).toEqual(["PUT", `${BACKGROUND_PATH}?size=3`]);
+    expect(FakeXhr.sent[0].headers["Content-Type"]).toBe("application/octet-stream");
+    expect(within(section).getByRole("button", { name: "กำลังส่งภาพ…" })).toBeDisabled();
+    await FakeXhr.sent[0].respond(200, lessonOf({ background: "image", updated_at: PICTURED_AT }));
+
+    expect(await within(section).findByRole("img", { name: "ภาพพื้นหลัง" })).toHaveAttribute(
+      "src",
+      `${PATH}/background.jpg?v=${encodeURIComponent(PICTURED_AT)}`,
+    );
+    await user.click(within(section).getByRole("button", { name: "ลบภาพ" }));
+
+    expect(await within(section).findByText("สีของแอป")).toBeInTheDocument();
+    expect(within(section).queryByRole("img", { name: "ภาพพื้นหลัง" })).not.toBeInTheDocument();
+    expect(sent(fetchMock, "DELETE", BACKGROUND_PATH)).toHaveLength(1);
+  });
+
+  it("a picture over 20 MB (413) or not PNG or JPG (415) says why beside the button (e2e)", async () => {
+    const tooLarge = { code: "file_too_large", message: "ไฟล์ภาพใหญ่เกิน 20 MB" };
+    const user = await openEditor([send("POST", `${BACKGROUND_PATH}/check`, tooLarge, 413)]);
+    const section = screen.getByRole("region", { name: "พื้นหลัง" });
+
+    await user.upload(within(section).getByLabelText("ไฟล์ภาพพื้นหลัง"), png());
+
+    expect(await within(section).findByText("ไฟล์ภาพใหญ่เกิน 20 MB")).toBeInTheDocument();
+    expect(FakeXhr.sent).toHaveLength(0);
+
+    serve(fetchMock, [get(PATH, lessonOf()), send("POST", `${BACKGROUND_PATH}/check`, { size: 3 }, 200)], [[RENDER_PATH, null]]);
+    await user.upload(within(section).getByLabelText("ไฟล์ภาพพื้นหลัง"), png());
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    expect(within(section).queryByText("ไฟล์ภาพใหญ่เกิน 20 MB")).not.toBeInTheDocument();
+    await FakeXhr.sent[0].respond(415, { code: "unsupported_image", message: "รับเฉพาะไฟล์ภาพ PNG หรือ JPG" });
+
+    expect(await within(section).findByText("รับเฉพาะไฟล์ภาพ PNG หรือ JPG")).toBeInTheDocument();
+    expect(within(section).getByText("สีของแอป")).toBeInTheDocument();
+  });
+
+  it("a picture taken keeps what was typed and unsaved, and the next save says image", async () => {
+    const user = await openEditor([send("POST", `${BACKGROUND_PATH}/check`, { size: 3 }, 200), savedReply()]);
+    const section = screen.getByRole("region", { name: "พื้นหลัง" });
+    await user.type(screen.getByLabelText("บรรทัดรอง"), "intro fill");
+
+    await user.upload(within(section).getByLabelText("ไฟล์ภาพพื้นหลัง"), png());
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    await FakeXhr.sent[0].respond(200, lessonOf({ background: "image", updated_at: PICTURED_AT }));
+
+    expect(await within(section).findByRole("img", { name: "ภาพพื้นหลัง" })).toBeInTheDocument();
+    expect(screen.getByLabelText("บรรทัดรอง")).toHaveValue("intro fill");
+    await user.click(save());
+
+    await waitFor(() => expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1));
+    expect(sent(fetchMock, "PUT", PATH)[0]).toMatchObject({ subtitle: "intro fill", background: "image" });
   });
 });

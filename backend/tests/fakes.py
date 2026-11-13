@@ -1105,9 +1105,9 @@ def gpu_refusal() -> ApiError | None:
     return None
 
 
-def png(width: int, height: int) -> bytes:
+def png(width: int, height: int, color: str = "gray") -> bytes:
     out = io.BytesIO()
-    Image.new("RGB", (width, height), "gray").save(out, "PNG")
+    Image.new("RGB", (width, height), color).save(out, "PNG")
     return out.getvalue()
 
 
@@ -1116,6 +1116,15 @@ def upload(client, series_id: str, kind: str, item_id: str, body: bytes):
         f"{TOON_SERIES}/{series_id}/{kind}/{item_id}/ref/upload?size={len(body)}",
         content=body,
         headers={"Content-Type": "application/octet-stream"},
+    )
+
+
+def put_background(client, lesson_id: str, body: bytes, size: int | None = None, content_type: str = "application/octet-stream"):
+    """`PUT` a drum lesson's background picture as the page does: the raw body with its `size`."""
+    return client.put(
+        f"/api/drums/lessons/{lesson_id}/background?size={len(body) if size is None else size}",
+        content=body,
+        headers={"Content-Type": content_type},
     )
 
 

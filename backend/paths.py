@@ -154,6 +154,12 @@ class ProjectPaths:
         return self.drums_dir / "lessons"
 
     @property
+    def drums_partial_dir(self) -> Path:
+        """Background pictures not received in full yet: `.tmp` files, so start-up's
+        `files.remove_unfinished(drums_dir)` removes them."""
+        return self.drums_dir / ".partial"
+
+    @property
     def drums_render_dir(self) -> Path:
         """The running Render job's copies, wav and ASS file; removed when it ends (video-gen spec › Data)."""
         return self.drums_dir / ".render"

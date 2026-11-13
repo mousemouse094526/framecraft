@@ -1,11 +1,11 @@
 # Progress: video-gen
 
-**Now:** 01, 02 done; 03 (ภาพพื้นหลัง) ต่อ
+**Now:** ทุก ticket done; รอ feature review
 
 **Next:**
 
 ```
-/warroom-build video-gen 03
+/warroom-build video-gen --review-feature
 ```
 
 ## Tickets
@@ -14,9 +14,28 @@
 |---|---|---|
 | 01 | ติดตั้งเสียงกลอง บทเรียน และฟังจังหวะ | done |
 | 02 | render คลิปสอนกลอง | done |
-| 03 | ภาพพื้นหลังของผู้ใช้ | ready |
+| 03 | ภาพพื้นหลังของผู้ใช้ | done |
 
 ## Log
+
+### 03: ภาพพื้นหลังของผู้ใช้ — done 2026-11-13
+
+**Built:**
+- `video_gen.backgrounds`: `POST /lessons/{id}/background/check` แล้ว `PUT /lessons/{id}/background?size=` body ดิบ (ADR-0028, `uploads.receive`) → `exif_transpose` ครอป 1080×1920 jpg; `DELETE` กลับเป็นสี; `GET background.jpg`; ทุกทางเช็ค `lesson_busy`
+- `lessons.set_background` / `background_file` ใต้ lock เดียว; upload ค้างเป็น `.tmp` ใน `media/drums/.partial/` ที่ start-up ลบ
+- หน้าแก้: ส่วน "พื้นหลัง" กรอบ 9:16 (ภาพ หรือ "สีของแอป"), ปุ่มเลือกภาพ/ลบภาพ, ข้อความ D23 ข้างปุ่ม, error `413`/`415` ข้างปุ่ม; ฟอร์มที่ยังไม่บันทึกอยู่ต่อเมื่อได้ภาพ
+- `sendFile` รับ `method` (`PUT`)
+- แก้ test สุ่มล้ม `test_the_list_puts_the_latest_change_first`: `updated_at` ละเอียดแค่วินาที สองการเขียนในวินาทีเดียวเรียงตาม id สุ่ม → นาฬิกาปลอมใน test (น่าจะเป็น test ที่ล้มสุ่มใน Log ของ 02)
+
+**Decided:** D36 ส่งภาพแบบ ADR-0028 (check ก่อน; auto mode เลือก Recommended), D37 ทางเลือกเล็กของภาพพื้นหลัง; ADR-0028 รายการ route เพิ่ม `PUT /api/drums/lessons/{id}/background`
+
+**For the next ticket:**
+- ticket หมดแล้ว: ต่อด้วย feature review (`--review-feature`)
+- เจ้าของ: render บทเรียนที่มีภาพจริงหนึ่งครั้งแล้วดูว่าเบลอ/มืดอ่านง่ายไหม; หน้าตาส่วนพื้นหลังรอแบบ Figma (Blocked แถว 2)
+- smell ที่ค้าง: `uploads.require_size(too_large_status=)` เป็น flag เพื่อ `413` ของ spec (toon ใช้ `400`); test 413 ฝั่งหน้าเว็บมีแค่จาก `check` (`PUT` ใช้ทางเดียวกัน); test start-up ล้าง `.partial` สร้างชื่อ `.tmp` เอง
+- smell จาก 02 ยังค้าง: `render._run` ซ้ำโครง `ModelJobSlot._run_job`
+
+**Checks:** `uv run pytest` 1243 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 486 passed; build ผ่าน. Review สามแกนจาก `254bed3`: Standards 2 ข้อผิดกติกา + smell 8 (แก้: สี hex ในกรอบสีของแอป → token `drum-clip-top/bottom`, state ของภาพเป็น union, `Reply` แทน status 0, `TOO_LARGE` จาก `MAX_BYTES`, `lessons.require_known_idle` แทนการจับ lock ข้าม module, test ใช้ `drums_partial_dir`/`lessons.BACKGROUND`, `fakes.png(color=)`, fixture ที่ไม่ใช้, SKILL อ้าง D6; ไม่แก้: flag `too_large_status` (spec ขอ 413), ข้อความ 20 MB ซ้ำ toon (คนละ feature)), Spec 0 ผิด + 1 ขาด + test 3 (แก้: spec › Seams 3, test เบลอจริงด้วยภาพแดงครึ่งน้ำเงินครึ่ง ค่า 115 ตรงๆ; ไม่แก้: test เปลี่ยนไฟล์บนดิสก์ระหว่าง render (API ตอบ 409 จึงไม่มีทางอื่นถึง AC), ชื่อ `.tmp` ใน test start-up, 413 ของ `PUT` ฝั่งหน้าเว็บ), Newcomer สรุปตรง What to build + เดา 9 จุด (แก้: `took` → `applyBackground`, docstring "beside the lesson", ที่มาของการล้าง `.partial`, `TOO_LARGE_STATUS`, คอมเมนต์ test นาฬิกาปลอม ค่าสีมุม body 1 byte, `noop` ของ `sendFile`, error ที่คงไว้ใน `applyBackground`)
 
 ### 02: render คลิปสอนกลอง — done 2026-11-13
 

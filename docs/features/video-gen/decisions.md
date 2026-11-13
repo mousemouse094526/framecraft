@@ -449,3 +449,30 @@
 **Why:** ตาม D29 ใช้ component เดิมของแอปจนกว่าแถว design ของหน้าผล render จะปิด.
 
 **From:** build ticket 02 · **Status:** active
+
+## D36: ภาพพื้นหลังส่งแบบ ADR-0028: `check` ก่อน แล้ว `PUT ?size=`
+
+**Chosen:** หน้าเว็บส่ง `POST /lessons/{id}/background/check` `{size}` ก่อน (`413` `file_too_large`, `409` `lesson_busy`, `404`, `507` `disk_full`) แล้ว `PUT /lessons/{id}/background?size={bytes}` body ดิบ; backend รับด้วย `uploads.receive` ตัวเดียวกับ spoil และ toon. `PUT` เช็คซ้ำทุกข้อ และเพิ่ม `400` `size_mismatch`, `415` `unsupported_image`. route นี้เข้ารายการข้อยกเว้นของ ADR-0028.
+
+**Why:** ADR-0028 ให้หน้าเว็บส่ง JSON `check` ก่อน เพราะ server ที่ตอบ error ก่อนรับ body ครบทำให้ browser เห็นแค่ network error; ตาราง API ของ spec มีแค่ `PUT`. ถามเจ้าของแล้ว auto mode เลือกตัวเลือก (Recommended): ทำตาม ADR และแก้ spec › API.
+
+**Rejected:**
+- `PUT` route เดียวตาม spec เดิม อ่าน body จนหมดก่อนตอบ error — ต้องเขียนข้อยกเว้นของ ADR-0028 สำหรับ route นี้
+
+**From:** build ticket 03 · **Status:** active
+
+## D37: ทางเลือกเล็กของภาพพื้นหลัง
+
+**Chosen:**
+- `GET /lessons/{id}/background.jpg` ให้หน้าแก้แสดงภาพ; หน้าเว็บขอด้วย `?v={updated_at}` ภาพใหม่จึงเป็น URL ใหม่ (`404` เมื่อไม่มีภาพ)
+- `PUT` และ `DELETE` ภาพตอบ `200` พร้อมบทเรียน และตั้ง `updated_at` ใหม่; `DELETE` ตอนไม่มีภาพก็ `200`
+- `file_too_large` ตอบ `413` ตาม spec (`uploads.require_size` รับ status; toon ยัง `400`)
+- body ที่รับเขียนเป็น `.tmp` ใน `media/drums/.partial/`; jpg ที่ครอปแล้วเขียนข้างกันแล้ว rename เป็น `background.jpg` ใต้ `lessons.lock`: start-up ลบ `.tmp` ที่ค้าง (`files.remove_unfinished`), บทเรียนที่ถูกลบระหว่างรับเป็น `404`
+- JPEG quality 92: ภาพถูกเบลอและทับดำทุก render
+- หน้าแก้ไม่มีแถบ %: ไฟล์ ≤ 20 MB ในเครื่องเดียวกัน ปุ่มเป็น "กำลังส่งภาพ…" และกดไม่ได้จนตอบ
+- ภาพที่ได้รับเปลี่ยนเฉพาะ `background` ของฟอร์ม สิ่งที่พิมพ์ค้างไว้ยังไม่บันทึกและอยู่ต่อ; error ข้างปุ่ม ไม่ใช่ใต้ฟอร์ม
+- แสดงภาพเป็นกรอบ 9:16 ข้างปุ่ม ไม่มีภาพ = กรอบสีของแอปพร้อมคำ "สีของแอป"
+
+**Why:** ข้อเลือกภายใน feature ที่ไม่เปลี่ยนสิ่งที่ spec สัญญา; หน้าตาใช้ของเดิมของแอปจนกว่าแถว design ของหน้าแก้จะปิด (D29).
+
+**From:** build ticket 03 · **Status:** active

@@ -25,15 +25,16 @@ import {
   type Note,
 } from "../lib/lesson";
 import { isRendering, jobOf } from "../lib/render";
+import { BackgroundPicker } from "./BackgroundPicker";
 import { ChapterList } from "./ChapterList";
 import { GrooveGrid } from "./GrooveGrid";
 import { inputClass, Labeled } from "./Labeled";
 import { NoteBox } from "./NoteBox";
 import { RenderProgress } from "./RenderProgress";
 
-/** หน้าแก้บทเรียนกลอง (`#/drums/{id}`) without the background, which comes later. The design is pending, so the app's own parts. */
+/** หน้าแก้บทเรียนกลอง (`#/drums/{id}`). The design is pending, so the app's own parts. */
 export function LessonEditor({ id }: { id: string }) {
-  const { state, edit, save } = useLessonEditor(id);
+  const { state, edit, save, applyBackground } = useLessonEditor(id);
 
   return (
     <PageLayout tab="drums" wide>
@@ -61,7 +62,7 @@ export function LessonEditor({ id }: { id: string }) {
           </a>
         </div>
       )}
-      {state.kind === "ready" && <LessonForm editing={state} edit={edit} save={save} />}
+      {state.kind === "ready" && <LessonForm editing={state} edit={edit} save={save} applyBackground={applyBackground} />}
     </PageLayout>
   );
 }
@@ -70,9 +71,10 @@ type FormProps = {
   editing: Editing;
   edit: ReturnType<typeof useLessonEditor>["edit"];
   save: () => Promise<boolean>;
+  applyBackground: ReturnType<typeof useLessonEditor>["applyBackground"];
 };
 
-function LessonForm({ editing, edit, save }: FormProps) {
+function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
   const { form, errors } = editing;
   const id = useId();
   const listen = useListen(editing.id, save);
@@ -145,6 +147,8 @@ function LessonForm({ editing, edit, save }: FormProps) {
           <input id={`${id}-caption`} value={form.caption} aria-invalid={errors.caption !== undefined} onChange={(e) => setText("caption")(e.target.value)} className={inputClass(errors.caption !== undefined)} />
         </Labeled>
       </div>
+
+      <BackgroundPicker id={editing.id} background={editing.saved.background} updatedAt={editing.updatedAt} applyBackground={applyBackground} />
 
       <section aria-label="Groove" className="flex flex-col gap-3">
         <h3 className="text-sm leading-[1.5] font-medium text-foreground">Groove</h3>

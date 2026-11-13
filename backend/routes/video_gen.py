@@ -1,10 +1,11 @@
 from typing import Any
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import FileResponse
 
-from backend import paths
-from backend.video_gen import lessons, mixer, render
+from backend import body_types, paths
+from backend.uploads import UploadCheck
+from backend.video_gen import backgrounds, lessons, mixer, render
 from backend.video_gen.lessons import LessonRow, LessonView
 from backend.video_gen.render import DrumRenderJob, RenderResult
 
@@ -41,6 +42,29 @@ def delete_lesson(lesson_id: str) -> Response:
 @router.post("/lessons/{lesson_id}/copy", status_code=201)
 def copy_lesson(lesson_id: str) -> LessonView:
     return lessons.copy(paths.project(), lesson_id)
+
+
+@router.post("/lessons/{lesson_id}/background/check")
+def check_background(lesson_id: str, body: dict[str, Any]) -> UploadCheck:
+    return backgrounds.check_upload(paths.project(), lesson_id, body)
+
+
+@router.put("/lessons/{lesson_id}/background", dependencies=[Depends(body_types.require_octet_stream)])
+async def put_background(lesson_id: str, request: Request, size: str | None = None) -> LessonView:
+    """The body is the picture itself (ADR 0028); `size` stays text so the module answers a
+    bad one with `invalid_request`."""
+    return await backgrounds.receive_upload(paths.project(), lesson_id, size, request.stream())
+
+
+@router.delete("/lessons/{lesson_id}/background")
+def delete_background(lesson_id: str) -> LessonView:
+    return backgrounds.remove(paths.project(), lesson_id)
+
+
+@router.get("/lessons/{lesson_id}/background.jpg")
+def get_background(lesson_id: str) -> FileResponse:
+    """The page asks with `?v={updated_at}`, so a new picture is a new URL."""
+    return FileResponse(lessons.background_file(paths.project(), lesson_id), media_type="image/jpeg")
 
 
 @router.post("/lessons/{lesson_id}/listen")

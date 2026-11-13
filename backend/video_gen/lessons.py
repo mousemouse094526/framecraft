@@ -8,6 +8,7 @@ so `..` never reaches the disk (D22).
 
 import json
 import logging
+import os
 import re
 import secrets
 import shutil
@@ -45,6 +46,7 @@ SPEED_STEP = 5
 COPY_SUFFIX = " (สำเนา)"
 NEW_LABEL = "ลองเล่นเอง"  # the reference clip's "YOUR TURN." may be its page's trademark (D23)
 MAX_LENGTH_S = 90  # listen and render refuse a longer clip; saving doesn't (D16)
+BACKGROUND = "background.jpg"
 LESSON_BUSY = "กำลัง render บทเรียนนี้อยู่"
 
 # The lesson an unfinished job works on, or None: `video_gen.render` adds its own as it is imported,
@@ -125,7 +127,7 @@ def _checked_fields(body: dict[str, Any], lesson_dir: Path | None) -> LessonFiel
     background = body.get("background")
     if background not in ("color", "image"):
         raise _invalid("background", "พื้นหลังต้องเป็นสีหรือภาพ")
-    if background == "image" and (lesson_dir is None or not (lesson_dir / "background.jpg").is_file()):
+    if background == "image" and (lesson_dir is None or not (lesson_dir / BACKGROUND).is_file()):
         raise _invalid("background", "ยังไม่มีภาพพื้นหลัง")
     groove = _checked_groove(body.get("groove"))
     chapters = _checked_chapters(body.get("chapters"))
@@ -288,7 +290,7 @@ def copy(project: ProjectPaths, lesson_id: str) -> LessonView:
         source = _read_known(project, lesson_id)
         title = (source.title + COPY_SUFFIX)[:TITLE_MAX]
         fields = LessonFields.model_validate(source.model_dump() | {"title": title})
-        lesson = _write_new(project, fields, background=_folder(project, lesson_id) / "background.jpg")
+        lesson = _write_new(project, fields, background=_folder(project, lesson_id) / BACKGROUND)
     log.info("copied lesson %s to %s", lesson_id, lesson.id)
     return _view(lesson)
 
@@ -326,10 +328,44 @@ def delete(project: ProjectPaths, lesson_id: str) -> None:
         require_idle(lesson_id)
         for name in renders.complete_names(folder / "renders"):
             renders.Render(folder / "renders", name).delete()
-        (folder / "background.jpg").unlink(missing_ok=True)
+        (folder / BACKGROUND).unlink(missing_ok=True)
         (folder / "lesson.json").unlink()
         shutil.rmtree(folder, ignore_errors=True)
     log.info("deleted lesson %s", lesson_id)
+
+
+def set_background(project: ProjectPaths, lesson_id: str, picture: Path | None) -> LessonView:
+    """`picture` (a finished jpg on the lesson's disk, so this is a rename) becomes `background.jpg` and `background`
+    `"image"`; None removes it and makes it `"color"` (spec › API). Raises `ApiError` 404, or
+    409 `lesson_busy` while a render of it runs, and then `picture` stays for the caller."""
+    with lock:
+        lesson = _read_known(project, lesson_id)
+        require_idle(lesson_id)
+        target = _folder(project, lesson_id) / BACKGROUND
+        if picture is None:
+            target.unlink(missing_ok=True)
+        else:
+            os.replace(picture, target)
+        lesson = lesson.model_copy(update={"background": "color" if picture is None else "image", "updated_at": now_iso()})
+        _write(project, lesson)
+    return _view(lesson)
+
+
+def require_known_idle(project: ProjectPaths, lesson_id: str) -> None:
+    """Raises `ApiError` 404 for no lesson, or 409 `lesson_busy` while a job works on it."""
+    with lock:
+        _read_known(project, lesson_id)
+        require_idle(lesson_id)
+
+
+def background_file(project: ProjectPaths, lesson_id: str) -> Path:
+    """The lesson's `background.jpg`. Raises `ApiError` 404 `not_found` for no lesson or no picture."""
+    with lock:
+        _read_known(project, lesson_id)
+        path = _folder(project, lesson_id) / BACKGROUND
+        if not path.is_file():
+            raise ApiError(404, "not_found", "บทเรียนนี้ไม่มีภาพพื้นหลัง")
+    return path
 
 
 def require_idle(lesson_id: str) -> None:
@@ -381,7 +417,7 @@ def _write_new(project: ProjectPaths, fields: LessonFields, background: Path | N
         except FileExistsError:
             continue
     if background is not None and background.is_file():
-        shutil.copyfile(background, _folder(project, lesson_id) / "background.jpg")
+        shutil.copyfile(background, _folder(project, lesson_id) / BACKGROUND)
     lesson = Lesson(version=VERSION, id=lesson_id, updated_at=now_iso(), **fields.model_dump())
     _write(project, lesson)
     return lesson

@@ -1,5 +1,6 @@
 """Drum lessons and ฟังจังหวะ under /api/drums (video-gen seam 1 › new lesson, too long,
-D20 rules, id in the path, copy and delete, a broken `lesson.json`, listen, `not_ready`)."""
+D20 rules, id in the path, copy and delete, a broken `lesson.json`, the background picture,
+listen, `not_ready`)."""
 
 import io
 import json
@@ -9,10 +10,14 @@ import numpy as np
 import pytest
 import soundfile
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from backend import paths
 from backend.app import app
 from backend.paths import ProjectPaths
+from backend.video_gen import backgrounds, lessons
+
+from .fakes import png, put_background, restart
 
 LESSONS = "/api/drums/lessons"
 
@@ -100,7 +105,11 @@ def test_the_list_has_the_new_lesson_with_its_length_and_no_renders(client):
     ]
 
 
-def test_the_list_puts_the_latest_change_first(client):
+def test_the_list_puts_the_latest_change_first(client, monkeypatch):
+    # `updated_at` counts whole seconds: three writes in one second tied, and the list fell back
+    # to the random ids, so this failed now and then. A clock that steps one each call keeps them apart.
+    times = iter(f"2026-11-13T10:00:{second:02d}+07:00" for second in range(60))
+    monkeypatch.setattr(lessons, "now_iso", lambda: next(times))
     first = new_lesson(client, "หนึ่ง")
     second = new_lesson(client, "สอง")
     assert put(client, first, title="หนึ่ง แก้แล้ว").status_code == 200
@@ -360,6 +369,168 @@ def test_a_body_that_is_not_json_is_refused(client):
     response = client.post(LESSONS, content=b"title=x", headers={"content-type": "application/x-www-form-urlencoded"})
 
     assert response.status_code == 415
+
+
+# --- The background picture ---
+
+
+def check_picture(client, lesson_id: str, size: int):
+    return client.post(f"{LESSONS}/{lesson_id}/background/check", json={"size": size})
+
+
+def turned_jpeg(image: Image.Image) -> bytes:
+    """`image` as a JPEG whose EXIF says "turn 90° clockwise to show", as a phone writes a portrait photo."""
+    exif = Image.Exif()
+    exif[0x0112] = 6  # Orientation
+    out = io.BytesIO()
+    image.save(out, "JPEG", exif=exif)
+    return out.getvalue()
+
+
+def background_of(project: ProjectPaths, lesson_id: str):
+    return project.lessons_dir / lesson_id / lessons.BACKGROUND
+
+
+def test_a_png_becomes_a_1080x1920_jpg_and_the_lesson_s_background_an_image(client, project):
+    lesson = new_lesson(client)
+
+    response = put_background(client, lesson["id"], png(800, 600))
+
+    assert response.status_code == 200
+    assert response.json()["background"] == "image"
+    assert response.json()["updated_at"] >= lesson["updated_at"]
+    with Image.open(background_of(project, lesson["id"])) as stored:
+        assert (stored.format, stored.size) == ("JPEG", (1080, 1920))
+    assert json.loads(lesson_file(project, lesson["id"]).read_text(encoding="utf-8"))["background"] == "image"
+    served = client.get(f"{LESSONS}/{lesson['id']}/background.jpg")
+    assert (served.status_code, served.headers["content-type"]) == (200, "image/jpeg")
+    assert list((project.drums_partial_dir).iterdir()) == []
+
+
+def test_a_photo_is_turned_the_way_its_exif_says_before_the_crop(client, project):
+    lesson = new_lesson(client)
+    # Stored 2000×1000 with a white band along its top, shown 1000×2000 with the band down the
+    # right edge. Cropped unturned, the band would run across the top instead.
+    stored = Image.new("RGB", (2000, 1000), "gray")
+    stored.paste("white", (0, 0, 2000, 120))
+
+    assert put_background(client, lesson["id"], turned_jpeg(stored)).status_code == 200
+
+    with Image.open(background_of(project, lesson["id"])) as picture:
+        right, left = picture.getpixel((1070, 960)), picture.getpixel((10, 960))
+    assert sum(right) > 600 and sum(left) < 600
+
+
+def test_a_text_file_is_unsupported_image_and_nothing_changes(client, project):
+    lesson = new_lesson(client)
+
+    response = put_background(client, lesson["id"], b"just some text\n")
+
+    assert (response.status_code, response.json()["code"]) == (415, "unsupported_image")
+    assert not background_of(project, lesson["id"]).exists()
+    assert client.get(f"{LESSONS}/{lesson['id']}").json()["background"] == "color"
+    assert list((project.drums_partial_dir).iterdir()) == []
+
+
+def test_a_picture_over_20_mb_is_file_too_large_at_the_check_and_at_the_put(client):
+    lesson = new_lesson(client)
+    over = backgrounds.MAX_BYTES + 1
+
+    checked = check_picture(client, lesson["id"], over)
+    # A one-byte body that says it is over: the size is refused before any body is read.
+    sent = put_background(client, lesson["id"], b"x", size=over)
+
+    assert (checked.status_code, checked.json()["code"]) == (413, "file_too_large")
+    assert (sent.status_code, sent.json()["code"]) == (413, "file_too_large")
+    assert check_picture(client, lesson["id"], 1000).json() == {"size": 1000}
+
+
+def test_a_body_that_is_not_octet_stream_is_refused_as_adr_0028_says(client):
+    lesson = new_lesson(client)
+
+    multipart = client.put(f"{LESSONS}/{lesson['id']}/background?size=3", files={"file": ("a.png", b"png")})
+    as_json = put_background(client, lesson["id"], b'{"a": 1}', content_type="application/json")
+
+    assert (multipart.status_code, multipart.json()["code"]) == (415, "unsupported_media_type")
+    assert (as_json.status_code, as_json.json()["code"]) == (415, "unsupported_media_type")
+
+
+def test_a_body_longer_than_its_size_is_size_mismatch(client, project):
+    lesson = new_lesson(client)
+    body = png(64, 64)
+
+    response = put_background(client, lesson["id"], body, size=len(body) - 1)
+
+    assert (response.status_code, response.json()["code"]) == (400, "size_mismatch")
+    assert not background_of(project, lesson["id"]).exists()
+
+
+def test_deleting_the_picture_goes_back_to_the_app_s_colours(client, project):
+    lesson = new_lesson(client)
+    put_background(client, lesson["id"], png(64, 64))
+
+    response = client.delete(f"{LESSONS}/{lesson['id']}/background")
+
+    assert response.status_code == 200
+    assert response.json()["background"] == "color"
+    assert not background_of(project, lesson["id"]).exists()
+    assert client.get(f"{LESSONS}/{lesson['id']}/background.jpg").status_code == 404
+    assert client.delete(f"{LESSONS}/{lesson['id']}/background").status_code == 200  # nothing left to remove
+
+
+def test_a_put_of_image_after_the_picture_went_is_invalid_with_its_field(client):
+    lesson = new_lesson(client)
+    put_background(client, lesson["id"], png(64, 64))
+    client.delete(f"{LESSONS}/{lesson['id']}/background")
+
+    response = put(client, lesson, background="image")
+
+    assert (response.status_code, response.json()["code"], response.json()["field"]) == (400, "invalid_request", "background")
+
+
+def test_a_put_keeps_the_picture_while_it_says_image(client, project):
+    lesson = put_background(client, new_lesson(client)["id"], png(64, 64)).json()
+
+    response = put(client, lesson, title="NEW", background="image")
+
+    assert response.status_code == 200
+    assert background_of(project, lesson["id"]).is_file()
+
+
+def test_a_copy_of_a_lesson_with_a_picture_has_the_picture_too(client, project):
+    lesson = new_lesson(client)
+    put_background(client, lesson["id"], png(64, 64))
+
+    copy = client.post(f"{LESSONS}/{lesson['id']}/copy", json={}).json()
+
+    assert copy["background"] == "image"
+    assert background_of(project, copy["id"]).read_bytes() == background_of(project, lesson["id"]).read_bytes()
+
+
+@pytest.mark.parametrize(
+    "send",
+    [
+        lambda client, lesson_id: put_background(client, lesson_id, png(64, 64)),
+        lambda client, lesson_id: check_picture(client, lesson_id, 1000),
+        lambda client, lesson_id: client.delete(f"{LESSONS}/{lesson_id}/background"),
+        lambda client, lesson_id: client.get(f"{LESSONS}/{lesson_id}/background.jpg"),
+    ],
+    ids=["put", "check", "delete", "get"],
+)
+def test_every_picture_route_of_a_lesson_that_isn_t_there_is_not_found(client, send):
+    assert send(client, "abcdefabcdef").status_code == 404
+    assert send(client, "..").status_code == 404
+
+
+def test_a_start_removes_an_upload_never_received_in_full(client, project):
+    lesson = new_lesson(client)
+    leftover = project.drums_partial_dir / f"{lesson['id']}.0a1b2c3d.tmp"
+    leftover.parent.mkdir(parents=True)
+    leftover.write_bytes(b"half a picture")
+
+    restart(client)
+
+    assert not leftover.exists()
 
 
 # --- ฟังจังหวะ ---

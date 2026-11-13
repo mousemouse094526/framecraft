@@ -156,7 +156,8 @@ backend/
 │                    lane (where the note lanes put a time), frames (`Scene` drawn once,
 │                    `frame_at` per frame, Pillow imported inside), captions (the ASS file
 │                    and `.srt`), render (the Render job in its own `JobSlot`, no GPU;
-│                    registers itself in `lessons.lesson_jobs` for `lesson_busy`)
+│                    registers itself in `lessons.lesson_jobs` for `lesson_busy`),
+│                    backgrounds (a lesson's picture, D6: check, raw `PUT`, crop; D36)
 ├── speaking.py   ← `Speaker`, which speaks texts in a Saved voice in an
 │                    OmniVoice child for the job slot that holds it (it is
 │                    given the slot and calls its `track` and `reply`, never
@@ -175,7 +176,8 @@ backend/
 │                    spoil_maker's, toon's and video_gen's render keep their folders and call
 │                    it; the first two gate on `gate_rows.render`, video_gen's on `gate_rows.drums`
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
-│                    File import and toon's reference uploads share it
+│                    File import, toon's reference uploads and video_gen's
+│                    backgrounds share it
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK

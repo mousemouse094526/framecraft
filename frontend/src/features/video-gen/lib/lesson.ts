@@ -25,6 +25,9 @@ export type LessonRow = { id: string; title: string; length_s: number; renders: 
 
 export const LESSONS_PATH = "/api/drums/lessons";
 export const lessonPath = (id: string) => `${LESSONS_PATH}/${id}`;
+export const backgroundPath = (id: string) => `${lessonPath(id)}/background`;
+/** The picture's URL changes with every new one: `updated_at` is set by each upload. */
+export const backgroundUrl = (id: string, updatedAt: string) => `${lessonPath(id)}/background.jpg?v=${encodeURIComponent(updatedAt)}`;
 export const DRUMS_HASH = "#/drums";
 export const lessonHash = (id: string) => `${DRUMS_HASH}/${id}`;
 export const rendersHash = (id: string) => `${lessonHash(id)}/renders`;

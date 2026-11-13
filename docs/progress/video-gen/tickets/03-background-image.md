@@ -12,7 +12,7 @@
 - User stories: 6
 - Legal: 3, 4 (ไม่มีช่องใส่ภาพอื่นนอกจากพื้นหลัง)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

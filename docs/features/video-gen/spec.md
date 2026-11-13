@@ -229,8 +229,10 @@ restart ระหว่างรัน: start ล้าง `.render/` และ 
 | `GET` | `/lessons/{id}` | บทเรียนเต็ม + `length_s` | `404` `not_found` |
 | `PUT` | `/lessons/{id}` | ทับทั้งบทเรียน (ยกเว้น `id`, `version`, `updated_at`); ยาวเกินบันทึกได้ (D16) | `400` `invalid_request` (มี `field`), `404` |
 | `DELETE` | `/lessons/{id}` | `204` ลบผล render ทีละอัน แล้ว `background.jpg` แล้ว `lesson.json` สุดท้าย แล้ว folder; ลบได้แม้ `lesson.json` อ่านไม่ได้ (D22) | `409` `lesson_busy`, `409` `in_use` (ไฟล์ที่ลบแล้วไม่กลับ), `404` |
-| `PUT` | `/lessons/{id}/background` | body ดิบ PNG/JPG ≤ 20 MB → `exif_transpose` แล้วครอป 1080×1920 (`ImageOps.fit`) เก็บ jpg, ตั้ง `background` = `image` | `413` `file_too_large`, `415` `unsupported_image`, `409` `lesson_busy` |
-| `DELETE` | `/lessons/{id}/background` | ลบภาพ ตั้ง `background` = `color` | `409` `lesson_busy` |
+| `POST` | `/lessons/{id}/background/check` | `{size}` → `{size}` ก่อนส่งไฟล์ (ADR-0028, D36) | `413` `file_too_large`, `409` `lesson_busy`, `507` `disk_full`, `400` `invalid_request`, `404` |
+| `PUT` | `/lessons/{id}/background?size={bytes}` | body ดิบ PNG/JPG ≤ 20 MB → `exif_transpose` แล้วครอป 1080×1920 (`ImageOps.fit`) เก็บ jpg, ตั้ง `background` = `image`, ตอบบทเรียน (D37) | `413` `file_too_large`, `415` `unsupported_image`, `400` `size_mismatch`, `409` `lesson_busy`, `404` |
+| `DELETE` | `/lessons/{id}/background` | ลบภาพ ตั้ง `background` = `color`, ตอบบทเรียน (D37) | `409` `lesson_busy`, `404` |
+| `GET` | `/lessons/{id}/background.jpg` | ภาพที่ครอปแล้ว; หน้าเว็บขอด้วย `?v={updated_at}` (D37) | `404` `not_found` |
 | `POST` | `/lessons/{id}/listen` | `{}` → `audio/wav` ยาว `length_s` `Cache-Control: no-store` (D8, D21) | `503` `not_ready` (`drum_kit`), `422` `too_long`, `404` |
 | `POST` | `/render` | `{lesson_id}` → `202` งาน | ตาม Render job |
 | `GET` | `/render` | งานล่าสุด: `state`, `lesson_id`, `percent`, `result`, `error`, `message` หรือ `null` | — |
@@ -282,7 +284,7 @@ restart ระหว่างรัน: start ล้าง `.render/` และ 
    - ไม่มี sample → `503` `not_ready` มี `rows: ["drum_kit"]`
    - render ซ้อน → `409` `busy`; ลบบทเรียนระหว่าง render → `409` `lesson_busy`; ยกเลิกกลางการส่งเฟรม → `cancelled` ไม่มี `.partial` เหลือ
    - ตัวเลือกของ filter `ass` ผิด (ffmpeg จบตอนเริ่ม; `fontsdir` ที่ไม่มีอยู่ไม่ทำให้ ffmpeg จบ, D34) → `failed` `ffmpeg_failed` มีบรรทัดของ stderr
-   - `PUT /background` PNG → `background.jpg` 1080×1920, `background` = `image`; ไฟล์ข้อความ → `415`; เกิน 20 MB → `413`
+   - `PUT /background` PNG → `background.jpg` 1080×1920, `background` = `image`; ไฟล์ข้อความ → `415`; เกิน 20 MB → `413` ทั้งที่ `check` และ `PUT`
    - `POST /copy` → id ใหม่ ไม่มีผล render; `DELETE` → folder หาย; `lesson.json` เสีย → ไม่อยู่ในรายการ แต่ `DELETE` ได้
    - `POST /listen` → wav ยาว `length_s`
 2. **ตารางเวลาและเฟรม** `timeline.build(lesson)`, `frames.frame_at(scene, t)`
@@ -300,6 +302,7 @@ restart ระหว่างรัน: start ล้าง `.render/` และ 
    - ออกจากหน้าแก้ก่อนบันทึก → ถามยืนยัน
    - render → แถบ % → `done` พาไป `#/drums/{id}/renders`; เปิด `#/drums` ระหว่างงาน → แถวมีป้าย render
    - ทำซ้ำ และลบพร้อมยืนยันในรายการ → `POST /copy`, `DELETE`
+   - เลือกภาพ → `background/check` แล้ว `PUT` body ดิบ แล้วเห็นภาพ; ลบภาพ → กลับเป็นสีของแอป; ข้อความสิทธิ์ภาพข้างปุ่ม; `413`/`415` → error ข้างปุ่ม (D36, D37)
 
 ## Testing decisions
 

@@ -1,7 +1,8 @@
 """The Render job of the สอนกลอง tab under /api/drums/render and its results, with real ffmpeg
 and the fake samples (video-gen seam 1 › render to `done`, sound on the picture, `too_long`,
-`busy`, `lesson_busy`, cancel, `ffmpeg_failed`, the results)."""
+`busy`, `lesson_busy`, cancel, `ffmpeg_failed`, the results, a picture background)."""
 
+import io
 import subprocess
 import threading
 from pathlib import Path
@@ -10,14 +11,14 @@ import imageio_ffmpeg
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
 from backend import disk, ffmpeg, paths
 from backend.app import app
 from backend.paths import ProjectPaths
-from backend.video_gen import captions, frames, kit, render
+from backend.video_gen import captions, frames, kit, lessons, render
 
-from .fakes import FINISHED, poll_until, restart
+from .fakes import FINISHED, png, poll_until, put_background, restart
 
 LESSONS = "/api/drums/lessons"
 RENDER = "/api/drums/render"
@@ -130,6 +131,59 @@ def test_the_snare_s_sound_starts_within_a_frame_of_its_red_ring(client, project
     pixels = ffmpeg_out("-i", str(mp4), "-vf", f"crop=2:2:{x}:{y}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
     red = [n for n in range(len(pixels) // 12) if pixels[12 * n] > 180 and pixels[12 * n + 1] < 110 and pixels[12 * n + 2] < 110]
     assert abs(red[0] / frames.FPS - sound_at) <= 1 / frames.FPS
+
+
+def corner_of_first_frame(mp4: Path) -> tuple[int, int, int]:
+    """The top-left pixel of frame 0, from a 2×2 crop (yuv420p can't crop to one pixel)."""
+    pixels = ffmpeg_out("-i", str(mp4), "-vf", "crop=2:2:0:0", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
+    return pixels[0], pixels[1], pixels[2]
+
+
+def test_a_lesson_with_a_picture_renders_it_blurred_under_55_percent_black(client, project):
+    plain = short_lesson(client)
+    pictured = short_lesson(client)
+    # Red left, blue right: blurred, the two run into each other along the middle.
+    halves = Image.new("RGB", (frames.WIDTH, frames.HEIGHT), "#0000FF")
+    halves.paste("#FF0000", (0, 0, frames.WIDTH // 2, frames.HEIGHT))
+    out = io.BytesIO()
+    halves.save(out, "PNG")
+    assert put_background(client, pictured["id"], out.getvalue()).status_code == 200
+
+    plain_job, pictured_job = rendered(client, plain["id"]), rendered(client, pictured["id"])
+
+    colors = corner_of_first_frame(renders_dir(project, plain["id"]) / f"{plain_job['result']}.mp4")
+    mp4 = renders_dir(project, pictured["id"]) / f"{pictured_job['result']}.mp4"
+    corner = corner_of_first_frame(mp4)
+    assert corner != colors
+    # Pure red under 55 % black is (115, 0, 0); h264 moves a few steps either way.
+    assert abs(corner[0] - 115) <= 8 and max(corner[1], corner[2]) <= 8
+    # On the seam (left of the kit's middle, in the background only) both colours show.
+    middle = ffmpeg_out("-i", str(mp4), "-vf", f"crop=2:2:{frames.WIDTH // 2}:{frames.HEIGHT - 40}", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
+    assert middle[0] > 20 and middle[2] > 20
+
+
+def test_a_render_keeps_the_picture_it_started_with_and_the_picture_can_t_change_meanwhile(client, project, piped):
+    lesson = short_lesson(client)
+    put_background(client, lesson["id"], png(540, 960, "#FF0000"))
+    piped.pause_at = 10
+    assert start(client, lesson["id"]).status_code == 202
+    assert piped.reached.wait(10)
+
+    replaced = put_background(client, lesson["id"], png(540, 960, "#00FF00"))
+    removed = client.delete(f"{LESSONS}/{lesson['id']}/background")
+    checked = client.post(f"{LESSONS}/{lesson['id']}/background/check", json={"size": 1000})
+    # The API can't change it meanwhile (409 above), so the file itself changes: this render
+    # still has its copy in `.render/` (spec › Render job step 6).
+    green = io.BytesIO()
+    Image.new("RGB", (frames.WIDTH, frames.HEIGHT), "#00FF00").save(green, "JPEG")
+    (project.lessons_dir / lesson["id"] / lessons.BACKGROUND).write_bytes(green.getvalue())
+    piped.released.set()
+    job = poll_until(client, RENDER, lambda job: job["state"] in FINISHED, timeout_s=60)
+
+    for refused in (replaced, removed, checked):
+        assert (refused.status_code, refused.json()["code"]) == (409, "lesson_busy")
+    corner = corner_of_first_frame(renders_dir(project, lesson["id"]) / f"{job['result']}.mp4")
+    assert corner[0] > 80 and corner[1] < 30  # the red's (115, 0, 0), not the green's (0, 115, 0)
 
 
 def test_the_same_lesson_rendered_twice_mixes_the_same_audio_wav(client, piped):
