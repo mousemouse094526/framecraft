@@ -1,16 +1,29 @@
 import { useEffect, useState } from "react";
 
-// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9, sound-library D2).
-export const TABS = [
-  { id: "setup", label: "ติดตั้ง", hash: "#/setup" },
-  { id: "clips", label: "คลิป", hash: "#/clips" },
-  { id: "stories", label: "คลังความรู้", hash: "#/stories" },
-  { id: "sounds", label: "คลังเสียง", hash: "#/sounds" },
-  { id: "spoil", label: "สปอย", hash: "#/spoil" },
-  { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon" },
+/** The tab groups in order with their names: the narrow screen's menu shows them as headings,
+ * the tab bar only as `aria-label` (sound-library D3). */
+export const TAB_GROUPS = [
+  { id: "prep", label: "เตรียมของ" },
+  { id: "make", label: "ทำคลิป" },
 ] as const;
 
+type TabGroupId = (typeof TAB_GROUPS)[number]["id"];
+
+// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9,
+// sound-library D2), with the group each sits in; ติดตั้ง is in none (sound-library D3). The bar
+// and the menu draw the tabs in no group first, then each group, so those stay at the top.
+export const TABS = [
+  { id: "setup", label: "ติดตั้ง", hash: "#/setup", group: null },
+  { id: "clips", label: "คลิป", hash: "#/clips", group: "prep" },
+  { id: "stories", label: "คลังความรู้", hash: "#/stories", group: "prep" },
+  { id: "sounds", label: "คลังเสียง", hash: "#/sounds", group: "prep" },
+  { id: "spoil", label: "สปอย", hash: "#/spoil", group: "make" },
+  { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon", group: "make" },
+] as const satisfies readonly { id: string; label: string; hash: string; group: TabGroupId | null }[];
+
 export type TabId = (typeof TABS)[number]["id"];
+
+export const tabLabel = (id: TabId) => TABS.find((tab) => tab.id === id)?.label;
 
 /**
  * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/sounds?…` คลังเสียง

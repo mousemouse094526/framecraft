@@ -25,7 +25,8 @@ frontend/src/
 │   ├── hooks/        ← data fetching and state (calls lib/api)
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)
 ├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
-│                        tab bar, action; `wide` = 1120px from lg for two
+│                        tab bar in groups from `sm`, one menu button below it,
+│                        sound-library D3; action; `wide` = 1120px from lg for two
 │                        columns), OfflinePanel, RefreshButton, ProgressBar,
 │                        Alert (the Figma toned box, optional title), ModalDialog (overlay, Esc,
 │                        focus kept inside), buttonStyles, NoticeLine (a `Notice` as an Alert),
@@ -39,8 +40,10 @@ frontend/src/
     │                   its %, no timeout, spoil D58)
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
     ├── useHash.ts    ← the URL hash (`useHash`, a moved page's old hash put back as its new one),
-    │                   which top tab it opens (`tabOf`), and
+    │                   which top tab it opens (`tabOf`), the tabs and their groups (`TABS`, `TAB_GROUPS`), and
     │                   `useLeaveGuard` (asks "ออกโดยไม่บันทึก?" before the hash moves, story-kb D18)
+    ├── useDismiss.ts ← closes a disclosure's panel on `Esc` (focus back on its button) or a press
+    │                   outside: the คลังเสียง info box and the narrow tab menu (sound-library D16)
     ├── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
     ├── useReadyState.ts ← a hook's state union with `update`, which changes only a `ready` state (toon D65)
     ├── edit.ts       ← `sendEdit` (one request, its answer as ok, refused with a `Notice`) and `stopJob`

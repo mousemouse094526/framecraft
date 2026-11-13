@@ -1,11 +1,11 @@
 # Progress: sound-library
 
-**Now:** 01 สร้างครบตามแบบเดิม เหลือข้อ "หน้าตาตรงแบบ" ที่รอ design (Blocked #2); ต่อ 02 ด้วยกติกาเดียวกัน
+**Now:** 01 และ 02 สร้างครบ เหลือข้อ "หน้าตาตรงแบบ" ที่รอ design (Blocked #2, #1); ต่อ 03 ด้วยกติกาเดียวกัน
 
 **Next:**
 
 ```
-/warroom-build sound-library 02
+/warroom-build sound-library 03
 ```
 
 ## Tickets
@@ -13,10 +13,28 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | คลังเสียงกลางที่ tab คลังเสียง | in-progress |
-| 02 | แถบนำทางแบบกลุ่มและเมนูจอแคบ | ready |
+| 02 | แถบนำทางแบบกลุ่มและเมนูจอแคบ | in-progress |
 | 03 | เสียงพื้นในคลิปสปอย | ready |
 
 ## Log
+
+### Ticket 02: แถบนำทางแบบกลุ่มและเมนูจอแคบ — in-progress (เหลือ design) 2026-11-13
+
+**Built:**
+- `lib/useHash.ts`: `TABS` มี `group` (`null` ติดตั้ง, `prep`, `make`; type ผูกกับ id ของ `TAB_GROUPS`), `TAB_GROUPS` ชื่อ "เตรียมของ" "ทำคลิป", `tabLabel`
+- `PageLayout`: ตั้งแต่ `sm` (640px) `TabBar` เป็นแถบเดิมที่มี `role="group"` `aria-label` ชื่อกลุ่มและเส้นคั่นหน้าแต่ละกลุ่ม ไม่มีข้อความหัวกลุ่ม; ต่ำกว่านั้น `TabMenu`: ปุ่ม "เมนู tab: {หน้า}" ไอคอน `menu.svg` + ชื่อหน้า, เปิด `nav` "เมนู tab" ติดตั้งบนสุดแล้วหัวกลุ่มกับ tab ของมัน; ปิดเมื่อเลือกรายการ (รวม tab ที่เปิดอยู่), กดปุ่มซ้ำ, `Esc` (focus กลับที่ปุ่ม), คลิกนอก; `TabLink` ใช้ร่วมสองแบบ
+- `lib/useDismiss.ts` (ใหม่): `Esc` และคลิกนอกของ disclosure; `HowTo` ของหน้าคลังเสียงย้ายมาใช้ (ได้ focus กลับที่ปุ่มตอน `Esc` ด้วย)
+- conventions `vite-react-web` (PageLayout, `TABS`/`TAB_GROUPS`, `useDismiss`); library note `web-platform` (disclosure, focus หลัง Esc, label in name)
+
+**Decided:**
+- D16 — ปุ่มเมนูเป็น disclosure ไม่ใช่ `role="menu"`, ชื่อ "เมนู tab: {หน้า}", ปิดเมื่อเลือกรายการใดก็ได้, ปุ่มอยู่แถวใต้ wordmark, `aria-controls` เฉพาะตอนเปิด, `useDismiss`
+- auto mode: design แถบนำทางยัง pending → สร้างตามแถบ tab เดิม ข้อ "หน้าตาตรงแบบ" ค้างกับ Blocked #1; ticket ยัง in-progress
+
+**For the next ticket:**
+- เมื่อได้แบบใน Figma ของแถบนำทาง: สีไอคอนเมนู (`menu.svg` stroke เดียวกับ icon อื่น ขณะที่ข้อความปุ่ม `text-brand`), เงาและความกว้างของรายการ, เส้นคั่นกลุ่ม
+- ที่ 640px คอลัมน์ `max-w-[720px]` กับ `sm:px-0` ชิดขอบจอ และ Refresh ตกแถวสอง (มีมาก่อน ticket นี้): ดูพร้อมแบบ
+
+**Checks:** `uv run pytest` 1139 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 463 passed; `npm --prefix frontend run build` ผ่าน. เช็คมือบน Vite dev (Chromium ผ่าน Playwright, backend offline): 375px `scrollWidth` 375 ไม่มี scroll แนวนอน เห็นปุ่มเมนู แถบ tab `display:none` เมนูเปิดเรียง ติดตั้ง · เตรียมของ · ทำคลิป; 640px แถบ tab แบบกลุ่ม ปุ่มเมนูซ่อน `scrollWidth` 640; 1440px แถบ tab แบบกลุ่มแถวเดียวกับ Refresh. Review สามแกนจาก `00bcc56`: Standards 1 ผิดกติกา (ตัวปิดด้วย Esc/คลิกนอกซ้ำกับ `HowTo`) + `aria-controls` ชี้ id ที่ไม่มี + smell 4, Spec 0 ขาดในโค้ด (เช็คมือยังไม่จด, ไม่มี test ของ class ที่ซ่อนแถบ) + assertion ผูกโครงสร้าง, Newcomer สรุปตรง What to build + เดา 9 จุด; แก้ทุกข้อ ยกเว้น: ที่อยู่ของ `TABS` ใน `useHash.ts` (มีมาก่อน), สีใน `menu.svg` (แบบเดียวกับ icon อื่น, รอ design), ป้าย `(e2e)` (ตาม `rules/testing.md`), ไอคอนหาด้วย `querySelector` ในปุ่ม (ข้อยกเว้น `<img alt="">` ใน `rules/testing.md`)
 
 ### Ticket 01: คลังเสียงกลางที่ tab คลังเสียง — in-progress (เหลือ design) 2026-11-13
 

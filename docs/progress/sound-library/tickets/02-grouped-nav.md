@@ -10,7 +10,7 @@
 - Seams: 3 (ปุ่มเมนู)
 - User stories: 2
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Acceptance criteria
 

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { CommitField } from "../../../components/ui/CommitField";
 import { NoticeLine } from "../../../components/ui/NoticeLine";
@@ -16,6 +16,7 @@ import uploadIcon from "../../../components/ui/assets/upload.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { playAudio } from "../../../lib/audio";
+import { useDismiss } from "../../../lib/useDismiss";
 import { useHash } from "../../../lib/useHash";
 import downloadWhiteIcon from "../assets/download-white.svg";
 import { useSounds } from "../hooks/useSounds";
@@ -196,20 +197,7 @@ function HowTo() {
   const box = useRef<HTMLDivElement>(null);
   const boxId = useId();
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!box.current?.contains(target) && !button.current?.contains(target)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open]);
+  useDismiss(open, useCallback(() => setOpen(false), []), button, box);
 
   return (
     <>
