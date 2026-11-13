@@ -145,6 +145,7 @@ function ScriptReviewBody() {
               <BackgroundSound
                 sound={draft.sound}
                 sounds={library.sounds}
+                unreadable={library.unreadable}
                 locked={locked}
                 onChange={review.changeSound}
                 onSoundGone={() => void library.reload()}
@@ -293,7 +294,7 @@ function NoDraft() {
       <img src={fileTextIcon} alt="" width={36} height={36} />
       <p className="text-base font-semibold text-foreground">ยังไม่มีบท</p>
       <p className="text-sm text-mid">ร่างบทจากหน้าตั้งค่าคลิปสปอยก่อน แล้วกลับมาตรวจที่นี่</p>
-      <a href={SETUP_HASH} className={`flex h-11 items-center gap-2 px-6 ${PRIMARY_BUTTON}`}>
+      <a href={SETUP_HASH} className={`h-11 px-6 ${PRIMARY_BUTTON}`}>
         <img src={arrowRightIcon} alt="" width={16} height={16} />
         ไปที่ตั้งค่าคลิปสปอย
       </a>

@@ -1,5 +1,6 @@
 import { getJson } from "../../../lib/api";
 import { isUnfinishedIn } from "../../../lib/job";
+import { tabLabel } from "../../../lib/useHash";
 
 // The sound library of the whole app (sound-library spec, ADR 0037) as the API sends it: its
 // page, a segment's sound of การ์ตูนเล่า and a clip's of สปอย all read it.
@@ -22,8 +23,7 @@ export function backOf(hash: string): string | null {
 
 /** A tab's thing that plays a sound, as `in_use` names it (D7). */
 export type SoundUser = { tab: "toon" | "spoil"; label: string };
-const USER_TABS: Record<SoundUser["tab"], string> = { toon: "การ์ตูนเล่า", spoil: "สปอย" };
-export const userLine = (user: SoundUser) => `${USER_TABS[user.tab]} · ${user.label}`;
+export const userLine = (user: SoundUser) => `${tabLabel(user.tab)} · ${user.label}`;
 
 /** The old library's folder while start-up could not move all of it (D10). */
 export type Legacy = { left_behind: string | null };

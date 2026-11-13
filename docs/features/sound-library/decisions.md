@@ -249,3 +249,11 @@
 **Why:** เจ้าของสั่ง 2026-11-13 ให้ทำต่อโดยไม่รอ Figma ใช้ `ui-prompt.md` ให้ตรง design system เดิม แล้วปิด ticket 01–03. ui-prompt ขอเป้ากด ≥ 44px; หน้าอื่นของแอปใช้ `h-11` บนจอแคบแล้วเล็กลงที่ `sm` อยู่แล้ว (เช่น ปุ่มของคลังความรู้และ `ReviewFooter`).
 
 **From:** build ticket 01–03 (เจ้าของ) · **Status:** active
+
+## D19: feature review: คลังอ่านไม่ได้บอกในตัวเลือก, `SoundUser.playing`, ของที่ใช้ร่วมของ slider และปุ่ม
+
+**Chosen:** หน้าตรวจแก้อ่านคลังเสียงไม่ได้ → ตัวเลือกของเสียงที่ draft มีแสดง "อ่านคลังเสียงไม่ได้" แทน "กำลังโหลด…" ที่ค้างตลอด (อ่านใหม่ตอนกลับมาที่ browser tab เหมือนเดิม). ฟิลด์ตัวเช็คของ `SoundUser` ชื่อ `playing` (เดิม `check` ซ้ำชื่อกับ `SoundImports.check`). `settings.checked_volume(name, value, code)` กับ `VOLUME_RULES` แทนข้อความ volume ที่ซ้ำใน `settings.change` กับ `draft.change_draft`. `VolumeRange` เป็น slider 0–100 ทีละ 5 ของทั้งเสียงคลิปต้นฉบับและเสียงพื้น. `PRIMARY_BUTTON` มี `flex items-center justify-center gap-2` เหมือน style ปุ่มอื่น. ชื่อ tab ในบรรทัด `in_use` มาจาก `tabLabel`.
+
+**Why:** feature review (Spec, Standards, Newcomer). ข้อความอยู่ในตัวเลือกเดียวที่เดียว ไม่เพิ่ม Alert ใต้การ์ด. ไม่แก้: รหัส `invalid_request` ของ `PATCH` ช่วงใน toon (สัญญา API เดิมของ toon), ลำดับ `Tab` กับ `LOCK_ORDER` ที่ต่างกัน (D7), `Sound` ของ toon กับ `DraftSound` แยกกัน (กติกา volume ต่างกัน), test ของ `_params` (ยกมาจาก toon).
+
+**From:** feature review · **Status:** active

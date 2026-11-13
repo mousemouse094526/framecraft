@@ -33,7 +33,7 @@ export function PlotView({ ep, series, locked, busy, lost, edit, onDraft, onSpli
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-10 text-center">
         <p className="text-base leading-[1.5] font-medium text-foreground">ยังไม่มีพล็อต</p>
         <p className="text-[13px] leading-[1.5] text-mid">ไอเดีย: {ep.idea}</p>
-        <button type="button" disabled={busy} onClick={onDraft} className={`flex h-9 items-center gap-2 px-4 ${PRIMARY_BUTTON}`}>
+        <button type="button" disabled={busy} onClick={onDraft} className={`h-9 px-4 ${PRIMARY_BUTTON}`}>
           <img src={wandWhiteIcon} alt="" width={16} height={16} />
           ให้ AI ร่างพล็อต
         </button>
@@ -91,7 +91,7 @@ export function PlotView({ ep, series, locked, busy, lost, edit, onDraft, onSpli
           type="button"
           disabled={locked || busy || (confirmed && toSplit.length === 0)}
           onClick={() => onSplit(false)}
-          className={`flex h-9 items-center gap-2 px-4 ${PRIMARY_BUTTON}`}
+          className={`h-9 px-4 ${PRIMARY_BUTTON}`}
         >
           <img src={checkIcon} alt="" width={16} height={16} />
           {confirmed ? "แตกการ์ดใหม่" : "ยืนยันพล็อต"}

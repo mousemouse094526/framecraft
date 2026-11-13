@@ -136,7 +136,7 @@ media/sounds/
 | spoil | Spoil draft มี `sound.sound_id` นี้ (Render job ใช้สำเนา, D12) | `Spoil draft: {ชื่อคลิป} · EP {n}` | `gpu.slot.draft_lock` |
 
 - ลำดับ lock (D7): `gpu.slot.draft_lock` → `toon.store.lock` → `sounds.lock`. ลบเสียงถือทั้งสามตามลำดับนี้ตั้งแต่เช็คถึงเขียน `sounds.json` จึงไม่มีช่วงไหนเลือกเสียงที่กำลังลบได้
-- การลงทะเบียนส่งคู่ `(rank, lock, check)` (D11): `backend.sounds` ไม่ import feature แต่ถือ lock ที่ได้มาเรียงตาม `rank` (spoil 10, toon 20) แล้วจึง `sounds.lock`; ตัวเช็คถูกเรียกขณะถือ lock ทั้งหมดแล้ว จึงไม่ต้อง acquire เอง (RLock ซ้ำได้)
+- การลงทะเบียนส่ง `SoundUser(tab, lock, playing)` (D11, D14): `backend.sounds` ไม่ import feature แต่ถือ lock ที่ได้มาเรียงตาม `LOCK_ORDER` (spoil ก่อน toon) แล้วจึง `sounds.lock`; `playing` (ตัวเช็ค) ถูกเรียกขณะถือ lock ทั้งหมดแล้ว จึงไม่ต้อง acquire เอง (RLock ซ้ำได้)
 - ทุกที่ที่ feature รับ `sound_id` (`PATCH` ช่วงของ toon, `PATCH /draft` ของสปอย) เช็ค `sounds.exists` ขณะถือ lock ของ feature เอง: ลำดับเดียวกัน
 - ตัวเช็คไม่ถือ lock อื่นนอกจากที่ตาราง และไม่เรียก `backend.sounds`
 

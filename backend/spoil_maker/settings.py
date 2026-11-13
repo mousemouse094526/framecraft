@@ -21,7 +21,10 @@ from backend.json_values import is_int
 log = logging.getLogger(__name__)
 
 VOLUME_STEP = 5  # 0–100 in steps of 5 (spec › ค่าที่จำไว้)
-SOUND_VOLUME_RULE = "ความดังเสียงพื้นต้องเป็น 0–100 ทีละ 5"  # the draft's and the remembered one's
+VOLUME_RULES = {  # the draft's and the remembered one's
+    "original_volume": "เสียงต้นฉบับต้องเป็น 0–100 ทีละ 5",
+    "sound_volume": "ความดังเสียงพื้นต้องเป็น 0–100 ทีละ 5",
+}
 WATERMARKS_MAX = 6  # D41
 WATERMARK_TEXT_MAX = 40  # letters that take space
 
@@ -78,14 +81,9 @@ def change(project: ProjectPaths, body: dict) -> Settings:
     fields: dict[str, object] = {}
     if "watermarks" in body:
         fields["watermarks"] = _watermarks(body["watermarks"])
-    if "original_volume" in body:
-        if not is_volume(body["original_volume"]):
-            raise _invalid("เสียงต้นฉบับต้องเป็น 0–100 ทีละ 5")
-        fields["original_volume"] = body["original_volume"]
-    if "sound_volume" in body:
-        if not is_volume(body["sound_volume"]):
-            raise _invalid(SOUND_VOLUME_RULE)
-        fields["sound_volume"] = body["sound_volume"]
+    for name in VOLUME_RULES:
+        if name in body:
+            fields[name] = checked_volume(name, body[name], "invalid_settings")
     if unknown:
         raise _invalid(f"แก้ได้แค่ลายน้ำ เสียงต้นฉบับ และความดังเสียงพื้น ไม่ใช่ {', '.join(sorted(unknown))}")
     return remember(project, **fields)
@@ -115,5 +113,8 @@ def _invalid(message: str) -> ApiError:
     return ApiError(400, "invalid_settings", message)
 
 
-def is_volume(value: object) -> bool:
-    return is_int(value) and 0 <= value <= 100 and value % VOLUME_STEP == 0
+def checked_volume(name: str, value: object, code: str) -> int:
+    """`value` as the volume `name` (a key of `VOLUME_RULES`); else `ApiError` 400 `code`."""
+    if not (is_int(value) and 0 <= value <= 100 and value % VOLUME_STEP == 0):
+        raise ApiError(400, code, VOLUME_RULES[name])
+    return value

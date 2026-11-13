@@ -199,7 +199,7 @@ function RefTile({ itemRef, item, running, sending, onRemove, onStartRef, onUplo
           <span className="rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
             3 แบบรอเลือก
           </span>
-          <a href={pickHash(itemRef)} className={`flex h-8 items-center px-3 ${PRIMARY_BUTTON}`}>
+          <a href={pickHash(itemRef)} className={`h-8 px-3 ${PRIMARY_BUTTON}`}>
             เลือกภาพ
           </a>
         </Slot>

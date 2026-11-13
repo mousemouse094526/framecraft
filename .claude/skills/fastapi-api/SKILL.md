@@ -35,7 +35,8 @@ backend/
 │                    `application/octet-stream` file on the routes that list
 │                    `require_octet_stream` (ADR 0013, ADR 0028)
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
-│                    JobFailed, `require_rows` (the gate of every job)
+│                    JobFailed, `require_rows` (the gate of every job),
+│                    `checked_text` (a trimmed text field within its length)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
@@ -80,7 +81,7 @@ backend/
 │                    gone during ffmpeg never brings in, a link through spoil's adapter
 │                    with `LINK_OPTIONS`), `exists`/`path` for the tabs that keep a
 │                    `sound_id`, `sound_users` (each registers its tab, a function
-│                    giving its lock, and check, taken in `LOCK_ORDER`, ADR 0038), and `move_legacy` at start (D10); it imports
+│                    giving its lock, and `playing`, the labels of what plays a sound; locks taken in `LOCK_ORDER`, ADR 0038), and `move_legacy` at start (D10); it imports
 │                    neither toon nor spoil_maker
 ├── stories.py    ← the คลังความรู้ tab (story-kb, ADR 0023): Stories and the
 │                    Story each clip remembers in `media/stories/`, their

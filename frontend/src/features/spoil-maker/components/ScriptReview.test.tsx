@@ -675,6 +675,14 @@ describe("ตรวจแก้บท › เสียงพื้น", () => {
     expect(screen.getByRole("slider", { name: "ความดังเสียงพื้น" })).toHaveValue("30");
   });
 
+  it("a library that can't be read says so in the draft's option, and the choice stays", async () => {
+    backend([get(DRAFT_PATH, draftOf({ sound: { sound_id: RAIN.id, volume: 30 } })), send("GET", SOUNDS_PATH, { code: "internal", message: "x" }, 500)]);
+    await openReview();
+
+    await waitFor(() => expect(options()).toEqual(["ไม่มีเสียงพื้น", "อ่านคลังเสียงไม่ได้"]));
+    expect(picker()).toHaveValue(RAIN.id);
+  });
+
   it("waits while a job changes the draft", async () => {
     backend([get(DRAFT_PATH, draftOf({ locked: true, sound: { sound_id: RAIN.id, volume: 30 } })), get(VOICE_CURRENT, VOICING)]);
     await openReview();

@@ -122,7 +122,7 @@ export function SoundsPage() {
               </span>
             )}
           </label>
-          <button type="submit" disabled={busy || url.trim() === ""} className={`flex h-9 items-center gap-2 px-4 ${PRIMARY_BUTTON}`}>
+          <button type="submit" disabled={busy || url.trim() === ""} className={`h-9 px-4 ${PRIMARY_BUTTON}`}>
             <img src={downloadWhiteIcon} alt="" width={16} height={16} />
             {loading ? "กำลังโหลด…" : "โหลด"}
           </button>

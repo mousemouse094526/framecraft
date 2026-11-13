@@ -648,4 +648,4 @@ def eps_playing(project: ProjectPaths, sound_id: str) -> list[str]:
     ]
 
 
-sounds.sound_users.append(sounds.SoundUser(tab="toon", lock=lambda: store.lock, check=eps_playing))
+sounds.sound_users.append(sounds.SoundUser(tab="toon", lock=lambda: store.lock, playing=eps_playing))

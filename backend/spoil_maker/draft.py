@@ -527,7 +527,7 @@ def draft_playing(project: ProjectPaths, sound_id: str) -> list[str]:
     return [f"Spoil draft: {clips.read_clip(project, found.clip_id).title} · EP {found.ep.n}"]
 
 
-sounds.sound_users.append(sounds.SoundUser(tab="spoil", lock=lambda: gpu.slot.draft_lock, check=draft_playing))
+sounds.sound_users.append(sounds.SoundUser(tab="spoil", lock=lambda: gpu.slot.draft_lock, playing=draft_playing))
 
 
 # --- Reading and changing the draft ---
@@ -563,9 +563,7 @@ def change_draft(project: ProjectPaths, body: dict) -> DraftView:
             raise ApiError(400, "invalid_request", "layout ต้องเป็น A, B หรือ C")
         fields["layout"] = body["layout"]
     if "original_volume" in body:
-        if not settings.is_volume(body["original_volume"]):
-            raise ApiError(400, "invalid_request", "เสียงต้นฉบับต้องเป็น 0–100 ทีละ 5")
-        fields["original_volume"] = body["original_volume"]
+        fields["original_volume"] = settings.checked_volume("original_volume", body["original_volume"], "invalid_request")
     if "sound" in body:
         fields["sound"] = _sound(project, body["sound"])
     with gpu.slot.draft_lock:
@@ -686,9 +684,8 @@ def _sound(project: ProjectPaths, value: object) -> DraftSound | None:
         raise ApiError(400, "invalid_request", "เสียงพื้นต้องเป็นเสียงจากคลังเสียง หรือไม่มี")
     if "volume" not in value:
         return DraftSound(sound_id=value["sound_id"], volume=settings.read(project).sound_volume)
-    if not settings.is_volume(value["volume"]):
-        raise ApiError(400, "invalid_request", settings.SOUND_VOLUME_RULE)
-    return DraftSound(sound_id=value["sound_id"], volume=value["volume"])
+    volume = settings.checked_volume("sound_volume", value["volume"], "invalid_request")
+    return DraftSound(sound_id=value["sound_id"], volume=volume)
 
 
 def _top_text(text: object) -> str:

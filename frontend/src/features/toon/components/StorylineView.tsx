@@ -77,7 +77,7 @@ export function StorylineView({ ep, series, sounds, locked, edit, job, busy, mis
           type="button"
           disabled={busy || locked}
           onClick={() => void jobs.startImages("missing")}
-          className={`flex h-8 items-center gap-2 px-3 ${PRIMARY_BUTTON}`}
+          className={`h-8 px-3 ${PRIMARY_BUTTON}`}
         >
           <img src={wandWhiteIcon} alt="" width={16} height={16} />
           สร้างภาพที่ขาดทั้งหมด

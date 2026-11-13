@@ -12,7 +12,7 @@ library file that won't read never takes the sounds with it (toon D70, D71).
 
 Every read-change-write of the library runs under `lock`. A feature that keeps a `sound_id`
 registers a `SoundUser` (ADR 0038): a delete holds each user's lock in `LOCK_ORDER`, then
-`lock`, and asks each user's `check`, so no sound in use goes, and lock order is a feature's
+`lock`, and asks each user's `playing`, so no sound in use goes, and lock order is a feature's
 own lock before `lock` everywhere (D7, D11). The link import loads through the คลิป tab's
 yt-dlp adapter, which keeps no sound (ADR 0037).
 """
@@ -101,12 +101,12 @@ class SoundView(BaseModel):
 class SoundUser(NamedTuple):
     """A feature that keeps a `sound_id` (ADR 0038): its tab, `lock`, which gives the lock it
     writes a `sound_id` under (asked at each delete: spoil's belongs to `gpu.slot`, which a test
-    replaces), and `check`, a label of each of its things that play the sound. `check` is called
+    replaces), and `playing`, a label of each of its things that play the sound. `playing` is called
     with `lock` and every user's lock held, takes no other lock and never calls this module."""
 
     tab: Tab
     lock: Callable[[], AbstractContextManager]
-    check: Callable[[ProjectPaths, str], list[str]]
+    playing: Callable[[ProjectPaths, str], list[str]]
 
 
 sound_users: list[SoundUser] = []
@@ -420,7 +420,7 @@ def delete(project: ProjectPaths, sound_id: str) -> None:
         users = [
             {"tab": user.tab, "label": label}
             for user in sorted(sound_users, key=lambda user: get_args(Tab).index(user.tab))
-            for label in user.check(project, sound_id)
+            for label in user.playing(project, sound_id)
         ]
         if users:
             raise ApiError(409, "in_use", IN_USE, users=users)
@@ -522,8 +522,8 @@ def clean_on_start(project: ProjectPaths) -> None:
 def read_sounds(project: ProjectPaths) -> list[StoredSound]:
     """The library; empty until a sound is imported. A file changed into one that won't read
     while the app runs is recovered (and rewritten) by `reconcile_sounds` from the m4a files,
-    their lengths `0` until the next start reads them (toon D70). An entry whose m4a is gone
-    stays until that start: a read never scans the folder. Holds `lock`."""
+    their lengths `0` until the next start reads them (toon D70). A good file is returned as
+    it is, so an entry whose m4a is gone stays until that start. Holds `lock`."""
     with lock:
         listed = _listed_sounds(project.sounds_file)
         sounds = _good_sounds(listed or [])

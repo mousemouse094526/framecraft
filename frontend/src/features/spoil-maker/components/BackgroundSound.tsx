@@ -7,15 +7,18 @@ import { playAudio } from "../../../lib/audio";
 import { soundFilePath, soundsHash, type PlayedSound, type Sound } from "../../sound-library/lib/sounds";
 import type { ChangeResult } from "../hooks/useScriptReview";
 import { REVIEW_HASH, type SoundChoice } from "../lib/draft";
+import { VolumeRange } from "./VolumeRange";
 
-const VOLUME_STEP = 5; // the backend's (sound-library D5)
 /** An option for a sound the draft keeps but the library lost (sound-library D8, D13). */
 const GONE = "ไม่พบเสียงนี้ในคลังเสียง";
+const UNREADABLE = "อ่านคลังเสียงไม่ได้";
 
 type Props = {
   sound: PlayedSound | null;
   /** The library's sounds; null until read. */
   sounds: Sound[] | null;
+  /** The last read of the library failed: the draft's option says so instead of กำลังโหลด…. */
+  unreadable: boolean;
   /** A job changes the draft or renders: the picker and the slider wait (spoil-maker D51). */
   locked: boolean;
   onChange: (sound: SoundChoice) => Promise<ChangeResult>;
@@ -28,7 +31,7 @@ type Props = {
  * library, with its volume sent when the slider is let go and a button to hear it, and
  * "ไปคลังเสียง" to the library and back. A refused choice leaves the picker on the draft's sound.
  */
-export function BackgroundSound({ sound, sounds, locked, onChange, onSoundGone }: Props) {
+export function BackgroundSound({ sound, sounds, unreadable, locked, onChange, onSoundGone }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [refusals, setRefusals] = useState(0); // each one starts the slider again from the draft
   const id = useId();
@@ -70,7 +73,7 @@ export function BackgroundSound({ sound, sounds, locked, onChange, onSoundGone }
                   {option.name}
                 </option>
               ))}
-              {sound && !chosen && <option value={sound.sound_id}>{sounds === null ? "กำลังโหลด…" : GONE}</option>}
+              {sound && !chosen && <option value={sound.sound_id}>{sounds !== null ? GONE : unreadable ? UNREADABLE : "กำลังโหลด…"}</option>}
             </select>
             <img src={chevronDownIcon} alt="" width={16} height={16} className="pointer-events-none -ml-6" />
           </span>
@@ -116,24 +119,15 @@ function SoundVolume({ volume, disabled, onCommit }: { volume: number; disabled:
         <span className="flex-1">ความดังเสียงพื้น</span>
         <span className="font-mono font-medium">{value}</span>
       </div>
-      <input
-        type="range"
+      <VolumeRange
         aria-label="ความดังเสียงพื้น"
-        min={0}
-        max={100}
-        step={VOLUME_STEP}
         value={value}
         disabled={disabled}
         onChange={(event) => setValue(Number(event.target.value))}
         onPointerUp={commit}
         onKeyUp={commit}
         onBlur={commit}
-        className="h-11 w-full accent-brand-accent"
       />
-      <div className="flex justify-between font-mono text-xs text-muted-foreground">
-        <span>0</span>
-        <span>100</span>
-      </div>
     </div>
   );
 }

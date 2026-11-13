@@ -6,8 +6,7 @@ import trashIcon from "../../../components/ui/assets/trash.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import type { SettingsState } from "../hooks/useVideoSettings";
 import { WATERMARK_TEXT_MAX, WATERMARKS_MAX, type MarkSize, type Position, type Watermark } from "../lib/render";
-
-const VOLUME_STEP = 5; // D40
+import { VolumeRange } from "./VolumeRange";
 
 // The picker is a 9:16 frame with three spots on top and three at the bottom (D41).
 const ROWS: { position: Position; label: string }[][] = [
@@ -61,23 +60,14 @@ export function VideoSettings(props: Props) {
           </label>
           <span className="font-mono font-medium">{volume.value}</span>
         </div>
-        <input
+        <VolumeRange
           id={volumeId}
-          type="range"
-          min={0}
-          max={100}
-          step={VOLUME_STEP}
           value={volume.value}
           disabled={locked}
           onChange={(event) => volume.change(event.target.value)}
           onPointerUp={() => void volume.flush()}
           onBlur={() => void volume.flush()}
-          className="h-11 w-full accent-brand-accent"
         />
-        <div className="flex justify-between font-mono text-xs text-muted-foreground">
-          <span>0</span>
-          <span>100</span>
-        </div>
       </div>
       {props.backgroundSound}
       <hr className="border-border" />

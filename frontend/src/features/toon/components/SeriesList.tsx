@@ -72,7 +72,7 @@ export function SeriesList() {
 
 function NewSeriesLink() {
   return (
-    <a href={NEW_HASH} className={`flex h-9 items-center gap-2 px-4 ${PRIMARY_BUTTON}`}>
+    <a href={NEW_HASH} className={`h-9 px-4 ${PRIMARY_BUTTON}`}>
       <img src={plusWhiteIcon} alt="" width={16} height={16} />
       สร้าง Series
     </a>
