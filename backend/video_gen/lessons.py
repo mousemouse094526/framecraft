@@ -46,6 +46,7 @@ SPEED_STEP = 5
 COPY_SUFFIX = " (สำเนา)"
 NEW_LABEL = "ลองเล่นเอง"  # the reference clip's "YOUR TURN." may be its page's trademark (D23)
 MAX_LENGTH_S = 90  # listen and render refuse a longer clip; saving doesn't (D16)
+LESSON_FILE = "lesson.json"
 BACKGROUND = "background.jpg"
 LESSON_BUSY = "กำลัง render บทเรียนนี้อยู่"
 
@@ -116,10 +117,10 @@ lock = threading.Lock()
 # --- Checking a body ---
 
 
-def _checked_fields(body: dict[str, Any], lesson_dir: Path | None) -> LessonFields:
+def _checked_fields(body: dict[str, Any], folder: Path | None) -> LessonFields:
     """A body holding every field of spec › Data. Anything outside the rules raises `ApiError`
     400 `invalid_request` with the first failing `field` (`groove.notes[3]`). `background`
-    `"image"` needs the lesson's `background.jpg`; a new lesson (`lesson_dir` None) has none."""
+    `"image"` needs the lesson's `background.jpg`; a new lesson (`folder` None) has none."""
     title = _text(body, "title", 1, TITLE_MAX, "หัวเรื่อง")
     subtitle = _text(body, "subtitle", 0, LINE_MAX, "บรรทัดรอง")
     caption = _text(body, "caption", 0, LINE_MAX, "คำบรรยาย")
@@ -127,7 +128,7 @@ def _checked_fields(body: dict[str, Any], lesson_dir: Path | None) -> LessonFiel
     background = body.get("background")
     if background not in ("color", "image"):
         raise _invalid("background", "พื้นหลังต้องเป็นสีหรือภาพ")
-    if background == "image" and (lesson_dir is None or not (lesson_dir / BACKGROUND).is_file()):
+    if background == "image" and (folder is None or not (folder / BACKGROUND).is_file()):
         raise _invalid("background", "ยังไม่มีภาพพื้นหลัง")
     groove = _checked_groove(body.get("groove"))
     chapters = _checked_chapters(body.get("chapters"))
@@ -290,12 +291,13 @@ def copy(project: ProjectPaths, lesson_id: str) -> LessonView:
         source = _read_known(project, lesson_id)
         title = (source.title + COPY_SUFFIX)[:TITLE_MAX]
         fields = LessonFields.model_validate(source.model_dump() | {"title": title})
-        lesson = _write_new(project, fields, background=_folder(project, lesson_id) / BACKGROUND)
+        lesson = _write_new(project, fields, background=lesson_dir(project, lesson_id) / BACKGROUND)
     log.info("copied lesson %s to %s", lesson_id, lesson.id)
     return _view(lesson)
 
 
 def get(project: ProjectPaths, lesson_id: str) -> LessonView:
+    """`GET`: the API's view, with `length_s`. Raises `ApiError` 404 `not_found`."""
     with lock:
         return _view(_read_known(project, lesson_id))
 
@@ -311,7 +313,7 @@ def replace(project: ProjectPaths, lesson_id: str, body: dict[str, Any]) -> Less
     (D16); a value outside the rules changes nothing."""
     with lock:
         _read_known(project, lesson_id)
-        fields = _checked_fields(body, _folder(project, lesson_id))
+        fields = _checked_fields(body, lesson_dir(project, lesson_id))
         lesson = Lesson(version=VERSION, id=lesson_id, updated_at=now_iso(), **fields.model_dump())
         _write(project, lesson)
     return _view(lesson)
@@ -322,14 +324,14 @@ def delete(project: ProjectPaths, lesson_id: str) -> None:
     `background.jpg`, then `lesson.json` last, then the folder. A `lesson.json` that can't be
     read is deleted all the same (D22)."""
     with lock:
-        folder = _folder(project, lesson_id)
-        if not (folder / "lesson.json").is_file():
+        folder = lesson_dir(project, lesson_id)
+        if not (folder / LESSON_FILE).is_file():
             raise _not_found()
         require_idle(lesson_id)
         for name in renders.complete_names(folder / "renders"):
             renders.Render(folder / "renders", name).delete()
         (folder / BACKGROUND).unlink(missing_ok=True)
-        (folder / "lesson.json").unlink()
+        (folder / LESSON_FILE).unlink()
         shutil.rmtree(folder, ignore_errors=True)
     log.info("deleted lesson %s", lesson_id)
 
@@ -341,7 +343,7 @@ def set_background(project: ProjectPaths, lesson_id: str, picture: Path | None) 
     with lock:
         lesson = _read_known(project, lesson_id)
         require_idle(lesson_id)
-        target = _folder(project, lesson_id) / BACKGROUND
+        target = lesson_dir(project, lesson_id) / BACKGROUND
         if picture is None:
             target.unlink(missing_ok=True)
         else:
@@ -349,6 +351,14 @@ def set_background(project: ProjectPaths, lesson_id: str, picture: Path | None) 
         lesson = lesson.model_copy(update={"background": "color" if picture is None else "image", "updated_at": now_iso()})
         _write(project, lesson)
     return _view(lesson)
+
+
+def require_short(lesson: Lesson) -> float:
+    """The clip's length; raises `ApiError` 422 `too_long` over 90 s, which listen and render refuse (D16)."""
+    length = length_s(lesson)
+    if length > MAX_LENGTH_S:
+        raise ApiError(422, "too_long", f"คลิปยาวเกิน {MAX_LENGTH_S} วินาที")
+    return length
 
 
 def require_known_idle(project: ProjectPaths, lesson_id: str) -> None:
@@ -362,7 +372,7 @@ def background_file(project: ProjectPaths, lesson_id: str) -> Path:
     """The lesson's `background.jpg`. Raises `ApiError` 404 `not_found` for no lesson or no picture."""
     with lock:
         _read_known(project, lesson_id)
-        path = _folder(project, lesson_id) / BACKGROUND
+        path = lesson_dir(project, lesson_id) / BACKGROUND
         if not path.is_file():
             raise ApiError(404, "not_found", "บทเรียนนี้ไม่มีภาพพื้นหลัง")
     return path
@@ -377,11 +387,6 @@ def require_idle(lesson_id: str) -> None:
 def read_under_lock(project: ProjectPaths, lesson_id: str) -> Lesson:
     """`stored`, for a caller that holds `lock`. Raises `ApiError` 404 `not_found`."""
     return _read_known(project, lesson_id)
-
-
-def lesson_dir(project: ProjectPaths, lesson_id: str) -> Path:
-    """The lesson's folder: `lesson.json`, `background.jpg` and `renders/`. Raises `ApiError` 404 for a bad id."""
-    return _folder(project, lesson_id)
 
 
 # --- Files; call with `lock` held ---
@@ -412,12 +417,12 @@ def _write_new(project: ProjectPaths, fields: LessonFields, background: Path | N
     while True:
         lesson_id = "".join(secrets.choice(ID_LETTERS) for _ in range(ID_LENGTH))
         try:
-            _folder(project, lesson_id).mkdir()
+            lesson_dir(project, lesson_id).mkdir()
             break
         except FileExistsError:
             continue
     if background is not None and background.is_file():
-        shutil.copyfile(background, _folder(project, lesson_id) / BACKGROUND)
+        shutil.copyfile(background, lesson_dir(project, lesson_id) / BACKGROUND)
     lesson = Lesson(version=VERSION, id=lesson_id, updated_at=now_iso(), **fields.model_dump())
     _write(project, lesson)
     return lesson
@@ -425,16 +430,17 @@ def _write_new(project: ProjectPaths, fields: LessonFields, background: Path | N
 
 def _write(project: ProjectPaths, lesson: Lesson) -> None:
     text = json.dumps(lesson.model_dump(), ensure_ascii=False, indent=2)
-    files.write_atomic(_folder(project, lesson.id) / "lesson.json", text)
+    files.write_atomic(lesson_dir(project, lesson.id) / LESSON_FILE, text)
 
 
-def _folder(project: ProjectPaths, lesson_id: str) -> Path:
+def lesson_dir(project: ProjectPaths, lesson_id: str) -> Path:
+    """The lesson's folder: `lesson.json`, `background.jpg` and `renders/`. Raises `ApiError` 404 for a bad id."""
     require_id(lesson_id)
     return project.lessons_dir / lesson_id
 
 
 def _read_known(project: ProjectPaths, lesson_id: str) -> Lesson:
-    lesson = _read_folder(_folder(project, lesson_id))
+    lesson = _read_folder(lesson_dir(project, lesson_id))
     if lesson is None:
         raise _not_found()
     return lesson
@@ -442,7 +448,7 @@ def _read_known(project: ProjectPaths, lesson_id: str) -> Lesson:
 
 def _read_folder(folder: Path) -> Lesson | None:
     """The folder's lesson; None with no file, and a log line for one that can't be read."""
-    path = folder / "lesson.json"
+    path = folder / LESSON_FILE
     try:
         return Lesson.model_validate_json(path.read_bytes())
     except FileNotFoundError:

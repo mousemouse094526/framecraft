@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { inputClass } from "../../../components/ui/inputStyles";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
@@ -12,12 +13,6 @@ import { ARTICLE_MAX, articleLength, characterErrorKeys, characterKey, CHARACTER
 import { grouped } from "../../../lib/format";
 import { STORIES_HASH } from "../../../lib/stories";
 import { DeleteStoryDialog } from "./DeleteStoryDialog";
-
-// The Figma `Field` input; red while its field has an error.
-const inputClass = (error: boolean) =>
-  `h-10 w-full rounded-lg border bg-card px-3 text-sm leading-5 text-foreground outline-none focus:border-2 focus:border-brand-accent ${
-    error ? "border-destructive" : "border-border"
-  }`;
 
 /** Figma `แก้ Story`: `#/stories/new` (id `null`) or `#/stories/{id}`. */
 export function StoryEditor({ id }: { id: string | null }) {

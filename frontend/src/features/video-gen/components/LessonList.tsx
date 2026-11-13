@@ -13,14 +13,13 @@ import { editedAt, formatDuration } from "../../../lib/format";
 import { useDrumRender } from "../hooks/useDrumRender";
 import { useLessons } from "../hooks/useLessons";
 import { lessonHash, TITLE_MAX, type LessonRow } from "../lib/lesson";
-import { isRendering } from "../lib/render";
+import { renderingOf } from "../lib/render";
 
 /** รายการบทเรียนกลอง (`#/drums`): newest edit first; new, copy and delete (D10). The design is pending, so the app's own parts. */
 export function LessonList() {
   const { state, reload, create, copy, remove } = useLessons();
   // A render that ends may add to its lesson's count.
   const { job } = useDrumRender(() => void reload());
-  const rendering = isRendering(job) ? job : null;
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<LessonRow | null>(null);
 
@@ -59,7 +58,7 @@ export function LessonList() {
               <Row
                 key={lesson.id}
                 lesson={lesson}
-                renderingPercent={rendering?.lesson_id === lesson.id ? rendering.percent : null}
+                renderingPercent={renderingOf(job, lesson.id)?.percent ?? null}
                 onCopy={() => void copy(lesson.id)}
                 onDelete={() => setDeleting(lesson)}
               />

@@ -1,11 +1,6 @@
 import type { ReactNode } from "react";
 
-// The editor's labelled fields, red while the field has an error (as story-kb's editor).
-
-export const inputClass = (error: boolean) =>
-  `h-10 w-full rounded-lg border bg-card px-3 text-sm leading-5 text-foreground outline-none focus:border-2 focus:border-brand-accent ${
-    error ? "border-destructive" : "border-border"
-  }`;
+// The editor's labelled fields; the input inside takes `inputClass` (components/ui/inputStyles).
 
 type LabeledProps = { label: string; htmlFor: string; error?: string; hint?: string; children: ReactNode };
 

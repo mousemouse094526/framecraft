@@ -64,11 +64,15 @@ def voice(project: ProjectPaths) -> dict[str, Row]:
     return DEVICE | omnivoice | PYTHAINLP
 
 
+def _kanit(project: ProjectPaths) -> dict[str, Row]:
+    """The font every ASS file's text is set in."""
+    return {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
+
+
 def render(project: ProjectPaths, voices_first: bool) -> dict[str, Row]:
     """What every Render job's ffmpeg needs: ffmpeg, Kanit and pythainlp (each spec › Status
     check); a job that voices first adds the Voice job's rows."""
-    kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
-    return FFMPEG | kanit | PYTHAINLP | (voice(project) if voices_first else {})
+    return FFMPEG | _kanit(project) | PYTHAINLP | (voice(project) if voices_first else {})
 
 
 def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:
@@ -78,5 +82,4 @@ def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:
 
 def drums(project: ProjectPaths) -> dict[str, Row]:
     """What a drum lesson's Render job needs: the samples, Kanit, ffmpeg and pythainlp (video-gen D11, D22)."""
-    kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
-    return drum_kit_row(project) | kanit | FFMPEG | PYTHAINLP
+    return drum_kit_row(project) | _kanit(project) | FFMPEG | PYTHAINLP

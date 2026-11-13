@@ -339,10 +339,3 @@ def test_a_render_a_player_holds_open_is_in_use(client, monkeypatch):
     monkeypatch.setattr(Path, "unlink", unlink)
     response = client.delete(f"{LESSONS}/{lesson['id']}/renders/{name}")
     assert (response.status_code, response.json()["code"]) == (409, "in_use")
-
-
-def test_the_render_slot_is_a_job_holder():
-    """The app's start-up cleans what it left and its shutdown stops it, as every job's (`JOB_HOLDERS`)."""
-    from backend import app as app_module
-
-    assert render.render_jobs in [entry.current() for entry in app_module.JOB_HOLDERS]

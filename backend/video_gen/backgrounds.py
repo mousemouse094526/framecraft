@@ -34,13 +34,18 @@ async def receive_upload(project: ProjectPaths, lesson_id: str, size: str | None
     (one a crash leaves, start-up's `files.remove_unfinished` removes)."""
     expected = uploads.whole_number(size)
     await anyio.to_thread.run_sync(_upload_checks, project, lesson_id, expected)
-    partial = project.drums_partial_dir / f"{lesson_id}.{secrets.token_hex(4)}.tmp"  # one per request
+    partial = partial_file(project, lesson_id)
     try:
         await uploads.receive(body, partial, expected)
         return await anyio.to_thread.run_sync(_take_upload, project, lesson_id, partial)
     finally:
         with anyio.CancelScope(shield=True):
             await anyio.to_thread.run_sync(lambda: partial.unlink(missing_ok=True))
+
+
+def partial_file(project: ProjectPaths, lesson_id: str) -> Path:
+    """Where one request's upload lands, under `.partial/`: a fresh name each call."""
+    return project.drums_partial_dir / f"{lesson_id}.{secrets.token_hex(4)}.tmp"
 
 
 def remove(project: ProjectPaths, lesson_id: str) -> LessonView:
@@ -61,8 +66,8 @@ def _upload_checks(project: ProjectPaths, lesson_id: str, size: object) -> int:
 
 
 def _take_upload(project: ProjectPaths, lesson_id: str, partial: Path) -> LessonView:
-    """In a thread: read the file with Pillow, crop it, write the jpg beside the lesson, then
-    swap it in. Raises `ApiError` 415 `unsupported_image` for anything but a PNG or JPEG."""
+    """In a thread: read the file with Pillow, crop it, write the jpg beside the upload in
+    `.partial/`, then swap it in. Raises `ApiError` 415 `unsupported_image` for anything but a PNG or JPEG."""
     from PIL import Image, ImageOps, UnidentifiedImageError
 
     try:

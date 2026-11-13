@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { FixCommand } from "../../../components/ui/FixCommand";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { inputClass } from "../../../components/ui/inputStyles";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
@@ -24,11 +25,11 @@ import {
   type LessonFields,
   type Note,
 } from "../lib/lesson";
-import { isRendering, jobOf } from "../lib/render";
+import { isRendering, jobOf, renderingOf } from "../lib/render";
 import { BackgroundPicker } from "./BackgroundPicker";
 import { ChapterList } from "./ChapterList";
 import { GrooveGrid } from "./GrooveGrid";
-import { inputClass, Labeled } from "./Labeled";
+import { Labeled } from "./Labeled";
 import { NoteBox } from "./NoteBox";
 import { RenderProgress } from "./RenderProgress";
 
@@ -252,6 +253,7 @@ function RenderControl({ id, fields, render, save }: { id: string; fields: Lesso
   const seconds = lengthOf(fields);
   const running = isRendering(render.job) ? render.job : null;
   const own = jobOf(render.job, id);
+  const ownRunning = renderingOf(render.job, id);
   const start = async () => {
     if (await save()) await render.start(id);
   };
@@ -265,15 +267,15 @@ function RenderControl({ id, fields, render, save }: { id: string; fields: Lesso
       >
         render
       </button>
-      {running && running.lesson_id === id && (
+      {ownRunning && (
         <div className="flex w-64 max-w-full items-center gap-3">
-          <RenderProgress percent={running.percent} />
+          <RenderProgress percent={ownRunning.percent} />
           <button type="button" onClick={() => void render.cancel()} className={`h-9 px-3 ${GHOST_BUTTON}`}>
             ยกเลิก
           </button>
         </div>
       )}
-      {running && running.lesson_id !== id && <Alert tone="warning">กำลัง render {running.title} อยู่ รอให้เสร็จก่อน</Alert>}
+      {running && !ownRunning && <Alert tone="warning">กำลัง render {running.title} อยู่ รอให้เสร็จก่อน</Alert>}
       {!running && own && own.state !== "done" && (
         <div className="flex flex-col gap-2">
           <Alert tone="error">{own.state === "cancelled" ? "ยกเลิก render แล้ว" : (own.message ?? "render ไม่สำเร็จ")}</Alert>

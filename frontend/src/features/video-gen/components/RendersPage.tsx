@@ -12,7 +12,7 @@ import { editedAt, formatDuration } from "../../../lib/format";
 import { useDrumRender } from "../hooks/useDrumRender";
 import { useRenders } from "../hooks/useRenders";
 import { DRUMS_HASH, lessonHash } from "../lib/lesson";
-import { downloadName, isRendering, renderFile, type RenderResult } from "../lib/render";
+import { downloadName, renderFile, renderingOf, type RenderResult } from "../lib/render";
 import { RenderProgress } from "./RenderProgress";
 
 /**
@@ -26,7 +26,7 @@ export function RendersPage({ id }: { id: string }) {
   const { job } = useDrumRender(() => void reload());
   const [chosen, setChosen] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<RenderResult | null>(null);
-  const rendering = isRendering(job) && job.lesson_id === id ? job : null;
+  const rendering = renderingOf(job, id);
 
   return (
     <PageLayout tab="drums" wide action={state.kind === "offline" ? <RefreshButton onClick={() => void reload()} /> : undefined}>

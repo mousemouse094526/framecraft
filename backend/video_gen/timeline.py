@@ -76,19 +76,19 @@ def length_s(bpm: int, bars: int, chapters: "list[Chapter]") -> float:
     """Count-in, every chapter, and the tail (spec › Data, D21): what the 90 s cap, the wav,
     the frame count and the disk estimate all use."""
     count_in = BEATS_PER_BAR * beat_s(bpm, chapters[0].speed)
-    played = sum(c.repeats * bars * BEATS_PER_BAR * beat_s(bpm, c.speed) for c in chapters)
-    return count_in + played + TAIL_S
+    chapters_s = sum(c.repeats * bars * BEATS_PER_BAR * beat_s(bpm, c.speed) for c in chapters)
+    return count_in + chapters_s + TAIL_S
 
 
 def build(lesson: "Lesson") -> Timeline:
     """Every hit, beat and chapter span of the lesson, in time order (spec › Timeline and audio)."""
-    played: list[tuple[float, str, str | None, Layer, NoteKind]] = []
+    sounds: list[tuple[float, str, str | None, Layer, NoteKind]] = []
     beats: list[Beat] = []
     spans: list[Span] = []
 
     count_in_beat = beat_s(lesson.bpm, lesson.chapters[0].speed)
     for number in range(BEATS_PER_BAR):
-        played.append((number * count_in_beat, COUNT_IN_PIECE, None, "soft", "count"))
+        sounds.append((number * count_in_beat, COUNT_IN_PIECE, None, "soft", "count"))
         beats.append(Beat(to_sample(number * count_in_beat), number + 1))
 
     start = BEATS_PER_BAR * count_in_beat
@@ -104,25 +104,25 @@ def build(lesson: "Lesson") -> Timeline:
             for note in notes:
                 at = start + note.step * beat / 4
                 if note.hit == "flam":
-                    played.append((at - FLAM_GAP_S, note.piece, OTHER_HAND[note.hand], "soft", "grace"))
-                played.append((at, note.piece, note.hand, LAYER_OF_HIT[note.hit], note.hit))
+                    sounds.append((at - FLAM_GAP_S, note.piece, OTHER_HAND[note.hand], "soft", "grace"))
+                sounds.append((at, note.piece, note.hand, LAYER_OF_HIT[note.hit], note.hit))
             start += lesson.groove.bars * BEATS_PER_BAR * beat
         spans.append(Span(to_sample(chapter_start), to_sample(start)))
 
     return Timeline(
-        hits=_with_round_robins(played),
+        hits=_with_round_robins(sounds),
         beats=tuple(beats),
         chapters=tuple(spans),
         length_s=length_s(lesson.bpm, lesson.groove.bars, lesson.chapters),
     )
 
 
-def _with_round_robins(played: list[tuple[float, str, str | None, Layer, NoteKind]]) -> tuple[Hit, ...]:
+def _with_round_robins(sounds: list[tuple[float, str, str | None, Layer, NoteKind]]) -> tuple[Hit, ...]:
     """Each piece and layer cycles through its round-robins in the order it is hit from the
     clip's start, so a render of the same lesson mixes the same wav (D13). Hits on the same
     sample go in kit order, so the order never depends on how the notes were listed."""
     order = {piece.id: index for index, piece in enumerate(kit.PIECES)}
-    timed = sorted(((to_sample(t), *rest) for t, *rest in played), key=lambda h: (h[0], order[h[1]]))
+    timed = sorted(((to_sample(t), *rest) for t, *rest in sounds), key=lambda h: (h[0], order[h[1]]))
     counts: dict[tuple[str, Layer], int] = {}
     for sample in drum_kit.SAMPLES:
         counts[(sample.piece, sample.layer)] = counts.get((sample.piece, sample.layer), 0) + 1

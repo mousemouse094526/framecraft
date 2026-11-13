@@ -31,6 +31,12 @@ export function jobOf(job: DrumRenderJob | null, lessonId: string): DrumRenderJo
   return job?.lesson_id === lessonId ? job : null;
 }
 
+/** The lesson's job while it renders: the one place that asks "is this lesson rendering". */
+export function renderingOf(job: DrumRenderJob | null, lessonId: string): DrumRenderJob | null {
+  const own = jobOf(job, lessonId);
+  return isRendering(own) ? own : null;
+}
+
 /** The file a download saves as: `smells-like-teen-spirit-20261113-103000.mp4`. */
 export function downloadName(result: RenderResult, suffix: ".mp4" | ".srt"): string {
   const title = result.title.trim().replace(/[\\/:*?"<>|\s]+/g, "-").toLowerCase();

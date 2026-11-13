@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 State = Literal["rendering", "done", "failed", "cancelled"]
 ErrorCode = Literal["ffmpeg_failed", "internal"]
 BYTES_PER_SECOND = 2 * 1024 * 1024  # what `disk_full` reserves per second of clip (spec › Render job step 5)
-LESSON, BACKGROUND, AUDIO, TEXT = "lesson.json", "background.jpg", "audio.wav", "text.ass"
+AUDIO, TEXT = "audio.wav", "text.ass"
 VIDEO_BITRATE = "8M"  # videotoolbox's own default is far too low for 1080×1920
 AUDIO_RATE, AUDIO_BITRATE = 48_000, "192k"
 NOT_RUNNING = "ไม่มีงาน render บทเรียนกลองที่ยังไม่จบ"
@@ -89,9 +89,7 @@ class DrumRenderJobs(JobSlot[DrumRenderJob]):
                 raise ApiError(409, "busy", f"กำลัง render {running.title} อยู่", lesson_id=running.lesson_id)
             with lessons.lock:
                 lesson = lessons.read_under_lock(project, lesson_id)
-                length_s = lessons.length_s(lesson)
-                if length_s > lessons.MAX_LENGTH_S:
-                    raise ApiError(422, "too_long", f"คลิปยาวเกิน {lessons.MAX_LENGTH_S} วินาที")
+                length_s = lessons.require_short(lesson)
                 disk.require_free(project.root, round(length_s * BYTES_PER_SECOND))
                 _copy_in(project, lesson_id)
                 self._job = DrumRenderJob(state="rendering", lesson_id=lesson_id, title=lesson.title, percent=0)
@@ -140,14 +138,14 @@ class DrumRenderJobs(JobSlot[DrumRenderJob]):
     def _render(self, project: ProjectPaths, lesson_id: str) -> str:
         """Spec › Render job steps 7–9, from the copies in `.render/`."""
         work = project.drums_render_dir
-        lesson = Lesson.model_validate_json((work / LESSON).read_bytes())
-        played = timeline.build(lesson)
-        (work / AUDIO).write_bytes(mixer.mix(project, played))
-        (work / TEXT).write_text(captions.ass_file(project, lesson, played, self._title_font), encoding="utf-8")
-        background = work / BACKGROUND if lesson.background == "image" else None
+        lesson = Lesson.model_validate_json((work / lessons.LESSON_FILE).read_bytes())
+        timing = timeline.build(lesson)
+        (work / AUDIO).write_bytes(mixer.mix(project, timing))
+        (work / TEXT).write_text(captions.ass_file(project, lesson, timing, self._title_font), encoding="utf-8")
+        background = work / lessons.BACKGROUND if lesson.background == "image" else None
         if background is not None and not background.is_file():
             background = None  # a lesson saved as `image` whose picture went: the app's colours
-        scene = frames.Scene(lesson, played, background)
+        scene = frames.Scene(lesson, timing, background)
         total = scene.frames()
         folder = _renders_dir(project, lesson_id)
         folder.mkdir(parents=True, exist_ok=True)
@@ -155,8 +153,8 @@ class DrumRenderJobs(JobSlot[DrumRenderJob]):
         command = _command(os.path.relpath(project.kanit_dir, work), str(render.file(".mp4.partial")))
         drawn = (frames.frame_at(scene, n / frames.FPS) for n in range(total))
         self._run_piped(command, work, self._cancel, drawn, lambda sent: self.update(percent=min(99, sent * 100 // total)))
-        info = {"lesson_id": lesson_id, "title": lesson.title, "length_s": round(played.length_s, 2), "created_at": now_iso()}
-        render.finish(captions.srt_file(lesson, played), info)
+        info = {"lesson_id": lesson_id, "title": lesson.title, "length_s": round(timing.length_s, 2), "created_at": now_iso()}
+        render.finish(captions.srt_file(lesson, timing), info)
         log.info("drum render of %s wrote %s (%d frames)", lesson_id, render.name, total)
         return render.name
 
@@ -180,9 +178,9 @@ def _copy_in(project: ProjectPaths, lesson_id: str) -> None:
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
     folder = lessons.lesson_dir(project, lesson_id)
-    shutil.copyfile(folder / LESSON, work / LESSON)
-    if (folder / BACKGROUND).is_file():
-        shutil.copyfile(folder / BACKGROUND, work / BACKGROUND)
+    shutil.copyfile(folder / lessons.LESSON_FILE, work / lessons.LESSON_FILE)
+    if (folder / lessons.BACKGROUND).is_file():
+        shutil.copyfile(folder / lessons.BACKGROUND, work / lessons.BACKGROUND)
 
 
 def _renders_dir(project: ProjectPaths, lesson_id: str) -> Path:

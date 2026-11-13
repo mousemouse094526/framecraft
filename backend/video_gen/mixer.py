@@ -9,7 +9,7 @@ import io
 from typing import TYPE_CHECKING
 
 from backend import drum_kit, gate_rows
-from backend.errors import ApiError, require_rows
+from backend.errors import require_rows
 from backend.paths import ProjectPaths
 from backend.video_gen import lessons, timeline
 from backend.video_gen.timeline import Timeline
@@ -25,17 +25,16 @@ CHANNELS = 2  # the samples are mono; the wav is stereo as spec › Timeline and
 
 def listen(project: ProjectPaths, lesson_id: str) -> bytes:
     """ฟังจังหวะ: the whole clip's sound, mixed the way a render mixes it (D8). Raises `ApiError`
-    404 `not_found`, 503 `not_ready` without the samples, 422 `too_long` over 90 s (D16)."""
-    lessons.require_id(lesson_id)
+    503 `not_ready` without the samples, then 404 `not_found`, then 422 `too_long` over 90 s
+    (D16): the order a render checks in (spec › Render job)."""
     require_rows(gate_rows.drum_kit_row(project))
     lesson = lessons.stored(project, lesson_id)
-    if lessons.length_s(lesson) > lessons.MAX_LENGTH_S:
-        raise ApiError(422, "too_long", f"คลิปยาวเกิน {lessons.MAX_LENGTH_S} วินาที")
+    lessons.require_short(lesson)
     return mix(project, timeline.build(lesson))
 
 
-def mix(project: ProjectPaths, played: Timeline) -> bytes:
-    """A 16-bit 44.1 kHz stereo wav exactly `played.samples` long, its peak at −1 dBFS. The
+def mix(project: ProjectPaths, timing: Timeline) -> bytes:
+    """A 16-bit 44.1 kHz stereo wav exactly `timing.samples` long, its peak at −1 dBFS. The
     same timeline always mixes the same bytes (D13): each file is read once per call and the
     float sum is rounded to 16 bits by numpy, not by libsndfile."""
     import numpy as np
@@ -43,14 +42,14 @@ def mix(project: ProjectPaths, played: Timeline) -> bytes:
 
     files = {(s.piece, s.layer, s.round_robin): drum_kit.sample_path(project, s) for s in drum_kit.SAMPLES}
     sounds: dict[tuple, np.ndarray] = {}
-    out = np.zeros(played.samples, dtype=np.float32)
-    for index, hit in enumerate(played.hits):
+    out = np.zeros(timing.samples, dtype=np.float32)
+    for index, hit in enumerate(timing.hits):
         key = (hit.piece, hit.layer, hit.round_robin)
         if key not in sounds:
             sounds[key] = _mono(soundfile.read(files[key], dtype="float32")[0])
-        sound = sounds[key][: played.samples - hit.at]
+        sound = sounds[key][: timing.samples - hit.at]
         if hit.piece == "hihat_open":
-            sound = _choked(sound, hit.at, played.hits[index + 1 :])
+            sound = _choked(sound, hit.at, timing.hits[index + 1 :])
         out[hit.at : hit.at + len(sound)] += sound
 
     peak = float(np.max(np.abs(out))) if len(out) else 0.0

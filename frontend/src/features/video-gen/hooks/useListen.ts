@@ -7,6 +7,7 @@ import { fixesOf } from "../lib/setupFixes";
 
 export type ListenState =
   | { kind: "idle" }
+  /** From the press until the wav plays: the save first, then the backend's mix. */
   | { kind: "mixing" }
   /** `fixes`: the commands of the Status check rows a `not_ready` names (setup-status D26). */
   | { kind: "refused"; text: string; fixes: string[] };

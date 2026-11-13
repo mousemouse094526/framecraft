@@ -524,7 +524,7 @@ def test_every_picture_route_of_a_lesson_that_isn_t_there_is_not_found(client, s
 
 def test_a_start_removes_an_upload_never_received_in_full(client, project):
     lesson = new_lesson(client)
-    leftover = project.drums_partial_dir / f"{lesson['id']}.0a1b2c3d.tmp"
+    leftover = backgrounds.partial_file(project, lesson["id"])
     leftover.parent.mkdir(parents=True)
     leftover.write_bytes(b"half a picture")
 

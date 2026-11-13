@@ -71,17 +71,17 @@ class Scene:
     """What every frame of one render shares. The kit is drawn once per set of focused pieces
     (one per chapter that has its own), the first time a frame needs it."""
 
-    def __init__(self, lesson: "Lesson", played: Timeline, background: Path | None):
+    def __init__(self, lesson: "Lesson", timing: Timeline, background: Path | None):
         self.lesson = lesson
-        self.played = played
-        self.segments = lane.segments(lesson, played)
+        self.timing = timing
+        self.segments = lane.segments(lesson, timing)
         self._background = _background(background)
         self._still: dict[frozenset[str], PilImage.Image] = {}
-        shown = [hit for hit in played.hits if hit.note != "count"]
-        self.heads = shown
-        self.head_times = [hit.at / timeline.RATE for hit in shown]
-        self.swings = stick_swings(played)
-        self.beat_times = [beat.at / timeline.RATE for beat in played.beats]
+        # Every hit but the count-in's clicks: the lanes' note heads, the rings and the feet.
+        self.shown_hits = [hit for hit in timing.hits if hit.note != "count"]
+        self.shown_times = [hit.at / timeline.RATE for hit in self.shown_hits]
+        self.swings = stick_swings(timing)
+        self.beat_times = [beat.at / timeline.RATE for beat in timing.beats]
 
     def still(self, focus: frozenset[str]) -> "PilImage.Image":
         if focus not in self._still:
@@ -89,14 +89,18 @@ class Scene:
         return self._still[focus]
 
     def frames(self) -> int:
-        """`ceil(length_s × 30)` (D21)."""
-        return math.ceil(round(self.played.length_s * FPS, 6))
+        return frame_count(self.timing)
+
+
+def frame_count(timing: Timeline) -> int:
+    """`ceil(length_s × 30)` (D21); the rounding keeps a float's last digit from adding a frame."""
+    return math.ceil(round(timing.length_s * FPS, 6))
 
 
 def frame_at(scene: Scene, t: float) -> bytes:
     """The frame at `t` seconds as raw RGB, 1080×1920: the same `t` gives the same bytes."""
     segment = lane.segment_at(scene.segments, t)
-    chapter = scene.lesson.chapters[segment.chapter]
+    chapter = scene.lesson.chapters[segment.chapter_index]
     frame = scene.still(frozenset(chapter.focus)).copy()
     _beat_lines(frame, scene, t, segment)
     _note_heads(frame, scene, t, segment)
@@ -252,7 +256,7 @@ def _beat_lines(frame: "PilImage.Image", scene: Scene, t: float, segment: lane.S
     from PIL import ImageDraw
 
     draw = ImageDraw.Draw(frame)
-    for beat, at in zip(scene.played.beats, scene.beat_times, strict=True):
+    for beat, at in zip(scene.timing.beats, scene.beat_times, strict=True):
         x = lane.x_of(at, t, segment)
         if lane.LEFT < x < lane.RIGHT:
             bar = beat.number == 1
@@ -261,9 +265,9 @@ def _beat_lines(frame: "PilImage.Image", scene: Scene, t: float, segment: lane.S
 
 def _note_heads(frame: "PilImage.Image", scene: Scene, t: float, segment: lane.Segment) -> None:
     now = segment.frozen_at if segment.frozen_at is not None else t
-    first = bisect_left(scene.head_times, now - (lane.PLAYHEAD_X - lane.LEFT) / segment.px_per_s)
-    last = bisect_right(scene.head_times, now + (lane.RIGHT - lane.PLAYHEAD_X) / segment.px_per_s)
-    for hit, at in zip(scene.heads[first:last], scene.head_times[first:last], strict=True):
+    first = bisect_left(scene.shown_times, now - (lane.PLAYHEAD_X - lane.LEFT) / segment.px_per_s)
+    last = bisect_right(scene.shown_times, now + (lane.RIGHT - lane.PLAYHEAD_X) / segment.px_per_s)
+    for hit, at in zip(scene.shown_hits[first:last], scene.shown_times[first:last], strict=True):
         x = lane.x_of(at, t, segment)
         glow = at <= t < at + GLOW_S
         _paste(frame, _head(hit.piece, hit.note, glow), (x, lane.LANE_Y[kit.BY_ID[hit.piece].lane]))
@@ -311,11 +315,11 @@ def _lighter(color: tuple[int, ...]) -> tuple[int, int, int]:
 Swings = dict[str, tuple[list[float], list[Point]]]
 
 
-def stick_swings(played: Timeline) -> Swings:
+def stick_swings(timing: Timeline) -> Swings:
     """For each hand, when it strikes and where, in order; a grace note moves no stick (kit-sketch)."""
     swings = {}
     for hand in kit.STICKS:
-        hits = [hit for hit in played.hits if hit.hand == hand and hit.note != "grace"]
+        hits = [hit for hit in timing.hits if hit.hand == hand and hit.note != "grace"]
         swings[hand] = ([hit.at / timeline.RATE for hit in hits], [kit.STRIKE[hit.piece].center for hit in hits])
     return swings
 
@@ -328,7 +332,11 @@ def stick_tips(swings: Swings, t: float) -> dict[str, Point]:
 def _tip_before(times: list[float], targets: list[Point], rest: Point, t: float, limit: int, depth: int) -> Point:
     """Where the stick's tip is at `t`, from the first `limit` hits only: rising (ease-out) to the
     next one from wherever it was, held on the last one, then back to rest. A hit whose rise
-    starts before the stick got back starts from where it is (kit-sketch › ไม้กลอง)."""
+    starts before the stick got back starts from where it is (kit-sketch › ไม้กลอง).
+
+    That "where it is" is this same question one swing earlier: the tip at the rise's start,
+    counting only the hits before this one (`limit=i`). `depth` counts those steps back; at
+    CHAIN_DEPTH the rise starts from the hit before instead of asking again."""
     i = bisect_right(times, t, 0, limit)
     if i < limit and t >= times[i] - RISE_S:
         start_t = times[i] - RISE_S
@@ -381,9 +389,9 @@ def _stick_head() -> "PilImage.Image":
 def _rings(frame: "PilImage.Image", scene: Scene, t: float) -> None:
     """A red ring and a red flash at the strike point of every hit in its first 0.15 s,
     fading; a grace note's is smaller (D13). Drawn over the sticks."""
-    first = bisect_left(scene.head_times, t - RING_S)
-    last = bisect_right(scene.head_times, t)
-    for hit, at in zip(scene.heads[first:last], scene.head_times[first:last], strict=True):
+    first = bisect_left(scene.shown_times, t - RING_S)
+    last = bisect_right(scene.shown_times, t)
+    for hit, at in zip(scene.shown_hits[first:last], scene.shown_times[first:last], strict=True):
         if at <= t < at + RING_S:
             drawn = kit.STRIKE[hit.piece]
             radius = drawn.ring * (GRACE_SHARE if hit.note == "grace" else 1.0)
@@ -409,9 +417,9 @@ def _ring(radius: int, fade: int) -> "PilImage.Image":
 
 def _feet(frame: "PilImage.Image", scene: Scene, t: float) -> None:
     """A foot's circle swells as it plays and shrinks back over 0.15 s (D13)."""
-    first = bisect_left(scene.head_times, t - RING_S)
-    last = bisect_right(scene.head_times, t)
-    for hit, at in zip(scene.heads[first:last], scene.head_times[first:last], strict=True):
+    first = bisect_left(scene.shown_times, t - RING_S)
+    last = bisect_right(scene.shown_times, t)
+    for hit, at in zip(scene.shown_hits[first:last], scene.shown_times[first:last], strict=True):
         foot = kit.FOOT_OF.get(hit.piece)
         if foot is not None and at <= t < at + RING_S:
             grow = round(FADE_STEPS * (FOOT_PULSE - 1) * (1 - (t - at) / RING_S))

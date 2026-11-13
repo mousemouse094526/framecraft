@@ -25,22 +25,22 @@ class Segment(NamedTuple):
     start_s: float
     end_s: float
     px_per_s: float
-    chapter: int  # the chapter whose kit shows: the first through the count-in, the last through the tail
+    chapter_index: int  # the chapter whose kit shows: the first through the count-in, the last through the tail
     frozen_at: float | None = None
 
 
-def segments(lesson: "Lesson", played: Timeline) -> list[Segment]:
+def segments(lesson: "Lesson", timing: Timeline) -> list[Segment]:
     def px_per_s(speed: int) -> float:
         return (RIGHT - LEFT) / (WINDOW_BARS * timeline.BEATS_PER_BAR * timeline.beat_s(lesson.bpm, speed))
 
-    spans = [(span.start / timeline.RATE, span.end / timeline.RATE) for span in played.chapters]
-    found = [Segment(0.0, spans[0][0], px_per_s(lesson.chapters[0].speed), chapter=0)]
+    spans = [(span.start / timeline.RATE, span.end / timeline.RATE) for span in timing.chapters]
+    found = [Segment(0.0, spans[0][0], px_per_s(lesson.chapters[0].speed), chapter_index=0)]
     found += [
-        Segment(start, end, px_per_s(c.speed), chapter=index)
+        Segment(start, end, px_per_s(c.speed), chapter_index=index)
         for index, ((start, end), c) in enumerate(zip(spans, lesson.chapters, strict=True))
     ]
     last_end = spans[-1][1]
-    found.append(Segment(last_end, played.length_s, found[-1].px_per_s, chapter=len(spans) - 1, frozen_at=last_end))
+    found.append(Segment(last_end, timing.length_s, found[-1].px_per_s, chapter_index=len(spans) - 1, frozen_at=last_end))
     return found
 
 

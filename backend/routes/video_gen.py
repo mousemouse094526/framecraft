@@ -87,6 +87,7 @@ def get_render() -> DrumRenderJob | None:
 
 @router.post("/render/cancel")
 def cancel_render(body: dict[str, Any]) -> DrumRenderJob:
+    """The body is `{}` (ADR 0013: every POST takes a JSON object); nothing in it is read."""
     return render.render_jobs.cancel()
 
 

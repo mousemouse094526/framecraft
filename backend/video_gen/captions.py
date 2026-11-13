@@ -56,13 +56,13 @@ class Section(NamedTuple):
     line: str
 
 
-def sections(lesson: "Lesson", played: Timeline) -> list[Section]:
+def sections(lesson: "Lesson", timing: Timeline) -> list[Section]:
     """The count-in shows the title and subtitle; a chapter its label on the box of its first focused
     piece, and its text under it (D12). A chapter with no label shows the title, and the subtitle when
     it has no text either. The last chapter holds through the tail (D21)."""
-    found = [Section(0.0, played.chapters[0].start / timeline.RATE, lesson.title, WHITE, BLACK, lesson.subtitle)]
-    for index, (chapter, span) in enumerate(zip(lesson.chapters, played.chapters, strict=True)):
-        end = played.length_s if index == len(lesson.chapters) - 1 else span.end / timeline.RATE
+    found = [Section(0.0, timing.chapters[0].start / timeline.RATE, lesson.title, WHITE, BLACK, lesson.subtitle)]
+    for index, (chapter, span) in enumerate(zip(lesson.chapters, timing.chapters, strict=True)):
+        end = timing.length_s if index == len(lesson.chapters) - 1 else span.end / timeline.RATE
         found.append(_chapter_section(lesson, chapter, span.start / timeline.RATE, end))
     return found
 
@@ -77,7 +77,7 @@ def _chapter_section(lesson: "Lesson", chapter: "Chapter", start: float, end: fl
     return Section(start, end, chapter.label, ass_color(color), letters, chapter.text)
 
 
-def ass_file(project: ProjectPaths, lesson: "Lesson", played: Timeline, title_font: TitleFont = kanit_bold) -> str:
+def ass_file(project: ProjectPaths, lesson: "Lesson", timing: Timeline, title_font: TitleFont = kanit_bold) -> str:
     """Every line of text of the clip at spec › Layout's places."""
     font = title_font(project)
     styles = [
@@ -90,17 +90,17 @@ def ass_file(project: ProjectPaths, lesson: "Lesson", played: Timeline, title_fo
         _style("Stick", STICK_LETTER_SIZE, NAVY, NAVY, border=0),
         _style("Beat", BEAT_SIZE, WHITE, BLACK, border=0),
     ]
-    end = played.length_s
+    end = timing.length_s
     events: list[str] = []
-    for section in sections(lesson, played):
+    for section in sections(lesson, timing):
         squeeze = _squeeze(font.getlength(section.heading))
         tags = f"\\an7{_pos(TITLE_AT)}\\1c{section.letters}\\3c{section.box}{squeeze}"
         events.append(subtitles.event("Heading", section.start, section.end, tags, [section.heading]))
         if section.line:
             lines = _at_most_two(project, section.line, SUBTITLE_PER_LINE)
             events.append(subtitles.event("Line", section.start, section.end, "\\an7" + _pos(SUBTITLE_AT), lines))
-    beats = [beat.at / timeline.RATE for beat in played.beats]
-    for beat, start, until in zip(played.beats, beats, [*beats[1:], end], strict=True):
+    beats = [beat.at / timeline.RATE for beat in timing.beats]
+    for beat, start, until in zip(timing.beats, beats, [*beats[1:], end], strict=True):
         events.append(subtitles.event("Counter", start, until, "\\an9" + _pos(COUNTER_AT), [str(beat.number)]))
     if lesson.caption:
         lines = _at_most_two(project, lesson.caption, CAPTION_PER_LINE)
@@ -109,26 +109,26 @@ def ass_file(project: ProjectPaths, lesson: "Lesson", played: Timeline, title_fo
         events.append(subtitles.event("Letter", 0.0, end, "\\an5" + _pos(at), [hand]))
     for foot in kit.FEET:
         events.append(subtitles.event("Foot", 0.0, end, "\\an5" + _pos(foot.center), [foot.name]))
-    events += _stick_letters(played)
-    events += _beat_numbers(lesson, played)
+    events += _stick_letters(timing)
+    events += _beat_numbers(lesson, timing)
     return subtitles.HEADER.format(styles="\n".join(styles)) + "\n".join(events) + "\n"
 
 
-def srt_file(lesson: "Lesson", played: Timeline) -> str:
+def srt_file(lesson: "Lesson", timing: Timeline) -> str:
     """One cue per section: its heading, the line under it, and the caption (spec › Render job step 9)."""
     cues = []
-    for section in sections(lesson, played):
+    for section in sections(lesson, timing):
         text = "\n".join(line for line in (section.heading, section.line, lesson.caption) if line)
         cues.append(Timed(text, section.start, section.end))
     return subtitles.srt_file(cues)
 
 
-def _beat_numbers(lesson: "Lesson", played: Timeline) -> list[str]:
+def _beat_numbers(lesson: "Lesson", timing: Timeline) -> list[str]:
     """`BAR` over each bar's first beat, 2 3 4 over the others, sliding with the notes: one
     `\\move` per stretch at one speed, still in the tail."""
     events = []
-    for segment in lane.segments(lesson, played):
-        for beat in played.beats:
+    for segment in lane.segments(lesson, timing):
+        for beat in timing.beats:
             at = beat.at / timeline.RATE
             text = "BAR" if beat.number == 1 else str(beat.number)
             if segment.frozen_at is not None:
@@ -146,12 +146,12 @@ def _beat_numbers(lesson: "Lesson", played: Timeline) -> list[str]:
     return events
 
 
-def _stick_letters(played: Timeline) -> list[str]:
+def _stick_letters(timing: Timeline) -> list[str]:
     """L and R on the sticks' heads, where `frames` draws them (ADR 0037, D31): one event per stretch
     of frames the head stays put, each frame's time in the middle of its event so libass can't
     show the one before."""
-    swings = frames.stick_swings(played)
-    total = math.ceil(round(played.length_s * frames.FPS, 6))
+    swings = frames.stick_swings(timing)
+    total = frames.frame_count(timing)
     events = []
     for hand in kit.STICKS:
         first, at = 0, None
