@@ -116,7 +116,7 @@
 - เปลี่ยน spoil-maker D53 (แถบ 3 tab) เป็น 4 tab; tab คลังความรู้ไม่ gate แถว Status check ใด (ไม่ใช้โมเดล)
 - `#/stories/{id}` เปิด Story หนึ่งเรื่อง
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by sound-library D2
 
 ## D10: ลบ Story ได้หลังยืนยัน แม้คลิปจำไว้อยู่
 
