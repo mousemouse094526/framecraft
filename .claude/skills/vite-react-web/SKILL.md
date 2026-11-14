@@ -33,7 +33,8 @@ frontend/src/
 │                        its copy button: spoil's notices, a `not_ready` of สอนกลอง), ModalDialog (overlay, Esc,
 │                        focus kept inside), GrooveGrid (the Groove table: editing with `editing`
 │                        for the lesson editor, read-only without it for the song page's preview),
-│                        buttonStyles, NoticeLine (a `Notice` as an Alert),
+│                        buttonStyles, NoticeLine (a `Notice` as an Alert), RefusedAlert (a
+│                        `Refused` as an Alert with its fix commands: the สอนกลอง and แกะเพลง tabs),
 │                        CommitField (a field that sends on blur or Enter); assets/
 │                        holds the icons two features use (copy, trash, x, …)
 ├── testing/          ← testBackend.ts: the fake backend every tab's tests answer `fetch` with; fakeXhr.ts:
@@ -68,6 +69,9 @@ frontend/src/
     │                   `PUT`, `countOf`; the song page reads its Groove and opens its editor
     ├── refusal.ts    ← the API's `{code, message}` refusal, and `refusalLine`
     │                   (the one line a refused button shows)
+    ├── refused.ts    ← `Refused`, the one shape a refused request takes on the สอนกลอง and แกะเพลง
+    │                   pages (tone, line, fix commands, the field named), `refusedOf(body, warnings)`,
+    │                   `refusedLine`, `OFFLINE`, `NOT_NOW` (drum-notes D30)
     ├── gpu.ts        ← "รอให้งาน{running}เสร็จก่อน" for `gpu_busy` (spoil-maker D45)
     ├── clips.ts      ← the Temp clip type and `/api/spoil/clips`: both tabs read it
     ├── stories.ts    ← a Story's list row, `/api/stories`, `/api/story-clips` (`readStoryLinks`

@@ -442,6 +442,42 @@
 
 **From:** feature review · **Status:** active
 
+## D28: สองจอสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่มีแบบใน Figma
+
+**Chosen:** รายการเพลงและหน้าเพลงใช้สเปกใน [ui-prompt.md](ui-prompt.md) และ spec › Design เป็นแบบ ทำด้วยของที่มีอยู่แล้ว (token, `buttonStyles`, `Alert`/`RefusedAlert`, การ์ด `rounded-2xl`, `GrooveGrid` อ่านอย่างเดียว, `ModalDialog`) ไม่ต้องมี frame ใน Figma — แบบเดียวกับ sound-library D18 และ video-gen D38. ปรับหน้าตาให้ตรง prompt: บรรทัด "ใช้เพลงเพื่อแกะโน้ตเท่านั้น…" อยู่ใต้หัวเรื่อง; placeholder "วางลิงก์ YouTube หรือเว็บอื่นที่โหลดได้"; รายการว่าง "ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง" และ cursor อยู่ในกล่องลิงก์; ลิงก์กลับ "← รายการเพลง"; ช่อง "BPM ของบทเรียน"; บรรทัดช่วย "แก้โน้ต ท่อนสอน และ render ต่อใน tab สอนกลอง" ใต้ปุ่มสร้าง; "บทเรียนจากเพลงนี้" แสดงชื่อบทเรียนจากรายการของ tab สอนกลอง (`useLessonTitles`; อ่านไม่ได้ = "บทเรียน n") ตามด้วย "→ เปิดใน สอนกลอง"; ทุกเป้ากดที่ feature นี้เพิ่ม (ลบ, ยกเลิก, ปุ่มไฟล์, โหมด, ใช้เวลาที่เล่นอยู่, ห้องบนแถบ, จำนวนห้อง, ลิงก์บทเรียน) สูง 44px ต่ำกว่า 640px และเล็กลงเท่าของเดิมตั้งแต่ 640px. คงของเดิมที่ต่างจาก prompt โดยเจตนา: ไม่มี "BPM ที่พบ" (D25), หัวส่วน "ผลแกะ" บอกโหมด (D26), dialog ลบชื่อเพลงในหัว "ลบ {title}?" แบบ dialog อื่นของแอป, ตอนโหลดเป็นบรรทัด "กำลังโหลด…" แบบ tab อื่นไม่ใช่ skeleton.
+
+**Why:** เจ้าของสั่ง 2026-11-14 ให้ทำสองจอเองจาก ui-prompt ไม่รอ Figma แบบที่ sound-library ทำเป็น D18 แล้วปิด Blocked 1–2. prompt ขอเป้ากด ≥ 44px; หน้าอื่นใช้ `h-11` บนจอแคบแล้วเล็กลงที่ `sm` อยู่แล้ว.
+
+**From:** เจ้าของ (ปิด Blocked 1–2) · **Status:** active
+
+## D29: คำตอบเจ้าของสามข้อจาก feature review: คงผลตรวจ Beat This! ตามจริง, มือของ crash คง D13, `Song.title` 1–60 ตอนอ่าน
+
+**Chosen:**
+- Beat This! ที่ให้ 2 จังหวะต่อห้องบนท่อนเบาหรือเพลงทำนอง: **คงผลตรวจตามจริง ไม่รวมห้องเป็นคู่** — ห้องที่พบแสดงตามที่โมเดลให้ ห้องที่ไม่ใช่ 4/4 หรี่และเลือกไม่ได้ (D20) ผู้ใช้ลองช่วงอื่นหรือโหมดอื่นเอง; ไม่มีโค้ดเปลี่ยน
+- `crash` กับไฮแฮทช่องเดียวกัน: **คงกติกา D13 เดิม** — มือ R ให้ชิ้นที่อยู่ขวาสุดบนชุดกลองก่อน (`RIGHT_ORDER`: ไฮแฮท) ถ้า R ไม่ว่างจึงให้ L (crash ได้ L) ไม่เปลี่ยน D13; ไม่มีโค้ดเปลี่ยน
+- `Song.title`: **บังคับ 1–60 ตอนอ่าน** — `Song.title` เป็น `Field(min_length=1, max_length=60)` ไฟล์ `song.json` ที่แก้มือให้ว่างหรือเกิน 60 อ่านไม่ได้เหมือนค่าผิดอื่น (D20: ไม่อยู่ในรายการ, `GET` 404, log "can't be read", ยังลบได้); บรรทัดรองไม่บังคับตอนอ่าน (ถูกตัดที่ 60 ตอนใช้ใน `lessons.from_song` อยู่แล้ว)
+
+**Why:** เจ้าของเคาะ 2026-11-14 (ปิด Blocked 4). ผลตรวจตามจริงไม่ปิดบังความไม่แม่นของโมเดล (D6: ผลเป็นร่าง ไม่รับผิดชอบความแม่น); การรวมห้องเป็นคู่ต้องเดาว่าเพลงเป็น 4/4 จริง.
+
+**From:** เจ้าของ (ปิด Blocked 4) · **Status:** active
+
+## D30: refactor ที่ค้างจาก feature review (Blocked 3)
+
+**Chosen:**
+- `JobSlot.cancel` และ `stop_on_shutdown` อยู่ที่ `backend.jobs.JobSlot` ตัวเดียว: class attribute `nothing_to_cancel` (ข้อความ) และ `cancel_refusal` (`(404, "not_found")` ตั้งต้น; `(409, "not_running")` สำหรับ Song import, Pick job และ Render job ของ video-gen) แทนสำเนาใน `SongImports`, `PickJobs`, `SoundImports`, `DrumRenderJobs` และ `ModelJobSlot`; ตั้ง `cancel_requested` เมื่อ job มี field นั้น
+- `drum_notes.score` เหลือเลขสัญญาณ (chunk ของ Beat This!, peak ของ ADTOF, หน้าต่างของ Basic Pitch, จังหวะ/ต้นห้อง); กฎ Groove ขั้น 3–8 (`preview`, `default_bpm`, `quantize`, `base_groove`, `trimmed`, `with_hands`) ย้ายไป `drum_notes.groove`; test แยกเป็น `test_drum_notes_groove.py`
+- ตารางต่อโหมดแทน `if mode`: `pick.HITS_BY_MODE` (การรันโมเดลของโหมด: ADTOF ทั้งช่วงที่ 44.1 kHz หรือ Basic Pitch ทีละหน้าต่าง รวมการนับขั้นของ `picking`), `groove.BASE_GROOVES` (โน้ตพื้นใต้การตี: ว่างในโหมดกลอง, kick + ไฮแฮทในโหมดทำนอง) คู่กับ `gate_rows.PICK_GATES` เดิม
+- หน้าเว็บ: รูป "API ปฏิเสธ" รูปเดียว `lib/refused.ts` — `Refused {tone, text, fixes, field}`, `refusedOf(body, warnings)`, `refusedLine`, `OFFLINE`, `NOT_NOW` — ใช้ใน `usePick`, `useSongs` (notice), `useLessonPreview` (preview/creating), `useListen` และ `useDrumRender` ของ video-gen; `RefusedAlert` รับ `refused` ตัวเดียว (แทน `FailedAlert` และ `Alert` เฉพาะกิจสามที่ในหน้าเพลง)
+- `Placed.piece`/`Dropped.piece`/`DroppedNote.piece` เป็น `kit.PieceId` (Literal ของสิบชิ้น; `Piece.id` ก็เป็นชนิดนี้) — `quantize` อ่าน id ผ่าน `kit.BY_ID` ซึ่ง `songs.checked_analysis` รับรองแล้ว
+- `SongImports._take_in` รับ `songs.Head(title, subtitle, source)` ก้อนเดียวแทนสามพารามิเตอร์; `new_song(song_id, head, …)` เช่นกัน
+- `SongImports.start` คืน `SongImport | KnownSong` route อ่านสถานะจากชนิด (`200` เมื่อ `KnownSong`) แทน tuple `(status, dict)`
+- fake Beat This! ใน test (`fakes.logit_peaks`) รับ `first_frame` ของ chunk จึงให้จังหวะตรงกันทุก chunk ไม่ใช่แค่ chunk แรก: fake นับ chunk (`KEPT_FRAMES` ต่อ chunk) และรู้ความยาวช่วงจาก input ของ ADTOF จึงวาง chunk สุดท้ายที่ถูกเลื่อนได้ถูก (โหมดทำนองใน test อยู่ใน chunk เดียว)
+- ข้าม feature ยังไม่แตะ: `tabOf`/`App` และ helper ของ toon (เป็นของ feature อื่น)
+
+**Why:** feature review (D27) ตัดไว้เป็น Blocked 3; เจ้าของสั่งปลดในรอบนี้. ทุกข้อไม่เปลี่ยน API หรือ spec: test เดิมผ่านโดยแก้แค่ชื่อที่ import.
+
+**From:** เจ้าของ (ปิด Blocked 3) · **Status:** active
+
 ## Sources
 
 - [ADTOF Frame_RNN (ONNX) model card](https://huggingface.co/thebluescreen/adtof-drums-onnx) — input/output, threshold, peak picking, license CC BY-NC-SA 4.0, revision (accessed 2026-11-14)

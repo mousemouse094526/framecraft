@@ -1,11 +1,11 @@
 # UI prompt: drum-notes
 
-วาง block ด้านล่างครั้งเดียวในเครื่องมือออกแบบ หรือใน Claude Code ที่มี Figma MCP พูดว่า "design docs/features/drum-notes/ui-prompt.md in {ลิงก์ไฟล์ Figma}"; จนกว่าจะมีแบบ หน้าเว็บทำตามของเดิมของ tab สอนกลองและ block นี้; ได้ลิงก์แล้วนำกลับมาด้วย `/warroom drum-notes`.
+วาง block ด้านล่างครั้งเดียวในเครื่องมือออกแบบ หรือใน Claude Code ที่มี Figma MCP พูดว่า "design docs/features/drum-notes/ui-prompt.md in {ลิงก์ไฟล์ Figma}"; หน้าเว็บทำตาม block นี้กับ design system เดิมแล้ว (D28) ไม่มีแบบใน Figma; แบบ Figma ถ้าทำภายหลังเป็น change request ผ่าน `/warroom drum-notes`.
 
 | # | Screen | User stories | Decisions | Now |
 |---|---|---|---|---|
-| 1 | รายการเพลง | 1, 4, 6 | D3, D4, D15, D18, D20 | new |
-| 2 | หน้าเพลง | 2, 3, 5, 6 | D5, D6, D10, D11, D12, D13, D14, D18, D20, D21 | new |
+| 1 | รายการเพลง | 1, 4, 6 | D3, D4, D15, D18, D20 | built (D28) |
+| 2 | หน้าเพลง | 2, 3, 5, 6 | D5, D6, D10, D11, D12, D13, D14, D18, D20, D21 | built (D28) |
 
 ```text
 Design the "แกะเพลง" (songs) screens of framecraft: a local desktop web app, used by one person on their own Mac, that makes short vertical drum-lesson clips. This tab turns a song (a link, an audio file, or a MIDI file) into a draft drum lesson that the existing "สอนกลอง" tab then edits and renders. Steps, in order: 1 Components, 2 Screens, 3 Preview.

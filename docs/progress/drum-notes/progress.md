@@ -1,11 +1,11 @@
 # Progress: drum-notes
 
-**Now:** ทุก ticket done (01–04) และ feature review ผ่าน (`56767e3`); รอเจ้าของ: แบบ Figma สองหน้า (Blocked 1–2), ฟังเทียบ (Blocked 5), สามคำถาม spec (Blocked 4); refactor ที่เหลือ (Blocked 3) ตัดเป็น ticket ได้. ไม่มี PR จนกว่า Blocked จะปิด (และ `feat/video-gen` ที่ branch นี้ต่อจากยังไม่ merge)
+**Now:** ทุก ticket done (01–04), feature review ผ่าน, merge `origin/develop` (sound-library #13 + video-gen #14) แล้ว, Blocked 1–4 ปิดด้วย D28–D30; PR เข้า `develop` เปิดแล้ว (ลิงก์ในแถว board). เหลือ Blocked 5: เจ้าของฟังเทียบหลังเปิด PR
 
-**Next:**
+**Next:** รอ review/merge PR แล้ว
 
 ```
-/warroom drum-notes
+/warroom next
 ```
 
 ## Tickets
@@ -18,6 +18,22 @@
 | 04 | โหมดทำนอง | done |
 
 ## Log
+
+### ปลด Blocked 1–4 + merge develop — 2026-11-14
+
+**Merge:** `git merge origin/develop` (`e98c1c7`): sound-library (#13 `f89b1e9`) และ video-gen (#14 `2b883ca`) เข้า develop แบบ squash จึง conflict 52 ไฟล์ แก้โดยใช้ปลาย `feat/video-gen` (`ea3a1b9`) เป็น base. ADR ของ drum-notes เลื่อนจาก 0040–0046 เป็น **0043–0049** (sound-library ได้ 0037–0039, video-gen เลื่อนเป็น 0040–0042 บน develop) และแก้ทุกที่ที่อ้าง; หมายเหตุของ drum-notes บน ADR one-timeline ไปอยู่ที่ 0041. `backend.sounds` (คลังเสียงกลางจาก sound-library) ใช้ `audio_imports` ร่วมแบบที่เคยทำกับ `toon.sounds` (`ImportSlot`, `take_in` รับ `partial` ของผู้เรียกเพื่อให้ `.partial/` ของคลังอยู่ที่เดิมตาม sound-library D11); `toon/sounds.py` กับ test ของมันลบตาม develop. tab แกะเพลงเข้ากลุ่ม "ทำคลิป" ต่อจากสอนกลอง (`TABS` มี 8 tab).
+
+**Blocked 1–2 (D28):** สองจอสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma; ปรับ copy ให้ตรง prompt, เป้ากด 44px ต่ำกว่า 640px, ชื่อบทเรียนใน "บทเรียนจากเพลงนี้" จาก `/api/drums/lessons` (`useLessonTitles`).
+
+**Blocked 3 (D30):** `JobSlot.cancel`/`stop_on_shutdown` ร่วม (`cancel_refusal`, `nothing_to_cancel`) — ใช้โดย Song import, Pick job, คลังเสียง, Render job และ `ModelJobSlot`; `score.py` แยกเป็น `score` (เลขสัญญาณ) + `groove` (กฎ Groove ขั้น 3–8) พร้อม `test_drum_notes_groove.py`; ตารางต่อโหมด `pick.HITS_BY_MODE` + `groove.BASE_GROOVES`; หน้าเว็บ `lib/refused.ts` รูปเดียว + `RefusedAlert({ refused })`; `kit.PieceId`; `songs.Head`; `SongImports.start` คืน `SongImport | KnownSong`; fake Beat This! ถูกทุก chunk.
+
+**Blocked 4 (D29):** เจ้าของเคาะ: คงผลตรวจ Beat This! ตามจริง ไม่รวมห้องเป็นคู่; crash + ไฮแฮทช่องเดียวคง D13 (R ก่อน ถ้าไม่ว่างจึง L); `Song.title` บังคับ 1–60 ตอนอ่าน (`Field(min_length=1, max_length=60)` + test).
+
+**Blocked 5:** ปล่อยไว้ เป็นการตรวจหลังเปิด PR: เจ้าของฟังเทียบตาราง intro ของ `reel.mp4`/SLTS (Log 03) และ kalimba `DdYi7i6t2R8` 0–30 s ห้อง 24–25 โหมดทำนอง (Log 04) บน `#/songs` แล้วบอกสิ่งที่ต้องแก้ (เป็น change request ถ้ามี).
+
+**Checks:** ดูท้ายข้อนี้ในรายงาน PR; ค่าล่าสุดก่อน commit บันทึกใต้ "Checks" ของ PR.
+
+**Decided:** D28, D29, D30
 
 ### Feature review — 2026-11-14
 
@@ -131,8 +147,8 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01 | design: รายการเพลง — ทำแบบจาก [ui-prompt.md](../../features/drum-notes/ui-prompt.md) | `/warroom drum-notes` พร้อมลิงก์แบบ | open |
-| 2 | 02 | design: หน้าเพลง — ทำแบบจาก [ui-prompt.md](../../features/drum-notes/ui-prompt.md) | `/warroom drum-notes` พร้อมลิงก์แบบ | open |
-| 3 | review | refactor ที่เหลือจาก feature review (D27): `JobSlot.cancel` ร่วมสาม slot, รูป "API ปฏิเสธ" สี่แบบในหน้าเว็บ, แยก `score.py` เลขสัญญาณ/กฎ Groove, ตารางต่อโหมดแทน `if mode` สามที่, fake Beat This! ถูกเฉพาะ chunk แรก, `Placed.piece: str`, `_take_in` clump, `SongImports.start` tuple; ข้าม feature: `tabOf`/`App`, helper ของ toon | `/warroom tickets drum-notes` | open |
-| 4 | review | spec ต้องเจ้าของ: Beat This! ให้ 2 จังหวะต่อห้องบนท่อนเบา/เพลงทำนอง (รวมห้องเป็นคู่?); `crash` + ไฮแฮทช่องเดียว → crash ได้มือ L (เปลี่ยน D13?); `Song.title` 1–60 ตอนอ่าน | `/warroom drum-notes` | open |
-| 5 | 03, 04 | เจ้าของฟังเทียบ: ตาราง intro ของ `reel.mp4`/SLTS (Log 03) และ kalimba `DdYi7i6t2R8` 0–30 s ห้อง 24–25 โหมดทำนอง (Log 04) แล้วบอกสิ่งที่ต้องแก้ | เจ้าของเปิด `#/songs` แล้วตอบ | open |
+| 1 | 01 | design: รายการเพลง — ทำแบบจาก [ui-prompt.md](../../features/drum-notes/ui-prompt.md) | `/warroom drum-notes` พร้อมลิงก์แบบ | done (D28) |
+| 2 | 02 | design: หน้าเพลง — ทำแบบจาก [ui-prompt.md](../../features/drum-notes/ui-prompt.md) | `/warroom drum-notes` พร้อมลิงก์แบบ | done (D28) |
+| 3 | review | refactor ที่เหลือจาก feature review (D27): `JobSlot.cancel` ร่วมสาม slot, รูป "API ปฏิเสธ" สี่แบบในหน้าเว็บ, แยก `score.py` เลขสัญญาณ/กฎ Groove, ตารางต่อโหมดแทน `if mode` สามที่, fake Beat This! ถูกเฉพาะ chunk แรก, `Placed.piece: str`, `_take_in` clump, `SongImports.start` tuple; ข้าม feature: `tabOf`/`App`, helper ของ toon (ยังไม่แตะ) | `/warroom tickets drum-notes` | done (D30) |
+| 4 | review | spec ต้องเจ้าของ: Beat This! ให้ 2 จังหวะต่อห้องบนท่อนเบา/เพลงทำนอง (รวมห้องเป็นคู่?); `crash` + ไฮแฮทช่องเดียว → crash ได้มือ L (เปลี่ยน D13?); `Song.title` 1–60 ตอนอ่าน | `/warroom drum-notes` | done (D29) |
+| 5 | 03, 04 | เจ้าของฟังเทียบ: ตาราง intro ของ `reel.mp4`/SLTS (Log 03) และ kalimba `DdYi7i6t2R8` 0–30 s ห้อง 24–25 โหมดทำนอง (Log 04) แล้วบอกสิ่งที่ต้องแก้ — ตรวจหลังเปิด PR | เจ้าของเปิด `#/songs` แล้วตอบ | open (หลัง PR) |
