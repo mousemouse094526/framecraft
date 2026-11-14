@@ -10,4 +10,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [story-kb](story-kb/progress.md) | false | done | 🎨 4/4 | ✅ d75f574 | — | — |
 | [windows-launch](windows-launch/progress.md) | **true** | blocked | 🎨 1/1 | 2/3 | **งาน Windows ทั้งหมด** — รวม windows-check 01–02 (setup-status, spoil) + 03 ลอง Qwen บน RTX 30xx · รอเครื่อง | `/warroom-build windows-launch 03` (บนเครื่อง Windows) |
 | [toon](toon/progress.md) | false | done | 🎨 9/9 | ✅ 15604b7 | #33 (ค้างครั้งแรก), #37 (MPS pool EP ยาว) รอเกิดซ้ำ | — |
-| [video-gen](video-gen/progress.md) | false | review | ⏳ 0/3 | ✅ 43ed0a9 | ready to merge; แบบ Figma ทำทีหลัง (D38) | `/pr-open` |
+| [video-gen](video-gen/progress.md) | false | review | ⏳ 0/3 | ✅ 43ed0a9 | [PR #14](https://github.com/mousemouse094526/framecraft/pull/14) | — |

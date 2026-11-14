@@ -1,11 +1,11 @@
 # Progress: video-gen
 
-**Now:** ready to merge — feature review เสร็จ (`43ed0a9`) CI เขียว; Blocked 1–3 ปิดด้วย D38 (หน้าตาเดิมของแอป, แบบ Figma ทำทีหลังจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md)); เจ้าของยังเช็คเอง: render คลิปจริงเทียบคลิปอ้างอิง, ฟัง sample จริง, ภาพพื้นหลังจริง
+**Now:** [PR #14](https://github.com/mousemouse094526/framecraft/pull/14) รอ review และ merge — feature review เสร็จ (`43ed0a9`) CI เขียว; Blocked 1–3 ปิดด้วย D38 (หน้าตาเดิมของแอป, แบบ Figma ทำทีหลังจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md)); เจ้าของยังเช็คเอง: render คลิปจริงเทียบคลิปอ้างอิง, ฟัง sample จริง, ภาพพื้นหลังจริง
 
-**Next:**
+**Next:** merge PR #14 แล้ว
 
 ```
-/pr-open
+/warroom next
 ```
 
 ## Tickets
