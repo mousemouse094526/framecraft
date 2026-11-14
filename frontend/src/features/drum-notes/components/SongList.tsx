@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { DESTRUCTIVE_BUTTON, GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { inputClass } from "../../../components/ui/inputStyles";
@@ -13,7 +13,7 @@ import { formatDuration } from "../../../lib/format";
 import { useSongs, type Upload } from "../hooks/useSongs";
 import { FILE_ACCEPT, FILE_HINT, importText, isImporting, NOTES_ONLY, pickedText, songHash, SOURCE_LABELS, type PickJob, type SongImport, type SongRow } from "../lib/songs";
 
-/** รายการเพลง (`#/songs`): the link box and file box, the running import, the songs newest first, delete (spec › Design). The design is pending, so the app's own parts. */
+/** รายการเพลง (`#/songs`): the link box and file box, the running import, the songs newest first, delete (spec › Design, ui-prompt.md screen 1, D28). */
 export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void }) {
   const { state, pick, reload, startLink, importFile, cancelUpload, cancelImport, remove } = useSongs(onKnownSong);
   const [deleting, setDeleting] = useState<SongRow | null>(null);
@@ -32,20 +32,22 @@ export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void })
 
   return (
     <PageLayout tab="songs">
-      <h2 className="text-xl leading-[1.5] font-semibold text-foreground">แกะเพลง</h2>
-      <section aria-label="เอาเพลงเข้า" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
-        <LinkForm busy={busy || ready === null} onSubmit={startLink} />
-        <FileBox disabled={busy || ready === null} onFile={(file) => void importFile(file)} />
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl leading-[1.5] font-semibold text-foreground">แกะเพลง</h2>
         <p className="text-[13px] leading-[1.5] text-mid">{NOTES_ONLY}</p>
+      </div>
+      <section aria-label="เอาเพลงเข้า" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
+        <LinkForm busy={busy || ready === null} focused={ready?.songs.length === 0} onSubmit={startLink} />
+        <FileBox disabled={busy || ready === null} onFile={(file) => void importFile(file)} />
         {running && <ImportRow job={running} onCancel={() => void cancelImport()} />}
         {ready?.upload && <UploadRow upload={ready.upload} onCancel={cancelUpload} />}
-        {ready?.notice && <RefusedAlert tone={ready.notice.tone} text={ready.notice.text} fixes={ready.notice.fixes} />}
+        {ready?.notice && <RefusedAlert refused={ready.notice} />}
       </section>
       <section aria-label="เพลงทั้งหมด" aria-busy={state.kind === "loading"} className="overflow-hidden rounded-2xl border border-border bg-card">
         {ready === null ? (
           <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
         ) : ready.songs.length === 0 ? (
-          <p className="px-4 py-12 text-center text-sm leading-[1.5] text-mid">ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ด้านบน</p>
+          <p className="px-4 py-12 text-center text-sm leading-[1.5] text-mid">ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง</p>
         ) : (
           <ul className="divide-y divide-border">
             {ready.songs.map((song) => (
@@ -68,9 +70,15 @@ export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void })
   );
 }
 
-function LinkForm({ busy, onSubmit }: { busy: boolean; onSubmit: (url: string) => Promise<boolean> }) {
+/** The link box; `focused` puts the cursor in it (an empty list: the first song starts here, ui-prompt.md screen 1 state 2). */
+function LinkForm({ busy, focused, onSubmit }: { busy: boolean; focused: boolean; onSubmit: (url: string) => Promise<boolean> }) {
   const [url, setUrl] = useState("");
   const inputId = useId();
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focused) input.current?.focus(); // once the list is read: `autoFocus` would have fired while it loaded
+  }, [focused]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -87,10 +95,11 @@ function LinkForm({ busy, onSubmit }: { busy: boolean; onSubmit: (url: string) =
         </label>
         <input
           id={inputId}
+          ref={input}
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
-          placeholder="วางลิงก์เพลง (YouTube หรือเว็บอื่น)"
+          placeholder="วางลิงก์ YouTube หรือเว็บอื่นที่โหลดได้"
           className={`${inputClass(false)} font-button placeholder:text-muted-foreground`}
         />
       </div>
@@ -137,7 +146,7 @@ function FileBox({ disabled, onFile }: { disabled: boolean; onFile: (file: File)
           over ? "border-brand-accent bg-accent-subtle" : "border-border bg-card hover:bg-muted disabled:bg-muted disabled:hover:bg-muted"
         }`}
       >
-        <span className={`flex h-9 items-center justify-center px-4 ${OUTLINE_BUTTON}`}>เลือกไฟล์ในเครื่อง</span>
+        <span className={`flex h-11 items-center justify-center px-4 sm:h-9 ${OUTLINE_BUTTON}`}>เลือกไฟล์ในเครื่อง</span>
         <span id={hintId} className="text-center text-xs leading-[1.5] text-mid">
           หรือลากไฟล์มาวาง · {FILE_HINT}
         </span>
@@ -166,7 +175,7 @@ function ImportRow({ job, onCancel }: { job: SongImport; onCancel: () => void })
       <div className="flex items-center gap-3">
         <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{job.title ?? job.url}</p>
         <p className="shrink-0 font-button text-xs leading-4 text-mid">{importText(job)}</p>
-        <button type="button" disabled={job.cancel_requested} onClick={onCancel} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+        <button type="button" disabled={job.cancel_requested} onClick={onCancel} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
           <img src={xIcon} alt="" width={16} height={16} />
           ยกเลิก
         </button>
@@ -184,7 +193,7 @@ function UploadRow({ upload, onCancel }: { upload: Upload; onCancel: () => void 
         <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{upload.name}</p>
         <p className="shrink-0 font-button text-xs leading-4 text-mid">{upload.converting ? "กำลังแปลงเสียง…" : `กำลังส่ง ${upload.percent}%`}</p>
         {!upload.converting && (
-          <button type="button" onClick={onCancel} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+          <button type="button" onClick={onCancel} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
             <img src={xIcon} alt="" width={16} height={16} />
             ยกเลิก
           </button>
@@ -212,7 +221,7 @@ function Row({ song, pick, onDelete }: { song: SongRow; pick: PickJob | null; on
           <span>{song.lessons} บทเรียน</span>
         </span>
       </a>
-      <button type="button" aria-label={`ลบ ${song.title}`} onClick={onDelete} className={`size-10 ${GHOST_BUTTON} hover:bg-muted`}>
+      <button type="button" aria-label={`ลบ ${song.title}`} onClick={onDelete} className={`size-11 sm:size-10 ${GHOST_BUTTON} hover:bg-muted`}>
         <img src={trashIcon} alt="" width={16} height={16} />
       </button>
     </li>

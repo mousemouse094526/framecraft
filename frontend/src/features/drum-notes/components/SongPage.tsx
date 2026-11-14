@@ -1,7 +1,6 @@
 import { useId, useRef, useState, type RefObject } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
-import { FixCommand } from "../../../components/ui/FixCommand";
 import { GrooveGrid } from "../../../components/ui/GrooveGrid";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { inputClass } from "../../../components/ui/inputStyles";
@@ -14,7 +13,9 @@ import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
 import { BPM_MAX, BPM_MIN, lessonHash } from "../../../lib/lesson";
 import { useLessonPreview } from "../hooks/useLessonPreview";
-import { usePick, type Refused } from "../hooks/usePick";
+import { useLessonTitles } from "../hooks/useLessonTitles";
+import { refusedLine, type Refused } from "../../../lib/refused";
+import { usePick } from "../hooks/usePick";
 import { useSong } from "../hooks/useSong";
 import {
   audioUrl,
@@ -45,7 +46,7 @@ import {
 /**
  * หน้าเพลง (`#/songs/{id}`): the song's head and player, the range and mode, the Pick job, the bars
  * found with the lesson made of the ones picked, and the lessons made before (spec › Design, D5, D6,
- * D11, D12, D18, D20, D21). The design is pending, so the app's own parts.
+ * D11, D12, D18, D20, D21; ui-prompt.md screen 2, D28).
  */
 export function SongPage({ id, notice }: { id: string; notice: string | null }) {
   const { state, reload, replace } = useSong(id);
@@ -59,7 +60,7 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
       <div className="flex items-center gap-2">
         <a href={SONGS_HASH} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
-          กลับ
+          รายการเพลง
         </a>
         {state.kind === "ready" && <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">{state.song.title}</h2>}
       </div>
@@ -180,7 +181,7 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
               aria-checked={mode === option}
               disabled={running}
               onClick={() => setMode(option)}
-              className={`h-10 rounded-lg border px-4 font-button text-sm font-medium ${mode === option ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card text-mid hover:bg-muted"} disabled:opacity-60`}
+              className={`h-11 rounded-lg border px-4 font-button text-sm font-medium sm:h-10 ${mode === option ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card text-mid hover:bg-muted"} disabled:opacity-60`}
             >
               {MODE_LABELS[option]}
             </button>
@@ -192,7 +193,7 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
         <div role="group" aria-label="งานแกะโน้ต" className="flex flex-col gap-2 rounded-xl bg-muted px-4 py-3">
           <div className="flex items-center gap-3">
             <p className="min-w-0 flex-1 text-sm font-medium text-foreground">{pickText(picking)}</p>
-            <button type="button" disabled={picking.cancel_requested} onClick={onCancel} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+            <button type="button" disabled={picking.cancel_requested} onClick={onCancel} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
               <img src={xIcon} alt="" width={16} height={16} />
               ยกเลิก
             </button>
@@ -207,8 +208,8 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
           {running && <p className="text-[13px] leading-[1.5] text-mid">กำลังแกะเพลงอื่นอยู่ รอให้เสร็จก่อน</p>}
         </div>
       )}
-      {refused && !refused.field && <RefusedAlert tone={refused.fixes.length > 0 ? "warning" : "error"} text={refused.text} fixes={refused.fixes} />}
-      {failed && !refused && <FailedAlert job={failed} />}
+      {refused && !refused.field && <RefusedAlert refused={refused} />}
+      {failed && !refused && <RefusedAlert refused={refusedLine(failed.message ?? "", failed.fix ? [failed.fix] : [])} />}
     </section>
   );
 }
@@ -221,23 +222,11 @@ function RangeField({ id, label, value, error, disabled, onChange, onUseCurrent 
     <Labeled label={label} htmlFor={id} error={error}>
       <div className="flex gap-2">
         <input id={id} type="number" min={0} step={0.1} value={value} disabled={disabled} aria-invalid={error !== undefined} onChange={(e) => onChange(e.target.value)} className={inputClass(error !== undefined)} />
-        <button type="button" disabled={disabled} onClick={onUseCurrent} aria-label={`ใช้เวลาที่เล่นอยู่เป็น${label}`} className={`h-10 shrink-0 px-3 ${GHOST_BUTTON} border border-border`}>
+        <button type="button" disabled={disabled} onClick={onUseCurrent} aria-label={`ใช้เวลาที่เล่นอยู่เป็น${label}`} className={`h-11 shrink-0 px-3 sm:h-10 ${GHOST_BUTTON} border border-border`}>
           ใช้เวลาที่เล่นอยู่
         </button>
       </div>
     </Labeled>
-  );
-}
-
-/** A job that failed: `no_beats`, `model_failed`, `internal` by their message; `model_broken` with the Setup script to run (D20). */
-function FailedAlert({ job }: { job: PickJob }) {
-  return (
-    <Alert tone="error">
-      <div className="flex flex-col gap-2">
-        <p>{job.message}</p>
-        {job.fix && <FixCommand command={job.fix} />}
-      </div>
-    </Alert>
   );
 }
 
@@ -299,7 +288,7 @@ function FoundBars({ bars, mode, selected, onPick }: FoundBarsProps) {
               title={bar.four_four ? undefined : "ห้องนี้ไม่ใช่ 4/4"}
               onClick={() => onPick(index, bar.start_s)}
               aria-label={`ห้อง ${bar.n}`}
-              className={`flex flex-col items-start rounded-lg border px-3 py-2 text-left leading-[1.5] ${
+              className={`flex min-h-11 flex-col items-start rounded-lg border px-3 py-2 text-left leading-[1.5] ${
                 !bar.four_four ? "border-border bg-muted text-muted-foreground opacity-50" : index === selected ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card hover:bg-muted"
               }`}
             >
@@ -344,19 +333,19 @@ function LessonSection({ lesson, mode }: { lesson: ReturnType<typeof useLessonPr
                 aria-checked={lesson.bars === count}
                 disabled={count > lesson.pickable}
                 onClick={() => lesson.setBars(count)}
-                className={`h-10 w-10 rounded-lg border font-button text-sm font-medium ${lesson.bars === count ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card text-mid hover:bg-muted"} disabled:opacity-40`}
+                className={`size-11 rounded-lg border font-button text-sm font-medium sm:size-10 ${lesson.bars === count ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card text-mid hover:bg-muted"} disabled:opacity-40`}
               >
                 {count}
               </button>
             ))}
           </div>
         </div>
-        <Labeled label="BPM" htmlFor={`${id}-bpm`} error={bpmError} hint="ตั้งต้นจากความยาวห้องที่เลือก">
+        <Labeled label="BPM ของบทเรียน" htmlFor={`${id}-bpm`} error={bpmError} hint="ตั้งต้นจากความยาวห้องที่เลือก">
           <input id={`${id}-bpm`} type="number" min={BPM_MIN} max={BPM_MAX} value={lesson.bpmShown} aria-invalid={bpmError !== undefined} onChange={(e) => lesson.setBpmText(e.target.value)} className={inputClass(bpmError !== undefined)} />
         </Labeled>
       </div>
       {preview.kind === "loading" && <p className="text-sm leading-[1.5] text-mid">กำลังคำนวณโน้ต…</p>}
-      {preview.kind === "refused" && preview.field !== "bpm" && <Alert tone="error">{preview.text}</Alert>}
+      {preview.kind === "refused" && preview.field !== "bpm" && <RefusedAlert refused={preview} />}
       {preview.kind === "ready" && (
         <>
           <GrooveGrid bars={preview.groove.bars} notes={preview.groove.notes} />
@@ -380,15 +369,17 @@ function LessonSection({ lesson, mode }: { lesson: ReturnType<typeof useLessonPr
         <button type="button" disabled={!ready || creating.kind === "creating"} onClick={() => void lesson.create()} className={`h-11 px-6 sm:h-10 ${PRIMARY_BUTTON}`}>
           {creating.kind === "creating" ? "กำลังสร้าง…" : "สร้างบทเรียนกลอง"}
         </button>
+        <p className="text-[13px] leading-[1.5] text-mid">แก้โน้ต ท่อนสอน และ render ต่อใน tab สอนกลอง</p>
       </div>
-      {listen.state.kind === "refused" && <RefusedAlert text={listen.state.text} fixes={listen.state.fixes} />}
-      {creating.kind === "refused" && <Alert tone="error">{creating.text}</Alert>}
+      {listen.state.kind === "refused" && <RefusedAlert refused={listen.state} />}
+      {creating.kind === "refused" && <RefusedAlert refused={creating} />}
     </section>
   );
 }
 
-/** The lessons made from this song that are still there, as links to their editors (D12, ADR 0047). */
+/** The lessons made from this song that are still there, as links to their editors by title (D12, D28, ADR 0047); a title not read yet is "บทเรียน n". */
 function MadeLessons({ ids }: { ids: string[] }) {
+  const titles = useLessonTitles(ids);
   return (
     <section aria-label="บทเรียนจากเพลงนี้" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-6">
       <h3 className="text-base leading-[1.5] font-semibold text-foreground">บทเรียนจากเพลงนี้</h3>
@@ -398,9 +389,9 @@ function MadeLessons({ ids }: { ids: string[] }) {
         <ul className="flex flex-wrap gap-2">
           {ids.map((lessonId, index) => (
             <li key={lessonId}>
-              <a href={lessonHash(lessonId)} className={`h-9 px-3 ${GHOST_BUTTON} border border-border`}>
-                บทเรียน {index + 1}
-                <span className="font-mono text-xs text-muted-foreground">{lessonId}</span>
+              <a href={lessonHash(lessonId)} className={`h-11 px-3 sm:h-9 ${GHOST_BUTTON} border border-border`}>
+                {titles.get(lessonId) ?? `บทเรียน ${index + 1}`}
+                <span className="text-xs text-muted-foreground">→ เปิดใน สอนกลอง</span>
               </a>
             </li>
           ))}

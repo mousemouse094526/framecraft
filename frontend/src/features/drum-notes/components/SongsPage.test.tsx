@@ -170,8 +170,9 @@ describe("รายการเพลง", () => {
     await user.click(screen.getByRole("link", { name: "แกะเพลง" }));
 
     expect(window.location.hash).toBe("#/songs");
-    expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ด้านบน")).toBeInTheDocument();
+    expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง")).toBeInTheDocument();
     expect(screen.getByText("ใช้เพลงเพื่อแกะโน้ตเท่านั้น เสียงเพลงไม่เข้าคลิป")).toBeInTheDocument();
+    expect(linkBox()).toHaveFocus(); // the first song starts here (ui-prompt.md screen 1 state 2, D28)
   });
 
   it("shows each song's title, subtitle, where it came from, its length, whether it was picked and its lessons", async () => {
@@ -314,7 +315,7 @@ describe("รายการเพลง", () => {
     expect(dialog).toHaveTextContent("บทเรียนกลองที่สร้างจากเพลงนี้ยังอยู่");
     await user.click(within(dialog).getByRole("button", { name: "ลบ" }));
 
-    expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ด้านบน")).toBeInTheDocument();
+    expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง")).toBeInTheDocument();
     expect(sent(fetchMock, "DELETE", PATH)).toEqual([null]);
   });
 
@@ -578,7 +579,7 @@ describe("สร้างบทเรียน", () => {
   const section = () => screen.findByRole("region", { name: "สร้างบทเรียน" });
   const cell = (label: string) => within(screen.getByRole("table")).getByLabelText(label);
   const barCount = (n: number) => within(screen.getByRole("radiogroup", { name: "จำนวนห้อง" })).getByRole("radio", { name: String(n) });
-  const bpmBox = () => screen.getByRole("spinbutton", { name: "BPM" });
+  const bpmBox = () => screen.getByRole("spinbutton", { name: "BPM ของบทเรียน" });
 
   it("a picked song previews its first bar on open: the grid with sticks, the notes dropped, and the BPM the API gave (e2e)", async () => {
     open(`#/songs/${ID}`, [get(PATH, midiSong()), send("POST", PREVIEW_PATH, previewOf(), 200)]);
@@ -732,14 +733,15 @@ describe("สร้างบทเรียน", () => {
     expect(window.location.hash).toBe(`#/songs/${ID}`);
   });
 
-  it("บทเรียนจากเพลงนี้ links every lesson still there, or says there is none yet (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(PATH, midiSong({ lessons: [LESSON_ID, "zzzzzzzzzzzz"] }))]);
+  it("บทเรียนจากเพลงนี้ links every lesson still there by its title from the สอนกลอง list, or says there is none yet (e2e)", async () => {
+    const row = { id: LESSON_ID, title: "Teen Spirit intro", length_s: 20, renders: 0, updated_at: "2026-11-14T00:00:00Z" };
+    open(`#/songs/${ID}`, [get(PATH, midiSong({ lessons: [LESSON_ID, "zzzzzzzzzzzz"] })), get("/api/drums/lessons", [row])]);
 
     const made = await screen.findByRole("region", { name: "บทเรียนจากเพลงนี้" });
     const links = within(made).getAllByRole("link");
     expect(links.map((link) => link.getAttribute("href"))).toEqual([`#/drums/${LESSON_ID}`, "#/drums/zzzzzzzzzzzz"]);
-    expect(links[0]).toHaveTextContent("บทเรียน 1");
-    expect(links[1]).toHaveTextContent("บทเรียน 2");
+    await waitFor(() => expect(links[0]).toHaveTextContent("Teen Spirit intro"));
+    expect(links[1]).toHaveTextContent("บทเรียน 2"); // not in the list: its number
   });
 
   it("a song with no lessons says ยังไม่มี, and an unpicked song has no lesson section (e2e)", async () => {
