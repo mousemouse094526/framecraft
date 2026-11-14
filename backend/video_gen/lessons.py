@@ -284,6 +284,28 @@ def create(project: ProjectPaths, body: dict[str, Any]) -> LessonView:
     return _view(lesson)
 
 
+def from_song(title: str, subtitle: str, bpm: int, groove: Groove) -> LessonFields:
+    """The fields of a lesson made from a song (drum-notes D12, ADR 0044): the song's title cut at
+    40 and its subtitle at 60, the BPM and Groove the Score gave, everything else a new lesson's
+    (two chapters, no caption, a colour background). Checked by the rules of `PUT`: a Groove two
+    hands can't play raises `ApiError` 400 `invalid_request` with its note's field."""
+    body = _new_fields(title[:TITLE_MAX]).model_dump() | {"subtitle": subtitle[:LINE_MAX], "bpm": bpm, "groove": groove.model_dump()}
+    return _checked_fields(body, None)
+
+
+def create_from(project: ProjectPaths, fields: LessonFields) -> LessonView:
+    """A new lesson of checked fields (`from_song`), written under a new id."""
+    with lock:
+        lesson = _write_new(project, fields)
+    log.info("created lesson %s from a song", lesson.id)
+    return _view(lesson)
+
+
+def unsaved(fields: LessonFields) -> Lesson:
+    """A lesson that is nowhere on disk, for `timeline.build` and `mixer.mix` to play (drum-notes D21)."""
+    return Lesson(version=VERSION, id="", updated_at="", **fields.model_dump())
+
+
 def copy(project: ProjectPaths, lesson_id: str) -> LessonView:
     """`POST …/copy`: the lesson under a new id, its title ending " (สำเนา)" cut at 40; its
     background picture comes along, its renders don't (spec › API)."""

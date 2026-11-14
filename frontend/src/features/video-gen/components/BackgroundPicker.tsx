@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { GHOST_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { useBackground } from "../hooks/useBackground";
-import { backgroundUrl, type Lesson } from "../lib/lesson";
+import { backgroundUrl, type Lesson } from "../../../lib/lesson";
 
 /** Beside the button, as legal item 3 asks (D23). */
 export const RIGHTS_NOTE = "ใช้ภาพของคุณเองหรือภาพที่มีสิทธิ์ใช้ ห้ามใช้ปกอัลบั้ม";

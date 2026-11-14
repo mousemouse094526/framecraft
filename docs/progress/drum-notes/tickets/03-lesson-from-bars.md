@@ -12,7 +12,7 @@
 - User stories: 3, 4, 6
 - Legal: 5
 
-**Status:** in-progress
+**Status:** done
 
 ## Acceptance criteria
 

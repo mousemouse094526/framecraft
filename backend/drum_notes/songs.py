@@ -261,6 +261,13 @@ def set_analysis(project: ProjectPaths, song_id: str, analysis: Analysis) -> Non
         _write(project, song.model_copy(update={"analysis": checked_analysis(analysis), "updated_at": now_iso()}))
 
 
+def add_lesson(project: ProjectPaths, song_id: str, lesson_id: str) -> None:
+    """A lesson made from the song, remembered in its `lessons` (D12, ADR 0044). Raises `ApiError` 404 when the song went."""
+    with lock:
+        song = _read_known(project, song_id)
+        _write(project, song.model_copy(update={"lessons": [*song.lessons, lesson_id], "updated_at": now_iso()}))
+
+
 def read_under_lock(project: ProjectPaths, song_id: str) -> Song:
     """The stored Song, for a caller that holds `lock`. Raises `ApiError` 404 `not_found`."""
     return _read_known(project, song_id)

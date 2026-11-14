@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react";
+import { useCallback, useId, useState, type FormEvent } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { FixCommand } from "../../../components/ui/FixCommand";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
@@ -8,13 +8,15 @@ import { PageLayout } from "../../../components/ui/PageLayout";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import { useDrumRender } from "../hooks/useDrumRender";
 import { useLessonEditor, type Editing } from "../hooks/useLessonEditor";
-import { useListen } from "../hooks/useListen";
-import type { PieceId } from "../lib/kit";
+import { postForBlob } from "../../../lib/api";
+import { useListen } from "../../../lib/useListen";
+import type { PieceId } from "../../../lib/kit";
 import {
   BPM_MAX,
   BPM_MIN,
   DRUMS_HASH,
   lengthOf,
+  lessonPath,
   MAX_SECONDS,
   noteFor,
   noteIndexOf,
@@ -24,11 +26,11 @@ import {
   STEPS_PER_BAR,
   type LessonFields,
   type Note,
-} from "../lib/lesson";
+} from "../../../lib/lesson";
 import { isRendering, jobOf, renderingOf } from "../lib/render";
 import { BackgroundPicker } from "./BackgroundPicker";
 import { ChapterList } from "./ChapterList";
-import { GrooveGrid } from "./GrooveGrid";
+import { GrooveGrid } from "../../../components/ui/GrooveGrid";
 import { Labeled } from "../../../components/ui/Labeled";
 import { NoteBox } from "./NoteBox";
 import { RenderProgress } from "./RenderProgress";
@@ -78,7 +80,8 @@ type FormProps = {
 function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
   const { form, errors } = editing;
   const id = useId();
-  const listen = useListen(editing.id, save);
+  // ฟังจังหวะ saves first; a save that failed says why under บันทึก, and nothing plays.
+  const listen = useListen(useCallback(async () => ((await save()) ? postForBlob(`${lessonPath(editing.id)}/listen`, {}) : null), [editing.id, save]));
   // Only this page moves on to the results, and only for the render it started (D22).
   const render = useDrumRender((job, startedHere) => {
     if (startedHere && job.state === "done") window.location.hash = rendersHash(job.lesson_id);
@@ -153,7 +156,7 @@ function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
 
       <section aria-label="Groove" className="flex flex-col gap-3">
         <h3 className="text-sm leading-[1.5] font-medium text-foreground">Groove</h3>
-        <GrooveGrid bars={form.groove.bars} notes={notes} selected={selected} invalid={invalid} onCell={onCell} onBars={onBars} />
+        <GrooveGrid bars={form.groove.bars} notes={notes} editing={{ selected, invalid, onCell, onBars }} />
         {grooveErrors.map(([key, message]) => (
           <p key={key} className="font-button text-xs leading-4 text-destructive">
             {message}

@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 
 from backend import body_types, paths
-from backend.drum_notes import imports, pick, songs
+from backend.drum_notes import imports, lesson, pick, songs
 from backend.drum_notes.imports import SongImport
+from backend.drum_notes.lesson import Created, Preview
 from backend.drum_notes.pick import PickJob
 from backend.drum_notes.songs import KnownSong, SongRow, SongView
 from backend.uploads import UploadCheck
@@ -79,6 +80,25 @@ def put_range(song_id: str, body: dict[str, Any]) -> SongView:
 def start_pick(song_id: str, body: dict[str, Any]) -> PickJob:
     """The body is `{}` too: the job reads the song's saved range (spec › Pick job)."""
     return pick.pick_jobs.start(song_id)
+
+
+@router.post("/{song_id}/preview")
+def preview_lesson(song_id: str, body: dict[str, Any]) -> Preview:
+    """`{bar, bars, bpm?}`, checked by the module so a bad value answers `400` with its field (spec › API)."""
+    return lesson.preview(paths.project(), song_id, body)
+
+
+@router.post("/{song_id}/listen")
+def listen_lesson(song_id: str, body: dict[str, Any]) -> Response:
+    """`{bar, bars, bpm}` → the wav of the picked Groove, mixed in memory and never cached (D21)."""
+    wav = lesson.listen(paths.project(), song_id, body)
+    return Response(wav, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/{song_id}/lessons", status_code=201)
+def create_lesson(song_id: str, body: dict[str, Any]) -> Created:
+    """`{bar, bars, bpm}` → a drum lesson in the สอนกลอง tab, which the song then lists (D12)."""
+    return lesson.create(paths.project(), song_id, body)
 
 
 @router.delete("/{song_id}", status_code=204)

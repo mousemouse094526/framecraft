@@ -6,7 +6,9 @@ import type { StatusResponse } from "../../../lib/statusTypes";
 import { FakeXhr } from "../../../testing/fakeXhr";
 import { findStatusWith } from "../../../testing/statusBox";
 import { get, jsonResponse, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
-import type { Analysis, FoundBar, PickJob, Song, SongImport, SongRow } from "../lib/songs";
+import type { Lesson } from "../../../lib/lesson";
+import { PREVIEW_DEBOUNCE_MS } from "../hooks/useLessonPreview";
+import type { Analysis, FoundBar, PickJob, Preview, Song, SongImport, SongRow } from "../lib/songs";
 
 const ID = "dQw4w9WgXcQ";
 const LIST_PATH = "/api/songs";
@@ -17,6 +19,12 @@ const CHECK_PATH = `${LIST_PATH}/check`;
 const PATH = `${LIST_PATH}/${ID}`;
 const RANGE_PATH = `${PATH}/range`;
 const SONG_PICK_PATH = `${PATH}/pick`;
+const PREVIEW_PATH = `${PATH}/preview`;
+const LISTEN_PATH = `${PATH}/listen`;
+const SONG_LESSONS_PATH = `${PATH}/lessons`;
+const LESSON_ID = "k3v9x0a1b2c4";
+const LESSON_PATH = `/api/drums/lessons/${LESSON_ID}`;
+const RENDER_PATH = "/api/drums/render";
 const YOUTUBE = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -68,6 +76,43 @@ const midiBars: FoundBar[] = [
 /** A picked song: `midiAnalysis` and its bars. */
 const picked = { analysis: midiAnalysis, bars: midiBars };
 
+/** What `POST /preview` answers for the first bar: a kick, a hi-hat and a snare with their hands, one hi-hat dropped (D13). */
+function previewOf(change: Partial<Preview> = {}): Preview {
+  return {
+    groove: {
+      bars: 1,
+      notes: [
+        { piece: "kick", step: 0, hand: null, hit: "accent" },
+        { piece: "hihat_closed", step: 0, hand: "R", hit: "accent" },
+        { piece: "snare", step: 8, hand: "L", hit: "accent" },
+      ],
+    },
+    bpm: 100,
+    dropped: [{ piece: "hihat_closed", step: 8 }],
+    ...change,
+  };
+}
+
+/** The lesson `POST /lessons` made, as `GET /api/drums/lessons/{id}` answers it. */
+function lessonOf(): Lesson {
+  return {
+    version: 1,
+    id: LESSON_ID,
+    title: "Smells Like Teen Spirit",
+    subtitle: "Nirvana",
+    caption: "",
+    bpm: 100,
+    background: "color",
+    groove: previewOf().groove,
+    chapters: [
+      { label: "", text: "", focus: [], repeats: 2, speed: 100 },
+      { label: "ลองเล่นเอง", text: "", focus: [], repeats: 2, speed: 100 },
+    ],
+    updated_at: "2026-11-14T10:40:00+07:00",
+    length_s: 23.1,
+  };
+}
+
 function pickOf(change: Partial<PickJob> = {}): PickJob {
   return { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "2026-11-14T10:30:00+07:00", ...change };
 }
@@ -101,10 +146,14 @@ afterEach(() => {
 });
 
 function open(hash: string, routes: Route[]) {
+  // A picked song previews its first bar on open: a test that doesn't watch the preview gets a plain one.
+  if (!routes.some((route) => route.method === "POST" && route.path === PREVIEW_PATH)) routes.push(send("POST", PREVIEW_PATH, previewOf(), 200));
+  // The polls every page makes: the list, the Import and Pick jobs, and, once สร้างบทเรียนกลอง opens the editor, its Render job.
   serve(fetchMock, routes, [
     [LIST_PATH, []],
     [IMPORT_PATH, null],
     [PICK_PATH, null],
+    [RENDER_PATH, null],
   ]);
   window.location.hash = hash;
   render(<App />);
@@ -294,13 +343,12 @@ describe("หน้าเพลง", () => {
     expect(screen.getByText("ตั้งช่วงแล้วกด แกะโน้ต")).toBeInTheDocument();
   });
 
-  it("a MIDI song has no player and shows the BPM and the bars found, each with its start and hits (e2e)", async () => {
+  it("a MIDI song has no player and shows the bars found, each with its start and hits (e2e)", async () => {
     open(`#/songs/${ID}`, [get(PATH, songOf({ source: { kind: "midi", url: null, name: "rock.mid", size: 300 }, subtitle: "", range: null, duration_s: 4.8, ...picked }))]);
 
     const head = await screen.findByRole("region", { name: "เพลง" });
     expect(head).toHaveTextContent("MIDI");
     expect(document.querySelectorAll("audio")).toHaveLength(0);
-    expect(screen.getByText("BPM ที่พบ 100")).toBeInTheDocument();
     const bars = within(screen.getByRole("list", { name: "ห้องที่พบ" })).getAllByRole("button");
     expect(bars.map((bar) => bar.textContent)).toEqual(["ห้อง 10.0 s3 การตี", "ห้อง 22.4 s1 การตี"]);
     expect(screen.queryByText("ตั้งช่วงแล้วกด แกะโน้ต")).not.toBeInTheDocument();
@@ -373,7 +421,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     expect(startBox()).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("แกะโน้ต saves the range, starts the job, shows its bar and ยกเลิก, then the BPM and the bars found (e2e)", async () => {
+  it("แกะโน้ต saves the range, starts the job, shows its bar and ยกเลิก, then the bars found (e2e)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const job = phased(PICK_PATH, null, pickOf({ state: "picking", percent: 50 }), pickOf({ state: "done", percent: 100 }));
     const user = open(`#/songs/${ID}`, [
@@ -402,7 +450,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
 
     job.phases.at = 2;
     await act(() => vi.advanceTimersByTimeAsync(1100));
-    expect(await screen.findByText("BPM ที่พบ 100")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "ผลแกะ" })).toHaveTextContent("ห้องที่พบ 2 ห้อง");
     expect(within(screen.getByRole("list", { name: "ห้องที่พบ" })).getAllByRole("button")).toHaveLength(2);
     expect(screen.queryByRole("group", { name: "งานแกะโน้ต" })).not.toBeInTheDocument();
     expect(pickButton()).toBeEnabled();
@@ -421,7 +469,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     job.phases.at = 1;
     await act(() => vi.advanceTimersByTimeAsync(1100));
     expect(screen.queryByRole("group", { name: "งานแกะโน้ต" })).not.toBeInTheDocument();
-    expect(screen.getByText("BPM ที่พบ 100")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "ผลแกะ" })).toHaveTextContent("ห้องที่พบ 2 ห้อง");
   });
 
   it("not_ready shows the fix of the row it names; busy says which song (e2e)", async () => {
@@ -485,5 +533,184 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     job.phases.at = 1;
     await act(() => vi.advanceTimersByTimeAsync(1100));
     await waitFor(() => expect(row).toHaveTextContent("แกะแล้ว 12 ห้อง"));
+  });
+});
+
+describe("สร้างบทเรียน", () => {
+  const midiSong = (change: Partial<Song> = {}) => songOf({ source: { kind: "midi", url: null, name: "rock.mid", size: 300 }, range: null, duration_s: 4.8, ...picked, ...change });
+  const section = () => screen.findByRole("region", { name: "สร้างบทเรียน" });
+  const cell = (label: string) => within(screen.getByRole("table")).getByLabelText(label);
+  const barCount = (n: number) => within(screen.getByRole("radiogroup", { name: "จำนวนห้อง" })).getByRole("radio", { name: String(n) });
+  const bpmBox = () => screen.getByRole("spinbutton", { name: "BPM" });
+
+  it("a picked song previews its first bar on open: the grid with sticks, the notes dropped, and the BPM the API gave (e2e)", async () => {
+    open(`#/songs/${ID}`, [get(PATH, midiSong()), send("POST", PREVIEW_PATH, previewOf(), 200)]);
+
+    await section();
+    await waitFor(() => expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([{ bar: 0, bars: 1 }]));
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(cell("กระเดื่อง ห้อง 1 จังหวะ 1")).toHaveTextContent("●");
+    expect(cell("ไฮแฮทปิด ห้อง 1 จังหวะ 1")).toHaveTextContent("R");
+    expect(cell("สแนร์ ห้อง 1 จังหวะ 3")).toHaveTextContent("L");
+    expect(cell("แครช ห้อง 1 จังหวะ 1")).toHaveTextContent("");
+    expect(within(screen.getByRole("table")).queryAllByRole("button")).toHaveLength(0);
+    const dropped = screen.getByRole("list", { name: "ตัดโน้ตที่มือตีไม่ได้" });
+    expect(within(dropped).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["ไฮแฮทปิด ห้อง 1 จังหวะ 3"]);
+    expect(bpmBox()).toHaveValue(100);
+    expect(screen.getByText("ห้องแรก: ห้อง 1")).toBeInTheDocument();
+  });
+
+  it("pressing a bar makes it the first bar, counts past the 4/4 bars left can't be picked, and each change previews once after 300 ms (e2e)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const bars: FoundBar[] = [...midiBars, { n: 3, start_s: 4.8, end_s: 7.2, beats: 4, hits: 2, four_four: true }, { n: 4, start_s: 7.2, end_s: 8.4, beats: 2, hits: 0, four_four: false }];
+    const user = open(`#/songs/${ID}`, [get(PATH, midiSong({ bars, duration_s: 8.4 })), send("POST", PREVIEW_PATH, previewOf(), 200), send("POST", PREVIEW_PATH, previewOf({ dropped: [] }), 200)]);
+
+    await section();
+    await act(() => vi.advanceTimersByTimeAsync(350));
+    expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([{ bar: 0, bars: 1 }]);
+    expect(barCount(1)).toBeEnabled();
+    expect(barCount(3)).toBeEnabled();
+    expect(barCount(4)).toBeDisabled();
+
+    await user.click(barCount(2));
+    await user.click(barCount(3));
+    await act(() => vi.advanceTimersByTimeAsync(350));
+    expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([{ bar: 0, bars: 1 }, { bar: 0, bars: 3 }]);
+    expect(screen.queryByRole("list", { name: "ตัดโน้ตที่มือตีไม่ได้" })).not.toBeInTheDocument();
+
+    await user.click(within(screen.getByRole("list", { name: "ห้องที่พบ" })).getByRole("button", { name: "ห้อง 3" }));
+    expect(screen.getByText("ห้องแรก: ห้อง 3")).toBeInTheDocument();
+    expect(document.querySelectorAll("audio")).toHaveLength(0);
+    expect(barCount(1)).toBeChecked();
+    expect(barCount(2)).toBeDisabled();
+    await act(() => vi.advanceTimersByTimeAsync(350));
+    expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([{ bar: 0, bars: 1 }, { bar: 0, bars: 3 }, { bar: 2, bars: 1 }]);
+  });
+
+  it("the first bar pressed moves the player too, and a changed BPM goes with the preview; one outside 40–240 says so and asks nothing (e2e)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = open(`#/songs/${ID}`, [get(PATH, songOf(picked)), send("POST", PREVIEW_PATH, previewOf(), 200), send("POST", PREVIEW_PATH, previewOf({ bpm: 95 }), 200)]);
+
+    await section();
+    await waitFor(() => expect(sent(fetchMock, "POST", PREVIEW_PATH)).toHaveLength(1));
+    await user.click(within(screen.getByRole("list", { name: "ห้องที่พบ" })).getByRole("button", { name: "ห้อง 2" }));
+    expect(document.querySelector("audio")?.currentTime).toBe(2.4);
+    await waitFor(() => expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([{ bar: 0, bars: 1 }, { bar: 1, bars: 1 }]));
+
+    await user.clear(bpmBox());
+    await user.type(bpmBox(), "95");
+    await waitFor(() => expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([{ bar: 0, bars: 1 }, { bar: 1, bars: 1 }, { bar: 1, bars: 1, bpm: 95 }]));
+    expect(bpmBox()).toHaveValue(95);
+
+    await user.clear(bpmBox());
+    await user.type(bpmBox(), "20");
+    expect(await screen.findByText("BPM ต้องเป็นจำนวนเต็ม 40–240")).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS + 100));
+    expect(sent(fetchMock, "POST", PREVIEW_PATH)).toHaveLength(3);
+  });
+
+  it("a song whose bars are none of them 4/4 says there is nothing to pick", async () => {
+    open(`#/songs/${ID}`, [get(PATH, songOf({ analysis: midiAnalysis, bars: midiBars.map((bar) => ({ ...bar, beats: 3, four_four: false })) }))]);
+
+    expect(await screen.findByText("ไม่มีห้อง 4/4 ให้เลือก ลองแกะช่วงอื่น")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "สร้างบทเรียน" })).not.toBeInTheDocument();
+    expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([]);
+  });
+
+  function stubAudio() {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    let made = 0;
+    const createObjectURL = vi.fn(() => `blob:wav-${++made}`);
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL }));
+    return { play, pause, revokeObjectURL };
+  }
+
+  const wav = () => new Response(new Blob(["RIFF"], { type: "audio/wav" }), { status: 200, headers: { "Content-Type": "audio/wav" } });
+
+  it("ฟัง posts the bars picked with the BPM shown, says กำลังผสมเสียง… until the wav plays, and pressed again stops the first (e2e)", async () => {
+    const { play, pause, revokeObjectURL } = stubAudio();
+    let answer: (response: Response) => void = () => {};
+    const user = open(`#/songs/${ID}`, [
+      get(PATH, midiSong()),
+      { method: "POST", path: LISTEN_PATH, reply: () => new Promise((resolve) => (answer = resolve)) },
+      { method: "POST", path: LISTEN_PATH, reply: wav },
+    ]);
+
+    await section();
+    await waitFor(() => expect(bpmBox()).toHaveValue(100));
+    await user.click(screen.getByRole("button", { name: "ฟัง" }));
+
+    const mixing = await screen.findByRole("button", { name: "กำลังผสมเสียง…" });
+    expect(mixing).toBeDisabled();
+    expect(sent(fetchMock, "POST", LISTEN_PATH)).toEqual([{ bar: 0, bars: 1, bpm: 100 }]);
+    await act(async () => answer(wav()));
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    expect((play.mock.contexts[0] as HTMLAudioElement).src).toBe("blob:wav-1");
+
+    await user.click(screen.getByRole("button", { name: "ฟัง" }));
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    expect(pause.mock.contexts[0]).toBe(play.mock.contexts[0]);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:wav-1");
+  });
+
+  it("a refused ฟัง shows why, with the fix of a row a not_ready names (e2e)", async () => {
+    const user = open(`#/songs/${ID}`, [
+      get(PATH, midiSong()),
+      send("POST", LISTEN_PATH, { code: "not_ready", message: "ยังติดตั้งไม่ครบ: ชุดเสียงกลอง", rows: ["drum_kit"] }, 503),
+      get("/api/setup/status", { ...status, items: [{ ...status.items[0], id: "drum_kit", label: "ชุดเสียงกลอง" }] }),
+    ]);
+
+    await section();
+    await waitFor(() => expect(bpmBox()).toHaveValue(100));
+    await user.click(screen.getByRole("button", { name: "ฟัง" }));
+
+    expect(await findStatusWith("ยังติดตั้งไม่ครบ: ชุดเสียงกลอง")).toBeInTheDocument();
+    expect(screen.getByText("./setup.sh")).toBeInTheDocument();
+  });
+
+  it("สร้างบทเรียนกลอง posts the bars picked and opens the new lesson's editor, which shows the same grid (e2e)", async () => {
+    const user = open(`#/songs/${ID}`, [get(PATH, midiSong()), send("POST", SONG_LESSONS_PATH, { lesson_id: LESSON_ID, dropped: 1 }, 201), get(LESSON_PATH, lessonOf())]);
+
+    await section();
+    await waitFor(() => expect(bpmBox()).toHaveValue(100));
+    await user.click(screen.getByRole("button", { name: "สร้างบทเรียนกลอง" }));
+
+    await waitFor(() => expect(window.location.hash).toBe(`#/drums/${LESSON_ID}`));
+    expect(sent(fetchMock, "POST", SONG_LESSONS_PATH)).toEqual([{ bar: 0, bars: 1, bpm: 100 }]);
+    const form = await screen.findByRole("form", { name: "Smells Like Teen Spirit" });
+    expect(within(form).getByRole("button", { name: "สแนร์ ห้อง 1 จังหวะ 3" })).toHaveTextContent("L");
+    expect(within(form).getByRole("button", { name: "กระเดื่อง ห้อง 1 จังหวะ 1" })).toHaveTextContent("●");
+  });
+
+  it("a refused สร้างบทเรียนกลอง shows the API's message and stays (e2e)", async () => {
+    const user = open(`#/songs/${ID}`, [get(PATH, midiSong()), send("POST", SONG_LESSONS_PATH, { code: "invalid_request", message: "ห้องนี้ไม่ใช่ 4/4", field: "bar" }, 400)]);
+
+    await section();
+    await waitFor(() => expect(bpmBox()).toHaveValue(100));
+    await user.click(screen.getByRole("button", { name: "สร้างบทเรียนกลอง" }));
+
+    expect(await findStatusWith("ห้องนี้ไม่ใช่ 4/4")).toBeInTheDocument();
+    expect(window.location.hash).toBe(`#/songs/${ID}`);
+  });
+
+  it("บทเรียนจากเพลงนี้ links every lesson still there, or says there is none yet (e2e)", async () => {
+    open(`#/songs/${ID}`, [get(PATH, midiSong({ lessons: [LESSON_ID, "zzzzzzzzzzzz"] }))]);
+
+    const made = await screen.findByRole("region", { name: "บทเรียนจากเพลงนี้" });
+    const links = within(made).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([`#/drums/${LESSON_ID}`, "#/drums/zzzzzzzzzzzz"]);
+    expect(links[0]).toHaveTextContent("บทเรียน 1");
+    expect(links[1]).toHaveTextContent("บทเรียน 2");
+  });
+
+  it("a song with no lessons says ยังไม่มี, and an unpicked song has no lesson section (e2e)", async () => {
+    open(`#/songs/${ID}`, [get(PATH, songOf())]);
+
+    const made = await screen.findByRole("region", { name: "บทเรียนจากเพลงนี้" });
+    expect(made).toHaveTextContent("ยังไม่มี");
+    expect(screen.queryByRole("region", { name: "สร้างบทเรียน" })).not.toBeInTheDocument();
+    expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([]);
   });
 });

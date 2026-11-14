@@ -1,8 +1,8 @@
 import { useId } from "react";
 import { GHOST_BUTTON } from "../../../components/ui/buttonStyles";
 import trashIcon from "../../../components/ui/assets/trash.svg";
-import { isFoot, pieceName } from "../lib/kit";
-import { canTakeHand, canTakeHit, countOf, HITS, STEPS_PER_BAR, type Hand, type Note } from "../lib/lesson";
+import { isFoot, pieceName } from "../../../lib/kit";
+import { canTakeHand, canTakeHit, countOf, HITS, STEPS_PER_BAR, type Hand, type Note } from "../../../lib/lesson";
 
 type Props = { notes: Note[]; note: Note; onChange: (note: Note) => void; onDelete: () => void };
 

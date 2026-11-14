@@ -1,11 +1,11 @@
 # Progress: drum-notes
 
-**Now:** 03 stopped part-way (โค้ดครบและ CI เขียวบน `wip/drum-notes-03`; เหลือ fix review แล้ว commit); usage limit หมดกลางรีวิว
+**Now:** 03 done; เหลือ 04 (โหมดทำนอง) + เจ้าของฟังเทียบตาราง intro (Log ของ 03) + แบบ Figma สองหน้า (Blocked 1–2)
 
 **Next:**
 
 ```
-/warroom-build drum-notes 03
+/warroom-build drum-notes 04
 ```
 
 ## Tickets
@@ -14,24 +14,35 @@
 |---|---|---|
 | 01 | เอาเพลงเข้า: ลิงก์ ไฟล์เสียง ไฟล์ MIDI และโมเดล | done |
 | 02 | แกะโน้ตกลองจากช่วงที่เลือก | done |
-| 03 | เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง | in-progress |
+| 03 | เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง | done |
 | 04 | โหมดทำนอง | ready |
 
 ## Log
 
-### 03: เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง — stopped 2026-11-14
+### 03: เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง — done 2026-11-14
 
-**Done (บน `wip/drum-notes-03`, ทุก CI check เขียว: `uv run pytest` 1368 passed, typecheck, `npm test` 539 passed, build):**
-- backend: `score.preview` (ขั้น 3–8: quantize, ตัด, มือ L/R, BPM ตั้งต้น) + test seam 2 ครบทุก AC ของ Score รวม round trip และ activation สุ่ม 100 ชุด; module ใหม่ `drum_notes.lesson` (`preview`/`listen`/`create`, Score ขั้น 2); `video_gen.lessons.from_song`/`create_from`/`unsaved`; `songs.add_lesson`; สาม route `POST /preview|/listen|/lessons` + `test_drum_notes_lesson_api.py` 10 test ด้วยเพลง MIDI
-- frontend: `kit.ts`/`lesson.ts`/`useListen` ย้ายไป `src/lib/`, `GrooveGrid` ไป `components/ui/` มีโหมดอ่านอย่างเดียว (`editing` prop); หน้าเพลงมีส่วน "สร้างบทเรียน" (`useLessonPreview`: debounce 300 ms, จำนวนห้อง 1–4, BPM, ตาราง, รายการที่ตัด, ฟัง, สร้าง → `#/drums/{id}`) และ "บทเรียนจากเพลงนี้"; e2e 10 test ใน `SongsPage.test.tsx`
-- D25 เขียนแล้ว (decisions.md + index); SKILL ทั้งสองอัปเดต folder map
+**Built:**
+- backend `drum_notes.lesson` (`preview`/`listen`/`create`; `checked_choice` ตรวจ body, `chosen_bars` = Score ขั้น 2) + `score.preview` (ขั้น 3–8: quantize `floor(x + 0.5)`, ตัดเกินสองมือตาม `KEEP_ORDER`, มือ L/R ตาม `RIGHT_ORDER`/`_hand`, BPM ตั้งต้น `240 / median` ปัดครึ่งขึ้น จำกัด 40–240) คืน `Scored`; สาม route `POST /songs/{id}/preview|/listen|/lessons` (`Preview`/`Created` response); `video_gen.lessons.from_song`/`create_from`/`unsaved` (กฎของ `PUT` เดียวกัน, `lesson.json` ไม่มีช่องใหม่); `songs.add_lesson`; `/listen` ส่ง `audio/wav` `Cache-Control: no-store` ไม่มีไฟล์ใหม่
+- test seam 2 (`test_drum_notes_score.py`): ทุก AC ของ Score รวม round trip ±20 ms และ activation สุ่ม 100 ชุดผ่านกฎ D20; seam 1 (`test_drum_notes_lesson_api.py` 14 test ด้วยเพลง MIDI และเพลงที่เขียน analysis ตรง): ห้อง 3 จังหวะเลือกไม่ได้, บรรทัดรองตัด 60, ลบบทเรียนแล้วเพลงไม่ error, ลบเพลงบทเรียนอยู่
+- frontend: `kit.ts`/`lesson.ts`/`useListen` (+ `useListen.test.ts`) ใน `src/lib/`; `GrooveGrid` ใน `components/ui/` รับ `editing` (ไม่ส่ง = อ่านอย่างเดียว); หน้าเพลง: `FoundSection` → `LessonPick` (`useLessonPreview`: ห้องแรกจากแถบ, จำนวนห้อง 1–4 ไม่เกินห้อง 4/4 ที่เหลือ, BPM, `POST /preview` debounce 300 ms, ตาราง + รายการ "ตัดโน้ตที่มือตีไม่ได้", ฟัง, สร้าง → `#/drums/{id}`), "บทเรียนจากเพลงนี้"; e2e 10 test ใน `SongsPage.test.tsx`
+- รันจริง (Mac, โมเดลจาก revision ที่ pin, `ffmpeg` + `score` ตรง ไม่ผ่าน HTTP): `reel.mp4` 0–19 s → 118 การตี 15 ห้อง ห้อง 1–2 4/4 BPM ตั้งต้น 111 ไม่มี dropped; Smells Like Teen Spirit (`hTWKbfoikeg`) 0–30 s → 162 การตี 15 ห้อง ห้อง 1–3 เงียบ ห้อง 4–12 4/4 (ห้อง 13–15 ท่อนเบา 2 จังหวะ) เลือกห้อง 4–5 BPM ตั้งต้น 115 ไม่มี dropped. ตารางสองห้องแรกของ intro ทั้งสองคลิป **ตรงกัน**: ห้อง fill = `tom_mid` R + `snare` L ทุกจังหวะ, `kick` ที่ e และ a ของจังหวะ 1–3 และที่ & ของ 4, `hihat_closed` R ที่ e ของจังหวะ 1–3; ห้อง groove เริ่ม `crash` + `hihat_closed` + `kick` ที่ 1 แล้ว SLTS ต่อด้วย snare ที่ 2, 4 (+ e ของ 2–3) ไฮแฮท 8th. ตำแหน่ง kick/snare ตรงกับ spike ของ 01–02 (kick 7 snare 4 tom 4 ในห้อง fill)
 
-**Left:**
-- รีวิวสามแกน: Newcomer เสร็จ (ข้อที่ควรแก้: ชื่อ `preview.preview` ซ้อน; `_new_fields("x")` ไม่มี comment; ข้อความ "ห้องนี้ไม่ใช่ 4/4" ใช้กับกรณีเลยห้องสุดท้ายด้วย; `lessons.delete` ใน `lesson.create` อาจโยน `in_use`; `_hand` อ้าง D20 ควรอธิบายในโค้ด); Standards และ Spec ยังไม่ได้อ่านผล → รันรีวิวใหม่ตอนต่อ
-- ตัดสินโดยเจ้าของ: script `scratchpad/judge/run.py` (โมเดล pinned บน `reel.mp4` + YouTube) รันไม่ผ่าน ยังไม่ได้ดูสาเหตุ; โมเดลไม่อยู่ใน worktree นี้ (`models/` ว่าง)
-- แล้วค่อย: ticket `done`, Log จริง, board, commit `feat(drum-notes): เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง (#03)`
+**Decided:**
+- D25 เพิ่มจาก review: BPM ปัดครึ่งขึ้น; `lesson.Choice`; `score` คืน NamedTuple, response model ใน `lesson`; `notePlace`/`hitName`/`BAR_COUNTS` ใน `lib/lesson.ts`; `useListen.test.ts`
 
-**How to go on:** `git merge --squash wip/drum-notes-03` (หรือ `git checkout wip/drum-notes-03 -- .`) บน `feat/drum-notes` แล้วทำ review → fix → commit ตามข้างบน
+**ตัดสินโดยเจ้าของ (ยังค้าง):** ตารางด้านบนคือสิ่งที่แอปให้ — เจ้าของเปิด `#/songs` เอา `reel.mp4` หรือลิงก์ SLTS เข้า แกะ 0–30 s เลือกห้อง 4–5 (SLTS) หรือ 1–2 (reel) กด "ฟัง" เทียบกับเพลง แล้วบันทึกสิ่งที่ต้องแก้มือ. ที่เห็นจากตาราง: (1) `crash` กับ `hihat_closed` ช่องเดียวกันทำให้ crash ได้มือ L (RIGHT_ORDER ให้ไฮแฮท R) — มือกลองจริงตี crash R แทนไฮแฮท ถ้าเจ้าของเห็นด้วย เป็นกติกาใหม่ "crash + ไฮแฮทช่องเดียว → ตัดไฮแฮท" (เปลี่ยน D13 → `/warroom drum-notes`); (2) `hihat_closed` ที่ e ของ fill น่าจะเป็น false positive ของ snare (ADTOF class 3) → ลบมือในหน้าแก้; (3) kick ที่ 16th ของ fill ของจริงอาจเป็น kick-kick-snare บน 8th — ต้องฟัง
+
+**For the next ticket:**
+- โหมดทำนอง (04): `pick._pickable` ปฏิเสธ `mode` `melody` ที่ `MELODY_NOT_YET`; gate `pick_melody` ยังไม่มีใน `gate_rows`; ปุ่ม "ทำนอง" `disabled`; Basic Pitch I/O ดู Log ของ 01
+- `lesson._lesson_fields` คือทางที่ `listen`/`create` ใช้ร่วม; โหมดทำนองที่ให้โน้ตเสียง (ไม่ใช่ Groove) ต้องมีทางของตัวเอง ไม่ควรยัดใน `score.preview`
+- `written_song(project, subtitle, downbeats)` ใน `test_drum_notes_lesson_api.py` เขียนเพลงที่มี analysis ตรง (`songs.new_song` + `write_new`) — ใช้ซ้ำได้สำหรับ test ที่ MIDI ให้ไม่ได้ (ห้องไม่ใช่ 4/4, บรรทัดรอง)
+- `score.default_bpm` กับ `quantize` ปัดครึ่งขึ้นทั้งคู่ (D25); `round()` ของ Python ห้ามใช้กับเลขที่ผู้ใช้เห็น
+- Beat This! บนท่อนเบา (SLTS 24–30 s) ยังให้ห้อง 2 จังหวะ → เลือกไม่ได้ (บันทึกใน 02 แล้ว)
+- `setup.py` มี `OpenSession` alias ซ้ำกับ `onnx_runner.OpenSession`; test `run_capture` ใช้ `threading.Timer(0.3)` (02)
+- `Placed.piece`/`Dropped.piece` เป็น `str` (id ของ `video_gen.kit`) — ถ้า kit ได้ `PieceId` Literal ฝั่ง backend ค่อยใช้
+- แบบ Figma สองหน้า (Blocked 1–2) แล้วปรับหน้าเว็บตามแบบ
+
+**Checks:** `uv run pytest` 1370 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 544 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `ee62d3b`: Standards 3 ผิดกติกา (แก้: `setTimeout` จริงใน test → `vi.useFakeTimers`; `useListen` ใน `lib/` ไม่มี test → `useListen.test.ts` 5 test; `score` ถือ pydantic response model → ย้าย `Preview`/`DroppedNote` ไป `lesson`, `score` คืน NamedTuple) + smell 10 (แก้ 9: ข้อความตำแหน่งโน้ตซ้ำ → `notePlace`; `HITS.find` ซ้ำ → `hitName`; `trimmed`/`with_hands` วนซ้ำ → `_by_step`; `listen`/`create` ซ้ำ → `_lesson_fields`; `<p>` ว่างซ้ำ → `EmptyNote`; `preview.preview` → spread `ready`; `Found`/`Picked` → `FoundSection`/`LessonPick`; `_hand` คืน `Hand` Literal; `BAR_COUNTS` จาก `BARS_MAX`; import ใน test body → module level; ไม่แก้: `Placed.piece: str` — บันทึก For the next ticket); Spec 0 ผิด + 3 ขาด (แก้: test ห้อง 3 จังหวะจริง, test บรรทัดรองตัด 60, อ่าน `lesson.json` จากไฟล์) + 2 คลาด (แก้: `dropped` ให้ `hihat_open` ที่คู่ไปก่อนตาม D25 จริง; BPM ปัดครึ่งขึ้น); Newcomer สรุปตรง What to build + เดา 13 จุด (แก้ 12: `_new_fields("x")` → ชื่อจริง; เหตุผล `KEEP_ORDER`/`RIGHT_ORDER`; `ALTERNATE_STEP`/`CYMBAL_WITHIN` อธิบายเป็นช่อง 16th; เช็ค step นอกช่วงที่ไม่มีทางถึง → ตัด; `notes[-2]` → ตัวแปร; `Pick` → `Choice`; comment เลข GM และ `timeline.TAIL_S`; `asked`/`withBpm` แทน `pick`/`pickShown` และ comment deps; comment `open()` เสิร์ฟ `RENDER_PATH`; comment หัวตาราง `slice(-1)`; comment key `picked_at`; ไม่แก้: `(800, 5)`/`0.08` มี comment อยู่แล้ว)
 
 ### 02: แกะโน้ตกลองจากช่วงที่เลือก — done 2026-11-14
 

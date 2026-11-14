@@ -3,7 +3,7 @@ import { getReply, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
-import { fieldErrors, fieldsOf, lessonPath, sameFields, type FieldErrors, type Lesson, type LessonFields } from "../lib/lesson";
+import { fieldErrors, fieldsOf, lessonPath, sameFields, type FieldErrors, type Lesson, type LessonFields } from "../../../lib/lesson";
 
 /** The form on screen; saving and "บันทึกแล้ว" are flags of it, so the form stays put through them. */
 export type Editing = {

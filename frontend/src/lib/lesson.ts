@@ -1,4 +1,4 @@
-import { isFoot, type PieceId } from "./kit";
+import { isFoot, pieceName, type PieceId } from "./kit";
 
 // A drum lesson as `/api/drums/lessons` answers it, and the rules the editor checks before a `PUT` (spec › Data).
 
@@ -78,6 +78,15 @@ export function countOf(step: number): string {
   const inBar = step % STEPS_PER_BAR;
   return `${Math.floor(inBar / 4) + 1}${["", "e", "&", "a"][inBar % 4]}`;
 }
+
+/** "ไฮแฮทปิด ห้อง 1 จังหวะ 3": a note's place as the grid's cells and the song page's dropped list name it. */
+export const notePlace = (piece: PieceId, step: number) => `${pieceName(piece)} ห้อง ${Math.floor(step / STEPS_PER_BAR) + 1} จังหวะ ${countOf(step)}`;
+
+/** The Thai name of a note's hit, for a cell's tooltip. */
+export const hitName = (note: Note) => HITS.find((hit) => hit.id === note.hit)?.name;
+
+/** 1–4: the bar counts a lesson may have, as the editor's buttons and the song page's radios list them. */
+export const BAR_COUNTS = Array.from({ length: BARS_MAX }, (_, index) => index + 1);
 
 // --- One hand plays one piece at a time (D20); the same rules as the backend's `PUT` ---
 

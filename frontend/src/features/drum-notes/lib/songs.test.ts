@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bpmOf, pickedText, pickingOf, pickText, rangeFault, type FoundBar, type PickJob, type SongRow } from "./songs";
+import { pickableFrom, pickedText, pickingOf, pickText, rangeFault, type FoundBar, type PickJob, type SongRow } from "./songs";
 
 const job = (change: Partial<PickJob> = {}): PickJob => ({ song_id: "a", state: "picking", percent: 40, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "", ...change });
 const row = (change: Partial<SongRow> = {}): SongRow => ({ id: "a", title: "A", subtitle: "", source_kind: "link", duration_s: 60, analysis: null, lessons: 0, updated_at: "", ...change });
@@ -44,13 +44,13 @@ describe("the Pick job", () => {
   });
 });
 
-describe("bpmOf", () => {
-  it("is 240 over the median length of the 4/4 bars, within 40–240, null with none", () => {
-    expect(bpmOf([bar(0, 2), bar(2, 4), bar(4, 6.5)])).toBe(120);
-    expect(bpmOf([bar(0, 2), bar(2, 5, false)])).toBe(120);
-    expect(bpmOf([bar(0, 0.5)])).toBe(240);
-    expect(bpmOf([bar(0, 8)])).toBe(40);
-    expect(bpmOf([bar(0, 2, false)])).toBeNull();
-    expect(bpmOf([])).toBeNull();
+describe("pickableFrom", () => {
+  it("counts the 4/4 bars in a row from the one picked, up to four", () => {
+    const bars = [bar(0, 2), bar(2, 4), bar(4, 6), bar(6, 8), bar(8, 10), bar(10, 12, false), bar(12, 14)];
+    expect(pickableFrom(bars, 0)).toBe(4);
+    expect(pickableFrom(bars, 2)).toBe(3);
+    expect(pickableFrom(bars, 5)).toBe(0);
+    expect(pickableFrom(bars, 6)).toBe(1);
+    expect(pickableFrom([], 0)).toBe(0);
   });
 });

@@ -11,7 +11,7 @@ import trashIcon from "../../../components/ui/assets/trash.svg";
 import { editedAt, formatDuration } from "../../../lib/format";
 import { useDrumRender } from "../hooks/useDrumRender";
 import { useRenders } from "../hooks/useRenders";
-import { DRUMS_HASH, lessonHash } from "../lib/lesson";
+import { DRUMS_HASH, lessonHash } from "../../../lib/lesson";
 import { downloadName, renderFile, renderingOf, type RenderResult } from "../lib/render";
 import { RenderProgress } from "./RenderProgress";
 

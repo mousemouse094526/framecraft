@@ -1,7 +1,8 @@
 import { useId, useRef, useState, type RefObject } from "react";
 import { Alert } from "../../../components/ui/Alert";
-import { GHOST_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { FixCommand } from "../../../components/ui/FixCommand";
+import { GrooveGrid } from "../../../components/ui/GrooveGrid";
 import { inputClass } from "../../../components/ui/inputStyles";
 import { Labeled } from "../../../components/ui/Labeled";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
@@ -10,13 +11,18 @@ import { ProgressBar } from "../../../components/ui/ProgressBar";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
+import { BAR_COUNTS, BPM_MAX, BPM_MIN, lessonHash } from "../../../lib/lesson";
+import { useLessonPreview } from "../hooks/useLessonPreview";
 import { usePick, type Refused } from "../hooks/usePick";
 import { useSong } from "../hooks/useSong";
 import {
   audioUrl,
-  bpmOf,
+  BPM_RULE,
+  droppedText,
+  firstPickable,
   MELODY_HINT,
   MODE_LABELS,
+  NO_FOUR_FOUR,
   pickingOf,
   pickText,
   RANGE_MAX_S,
@@ -33,9 +39,9 @@ import {
 } from "../lib/songs";
 
 /**
- * หน้าเพลง (`#/songs/{id}`): the song's head and player, the range and mode, the Pick job, and the
- * bars found (spec › Design, D5, D6, D18, D20). The lesson comes with ticket 03; the design is
- * pending, so the app's own parts.
+ * หน้าเพลง (`#/songs/{id}`): the song's head and player, the range and mode, the Pick job, the bars
+ * found with the lesson made of the ones picked, and the lessons made before (spec › Design, D5, D6,
+ * D11, D12, D18, D20, D21). The design is pending, so the app's own parts.
  */
 export function SongPage({ id, notice }: { id: string; notice: string | null }) {
   const { state, reload, replace } = useSong(id);
@@ -79,10 +85,12 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
             />
           )}
           {state.song.analysis ? (
-            <FoundBars bars={state.song.bars} onPick={(start) => seek(player.current, start)} />
+            // Keyed by `picked_at`, so a new analysis starts the lesson's pick over at its first 4/4 bar.
+            <FoundSection key={state.song.analysis.picked_at} song={state.song} player={player} />
           ) : (
-            <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-sm leading-[1.5] text-mid">ตั้งช่วงแล้วกด แกะโน้ต</p>
+            <EmptyNote text="ตั้งช่วงแล้วกด แกะโน้ต" />
           )}
+          <MadeLessons ids={state.song.lessons} />
         </>
       )}
     </PageLayout>
@@ -244,23 +252,61 @@ function FailedAlert({ job }: { job: PickJob }) {
   );
 }
 
-/** The BPM and the bars found, in time order; a bar without four beats is dimmed and can't be picked (D6, D20). */
-function FoundBars({ bars, onPick }: { bars: FoundBar[]; onPick: (start_s: number) => void }) {
-  const bpm = bpmOf(bars);
+/** The bars found and, when one is 4/4, the lesson made of the ones picked (spec › Design, D11, D20). */
+function FoundSection({ song, player }: { song: Song; player: RefObject<HTMLAudioElement | null> }) {
+  if (firstPickable(song.bars) < 0) {
+    return (
+      <>
+        <FoundBars bars={song.bars} selected={null} onPick={(_, start) => seek(player.current, start)} />
+        <EmptyNote text={NO_FOUR_FOUR} />
+      </>
+    );
+  }
+  return <LessonPick song={song} player={player} />;
+}
+
+/** A card that says why a section has nothing to show. */
+function EmptyNote({ text }: { text: string }) {
+  return <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-sm leading-[1.5] text-mid">{text}</p>;
+}
+
+/** The strip and สร้างบทเรียน of a song with a 4/4 bar: pressing a bar seeks the player and makes it the lesson's first (D20). */
+function LessonPick({ song, player }: { song: Song; player: RefObject<HTMLAudioElement | null> }) {
+  const lesson = useLessonPreview(song.id, song.bars);
+  return (
+    <>
+      <FoundBars
+        bars={song.bars}
+        selected={lesson.bar}
+        onPick={(index, start) => {
+          seek(player.current, start);
+          lesson.pickBar(index);
+        }}
+      />
+      <LessonSection lesson={lesson} />
+    </>
+  );
+}
+
+type FoundBarsProps = { bars: FoundBar[]; selected: number | null; onPick: (index: number, start_s: number) => void };
+
+/** The bars found, in time order; the lesson's first bar is pressed; a bar without four beats is dimmed and can't be picked (D6, D20). */
+function FoundBars({ bars, selected, onPick }: FoundBarsProps) {
   return (
     <section aria-label="ผลแกะ" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-6">
-      <p className="text-sm leading-[1.5] font-medium text-foreground">BPM ที่พบ {bpm ?? "—"}</p>
+      <p className="text-sm leading-[1.5] font-medium text-foreground">ห้องที่พบ {bars.length} ห้อง · กดห้องเพื่อฟังและเลือกเป็นห้องแรกของบทเรียน</p>
       <ol aria-label="ห้องที่พบ" className="flex flex-wrap gap-2">
-        {bars.map((bar) => (
+        {bars.map((bar, index) => (
           <li key={bar.n}>
             <button
               type="button"
               disabled={!bar.four_four}
+              aria-pressed={index === selected}
               title={bar.four_four ? undefined : "ห้องนี้ไม่ใช่ 4/4"}
-              onClick={() => onPick(bar.start_s)}
+              onClick={() => onPick(index, bar.start_s)}
               aria-label={`ห้อง ${bar.n}`}
-              className={`flex flex-col items-start rounded-lg border border-border px-3 py-2 text-left leading-[1.5] ${
-                bar.four_four ? "bg-card hover:bg-muted" : "bg-muted text-muted-foreground opacity-50"
+              className={`flex flex-col items-start rounded-lg border px-3 py-2 text-left leading-[1.5] ${
+                !bar.four_four ? "border-border bg-muted text-muted-foreground opacity-50" : index === selected ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card hover:bg-muted"
               }`}
             >
               <span className="font-button text-sm font-medium">ห้อง {bar.n}</span>
@@ -270,6 +316,100 @@ function FoundBars({ bars, onPick }: { bars: FoundBar[]; onPick: (start_s: numbe
           </li>
         ))}
       </ol>
+    </section>
+  );
+}
+
+/**
+ * สร้างบทเรียน: the first bar (from the strip), how many, the BPM, the read-only grid of the preview
+ * with its sticks and the notes dropped, ฟัง, and สร้างบทเรียนกลอง (spec › Design, D11, D13, D20, D21).
+ */
+function LessonSection({ lesson }: { lesson: ReturnType<typeof useLessonPreview> }) {
+  const id = useId();
+  const { preview, creating, listen } = lesson;
+  const mixing = listen.state.kind === "mixing";
+  const bpmError = lesson.bpmFault ? BPM_RULE : preview.kind === "refused" && preview.field === "bpm" ? preview.text : undefined;
+  const ready = preview.kind === "ready" && !lesson.bpmFault;
+  return (
+    <section aria-label="สร้างบทเรียน" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <h3 className="text-base leading-[1.5] font-semibold text-foreground">สร้างบทเรียน</h3>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-2">
+          <p className="font-button text-sm leading-5 font-medium text-foreground">ห้องแรก: ห้อง {lesson.bar + 1}</p>
+          <p className="text-xs leading-4 text-muted-foreground">กดห้องบนแถบเพื่อเปลี่ยน</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <p className="font-button text-sm leading-5 font-medium text-foreground">จำนวนห้อง</p>
+          <div role="radiogroup" aria-label="จำนวนห้อง" className="flex gap-2">
+            {BAR_COUNTS.map((count) => (
+              <button
+                key={count}
+                type="button"
+                role="radio"
+                aria-checked={lesson.bars === count}
+                disabled={count > lesson.pickable}
+                onClick={() => lesson.setBars(count)}
+                className={`h-10 w-10 rounded-lg border font-button text-sm font-medium ${lesson.bars === count ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card text-mid hover:bg-muted"} disabled:opacity-40`}
+              >
+                {count}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Labeled label="BPM" htmlFor={`${id}-bpm`} error={bpmError} hint="ตั้งต้นจากความยาวห้องที่เลือก">
+          <input id={`${id}-bpm`} type="number" min={BPM_MIN} max={BPM_MAX} value={lesson.bpmShown} aria-invalid={bpmError !== undefined} onChange={(e) => lesson.setBpmText(e.target.value)} className={inputClass(bpmError !== undefined)} />
+        </Labeled>
+      </div>
+      {preview.kind === "loading" && <p className="text-sm leading-[1.5] text-mid">กำลังคำนวณโน้ต…</p>}
+      {preview.kind === "refused" && preview.field !== "bpm" && <Alert tone="error">{preview.text}</Alert>}
+      {preview.kind === "ready" && (
+        <>
+          <GrooveGrid bars={preview.groove.bars} notes={preview.groove.notes} />
+          {preview.dropped.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm leading-[1.5] font-medium text-foreground">ตัดโน้ตที่มือตีไม่ได้</p>
+              <ul aria-label="ตัดโน้ตที่มือตีไม่ได้" className="list-inside list-disc text-[13px] leading-[1.5] text-mid">
+                {preview.dropped.map((dropped) => (
+                  <li key={`${dropped.piece}:${dropped.step}`}>{droppedText(dropped)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button type="button" disabled={!ready || mixing || creating.kind === "creating"} onClick={() => void listen.listen()} className={`h-11 px-5 sm:h-10 ${SECONDARY_BUTTON}`}>
+          {mixing ? "กำลังผสมเสียง…" : "ฟัง"}
+        </button>
+        <button type="button" disabled={!ready || creating.kind === "creating"} onClick={() => void lesson.create()} className={`h-11 px-6 sm:h-10 ${PRIMARY_BUTTON}`}>
+          {creating.kind === "creating" ? "กำลังสร้าง…" : "สร้างบทเรียนกลอง"}
+        </button>
+      </div>
+      {listen.state.kind === "refused" && <RefusedAlert text={listen.state.text} fixes={listen.state.fixes} />}
+      {creating.kind === "refused" && <Alert tone="error">{creating.text}</Alert>}
+    </section>
+  );
+}
+
+/** The lessons made from this song that are still there, as links to their editors (D12, ADR 0044). */
+function MadeLessons({ ids }: { ids: string[] }) {
+  return (
+    <section aria-label="บทเรียนจากเพลงนี้" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <h3 className="text-base leading-[1.5] font-semibold text-foreground">บทเรียนจากเพลงนี้</h3>
+      {ids.length === 0 ? (
+        <p className="text-sm leading-[1.5] text-mid">ยังไม่มี</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2">
+          {ids.map((lessonId, index) => (
+            <li key={lessonId}>
+              <a href={lessonHash(lessonId)} className={`h-9 px-3 ${GHOST_BUTTON} border border-border`}>
+                บทเรียน {index + 1}
+                <span className="font-mono text-xs text-muted-foreground">{lessonId}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
