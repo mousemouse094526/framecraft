@@ -12,7 +12,7 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeVar
 
 from pydantic import BaseModel
 
@@ -27,6 +27,9 @@ from backend.jobs import Cancelled, JobSlot, short
 from backend.models import ModelSpec
 from backend.paths import ProjectPaths
 
+if TYPE_CHECKING:
+    import numpy as np
+
 log = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -36,6 +39,7 @@ ErrorCode = Literal["no_beats", "model_broken", "model_failed", "internal"]
 ADTOF_RATE = 44_100
 MODELS_RATE = score.BASIC_PITCH_RATE  # 22,050 Hz: Beat This! and Basic Pitch both take it, so melody mode decodes once
 NOT_RUNNING = "ไม่มีงานแกะโน้ตที่ยังไม่จบ"
+BUSY = "กำลังแกะ {title} อยู่ รอให้เสร็จก่อน"  # the song being picked, by title (spec › Design: `busy` names it)
 NO_BEATS = "หาจังหวะในช่วงนี้ไม่ได้ ลองช่วงอื่น"
 MODEL_BROKEN = "ไฟล์โมเดลเสีย รัน Setup script ใหม่"
 MODEL_FAILED = "โมเดลทำงานผิดพลาด"
@@ -107,7 +111,7 @@ class PickJobs(JobSlot[PickJob]):
         with self._lock:
             running = self.running()
             if running is not None:
-                raise ApiError(409, "busy", "กำลังแกะเพลงอื่นอยู่ รอให้เสร็จก่อน", song_id=running.song_id)
+                raise ApiError(409, "busy", BUSY.format(title=_title_of(project, running.song_id)), song_id=running.song_id)
             with songs.lock:
                 song = songs.read_under_lock(project, song_id)  # again: it may have gone or changed since the checks above
                 range_ = _pickable(song)
@@ -238,6 +242,15 @@ def _pickable(song: Song) -> Range:
     if song.source.kind == "midi" or song.range is None:
         raise ApiError(409, "not_applicable", songs.NOT_APPLICABLE)
     return songs.checked_range(song.range.model_dump(), song.duration_s)
+
+
+def _title_of(project: ProjectPaths, song_id: str) -> str:
+    """The title of the song a job is picking, for `busy`; a song that went meanwhile is "เพลงอื่น"."""
+    try:
+        with songs.lock:
+            return songs.read_under_lock(project, song_id).title
+    except ApiError:
+        return "เพลงอื่น"
 
 
 def _run_model(run: Callable[[], T]) -> T:

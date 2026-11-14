@@ -1,7 +1,6 @@
 import { useId, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { Alert } from "../../../components/ui/Alert";
 import { DESTRUCTIVE_BUTTON, GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
-import { FixCommand } from "../../../components/ui/FixCommand";
+import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { inputClass } from "../../../components/ui/inputStyles";
 import { ModalDialog } from "../../../components/ui/ModalDialog";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
@@ -11,7 +10,7 @@ import { RefreshButton } from "../../../components/ui/RefreshButton";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
-import { useSongs, type Notice, type Upload } from "../hooks/useSongs";
+import { useSongs, type Upload } from "../hooks/useSongs";
 import { FILE_ACCEPT, FILE_HINT, importText, isImporting, NOTES_ONLY, pickedText, songHash, SOURCE_LABELS, type PickJob, type SongImport, type SongRow } from "../lib/songs";
 
 /** รายการเพลง (`#/songs`): the link box and file box, the running import, the songs newest first, delete (spec › Design). The design is pending, so the app's own parts. */
@@ -40,7 +39,7 @@ export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void })
         <p className="text-[13px] leading-[1.5] text-mid">{NOTES_ONLY}</p>
         {running && <ImportRow job={running} onCancel={() => void cancelImport()} />}
         {ready?.upload && <UploadRow upload={ready.upload} onCancel={cancelUpload} />}
-        {ready?.notice && <NoticeAlert notice={ready.notice} />}
+        {ready?.notice && <RefusedAlert tone={ready.notice.tone} text={ready.notice.text} fixes={ready.notice.fixes} />}
       </section>
       <section aria-label="เพลงทั้งหมด" aria-busy={state.kind === "loading"} className="overflow-hidden rounded-2xl border border-border bg-card">
         {ready === null ? (
@@ -193,19 +192,6 @@ function UploadRow({ upload, onCancel }: { upload: Upload; onCancel: () => void 
       </div>
       <ProgressBar label={`ส่งไฟล์ ${upload.name}`} percent={upload.converting ? "unknown" : upload.percent} />
     </div>
-  );
-}
-
-function NoticeAlert({ notice }: { notice: Notice }) {
-  return (
-    <Alert tone={notice.tone}>
-      <div className="flex flex-col gap-2">
-        <p>{notice.text}</p>
-        {notice.fixes.map((fix) => (
-          <FixCommand key={fix} command={fix} />
-        ))}
-      </div>
-    </Alert>
   );
 }
 

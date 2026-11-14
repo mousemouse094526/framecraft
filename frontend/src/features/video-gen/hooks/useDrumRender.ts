@@ -4,7 +4,7 @@ import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { CANCEL_PATH, isRendering, RENDER_PATH, type DrumRenderJob } from "../lib/render";
-import { fixesOf } from "../../../lib/setupFixes";
+import { fixesFor } from "../../../lib/setupFixes";
 
 const OFFLINE = { text: OFFLINE_TEXT, fixes: [] };
 
@@ -56,7 +56,7 @@ export function useDrumRender(onEnded?: (job: DrumRenderJob, startedHere: boolea
         }
         const refusal = refusalOf(reply.body);
         if (!refusal) return setIfMounted((now) => ({ ...now, refused: OFFLINE }));
-        const fixes = refusal.code === "not_ready" ? await fixesOf(refusal.rows ?? []) : [];
+        const fixes = await fixesFor(refusal);
         setIfMounted((now) => ({ ...now, refused: { text: refusal.message, fixes } }));
       } catch {
         setIfMounted((now) => ({ ...now, refused: OFFLINE }));

@@ -1,6 +1,6 @@
 import { useCallback, useId, useState, type FormEvent } from "react";
 import { Alert } from "../../../components/ui/Alert";
-import { FixCommand } from "../../../components/ui/FixCommand";
+import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { inputClass } from "../../../components/ui/inputStyles";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
@@ -235,14 +235,7 @@ function ListenControl({ fields, listen }: { fields: LessonFields; listen: Retur
       >
         {mixing ? "กำลังผสมเสียง…" : "ฟังจังหวะ"}
       </button>
-      {listen.state.kind === "refused" && (
-        <div className="flex flex-col gap-2">
-          <Alert tone="error">{listen.state.text}</Alert>
-          {listen.state.fixes.map((fix) => (
-            <FixCommand key={fix} command={fix} />
-          ))}
-        </div>
-      )}
+      {listen.state.kind === "refused" && <RefusedAlert text={listen.state.text} fixes={listen.state.fixes} />}
     </div>
   );
 }
@@ -287,14 +280,7 @@ function RenderControl({ id, fields, render, save }: { id: string; fields: Lesso
           </button>
         </div>
       )}
-      {render.refused && (
-        <div className="flex flex-col gap-2">
-          <Alert tone="error">{render.refused.text}</Alert>
-          {render.refused.fixes.map((fix) => (
-            <FixCommand key={fix} command={fix} />
-          ))}
-        </div>
-      )}
+      {render.refused && <RefusedAlert text={render.refused.text} fixes={render.refused.fixes} />}
     </div>
   );
 }

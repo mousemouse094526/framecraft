@@ -360,7 +360,7 @@ describe("หน้าเพลง", () => {
 
     await user.click(within(await screen.findByRole("list", { name: "ห้องที่พบ" })).getByRole("button", { name: "ห้อง 2" }));
 
-    expect(document.querySelector("audio")?.currentTime).toBe(2.4);
+    expect(screen.getByRole("region", { name: "เพลง" }).querySelector("audio")?.currentTime).toBe(2.4);
   });
 
   it("a bar the API marks as not 4/4 is dimmed and can't be pressed (e2e)", async () => {
@@ -393,7 +393,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     expect(startBox()).toHaveValue(10);
     expect(endBox()).toHaveValue(40);
     expect(section).toHaveTextContent("ยาว 30.0 s (ไม่เกิน 90 วินาที)");
-    const player = document.querySelector("audio") as HTMLAudioElement;
+    const player = screen.getByRole("region", { name: "เพลง" }).querySelector("audio") as HTMLAudioElement;
     player.currentTime = 12.34;
     await user.click(screen.getByRole("button", { name: "ใช้เวลาที่เล่นอยู่เป็นเริ่ม (วินาที)" }));
     expect(startBox()).toHaveValue(12.3);
@@ -514,7 +514,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
       get(PATH, songOf()),
       send("PUT", RANGE_PATH, songOf(), 200),
       send("POST", SONG_PICK_PATH, { code: "not_ready", message: "ยังติดตั้งไม่ครบ: ADTOF drum model", rows: ["model_adtof"] }, 503),
-      send("POST", SONG_PICK_PATH, { code: "busy", message: "กำลังแกะเพลงอื่นอยู่ รอให้เสร็จก่อน", song_id: "other" }, 409),
+      send("POST", SONG_PICK_PATH, { code: "busy", message: "กำลังแกะ Come As You Are อยู่ รอให้เสร็จก่อน", song_id: "other" }, 409),
       get("/api/setup/status", { ...status, items: [{ ...status.items[0], id: "model_adtof", label: "ADTOF drum model" }] }),
     ]);
     await screen.findByRole("region", { name: "ช่วงแกะ" });
@@ -524,7 +524,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     expect(await screen.findByText("./setup.sh")).toBeInTheDocument();
 
     await user.click(pickButton());
-    expect(await findStatusWith("กำลังแกะเพลงอื่นอยู่ รอให้เสร็จก่อน")).toBeInTheDocument();
+    expect(await findStatusWith("กำลังแกะ Come As You Are อยู่ รอให้เสร็จก่อน")).toBeInTheDocument();
   });
 
   it("a job that failed no_beats says to try another range, and the song stays unpicked (e2e)", async () => {
@@ -631,7 +631,7 @@ describe("สร้างบทเรียน", () => {
     await section();
     await waitFor(() => expect(sent(fetchMock, "POST", PREVIEW_PATH)).toHaveLength(1));
     await user.click(within(screen.getByRole("list", { name: "ห้องที่พบ" })).getByRole("button", { name: "ห้อง 2" }));
-    expect(document.querySelector("audio")?.currentTime).toBe(2.4);
+    expect(screen.getByRole("region", { name: "เพลง" }).querySelector("audio")?.currentTime).toBe(2.4);
     await waitFor(() => expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([{ bar: 0, bars: 1 }, { bar: 1, bars: 1 }]));
 
     await user.clear(bpmBox());

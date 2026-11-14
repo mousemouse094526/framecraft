@@ -32,6 +32,9 @@ from backend.spoil.adapter import DownloadCancelled, error_code
 
 log = logging.getLogger(__name__)
 
+BAD_LINK = "ลิงก์นี้ใช้ไม่ได้ วางลิงก์ http หรือ https ของเพลง"
+NOT_RUNNING = "ไม่มีการเอาเพลงเข้าที่ยังไม่จบ"
+
 ErrorCode = Literal[
     "unsupported",
     "playlist",
@@ -150,14 +153,14 @@ class SongImports(ImportSlot[SongImport]):
     # --- a link ---
 
     def start(self, body: dict) -> tuple[int, dict]:
-        """The gate, the link (spoil's rules, ADR 0029), `busy`; then the answer as its status and
-        body: `202` with the job once its thread runs, or `200` with the song's id for a YouTube
-        link whose song is listed already (spec › Song import, D3)."""
-        require_rows(gate_rows.SONGS_LINK)
+        """The link (spoil's rules, ADR 0029), the gate, `busy`, in the spec's order; then the answer
+        as its status and body: `202` with the job once its thread runs, or `200` with the song's id
+        for a YouTube link whose song is listed already (spec › Song import, D3)."""
         url = body.get("url")
         link = links.parse(url) if isinstance(url, str) else None
         if link is None:
-            raise ApiError(400, "invalid_request", "ลิงก์นี้ใช้ไม่ได้ วางลิงก์ http หรือ https ของเพลง")
+            raise ApiError(400, "invalid_request", BAD_LINK)
+        require_rows(gate_rows.SONGS_LINK)
         project = paths.project()
         with self._lock:
             self._require_free()
@@ -172,7 +175,7 @@ class SongImports(ImportSlot[SongImport]):
     def cancel(self) -> SongImport:
         with self._lock:
             if not self._taken():
-                raise ApiError(409, "not_running", "ไม่มีการเอาเพลงเข้าที่ยังไม่จบ")
+                raise ApiError(409, "not_running", NOT_RUNNING)
             self._job.cancel_requested = True
             self._cancel.set()
             return self._job.model_copy(deep=True)
@@ -247,7 +250,9 @@ class SongImports(ImportSlot[SongImport]):
         target = project.song_dir(song_id) / songs.AUDIO_FILE
 
         def place(seconds: float) -> Song:
-            song = songs.new_song(song_id, title, subtitle, source, seconds, songs.default_range(seconds), None)
+            # The range is built from the length as the Song stores it (rounded), or a range that ends
+            # a few ms past `duration_s` would fail the range rules on the first `POST /pick`.
+            song = songs.new_song(song_id, title, subtitle, source, seconds, songs.default_range(round(seconds, 1)), None)
             with songs.lock:
                 if songs.exists(project, song_id):  # the same song came in meanwhile: that one stays
                     return songs.get(project, song_id)

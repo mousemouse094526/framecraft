@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
-import { fixesOf } from "../../../lib/setupFixes";
+import { fixesFor } from "../../../lib/setupFixes";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { isPicking, PICK_PATH, pickPath, rangePath, type PickJob, type Range, type Song } from "../lib/songs";
@@ -21,7 +21,7 @@ const OFFLINE: Refused = { text: OFFLINE_TEXT, fixes: [], field: null };
 async function refusedOf(body: unknown): Promise<Refused> {
   const refusal = refusalOf(body);
   if (!refusal) return OFFLINE;
-  const fixes = refusal.code === "not_ready" ? await fixesOf(refusal.rows ?? []) : [];
+  const fixes = await fixesFor(refusal);
   return { text: refusal.message, fixes, field: refusal.field ?? null };
 }
 

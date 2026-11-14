@@ -21,8 +21,9 @@ export const songHash = (id: string) => `${SONGS_HASH}/${id}`;
 export type SourceKind = "link" | "file" | "midi";
 export type Mode = "drums" | "melody";
 export type Level = "ghost" | "normal" | "accent";
-export type Hit = { t: number; piece: string; level: Level };
-export type Analysis = { mode: Mode; start_s: number; end_s: number; beats: number[]; downbeats: number[]; hits: Hit[]; picked_at: string };
+/** A hit the models (or the MIDI file) found, in seconds of the song; not a lesson's `Hit` (its dynamic) in `lib/lesson.ts`. */
+export type FoundHit = { t: number; piece: string; level: Level };
+export type Analysis = { mode: Mode; start_s: number; end_s: number; beats: number[]; downbeats: number[]; hits: FoundHit[]; picked_at: string };
 export type Range = { start_s: number; end_s: number; mode: Mode };
 /** One bar the analysis found, as the API works it out on read: four beats make a 4/4 bar, any other count can't be picked (D20). */
 export type FoundBar = { n: number; start_s: number; end_s: number; beats: number; hits: number; four_four: boolean };
@@ -149,8 +150,10 @@ export function songsViewOf(hash: string): SongsView {
 export type Dropped = { piece: PieceId; step: number };
 /** What `POST /preview` answers: the Groove as the lesson editor draws it, its BPM, the notes dropped. */
 export type Preview = { groove: { bars: number; notes: Note[] }; bpm: number; dropped: Dropped[] };
-/** What `POST /preview`, `/listen` and `/lessons` take: the first bar (from 0), how many, and the BPM (left out: the Score's default). */
-export type Pick = { bar: number; bars: number; bpm?: number };
+/** What `POST /preview`, `/listen` and `/lessons` take: the first bar (from 0), how many, and the BPM (left out: the Score's default). Named as the backend's `lesson.Choice`: not the Pick job. */
+export type Choice = { bar: number; bars: number; bpm?: number };
+/** 1–4: the bar counts the user may pick (D11). */
+export const BAR_COUNTS = Array.from({ length: BARS_MAX }, (_, index) => index + 1);
 /** What `POST /lessons` answers. */
 export type Created = { lesson_id: string; dropped: number };
 

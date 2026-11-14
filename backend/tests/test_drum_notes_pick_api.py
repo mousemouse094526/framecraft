@@ -61,6 +61,15 @@ def song_json(project: ProjectPaths, song_id: str) -> dict:
 # --- the range ---
 
 
+def test_a_fresh_song_s_default_range_ends_at_its_rounded_length_so_it_can_be_picked_at_once(client, tmp_path):
+    song = import_song_tone(client, tmp_path, seconds=6.24)  # a length that rounds down to one decimal
+
+    assert song["range"]["end_s"] == song["duration_s"]
+    assert start_pick(client, song["id"]).status_code == 202
+    assert poll_until(client, PICK, lambda job: job["state"] in FINISHED)["state"] == "done"
+
+
+
 def test_the_range_is_saved_and_answered_with_the_song(client, project, tmp_path):
     song = import_song_tone(client, tmp_path, seconds=12)
 
@@ -206,6 +215,7 @@ def test_a_second_pick_is_busy_naming_the_song_a_delete_is_song_busy_and_a_cance
 
     busy = start_pick(client, other["id"])
     assert song_refusal(busy) == (409, "busy")
+    assert busy.json()["message"] == f"กำลังแกะ {song['title']} อยู่ รอให้เสร็จก่อน"
     assert busy.json()["song_id"] == song["id"]
     assert song_refusal(client.delete(f"{SONGS}/{song['id']}")) == (409, "song_busy")
     assert client.delete(f"{SONGS}/{other['id']}").status_code == 204  # another song can go

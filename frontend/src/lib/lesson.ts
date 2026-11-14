@@ -86,7 +86,6 @@ export const notePlace = (piece: PieceId, step: number) => `${pieceName(piece)} 
 export const hitName = (note: Note) => HITS.find((hit) => hit.id === note.hit)?.name;
 
 /** 1–4: the bar counts a lesson may have, as the editor's buttons and the song page's radios list them. */
-export const BAR_COUNTS = Array.from({ length: BARS_MAX }, (_, index) => index + 1);
 
 // --- One hand plays one piece at a time (D20); the same rules as the backend's `PUT` ---
 

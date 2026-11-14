@@ -40,7 +40,7 @@ REQUIRED_FREE_BYTES_WITHOUT_QWEN = 27_000_000_000
 STATUS_ICONS = {"ok": "✓", "warning": "!", "missing": "✗"}
 
 Download = Callable[..., str]
-OpenSession = Callable[[Path], object]
+OpenSession = onnx_runner.OpenSession
 
 
 def run_setup(

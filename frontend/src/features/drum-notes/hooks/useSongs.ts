@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, OFFLINE_TEXT, sendFile, sendJson, type FileUpload } from "../../../lib/api";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
-import { fixesOf } from "../../../lib/setupFixes";
+import { fixesFor } from "../../../lib/setupFixes";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
@@ -35,7 +35,7 @@ const NOT_NOW = ["busy", "not_ready"];
 async function noticeOf(body: unknown): Promise<Notice> {
   const refusal = refusalOf(body);
   if (!refusal) return { tone: "error", text: OFFLINE_TEXT, fixes: [] };
-  const fixes = refusal.code === "not_ready" ? await fixesOf(refusal.rows ?? []) : [];
+  const fixes = await fixesFor(refusal);
   return { tone: NOT_NOW.includes(refusal.code) ? "warning" : "error", text: refusal.message, fixes };
 }
 

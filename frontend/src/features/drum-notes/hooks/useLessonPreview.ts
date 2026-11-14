@@ -4,7 +4,7 @@ import { lessonHash } from "../../../lib/lesson";
 import { refusalOf, type Refusal } from "../../../lib/refusal";
 import { useListen } from "../../../lib/useListen";
 import { useMountedState } from "../../../lib/useMountedState";
-import { bpmOk, firstPickable, listenPath, pickableFrom, previewPath, songLessonsPath, type Created, type FoundBar, type Pick, type Preview } from "../lib/songs";
+import { bpmOk, firstPickable, listenPath, pickableFrom, previewPath, songLessonsPath, type Created, type Choice, type FoundBar, type Preview } from "../lib/songs";
 
 /** How long the page waits after the last change before it asks for the preview (spec › Frontend). */
 export const PREVIEW_DEBOUNCE_MS = 300;
@@ -38,9 +38,9 @@ export function useLessonPreview(songId: string, found: FoundBar[]) {
   const bpmFault = typedBpm !== null && !bpmOk(typedBpm);
   const previewBpm = preview.kind === "ready" ? preview.bpm : null;
   /** What `POST /preview` is asked: the typed BPM when there is a sound one, else no BPM, for the Score's default. */
-  const asked: Pick = typedBpm !== null && !bpmFault ? { bar, bars, bpm: typedBpm } : { bar, bars };
+  const asked: Choice = typedBpm !== null && !bpmFault ? { bar, bars, bpm: typedBpm } : { bar, bars };
   /** What ฟัง and สร้าง send, which need a BPM: `asked` with the BPM the field shows; null until the preview said what it is. */
-  const withBpm: Pick | null = asked.bpm !== undefined ? asked : previewBpm === null ? null : { ...asked, bpm: previewBpm };
+  const withBpm: Choice | null = asked.bpm !== undefined ? asked : previewBpm === null ? null : { ...asked, bpm: previewBpm };
 
   useEffect(() => {
     if (bpmFault) return;

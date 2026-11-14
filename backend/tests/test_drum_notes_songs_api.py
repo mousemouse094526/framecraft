@@ -280,6 +280,28 @@ def test_the_check_answers_the_size_or_refuses_the_file_before_its_body_is_sent(
     assert song_refusal(client.post(f"{SONGS}/check", json={"name": "a.mp3", "size": True})) == (400, "invalid_request")
 
 
+def test_a_put_whose_size_is_over_the_cap_is_too_large_as_the_check_is(client):
+    assert song_refusal(put_song_file(client, "big.mp3", b"x", size=imports.UPLOAD_MAX_BYTES + 1)) == (413, "file_too_large")
+    assert song_refusal(put_song_file(client, "big.mid", b"x", size=imports.MIDI_MAX_BYTES + 1)) == (413, "file_too_large")
+
+
+def test_a_delete_while_the_audio_is_held_open_is_in_use_and_keeps_the_song(client, tmp_path, monkeypatch):
+    song = import_song_tone(client, tmp_path)
+    unlink = Path.unlink
+
+    def held(path: Path, missing_ok: bool = False) -> None:
+        if path.name == "audio.m4a":
+            raise PermissionError(str(path))  # Windows: a player holds the file open
+        unlink(path, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", held)
+
+    response = client.delete(f"{SONGS}/{song['id']}")
+
+    assert song_refusal(response) == (409, "in_use")
+    assert client.get(f"{SONGS}/{song['id']}").status_code == 200
+
+
 def test_the_check_of_a_file_already_in_answers_its_id(client, tmp_path):
     song = import_song_tone(client, tmp_path, "song.mp3")
 

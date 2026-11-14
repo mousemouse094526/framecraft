@@ -430,6 +430,18 @@
 
 **From:** build ticket 04 · **Status:** active
 
+## D27: ผล feature review
+
+**Chosen:**
+- แก้ทันที: bug ช่วงตั้งต้นของเพลงที่เอาเข้าใหม่สร้างจากความยาวก่อนปัด (เช่น 6.24 s) ขณะ `duration_s` ปัดเป็น 6.2 → `POST /pick` ครั้งแรกตอบ `400` field `end_s` — ตอนนี้ `default_range(round(seconds, 1))` (+ regression test); `busy` บอกชื่อเพลงที่แกะอยู่ "กำลังแกะ {title} อยู่ รอให้เสร็จก่อน" (เพลงหายแล้ว = "เพลงอื่น") ตาม spec › Design; Song import ตรวจลิงก์ก่อน gate ตามลำดับ spec; `RefusedAlert` (Alert + FixCommand) เป็นของใช้ร่วมใน `components/ui/` แทนที่สามสำเนา (SongPage, SongList, LessonEditor ของ video-gen); `fixesFor(refusal)` ใน `lib/setupFixes.ts` แทนบรรทัดซ้ำสี่ที่; `BAR_COUNTS` ย้ายมา `features/drum-notes/lib/songs.ts` (ผู้ใช้เดียว); ชนิดฝั่งหน้าเว็บ `Pick` (body) → `Choice` ตาม backend, `Hit` → `FoundHit` (ไม่ชนกับ `Hit` ของ `lib/lesson.ts`); `running` ใช้ `isPicking`; `setup.OpenSession` = ของ `onnx_runner`; ข้อความไทยของ imports เป็นค่าคงที่; test เพิ่ม `413` ที่ `PUT`, `in_use` ตอนลบ (`Path.unlink` โยน `PermissionError`), test ที่ query `<audio>` ทั้งหน้าเปลี่ยนเป็นในส่วน "เพลง", ตัด assert ค่าคงที่ของ GM map
+- คงไว้และบันทึก: ชื่อเพลง MIDI จาก track name (meta 0x03) ก่อนชื่อไฟล์ — เกิน D10 แต่ให้ชื่อที่ดีกว่าโดยไม่เปลี่ยน schema; หน้า "ไม่พบเพลงนี้" พร้อมลิงก์กลับแทนเด้งกลับรายการ; รายละเอียดแถว Status check แสดง revision สั้นกับขนาดตามแบบโมเดลอื่น (`_model_item`) ไม่มี repo; test `run_capture` ยกเลิกด้วย `threading.Timer(0.3)` — ยอมรับ: cancel ที่ตั้งก่อนเริ่ม ระหว่างอ่าน หรือหลังจบล้วนให้ `Cancelled` จึงไม่ขึ้นกับเวลา; fixture ของ songs/lesson API ไม่สลับ `gpu.slot` เหมือน toon sounds และ video-gen render ที่ไม่มีงาน GPU
+- ไม่ทำใน feature นี้ (Blocked → `/warroom tickets drum-notes`): `JobSlot.cancel` ร่วมของสาม slot, รูป "API ปฏิเสธ" สี่แบบในหน้าเว็บ, แยก `score.py` เป็นเลขสัญญาณกับกฎ Groove, ตารางต่อโหมดแทน `if mode` สามที่, fake Beat This! ถูกเฉพาะ chunk แรก, `Placed.piece: str`, `_take_in` รับ title/subtitle/source แยก, `SongImports.start` คืน tuple, `tabOf`/`App` และ helper ของ toon (ข้าม feature)
+- ต้องเจ้าของ (Blocked → `/warroom drum-notes`): Beat This! ให้ 2 จังหวะต่อห้องบนท่อนเบา/เพลงทำนอง (รวมห้องเป็นคู่?), `crash` + ไฮแฮทช่องเดียว → crash ได้ L (เปลี่ยน D13?), `Song.title` 1–60 ตอนอ่าน; และฟังเทียบตาราง intro (03) กับ kalimba (04)
+
+**Why:** กติกา feature review: แก้สิ่งเล็กที่ไม่เปลี่ยน spec ทันที ส่วนที่เปลี่ยน spec หรือเป็น refactor ข้าม module ไปเป็น ticket.
+
+**From:** feature review · **Status:** active
+
 ## Sources
 
 - [ADTOF Frame_RNN (ONNX) model card](https://huggingface.co/thebluescreen/adtof-drums-onnx) — input/output, threshold, peak picking, license CC BY-NC-SA 4.0, revision (accessed 2026-11-14)

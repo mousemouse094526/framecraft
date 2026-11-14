@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { OFFLINE_TEXT, type BlobReply } from "./api";
 import { refusalOf } from "./refusal";
-import { fixesOf } from "./setupFixes";
+import { fixesFor } from "./setupFixes";
 import { useMountedState } from "./useMountedState";
 
 export type ListenState =
@@ -51,7 +51,7 @@ export function useListen(request: () => Promise<BlobReply | null>) {
       }
       const refusal = refusalOf(reply.body);
       if (!refusal) return setIfMounted({ kind: "refused", text: OFFLINE_TEXT, fixes: [] });
-      setIfMounted({ kind: "refused", text: refusal.message, fixes: refusal.code === "not_ready" ? await fixesOf(refusal.rows ?? []) : [] });
+      setIfMounted({ kind: "refused", text: refusal.message, fixes: await fixesFor(refusal) });
     } catch {
       setIfMounted({ kind: "refused", text: OFFLINE_TEXT, fixes: [] });
     }

@@ -3,6 +3,7 @@ import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { FixCommand } from "../../../components/ui/FixCommand";
 import { GrooveGrid } from "../../../components/ui/GrooveGrid";
+import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { inputClass } from "../../../components/ui/inputStyles";
 import { Labeled } from "../../../components/ui/Labeled";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
@@ -11,15 +12,17 @@ import { ProgressBar } from "../../../components/ui/ProgressBar";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
-import { BAR_COUNTS, BPM_MAX, BPM_MIN, lessonHash } from "../../../lib/lesson";
+import { BPM_MAX, BPM_MIN, lessonHash } from "../../../lib/lesson";
 import { useLessonPreview } from "../hooks/useLessonPreview";
 import { usePick, type Refused } from "../hooks/usePick";
 import { useSong } from "../hooks/useSong";
 import {
   audioUrl,
+  BAR_COUNTS,
   BPM_RULE,
   droppedText,
   firstPickable,
+  isPicking,
   MELODY_BASE,
   MELODY_HINT,
   MODE_LABELS,
@@ -141,7 +144,7 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
   const fault = rangeFault(start_s, end_s, song.duration_s);
   const shown = touched ? fault : null;
   const field = shown ?? refused?.field ?? null;
-  const running = job !== null && (job.state === "preparing" || job.state === "picking");
+  const running = job !== null && isPicking(job); // any song's: one Pick job at a time
   const picking = pickingOf(job, song.id);
   const failed = job !== null && job.song_id === song.id && job.state === "failed" ? job : null;
 
@@ -204,7 +207,7 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
           {running && <p className="text-[13px] leading-[1.5] text-mid">กำลังแกะเพลงอื่นอยู่ รอให้เสร็จก่อน</p>}
         </div>
       )}
-      {refused && !refused.field && <RefusedAlert text={refused.text} fixes={refused.fixes} />}
+      {refused && !refused.field && <RefusedAlert tone={refused.fixes.length > 0 ? "warning" : "error"} text={refused.text} fixes={refused.fixes} />}
       {failed && !refused && <FailedAlert job={failed} />}
     </section>
   );
@@ -223,20 +226,6 @@ function RangeField({ id, label, value, error, disabled, onChange, onUseCurrent 
         </button>
       </div>
     </Labeled>
-  );
-}
-
-/** A start the API refused: `busy` and `not_ready` as a warning with its fixes, anything else as an error. */
-function RefusedAlert({ text, fixes }: { text: string; fixes: string[] }) {
-  return (
-    <Alert tone={fixes.length > 0 ? "warning" : "error"}>
-      <div className="flex flex-col gap-2">
-        <p>{text}</p>
-        {fixes.map((fix) => (
-          <FixCommand key={fix} command={fix} />
-        ))}
-      </div>
-    </Alert>
   );
 }
 

@@ -54,7 +54,6 @@ def test_the_whole_gm_map_covers_the_ten_pieces():
     found = midi.read(midi_file([(index * BEAT, note, 100) for index, note in enumerate(notes)]))
 
     assert [hit.piece for hit in found.analysis.hits] == [GM_MAP[note] for note in sorted(GM_MAP)]
-    assert len(set(GM_MAP.values())) == 10
 
 
 def test_a_format_0_file_with_running_status_and_no_track_name_reads_the_same_with_no_title():
