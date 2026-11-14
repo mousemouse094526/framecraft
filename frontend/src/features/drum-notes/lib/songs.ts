@@ -111,8 +111,10 @@ export function pickedText(row: SongRow, job: PickJob | null): string {
 }
 
 export const MODE_LABELS: Record<Mode, string> = { drums: "กลอง", melody: "ทำนอง" };
-/** Under the melody option, which ticket 04 opens (D14). */
+/** Under the mode options while ทำนอง is picked (D14). */
 export const MELODY_HINT = "แกะจังหวะของโน้ตทำนอง (piano, kalimba) เป็น snare บน groove พื้นฐาน";
+/** Under a melody song's preview grid: which notes the app added (spec › Score step 5, D14). */
+export const MELODY_BASE = "สแนร์คือจังหวะทำนอง · กระเดื่องจังหวะ 1 และ 3 กับไฮแฮทปิดทุกครึ่งจังหวะ แอปเติมให้";
 export const RANGE_MIN_S = 4;
 export const RANGE_MAX_S = 90;
 /** The one message of a range that breaks a rule, the backend's too (spec › Design). */

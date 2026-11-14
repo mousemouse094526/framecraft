@@ -42,7 +42,7 @@ backend/
 │                    JobFailed, `require_rows` (the gate of every job)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`), named once (ADR 0009)
+│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
 │                    shutdown, `_run_job`, the one ending of every job's thread
@@ -194,14 +194,17 @@ backend/
 │                    request, both on `audio_imports`; a `.mid` goes to midi), midi (the
 │                    app's own Standard MIDI File parser: channel 10 on the GM map as an
 │                    `analysis`, D10), onnx_runner (the only onnxruntime import: `open_session`,
-│                    which setup's smoke test and the Pick job share, and the two models' runs,
-│                    ADR 0041), pick (the Pick job in its own `JobSlot`, no GPU, ADR 0040:
-│                    ffmpeg decodes the range, ADTOF once and Beat This! by chunk, then
-│                    `songs.set_analysis`; `PickJobs(open_session=…, run_ffmpeg=…)` for tests;
-│                    registers itself in `songs.song_jobs` for `song_busy`), score (pure maths:
-│                    the Beat This! chunk plan and `stitch`, ADTOF peak picking into hits, beats
-│                    and downbeats from logits; the bars found are `songs.bars_of`; `preview`, a
-│                    lesson's Groove from the bars picked: quantize, trim to two hands, sticking),
+│                    which setup's smoke test and the Pick job share, and the three models' runs
+│                    — ADTOF whole, Beat This! by chunk, Basic Pitch by window — ADR 0041), pick
+│                    (the Pick job in its own `JobSlot`, no GPU, ADR 0040: ffmpeg decodes the
+│                    range, the mode's model — ADTOF once in drums mode, Basic Pitch by window in
+│                    melody mode (D14) — then Beat This! by chunk, then `songs.set_analysis`;
+│                    `PickJobs(open_session=…, run_ffmpeg=…)` for tests; registers itself in
+│                    `songs.song_jobs` for `song_busy`), score (pure maths: the Beat This! chunk
+│                    plan and `stitch`, ADTOF peak picking into hits, the Basic Pitch window plan
+│                    and its onsets into snare hits, beats and downbeats from logits; the bars
+│                    found are `songs.bars_of`; `preview`, a lesson's Groove from the bars picked:
+│                    quantize, melody mode's base groove, trim to two hands, sticking),
 │                    lesson (a lesson from a song, D12, D21, ADR 0044: `preview`/`listen`/`create`
 │                    check the pick and the bars, then `score.preview`; `listen` mixes an unsaved
 │                    lesson through video_gen's timeline and mixer; `create` writes through

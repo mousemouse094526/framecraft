@@ -4,7 +4,7 @@ Each check looks its probe and the OS up when it runs, so a test's fakes are the
 
 from backend import checks, drum_kit, fonts
 from backend.errors import Row
-from backend.models import ADTOF, BEAT_THIS, KLEIN, KLEIN_GGUF, OMNIVOICE, ModelSpec
+from backend.models import ADTOF, BASIC_PITCH, BEAT_THIS, KLEIN, KLEIN_GGUF, OMNIVOICE, ModelSpec
 from backend.paths import ProjectPaths
 
 FFMPEG: dict[str, Row] = {"ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg))}
@@ -85,11 +85,23 @@ def _model_row(project: ProjectPaths, model: ModelSpec) -> dict[str, Row]:
     return {model.check_id: (model.label, lambda: checks.check_model(project, model))}
 
 
-def pick_drums(project: ProjectPaths) -> dict[str, Row]:
-    """What a Pick job in drums mode needs: ADTOF, Beat This!, onnxruntime and ffmpeg (drum-notes D7, ADR 0040: no
-    `device`). Melody mode's gate (Basic Pitch in place of ADTOF) comes with its job in ticket 04."""
-    return _model_row(project, ADTOF) | _model_row(project, BEAT_THIS) | ONNXRUNTIME | FFMPEG
+def _pick_rows(project: ProjectPaths, hits_model: ModelSpec) -> dict[str, Row]:
+    """What a Pick job needs: the model that hears the hits, Beat This!, onnxruntime and ffmpeg (drum-notes D7, ADR 0040: no `device`)."""
+    return _model_row(project, hits_model) | _model_row(project, BEAT_THIS) | ONNXRUNTIME | FFMPEG
 
+
+def pick_drums(project: ProjectPaths) -> dict[str, Row]:
+    """Drums mode: ADTOF hears the hits."""
+    return _pick_rows(project, ADTOF)
+
+
+def pick_melody(project: ProjectPaths) -> dict[str, Row]:
+    """Melody mode: Basic Pitch hears the hits (D14)."""
+    return _pick_rows(project, BASIC_PITCH)
+
+
+# The Pick job's gate by `range.mode` (spec › Pick job step 2).
+PICK_GATES = {"drums": pick_drums, "melody": pick_melody}
 
 
 def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:

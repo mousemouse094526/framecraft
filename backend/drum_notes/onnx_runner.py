@@ -1,7 +1,8 @@
 """The only module that imports onnxruntime (drum-notes D7, D17; ADR 0041): it opens a model file
-as a session, and runs the two drum models on it — ADTOF over a whole range in one call, Beat This!
-one chunk at a time. Tests stand in with a fake at `open_session` (`PickJobs(open_session=…)`), so
-onnxruntime never runs in CI; the Pick job's chunk plan and stitching are `score`'s.
+as a session, and runs the three models on it — ADTOF over a whole range in one call, Beat This!
+one chunk at a time, Basic Pitch one window at a time. Tests stand in with a fake at `open_session`
+(`PickJobs(open_session=…)`), so onnxruntime never runs in CI; the Pick job's chunk and window plans
+and the stitching are `score`'s.
 
 onnxruntime is imported inside the function: the backend must start in under a second
 (docs/library-notes/onnxruntime.md).
@@ -10,6 +11,8 @@ onnxruntime is imported inside the function: the backend must start in under a s
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
+
+from backend.drum_notes.score import BASIC_PITCH_FRAMES, BASIC_PITCH_NOTES
 
 if TYPE_CHECKING:
     import numpy as np
@@ -21,6 +24,10 @@ WAVEFORM = "waveform"
 PAD_FRAMES = "pad_frames"
 ACTIVATIONS = "activations"
 BEAT, DOWNBEAT = "beat", "downbeat"
+# Basic Pitch keeps TensorFlow's names; which output is which was checked on the file with a synthetic
+# tone in ticket 04 (docs/library-notes/basic-pitch.md): `:0` contour, `:1` note, `:2` onset.
+BASIC_PITCH_INPUT = "serving_default_input_2:0"
+BASIC_PITCH_ONSET = "StatefulPartitionedCall:2"
 
 
 class Session(Protocol):
@@ -58,3 +65,12 @@ def run_beat_this(session: Session, pcm: "np.ndarray", pad_before: int, pad_afte
     feeds = {WAVEFORM: np.asarray(pcm, np.float32)[None, :], PAD_FRAMES: np.array([pad_before, pad_after], np.int64)}
     beat, downbeat = session.run([BEAT, DOWNBEAT], feeds)
     return np.asarray(beat, np.float32).reshape(-1), np.asarray(downbeat, np.float32).reshape(-1)
+
+
+def run_basic_pitch(session: Session, pcm: "np.ndarray") -> "np.ndarray":
+    """Basic Pitch over one window: float32 mono at 22.05 kHz, 43,844 samples in `[1, 43844, 1]`
+    → the `onset` probabilities, `[172, 88]` (172 frames of 256 samples, 88 piano notes)."""
+    import numpy as np
+
+    [onset] = session.run([BASIC_PITCH_ONSET], {BASIC_PITCH_INPUT: np.asarray(pcm, np.float32)[None, :, None]})
+    return np.asarray(onset, np.float32).reshape(BASIC_PITCH_FRAMES, BASIC_PITCH_NOTES)

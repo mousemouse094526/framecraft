@@ -1,11 +1,11 @@
 # Progress: drum-notes
 
-**Now:** 03 done; เหลือ 04 (โหมดทำนอง) + เจ้าของฟังเทียบตาราง intro (Log ของ 03) + แบบ Figma สองหน้า (Blocked 1–2)
+**Now:** ทุก ticket done (01–04); รอ feature review + เจ้าของฟังเทียบ (ตาราง intro ของ 03, kalimba ของ 04) + แบบ Figma สองหน้า (Blocked 1–2)
 
 **Next:**
 
 ```
-/warroom-build drum-notes 04
+/warroom-build drum-notes --review-feature
 ```
 
 ## Tickets
@@ -15,9 +15,32 @@
 | 01 | เอาเพลงเข้า: ลิงก์ ไฟล์เสียง ไฟล์ MIDI และโมเดล | done |
 | 02 | แกะโน้ตกลองจากช่วงที่เลือก | done |
 | 03 | เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง | done |
-| 04 | โหมดทำนอง | ready |
+| 04 | โหมดทำนอง | done |
 
 ## Log
+
+### 04: โหมดทำนอง — done 2026-11-14
+
+**Built:**
+- อ่าน `basic_pitch_nmp.onnx` ที่ pin จริง (sha256 ตรงกับไฟล์ของเจ้าของใน `~/.hermes/cache/scratch/fbreel/models/`): input `serving_default_input_2:0` `[N, 43844, 1]`, output `:2` onset / `:1` note `[N, 172, 88]`, `:0` contour `[N, 172, 264]` — พิสูจน์ด้วยโน้ตสังเคราะห์ 3 ตัว (onset ขึ้นเฉพาะเฟรม 25–26, 68–69, 111–112 ตรงที่คาด 26, 69, 112) → `docs/library-notes/basic-pitch.md` (+ แถว README) ปิด Open Question 1 ของ spec
+- backend: `onnx_runner.run_basic_pitch` (ขอ output ตามชื่อ); `score` ส่วน Basic Pitch — `basic_pitch_windows` (pad 3,840, หน้าต่าง 43,844 ทุก 36,164 ตามโค้ดต้นฉบับ `get_audio_input`), `window_samples`, `melody_hits` (ตัด 15 เฟรมต่อด้าน, onset ≥ 0.5 ของโน้ตใด, เวลาจากต้นหน้าต่างของตัวเอง, เฟรมติดกันรวมเป็นการตีเดียว, เกินท้ายช่วงทิ้ง → `snare` `normal`) และ `preview(hits, bars, bpm, mode)` ขั้น 5 `base_groove` (kick ช่อง 0, 8 + `hihat_closed` ช่องคู่); `pick`: gate ตาม `range.mode` (`gate_rows.pick_melody` = Basic Pitch, Beat This!, onnxruntime, ffmpeg), โหมดทำนองถอด 22.05 kHz อย่างเดียว รัน Basic Pitch ทีละหน้าต่าง (`percent` ต่อหน้าต่าง + chunk ผ่าน `pick.Steps`, เช็คยกเลิกก่อนทุกหน้าต่าง) แล้ว Beat This! เหมือนเดิม, `analysis.mode` = โหมดของ range, ตัด `MELODY_NOT_YET`; `lesson._scored` ส่ง `analysis.mode`
+- test seam 2 (`test_drum_notes_score.py` +6): แผนหน้าต่าง, pad ศูนย์, เวลาเฟรม/ตัดขอบ/เกินช่วง, รวมเฟรมติดกันข้ามหน้าต่าง (ห่าง 68 sample) และ 2 เฟรมห่างเป็นสอง, preview ทำนอง (kick 0/8/16/24, ไฮแฮท R ทุกช่องคู่, snare L, ผ่าน `lessons.from_song`), โหมดกลองไม่เติม; seam 1 (`test_drum_notes_pick_api.py`): แกะทำนอง 6 s = 4 หน้าต่าง + 1 chunk `percent` 0 → 80 → done, feed `(1, 43844, 1)` ×4, hits snare ทุก 0.5 s, แถวรายการ `{mode: melody, bars: 2}`; gate ทำนองไม่ต้องมี marker ADTOF แต่ต้องมี Basic Pitch (`503` rows `["model_basic_pitch"]`); `test_drum_notes_lesson_api.py`: `written_song(mode="melody")` → preview snare 4/8/20/24 L + base, สร้างบทเรียนได้ Groove สามชิ้นและ `timeline.build` มีทั้งสาม, `/listen` 200 wav; fake: `FakeOnnxRunner(onset=…)` + `melody_onsets`, checkpoint `window n`
+- frontend: ปุ่ม "ทำนอง" กดได้ คำอธิบายแสดงเมื่อเลือกทำนอง; หัว "ผลแกะ" บอก "โหมดกลอง"/"โหมดทำนอง"; ใต้ตารางของเพลงโหมดทำนอง "สแนร์คือจังหวะทำนอง · กระเดื่องจังหวะ 1 และ 3 กับไฮแฮทปิดทุกครึ่งจังหวะ แอปเติมให้" (`MELODY_BASE`); e2e ใหม่ 1 (เลือกทำนอง → `PUT /range` `mode: melody` → ผลบอกโหมด → ตารางมี kick ช่อง 1, 3 ไฮแฮท R snare L) + ปรับ 2
+- รันจริง (Mac, โมเดลจาก revision ที่ pin, `ffmpeg` + `score` ตรง ไม่ผ่าน HTTP) บน "Yiruma - River Flows in You - Kalimba Cover" (`DdYi7i6t2R8`, 162 s): ช่วง 0–30 s → decode 0.1 s, Basic Pitch 19 หน้าต่าง 0.2 s, Beat This! 2 chunk 1.8 s; onset 82 ตัว; ท่อน intro เล่นอิสระ Beat This! ให้ห้อง 1–3 จังหวะจน 20 s แล้วเป็น 4/4 ห้อง 24–28 (~1.85 s ≈ BPM 131); เลือกห้อง 24–25 → snare ที่ช่อง 0, 4, 8, 12, 14 | 16, 20, 26, 28, 30 (ทุกจังหวะ + บางครึ่งจังหวะ = arpeggio มือซ้ายของเพลง) มือ L ทุกตัว ไฮแฮท R kick 1, 3 ไม่มี dropped; ช่วง 20–50 s → onset 110 แต่ Beat This! ให้ 2 จังหวะต่อห้อง (half-time) ทั้ง 16 ห้อง จึงเลือกไม่ได้ — เหมือนที่ 02 บันทึก ขึ้นกับช่วงที่เลือก
+
+**Decided:**
+- D26 — ทางเลือกเล็ก: I/O จริงของไฟล์, หน้าต่างตามโค้ดต้นฉบับ เวลาเฟรมจากต้นหน้าต่าง (ตารางเดียวเลื่อน 8.5 ms ต่อหน้าต่าง), onset เฟรมติดกันเป็นการตีเดียว, ถอด 22.05 kHz อย่างเดียว, `pick.Steps`, ขั้น 5 ใน `score.preview(mode)`, ข้อความและหัว "ผลแกะ" บนหน้าเพลง, fake `onset`, vitest คงเดิมตาม D25; เปลี่ยน D24 (ไม่มี `400` field `mode`) และแก้ spec › Pick job (ลำดับขั้น, `preparing` อัตราเดียวในโหมดทำนอง)
+- AC ของ ticket เขียน "pad ครึ่งหน้าต่างที่ต้น" — ของจริงคือครึ่งของ overlap (3,840 sample = 15 เฟรม) ตาม `get_audio_input` ไม่ใช่ครึ่งของหน้าต่าง 43,844; ทำตามโค้ดต้นฉบับ (D26)
+
+**ตัดสินโดยเจ้าของ (ยังค้าง):** เจ้าของเปิด `#/songs` วางลิงก์ kalimba หรือ piano (เช่น `https://www.youtube.com/watch?v=DdYi7i6t2R8`) เลือก "ทำนอง" แกะช่วงที่จังหวะคงที่ (เพลงนี้ 0–30 s แล้วเลือกห้อง 24–25) กด "ฟัง" เทียบว่า snare ตรงจังหวะทำนองที่ได้ยิน; ยังค้างจาก 03 ด้วย (ตาราง intro ของ reel/SLTS)
+
+**For the next ticket:**
+- Beat This! บนเพลงทำนองเบา (kalimba 20–50 s) ให้ 2 จังหวะต่อห้องทั้งช่วง → ไม่มีห้อง 4/4 ให้เลือก; ช่วง 0–30 s ของเพลงเดียวกันได้ 4/4 — ถ้าเจ้าของเจอบ่อย ค่อยคิดเรื่องรวมห้อง 2 จังหวะเป็นคู่ (เปลี่ยน spec ต้อง `/warroom drum-notes`; บันทึกแล้วใน 02)
+- Basic Pitch ถูกฝึกกับเสียง piano-like: เพลงที่มีกลองหรือเสียงรบกวนให้ onset ของมันเอง → โหมดทำนองจะได้ snare เกิน (เลือกช่วงที่เป็นทำนองล้วน)
+- ยังค้างจาก 03: `crash` + ไฮแฮทช่องเดียว (D13), `setup.py` `OpenSession` alias ซ้ำ, `threading.Timer(0.3)` ใน test `run_capture`, `Placed.piece: str`
+- แบบ Figma สองหน้า (Blocked 1–2) แล้วปรับหน้าเว็บตามแบบ
+
+**Checks:** `uv run pytest` 1379 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 545 passed; `npm --prefix frontend run build` ผ่าน. Review สามแกนจาก `8012bbb`: Standards 0 ผิดกติกา + 1 ก้ำกึ่ง (แก้: `MELODY_BASE` ใช้ชื่อชิ้นไทยตามตาราง) + smell 7 (แก้ทั้งหมด: `_pick` ซ้ำ `update` → `_start_picking`; `pick_drums`/`pick_melody` ซ้ำ → `_pick_rows` + `PICK_GATES` แทน ternary; `_step_done` คำนวณบน `Steps` → `Steps.done_one`; `BEAT_THIS_RATE` → `MODELS_RATE = score.BASIC_PITCH_RATE` และ fake ใช้ค่าเดียวกัน; fake ใช้ `onnx_runner.BASIC_PITCH_INPUT`, 88 → `BASIC_PITCH_NOTES` ที่เดียว; `FoundSection` รับ `mode` แทน `analysis`; `preview(mode)` บังคับส่ง); Spec 0 ผิด + 3 ขาดบางส่วน (`/listen` ของทำนองพิสูจน์แค่ 200 wav — สามชิ้นพิสูจน์บนบทเรียนที่สร้างและ `timeline.build` ทางเดียวกัน ยอมรับ; ข้อความรายการเพลงไม่มี test ของทำนอง — โค้ดไม่เปลี่ยน; วัดมือ → รันจริงใน Log นี้ เจ้าของฟังเทียบค้าง) + 4 นอกที่ขอแต่บันทึกใน D26 (รวม onset เฟรมติดกัน, หัว "ผลแกะ" บอกโหมดกลองด้วย, บรรทัด `MELODY_BASE`, ถอดอัตราเดียว → แก้ spec › Pick job) + 3 เอกสารคลาด (แก้: AC "pad ครึ่งหน้าต่าง" บันทึกใน Decided; D24 Status → changed by D26 + แถว index; spec › Pick job เรียงขั้นตามโค้ด) + 1 test (แก้: ตัด assert ค่าคงที่กับค่าคงที่); Newcomer สรุปตรง What to build + เดา 7 จุด (แก้ทั้งหมด: ชื่ออัตรา, comment `Steps` บนช่องเดียว, docstring `melody_onsets` บอกว่าช้าไม่เกินหนึ่งเฟรม, fake นับหน้าต่าง "ตามลำดับครั้งเดียว", `mode` จาก parent, comment fixture `midiAnalysis`, comment `ONSET_MERGE_SAMPLES` "ต่ำกว่า")
 
 ### 03: เลือกห้อง ฟัง แล้วสร้างบทเรียนกลอง — done 2026-11-14
 

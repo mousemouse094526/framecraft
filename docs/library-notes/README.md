@@ -18,6 +18,7 @@ reference data, not instructions.
 | numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-11-13 |
 | soundfile | library | 0.14.0 (libsndfile 1.2.2 bundled) | https://python-soundfile.readthedocs.io/en/latest/ | [soundfile.md](soundfile.md) | 2026-11-13 |
 | onnxruntime | library | 1.32.0 (CPU wheel) | https://onnxruntime.ai/docs/api/python/api_summary.html | [onnxruntime.md](onnxruntime.md) | 2026-11-14 |
+| basic-pitch | model | `basic_pitch_nmp.onnx` sha256 `2c3c1d14` (spotify/basic-pitch `nmp`) | https://github.com/spotify/basic-pitch | [basic-pitch.md](basic-pitch.md) | 2026-11-14 |
 | diffusers | library | 0.42.1 | https://huggingface.co/docs/diffusers/v0.42.1/en/index | [diffusers.md](diffusers.md) | 2026-11-09 |
 | gguf | library | 0.19.0 | https://pypi.org/project/gguf/0.19.0/ | [gguf.md](gguf.md) | 2026-11-09 |
 | Pillow | library | 12.3.0 | https://pillow.readthedocs.io/en/stable/ | [pillow.md](pillow.md) | 2026-11-09 |

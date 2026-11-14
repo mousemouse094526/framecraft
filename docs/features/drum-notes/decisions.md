@@ -396,7 +396,7 @@
 
 **Why:** ทางเลือกที่ spec ไม่ได้ตั้ง ตัดสินตามโค้ดเดิมที่ใกล้ที่สุด (`video_gen.render`, `useDrumRender`) และ spec › API; `bars` จาก server ให้ "ไม่ใช่ 4/4" มาจากกฎเดียวกับ `POST /preview` ที่จะมา (ข้อของ Log ticket 01).
 
-**From:** build ticket 02 · **Status:** active — changes D20 (ชื่อ `run_model`)
+**From:** build ticket 02 · **Status:** changed by D26 (โหมดทำนองรันได้แล้ว ไม่ตอบ `400` field `mode`) — changes D20 (ชื่อ `run_model`)
 
 ## D25: ทางเลือกเล็กของบทเรียนจากเพลงจาก ticket 03
 
@@ -412,6 +412,23 @@
 **Why:** ทางเลือกที่ spec ไม่ได้ตั้ง ตัดสินตามโค้ดเดิมที่ใกล้ที่สุด (`video_gen.lessons`, `mixer.listen`, `useListen`) และกติกา "Where shared code goes".
 
 **From:** build ticket 03 · **Status:** active
+
+## D26: ทางเลือกเล็กของโหมดทำนองจาก ticket 04
+
+**Chosen:**
+- ไฟล์ `basic_pitch_nmp.onnx` ที่ pin อ่านจริงแล้ว (ปิด Open Question 1): input `serving_default_input_2:0` `[N, 43844, 1]`; output สามตัวเรียง `:2`, `:1`, `:0` ใน `get_outputs()` — ตรวจด้วยโน้ตสังเคราะห์สามตัวว่า `:2` คือ onset (ขึ้นเกิน 0.5 แค่เฟรมที่โน้ตเริ่ม) `:1` คือ note `:0` คือ contour `[N, 172, 264]`; `onnx_runner.run_basic_pitch` ขอ output ตามชื่อ ไม่พึ่งลำดับ; บันทึกใน `docs/library-notes/basic-pitch.md`
+- หน้าต่างตามโค้ดต้นฉบับ (`get_audio_input`/`unwrap_output`): pad ศูนย์ 3,840 sample (15 เฟรม) ที่ต้น แล้วหน้าต่าง 43,844 ทุก 36,164 sample ตราบที่หน้าต่างเริ่มในช่วงที่ pad แล้ว หน้าต่างท้าย pad ศูนย์; ตัด 15 เฟรมต่อด้าน; **เวลาของเฟรมคิดจากต้นหน้าต่างของมันเอง** (`first_sample + frame × 256`) ไม่ต่อเป็นตารางเฟรมเดียว เพราะ hop 36,164 เกินพหุคูณของ 256 อยู่ 68 sample ตารางเดียวจะเลื่อน 8.5 ms ต่อหน้าต่าง (0.47 s บน 90 s)
+- onset ที่เฟรมติดกัน (ห่าง < 512 sample รวมข้ามหน้าต่าง ที่ห่าง 68 sample) นับเป็นการตีเดียวที่เฟรมแรก (`score.ONSET_MERGE_SAMPLES`) — โมเดลให้ onset กินสองเฟรมเสมอ (11.6 ms) ถ้าไม่รวมโน้ตเดียวอาจเป็นสอง snare เมื่อคร่อมขอบช่อง; เฟรมที่ sample เกินท้ายช่วงทิ้ง
+- โหมดทำนองถอดเสียงอัตราเดียว (22.05 kHz ใช้ทั้ง Basic Pitch และ Beat This!) ไม่ถอด 44.1 kHz ที่ ADTOF ใช้; `percent` = (หน้าต่าง Basic Pitch + chunk Beat This! ที่เสร็จ) / ทั้งหมด (`pick.Steps`) เช็คยกเลิกก่อนทุกหน้าต่าง; gate เลือกตาม `range.mode` ก่อน `busy` ตามลำดับ spec; `analysis.mode` = `range.mode`
+- ขั้น 5 ของ Score อยู่ใน `score.preview(hits, bars, bpm, mode)` (`base_groove`: kick ช่อง 0, 8 และ `hihat_closed` ช่องคู่ของทุกห้อง `normal`) หลัง quantize ก่อนตัด/เลือกมือ — ผลเป็น Groove ธรรมดา จึงเดินทางเดิมของ `lesson.preview`/`listen`/`create`; `lesson._scored` ส่ง `analysis.mode`
+- หน้าเพลง: คำอธิบายโหมดทำนองแสดงเมื่อเลือก "ทำนอง" เท่านั้น; หัวแถบ "ผลแกะ" บอกโหมด ("ห้องที่พบ n ห้อง · โหมดทำนอง"); ใต้ตารางตัวอย่างของเพลงโหมดทำนองมีบรรทัด "สแนร์คือจังหวะทำนอง · กระเดื่องจังหวะ 1 และ 3 กับไฮแฮทปิดทุกครึ่งจังหวะ แอปเติมให้" (ชื่อชิ้นภาษาไทยตามตาราง) (`MELODY_BASE`); รายการเพลงยังพูด "แกะแล้ว n ห้อง" เหมือนโหมดกลองตาม ticket
+- fake: `FakeOnnxRunner(onset=…)` รับ callable `(first_sample) → [172, 88]` และนับหน้าต่างเองเพื่อรู้ตำแหน่ง (`melody_onsets` ตั้งต้น onset ทุก 0.5 วินาที), checkpoint `window n`
+- vitest 5.0.5 / 5.1.0 คงเดิมตาม D25
+- เปลี่ยน D24: `POST /pick` ของโหมดทำนองไม่ตอบ `400` field `mode` อีก; spec › Pick job เรียงขั้นตามโค้ด (กฎ range ก่อน gate เพราะโหมดอยู่ใน range) และ `preparing` ของโหมดทำนองอัตราเดียว
+
+**Why:** ทางเลือกที่ spec ไม่ได้ตั้ง ตัดสินตามโค้ดต้นฉบับของ Basic Pitch (ที่ spec อ้าง) และโค้ดเดิมของ ticket 02–03 (`score` เลขล้วน, `Chunk`/`stitch`, fake ระดับ session).
+
+**From:** build ticket 04 · **Status:** active
 
 ## Sources
 

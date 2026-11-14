@@ -153,11 +153,11 @@ MIDI (D10, D20): รับ format 0 และ 1 ไม่รับ SMPTE; ต้
 หนึ่งงานต่อครั้งทั้ง tab, `JobSlot` ธรรมดา, thread, ไม่จองช่อง GPU (D8). `POST /songs/{id}/pick` `{}`:
 
 1. `{id}` ไม่ตรงรูปแบบหรือไม่มี → `404` `not_found`; `source.kind` = `midi` → `409` `not_applicable`
-2. gate ตาม `range.mode` (`pick_drums` หรือ `pick_melody`) ไม่ ok → `503` `not_ready`
-3. งานรันอยู่ → `409` `busy` (มี `song_id`)
-4. `range` ไม่ผ่านกฎ → `400` `invalid_request`
+2. `range` ไม่ผ่านกฎ → `400` `invalid_request` (ก่อน gate: โหมดอยู่ใน range; D26)
+3. gate ตาม `range.mode` (`pick_drums` หรือ `pick_melody`) ไม่ ok → `503` `not_ready`
+4. งานรันอยู่ → `409` `busy` (มี `song_id`)
 5. อ่าน `range` ครั้งเดียว ตอบ `202` แล้วใน thread:
-   - `preparing`: `ffmpeg.run_capture` ถอด `audio.m4a` ช่วง `[start_s, end_s)` เป็น float32 mono สองอัตรา: 44.1 kHz (ADTOF) และ 22.05 kHz (Beat This!, Basic Pitch) ไม่เขียนไฟล์
+   - `preparing`: `ffmpeg.run_capture` ถอด `audio.m4a` ช่วง `[start_s, end_s)` เป็น float32 mono ไม่เขียนไฟล์: โหมดกลองสองอัตรา 44.1 kHz (ADTOF) และ 22.05 kHz (Beat This!); โหมดทำนอง 22.05 kHz อย่างเดียว (Basic Pitch และ Beat This!; D26)
    - `picking`: โหมดกลอง — ADTOF ป้อนทั้งช่วงครั้งเดียว (RNN; D20) ได้ `activations [1, frames, 5]`; Beat This! ทีละ chunk 1,500 เฟรม (`pad_frames` 6 ที่ต้นและท้ายของทั้งช่วง 0 ที่อื่น) ได้ `beat`, `downbeat` ต่อ chunk; โหมดทำนอง — Basic Pitch ทีละหน้าต่าง 43,844 sample ซ้อน 30 เฟรม แทน ADTOF; `percent` = (โมเดลและ chunk ที่เสร็จ) / ทั้งหมด; เช็ค `cancel` ก่อนเริ่มแต่ละโมเดลและระหว่าง chunk (D18, D20)
    - `score`: `stitch` ต่อ chunk ของ Beat This! (ตัด 6 เฟรมแต่ละด้าน chunk สุดท้ายเลื่อนให้จบที่ท้ายช่วง); peak picking ต่อชนิดด้วย threshold และหน้าต่างของ model card (D6) → การตี; จังหวะ = peak ของ `beat` ในหน้าต่าง 7 เฟรมที่ logit > 0, peak ติดกันรวม; downbeat = peak ของ `downbeat` ย้ายไปจังหวะใกล้สุด; เวลาทุกค่าบวก `start_s` กลับเป็นวินาทีของเพลง; downbeat < 2 → `failed` `no_beats`
    - เขียน `analysis` ลง `song.json` ใต้ lock (`done`); แกะใหม่ทับของเดิม
@@ -237,7 +237,7 @@ restart ระหว่างรัน: งานหาย `analysis` เดิ�
 | onnxruntime | 1.32.0 | wheel `cp312` สำหรับ `macosx_14_0_arm64` และ `win_amd64`, license MIT, `requires_python >= 3.11` | [PyPI](https://pypi.org/project/onnxruntime/) |
 | ADTOF Frame_RNN (ONNX) | revision `d0e809bb` | input `waveform` `[1, samples]` float32 mono 44.1 kHz ใน [−1, 1]; output `activations` `[1, ceil(samples/441), 5]` sigmoid 100 เฟรม/วินาที ลำดับ kick, snare, toms, hi-hat, cymbals; threshold 0.22, 0.24, 0.32, 0.22, 0.30; peak picking `pre_avg 0.1, post_avg 0.01, pre_max 0.02, post_max 0.01, combine 0.02` | [model card](https://huggingface.co/thebluescreen/adtof-drums-onnx) |
 | Beat This! (ONNX) | revision `92842057` | input `waveform` `[1, N]` float32 mono 22.05 kHz, `N = (frames − 1) × 441 + 1024`, และ `pad_frames` `[2]` int64; output `beat`, `downbeat` `[1, T]` logit 50 เฟรม/วินาที `T = pad_frames[0] + frames + pad_frames[1]`; peak ในหน้าต่าง 7 เฟรม logit > 0; chunk 1,500 เฟรม ซ้อน 6 ตัด 6 ต่อด้าน chunk สุดท้ายเลื่อนให้จบที่ท้าย | [model card](https://huggingface.co/thebluescreen/beat-this-onnx) |
-| Basic Pitch (ONNX) | sha256 `2c3c1d14` | หน้าต่าง 43,844 sample ที่ 22,050 Hz; output `note`, `onset` 172 เฟรม × 88 โน้ต (`ANNOTATIONS_FPS` 86); ซ้อน 30 เฟรม (`DEFAULT_OVERLAPPING_FRAMES`, ตัด 15 ต่อด้าน); onset threshold ตั้งต้น 0.5 — ชื่อ input/output อ่านจากไฟล์ตอน build (Open Question 1) | [constants.py](https://github.com/spotify/basic-pitch/blob/main/basic_pitch/constants.py), [inference.py](https://github.com/spotify/basic-pitch/blob/main/basic_pitch/inference.py), [README](https://github.com/spotify/basic-pitch) |
+| Basic Pitch (ONNX) | sha256 `2c3c1d14` | input `serving_default_input_2:0` `[N, 43844, 1]` float32 mono 22,050 Hz; output onset `StatefulPartitionedCall:2` `[N, 172, 88]` (note `:1`, contour `:0` `[N, 172, 264]`) 172 เฟรม เฟรมละ 256 sample; หน้าต่างถัดไปทุก 36,164 sample (ซ้อน 30 เฟรม ตัด 15 ต่อด้าน, pad ศูนย์ 3,840 ที่ต้น); เวลาของเฟรมคิดจากต้นหน้าต่างของมัน (`first_sample + frame × 256`); onset threshold ตั้งต้น 0.5 — อ่านจากไฟล์จริงใน ticket 04 (`docs/library-notes/basic-pitch.md`) | [constants.py](https://github.com/spotify/basic-pitch/blob/main/basic_pitch/constants.py), [inference.py](https://github.com/spotify/basic-pitch/blob/main/basic_pitch/inference.py), [README](https://github.com/spotify/basic-pitch) |
 | ffmpeg | 7.1 (imageio-ffmpeg 0.7.0) | `-ss`/`-t` ตัดช่วงและเพดาน, `-ac 1 -ar 22050 -f f32le -` ส่ง PCM float ดิบออก stdout; `-c:a aac -b:a {bitrate} -vn` แปลงเป็น m4a (แบบ `toon.compose`) | [ffmpeg main options](https://ffmpeg.org/ffmpeg.html#Main-options), [raw PCM muxers](https://ffmpeg.org/ffmpeg-formats.html#Raw-muxers) |
 | yt-dlp | 2026.10.26 | `format: "bestaudio"` โหลดเสียงอย่างเดียว; `duration` ใน info dict อาจเป็น `None` | [README › Format selection](https://github.com/yt-dlp/yt-dlp#format-selection) |
 | numpy | 2.5.4 | `median`, `argmax`, `sliding_window_view` สำหรับ peak picking และหน้าต่าง max/mean | [sliding_window_view](https://numpy.org/doc/stable/reference/generated/numpy.lib.stride_tricks.sliding_window_view.html) |
@@ -307,7 +307,7 @@ restart ระหว่างรัน: งานหาย `analysis` เดิ�
 
 ## Open Questions
 
-1. ชื่อ input/output และรูปร่างจริงของ `basic_pitch_nmp.onnx` ใน repo ที่ pin ไม่อยู่ใน model card (รูปร่างใน Library assumptions มาจากต้นฉบับ) — non-blocking: ticket ของโหมดทำนองอ่าน `get_inputs()`/`get_outputs()` จากไฟล์ตอน build; mapping ของ D14 ไม่เปลี่ยน
+1. ~~ชื่อ input/output และรูปร่างจริงของ `basic_pitch_nmp.onnx` ใน repo ที่ pin ไม่อยู่ใน model card~~ — ปิดใน ticket 04: อ่านจากไฟล์จริงแล้ว input `serving_default_input_2:0` `[N, 43844, 1]`, output `StatefulPartitionedCall:2` = onset `[N, 172, 88]` (`:1` = note, `:0` = contour `[N, 172, 264]`) ตรงกับ Library assumptions; บันทึกใน `docs/library-notes/basic-pitch.md` (D26)
 2. legal ข้อ 3 UNVERIFIED: โน้ตที่ได้จากโมเดล CC BY-NC-SA ถือเป็น adaptation ของโมเดลหรือไม่ — non-blocking: รับความเสี่ยงแล้วใน D16 (ไม่หารายได้ ADR-0017)
 3. legal ข้อ 1, 5, 6 UNVERIFIED ตาม spoil D53 และ video-gen D25 — non-blocking: รับความเสี่ยงต่อใน D16
 4. Beat This! ที่ pin ยังไม่เคยรันบนเครื่องเจ้าของ (ไฟล์ที่เจ้าของโหลดคือ sha อื่นที่หา repo ไม่พบ) — non-blocking: ticket แรกเริ่มด้วย spike; ล้ม → Blocked row และแผนสองใน D20

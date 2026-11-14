@@ -12,7 +12,7 @@ from backend import checks, ffmpeg, gpu, paths
 from backend.app import app
 from backend.drum_notes import imports, pick, songs
 from backend.jobs import Cancelled
-from backend.models import ADTOF
+from backend.models import ADTOF, BASIC_PITCH
 from backend.paths import ProjectPaths
 
 from .fakes import FINISHED, ROCK, SONGS, FakeOnnxRunner, import_song_tone, midi_file, ok_ffmpeg, poll_until, put_song_file, restart, song_refusal
@@ -229,14 +229,47 @@ def test_a_midi_song_and_a_missing_song_cant_be_picked_and_a_cancel_with_no_job_
     assert client.get(PICK).json() is None
 
 
-def test_melody_mode_can_be_saved_but_not_picked_yet(client, tmp_path):
+def test_a_melody_pick_feeds_basic_pitch_a_window_at_a_time_then_beat_this_and_writes_every_onset_as_a_snare(client, project, runner, tmp_path):
     song = import_song_tone(client, tmp_path, seconds=12)
-    assert set_range(client, song["id"], 0, 10, mode="melody").json()["range"]["mode"] == "melody"
+    assert set_range(client, song["id"], 2, 8, mode="melody").status_code == 200  # 6 s: 132,300 samples, four windows, one chunk
+    runner.pause_at("window 0")
+    runner.pause_at("chunk 0")
+
+    assert start_pick(client, song["id"]).status_code == 202
+    runner.wait_until("window 0")
+    assert (client.get(PICK).json()["state"], client.get(PICK).json()["percent"]) == ("picking", 0)
+    runner.release("window 0")
+    runner.wait_until("chunk 0")
+    assert client.get(PICK).json()["percent"] == 80  # four windows of five steps
+    runner.release("chunk 0")
+    job = poll_until(client, PICK, lambda job: job["state"] in FINISHED)
+
+    assert (job["state"], job["percent"], job["error"]) == ("done", 100, None)
+    assert runner.opened == ["basic_pitch_nmp.onnx", "beat_this.onnx"]
+    *windows, beat_this = runner.runs
+    assert windows == [("basic_pitch_nmp.onnx", {"serving_default_input_2:0": (1, 43_844, 1)})] * 4
+    assert beat_this[0] == "beat_this.onnx"
+    analysis = song_json(project, song["id"])["analysis"]
+    assert (analysis["mode"], analysis["start_s"], analysis["end_s"]) == ("melody", 2.0, 8.0)
+    assert analysis["downbeats"] == pytest.approx([2.0, 4.0, 6.0])
+    assert {(hit["piece"], hit["level"]) for hit in analysis["hits"]} == {("snare", "normal")}
+    assert [hit["t"] for hit in analysis["hits"]] == pytest.approx([2.0 + 0.5 * n for n in range(12)], abs=0.012)  # the fake's onsets every 0.5 s, on a 256-sample frame
+    [row] = client.get(SONGS).json()
+    assert row["analysis"] == {"mode": "melody", "bars": 2}
+
+
+def test_a_melody_pick_needs_the_basic_pitch_row_and_not_adtof_s(client, project, tmp_path):
+    song = import_song_tone(client, tmp_path, seconds=12)
+    assert set_range(client, song["id"], 0, 10, mode="melody").status_code == 200
+    project.marker(ADTOF).unlink()
+    assert start_pick(client, song["id"]).status_code == 202
+    assert poll_until(client, PICK, lambda job: job["state"] in FINISHED)["state"] == "done"
+    project.marker(BASIC_PITCH).unlink()
 
     response = start_pick(client, song["id"])
 
-    assert song_refusal(response) == (400, "invalid_request")
-    assert response.json()["field"] == "mode"
+    assert song_refusal(response) == (503, "not_ready")
+    assert response.json()["rows"] == ["model_basic_pitch"]
 
 
 def test_without_the_adtof_marker_a_pick_is_not_ready_naming_the_row(client, project, tmp_path):

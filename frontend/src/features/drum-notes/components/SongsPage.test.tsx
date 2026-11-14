@@ -402,7 +402,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     expect(endBox()).toHaveValue(70);
     expect(section).toHaveTextContent("ยาว 57.7 s (ไม่เกิน 90 วินาที)");
     expect(within(section).getByRole("radio", { name: "กลอง" })).toHaveAttribute("aria-checked", "true");
-    expect(within(section).getByRole("radio", { name: "ทำนอง" })).toBeDisabled();
+    expect(within(section).getByRole("radio", { name: "ทำนอง" })).toBeEnabled();
   });
 
   it("a range that breaks a rule shows the message at its field and asks the backend nothing (e2e)", async () => {
@@ -450,10 +450,47 @@ describe("ช่วงแกะและแกะโน้ต", () => {
 
     job.phases.at = 2;
     await act(() => vi.advanceTimersByTimeAsync(1100));
-    expect(await screen.findByRole("region", { name: "ผลแกะ" })).toHaveTextContent("ห้องที่พบ 2 ห้อง");
+    expect(await screen.findByRole("region", { name: "ผลแกะ" })).toHaveTextContent("ห้องที่พบ 2 ห้อง · โหมดกลอง");
     expect(within(screen.getByRole("list", { name: "ห้องที่พบ" })).getAllByRole("button")).toHaveLength(2);
     expect(screen.queryByRole("group", { name: "งานแกะโน้ต" })).not.toBeInTheDocument();
     expect(pickButton()).toBeEnabled();
+  });
+
+  it("ทำนอง can be pressed and says what it does; แกะโน้ต saves mode melody, the result names the mode, and the grid has the kick and hi-hat the app adds (e2e)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // The page reads only an analysis's mode and the bars the API made of it, so the MIDI one's beats serve with melody hits.
+    const melody: Analysis = { ...midiAnalysis, mode: "melody", hits: [{ t: 0.6, piece: "snare", level: "normal" }, { t: 1.2, piece: "snare", level: "normal" }] };
+    const base: Preview["groove"]["notes"] = [
+      ...[0, 8].map((step) => ({ piece: "kick", step, hand: null, hit: "normal" }) as const),
+      ...[0, 2, 4, 6, 8, 10, 12, 14].map((step) => ({ piece: "hihat_closed", step, hand: "R", hit: "normal" }) as const),
+    ];
+    const snares: Preview["groove"]["notes"] = [4, 8].map((step) => ({ piece: "snare", step, hand: "L", hit: "normal" }) as const);
+    const job = phased(PICK_PATH, null, pickOf({ state: "done", percent: 100 }));
+    const user = open(`#/songs/${ID}`, [
+      get(PATH, songOf()),
+      get(PATH, songOf({ range: { start_s: 0, end_s: 30, mode: "melody" }, analysis: melody, bars: midiBars })),
+      send("PUT", RANGE_PATH, songOf({ range: { start_s: 0, end_s: 30, mode: "melody" } }), 200),
+      { method: "POST", path: SONG_PICK_PATH, reply: () => ((job.phases.at = 1), jsonResponse(pickOf(), 202)) },
+      job.route,
+      send("POST", PREVIEW_PATH, previewOf({ groove: { bars: 1, notes: [...base, ...snares] }, bpm: 100, dropped: [] }), 200),
+    ]);
+    const section = await screen.findByRole("region", { name: "ช่วงแกะ" });
+    expect(section).not.toHaveTextContent("แกะจังหวะของโน้ตทำนอง");
+
+    await user.click(within(section).getByRole("radio", { name: "ทำนอง" }));
+
+    expect(within(section).getByRole("radio", { name: "ทำนอง" })).toHaveAttribute("aria-checked", "true");
+    expect(section).toHaveTextContent("แกะจังหวะของโน้ตทำนอง (piano, kalimba) เป็น snare บน groove พื้นฐาน");
+    await user.click(pickButton());
+    expect(sent(fetchMock, "PUT", RANGE_PATH)).toEqual([{ start_s: 0, end_s: 30, mode: "melody" }]);
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    expect(await screen.findByRole("region", { name: "ผลแกะ" })).toHaveTextContent("ห้องที่พบ 2 ห้อง · โหมดทำนอง");
+    const grid = await screen.findByRole("table");
+    expect(within(grid).getByLabelText("กระเดื่อง ห้อง 1 จังหวะ 1")).toHaveTextContent("●");
+    expect(within(grid).getByLabelText("กระเดื่อง ห้อง 1 จังหวะ 3")).toHaveTextContent("●");
+    expect(within(grid).getByLabelText("ไฮแฮทปิด ห้อง 1 จังหวะ 2&")).toHaveTextContent("R");
+    expect(within(grid).getByLabelText("สแนร์ ห้อง 1 จังหวะ 2")).toHaveTextContent("L");
+    expect(screen.getByRole("region", { name: "สร้างบทเรียน" })).toHaveTextContent("สแนร์คือจังหวะทำนอง · กระเดื่องจังหวะ 1 และ 3 กับไฮแฮทปิดทุกครึ่งจังหวะ แอปเติมให้");
   });
 
   it("ยกเลิก POSTs the cancel and the job ends cancelled with the old result kept (e2e)", async () => {

@@ -46,12 +46,16 @@ def preview(client, song_id: str, **body):
     return client.post(f"{SONGS}/{song_id}/preview", json=body)
 
 
-def written_song(project: ProjectPaths, subtitle: str = "", downbeats: tuple[float, ...] = (0.0, 2.0, 4.0, 6.0)) -> str:
-    """A picked audio song written as the Pick job leaves it: beats every 0.5 s, a kick on every
-    downbeat; `downbeats` decide the bars found, so one 1.5 s apart makes a 3-beat bar (D20)."""
+def written_song(project: ProjectPaths, subtitle: str = "", downbeats: tuple[float, ...] = (0.0, 2.0, 4.0, 6.0), mode: str = "drums") -> str:
+    """A picked audio song written as the Pick job leaves it: beats every 0.5 s and, in drums mode, a
+    kick on every downbeat, in melody mode two snares a beat apart from the second beat of every bar
+    (D14); `downbeats` decide the bars found, so one 1.5 s apart makes a 3-beat bar (D20)."""
     beats = [t / 2 for t in range(int(downbeats[-1] * 2) + 1)]
-    hits = [Hit(t=t, piece="kick", level="normal") for t in downbeats[:-1]]
-    analysis = Analysis(mode="drums", start_s=0.0, end_s=downbeats[-1], beats=beats, downbeats=list(downbeats), hits=hits, picked_at="2026-11-14T00:00:00Z")
+    if mode == "melody":
+        hits = [Hit(t=t + after, piece="snare", level="normal") for t in downbeats[:-1] for after in (0.5, 1.0)]
+    else:
+        hits = [Hit(t=t, piece="kick", level="normal") for t in downbeats[:-1]]
+    analysis = Analysis(mode=mode, start_s=0.0, end_s=downbeats[-1], beats=beats, downbeats=list(downbeats), hits=hits, picked_at="2026-11-14T00:00:00Z")
     song = songs.new_song("writtensong0", "Teen Spirit", subtitle, Source(kind="file", name="song.mp3", size=1), downbeats[-1] + 1, songs.default_range(downbeats[-1] + 1), analysis)
     return songs.write_new(project, song).id
 
@@ -131,6 +135,31 @@ def test_a_song_not_picked_yet_has_no_analysis_and_no_song_is_not_found(client, 
 
     assert song_refusal(preview(client, song["id"], bar=0, bars=1)) == (409, "no_analysis")
     assert song_refusal(preview(client, "nosuchsong00", bar=0, bars=1)) == (404, "not_found")
+
+
+def test_a_melody_song_s_preview_puts_its_onsets_on_the_snare_over_the_app_s_kick_on_1_and_3_and_8th_hihats_with_the_hihat_right(client, project):
+    song_id = written_song(project, mode="melody")
+
+    response = preview(client, song_id, bar=0, bars=2)
+
+    assert response.status_code == 200, response.json()
+    groove = response.json()["groove"]
+    base = [("kick", s, None) for s in (0, 8, 16, 24)] + [("hihat_closed", s, "R") for s in range(0, 32, 2)]
+    assert placed(groove) == sorted(base + [("snare", 4, "L"), ("snare", 8, "L"), ("snare", 20, "L"), ("snare", 24, "L")])
+    assert (response.json()["bpm"], response.json()["dropped"]) == (120, [])
+
+
+def test_a_lesson_from_a_melody_song_has_the_three_pieces_in_its_groove_and_listen_plays_all_three(client, project):
+    song_id = written_song(project, mode="melody")
+
+    created = client.post(f"{SONGS}/{song_id}/lessons", json={"bar": 1, "bars": 1, "bpm": 120})
+    heard = client.post(f"{SONGS}/{song_id}/listen", json={"bar": 1, "bars": 1, "bpm": 120})
+
+    assert created.status_code == 201, created.json()
+    lesson = lessons.Lesson.model_validate_json((lessons.lesson_dir(project, created.json()["lesson_id"]) / "lesson.json").read_bytes())
+    assert {note.piece for note in lesson.groove.notes} == {"kick", "snare", "hihat_closed"}
+    assert {hit.piece for hit in timeline.build(lesson).hits if hit.note != "count"} == {"kick", "snare", "hihat_closed"}
+    assert (heard.status_code, heard.headers["Content-Type"]) == (200, "audio/wav")
 
 
 # --- listen ---

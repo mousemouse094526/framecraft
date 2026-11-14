@@ -1,9 +1,10 @@
-"""The Pick job of the แกะเพลง tab (drum-notes spec › Pick job, D5, D6, D8, D18, D20; ADR 0040):
+"""The Pick job of the แกะเพลง tab (drum-notes spec › Pick job, D5, D6, D8, D14, D18, D20; ADR 0040):
 one at a time for the whole tab, a plain `JobSlot` in a thread that holds no GPU slot. It reads the
-song's range once, has ffmpeg decode that stretch of `audio.m4a` as raw PCM at the two rates the
-models take (`preparing`), runs ADTOF once over the whole stretch and Beat This! chunk by chunk
-(`picking`, `percent` per model and chunk, cancel checked between them), turns the arrays into an
-`analysis` through `score`, and writes it into `song.json` in place of the old one (`done`).
+song's range once, has ffmpeg decode that stretch of `audio.m4a` as raw PCM at the rates the models
+take (`preparing`), runs the mode's model — ADTOF once over the whole stretch in drums mode, Basic
+Pitch window by window in melody mode — then Beat This! chunk by chunk (`picking`, `percent` per
+model run, cancel checked between them), turns the arrays into an `analysis` through `score`, and
+writes it into `song.json` in place of the old one (`done`).
 """
 
 import logging
@@ -19,7 +20,7 @@ from backend import checks, ffmpeg, gate_rows, models, paths
 from backend.checks import now_iso
 from backend.drum_notes import onnx_runner, score, songs
 from backend.drum_notes.onnx_runner import OpenSession, Session
-from backend.drum_notes.songs import Analysis, Range, Song
+from backend.drum_notes.songs import Analysis, Hit, Range, Song
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import CaptureRunner, FfmpegFailed
 from backend.jobs import Cancelled, JobSlot, short
@@ -33,13 +34,25 @@ State = Literal["preparing", "picking", "done", "failed", "cancelled"]
 ErrorCode = Literal["no_beats", "model_broken", "model_failed", "internal"]
 
 ADTOF_RATE = 44_100
-BEAT_THIS_RATE = 22_050
+MODELS_RATE = score.BASIC_PITCH_RATE  # 22,050 Hz: Beat This! and Basic Pitch both take it, so melody mode decodes once
 NOT_RUNNING = "ไม่มีงานแกะโน้ตที่ยังไม่จบ"
 NO_BEATS = "หาจังหวะในช่วงนี้ไม่ได้ ลองช่วงอื่น"
 MODEL_BROKEN = "ไฟล์โมเดลเสีย รัน Setup script ใหม่"
 MODEL_FAILED = "โมเดลทำงานผิดพลาด"
 FAILED = "แกะโน้ตไม่สำเร็จ"
-MELODY_NOT_YET = "โหมดทำนองยังไม่เปิดใช้"
+
+
+class Steps:
+    """The model runs of one job — the mode's model (one run of ADTOF, or one per Basic Pitch window) and
+    one per Beat This! chunk — and how many are done: the job's `percent` is their ratio (D18, D20)."""
+
+    def __init__(self, total: int):
+        self.total, self.done = total, 0
+
+    def done_one(self) -> int:
+        """One more run finished: the percent to show, 99 at most until the analysis is written."""
+        self.done += 1
+        return min(99, self.done * 100 // self.total)
 
 
 class PickJob(BaseModel):
@@ -74,6 +87,7 @@ class PickJobs(JobSlot[PickJob]):
         super().__init__()
         self._open_session = open_session
         self._run_ffmpeg = run_ffmpeg
+        self._steps = Steps(0)  # the running job's, set when it starts picking: a `JobSlot` runs one job at a time
 
     def song_use(self) -> str | None:
         """The song an unfinished job works on (`songs.song_jobs`): it can't be deleted meanwhile (D18)."""
@@ -88,8 +102,8 @@ class PickJobs(JobSlot[PickJob]):
         song's read and the job's start. The range is read once here: a `PUT /range` meanwhile reaches the next job."""
         project = paths.project()
         with songs.lock:
-            _pickable(songs.read_under_lock(project, song_id))
-        require_rows(gate_rows.pick_drums(project))
+            range_ = _pickable(songs.read_under_lock(project, song_id))
+        require_rows(gate_rows.PICK_GATES[range_.mode](project))
         with self._lock:
             running = self.running()
             if running is not None:
@@ -140,23 +154,23 @@ class PickJobs(JobSlot[PickJob]):
             log.info("pick of %s ended %s after %.1f s", song.id, ending["state"], time.monotonic() - started)
 
     def _pick(self, project: ProjectPaths, song: Song, range_: Range) -> Analysis:
-        """`preparing` then `picking`: the arrays of both models, scored into an analysis in seconds of
-        the song. Raises `Cancelled`, `ModelBroken`, `JobFailed` (`model_failed`, `no_beats`), `FfmpegFailed`."""
+        """`preparing` then `picking`: the arrays of the mode's model and of Beat This!, scored into
+        an analysis in seconds of the song. Raises `Cancelled`, `ModelBroken`, `JobFailed`
+        (`model_failed`, `no_beats`), `FfmpegFailed`."""
         import numpy as np
 
         audio = songs.audio_file(project, song.id)
-        pcm44 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, ADTOF_RATE), self._cancel), np.float32)
-        pcm22 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, BEAT_THIS_RATE), self._cancel), np.float32)
+        pcm22 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, MODELS_RATE), self._cancel), np.float32)
         frames = score.beat_this_frames(len(pcm22))
         chunks = score.beat_this_chunks(frames)
-        steps, total = 0, 1 + len(chunks)
-        self.update(state="picking", percent=0)
-
-        self._check_cancel()
-        adtof = self._open(project, models.ADTOF)
-        activations = _run_model(lambda: onnx_runner.run_adtof(adtof, pcm44))
-        steps += 1
-        self.update(percent=steps * 100 // total)
+        if range_.mode == "melody":
+            windows = score.basic_pitch_windows(len(pcm22))
+            self._start_picking(len(windows) + len(chunks))
+            hits = self._melody_hits(project, pcm22, windows, range_.start_s)
+        else:
+            pcm44 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, ADTOF_RATE), self._cancel), np.float32)
+            self._start_picking(1 + len(chunks))
+            hits = self._drum_hits(project, pcm44, range_.start_s)
 
         self._check_cancel()
         beat_this = self._open(project, models.BEAT_THIS)
@@ -165,8 +179,7 @@ class PickJobs(JobSlot[PickJob]):
             self._check_cancel()
             samples = score.chunk_samples(pcm22, chunk)
             outputs.append((chunk, _run_model(lambda: onnx_runner.run_beat_this(beat_this, samples, chunk.pad_before, chunk.pad_after))))
-            steps += 1
-            self.update(percent=min(99, steps * 100 // total))
+            self._step_done()
 
         self._check_cancel()  # a cancel that came during the last chunk: nothing is written (D20)
         beat = score.stitch(frames, [(chunk, logits[0]) for chunk, logits in outputs])
@@ -174,8 +187,35 @@ class PickJobs(JobSlot[PickJob]):
         beats, downbeats = score.beats_and_downbeats(beat, downbeat, range_.start_s)
         if len(downbeats) < 2:
             raise JobFailed("no_beats", NO_BEATS)
-        hits = score.drum_hits(activations, range_.start_s)
-        return Analysis(mode="drums", start_s=range_.start_s, end_s=range_.end_s, beats=beats, downbeats=downbeats, hits=hits, picked_at=now_iso())
+        return Analysis(mode=range_.mode, start_s=range_.start_s, end_s=range_.end_s, beats=beats, downbeats=downbeats, hits=hits, picked_at=now_iso())
+
+    def _drum_hits(self, project: ProjectPaths, pcm44: "np.ndarray", start_s: float) -> list[Hit]:
+        """Drums mode: ADTOF over the whole stretch in one run (an RNN, D20), peak-picked into hits."""
+        self._check_cancel()
+        adtof = self._open(project, models.ADTOF)
+        activations = _run_model(lambda: onnx_runner.run_adtof(adtof, pcm44))
+        self._step_done()
+        return score.drum_hits(activations, start_s)
+
+    def _melody_hits(self, project: ProjectPaths, pcm22: "np.ndarray", windows: list[score.Window], start_s: float) -> list[Hit]:
+        """Melody mode: Basic Pitch window by window, cancel checked before each, its onsets as snares (D14)."""
+        self._check_cancel()
+        basic_pitch = self._open(project, models.BASIC_PITCH)
+        outputs = []
+        for window in windows:
+            self._check_cancel()
+            samples = score.window_samples(pcm22, window)
+            outputs.append((window, _run_model(lambda: onnx_runner.run_basic_pitch(basic_pitch, samples))))
+            self._step_done()
+        return score.melody_hits(outputs, len(pcm22), start_s)
+
+    def _start_picking(self, runs: int) -> None:
+        """ffmpeg is done: `picking` from 0 %, over `runs` model runs."""
+        self._steps = Steps(runs)
+        self.update(state="picking", percent=0)
+
+    def _step_done(self) -> None:
+        self.update(percent=self._steps.done_one())
 
     def _open(self, project: ProjectPaths, model: ModelSpec) -> Session:
         """A session of the model's one file in its snapshot; a file that won't open is `ModelBroken`."""
@@ -194,11 +234,9 @@ class PickJobs(JobSlot[PickJob]):
 def _pickable(song: Song) -> Range:
     """The range a Pick job of the song would work on. A MIDI song has none (its hits are its analysis
     already: 409 `not_applicable`, D18); an audio song's is checked against the rules once more, as a
-    `song.json` written by hand may break them (spec › Pick job step 4); melody mode waits for ticket 04."""
+    `song.json` written by hand may break them (spec › Pick job step 4)."""
     if song.source.kind == "midi" or song.range is None:
         raise ApiError(409, "not_applicable", songs.NOT_APPLICABLE)
-    if song.range.mode == "melody":  # Basic Pitch comes with ticket 04; until then the mode can be saved, not run
-        raise ApiError(400, "invalid_request", MELODY_NOT_YET, field="mode")
     return songs.checked_range(song.range.model_dump(), song.duration_s)
 
 

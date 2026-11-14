@@ -1,4 +1,4 @@
-"""A drum lesson from a song (drum-notes spec › Score steps 2–8 and API; D11, D12, D13, D21;
+"""A drum lesson from a song (drum-notes spec › Score steps 2–8 and API; D11, D12, D13, D14, D21;
 ADR 0044): the user picks consecutive 4/4 bars of what was found and a BPM; `preview` shows the
 Groove the Score makes of them, `listen` mixes it through video-gen's timeline and mixer from a
 lesson that is nowhere on disk, and `create` writes it through `video_gen.lessons` with the rules
@@ -126,4 +126,4 @@ def _lesson_fields(project: ProjectPaths, song_id: str, body: dict) -> tuple[sco
 def _scored(song: Song, choice: Choice) -> score.Scored:
     chosen = chosen_bars(song, choice)
     assert song.analysis is not None  # `chosen_bars` raised otherwise
-    return score.preview(song.analysis.hits, chosen, choice.bpm)
+    return score.preview(song.analysis.hits, chosen, choice.bpm, song.analysis.mode)

@@ -32,7 +32,7 @@ Follows [Get started with Python](https://onnxruntime.ai/docs/get-started/with-p
 ## Traps
 
 - A missing, truncated or non-ONNX file raises at `InferenceSession(...)`, not at `run`: the exceptions are `onnxruntime.capi.onnxruntime_pybind11_state.NoSuchFile`, `InvalidProtobuf` (junk bytes) and `InvalidArgument` (an empty file), all plain `Exception` subclasses of a private module (checked on 1.32.0, 2026-11-14); catch `Exception` around the constructor
-- The ADTOF file names its free dims `samples` / `frames`; the Beat This! file takes a second input `pad_frames` `[2]` `int64`; the Basic Pitch file keeps TensorFlow's names (`serving_default_input_2:0`, `StatefulPartitionedCall:0..2`), so `get_inputs()` is the source of truth, not the model card — spike of drum-notes ticket 01 (progress.md › Log)
+- The ADTOF file names its free dims `samples` / `frames`; the Beat This! file takes a second input `pad_frames` `[2]` `int64`; the Basic Pitch file keeps TensorFlow's names (`serving_default_input_2:0`, `StatefulPartitionedCall:0..2`; which is onset is in [basic-pitch.md](basic-pitch.md)), so `get_inputs()` is the source of truth, not the model card — spike of drum-notes ticket 01 (progress.md › Log)
 - Timings on a Mac Apple Silicon CPU (spike): ADTOF 30 s of audio in 0.25 s, Beat This! 30 s (two chunks of 1,500 frames) in 2.4 s, each session created in under 0.2 s
 
 ## Sources

@@ -20,6 +20,7 @@ import {
   BPM_RULE,
   droppedText,
   firstPickable,
+  MELODY_BASE,
   MELODY_HINT,
   MODE_LABELS,
   NO_FOUR_FOUR,
@@ -86,7 +87,7 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
           )}
           {state.song.analysis ? (
             // Keyed by `picked_at`, so a new analysis starts the lesson's pick over at its first 4/4 bar.
-            <FoundSection key={state.song.analysis.picked_at} song={state.song} player={player} />
+            <FoundSection key={state.song.analysis.picked_at} song={state.song} mode={state.song.analysis.mode} player={player} />
           ) : (
             <EmptyNote text="ตั้งช่วงแล้วกด แกะโน้ต" />
           )}
@@ -174,8 +175,7 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
               type="button"
               role="radio"
               aria-checked={mode === option}
-              // ทำนอง opens with ticket 04 (D14): shown, not yet pressable.
-              disabled={running || option === "melody"}
+              disabled={running}
               onClick={() => setMode(option)}
               className={`h-10 rounded-lg border px-4 font-button text-sm font-medium ${mode === option ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card text-mid hover:bg-muted"} disabled:opacity-60`}
             >
@@ -183,7 +183,7 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
             </button>
           ))}
         </div>
-        <p className="text-xs leading-4 text-muted-foreground">{MELODY_HINT} (เร็ว ๆ นี้)</p>
+        {mode === "melody" && <p className="text-xs leading-4 text-muted-foreground">{MELODY_HINT}</p>}
       </div>
       {picking ? (
         <div role="group" aria-label="งานแกะโน้ต" className="flex flex-col gap-2 rounded-xl bg-muted px-4 py-3">
@@ -252,17 +252,19 @@ function FailedAlert({ job }: { job: PickJob }) {
   );
 }
 
-/** The bars found and, when one is 4/4, the lesson made of the ones picked (spec › Design, D11, D20). */
-function FoundSection({ song, player }: { song: Song; player: RefObject<HTMLAudioElement | null> }) {
+type FoundSectionProps = { song: Song; mode: Mode; player: RefObject<HTMLAudioElement | null> };
+
+/** The bars found in the analysis's `mode` and, when one is 4/4, the lesson made of the ones picked (spec › Design, D11, D14, D20). */
+function FoundSection({ song, mode, player }: FoundSectionProps) {
   if (firstPickable(song.bars) < 0) {
     return (
       <>
-        <FoundBars bars={song.bars} selected={null} onPick={(_, start) => seek(player.current, start)} />
+        <FoundBars bars={song.bars} mode={mode} selected={null} onPick={(_, start) => seek(player.current, start)} />
         <EmptyNote text={NO_FOUR_FOUR} />
       </>
     );
   }
-  return <LessonPick song={song} player={player} />;
+  return <LessonPick song={song} mode={mode} player={player} />;
 }
 
 /** A card that says why a section has nothing to show. */
@@ -271,30 +273,33 @@ function EmptyNote({ text }: { text: string }) {
 }
 
 /** The strip and สร้างบทเรียน of a song with a 4/4 bar: pressing a bar seeks the player and makes it the lesson's first (D20). */
-function LessonPick({ song, player }: { song: Song; player: RefObject<HTMLAudioElement | null> }) {
+function LessonPick({ song, mode, player }: { song: Song; mode: Mode; player: RefObject<HTMLAudioElement | null> }) {
   const lesson = useLessonPreview(song.id, song.bars);
   return (
     <>
       <FoundBars
         bars={song.bars}
+        mode={mode}
         selected={lesson.bar}
         onPick={(index, start) => {
           seek(player.current, start);
           lesson.pickBar(index);
         }}
       />
-      <LessonSection lesson={lesson} />
+      <LessonSection lesson={lesson} mode={mode} />
     </>
   );
 }
 
-type FoundBarsProps = { bars: FoundBar[]; selected: number | null; onPick: (index: number, start_s: number) => void };
+type FoundBarsProps = { bars: FoundBar[]; mode: Mode; selected: number | null; onPick: (index: number, start_s: number) => void };
 
-/** The bars found, in time order; the lesson's first bar is pressed; a bar without four beats is dimmed and can't be picked (D6, D20). */
-function FoundBars({ bars, selected, onPick }: FoundBarsProps) {
+/** The bars found, in time order, under the mode they were picked in; the lesson's first bar is pressed; a bar without four beats is dimmed and can't be picked (D6, D14, D20). */
+function FoundBars({ bars, mode, selected, onPick }: FoundBarsProps) {
   return (
     <section aria-label="ผลแกะ" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-6">
-      <p className="text-sm leading-[1.5] font-medium text-foreground">ห้องที่พบ {bars.length} ห้อง · กดห้องเพื่อฟังและเลือกเป็นห้องแรกของบทเรียน</p>
+      <p className="text-sm leading-[1.5] font-medium text-foreground">
+        ห้องที่พบ {bars.length} ห้อง · โหมด{MODE_LABELS[mode]} · กดห้องเพื่อฟังและเลือกเป็นห้องแรกของบทเรียน
+      </p>
       <ol aria-label="ห้องที่พบ" className="flex flex-wrap gap-2">
         {bars.map((bar, index) => (
           <li key={bar.n}>
@@ -322,9 +327,10 @@ function FoundBars({ bars, selected, onPick }: FoundBarsProps) {
 
 /**
  * สร้างบทเรียน: the first bar (from the strip), how many, the BPM, the read-only grid of the preview
- * with its sticks and the notes dropped, ฟัง, and สร้างบทเรียนกลอง (spec › Design, D11, D13, D20, D21).
+ * with its sticks and the notes dropped (in melody mode, which notes the app added), ฟัง, and
+ * สร้างบทเรียนกลอง (spec › Design, D11, D13, D14, D20, D21).
  */
-function LessonSection({ lesson }: { lesson: ReturnType<typeof useLessonPreview> }) {
+function LessonSection({ lesson, mode }: { lesson: ReturnType<typeof useLessonPreview>; mode: Mode }) {
   const id = useId();
   const { preview, creating, listen } = lesson;
   const mixing = listen.state.kind === "mixing";
@@ -365,6 +371,7 @@ function LessonSection({ lesson }: { lesson: ReturnType<typeof useLessonPreview>
       {preview.kind === "ready" && (
         <>
           <GrooveGrid bars={preview.groove.bars} notes={preview.groove.notes} />
+          {mode === "melody" && <p className="text-[13px] leading-[1.5] text-mid">{MELODY_BASE}</p>}
           {preview.dropped.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="text-sm leading-[1.5] font-medium text-foreground">ตัดโน้ตที่มือตีไม่ได้</p>

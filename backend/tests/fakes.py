@@ -1313,6 +1313,21 @@ def logit_peaks(frames: int, every: int, pad_before: int = 0) -> np.ndarray:
     return logits
 
 
+def melody_onsets(first_sample: int) -> np.ndarray:
+    """Basic Pitch onsets over the window from `first_sample`: 1.0 on note 60 at the first frame on
+    or after each half second of the range (frame `k` is sample `first_sample + k × 256`), so the
+    hits `melody_hits` makes land every 0.5 s, up to one frame (11.6 ms) late."""
+    from backend.drum_notes import score
+
+    onset = np.zeros((score.BASIC_PITCH_FRAMES, score.BASIC_PITCH_NOTES), np.float32)
+    half_second = score.BASIC_PITCH_RATE // 2
+    for frame in range(score.BASIC_PITCH_FRAMES):
+        sample = first_sample + frame * score.BASIC_PITCH_FRAME_HOP
+        if sample >= 0 and sample // half_second != (sample - score.BASIC_PITCH_FRAME_HOP) // half_second:
+            onset[frame, 60] = 1.0
+    return onset
+
+
 def drum_activations(frames: int) -> np.ndarray:
     """ADTOF activations over `frames`: a kick on every second (frame 0, 100, …), a snare half a
     second after each, nothing else."""
@@ -1326,19 +1341,23 @@ class FakeOnnxRunner:
     """Stands in for `onnx_runner.open_session` (drum-notes D17, D20): opens a model file as a
     `FakeSession` whose `run` answers arrays of the real models' shapes, made up from the input's
     length — `activations(frames)` for ADTOF, `beat(T, pad_before)` and `downbeat(T, pad_before)`
-    for a Beat This! chunk of `T` output frames. It counts what it opened and ran, pauses at a step
-    ("adtof", "chunk 0", "chunk 1", …) until released, raises `open_error` at `open_session` or
-    `run_error` at the first `run`."""
+    for a Beat This! chunk of `T` output frames, `onset(first_sample)` for a Basic Pitch window
+    (the fake counts windows to know where each starts, as the job runs them in order, once each).
+    It counts what it opened and ran, pauses
+    at a step ("adtof", "window 0", "chunk 0", "chunk 1", …) until released, raises `open_error`
+    at `open_session` or `run_error` at the first `run`."""
 
-    def __init__(self, activations=drum_activations, beat=None, downbeat=None, open_error: Exception | None = None, run_error: Exception | None = None):
+    def __init__(self, activations=drum_activations, beat=None, downbeat=None, onset=None, open_error: Exception | None = None, run_error: Exception | None = None):
         self.activations = activations
         self.beat = beat or (lambda frames, pad_before: logit_peaks(frames, BEAT_THIS_FPS // 2, pad_before))  # every 0.5 s
         self.downbeat = downbeat or (lambda frames, pad_before: logit_peaks(frames, 2 * BEAT_THIS_FPS, pad_before))  # every 2 s
+        self.onset = onset or melody_onsets
         self.open_error, self.run_error = open_error, run_error
         self.opened: list[str] = []
         self.runs: list[tuple[str, dict[str, tuple[int, ...]]]] = []  # the file run and each input's shape
         self.pad_frames: list[list[int]] = []
         self.chunks = 0
+        self.windows = 0
         self._paused: dict[str, threading.Event] = {}
         self._reached: dict[str, threading.Event] = {}
 
@@ -1373,10 +1392,17 @@ class FakeSession:
         self.runner, self.name = runner, name
 
     def run(self, output_names, feeds: dict) -> list:
-        from backend.drum_notes import score
+        from backend.drum_notes import onnx_runner, score
 
-        waveform = feeds["waveform"]
         self.runner.runs.append((self.name, {key: tuple(value.shape) for key, value in feeds.items()}))
+        if onnx_runner.BASIC_PITCH_INPUT in feeds:
+            step = f"window {self.runner.windows}"
+            first_sample = self.runner.windows * score.BASIC_PITCH_HOP - score.BASIC_PITCH_PAD
+            self.runner.windows += 1
+            self.runner._checkpoint(step)
+            self._maybe_fail()
+            return [self.runner.onset(first_sample)[None, :, :]]
+        waveform = feeds["waveform"]
         if "pad_frames" in feeds:
             step = f"chunk {self.runner.chunks}"
             self.runner.chunks += 1

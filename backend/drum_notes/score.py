@@ -1,6 +1,7 @@
-"""The numbers behind the models (drum-notes spec › Score, D6, D9, D11, D13, D20): the plan of Beat
-This! chunks and their stitching, ADTOF peak picking into hits, beats and downbeats from logits, and
-a lesson's Groove from the bars picked (`preview`: steps 3–8). Pure functions on arrays and seconds:
+"""The numbers behind the models (drum-notes spec › Score, D6, D9, D11, D13, D14, D20): the plan of
+Beat This! chunks and their stitching, ADTOF peak picking into hits, the plan of Basic Pitch windows
+and their onsets into snare hits (melody mode), beats and downbeats from logits, and a lesson's
+Groove from the bars picked (`preview`: steps 3–8). Pure functions on arrays and seconds:
 the Pick job and `drum_notes.lesson` call them with what the models gave, tests with synthetic
 arrays (D17). The bars found (Score step 1) are `songs.bars_of`, read off an analysis.
 numpy is imported inside each function (fastapi-api › Never break).
@@ -11,7 +12,7 @@ import statistics
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from backend.drum_notes.songs import FoundBar, Hit, Level
+from backend.drum_notes.songs import FoundBar, Hit, Level, Mode
 from backend.video_gen import kit
 from backend.video_gen.lessons import BPM_RANGE, Groove, Note
 from backend.video_gen.timeline import STEPS_PER_BAR
@@ -38,6 +39,23 @@ ADTOF_PIECES = ("kick", "snare", "tom_mid", "hihat_closed", "crash")
 THRESHOLDS = (0.22, 0.24, 0.32, 0.22, 0.30)
 # Peak-picking windows in frames, from the card's seconds: pre_avg 0.1, post_avg 0.01, pre_max 0.02, post_max 0.01, combine 0.02.
 PRE_AVG, POST_AVG, PRE_MAX, POST_MAX, COMBINE = 10, 1, 2, 1, 2
+
+# --- Basic Pitch (docs/library-notes/basic-pitch.md: windows of 43,844 samples at 22,050 Hz, 172 frames
+# of 256 samples each, 30 overlapping frames between windows) ---
+
+BASIC_PITCH_RATE = 22_050
+BASIC_PITCH_WINDOW = 43_844
+BASIC_PITCH_FRAMES = 172
+BASIC_PITCH_NOTES = 88  # the piano's keys: one onset column each
+BASIC_PITCH_FRAME_HOP = 256  # samples from one frame to the next inside a window
+BASIC_PITCH_OVERLAP = 30  # frames two windows share: 15 cut from each side of every window
+BASIC_PITCH_CUT = BASIC_PITCH_OVERLAP // 2
+BASIC_PITCH_PAD = BASIC_PITCH_CUT * BASIC_PITCH_FRAME_HOP  # zeros before the range, so the first kept frame is its first sample
+BASIC_PITCH_HOP = BASIC_PITCH_WINDOW - BASIC_PITCH_OVERLAP * BASIC_PITCH_FRAME_HOP  # samples from one window to the next
+ONSET_THRESHOLD = 0.5  # Basic Pitch's default
+# Onsets under this far apart are one hit (two frames apart are two): adjacent frames of a window are 256
+# samples apart, and the last kept frame of a window and the first of the next 68 (36,164 is 68 over a multiple of 256).
+ONSET_MERGE_SAMPLES = 2 * BASIC_PITCH_FRAME_HOP
 
 
 class Chunk(NamedTuple):
@@ -152,6 +170,55 @@ def _window(values: "np.ndarray", before: int, after: int, reduce) -> "np.ndarra
     return reduce(windows, axis=1).astype(np.float32)
 
 
+# --- Basic Pitch windows and melody hits (D14) ---
+
+
+class Window(NamedTuple):
+    """One run of Basic Pitch: the 43,844 samples from `first_sample` of the range (negative for the
+    first window: the zeros padded before it). Its output is 172 frames, of which `melody_hits`
+    keeps the middle 142."""
+
+    first_sample: int
+
+
+def basic_pitch_windows(samples: int) -> list[Window]:
+    """The windows of a range of `samples`, as Basic Pitch's `get_audio_input` cuts them: the range
+    padded with 3,840 zeros before, then a window every 36,164 samples while one starts inside it,
+    the last zero-padded past the range's end."""
+    return [Window(start - BASIC_PITCH_PAD) for start in range(0, samples + BASIC_PITCH_PAD, BASIC_PITCH_HOP)]
+
+
+def window_samples(pcm: "np.ndarray", window: Window) -> "np.ndarray":
+    """The waveform of one window, zero-padded where it reaches before the range or past its end."""
+    import numpy as np
+
+    first, last = window.first_sample, window.first_sample + BASIC_PITCH_WINDOW
+    piece = pcm[max(first, 0) : max(last, 0)]
+    return np.concatenate([np.zeros(max(-first, 0), np.float32), piece, np.zeros(max(last - max(first, 0) - len(piece), 0), np.float32)])
+
+
+def melody_hits(outputs: list[tuple[Window, "np.ndarray"]], samples: int, start_s: float) -> list[Hit]:
+    """The snare hits of melody mode (D14) from each window's `[172, 88]` onset output (`BASIC_PITCH_FRAMES` × `BASIC_PITCH_NOTES`): a frame is an
+    onset when any note's onset is at least 0.5; the 15 frames at each side of a window are cut and
+    frames past the range's end dropped; an onset under `ONSET_MERGE_SAMPLES` after the one before is
+    the same hit, at its first frame. All `snare` at `normal`, in time order, in seconds of the song."""
+    import numpy as np
+
+    onset_samples: list[int] = []
+    for window, onset in outputs:
+        onset = np.asarray(onset, np.float32).reshape(BASIC_PITCH_FRAMES, BASIC_PITCH_NOTES)
+        for frame in np.nonzero(onset.max(axis=1) >= ONSET_THRESHOLD)[0]:
+            if BASIC_PITCH_CUT <= frame < BASIC_PITCH_FRAMES - BASIC_PITCH_CUT:
+                onset_samples.append(window.first_sample + int(frame) * BASIC_PITCH_FRAME_HOP)
+    hits: list[int] = []
+    last = None  # the onset before, merged or not: a run of adjacent frames is one hit
+    for sample in sorted(set(onset_samples)):
+        if 0 <= sample < samples and (last is None or sample - last >= ONSET_MERGE_SAMPLES):
+            hits.append(sample)
+        last = sample
+    return [Hit(t=round(start_s + sample / BASIC_PITCH_RATE, 3), piece="snare", level="normal") for sample in hits]
+
+
 # --- beats and downbeats ---
 
 
@@ -230,10 +297,14 @@ class Scored(NamedTuple):
     dropped: list[Dropped]
 
 
-def preview(hits: list[Hit], bars: list[FoundBar], bpm: int | None) -> Scored:
+def preview(hits: list[Hit], bars: list[FoundBar], bpm: int | None, mode: Mode) -> Scored:
     """Score steps 3–8 over `bars`, the consecutive 4/4 bars the user picked: `bpm` is the
-    default of step 3 when None; the hits quantized, trimmed to what two hands play, and handed."""
-    kept, dropped = trimmed(quantize(hits, bars))
+    default of step 3 when None; the hits quantized, in melody mode put over the app's base groove
+    (step 5), trimmed to what two hands play, and handed."""
+    placed = quantize(hits, bars)
+    if mode == "melody":
+        placed = sorted(placed + base_groove(len(bars)), key=_kit_order)
+    kept, dropped = trimmed(placed)
     groove = Groove(bars=len(bars), notes=with_hands(kept))
     return Scored(groove=groove, bpm=default_bpm(bars) if bpm is None else bpm, dropped=dropped)
 
@@ -259,7 +330,25 @@ def quantize(hits: list[Hit], bars: list[FoundBar]) -> list[Placed]:
             before = kept.get((hit.piece, step))
             if before is None or LEVEL_RANK[hit.level] > LEVEL_RANK[before.level]:
                 kept[(hit.piece, step)] = Placed(hit.piece, step, hit.level)
-    return sorted(kept.values(), key=lambda placed: (placed.step, kit.PIECES.index(kit.BY_ID[placed.piece])))
+    return sorted(kept.values(), key=_kit_order)
+
+
+def _kit_order(placed: Placed) -> tuple[int, int]:
+    return placed.step, kit.PIECES.index(kit.BY_ID[placed.piece])
+
+
+# Step 5 (D14): under the melody's snares, a kick on beats 1 and 3 and a closed hi-hat on every 8th.
+BASE_KICK_STEPS = (0, 8)
+BASE_HIHAT_STEPS = tuple(range(0, STEPS_PER_BAR, 2))
+
+
+def base_groove(bars: int) -> list[Placed]:
+    """The notes the app adds in melody mode over `bars` bars, all `normal` (D14)."""
+    base = []
+    for bar in range(bars):
+        base.extend(Placed("kick", step + STEPS_PER_BAR * bar, "normal") for step in BASE_KICK_STEPS)
+        base.extend(Placed("hihat_closed", step + STEPS_PER_BAR * bar, "normal") for step in BASE_HIHAT_STEPS)
+    return base
 
 
 def trimmed(placed: list[Placed]) -> tuple[list[Placed], list[Dropped]]:
