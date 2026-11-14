@@ -5,7 +5,7 @@ import shutil
 
 import pytest
 
-from backend import fonts
+from backend import drum_kit, fonts
 from backend.checks import run_checks
 from backend.models import KLEIN, KLEIN_GGUF, MODELS, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
@@ -46,17 +46,38 @@ def fake_kanit(monkeypatch):
     monkeypatch.setattr(fonts, "KANIT_SHA256", {n: hashlib.sha256(b).hexdigest() for n, b in KANIT_BYTES.items()})
 
 
-class FakeFetch:
-    """Stands in for fetching a Kanit file over HTTPS; `wrong` serves other bytes for that file."""
+DRUM_BYTES = {"snare_14/center/top/sn_center_vl1_rr1.flac": b"soft snare", "kick_24/kick/kick/k_kick_vl14_rr4.flac": b"kick"}
 
-    def __init__(self, wrong: str | None = None):
-        self.wrong = wrong
+
+@pytest.fixture(autouse=True)
+def fake_drum_kit(monkeypatch):
+    """Two pinned drum samples standing in for the table, like `fake_kanit`."""
+    monkeypatch.setattr(
+        drum_kit,
+        "SAMPLES",
+        tuple(
+            drum_kit.Sample("snare", "soft", 1, path, hashlib.sha256(content).hexdigest())
+            for path, content in DRUM_BYTES.items()
+        ),
+    )
+
+
+class FakeFetch:
+    """Stands in for fetching a Kanit file or a drum sample over HTTPS; `wrong` serves other bytes
+    for that file, `fail` raises for it, each up to `times` times (every time by default)."""
+
+    def __init__(self, wrong: str | None = None, fail: str | None = None, times: int = 99):
+        self.wrong, self.fail, self.times = wrong, fail, times
         self.urls: list[str] = []
 
     def __call__(self, url: str) -> bytes:
         self.urls.append(url)
         name = url.rsplit("/", 1)[1]
-        return b"something else" if name == self.wrong else KANIT_BYTES[name]
+        if name in (self.wrong, self.fail) and self.urls.count(url) <= self.times:
+            if name == self.fail:
+                raise TimeoutError("timed out")
+            return b"something else"
+        return KANIT_BYTES.get(name) or next(b for p, b in DRUM_BYTES.items() if p.endswith(name))
 
 
 class FakeDownload:
@@ -326,7 +347,7 @@ def test_setup_fetches_kanit_at_the_pinned_commit_and_writes_its_marker(empty_ro
 
     assert exit_code == 0
     base = "https://raw.githubusercontent.com/google/fonts/130fcfb0ff422fec96b335616b2ca99f91914792/ofl/kanit/"
-    assert fetch.urls == [base + "Kanit-Bold.ttf", base + "OFL.txt"]
+    assert fetch.urls[:2] == [base + "Kanit-Bold.ttf", base + "OFL.txt"]
     project = ProjectPaths(empty_root)
     assert (project.kanit_dir / "Kanit-Bold.ttf").read_bytes() == b"ttf bytes"
     marker = json.loads(project.kanit_marker.read_text(encoding="utf-8"))
@@ -351,6 +372,58 @@ def test_kanit_already_there_is_not_fetched_again(fake_root):
 
     assert exit_code == 0
     assert fetch.urls == []
+
+
+DRUMS_URL = "https://raw.githubusercontent.com/sfzinstruments/karoryfer.big-rusty-drums/f07ce00df34a46b6b08375be56fe116cf15782bc/Samples/"
+
+
+def test_setup_fetches_the_drum_samples_after_kanit_and_writes_their_marker(empty_root):
+    fetch = FakeFetch()
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    assert exit_code == 0
+    assert fetch.urls[2:] == [DRUMS_URL + path for path in DRUM_BYTES]
+    project = ProjectPaths(empty_root)
+    assert (project.drum_samples_dir / "kick_24/kick/kick/k_kick_vl14_rr4.flac").read_bytes() == b"kick"
+    marker = json.loads(project.drum_kit_marker.read_text(encoding="utf-8"))
+    assert marker["files"] == {s.path: s.sha256 for s in drum_kit.SAMPLES}
+    assert item(run_checks(empty_root, fake_probes()), "drum_kit").status == "ok"
+
+
+def test_a_drum_sample_that_fails_twice_is_tried_a_third_time(empty_root):
+    fetch = FakeFetch(fail="sn_center_vl1_rr1.flac", times=2)
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    assert exit_code == 0
+    assert fetch.urls.count(DRUMS_URL + "snare_14/center/top/sn_center_vl1_rr1.flac") == 3
+
+
+def test_a_drum_sample_that_fails_three_times_ends_setup_naming_it_without_a_marker(empty_root, capsys):
+    fetch = FakeFetch(wrong="k_kick_vl14_rr4.flac")
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    project = ProjectPaths(empty_root)
+    assert exit_code == 1
+    assert fetch.urls.count(DRUMS_URL + "kick_24/kick/kick/k_kick_vl14_rr4.flac") == 3
+    assert not project.drum_kit_marker.exists()
+    assert not (project.drum_samples_dir / "kick_24/kick/kick/k_kick_vl14_rr4.flac").exists()
+    assert "kick_24/kick/kick/k_kick_vl14_rr4.flac" in capsys.readouterr().out
+
+
+def test_only_drum_samples_missing_or_changed_are_fetched_again(empty_root):
+    run_with_fakes(empty_root, FakeDownload(empty_root))
+    project = ProjectPaths(empty_root)
+    (project.drum_samples_dir / "kick_24/kick/kick/k_kick_vl14_rr4.flac").write_bytes(b"changed")
+    project.drum_kit_marker.unlink()
+    fetch = FakeFetch()
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    assert exit_code == 0
+    assert fetch.urls == [DRUMS_URL + "kick_24/kick/kick/k_kick_vl14_rr4.flac"]
 
 
 def test_setup_downloads_klein_without_its_bf16_transformer_and_writes_both_markers(empty_root):

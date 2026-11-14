@@ -18,7 +18,7 @@ question; the full entry is in the feature's decisions.md.
 | ต้องใช้ Node.js 22+ (`concurrently` 10, Vite 8) | [setup-status](features/setup-status/decisions.md) | D22 | — | — | active |
 | ใช้ uv และ pin Python 3.12 ใน `.venv` ของ project | [setup-status](features/setup-status/decisions.md) | D2 | — | — | active |
 | รองรับ Mac Apple Silicon (MPS) และ Windows NVIDIA (CUDA 12.8), torch 2.8.0 | [setup-status](features/setup-status/decisions.md) | D5 | — | [0006](adr/0006-supported-platforms.md) | changed by setup-status D25 |
-| feature จบได้เมื่อผ่านบน Mac; เช็คมือบน Windows เป็น ticket ใน `windows-check` | [setup-status](features/setup-status/decisions.md) | D25 | spoil, windows-check, spoil-maker | [0014](adr/0014-mac-first-windows-check.md), [0016](adr/0016-single-os-library-ports-separately.md) | active |
+| feature จบได้เมื่อผ่านบน Mac; เช็คมือบน Windows เป็น ticket ใน `windows-check` | [setup-status](features/setup-status/decisions.md) | D25 | spoil, windows-check, spoil-maker, video-gen | [0014](adr/0014-mac-first-windows-check.md), [0016](adr/0016-single-os-library-ports-separately.md) | active |
 
 ## การติดตั้ง
 
@@ -56,9 +56,9 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | แถบ tab บน: สปอย (`#/spoil`), Setup status (`#/setup`), default Setup status, ไม่ใช้ router library | [spoil](features/spoil/decisions.md) | D10 | — | — | changed by spoil-maker D53 |
 | แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | story-kb | — | changed by spoil-maker D68; changed by story-kb D9 |
-| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb, windows-launch, sound-library | — | active |
-| แถบนำทาง 6 รายการ: ติดตั้ง · คลิป · คลังความรู้ · คลังเสียง (`#/sounds`) · สปอย · การ์ตูนเล่า | [sound-library](features/sound-library/decisions.md) | D2 | — | — | active |
-| แถบ tab แบ่งสามกลุ่มด้วยเส้นคั่นตั้งแต่ 640px; จอแคบเป็นปุ่มเมนูชื่อหน้าปัจจุบัน เปิดรายการตามกลุ่ม "เตรียมของ" กับ "ทำคลิป" | [sound-library](features/sound-library/decisions.md) | D3 | — | — | active |
+| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb, windows-launch, sound-library, video-gen | — | active |
+| แถบนำทาง 6 รายการ: ติดตั้ง · คลิป · คลังความรู้ · คลังเสียง (`#/sounds`) · สปอย · การ์ตูนเล่า | [sound-library](features/sound-library/decisions.md) | D2 | video-gen | — | active |
+| แถบ tab แบ่งสามกลุ่มด้วยเส้นคั่นตั้งแต่ 640px; จอแคบเป็นปุ่มเมนูชื่อหน้าปัจจุบัน เปิดรายการตามกลุ่ม "เตรียมของ" กับ "ทำคลิป" | [sound-library](features/sound-library/decisions.md) | D3 | video-gen | — | active |
 | แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |
 | font มากับ `@fontsource` ใน project ไม่โหลดจาก CDN | [setup-status](features/setup-status/decisions.md) | D19 | — | [0003](adr/0003-everything-inside-project.md) | active |
 | `fix` ไม่มีช่องว่าง = คำสั่ง (chip กับปุ่ม copy), มีช่องว่าง = ข้อความ | [setup-status](features/setup-status/decisions.md) | D20 | spoil | — | changed by setup-status D26 |
@@ -78,7 +78,7 @@ question; the full entry is in the feature's decisions.md.
 | ลิงก์คลิปเดียวจากทุกเว็บที่ yt-dlp โหลดได้แบบสาธารณะ ไม่ใช้ cookies; ที่เหลือผู้ใช้โหลดเองแล้วเลือกไฟล์ในเครื่อง | [spoil](features/spoil/decisions.md) | D47 | — | [0029](adr/0029-media-links-dedicated-extractors-only.md) | active |
 | ไฟล์ในเครื่องรับทุกชนิดที่ ffmpeg อ่านได้, copy เข้า Temp clip; mp4 h264/aac ≤ 1080 copy ตรง นอกนั้นแปลง (มี %, ยกเลิกได้) | [spoil](features/spoil/decisions.md) | D48 | — | [0005](adr/0005-ffmpeg-from-imageio.md) | superseded by spoil D49 |
 | ไฟล์ในเครื่องรับแค่ mp4 h264/aac ≤ 1080 copy ตรง ไม่แปลง; ไม่ตรง → error ให้ผู้ใช้แปลงเอง | [spoil](features/spoil/decisions.md) | D49 | — | [0027](adr/0027-temp-clip-one-format-owned-copy.md) | active |
-| เลือกไฟล์/ลากวางในเว็บ ส่ง body ดิบ `application/octet-stream`; ADR-0013 ขยายรับ octet-stream | [spoil](features/spoil/decisions.md) | D50 | — | [0013](adr/0013-post-requires-json.md), [0028](adr/0028-raw-file-upload-per-route.md) | active |
+| เลือกไฟล์/ลากวางในเว็บ ส่ง body ดิบ `application/octet-stream`; ADR-0013 ขยายรับ octet-stream | [spoil](features/spoil/decisions.md) | D50 | video-gen | [0013](adr/0013-post-requires-json.md), [0028](adr/0028-raw-file-upload-per-route.md) | active |
 | คลิปซ้ำชี้แถวเดิม: ลิงก์ = เว็บ+id, ไฟล์ = ชื่อ+ขนาด; id: YouTube 11 ตัวเดิม, `{extractor}-{id}`, `local-{sha1}` ตรง `[A-Za-z0-9_-]{1,64}` | [spoil](features/spoil/decisions.md) | D51 | — | — | active |
 | ทางเลือกเล็ก: กันลิงก์ localhost/private, error `unsupported`/`playlist`/`download_error`, File import เป็น request เดียวส่งไฟล์ดิบ, ทีละงานกับ Download job, แถว "ไฟล์ในเครื่อง" | [spoil](features/spoil/decisions.md) | D52 | — | — | active |
 | ยอมรับความเสี่ยงลิขสิทธิ์และ ToS ของเว็บอื่นและไฟล์ในเครื่องแบบ D13 (Accepted risk) | [spoil](features/spoil/decisions.md) | D53 | — | — | active |
@@ -97,8 +97,8 @@ question; the full entry is in the feature's decisions.md.
 | ของบนจอที่ design เพิ่ม: หัวรายการพร้อมจำนวน, badge "กำลังเล่น", ข้อความแทนปุ่มยกเลิกตอน merging | [spoil](features/spoil/decisions.md) | D18 | — | — | active |
 | ทางเลือกเล็กของ tab: tab เป็นลิงก์ hash, `PageLayout` ร่วม, `useCopy`, tone ของข้อความ, code ที่ไม่รู้จัก = offline, ปุ่ม "Copy" ตาม Figma | [spoil](features/spoil/decisions.md) | D19 | — | — | changed by spoil-maker D53 |
 | ซับ layout A ทีละท่อนราว 2–4 คำ (ตัดคำไทย) เวลาแบ่งตามจำนวนตัวอักษรของเสียงประโยค | [spoil-maker](features/spoil-maker/decisions.md) | D20 | toon | — | active |
-| ข้อความบนวิดีโอใช้ font Kanit (OFL) ตัวเดียว ไฟล์ ttf ใน project โหลดผ่าน Setup script มีแถว Status check | [spoil-maker](features/spoil-maker/decisions.md) | D21 | toon | [0003](adr/0003-everything-inside-project.md), [0009](adr/0009-status-check-single-place.md) | active |
-| สี ขนาด และตำแหน่งของข้อความตายตัวต่อ layout ตามคลิปตัวอย่าง ไม่มีตัวเลือกในรอบแรก | [spoil-maker](features/spoil-maker/decisions.md) | D22 | — | — | active |
+| ข้อความบนวิดีโอใช้ font Kanit (OFL) ตัวเดียว ไฟล์ ttf ใน project โหลดผ่าน Setup script มีแถว Status check | [spoil-maker](features/spoil-maker/decisions.md) | D21 | toon, video-gen | [0003](adr/0003-everything-inside-project.md), [0009](adr/0009-status-check-single-place.md) | active |
+| สี ขนาด และตำแหน่งของข้อความตายตัวต่อ layout ตามคลิปตัวอย่าง ไม่มีตัวเลือกในรอบแรก | [spoil-maker](features/spoil-maker/decisions.md) | D22 | video-gen | — | active |
 | watermark เป็นข้อความชื่อช่องพิมพ์ครั้งเดียว แอปจำไว้ ว่าง = ไม่แสดง | [spoil-maker](features/spoil-maker/decisions.md) | D23 | — | — | superseded by spoil-maker D41 |
 | ลายน้ำข้อความหลายอัน เลือก 6 ตำแหน่งและขนาดเล็กหรือกลาง แอปจำไว้; ไม่บังคับเครดิตโมเดล (Accepted risk) | [spoil-maker](features/spoil-maker/decisions.md) | D41 | — | [0017](adr/0017-non-commercial-no-forced-credit.md) | changed by spoil-maker D51, D64 |
 | ภาพเปลี่ยนแบบตัดตรงทุก layout ไม่มี transition หรือภาพเลื่อน ซ้อน เอียง | [spoil-maker](features/spoil-maker/decisions.md) | D24 | — | — | active |
@@ -143,7 +143,7 @@ question; the full entry is in the feature's decisions.md.
 
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
-| ตัดช่วงออกจาก Temp clip ด้วย ffmpeg encode mp4 ใหม่แทนไฟล์เดิม ไม่เก็บต้นฉบับ; Mac `h264_videotoolbox`, Windows `libx264`, เสียง `aac`; ไม่จองช่อง GPU | [spoil](features/spoil/decisions.md) | D36 | — | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
+| ตัดช่วงออกจาก Temp clip ด้วย ffmpeg encode mp4 ใหม่แทนไฟล์เดิม ไม่เก็บต้นฉบับ; Mac `h264_videotoolbox`, Windows `libx264`, เสียง `aac`; ไม่จองช่อง GPU | [spoil](features/spoil/decisions.md) | D36 | video-gen | [0020](adr/0020-temp-clip-mp4-replaced-by-trim.md) | active |
 | ตัดคลิปที่มี Transcript, Shot, การตัด EP หรือ Spoil draft: เตือน ยืนยันครั้งเดียว (`confirm_derived_loss`) แล้วลบทั้งหมด | [spoil](features/spoil/decisions.md) | D37 | — | [0021](adr/0021-derived-data-follows-current-mp4.md) | active |
 | เลือกช่วงตัดบน timeline ใต้ player ในกล่องขวาของ tab คลิป: ลากหัวท้าย, พิมพ์เวลา, ตั้งจากตำแหน่งเล่น, เพิ่มช่วง, ความยาวที่เหลือ | [spoil](features/spoil/decisions.md) | D38 | — | — | active |
 | ตัดช่วงแทนการซ่อนบรรทัด Transcript (เลิก spoil-maker D90, D91, D94, D95 เลขของ branch `feat/spoil-maker-transcript-remove`); D92, D93 ยังทำ — D92 ลง develop เป็น spoil-maker D90 | [spoil](features/spoil/decisions.md) | D39 | — | — | active |
@@ -193,7 +193,7 @@ question; the full entry is in the feature's decisions.md.
 | แบบหน้าจอของ spoil-maker ออกแบบหลังจบ plan (Source `pending`) | [spoil-maker](features/spoil-maker/decisions.md) | D38 | — | — | active |
 | ความยาวเป้าหมาย 30–180 วินาที ค่าตั้งต้น 60 | [spoil-maker](features/spoil-maker/decisions.md) | D39 | — | — | active |
 | เสียงต้นฉบับ 0–100% ทีละ 5 ตั้งต้น 20% จำค่าล่าสุด | [spoil-maker](features/spoil-maker/decisions.md) | D40 | sound-library | — | active |
-| ผล render เก็บทุกครั้งใน `media/spoil-maker/renders/` มีรายการเล่น โหลด ลบ | [spoil-maker](features/spoil-maker/decisions.md) | D42 | — | — | active |
+| ผล render เก็บทุกครั้งใน `media/spoil-maker/renders/` มีรายการเล่น โหลด ลบ | [spoil-maker](features/spoil-maker/decisions.md) | D42 | video-gen | — | active |
 | Saved voice เปลี่ยนชื่อและลบได้ (ยกเว้นที่ Spoil draft ใช้) speed แก้ไม่ได้ | [spoil-maker](features/spoil-maker/decisions.md) | D43 | toon | [0033](adr/0033-saved-voice-delete-guard.md) | changed by toon D25 |
 | อ่านตัวเลข: เลขไทยเป็นอารบิก, ทศนิยม `จุด`, เวลา `นาฬิกา…นาที`, `%` เปอร์เซ็นต์, อื่นๆ อ่านทีละกลุ่ม; เขียนเอง | [spoil-maker](features/spoil-maker/decisions.md) | D44 | — | — | active |
 | ข้อตัดสินทางเทคนิค: งาน GPU ทีละงานทั้ง project (`gpu_busy`), Kanit Bold pin commit, ภาพเล็ก Shot 320 px, ค่าที่จำไว้ใน `settings.json`, clone เป็น base64 ≤ 20 MB, `pythainlp` newmm | [spoil-maker](features/spoil-maker/decisions.md) | D45 | — | [0015](adr/0015-one-gpu-slot.md) | active |
@@ -260,14 +260,14 @@ question; the full entry is in the feature's decisions.md.
 | Story เป็นพื้นหลังและตัวสะกดชื่อ เหตุการณ์ต้องมาจากบรรทัดของ EP เท่านั้น | [story-kb](features/story-kb/decisions.md) | D8 | — | — | active |
 | แถบ tab: ติดตั้ง · คลิป · คลังความรู้ (`#/stories`) · สปอย | [story-kb](features/story-kb/decisions.md) | D9 | — | — | changed by sound-library D2 |
 | ลบ Story ได้หลังยืนยันที่บอกจำนวนคลิป คลิปเหล่านั้นเป็น "ไม่ใช้" | [story-kb](features/story-kb/decisions.md) | D10 | — | — | active |
-| หน้าแก้ Story บันทึกด้วยปุ่ม ถามก่อนออกเมื่อยังไม่บันทึก | [story-kb](features/story-kb/decisions.md) | D11 | — | — | active |
+| หน้าแก้ Story บันทึกด้วยปุ่ม ถามก่อนออกเมื่อยังไม่บันทึก | [story-kb](features/story-kb/decisions.md) | D11 | video-gen | — | active |
 | ทางเลือกเล็ก: `media/stories/` ไฟล์ละเรื่อง + `clip-stories.json`, lock เดียว, API `/api/stories`, บันทึกหลังทับก่อน, ชื่อตัวละครห้ามซ้ำ, นับ code point | [story-kb](features/story-kb/decisions.md) | D12 | — | [0023](adr/0023-story-owned-by-story-kb.md) | active |
 | seam: API กับ LLM ปลอมที่จดคำสั่ง และหน้าเว็บกับ fetch ปลอม | [story-kb](features/story-kb/decisions.md) | D13 | — | — | active |
 | token ของ EP + บล็อก Story ≤ 32,000 (`transcript_too_long`); ตัวนับขั้น 1 แสดงผลรวม | [story-kb](features/story-kb/decisions.md) | D14 | windows-launch | — | active |
 | คลิปจำ Story ตอนกดร่าง: `kind: "draft"` ส่ง `story_id`; ไม่มี route บันทึกแยก | [story-kb](features/story-kb/decisions.md) | D15 | — | — | active |
 | ข้อแก้ red team: ตำแหน่งบล็อก Story, lock ในสุด, ขึ้นบรรทัดเป็นช่องว่าง, บันทึกซ้ำ, ตัวกันออกใน `useHash`, เพิ่มเรื่องในแท็บใหม่, กล่องเรียบเรียงบอกเรื่อง | [story-kb](features/story-kb/decisions.md) | D16 | — | — | active |
 | ทางเลือกเล็กของการเช็คค่า Story: ไม่ส่งชื่อ = ว่าง, ช่องบรรทัดเดียวรวมช่องว่าง, ชื่อซ้ำเทียบ casefold, ไม่สนฟิลด์ที่ไม่รู้จัก, Story อ่านไม่ได้เป็น `404` | [story-kb](features/story-kb/decisions.md) | D17 | — | — | active |
-| ทางเลือกเล็กของหน้าคลังความรู้: ข้อ e2e ด้วย Vitest ผ่าน `App`, ตัวกันออกลงทะเบียนตอนโหลด module, บันทึกครั้งแรกไม่ remount, Alert เมื่อบันทึกไม่ได้, วันเวลาจากข้อความ `updated_at`, ของใช้ร่วมย้ายไป `components/ui` และ `src/testing` | [story-kb](features/story-kb/decisions.md) | D18 | — | — | active |
+| ทางเลือกเล็กของหน้าคลังความรู้: ข้อ e2e ด้วย Vitest ผ่าน `App`, ตัวกันออกลงทะเบียนตอนโหลด module, บันทึกครั้งแรกไม่ remount, Alert เมื่อบันทึกไม่ได้, วันเวลาจากข้อความ `updated_at`, ของใช้ร่วมย้ายไป `components/ui` และ `src/testing` | [story-kb](features/story-kb/decisions.md) | D18 | video-gen | — | active |
 | ทางเลือกเล็กของการร่างบทด้วย Story: ค่าคาดหวังของคำสั่งเป็นไฟล์ golden, อ่าน Story ครั้งเดียวตอนเช็ค, `backend.qwen_tokens` ที่เดียว, ช่อง Story เป็นการ์ดของตัวเอง, ชื่อตัวนับตาม Figma | [story-kb](features/story-kb/decisions.md) | D19 | — | — | active |
 | ทางเลือกเล็กของเรียบเรียงใหม่ด้วย Story: อ่าน Story ของคลิปแบบไม่ raise, golden ของ "ไม่ใช้", ไม่เช็ค token, กล่องไม่บอกเรื่องเมื่ออ่านไม่ได้, `readStoryLinks` ใช้ร่วม | [story-kb](features/story-kb/decisions.md) | D20 | — | — | active |
 | ข้อแก้จาก feature review ของ story-kb: กล่องเรียบเรียงใหม่ตาม Figma, `story-clips` ไม่ห่อ RootModel, `#/stories/` เปิดรายการ, badge ใช้อยู่เมื่อ n > 0, `grouped` ใน `lib/format` | [story-kb](features/story-kb/decisions.md) | D21 | — | — | active |
@@ -294,9 +294,9 @@ question; the full entry is in the feature's decisions.md.
 | ตัวละครและฉากหลังใหม่ที่พล็อตเสนอเข้า Series ตอนยืนยันพล็อต (ยังไม่มีภาพ); การ์ดที่ใช้ของไม่มีภาพอ้างอิงสร้างภาพไม่ได้ | [toon](features/toon/decisions.md) | D13 | — | [0032](adr/0032-series-owns-characters.md) | active |
 | ความยาวการ์ด = เสียงเล่าจริง + เว้นสั้น, ผู้ใช้เพิ่มวินาทีค้างได้, การ์ดไม่มีเสียงเล่าได้; ก่อนมีเสียงประมาณตาม spoil-maker D35 | [toon](features/toon/decisions.md) | D14 | — | [0034](adr/0034-derived-media-records-inputs.md) | active |
 | แก้พล็อตแล้วแตกใหม่เฉพาะองก์ที่พล็อตเปลี่ยน; การ์ดป้าย "แก้เอง" ต้องยืนยันก่อนทับ; องก์ที่แตกใหม่เสียภาพการ์ด | [toon](features/toon/decisions.md) | D15 | — | — | changed by toon D43 |
-| คลังเสียงพื้นเป็นคลังกลางของ tab การ์ตูนเล่า ทุก Series ใช้ร่วม | [toon](features/toon/decisions.md) | D16 | — | — | superseded by sound-library D1 |
+| คลังเสียงพื้นเป็นคลังกลางของ tab การ์ตูนเล่า ทุก Series ใช้ร่วม | [toon](features/toon/decisions.md) | D16 | video-gen | — | superseded by sound-library D1 |
 | เสียงพื้นเดียวกันข้ามช่วงเล่นต่อ; ต่างกันผสมทับราว 1 วินาที; สั้นกว่าช่วงวนซ้ำ | [toon](features/toon/decisions.md) | D17 | — | — | active |
-| ไม่มีดูตัวอย่างทั้ง EP ก่อน render ในรอบแรก; render mp4 จริงแล้วดูผล | [toon](features/toon/decisions.md) | D18 | — | — | active |
+| ไม่มีดูตัวอย่างทั้ง EP ก่อน render ในรอบแรก; render mp4 จริงแล้วดูผล | [toon](features/toon/decisions.md) | D18 | video-gen | — | active |
 | ข้อความบนภาพรอบแรกมีแค่ป้ายชื่อตัวละครตอนออกครั้งแรกใน EP เปิดปิดต่อ Series; ไม่มีกล่องข้อความอื่น | [toon](features/toon/decisions.md) | D19 | — | — | active |
 | คำบรรยายภาพของการ์ดเป็นข้อความอิสระช่องเดียว (ท่าทาง สีหน้า มุมกล้อง แสง) | [toon](features/toon/decisions.md) | D20 | — | — | active |
 | ช่องของการ์ด: ข้อความเล่า (ว่าง = การ์ดเงียบ), ตัวละคร, คำบรรยายภาพ, การขยับ, ไฟกะพริบ, ค้างเพิ่ม 0–5 วิ, เสียงทีละการ์ด, ภาพ; เว้นท้ายเสียง 0.3 วิ | [toon](features/toon/decisions.md) | D21 | — | — | active |
@@ -320,10 +320,10 @@ question; the full entry is in the feature's decisions.md.
 | เสียงในคลังเสียงพื้นแปลงเป็น m4a (aac) ตอนเอาเข้า ทั้งไฟล์และลิงก์ | [toon](features/toon/decisions.md) | D39 | sound-library | [0039](adr/0039-sound-library-own-m4a.md) | active |
 | เลข EP ใหม่ = เลขสูงสุดที่ Series เคยมี + 1; แก้เลขเองได้ ไม่ซ้ำใน Series | [toon](features/toon/decisions.md) | D40 | — | — | active |
 | น้ำเสียงเล่าเป็นข้อความไทยช่องเดียวของ Series ตั้งต้นตามแบบหลอน/ตลก แก้ได้ | [toon](features/toon/decisions.md) | D41 | — | — | active |
-| test ของ toon: API กับโมเดลปลอม + render ด้วย ffmpeg จริง (`ffmpeg -i`) + หน้าเว็บผ่าน `App` แบบ story-kb D18; klein จริงลองมือ | [toon](features/toon/decisions.md) | D42 | — | — | active |
+| test ของ toon: API กับโมเดลปลอม + render ด้วย ffmpeg จริง (`ffmpeg -i`) + หน้าเว็บผ่าน `App` แบบ story-kb D18; klein จริงลองมือ | [toon](features/toon/decisions.md) | D42 | video-gen | — | active |
 | แตกองก์ใหม่ต้องยืนยันเมื่อจะเสียการ์ดแก้เอง ภาพ หรือเสียง พร้อมจำนวนต่อองก์ | [toon](features/toon/decisions.md) | D43 | — | — | active |
 | ปุ่ม "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน" เป็น Image job เดียวทั้ง EP | [toon](features/toon/decisions.md) | D44 | — | — | active |
-| Render job ของการ์ตูนเล่ามี slot ของตัวเอง render ได้ระหว่างงานภาพ; ต้องสร้างเสียงก่อนยังจองช่อง GPU | [toon](features/toon/decisions.md) | D45 | — | — | active |
+| Render job ของการ์ตูนเล่ามี slot ของตัวเอง render ได้ระหว่างงานภาพ; ต้องสร้างเสียงก่อนยังจองช่อง GPU | [toon](features/toon/decisions.md) | D45 | video-gen | — | active |
 | ยอมรับความเสี่ยง legal ข้อ 5 (ป้ายคลิป AI) ที่ยังไม่ได้เช็คจากราชกิจจานุเบกษา | [toon](features/toon/decisions.md) | D46 | — | — | active |
 | gguf pin 0.19.0 แทน 0.10.0: 0.10.0 อ่าน GGUF ไม่ได้บน numpy 2 | [toon](features/toon/decisions.md) | D47 | — | — | active |
 | ค่าเล็กของ Series และ Ref job: ความยาว style/tone, `file_too_large`, `item_id`, ค่าสำรองของคำแปลภาพอ้างอิง, `backend/uploads.py` | [toon](features/toon/decisions.md) | D48 | — | — | active |
@@ -365,6 +365,50 @@ question; the full entry is in the feature's decisions.md.
 | `gpu.ADVICE` ไม่ต่อท้าย error ของโค้ดผิด (`TypeError` ฯลฯ) ใน process ลูก; `model_failed` และหน้าเว็บคงเดิม; ใช้ทั้ง toon, spoil-maker, spoil | [toon](features/toon/decisions.md) | D84 | spoil, spoil-maker | — | active |
 | `jobs.CODE_ERROR_TYPES` เทียบชื่อชนิดหน้า `:` ของ `WorkerError.detail`, นับ `UnboundLocalError`, `ModuleNotFoundError`; `jobs.worker_error_message` ใช้ร่วม | [toon](features/toon/decisions.md) | D85 | spoil, spoil-maker | — | active |
 | feature review รอบเก้าของ toon: `workers.as_worker_error`, `gpu.advised` ใช้ร่วมทุก child และทุกข้อความที่มีคำแนะนำ, `FakeModel.failure` | [toon](features/toon/decisions.md) | D86 | spoil, spoil-maker | — | active |
+
+## สร้างคลิปสอนกลอง
+
+| Decision | Feature | D | Used by | ADR | Status |
+|---|---|---|---|---|---|
+| tab ใหม่ทำคลิปสอนกลองแนวตั้งอย่างเดียว; เครื่องดนตรีอื่นเป็น feature ใหม่ | [video-gen](features/video-gen/decisions.md) | D1 | — | — | active |
+| ผู้ใช้กรอกโน้ตบนตารางในแอป แอปผสมเสียงกลองจาก sample; โน้ตชุดเดียวขับเสียงและภาพ | [video-gen](features/video-gen/decisions.md) | D2 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md) | active |
+| Pillow วาดกราฟิกทีละเฟรม (2 เท่าแล้วย่อ) ส่ง RGB ดิบเข้า ffmpeg; ตัวหนังสือทั้งหมดเป็น ASS | [video-gen](features/video-gen/decisions.md) | D3 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md) | changed by D18 |
+| บทเรียนกลอง = Groove 1–4 ห้อง + ท่อนสอน 1–6 ท่อนที่เล่น Groove ซ้ำ มีป้าย คำอธิบาย ชิ้นที่เน้น ความเร็ว | [video-gen](features/video-gen/decisions.md) | D4 | — | — | active |
+| 4/4 ห้องละ 16 ช่อง; โน้ตมีชิ้นกลอง ช่อง ไม้ R/L ลักษณะตี (ปกติ เน้น เบา flam) | [video-gen](features/video-gen/decisions.md) | D5 | — | — | active |
+| พื้นหลังตั้งต้นสีเข้มที่แอปวาด หรือภาพ PNG/JPG ของผู้ใช้ ครอป 9:16 เบลอ ทำมืด | [video-gen](features/video-gen/decisions.md) | D6 | — | — | active |
+| เสียงกลองล้วน ไม่ใช้คลังเสียงพื้นของ toon; ใช้ซ้ำ `renders`, `ffmpeg`, `subtitles`, `uploads`, `JobSlot` | [video-gen](features/video-gen/decisions.md) | D7 | — | — | active |
+| ปุ่ม "ฟังจังหวะ" ผสมเสียงอย่างเดียวด้วยตัวผสมของ render; ภาพดูจากผล render | [video-gen](features/video-gen/decisions.md) | D8 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md) | active |
+| tab "สอนกลอง" `#/drums` ต่อท้ายการ์ตูนเล่า; slug คง `video-gen` | [video-gen](features/video-gen/decisions.md) | D9 | — | — | active |
+| บทเรียนกลองเป็นไฟล์ใน `media/drums/` มีรายการ สร้าง ทำซ้ำ ลบ; ผล render เก็บทุกครั้งใต้บทเรียน | [video-gen](features/video-gen/decisions.md) | D10 | — | — | extended by D22 |
+| sample Big Rusty Drums (CC0) ไมค์ใกล้ pin commit โหลดทีละไฟล์พร้อม sha256 ลง `models/drums/`; แถว Status check `drum_kit` | [video-gen](features/video-gen/decisions.md) | D11 | — | [0042](adr/0042-drum-samples-pinned-cc0.md) | changed by D19 |
+| ตำแหน่ง สี ขนาดบนจอตายตัวตามคลิปอ้างอิง; ป้ายท่อนสอนขึ้นแทนหัวเรื่อง | [video-gen](features/video-gen/decisions.md) | D12 | — | — | active |
+| ทางเลือกเล็กจากคลิปอ้างอิง: เลนโน้ต 3 เลน playhead นิ่ง, นับเข้า 1 ห้อง, ไม้ขยับ 0.12 วิ, ชิ้นไม่เน้น 35%, ≤ 90 วิ, ชั้นความแรงของ sample | [video-gen](features/video-gen/decisions.md) | D13 | — | — | changed by D21 |
+| Render job ของสอนกลองทีละงาน slot ของตัวเอง ไม่จอง GPU; คลิป 30 วิ render ≤ 60 วิ; เสียงกับภาพคลาด ≤ 1 เฟรม | [video-gen](features/video-gen/decisions.md) | D14 | — | — | active |
+| seam: API ด้วย ffmpeg จริง, `frame_at` กับตารางเวลาโน้ต, หน้าเว็บผ่าน `App` | [video-gen](features/video-gen/decisions.md) | D15 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md) | active |
+| `PUT` บันทึกบทเรียนที่ยาวเกินได้; `too_long` เฉพาะฟังจังหวะและ render | [video-gen](features/video-gen/decisions.md) | D16 | — | — | active |
+| ชุดกลองวาดด้วยโค้ดตามตำแหน่งใน kit-sketch ที่วัดจากคลิปอ้างอิง; ไฮแฮทวาดชิ้นเดียว | [video-gen](features/video-gen/decisions.md) | D17 | — | — | active |
+| ของนิ่งวาดครั้งเดียวต่อ render ของที่ขยับวาดชิ้นเล็ก 2 เท่า; เฟรมเกิน 30 ms → เลิก 2 เท่า | [video-gen](features/video-gen/decisions.md) | D18 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md) | active |
+| โหลด sample สามชั้นความแรงตาม `.sfz`, ผสมที่ 44.1 kHz ไม่ resample | [video-gen](features/video-gen/decisions.md) | D19 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md), [0042](adr/0042-drum-samples-pinned-cc0.md) | active |
+| ปฏิเสธโน้ตที่มือเดียวตีไม่ได้ (มือเดียวสองชิ้น, เกินสองมือ, ไฮแฮทเปิดคู่ปิด, flam ที่เท้า); โน้ตใหม่ใช้มือว่าง | [video-gen](features/video-gen/decisions.md) | D20 | — | — | active |
+| ความยาวคลิปรวมหางเสียง 1.5 วิ ใช้ค่าเดียวกับ mp4 เฟรม % ดิสก์ เพดาน | [video-gen](features/video-gen/decisions.md) | D21 | — | — | active |
+| ข้อแก้ red team: `ffmpeg.run_piped`, ตัวหนังสือยาว, id ใน path, ลำดับลบ, สถานะ render, บทเรียนใหม่สองท่อน, ฟังจังหวะ, ขอบของโน้ต | [video-gen](features/video-gen/decisions.md) | D22 | — | — | active |
+| ข้อแก้ legal: ป้ายตั้งต้น `ลองเล่นเอง`, คำเตือนข้างปุ่มภาพพื้นหลัง, ไม่มีช่องโลโก้, ตรวจใหม่ก่อนหารายได้ | [video-gen](features/video-gen/decisions.md) | D23 | — | — | active |
+| คลิปสอนกลองทำตาม ADR-0017 ไม่หารายได้; หารายได้ = change request ตรวจ legal ข้อ 2 ใหม่ | [video-gen](features/video-gen/decisions.md) | D24 | — | — | active |
+| รับความเสี่ยง legal ข้อ 2–4 (UNVERIFIED) ของการเผยแพร่คลิปสอนกลอง (Accepted risk) | [video-gen](features/video-gen/decisions.md) | D25 | — | — | active |
+| ตาราง sample จาก `.sfz` ไมค์ใกล้: ชั้นแรก กลาง สุดท้าย ทุก round-robin; snare ไมค์ `top`, kick ไมค์ `kick` | [video-gen](features/video-gen/decisions.md) | D26 | — | [0042](adr/0042-drum-samples-pinned-cc0.md) | active |
+| ตัวอย่างเวลาใน AC: BPM 120 ความเร็ว 50 → step 2 ที่ 4.5 วิ (step 4 ที่ 5.0 วิ); สูตรคงเดิม | [video-gen](features/video-gen/decisions.md) | D27 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md) | active |
+| ทางเลือกเล็กของ backend บทเรียน: gate ของ listen แถวเดียว, `field` ทุกค่าผิด, ปัด 16-bit ด้วย numpy, ทำซ้ำ copy ภาพพื้นหลัง | [video-gen](features/video-gen/decisions.md) | D28 | — | — | active |
+| ทางเลือกเล็กของหน้าสอนกลองก่อนมีแบบ: dialog แบบ story-kb, confirm ตอนลดห้อง, ฟังจังหวะ `PUT` เมื่อยังไม่บันทึก, `FixCommand` ใช้ร่วม | [video-gen](features/video-gen/decisions.md) | D29 | — | — | active |
+| ตาราง Drum kit คงเดิม: `chik` = ไฮแฮทเท้า (key 44), ทอม 14/15/18 = สูง กลาง ต่ำ (key 47/45/43) | [video-gen](features/video-gen/decisions.md) | D30 | — | [0042](adr/0042-drum-samples-pinned-cc0.md) | active |
+| ภาพที่ขยับ: ตัว L/R บนหัวไม้เป็น ASS ตามตำแหน่งหัวไม้ทีละช่วงเฟรม, วงแหวนกับจุดแดงทับไม้, เท้าเต้น, ตำแหน่งเลนที่ `video_gen.lane` | [video-gen](features/video-gen/decisions.md) | D31 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md) | active |
+| ตัวหนังสือใน render: ป้ายว่าง = หัวเรื่อง, สีตัวหนังสือบนกล่อง, ตัดบรรทัด 40/34, `BAR 2 3 4`, srt ต่อช่วง | [video-gen](features/video-gen/decisions.md) | D32 | — | — | active |
+| Render job copy บทเรียนเข้า `.render/` ก่อนตอบ 202 ใต้ lock ของบทเรียน; `lesson_busy` ผ่าน `lessons.lesson_jobs` | [video-gen](features/video-gen/decisions.md) | D33 | — | [0024](adr/0024-llm-jobs-read-story-at-start.md) | active |
+| Render job: `title` ในงาน, cancel ตอบ 200, `-b:v 8M` yuv420p aac 192k, AC `fontsdir` test ด้วยตัวเลือก `ass` ที่ผิด | [video-gen](features/video-gen/decisions.md) | D34 | — | — | active |
+| หน้า render ก่อนมีแบบ: เล่นผลใหม่สุด, ปุ่มกดไม่ได้ระหว่าง render, ลิงก์ผล render | [video-gen](features/video-gen/decisions.md) | D35 | — | — | active |
+| ภาพพื้นหลังบทเรียนกลองส่งแบบ ADR-0028: `background/check` ก่อน แล้ว `PUT ?size=` body ดิบ | [video-gen](features/video-gen/decisions.md) | D36 | — | [0028](adr/0028-raw-file-upload-per-route.md) | active |
+| ภาพพื้นหลัง: `GET background.jpg?v=`, `PUT`/`DELETE` ตอบบทเรียน, `413`, `.tmp` ใน `drums/.partial`, JPEG 92, ไม่มีแถบ %, ฟอร์มที่ยังไม่บันทึกอยู่ต่อ | [video-gen](features/video-gen/decisions.md) | D37 | — | — | active |
+| ส่ง feature ด้วยหน้าตาเดิมของแอป ปิด Blocked design โดยอ้าง ui-prompt.md; แบบ Figma เป็น change request ภายหลัง | [video-gen](features/video-gen/decisions.md) | D38 | — | — | active |
+| merge คลังเสียง: tab สอนกลองท้ายกลุ่ม "ทำคลิป"; ADR สอนกลองเลื่อนเป็น 0040–0042 | [video-gen](features/video-gen/decisions.md) | D39 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md), [0041](adr/0041-one-timeline-drives-sound-and-picture.md), [0042](adr/0042-drum-samples-pinned-cc0.md) | active |
 
 ## คลังเสียง
 

@@ -6,9 +6,9 @@ Setup fetches it, the Status check checks it, the Render job points libass at it
 
 import hashlib
 import json
-import os
 from collections.abc import Callable
 
+from backend import files
 from backend.paths import ProjectPaths
 
 CHECK_ID = "font_kanit"
@@ -50,10 +50,7 @@ def install_kanit(project: ProjectPaths, fetch: Callable[[str], bytes]) -> None:
             path.unlink(missing_ok=True)
             raise ValueError(f"sha256 ของ {name} ไม่ตรง")
         path.write_bytes(content)
-    project.kanit_marker.parent.mkdir(parents=True, exist_ok=True)
-    partial = project.kanit_marker.with_name(project.kanit_marker.name + ".partial")
-    partial.write_text(json.dumps({"files": KANIT_SHA256}, indent=2), encoding="utf-8")
-    os.replace(partial, project.kanit_marker)
+    files.write_marker(project.kanit_marker, KANIT_SHA256)
 
 
 def fetch_https(url: str) -> bytes:

@@ -49,6 +49,10 @@
   --color-preview-blur: #a8a29e;
   --color-preview-title: #facc15;
 
+  /* A drum clip's own background, as `frames._background` draws it (video-gen D6). */
+  --color-drum-clip-top: #0e1a2b;
+  --color-drum-clip-bottom: #07090d;
+
   /* A running job's bar moves even when its percent doesn't (ProgressBar). */
   --animate-progress-slide: progress-slide 1.4s ease-in-out infinite;
   --animate-progress-shimmer: progress-shimmer 1.6s linear infinite;

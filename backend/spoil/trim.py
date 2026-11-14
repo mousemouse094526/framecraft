@@ -174,12 +174,11 @@ def command(source: Path, out: Path, spans: list[Range], has_audio: bool, bps: i
             inputs.append(f"[a{n}]")
     outputs = "[v][a]" if has_audio else "[v]"
     graph.append(f"{''.join(inputs)}concat=n={len(spans)}:v=1:a={1 if has_audio else 0}{outputs}")
-    encoder = ["-c:v", "h264_videotoolbox"] if platform == "darwin" else ["-c:v", "libx264", "-preset", "veryfast"]
     audio = ["-map", "[a]", "-c:a", "aac", "-b:a", str(AUDIO_BPS)] if has_audio else []
     return [
         ffmpeg.exe(), "-nostdin", "-hide_banner", "-y", "-progress", "pipe:1", "-nostats",
         "-i", str(source), "-filter_complex", ";".join(graph),
-        "-map", "[v]", *encoder, "-b:v", str(bps), *audio,
+        "-map", "[v]", *ffmpeg.h264_args(platform), "-b:v", str(bps), *audio,
         "-movflags", "+faststart", str(out),
     ]  # fmt: skip
 

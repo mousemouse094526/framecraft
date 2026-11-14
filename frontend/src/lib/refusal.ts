@@ -2,9 +2,9 @@ import { busyText } from "./gpu";
 
 /**
  * A refusal from the API: `{"code", "message"}`, plus `clip_id` on `duplicate`, `running` on
- * `gpu_busy` and `field` on `invalid_story`.
+ * `gpu_busy`, `field` on `invalid_story` and `invalid_request`, and `rows` on `not_ready`.
  */
-export type Refusal = { code: string; message: string; clip_id?: string; running?: string; field?: string };
+export type Refusal = { code: string; message: string; clip_id?: string; running?: string; field?: string; rows?: string[] };
 
 /** The body as a refusal, or null when it isn't one (no body, no code): the caller reads that as offline. */
 export function refusalOf(body: unknown): Refusal | null {

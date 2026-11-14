@@ -29,6 +29,9 @@ backend/
 ├── disk.py       ← free disk space and the 1 GiB `disk_full` check: setup, spoil, both renders, toon jobs
 ├── fonts.py      ← Kanit Bold pinned by commit and sha256: setup fetches it, the
 │                    Status check checks it, the Render job draws with it
+├── drum_kit.py   ← the drum samples (Big Rusty Drums, CC0, ADR 0042) pinned the same
+│                    way: `SAMPLES` (piece, layer, round-robin, path, sha256), setup's
+│                    `install_drum_kit` (three tries a file), the `drum_kit` row's check
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
 ├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
 ├── body_types.py ← what a POST/PUT/PATCH body may be: JSON everywhere, a raw
@@ -38,7 +41,8 @@ backend/
 │                    JobFailed, `require_rows` (the gate of every job),
 │                    `checked_text` (a trimmed text field within its length)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
-│                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
+│                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
+│                    `drum_kit_row`, `drums`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
 │                    ModelJobSlot (a job whose model runs in a child: cancel,
 │                    shutdown, `_run_job`, the one ending of every job's thread
@@ -68,9 +72,10 @@ backend/
 │                    outlives the `with` (spoil D42); `trimmed_clip_swap`
 │                    guards putting the new mp4 in place; `advised` ends a failed
 │                    job's message with `ADVICE`
-├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel)
-│                    and `ffmpeg -i` reading; spoil's trim and spoil_maker's
-│                    frames and compose share it
+├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel),
+│                    `run_piped` (frames through stdin, video-gen D22), `h264_args`
+│                    (videotoolbox or libx264, spoil D36) and `ffmpeg -i` reading;
+│                    spoil's trim, spoil_maker's frames and compose, video_gen's render share it
 ├── setup.py      ← entry point: python -m backend.setup
 ├── qwen_tokens.py← an EP's lines and a Story block counted to Qwen behind its
 │                    Status check row (spoil-maker D46, story-kb D14)
@@ -148,6 +153,18 @@ backend/
 │                    Render job, its own slot, and an EP's renders), compose (a
 │                    render's timeline, its ffmpeg commands and its ASS file,
 │                    through `subtitles`)
+├── video_gen/    ← the สอนกลอง tab (video-gen spec): kit (the ten pieces: lane, colour,
+│                    foot), lessons (`lesson.json` under `media/drums/lessons/{id}/`, its
+│                    checks with D20's rules, the tab's one lock; `require_id` before any
+│                    path), timeline (every hit, beat and chapter span in samples at
+│                    44.1 kHz: the one place a note's time is worked out, ADR 0041), mixer
+│                    (the wav from the samples, ฟังจังหวะ's `listen`; numpy and soundfile
+│                    imported inside); kit also holds the diagram's points (kit-sketch);
+│                    lane (where the note lanes put a time), frames (`Scene` drawn once,
+│                    `frame_at` per frame, Pillow imported inside), captions (the ASS file
+│                    and `.srt`), render (the Render job in its own `JobSlot`, no GPU;
+│                    registers itself in `lessons.lesson_jobs` for `lesson_busy`),
+│                    backgrounds (a lesson's picture, D6: check, raw `PUT`, crop; D36)
 ├── speaking.py   ← `Speaker`, which speaks texts in a Saved voice in an
 │                    OmniVoice child for the job slot that holds it (it is
 │                    given the slot and calls its `track` and `reply`, never
@@ -163,10 +180,11 @@ backend/
 │                    renders (`results`, `listed`), `latest_at`, the job's `percent`
 │                    (`pieces_percent`, `encode_progress`), the finish (`finish`: json last), the
 │                    delete (mp4 first, `409` `in_use`, json last), leftover `.partial`s;
-│                    spoil_maker's and toon's render keep their folders and call it, and gate
-│                    on `gate_rows.render`
+│                    spoil_maker's, toon's and video_gen's render keep their folders and call
+│                    it; the first two gate on `gate_rows.render`, video_gen's on `gate_rows.drums`
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
-│                    File import and toon's reference uploads share it
+│                    File import, toon's reference uploads and video_gen's
+│                    backgrounds share it
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK
@@ -207,7 +225,7 @@ through a queue; the thread writes the result file (ADR 0012).
   fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
   `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_encoder`,
   `toon.klein.start_drawer`).
-- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, pythainlp and Pillow are imported
+- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, soundfile, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
@@ -220,6 +238,7 @@ through a queue; the thread writes the result file (ADR 0012).
   before the GPU slot's own; a delete of a sound takes each registered user's lock by
   `sounds.LOCK_ORDER`, then `sounds.lock` (sound-library D7, D11, ADR 0038).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
+  `video_gen.lessons.lock` comes after the drum Render job slot's own (video-gen D33).
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model takes `gpu.slot` before it starts and releases

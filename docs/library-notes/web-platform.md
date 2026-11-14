@@ -6,7 +6,7 @@
 
 **Docs:** https://developer.mozilla.org/en-US/docs/Web/API
 
-Covers the browser APIs the คลิป tab's file import calls directly: `XMLHttpRequest` with an upload body, file drag and drop, and `<input type="file">`; and the disclosure button the info box and the narrow tab menu use.
+Covers the browser APIs the คลิป tab's file import calls directly: `XMLHttpRequest` with an upload body, file drag and drop, and `<input type="file">`; the disclosure button the info box and the narrow tab menu use; and the สอนกลอง tab's ฟังจังหวะ: a `Blob` played through an object URL.
 
 ## Best practices
 
@@ -21,6 +21,8 @@ Covers the browser APIs the คลิป tab's file import calls directly: `XMLH
 - A button that shows and hides a section is a disclosure: `aria-expanded` on the button, `aria-controls` naming the section; not `role="menu"`, which promises arrow-key navigation, when the section is plain links — [ARIA APG › Disclosure](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/), [Example: disclosure navigation](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/)
 - When `Escape` closes a popup the focus was inside, move focus back to the control that opened it, or it falls to `<body>` — [ARIA APG › Developing a keyboard interface](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/)
 - A control's accessible name should contain its visible text (WCAG 2.5.3 Label in Name), so an `aria-label` repeats it — [Understanding 2.5.3](https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html)
+- Each `URL.createObjectURL(blob)` makes a new URL that keeps the blob in memory until `URL.revokeObjectURL(url)` or the document unloads: revoke it once the sound is no longer played — [createObjectURL](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static), [revokeObjectURL](https://developer.mozilla.org/en-US/docs/Web/API/URL/revokeObjectURL_static)
+- `HTMLMediaElement.play()` returns a Promise that rejects (`NotAllowedError`) when autoplay is blocked; catch it. `pause()` stops playback and keeps the position — [play()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play), [pause()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/pause)
 
 ## Pattern
 
@@ -41,6 +43,7 @@ Follows [XMLHttpRequest.upload](https://developer.mozilla.org/en-US/docs/Web/API
 
 - Upload listeners make a cross-origin request preflighted; same origin through the Vite proxy is unaffected — [XMLHttpRequest.upload](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/upload)
 - `dragenter`/`dragleave` fire for every child the pointer crosses; a "drag-over" look needs a counter or `relatedTarget`, not a single flag — [File drag and drop](https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop)
+- jsdom has no `URL.createObjectURL`/`revokeObjectURL` and no media playback: a test assigns stand-ins to `URL` and spies on `HTMLMediaElement.prototype.play`/`pause` — [jsdom README › Unimplemented parts](https://github.com/jsdom/jsdom#unimplemented-parts-of-the-web-platform)
 
 ## Sources
 
@@ -48,3 +51,4 @@ Follows [XMLHttpRequest.upload](https://developer.mozilla.org/en-US/docs/Web/API
 - [File drag and drop](https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop) (accessed 2026-11-07)
 - [input type=file](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/file), [HTML › value mode filename](https://html.spec.whatwg.org/multipage/input.html#dom-input-value-filename) (accessed 2026-11-07)
 - [ARIA APG › Disclosure](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/), [keyboard interface](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/), [WCAG 2.5.3](https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html) (accessed 2026-11-13)
+- [createObjectURL](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static), [revokeObjectURL](https://developer.mozilla.org/en-US/docs/Web/API/URL/revokeObjectURL_static), [play()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play), [pause()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/pause), [jsdom README › Unimplemented parts](https://github.com/jsdom/jsdom#unimplemented-parts-of-the-web-platform) (accessed 2026-11-13)

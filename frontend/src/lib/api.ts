@@ -73,13 +73,15 @@ export type FileUpload<T> = {
  * Sends `file` as the raw body (`application/octet-stream`, ADR-0028) with `XMLHttpRequest`,
  * which reports upload progress where `fetch` doesn't. The one call with no timeout: a file of
  * several GB takes as long as it takes, and the server stops one that stalls (spoil D50, D55, D58).
- * `onProgress` gets the percent sent; `onSent` runs once the whole body is out.
+ * `onProgress` gets the percent sent; `onSent` runs once the whole body is out. `method` is the
+ * route's: `PUT` where the file replaces one (a drum lesson's background).
  */
 export function sendFile<T>(
   path: string,
   file: File,
   onProgress: (percent: number) => void,
   onSent: () => void,
+  method: "POST" | "PUT" = "POST",
 ): FileUpload<T> {
   const xhr = new XMLHttpRequest();
   const reply = new Promise<FileReply<T>>((resolve) => {
@@ -100,10 +102,29 @@ export function sendFile<T>(
     xhr.addEventListener("error", () => resolve({ kind: "failed" }));
     xhr.addEventListener("abort", () => resolve({ kind: "aborted" }));
   });
-  xhr.open("POST", path);
+  xhr.open(method, path);
   xhr.setRequestHeader("Content-Type", "application/octet-stream");
   // The default already, said out loud: no timeout (spec › Frontend, เอาไฟล์เข้า).
   xhr.timeout = 0;
   xhr.send(file);
   return { reply, abort: () => xhr.abort() };
+}
+
+/** A file answer (`audio/wav`) or, for a refusal, its JSON body. */
+export type BlobReply = { status: number; blob: Blob | null; body: unknown };
+
+/**
+ * A `POST` of `body` as JSON whose answer is a file: `blob` when the response isn't JSON,
+ * else `body` holds the refusal. Throws as `sendJson` does.
+ */
+export async function postForBlob(path: string, body: unknown): Promise<BlobReply> {
+  const response = await fetchWithTimeout(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (response.headers.get("Content-Type")?.startsWith("application/json")) {
+    return { status: response.status, blob: null, body: await response.json() };
+  }
+  return { status: response.status, blob: await response.blob(), body: null };
 }

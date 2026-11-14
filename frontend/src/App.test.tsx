@@ -39,7 +39,7 @@ describe("tab bar", () => {
     expect(tab("ติดตั้ง")).toHaveAttribute("aria-current", "page");
   });
 
-  it("lists ติดตั้ง, คลิป, คลังความรู้, คลังเสียง, สปอย, การ์ตูนเล่า in that order (sound-library D2) (e2e)", () => {
+  it("lists ติดตั้ง, คลิป, คลังความรู้, คลังเสียง, สปอย, การ์ตูนเล่า, สอนกลอง in that order (sound-library D2, video-gen D9) (e2e)", () => {
     render(<App />);
 
     expect(within(screen.getByRole("navigation", { name: "แถบ tab" })).getAllByRole("link").map((link) => link.textContent)).toEqual([
@@ -49,6 +49,7 @@ describe("tab bar", () => {
       "คลังเสียง",
       "สปอย",
       "การ์ตูนเล่า",
+      "สอนกลอง",
     ]);
   });
 
@@ -106,15 +107,15 @@ describe("tab groups (sound-library D3)", () => {
     return within(screen.getByRole("navigation", { name: "แถบ tab" }));
   }
 
-  it("groups คลิป, คลังความรู้, คลังเสียง and สปอย, การ์ตูนเล่า by aria-label, with no heading text", () => {
+  it("groups คลิป, คลังความรู้, คลังเสียง and สปอย, การ์ตูนเล่า, สอนกลอง by aria-label, with no heading text", () => {
     render(<App />);
 
     const prep = bar().getByRole("group", { name: "เตรียมของ" });
     const make = bar().getByRole("group", { name: "ทำคลิป" });
     expect(within(prep).getAllByRole("link").map((link) => link.textContent)).toEqual(["คลิป", "คลังความรู้", "คลังเสียง"]);
-    expect(within(make).getAllByRole("link").map((link) => link.textContent)).toEqual(["สปอย", "การ์ตูนเล่า"]);
+    expect(within(make).getAllByRole("link").map((link) => link.textContent)).toEqual(["สปอย", "การ์ตูนเล่า", "สอนกลอง"]);
     expect(prep).toHaveTextContent(/^คลิปคลังความรู้คลังเสียง$/);
-    expect(make).toHaveTextContent(/^สปอยการ์ตูนเล่า$/);
+    expect(make).toHaveTextContent(/^สปอยการ์ตูนเล่าสอนกลอง$/);
     expect(bar().getAllByRole("group")).toHaveLength(2);
   });
 
@@ -153,7 +154,7 @@ describe("tab menu on a narrow screen (sound-library D3)", () => {
     expect(menuButton()).toHaveAttribute("aria-expanded", "true");
     const menu = screen.getByRole("navigation", { name: "เมนู tab" });
     expect(menuButton()).toHaveAttribute("aria-controls", menu.id);
-    expect(menu).toHaveTextContent(/^ติดตั้งเตรียมของคลิปคลังความรู้คลังเสียงทำคลิปสปอยการ์ตูนเล่า$/);
+    expect(menu).toHaveTextContent(/^ติดตั้งเตรียมของคลิปคลังความรู้คลังเสียงทำคลิปสปอยการ์ตูนเล่าสอนกลอง$/);
     expect(within(within(menu).getByRole("group", { name: "เตรียมของ" })).getAllByRole("link").map((l) => l.textContent)).toEqual([
       "คลิป",
       "คลังความรู้",
@@ -162,6 +163,7 @@ describe("tab menu on a narrow screen (sound-library D3)", () => {
     expect(within(within(menu).getByRole("group", { name: "ทำคลิป" })).getAllByRole("link").map((l) => l.textContent)).toEqual([
       "สปอย",
       "การ์ตูนเล่า",
+      "สอนกลอง",
     ]);
     expect(within(menu).getByRole("link", { name: "คลิป" })).toHaveAttribute("aria-current", "page");
     expect(within(menu).getByRole("link", { name: "ติดตั้ง" })).not.toHaveAttribute("aria-current");

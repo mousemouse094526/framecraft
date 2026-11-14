@@ -25,18 +25,18 @@ def checks_with_fakes(root, sys_platform=None, **probe_overrides):
     return run_checks(root, fake_probes(**probe_overrides), sys_platform)
 
 
-def test_a_complete_root_on_a_mac_is_ready_with_nineteen_ok(fake_root):
+def test_a_complete_root_on_a_mac_is_ready_with_twenty_ok(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="darwin")
 
     assert result.ready is True
-    assert result.ok_count == 19
-    assert result.total == 19
+    assert result.ok_count == 20
+    assert result.total == 20
 
 
 def test_cpu_only_device_is_a_warning_but_still_ready(fake_root):
     result = checks_with_fakes(fake_root, device=lambda: "cpu")
 
-    assert result.ok_count == 18
+    assert result.ok_count == 19
     assert result.warning_count == 1
     assert item(result, "device").status == "warning"
     assert result.ready is True
@@ -83,7 +83,7 @@ def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
 
     assert item(result, "ffmpeg").status == "missing"
     assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
-    assert len(result.items) == 19
+    assert len(result.items) == 20
 
 
 def test_yt_dlp_and_deno_rows_follow_ffmpeg_with_their_versions(fake_root):
@@ -112,7 +112,7 @@ def test_deno_probe_that_raises_makes_only_deno_missing(fake_root):
 
     assert item(result, "deno").status == "missing"
     assert item(result, "deno").fix == "./setup.sh"
-    assert len(result.items) == 19
+    assert len(result.items) == 20
     assert result.missing_count == 1
 
 
@@ -161,6 +161,7 @@ def test_items_come_in_the_spec_order(fake_root):
         "mlx_vlm",
         "pythainlp",
         "font_kanit",
+        "drum_kit",
         "model_klein",
         "model_klein_gguf",
         "diffusers",
@@ -265,7 +266,7 @@ def test_an_rtx_3060_with_everything_installed_is_ok_on_windows(fake_root):
     for row in ("device", *GPU_ROWS):
         assert item(result, row).status == "ok"
     assert "mlx_vlm" not in ids(result)
-    assert result.ok_count == result.total == 20
+    assert result.ok_count == result.total == 21
 
 
 def test_windows_rows_sit_where_mlx_vlm_was_with_gpu_right_after_device(fake_root):
@@ -408,7 +409,7 @@ def test_a_mac_has_no_gpu_or_bitsandbytes_row_and_never_reads_the_card(fake_root
     result = checks_with_fakes(fake_root, sys_platform="darwin", gpu=must_not_run, bitsandbytes=must_not_run)
 
     assert {"gpu", "bitsandbytes"} & set(ids(result)) == set()
-    assert result.ok_count == result.total == 19
+    assert result.ok_count == result.total == 20
 
 
 def test_the_qwen_row_on_a_mac_still_checks_the_mlx_model(fake_root):
@@ -518,6 +519,38 @@ def test_a_kanit_marker_with_another_sha256_makes_kanit_missing(fake_root):
 
     assert item(result, "font_kanit").status == "missing"
     assert item(result, "font_kanit").fix == "./setup.sh"
+
+
+def test_drum_kit_row_follows_kanit_and_names_the_pinned_commit(fake_root):
+    result = checks_with_fakes(fake_root)
+
+    ids = [i.id for i in result.items]
+    assert ids[ids.index("font_kanit") + 1] == "drum_kit"
+    row = item(result, "drum_kit")
+    assert (row.status, row.label, row.detail) == ("ok", "Drum samples", "Big Rusty Drums · f07ce00")
+
+
+def test_drum_samples_without_their_marker_are_missing_with_the_setup_fix(fake_root):
+    project = ProjectPaths(fake_root)
+    project.drum_kit_marker.unlink()
+    before = sorted(project.models_dir.rglob("*"))
+
+    result = checks_with_fakes(fake_root)
+
+    assert (item(result, "drum_kit").status, item(result, "drum_kit").fix) == ("missing", "./setup.sh")
+    assert result.missing_count == 1
+    assert sorted(project.models_dir.rglob("*")) == before  # the check writes nothing
+
+
+def test_a_missing_drum_sample_makes_only_the_drum_kit_missing(fake_root):
+    from backend import drum_kit
+
+    drum_kit.sample_path(ProjectPaths(fake_root), drum_kit.SAMPLES[-1]).unlink()
+
+    result = checks_with_fakes(fake_root)
+
+    assert item(result, "drum_kit").detail == f"ไฟล์หาย: {drum_kit.SAMPLES[-1].path}"
+    assert result.missing_count == 1
 
 
 def test_klein_rows_are_ok_on_windows_too_and_carry_each_repo_s_license(fake_root):

@@ -81,16 +81,3 @@ export const fieldsOf = (story: StoryFields): StoryFields => ({
 });
 
 export const EMPTY_STORY: StoryFields = { title: "", article: "", characters: [] };
-
-const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-
-/**
- * "5 พ.ย. 14:20" from `2026-11-05T14:20:00+07:00`: the wall time the backend wrote, which is
- * the machine's own clock, read straight from the text so no time zone can shift it.
- */
-export function editedAt(iso: string): string {
-  const [, month, day, hour, minute] = /^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso) ?? [];
-  if (!month) return iso;
-  return `${Number(day)} ${THAI_MONTHS[Number(month) - 1]} ${hour}:${minute}`;
-}
-

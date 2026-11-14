@@ -149,6 +149,36 @@ class ProjectPaths:
         return self.sounds_dir / ".partial"
 
     @property
+    def drum_samples_dir(self) -> Path:
+        """The drum samples, under their path in the pinned repo (video-gen D11, D19)."""
+        return self.models_dir / "drums"
+
+    @property
+    def drum_kit_marker(self) -> Path:
+        """Written by setup once every drum sample matches its sha256."""
+        return self.markers_dir / "drum_kit"
+
+    @property
+    def drums_dir(self) -> Path:
+        """Everything the สอนกลอง tab keeps (video-gen spec › Data, D10)."""
+        return self.root / "media" / "drums"
+
+    @property
+    def lessons_dir(self) -> Path:
+        return self.drums_dir / "lessons"
+
+    @property
+    def drums_partial_dir(self) -> Path:
+        """Background pictures not received in full yet: `.tmp` files, so start-up's
+        `files.remove_unfinished(drums_dir)` removes them."""
+        return self.drums_dir / ".partial"
+
+    @property
+    def drums_render_dir(self) -> Path:
+        """The running Render job's copies, wav and ASS file; removed when it ends (video-gen spec › Data)."""
+        return self.drums_dir / ".render"
+
+    @property
     def toon_dir(self) -> Path:
         """Everything the การ์ตูนเล่า tab keeps (toon spec › ข้อมูล, ADR 0003)."""
         return self.root / "media" / "toon"

@@ -21,6 +21,9 @@
 - `xfade=transition=fade:duration=D:offset=O` lays the second input's start over the first from `O` seconds (counted on the first input, which may itself be an earlier `xfade`); the output is `D` shorter than the two together. Both inputs need the same size, pixel format and frame rate — [xfade](https://ffmpeg.org/ffmpeg-filters.html#xfade)
 - `acrossfade=d=D` overlaps the end of the first audio with the start of the second by `D` seconds (`o` overlap, default on): `D` shorter in all — [acrossfade](https://ffmpeg.org/ffmpeg-filters.html#acrossfade)
 - `aloop=loop=-1:size=N` loops only the first `N` samples and holds them all in memory; to loop a whole long file put `-stream_loop -1` before its `-i` instead — [aloop](https://ffmpeg.org/ffmpeg-filters.html#aloop), [main options](https://ffmpeg.org/ffmpeg.html#Main-options)
+- `-f rawvideo -pix_fmt rgb24 -s 1080x1920 -r 30 -i -` reads raw frames from stdin, `1080×1920×3` bytes each; the input ends when stdin closes. With `-i audio.wav` as a second input, `-vf` applies to the first video stream — [rawvideo demuxer](https://ffmpeg.org/ffmpeg-formats.html#rawvideo)
+- An output named `….mp4.partial` needs `-f mp4`: the muxer is guessed from the name otherwise
+- `h264_videotoolbox` without `-b:v` encodes at a low default bitrate; give one (or `-q:v`) — `ffmpeg -h encoder=h264_videotoolbox`
 - `-movflags +faststart` moves the `moov` atom to the front so a player can start before the whole file arrives — [mov muxer](https://ffmpeg.org/ffmpeg-formats.html#mov_002c-mp4_002c-ismv)
 
 ## Pattern
@@ -40,6 +43,8 @@ command = [ffmpeg, "-nostdin", "-v", "error", "-y", "-ss", f"{start:.3f}", "-i",
 - On Windows a drive letter is a `:`: the bare-name-and-`cwd` way avoids it too
 - `-ss` before `-i` seeks the input (fast, to the keyframe, then decodes to the exact time); a `-t` after the input limits the output's length
 - Clips that end before `-t` simply end early: pad with `tpad` / `apad` when a length must hold
+- A bad `ass` option (`ass=f.ass:nope=1`) stops ffmpeg before the first frame ("Option not found"); a `fontsdir` that doesn't exist does not — libass falls back to other fonts
+- `crop=1:1` of yuv420p video fails: crop to an even size (2×2)
 - There is no ffprobe in imageio-ffmpeg (ADR 0005): read `Duration:` and `Stream … 1080x1920` from `ffmpeg -i` stderr
 
 ## ASS files (libass)
@@ -53,5 +58,6 @@ command = [ffmpeg, "-nostdin", "-v", "error", "-y", "-ss", f"{start:.3f}", "-i",
 ## Sources
 
 - `ffmpeg -h filter=ass|tpad|amix|concat|gblur|apad` of the bundled 7.1 binary (read 2026-11-03); `zoompan|eq|xfade|aloop|acrossfade` (read 2026-11-10)
+- [FFmpeg formats: rawvideo](https://ffmpeg.org/ffmpeg-formats.html#rawvideo) — frames from stdin (accessed 2026-11-13); the `ass` option and crop traps checked on the bundled 7.1 (2026-11-13)
 - [FFmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) — filtergraph escaping, `ass`, `scale` (accessed 2026-11-03)
 - [ASS override tags](https://aegisub.org/docs/latest/ass_tags/) — `\an`, `\pos`, `\fs`, `\bord`, colours (accessed 2026-11-03)

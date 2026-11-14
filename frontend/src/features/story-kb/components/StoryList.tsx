@@ -7,7 +7,7 @@ import bookOpenIcon from "../assets/book-open.svg";
 import chevronRightIcon from "../assets/chevron-right.svg";
 import plusWhiteIcon from "../../../components/ui/assets/plus-white.svg";
 import { useStories } from "../hooks/useStories";
-import { editedAt } from "../lib/story";
+import { editedAt } from "../../../lib/format";
 import { NEW_STORY_HASH, storyHash, type StoryRow } from "../../../lib/stories";
 
 /** Figma `คลังความรู้`: every Story, latest edit first, each a link to แก้ Story (D9). */

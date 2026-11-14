@@ -2,7 +2,7 @@
 every gate reads the checklist the same way (ADR 0009, spoil-maker spec › Status check).
 Each check looks its probe and the OS up when it runs, so a test's fakes are the ones it calls."""
 
-from backend import checks, fonts
+from backend import checks, drum_kit, fonts
 from backend.errors import Row
 from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE
 from backend.paths import ProjectPaths
@@ -64,8 +64,22 @@ def voice(project: ProjectPaths) -> dict[str, Row]:
     return DEVICE | omnivoice | PYTHAINLP
 
 
+def _kanit(project: ProjectPaths) -> dict[str, Row]:
+    """The font every ASS file's text is set in."""
+    return {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
+
+
 def render(project: ProjectPaths, voices_first: bool) -> dict[str, Row]:
     """What every Render job's ffmpeg needs: ffmpeg, Kanit and pythainlp (each spec › Status
     check); a job that voices first adds the Voice job's rows."""
-    kanit: dict[str, Row] = {fonts.CHECK_ID: (fonts.LABEL, lambda: fonts.check_kanit(project))}
-    return FFMPEG | kanit | PYTHAINLP | (voice(project) if voices_first else {})
+    return FFMPEG | _kanit(project) | PYTHAINLP | (voice(project) if voices_first else {})
+
+
+def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:
+    """The drum samples, all ฟังจังหวะ needs (video-gen spec › API)."""
+    return {drum_kit.CHECK_ID: (drum_kit.LABEL, lambda: drum_kit.check_drum_kit(project))}
+
+
+def drums(project: ProjectPaths) -> dict[str, Row]:
+    """What a drum lesson's Render job needs: the samples, Kanit, ffmpeg and pythainlp (video-gen D11, D22)."""
+    return drum_kit_row(project) | _kanit(project) | FFMPEG | PYTHAINLP

@@ -20,7 +20,7 @@ from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
 
-from backend import fonts, paths
+from backend import drum_kit, fonts, paths
 from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, WHISPER, ModelSpec, qwen_for
 from backend.paths import ProjectPaths
 
@@ -395,6 +395,8 @@ def run_checks(
         *qwen_rows,
         _item("pythainlp", "pythainlp", lambda: check_pinned(probes.pythainlp, PYTHAINLP_VERSION), fixes.setup),
         _item(fonts.CHECK_ID, fonts.LABEL, lambda: fonts.check_kanit(project), fixes.setup),
+        # The สอนกลอง tab's samples follow Kanit (video-gen spec › Status check and Setup).
+        _item(drum_kit.CHECK_ID, drum_kit.LABEL, lambda: drum_kit.check_drum_kit(project), fixes.setup),
         # The การ์ตูนเล่า tab's rows follow Kanit (toon spec › Status check).
         _model_item(project, KLEIN, fixes.setup, sys_platform),
         _model_item(project, KLEIN_GGUF, fixes.setup, sys_platform),
