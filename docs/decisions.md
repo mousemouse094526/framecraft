@@ -405,3 +405,4 @@ question; the full entry is in the feature's decisions.md.
 | หน้า render ก่อนมีแบบ: เล่นผลใหม่สุด, ปุ่มกดไม่ได้ระหว่าง render, ลิงก์ผล render | [video-gen](features/video-gen/decisions.md) | D35 | — | — | active |
 | ภาพพื้นหลังบทเรียนกลองส่งแบบ ADR-0028: `background/check` ก่อน แล้ว `PUT ?size=` body ดิบ | [video-gen](features/video-gen/decisions.md) | D36 | — | [0028](adr/0028-raw-file-upload-per-route.md) | active |
 | ภาพพื้นหลัง: `GET background.jpg?v=`, `PUT`/`DELETE` ตอบบทเรียน, `413`, `.tmp` ใน `drums/.partial`, JPEG 92, ไม่มีแถบ %, ฟอร์มที่ยังไม่บันทึกอยู่ต่อ | [video-gen](features/video-gen/decisions.md) | D37 | — | — | active |
+| ส่ง feature ด้วยหน้าตาเดิมของแอป ปิด Blocked design โดยอ้าง ui-prompt.md; แบบ Figma เป็น change request ภายหลัง | [video-gen](features/video-gen/decisions.md) | D38 | — | — | active |

@@ -1,11 +1,11 @@
 # Progress: video-gen
 
-**Now:** feature review เสร็จ (`43ed0a9`) CI เขียว; ยังเปิด PR ไม่ได้: Blocked 1–3 แบบ Figma ของสามหน้ายังไม่มี และเจ้าของยังต้องเช็คเอง (render คลิปจริงเทียบคลิปอ้างอิง, ฟัง sample จริง, ภาพพื้นหลังจริง)
+**Now:** ready to merge — feature review เสร็จ (`43ed0a9`) CI เขียว; Blocked 1–3 ปิดด้วย D38 (หน้าตาเดิมของแอป, แบบ Figma ทำทีหลังจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md)); เจ้าของยังเช็คเอง: render คลิปจริงเทียบคลิปอ้างอิง, ฟัง sample จริง, ภาพพื้นหลังจริง
 
-**Next:** ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) แล้ว
+**Next:**
 
 ```
-/warroom video-gen
+/pr-open
 ```
 
 ## Tickets
@@ -111,6 +111,6 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01 | design: รายการบทเรียนกลอง — ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) | `/warroom video-gen` พร้อมลิงก์แบบ | open |
-| 2 | 01 | design: หน้าแก้บทเรียนกลอง — ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) | `/warroom video-gen` พร้อมลิงก์แบบ | open |
-| 3 | 02 | design: ผล render ของบทเรียน — ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) | `/warroom video-gen` พร้อมลิงก์แบบ | open |
+| 1 | 01 | design: รายการบทเรียนกลอง — ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) | `/warroom video-gen` พร้อมลิงก์แบบ | done (D38: ใช้หน้าตาเดิมของแอปไปก่อน; prompt ของแบบอยู่ใน ui-prompt.md) |
+| 2 | 01 | design: หน้าแก้บทเรียนกลอง — ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) | `/warroom video-gen` พร้อมลิงก์แบบ | done (D38: ใช้หน้าตาเดิมของแอปไปก่อน; prompt ของแบบอยู่ใน ui-prompt.md) |
+| 3 | 02 | design: ผล render ของบทเรียน — ทำแบบจาก [ui-prompt.md](../../features/video-gen/ui-prompt.md) | `/warroom video-gen` พร้อมลิงก์แบบ | done (D38: ใช้หน้าตาเดิมของแอปไปก่อน; prompt ของแบบอยู่ใน ui-prompt.md) |

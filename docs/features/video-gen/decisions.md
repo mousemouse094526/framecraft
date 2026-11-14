@@ -476,3 +476,15 @@
 **Why:** ข้อเลือกภายใน feature ที่ไม่เปลี่ยนสิ่งที่ spec สัญญา; หน้าตาใช้ของเดิมของแอปจนกว่าแถว design ของหน้าแก้จะปิด (D29).
 
 **From:** build ticket 03 · **Status:** active
+
+## D38: ส่ง feature ด้วยหน้าตาเดิมของแอป ทำแบบ Figma ทีหลัง
+
+**Chosen:** เปิด PR เข้า `develop` โดยสามหน้า (รายการบทเรียน, หน้าแก้, ผล render) ใช้ส่วนของแอปที่มีอยู่ตาม D29, D35, D37; ปิด Blocked 1–3 โดยอ้าง [ui-prompt.md](ui-prompt.md) ซึ่งเก็บ prompt ของทั้งสามหน้าไว้; spec › Design ของทั้งสามหน้ายัง `pending` และแบบที่ได้มาภายหลังเป็น change request (`/warroom video-gen` พร้อมลิงก์แบบ)
+
+**Why:** เจ้าของสั่งให้เปิด PR โดยไม่ต้องรอแบบ Figma: ใช้หน้าตาเดิมของแอปไปก่อน แล้วทำ UI ตามแบบทีหลัง
+
+**Rejected:**
+- รอแบบ Figma ของสามหน้าก่อนเปิด PR — feature ใช้งานได้ครบแล้วและผ่าน feature review; ไม่ควรค้างเพราะหน้าตา
+
+**From:** feature review · **Status:** active
+
