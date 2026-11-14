@@ -2,8 +2,8 @@ import { useCallback, useEffect } from "react";
 import { getJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
 import { SERIES_PATH, seriesPath, type ListedSeries } from "../lib/series";
-import { sendEdit } from "../lib/edit";
-import type { Notice } from "../lib/notice";
+import { sendEdit } from "../../../lib/edit";
+import type { Notice } from "../../../lib/notice";
 
 export type SeriesListState =
   | { kind: "loading" }

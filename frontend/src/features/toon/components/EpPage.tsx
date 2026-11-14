@@ -6,7 +6,7 @@ import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyle
 import { useEp } from "../hooks/useEp";
 import { epLabel } from "../lib/episodes";
 import { epHash, isRunning, plotHash, seriesHash, type ToonJob } from "../lib/series";
-import { NoticeLine } from "./NoticeLine";
+import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { JobBanner } from "./JobBanner";
 import { PlotView } from "./PlotView";
 import { StorylineView } from "./StorylineView";

@@ -1,6 +1,6 @@
 // The Figma "Button" looks; each caller adds its own height and padding.
 export const PRIMARY_BUTTON =
-  "shrink-0 rounded-lg bg-brand font-button text-sm leading-5 font-medium text-card hover:opacity-90 disabled:opacity-60";
+  "flex shrink-0 items-center justify-center gap-2 rounded-lg bg-brand font-button text-sm leading-5 font-medium text-card hover:opacity-90 disabled:opacity-60";
 
 // The Figma "Button" secondary: a grey fill, as ตัดช่วง, เพิ่มช่วง and the trim section's ยกเลิก (spoil D44).
 export const SECONDARY_BUTTON =

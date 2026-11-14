@@ -7,7 +7,7 @@ import logging
 
 from pydantic import BaseModel
 
-from backend import gate_rows
+from backend import gate_rows, sounds
 from backend.errors import ApiError, JobFailed, invalid_request
 from backend.paths import EpAddress, ProjectPaths
 from backend.toon import episodes, plot, series, steps, store, writer
@@ -66,19 +66,19 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
     )
     known = writer.known(ep.plot, cast)
     characters, backgrounds = known["characters"], known["backgrounds"]
-    sounds = store.read_sounds(project)
+    library = sounds.list_all(project)
     chars_per_act = round(episodes.TARGET_S / len(ep.acts) * plan.chars_per_s)
     ids = {i.id for act in ep.acts for segment in act.segments for i in [segment, *segment.cards]}
     qwen = steps.Qwen(job, project)
     written: dict[str, list] = {}
     for done, act_id in enumerate(plan.act_ids, start=1):
         index = next(i for i, act in enumerate(ep.acts) if act.id == act_id)
-        prompt = writer.cards_prompt(cast.tone, ep.acts, index, characters, backgrounds, sounds, chars_per_act)
+        prompt = writer.cards_prompt(cast.tone, ep.acts, index, characters, backgrounds, library, chars_per_act)
         segments = qwen.answer(
             prompt,
             writer.CARDS_MAX_TOKENS,
             lambda reply: writer.parse_cards(
-                reply, [b.id for b in backgrounds], {c.id for c in characters}, {s.id for s in sounds}, ids
+                reply, [b.id for b in backgrounds], {c.id for c in characters}, {s.id for s in library}, ids
             ),
             f"cards of act {index + 1}",
         )
@@ -92,12 +92,12 @@ def run(job: steps.Run, project: ProjectPaths, plan: CardsPlan) -> None:
             getattr(series_now, item_kind).extend(items)
         ep_address = EpAddress(project, plan.series.id, ep.id)
         ep_now = store.read_ep(ep_address)
-        in_library = {s.id for s in store.read_sounds(project)}  # a sound deleted while Qwen wrote: none
         gone = []
         for act in ep_now.acts:
             if act.id in written:
                 for segment in written[act.id]:
-                    if segment.sound is not None and segment.sound.sound_id not in in_library:
+                    # A sound deleted while Qwen wrote: none. Under the store's lock, as a `PATCH` (sound-library D11).
+                    if segment.sound is not None and not sounds.exists(project, segment.sound.sound_id):
                         segment.sound = None
                 gone.extend(card for segment in act.segments for card in segment.cards)
                 act.segments, act.cards_from = written[act.id], act.summary

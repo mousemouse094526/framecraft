@@ -5,13 +5,12 @@ from fastapi.responses import FileResponse
 
 from backend import body_types, paths
 from backend.paths import EpAddress
-from backend.toon import episodes, images, jobs, render, series, sounds, voicing
+from backend.toon import episodes, images, jobs, render, series, voicing
 from backend.toon.episodes import EpView, ListedEp
 from backend.toon.jobs import ToonJob
 from backend.toon.render import RenderResult, ToonRenderJob
 from backend.toon.kinds import ItemKind
 from backend.toon.series import ItemRef, ListedSeries, SeriesView
-from backend.toon.sounds import SoundImport, SoundView
 from backend.uploads import UploadCheck
 
 router = APIRouter(prefix="/toon")
@@ -219,56 +218,6 @@ def get_current_job() -> ToonJob | None:
 @router.delete("/jobs/current", status_code=202)
 def cancel_job() -> ToonJob:
     return jobs.toon_jobs.cancel()
-
-
-@router.get("/sounds")
-def list_sounds() -> list[SoundView]:
-    return sounds.list_all(paths.project())
-
-
-@router.patch("/sounds/{sound_id}")
-def rename_sound(sound_id: str, body: dict[str, Any]) -> SoundView:
-    return sounds.rename(paths.project(), sound_id, body)
-
-
-@router.delete("/sounds/{sound_id}", status_code=204)
-def delete_sound(sound_id: str) -> Response:
-    sounds.delete(paths.project(), sound_id)
-    return Response(status_code=204)
-
-
-@router.get("/sounds/{sound_id}/file")
-def get_sound_file(sound_id: str) -> FileResponse:
-    return FileResponse(sounds.sound_file(paths.project(), sound_id), media_type="audio/mp4")
-
-
-# A Sound import (spec › API): a file is `/imports` (one request), a link `/downloads` (a job);
-# `/import/current` is the latest link's, the only one that runs on after its request.
-@router.post("/sounds/imports/check")
-def check_sound_import(body: dict[str, Any]) -> UploadCheck:
-    return sounds.sound_imports.check(body)
-
-
-@router.post("/sounds/imports", status_code=201, dependencies=[Depends(body_types.require_octet_stream)])
-async def import_sound(request: Request, name: str | None = None, size: str | None = None) -> SoundView:
-    """The body is the sound file itself (ADR 0028)."""
-    return await sounds.sound_imports.receive(name, size, request.stream(), request.is_disconnected)
-
-
-@router.post("/sounds/downloads", status_code=202)
-def download_sound(body: dict[str, Any]) -> SoundImport:
-    return sounds.sound_imports.start(body)
-
-
-@router.get("/sounds/import/current")
-def get_current_sound_import() -> SoundImport | None:
-    """The latest link import, or null when none ran since the backend started."""
-    return sounds.sound_imports.current()
-
-
-@router.delete("/sounds/import/current", status_code=202)
-def cancel_sound_import() -> SoundImport:
-    return sounds.sound_imports.cancel()
 
 
 @router.post("/render", status_code=202)

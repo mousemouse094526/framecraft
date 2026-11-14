@@ -98,6 +98,7 @@ export const EMPTY_DRAFT = {
   original_volume: 20,
   top_text: "",
   sentences: [],
+  sound: null,
   estimated_total_s: 0,
   locked: false,
 };
@@ -135,6 +136,7 @@ export function setupDefaults(): [string, unknown][] {
     ["/api/spoil-maker/voice-jobs/current", null],
     ["/api/spoil-maker/renders/current", null],
     ["/api/spoil-maker/renders", []],
+    ["/api/sounds", []],
     [`/api/spoil-maker/clips/${OTHER.id}/shots`, { shots: [] }],
     [EPISODES, cutOf()],
     [`/api/spoil-maker/clips/${OTHER.id}/episodes`, cutOf({ clip_id: OTHER.id, episodes: [epOf(1, 0, 1420)] })],

@@ -35,7 +35,8 @@ backend/
 │                    `application/octet-stream` file on the routes that list
 │                    `require_octet_stream` (ADR 0013, ADR 0028)
 ├── errors.py     ← ApiError (every refusal, `{"code", "message", ...}`),
-│                    JobFailed, `require_rows` (the gate of every job)
+│                    JobFailed, `require_rows` (the gate of every job),
+│                    `checked_text` (a trimmed text field within its length)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
@@ -73,6 +74,15 @@ backend/
 ├── setup.py      ← entry point: python -m backend.setup
 ├── qwen_tokens.py← an EP's lines and a Story block counted to Qwen behind its
 │                    Status check row (spoil-maker D46, story-kb D14)
+├── ids.py        ← `new_id`: `{prefix}_` and 8 hex digits, the id of a Series, an EP, a sound…
+├── sounds.py     ← the sound library of the whole app (sound-library, ADR 0037):
+│                    `media/sounds/` (`sounds.json`, `{id}.m4a`, `.partial/`), its own
+│                    lock, its Sound import slot (a file in one request, which a page
+│                    gone during ffmpeg never brings in, a link through spoil's adapter
+│                    with `LINK_OPTIONS`), `exists`/`path` for the tabs that keep a
+│                    `sound_id`, `sound_users` (each registers its tab, a function
+│                    giving its lock, and `playing`, the labels of what plays a sound; locks taken in `LOCK_ORDER`, ADR 0038), and `move_legacy` at start (D10); it imports
+│                    neither toon nor spoil_maker
 ├── stories.py    ← the คลังความรู้ tab (story-kb, ADR 0023): Stories and the
 │                    Story each clip remembers in `media/stories/`, their
 │                    checks, the Story block of the LLM prompts and its tokens;
@@ -107,7 +117,7 @@ backend/
 │                    D3); llm's, llm_windows's and tts's `worker` run in a
 │                    child process; `llm.TIMEOUTS` holds each OS's timeouts
 ├── toon/         ← the การ์ตูนเล่า tab (toon spec): store (`series.json`,
-│                    `ep.json` and `sounds.json` on disk, the tab's one lock),
+│                    `ep.json` on disk, the tab's one lock),
 │                    kinds (what differs between characters and backgrounds,
 │                    one row each: code that handles both reads it, never
 │                    `kind == "characters"`), series (Series, characters,
@@ -134,10 +144,7 @@ backend/
 │                    which cards it draws, each picture it writes, swapping
 │                    back), voicing (Voice job: a card's narration), klein (the
 │                    only diffusers import; two children one after the other:
-│                    `encoder_worker`, then `drawer_worker`, D34, D77), sounds (the background sound library and
-│                    its Sound import slot: a file in one request, which a page
-│                    gone during ffmpeg never brings in, a link
-│                    through spoil's adapter with `LINK_OPTIONS`), render (the
+│                    `encoder_worker`, then `drawer_worker`, D34, D77), render (the
 │                    Render job, its own slot, and an EP's renders), compose (a
 │                    render's timeline, its ffmpeg commands and its ASS file,
 │                    through `subtitles`)
@@ -209,6 +216,9 @@ through a queue; the thread writes the result file (ADR 0012).
   then the GPU slot's own (inside `GpuSlot`); never the other way round.
   `toon.store.lock` comes after `draft_lock` and before the GPU slot's own (a
   Series' `voice_id` is written under `draft_lock`, toon D25).
+  `sounds.lock` comes after every feature's lock (`draft_lock`, `toon.store.lock`) and
+  before the GPU slot's own; a delete of a sound takes each registered user's lock by
+  `sounds.LOCK_ORDER`, then `sounds.lock` (sound-library D7, D11, ADR 0038).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).

@@ -1,9 +1,9 @@
-import { sendFile, type FileUpload } from "../../../lib/api";
-import type { Refusal } from "../../../lib/refusal";
+import { sendFile, type FileUpload } from "./api";
+import type { Refusal } from "./refusal";
 import { sendEdit } from "./edit";
 import { noticeOf, type Notice } from "./notice";
 
-/** A file the tab takes in through `{path}/check` (its `checkBody`), then `{path}?{query}` (ADR 0028). */
+/** A file a page takes in through `{path}/check` (its `checkBody`), then `{path}?{query}` (ADR 0028). */
 export type FileToSend = {
   path: string;
   checkBody: unknown;

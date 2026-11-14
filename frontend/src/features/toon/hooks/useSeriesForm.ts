@@ -9,9 +9,9 @@ import {
   type Series,
   type SeriesFields,
 } from "../lib/series";
-import { sendEdit } from "../lib/edit";
-import type { Notice } from "../lib/notice";
-import { useReadyState } from "./useReadyState";
+import { sendEdit } from "../../../lib/edit";
+import type { Notice } from "../../../lib/notice";
+import { useReadyState } from "../../../lib/useReadyState";
 
 export type SeriesFormState =
   | { kind: "loading" }

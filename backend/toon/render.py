@@ -19,7 +19,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, disk, ffmpeg, gate_rows, gpu, paths, renders, speaking, subtitles
+from backend import checks, disk, ffmpeg, gate_rows, gpu, paths, renders, sounds, speaking, subtitles
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
 from backend.jobs import ModelJobSlot, short
@@ -261,7 +261,7 @@ def _copy_in(ep_address: EpAddress, ep: Ep, work: Path) -> tuple[list[Placed], l
             if segment.sound is not None:
                 sound = f"{segment.sound.sound_id}.m4a"
                 if not (work / sound).is_file():
-                    source = ep_address.project.toon_sounds_dir / sound
+                    source = sounds.path(ep_address.project, segment.sound.sound_id)
                     if not source.is_file():
                         raise JobFailed("internal", CHANGED)
                     shutil.copyfile(source, work / sound)

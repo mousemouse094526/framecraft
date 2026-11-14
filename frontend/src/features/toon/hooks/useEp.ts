@@ -2,12 +2,12 @@ import { useCallback, useEffect } from "react";
 import { getJson } from "../../../lib/api";
 import type { Refusal } from "../../../lib/refusal";
 import { epPath, readEpAndSeries, type Ep, type LostCards } from "../lib/episodes";
-import { SOUNDS_PATH, type Sound } from "../lib/sounds";
+import { fetchSounds, type Sound } from "../../sound-library/lib/sounds";
 import { epHash, JOB_PATH, startToonJob, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
-import { sendEdit } from "../lib/edit";
-import { NOT_NOW, type Notice } from "../lib/notice";
+import { sendEdit } from "../../../lib/edit";
+import { NOT_NOW, type Notice } from "../../../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
-import { useReadyState } from "./useReadyState";
+import { useReadyState } from "../../../lib/useReadyState";
 
 export type EpState =
   | { kind: "loading" }
@@ -43,7 +43,7 @@ export function useEp(epId: string) {
       const [{ ep, series }, job, sounds] = await Promise.all([
         readEpAndSeries(epId),
         getJson<ToonJob | null>(JOB_PATH),
-        getJson<Sound[]>(SOUNDS_PATH),
+        fetchSounds(),
       ]);
       setState((s) => ({
         kind: "ready",

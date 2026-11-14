@@ -18,13 +18,12 @@ from typing import NamedTuple
 from backend.ffmpeg import exe
 from backend.paths import ProjectPaths
 from backend import subtitles
+from backend.sounds import AUDIO_BITRATE, AUDIO_RATE
 from backend.subtitles import BLACK, WHITE, Timed
 from backend.toon.store import Layout, Motion
 
 FPS = 30
 WIDTH, HEIGHT = 1080, 1920
-AUDIO_RATE = 48_000  # the mix's, and the sound library's (`sounds`)
-AUDIO_BITRATE = "192k"
 FADE_S = 0.3  # between cards (D4)
 SOUND_FADE_S = 1.0  # between background sounds (D17)
 

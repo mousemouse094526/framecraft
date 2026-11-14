@@ -6,7 +6,7 @@ import { RefreshButton } from "../../../components/ui/RefreshButton";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import circleAlert24Icon from "../assets/circle-alert-24.svg";
-import infoIcon from "../assets/info.svg";
+import infoIcon from "../../../components/ui/assets/info.svg";
 import loader24Icon from "../assets/loader-24.svg";
 import radio18Icon from "../assets/radio-18.svg";
 import radioSelected18Icon from "../assets/radio-selected-18.svg";

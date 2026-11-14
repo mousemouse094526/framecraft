@@ -210,7 +210,7 @@
 - แยกในแต่ละ Series — เสียงเดียวกันต้องเอาเข้าหลาย Series
 - คลังกลางพร้อมป้ายหมวดที่ Series เลือก — ต้องติดป้ายทุกเสียง
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** superseded by sound-library D1
 
 ## D17: เสียงพื้นเล่นต่อข้ามช่วงที่ใช้เสียงเดียวกัน ผสมเมื่อเปลี่ยน
 
@@ -765,7 +765,7 @@
 - ไฟล์เสียงเป็นงาน poll แบบลิงก์ — File import ของ spoil เป็น request เดียวอยู่แล้ว (ADR 0028)
 - `aloop` ตาม spec — เสียง 20 นาทีที่ 48 kHz stereo ใช้ memory ราว 460 MB
 
-**From:** build ticket 04 · **Status:** active
+**From:** build ticket 04 · **Status:** changed by sound-library D6
 
 ## D57: Plot job และ Cards job บน EP ที่กำลัง render เป็น `ep_busy`
 
@@ -1023,7 +1023,7 @@
 - `version` ที่ใหม่กว่า (ใช้ app เก่ากับข้อมูลของ app ใหม่) อ่านอย่างเดียว — ต้องมีสถานะและข้อความใหม่บนจอเพื่อกรณีที่แอปเครื่องเดียวแทบไม่เกิด; ยอมเสียชื่อ ไฟล์เดิมอยู่ใน `.bad-*`
 - probe ทุกไฟล์ตอนกู้ระหว่างทำงาน — ถือ `store.lock` ที่ทุก request ของ tab รอ
 
-**From:** blocked #30 · **Status:** active
+**From:** blocked #30 · **Status:** changed by sound-library D6
 
 ## D71: `store.reconcile_sounds`, `ffmpeg.probe(timeout=)`, `KindRow.plot_max`
 
@@ -1044,7 +1044,7 @@
 - `store` import `ffmpeg` เพื่อ probe เอง — store เป็นแค่ไฟล์บนดิสก์; ผู้เรียกบอกวิธีวัดความยาว
 - เช็ค m4a ทุก `read_sounds` — สแกน folder ทุก request ของ tab
 
-**From:** build ticket 13 · **Status:** active
+**From:** build ticket 13 · **Status:** changed by sound-library D6
 
 ## D72: `sendEdit` ทางเดียวของทุกคำขอที่เปลี่ยนของ ticket 14
 

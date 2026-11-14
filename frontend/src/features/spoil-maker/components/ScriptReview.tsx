@@ -7,12 +7,14 @@ import fileTextIcon from "../assets/file-text-36.svg";
 import triangleAlertIcon from "../assets/triangle-alert-24.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { useDraftProgress } from "../hooks/useDraftProgress";
+import { useLibrarySounds } from "../hooks/useLibrarySounds";
 import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
 import { epLabel, reviewJobText, SETUP_HASH, TOP_TEXT_LABELS, type Draft } from "../lib/draft";
 import { markNumbersOverTopText, type Watermark } from "../lib/render";
 import type { RefusalLine } from "../../../lib/refusal";
+import { BackgroundSound } from "./BackgroundSound";
 import { DraftNotice, DraftProgressCard } from "./DraftProgress";
 import { PolishDialog } from "./PolishDialog";
 import { ReviewBanner } from "./ReviewBanner";
@@ -56,7 +58,7 @@ export function ScriptReview() {
 
 /**
  * Step 2 of the สปอย tab, ตรวจแก้บท (Figma `Script review`): the text on top, the length,
- * every sentence with its voice, the original sound and the watermarks beside them, the
+ * every sentence with its voice, the original and background sounds and the watermarks beside them, the
  * sticky footer that voices and renders, and เรียบเรียงใหม่ (spoil-maker D19, D25–D27, D30,
  * D40–D42, D51, D72–D76).
  */
@@ -65,6 +67,7 @@ function ScriptReviewBody() {
   const { state } = review;
   const { jobs, ...run } = useReviewJobs(review.refresh, review.goOffline);
   const video = useVideoSettings();
+  const library = useLibrarySounds();
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
 
@@ -138,6 +141,16 @@ function ScriptReviewBody() {
           <VideoSettings
             volume={draft.original_volume}
             onVolume={async (original_volume) => (await review.changeDraft({ original_volume })).kind === "saved"}
+            backgroundSound={
+              <BackgroundSound
+                sound={draft.sound}
+                sounds={library.sounds}
+                unreadable={library.unreadable}
+                locked={locked}
+                onChange={review.changeSound}
+                onSoundGone={() => void library.reload()}
+              />
+            }
             settings={video.state}
             watermarks={video.watermarks}
             locked={locked}
@@ -281,7 +294,7 @@ function NoDraft() {
       <img src={fileTextIcon} alt="" width={36} height={36} />
       <p className="text-base font-semibold text-foreground">ยังไม่มีบท</p>
       <p className="text-sm text-mid">ร่างบทจากหน้าตั้งค่าคลิปสปอยก่อน แล้วกลับมาตรวจที่นี่</p>
-      <a href={SETUP_HASH} className={`flex h-11 items-center gap-2 px-6 ${PRIMARY_BUTTON}`}>
+      <a href={SETUP_HASH} className={`h-11 px-6 ${PRIMARY_BUTTON}`}>
         <img src={arrowRightIcon} alt="" width={16} height={16} />
         ไปที่ตั้งค่าคลิปสปอย
       </a>

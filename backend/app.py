@@ -12,16 +12,16 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.exceptions import HTTPException
 from starlette.requests import ClientDisconnect
 
-from backend import body_types, errors, files, paths, stories, workers
+from backend import body_types, errors, files, paths, sounds, stories, workers
 from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.routes import setup_status, spoil, spoil_maker, toon
+from backend.routes import sounds as sounds_routes
 from backend.routes import stories as stories_routes
 from backend.spoil import clips, downloads, transcribe, trim
 from backend.spoil_maker import describe, draft, episodes, render, shots, voices
 from backend.toon import jobs as toon_jobs
 from backend.toon import render as toon_render
-from backend.toon import sounds as toon_sounds
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ JOB_HOLDERS = (
     JobEntry(lambda: render.render_jobs, render.clean_on_start),
     JobEntry(lambda: toon_jobs.toon_jobs, toon_jobs.clean_on_start),
     JobEntry(lambda: toon_render.render_jobs, toon_render.clean_on_start),
-    JobEntry(lambda: toon_sounds.sound_imports, toon_sounds.clean_on_start),
+    JobEntry(lambda: sounds.sound_imports, sounds.clean_on_start),
 )
 
 
@@ -91,6 +91,7 @@ async def lifespan(app: FastAPI):
     workers.dump_stacks_on_signal()  # a job that hangs: where it waits (toon D76)
     # Jobs don't survive a restart, so their leftovers go (spoil D15, D29).
     project = paths.project()
+    sounds.move_legacy(project)  # before the library's clean empties the `.partial/` it brings (D10)
     for job in JOB_HOLDERS:
         if job.clean_on_start:
             job.clean_on_start(project)
@@ -141,4 +142,5 @@ app.include_router(spoil.router, prefix="/api")
 app.include_router(spoil_maker.router, prefix="/api")
 app.include_router(stories_routes.router, prefix="/api")
 app.include_router(stories_routes.clips_router, prefix="/api")
+app.include_router(sounds_routes.router, prefix="/api")
 app.include_router(toon.router, prefix="/api")
