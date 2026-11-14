@@ -1,11 +1,11 @@
 # Progress: drum-notes
 
-**Now:** ทุก ticket done (01–04); รอ feature review + เจ้าของฟังเทียบ (ตาราง intro ของ 03, kalimba ของ 04) + แบบ Figma สองหน้า (Blocked 1–2)
+**Now:** ทุก ticket done (01–04) และ feature review ผ่าน (`56767e3`); รอเจ้าของ: แบบ Figma สองหน้า (Blocked 1–2), ฟังเทียบ (Blocked 5), สามคำถาม spec (Blocked 4); refactor ที่เหลือ (Blocked 3) ตัดเป็น ticket ได้. ไม่มี PR จนกว่า Blocked จะปิด (และ `feat/video-gen` ที่ branch นี้ต่อจากยังไม่ merge)
 
 **Next:**
 
 ```
-/warroom-build drum-notes --review-feature
+/warroom drum-notes
 ```
 
 ## Tickets
@@ -18,6 +18,18 @@
 | 04 | โหมดทำนอง | done |
 
 ## Log
+
+### Feature review — 2026-11-14
+
+**Checks:** `uv run pytest` 1382 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 545 passed; `npm --prefix frontend run build` ผ่าน (หลังแก้). จุดตั้ง `ea3a1b9` (ปลาย `feat/video-gen` ที่ branch นี้ต่อจาก; merge-base กับ `develop` รวม video-gen ด้วย).
+
+**Standards:** 5 ก้ำกึ่งกติกา (แก้ 3: `BAR_COUNTS` ผู้ใช้เดียวย้ายมา feature; Alert + FixCommand สามสำเนา → `components/ui/RefusedAlert`; test query `<audio>` ทั้งหน้า → ในส่วน "เพลง"; ยอมรับ 2: fixture ไม่สลับ `gpu.slot` ตามแบบ toon sounds/video-gen render, `threading.Timer` ใน test `run_capture` ไม่ขึ้นกับเวลา — D27) + smell 12 (แก้ 6: `fixesFor`, `isPicking`, `Pick` → `Choice`, `Hit` → `FoundHit`, `setup.OpenSession`, ข้อความไทยของ imports เป็นค่าคงที่, `np` ใน `pick` ใต้ `TYPE_CHECKING`; Blocked 3: `JobSlot.cancel` ร่วม, รูป "ปฏิเสธ" สี่แบบ, แยก `score.py`, ตารางต่อโหมด, `_take_in` clump, `SongImports.start` tuple, `Range` ชน DOM)
+
+**Spec:** 1 **bug** (แก้: ช่วงตั้งต้นจากความยาวก่อนปัด → `POST /pick` ครั้งแรก `400` — `default_range(round(seconds, 1))` + regression test) + 5 ขาด (แก้ 3: `busy` บอกชื่อเพลง, test `413` ที่ `PUT`, test `in_use`; Blocked 4: `Song.title` 1–60; e2e `song_busy` ใช้ทางเดียวกับ `in_use` — ยอมรับ) + 2 นอกที่ขอ (คงไว้ บันทึก D27: ชื่อจาก track name ของ MIDI, หน้า "ไม่พบเพลงนี้") + 2 ลำดับ/รูป (แก้: ลิงก์ก่อน gate; ยอมรับ: แถว Status check ไม่มี repo) + test 2 (แก้: assert ค่าคงที่ GM map; ยอมรับ: `written_song` เขียนไฟล์ตรง — Log 03) + 3 สองทาง (แก้ 2: `Pick` ซ้ำชื่อ, `OpenSession` ซ้ำ; NOTICE มีชื่อผู้เขียน Beat This! อยู่แล้ว) + รายการ For the next ticket ที่ยังค้าง 11 ข้อ → Blocked 3–5
+
+**Newcomer:** สรุป 7 ประโยคตรง spec › Solution ทุกข้อ; เดา 12 จุด (แก้ 4: `Pick` สองความหมาย, `Hit` สองความหมาย, `OpenSession` ซ้ำ, `running`/`picking`; ยอมรับ 8: รหัส D และ "seam" ในคอมเมนต์คือภาษาของเอกสาร; `Placed` TypeVar กับ NamedTuple คนละ module; `not_applicable` ของ `range: null` ไม่เกิดจริง; `imports.ErrorCode` มี `internal`/`disk_full` ที่ไม่มีใน `ERROR_MESSAGES`; `NOT_FOUR_FOUR` สองกรณี (D25); test สุ่ม 100 ชุด = fuzz; `PickJob` error แบนกับ `SongImport` ซ้อน — รูปแบบจาก feature ก่อน)
+
+**Decided:** D27
 
 ### 04: โหมดทำนอง — done 2026-11-14
 
@@ -121,3 +133,6 @@
 |---|---|---|---|---|
 | 1 | 01 | design: รายการเพลง — ทำแบบจาก [ui-prompt.md](../../features/drum-notes/ui-prompt.md) | `/warroom drum-notes` พร้อมลิงก์แบบ | open |
 | 2 | 02 | design: หน้าเพลง — ทำแบบจาก [ui-prompt.md](../../features/drum-notes/ui-prompt.md) | `/warroom drum-notes` พร้อมลิงก์แบบ | open |
+| 3 | review | refactor ที่เหลือจาก feature review (D27): `JobSlot.cancel` ร่วมสาม slot, รูป "API ปฏิเสธ" สี่แบบในหน้าเว็บ, แยก `score.py` เลขสัญญาณ/กฎ Groove, ตารางต่อโหมดแทน `if mode` สามที่, fake Beat This! ถูกเฉพาะ chunk แรก, `Placed.piece: str`, `_take_in` clump, `SongImports.start` tuple; ข้าม feature: `tabOf`/`App`, helper ของ toon | `/warroom tickets drum-notes` | open |
+| 4 | review | spec ต้องเจ้าของ: Beat This! ให้ 2 จังหวะต่อห้องบนท่อนเบา/เพลงทำนอง (รวมห้องเป็นคู่?); `crash` + ไฮแฮทช่องเดียว → crash ได้มือ L (เปลี่ยน D13?); `Song.title` 1–60 ตอนอ่าน | `/warroom drum-notes` | open |
+| 5 | 03, 04 | เจ้าของฟังเทียบ: ตาราง intro ของ `reel.mp4`/SLTS (Log 03) และ kalimba `DdYi7i6t2R8` 0–30 s ห้อง 24–25 โหมดทำนอง (Log 04) แล้วบอกสิ่งที่ต้องแก้ | เจ้าของเปิด `#/songs` แล้วตอบ | open |
