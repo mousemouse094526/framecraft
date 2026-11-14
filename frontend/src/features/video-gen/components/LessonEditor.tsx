@@ -235,7 +235,7 @@ function ListenControl({ fields, listen }: { fields: LessonFields; listen: Retur
       >
         {mixing ? "กำลังผสมเสียง…" : "ฟังจังหวะ"}
       </button>
-      {listen.state.kind === "refused" && <RefusedAlert text={listen.state.text} fixes={listen.state.fixes} />}
+      {listen.state.kind === "refused" && <RefusedAlert refused={listen.state} />}
     </div>
   );
 }
@@ -280,7 +280,7 @@ function RenderControl({ id, fields, render, save }: { id: string; fields: Lesso
           </button>
         </div>
       )}
-      {render.refused && <RefusedAlert text={render.refused.text} fixes={render.refused.fixes} />}
+      {render.refused && <RefusedAlert refused={render.refused} />}
     </div>
   );
 }

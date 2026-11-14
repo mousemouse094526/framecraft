@@ -24,9 +24,9 @@ def list_songs() -> list[SongRow]:
 
 @router.post("/link", response_model=None)
 def start_link(body: dict[str, Any]) -> Response:
-    """`202` with the job, or `200` with the song's id when a YouTube link is a song already (D3): the module says which."""
-    status, content = imports.song_imports.start(body)
-    return JSONResponse(status_code=status, content=content)
+    """`202` with the job, or `200` with the song's id when a YouTube link is a song already (D3)."""
+    started = imports.song_imports.start(body)
+    return JSONResponse(status_code=200 if isinstance(started, KnownSong) else 202, content=started.model_dump())
 
 
 @router.get("/import")

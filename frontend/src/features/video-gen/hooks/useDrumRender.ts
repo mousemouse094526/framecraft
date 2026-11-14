@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
-import { refusalOf } from "../../../lib/refusal";
+import { getJson, sendJson } from "../../../lib/api";
+import { OFFLINE, refusedOf, type Refused } from "../../../lib/refused";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { CANCEL_PATH, isRendering, RENDER_PATH, type DrumRenderJob } from "../lib/render";
-import { fixesFor } from "../../../lib/setupFixes";
-
-const OFFLINE = { text: OFFLINE_TEXT, fixes: [] };
 
 export type DrumRender = {
   /** The latest job, of any lesson: one renders at a time. Null: none since the backend started, or not read yet. */
   job: DrumRenderJob | null;
   /** A start the API refused; `fixes` for `not_ready` (setup-status D26). Cleared by the next start. */
-  refused: { text: string; fixes: string[] } | null;
+  refused: Refused | null;
 };
 
 /**
@@ -54,10 +51,8 @@ export function useDrumRender(onEnded?: (job: DrumRenderJob, startedHere: boolea
           const job = reply.body;
           return setIfMounted({ job, refused: null });
         }
-        const refusal = refusalOf(reply.body);
-        if (!refusal) return setIfMounted((now) => ({ ...now, refused: OFFLINE }));
-        const fixes = await fixesFor(refusal);
-        setIfMounted((now) => ({ ...now, refused: { text: refusal.message, fixes } }));
+        const refused = await refusedOf(reply.body);
+        setIfMounted((now) => ({ ...now, refused }));
       } catch {
         setIfMounted((now) => ({ ...now, refused: OFFLINE }));
       }

@@ -1326,11 +1326,13 @@ BEAT_THIS_FPS = 50
 ADTOF_FPS = 100
 
 
-def logit_peaks(frames: int, every: int, pad_before: int = 0) -> np.ndarray:
-    """Beat This! logits over `frames` output frames: 3.0 every `every` frames counted from the
-    range's first frame (the `pad_before` frames before it are padding), −5.0 elsewhere."""
+def logit_peaks(frames: int, every: int, pad_before: int = 0, first_frame: int = 0) -> np.ndarray:
+    """Beat This! logits over `frames` output frames of a chunk whose first unpadded frame is the
+    range's `first_frame` (the `pad_before` frames before it are padding): 3.0 at every frame of
+    the range that is a multiple of `every`, −5.0 elsewhere — so every chunk agrees on where the
+    beats are, not only the first."""
     logits = np.full(frames, -5.0, np.float32)
-    first = pad_before % every
+    first = (pad_before - first_frame) % every
     logits[first::every] = 3.0
     return logits
 
@@ -1362,8 +1364,9 @@ def drum_activations(frames: int) -> np.ndarray:
 class FakeOnnxRunner:
     """Stands in for `onnx_runner.open_session` (drum-notes D17, D20): opens a model file as a
     `FakeSession` whose `run` answers arrays of the real models' shapes, made up from the input's
-    length — `activations(frames)` for ADTOF, `beat(T, pad_before)` and `downbeat(T, pad_before)`
-    for a Beat This! chunk of `T` output frames, `onset(first_sample)` for a Basic Pitch window
+    length — `activations(frames)` for ADTOF, `beat(T, pad_before, first_frame)` and `downbeat(T, pad_before,
+    first_frame)` for a Beat This! chunk of `T` output frames whose first unpadded frame is the
+    range's `first_frame` (the fake counts chunks: `score.KEPT_FRAMES` kept per chunk before it), `onset(first_sample)` for a Basic Pitch window
     (the fake counts windows to know where each starts, as the job runs them in order, once each).
     It counts what it opened and ran, pauses
     at a step ("adtof", "window 0", "chunk 0", "chunk 1", …) until released, raises `open_error`
@@ -1371,8 +1374,8 @@ class FakeOnnxRunner:
 
     def __init__(self, activations=drum_activations, beat=None, downbeat=None, onset=None, open_error: Exception | None = None, run_error: Exception | None = None):
         self.activations = activations
-        self.beat = beat or (lambda frames, pad_before: logit_peaks(frames, BEAT_THIS_FPS // 2, pad_before))  # every 0.5 s
-        self.downbeat = downbeat or (lambda frames, pad_before: logit_peaks(frames, 2 * BEAT_THIS_FPS, pad_before))  # every 2 s
+        self.beat = beat or (lambda frames, pad_before, first_frame: logit_peaks(frames, BEAT_THIS_FPS // 2, pad_before, first_frame))  # every 0.5 s
+        self.downbeat = downbeat or (lambda frames, pad_before, first_frame: logit_peaks(frames, 2 * BEAT_THIS_FPS, pad_before, first_frame))  # every 2 s
         self.onset = onset or melody_onsets
         self.open_error, self.run_error = open_error, run_error
         self.opened: list[str] = []
@@ -1380,6 +1383,7 @@ class FakeOnnxRunner:
         self.pad_frames: list[list[int]] = []
         self.chunks = 0
         self.windows = 0
+        self.range_frames: int | None = None  # Beat This! frames of the range, from ADTOF's input (drums mode)
         self._paused: dict[str, threading.Event] = {}
         self._reached: dict[str, threading.Event] = {}
 
@@ -1431,11 +1435,19 @@ class FakeSession:
             pad_before, pad_after = (int(n) for n in feeds["pad_frames"])
             self.runner.pad_frames.append([pad_before, pad_after])
             frames = pad_before + score.beat_this_frames(waveform.shape[1]) + pad_after
+            # Where this chunk starts in the range: `beat_this_chunks` lays chunks `KEPT_FRAMES` apart, each
+            # reaching `OVERLAP_FRAMES` back over the one before, except the first (which the model pads instead);
+            # the last is shifted to end with the range, which ADTOF's input told the length of (drums mode;
+            # a melody range in the tests fits one chunk).
+            first_frame = max(0, (self.runner.chunks - 1) * score.KEPT_FRAMES - score.OVERLAP_FRAMES)
+            if pad_after and self.runner.range_frames is not None:
+                first_frame = self.runner.range_frames - score.beat_this_frames(waveform.shape[1])
             self.runner._checkpoint(step)
             self._maybe_fail()
-            return [self.runner.beat(frames, pad_before)[None, :], self.runner.downbeat(frames, pad_before)[None, :]]
+            return [self.runner.beat(frames, pad_before, first_frame)[None, :], self.runner.downbeat(frames, pad_before, first_frame)[None, :]]
         self.runner._checkpoint("adtof")
         self._maybe_fail()
+        self.runner.range_frames = score.beat_this_frames(waveform.shape[1] // 2)  # the same stretch at 22,050 Hz
         frames = -(-waveform.shape[1] // 441)  # ceil(samples / 441)
         return [self.runner.activations(frames)[None, :, :]]
 

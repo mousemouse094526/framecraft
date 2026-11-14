@@ -138,6 +138,7 @@ class SoundImports(ImportSlot[SoundImport]):
     one of the two at a time (toon spec › คลังเสียงพื้น)."""
 
     busy = BUSY
+    nothing_to_cancel = "ไม่มีการเอาเสียงเข้าที่ยังไม่จบ"
 
     # --- a file ---
 
@@ -196,14 +197,6 @@ class SoundImports(ImportSlot[SoundImport]):
             job = self._job.model_copy(deep=True)
         threading.Thread(target=self._run, args=(project, link.url), daemon=True).start()
         return job
-
-    def cancel(self) -> SoundImport:
-        with self._lock:
-            if not self._taken():
-                raise ApiError(404, "not_found", "ไม่มีการเอาเสียงเข้าที่ยังไม่จบ")
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
 
     def _run(self, project: ProjectPaths, url: str) -> None:
         sound_id = _new_sound_id(project)

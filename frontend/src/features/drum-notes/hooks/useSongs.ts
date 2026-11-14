@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getJson, OFFLINE_TEXT, sendFile, sendJson, type FileUpload } from "../../../lib/api";
-import { refusalOf, type Refusal } from "../../../lib/refusal";
-import { fixesFor } from "../../../lib/setupFixes";
+import { getJson, sendFile, sendJson, type FileUpload } from "../../../lib/api";
+import { NOT_NOW, refusedLine, refusedOf, type Refused } from "../../../lib/refused";
+import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
 import { IMPORT_PATH, isImporting, songHash, songPath, SONGS_PATH, type Song, type SongImport, type SongRow } from "../lib/songs";
 import { usePick } from "./usePick";
-
-/** A line above the list: why a link, a file or a delete was refused, with the fix commands a `not_ready` names. */
-export type Notice = { tone: "error" | "warning"; text: string; fixes: string[] };
 
 /** The file being sent: its percent out, then the backend converting it (ADR 0028). */
 export type Upload = { name: string; percent: number; converting: boolean };
@@ -23,21 +20,11 @@ export type SongsState =
       /** The latest link import, null when none ran since the backend started. */
       job: SongImport | null;
       upload: Upload | null;
-      notice: Notice | null;
+      /** A line above the list: why a link, a file or a delete was refused, or how the link import failed. */
+      notice: Refused | null;
     };
 
 type Ready = Extract<SongsState, { kind: "ready" }>;
-
-/** The codes that mean "not now", not "wrong" (toon D72). */
-const NOT_NOW = ["busy", "not_ready"];
-
-/** What a request answered as a notice; `not_ready` brings the fix of each row it names (setup-status D26). */
-async function noticeOf(body: unknown): Promise<Notice> {
-  const refusal = refusalOf(body);
-  if (!refusal) return { tone: "error", text: OFFLINE_TEXT, fixes: [] };
-  const fixes = await fixesFor(refusal);
-  return { tone: NOT_NOW.includes(refusal.code) ? "warning" : "error", text: refusal.message, fixes };
-}
 
 /** The id in a `200` of `/link` or `/check`: the link or file is a song already (D3, D20). */
 function knownIdOf(status: number, body: unknown): string | undefined {
@@ -73,7 +60,7 @@ export function useSongs(onKnownSong: (id: string) => void) {
     job !== null && isImporting(job),
     IMPORT_PATH,
     (next) => {
-      update((s) => ({ ...s, job: next, notice: next?.state === "failed" && next.error ? { tone: "error", text: next.error.message, fixes: [] } : s.notice }));
+      update((s) => ({ ...s, job: next, notice: next?.state === "failed" && next.error ? refusedLine(next.error.message) : s.notice }));
       if (next === null || !isImporting(next)) void load();
     },
     () => setIfMounted({ kind: "offline" }),
@@ -87,10 +74,13 @@ export function useSongs(onKnownSong: (id: string) => void) {
 
   useLeaveGuard(useCallback(() => sending.current !== null, []));
 
-  const showNotice = useCallback(async (body: unknown) => {
-    const notice = await noticeOf(body);
-    update((s) => ({ ...s, notice }));
-  }, [update]);
+  const showNotice = useCallback(
+    async (body: unknown) => {
+      const notice = await refusedOf(body, NOT_NOW);
+      update((s) => ({ ...s, notice }));
+    },
+    [update],
+  );
 
   /** `POST /songs/link`: the job to poll, or the id of a song the link already is. True when something started. */
   const startLink = useCallback(

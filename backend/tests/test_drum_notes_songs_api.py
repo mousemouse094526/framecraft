@@ -449,6 +449,19 @@ def test_the_list_puts_the_latest_change_first_and_leaves_an_unreadable_song_out
     assert client.delete(f"{SONGS}/{broken['id']}").status_code == 204
 
 
+@pytest.mark.parametrize("title", ["", "x" * 61])
+def test_a_song_json_whose_title_is_empty_or_past_60_letters_cant_be_read_either(client, project, tmp_path, caplog, title):
+    # D29: the title rule holds on read, as every other rule of `song.json` does (D20).
+    song = import_song_tone(client, tmp_path)
+    data = json.loads(song_file(project, song["id"]).read_text(encoding="utf-8"))
+    song_file(project, song["id"]).write_text(json.dumps(data | {"title": title}), encoding="utf-8")
+
+    with caplog.at_level("WARNING"):
+        assert client.get(SONGS).json() == []
+    assert f"song {song['id']} can't be read: ValidationError" in caplog.text
+    assert client.get(f"{SONGS}/{song['id']}").status_code == 404
+
+
 @pytest.mark.parametrize("song_id", ["..", "%2E%2E", "a" * 65, "with.dot"])
 def test_an_id_off_the_pattern_is_not_found_and_touches_no_file(client, project, tmp_path, song_id):
     import_song_tone(client, tmp_path)

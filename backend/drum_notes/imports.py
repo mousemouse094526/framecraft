@@ -23,7 +23,7 @@ from starlette.requests import ClientDisconnect
 from backend import audio_imports, checks, disk, gate_rows, paths, uploads
 from backend.audio_imports import ImportSlot, Limits, State
 from backend.drum_notes import midi, songs
-from backend.drum_notes.songs import TOO_LONG, TOO_SHORT, KnownSong, Song, SongView, Source
+from backend.drum_notes.songs import TOO_LONG, TOO_SHORT, Head, KnownSong, Song, SongView, Source
 from backend.errors import ApiError, JobFailed, invalid_request, require_rows
 from backend.jobs import Cancelled
 from backend.paths import ProjectPaths
@@ -99,6 +99,8 @@ class SongImports(ImportSlot[SongImport]):
     of the two at a time (D18); a Pick job runs beside it in its own slot."""
 
     busy = BUSY
+    nothing_to_cancel = NOT_RUNNING
+    cancel_refusal = (409, "not_running")
 
     # --- a file ---
 
@@ -137,7 +139,7 @@ class SongImports(ImportSlot[SongImport]):
                     page_gone,
                     cancel,
                     lambda: self._take_in(
-                        project, song_id, partial, audio_imports.file_title(name), "", source, cancel, audio_imports.still_wanted(page_gone, cancel)
+                        project, song_id, partial, Head(audio_imports.file_title(name), "", source), cancel, audio_imports.still_wanted(page_gone, cancel)
                     ),
                 )
                 return songs.view(song)
@@ -152,10 +154,10 @@ class SongImports(ImportSlot[SongImport]):
 
     # --- a link ---
 
-    def start(self, body: dict) -> tuple[int, dict]:
-        """The link (spoil's rules, ADR 0029), the gate, `busy`, in the spec's order; then the answer
-        as its status and body: `202` with the job once its thread runs, or `200` with the song's id
-        for a YouTube link whose song is listed already (spec › Song import, D3)."""
+    def start(self, body: dict) -> SongImport | KnownSong:
+        """The link (spoil's rules, ADR 0029), the gate, `busy`, in the spec's order; then the job
+        once its thread runs (`202`), or the song's id for a YouTube link whose song is listed
+        already (`200`, spec › Song import, D3): the route reads the status off the type."""
         url = body.get("url")
         link = links.parse(url) if isinstance(url, str) else None
         if link is None:
@@ -165,20 +167,12 @@ class SongImports(ImportSlot[SongImport]):
         with self._lock:
             self._require_free()
             if link.youtube_id and songs.exists(project, link.youtube_id):
-                return 200, KnownSong(song_id=link.youtube_id).model_dump()
+                return KnownSong(song_id=link.youtube_id)
             self._job = SongImport(url=link.url, state="checking", started_at=checks.now_iso())
             self._cancel.clear()
             job = self._job.model_copy(deep=True)
         threading.Thread(target=self._run, args=(project, link.url), daemon=True).start()
-        return 202, job.model_dump()
-
-    def cancel(self) -> SongImport:
-        with self._lock:
-            if not self._taken():
-                raise ApiError(409, "not_running", NOT_RUNNING)
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
+        return job
 
     def _run(self, project: ProjectPaths, url: str) -> None:
         known: str | None = None  # the song's id, once the info gave it: what the ending cleans by
@@ -224,13 +218,15 @@ class SongImports(ImportSlot[SongImport]):
             disk.require_free(project.root, estimate)
         except ApiError as full:
             raise JobFailed("disk_full", full.message) from None
-        title = audio_imports.first_name(info.get("title"), fallback=song_id)
-        subtitle = audio_imports.first_name(info.get("channel") or info.get("uploader"))
-        self.update(state="downloading", title=title, percent=0)
+        head = Head(
+            title=audio_imports.first_name(info.get("title"), fallback=song_id),
+            subtitle=audio_imports.first_name(info.get("channel") or info.get("uploader")),
+            source=Source(kind="link", url=info.get("webpage_url") or url),
+        )
+        self.update(state="downloading", title=head.title, percent=0)
         loaded = audio_imports.download(project, info, song_id, LINK_OPTIONS, lambda percent: self.update(percent=percent), self._cancel)
         self.update(state="converting", percent=None)
-        source = Source(kind="link", url=info.get("webpage_url") or url)
-        return self._take_in(project, song_id, loaded, title, subtitle, source, self._cancel).id
+        return self._take_in(project, song_id, loaded, head, self._cancel).id
 
     # --- both ---
 
@@ -239,20 +235,18 @@ class SongImports(ImportSlot[SongImport]):
         project: ProjectPaths,
         song_id: str,
         loaded: Path,
-        title: str,
-        subtitle: str,
-        source: Source,
+        head: Head,
         cancel: threading.Event,
         still_wanted: Callable[[], bool] | None = None,
     ) -> Song:
-        """In a thread: `audio_imports.take_in` into the song's folder, `song.json` written last under
-        the songs' lock. Raises `JobFailed`, or `Cancelled`."""
+        """In a thread: `audio_imports.take_in` into the song's folder, `song.json` (with `head`: what the
+        song is called and where it came from) written last under the songs' lock. Raises `JobFailed`, or `Cancelled`."""
         target = project.song_dir(song_id) / songs.AUDIO_FILE
 
         def place(seconds: float) -> Song:
             # The range is built from the length as the Song stores it (rounded), or a range that ends
             # a few ms past `duration_s` would fail the range rules on the first `POST /pick`.
-            song = songs.new_song(song_id, title, subtitle, source, seconds, songs.default_range(round(seconds, 1)), None)
+            song = songs.new_song(song_id, head, seconds, songs.default_range(round(seconds, 1)), None)
             with songs.lock:
                 if songs.exists(project, song_id):  # the same song came in meanwhile: that one stays
                     return songs.get(project, song_id)
@@ -268,8 +262,8 @@ class SongImports(ImportSlot[SongImport]):
 def _midi_song(project: ProjectPaths, song_id: str, partial: Path, source: Source) -> Song:
     """A `.mid` as a Song with its analysis and no audio (D10)."""
     track = midi.read(partial.read_bytes())
-    title = audio_imports.first_name(track.title, fallback=audio_imports.file_title(source.name))
-    song = songs.new_song(song_id, title, "", source, track.duration_s, None, songs.checked_analysis(track.analysis))
+    head = Head(audio_imports.first_name(track.title, fallback=audio_imports.file_title(source.name)), "", source)
+    song = songs.new_song(song_id, head, track.duration_s, None, songs.checked_analysis(track.analysis))
     with songs.lock:
         return songs.write_new(project, song)
 

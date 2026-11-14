@@ -70,20 +70,20 @@ test("a refusal shows its message; not_ready adds the fix commands of the rows i
   vi.stubGlobal("fetch", fetchMock);
   const refused = hookOf(() => Promise.resolve({ status: 422, blob: null, body: { code: "too_long", message: "คลิปยาวเกิน 90 วินาที" } }));
   await refused.listen();
-  expect(refused.state()).toEqual({ kind: "refused", text: "คลิปยาวเกิน 90 วินาที", fixes: [] });
+  expect(refused.state()).toEqual({ kind: "refused", tone: "error", text: "คลิปยาวเกิน 90 วินาที", fixes: [], field: null });
 
   const notReady = hookOf(() => Promise.resolve({ status: 503, blob: null, body: { code: "not_ready", message: "ยังไม่พร้อม", rows: ["drum_kit"] } }));
   await notReady.listen();
-  await waitFor(() => expect(notReady.state()).toEqual({ kind: "refused", text: "ยังไม่พร้อม", fixes: ["./setup.sh"] }));
+  await waitFor(() => expect(notReady.state()).toEqual({ kind: "refused", tone: "error", text: "ยังไม่พร้อม", fixes: ["./setup.sh"], field: null }));
 });
 
 test("a reply with no refusal in it, or a request that throws, reads as offline", async () => {
   stubAudio();
   const empty = hookOf(() => Promise.resolve({ status: 500, blob: null, body: null }));
   await empty.listen();
-  expect(empty.state()).toEqual({ kind: "refused", text: OFFLINE_TEXT, fixes: [] });
+  expect(empty.state()).toEqual({ kind: "refused", tone: "error", text: OFFLINE_TEXT, fixes: [], field: null });
 
   const thrown = hookOf(() => Promise.reject(new Error("network")));
   await thrown.listen();
-  expect(thrown.state()).toEqual({ kind: "refused", text: OFFLINE_TEXT, fixes: [] });
+  expect(thrown.state()).toEqual({ kind: "refused", tone: "error", text: OFFLINE_TEXT, fixes: [], field: null });
 });

@@ -93,9 +93,6 @@ class ImportSlot(JobSlot[Job]):
         if self._taken() or self._receiving_file:
             raise ApiError(409, "busy", self.busy)
 
-    def stop_on_shutdown(self) -> None:
-        self._cancel.set()
-
 
 def link_options(partial_dir: Callable[[ProjectPaths], Path]) -> DownloadOptions:
     """What a link's audio asks yt-dlp for: the best audio alone into the caller's `.partial/`,

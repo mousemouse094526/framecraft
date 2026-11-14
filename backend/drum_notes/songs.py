@@ -14,9 +14,9 @@ import shutil
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from backend import files, json_values
 from backend.checks import now_iso
@@ -89,12 +89,21 @@ class Analysis(BaseModel):
     picked_at: str
 
 
+class Head(NamedTuple):
+    """What a song is called and where it came from, as an import learns them before the audio is in."""
+
+    title: str
+    subtitle: str
+    source: Source
+
+
 class Song(BaseModel):
-    """One `song.json`."""
+    """One `song.json`. The title is 1–60 letters when read too (D29): a file edited by hand past
+    that can't be read, like one with any other bad value (D20); the subtitle is cut where it is used."""
 
     version: int
     id: str
-    title: str
+    title: str = Field(min_length=1, max_length=TITLE_MAX)
     subtitle: str
     source: Source
     duration_s: float
@@ -343,14 +352,14 @@ def checked_dir(project: ProjectPaths, song_id: str) -> Path:
     return project.song_dir(song_id)
 
 
-def new_song(song_id: str, title: str, subtitle: str, source: Source, duration_s: float, range_: Range | None, analysis: Analysis | None) -> Song:
+def new_song(song_id: str, head: Head, duration_s: float, range_: Range | None, analysis: Analysis | None) -> Song:
     now = now_iso()
     return Song(
         version=VERSION,
         id=song_id,
-        title=title,
-        subtitle=subtitle,
-        source=source,
+        title=head.title,
+        subtitle=head.subtitle,
+        source=head.source,
         duration_s=round(duration_s, 1),
         range=range_,
         analysis=analysis,

@@ -11,11 +11,12 @@ from typing import NamedTuple
 from pydantic import BaseModel
 
 from backend import gate_rows, json_values
-from backend.drum_notes import score, songs
+from backend.drum_notes import groove, songs
 from backend.drum_notes.songs import FoundBar, Song
 from backend.errors import ApiError, invalid_request, require_rows
 from backend.paths import ProjectPaths
 from backend.video_gen import lessons, mixer, timeline
+from backend.video_gen.kit import PieceId
 from backend.video_gen.lessons import BARS_RANGE, BPM_RANGE, LessonFields
 
 NO_ANALYSIS = "ยังไม่ได้แกะโน้ต ตั้งช่วงแล้วกด แกะโน้ต"
@@ -35,7 +36,7 @@ class Choice(NamedTuple):
 
 
 class DroppedNote(BaseModel):
-    piece: str
+    piece: PieceId
     step: int
 
 
@@ -114,7 +115,7 @@ def chosen_bars(song: Song, choice: Choice) -> list[FoundBar]:
     return chosen
 
 
-def _lesson_fields(project: ProjectPaths, song_id: str, body: dict) -> tuple[score.Scored, LessonFields]:
+def _lesson_fields(project: ProjectPaths, song_id: str, body: dict) -> tuple[groove.Scored, LessonFields]:
     """What `listen` and `create` share: the body checked with its BPM, the song scored, and the
     fields of the lesson that would make (`lessons.from_song`)."""
     choice = checked_choice(body, bpm_optional=False)
@@ -123,7 +124,7 @@ def _lesson_fields(project: ProjectPaths, song_id: str, body: dict) -> tuple[sco
     return scored, lessons.from_song(song.title, song.subtitle, scored.bpm, scored.groove)
 
 
-def _scored(song: Song, choice: Choice) -> score.Scored:
+def _scored(song: Song, choice: Choice) -> groove.Scored:
     chosen = chosen_bars(song, choice)
     assert song.analysis is not None  # `chosen_bars` raised otherwise
-    return score.preview(song.analysis.hits, chosen, choice.bpm, song.analysis.mode)
+    return groove.preview(song.analysis.hits, chosen, choice.bpm, song.analysis.mode)

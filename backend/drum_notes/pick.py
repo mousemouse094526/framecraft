@@ -20,7 +20,7 @@ from backend import checks, ffmpeg, gate_rows, models, paths
 from backend.checks import now_iso
 from backend.drum_notes import onnx_runner, score, songs
 from backend.drum_notes.onnx_runner import OpenSession, Session
-from backend.drum_notes.songs import Analysis, Hit, Range, Song
+from backend.drum_notes.songs import Analysis, Hit, Mode, Range, Song
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import CaptureRunner, FfmpegFailed
 from backend.jobs import Cancelled, JobSlot, short
@@ -86,6 +86,8 @@ class PickJobs(JobSlot[PickJob]):
     stretch; a test passes stand-ins (`fastapi-api` › testing, D17)."""
 
     unfinished = frozenset({"preparing", "picking"})
+    nothing_to_cancel = NOT_RUNNING
+    cancel_refusal = (409, "not_running")  # spec › API; `cancel` kills ffmpeg, or the next model call never starts
 
     def __init__(self, open_session: OpenSession = onnx_runner.open_session, run_ffmpeg: CaptureRunner = ffmpeg.run_capture):
         super().__init__()
@@ -121,20 +123,6 @@ class PickJobs(JobSlot[PickJob]):
         threading.Thread(target=self._run, args=(project, song, range_), daemon=True).start()
         return job
 
-    def cancel(self) -> PickJob:
-        """`POST /pick/cancel`: ffmpeg is killed, or the next model call never starts. Raises `ApiError`
-        409 `not_running` (spec › API)."""
-        with self._lock:
-            if not self._taken():
-                raise ApiError(409, "not_running", NOT_RUNNING)
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
-
-    def stop_on_shutdown(self) -> None:
-        """Ctrl+C: ffmpeg is killed and no further model call starts; nothing of the job is on disk."""
-        self._cancel.set()
-
     def _run(self, project: ProjectPaths, song: Song, range_: Range) -> None:
         started = time.monotonic()
         ending: dict = {"state": "failed", "error": "internal", "message": FAILED}
@@ -167,14 +155,7 @@ class PickJobs(JobSlot[PickJob]):
         pcm22 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, MODELS_RATE), self._cancel), np.float32)
         frames = score.beat_this_frames(len(pcm22))
         chunks = score.beat_this_chunks(frames)
-        if range_.mode == "melody":
-            windows = score.basic_pitch_windows(len(pcm22))
-            self._start_picking(len(windows) + len(chunks))
-            hits = self._melody_hits(project, pcm22, windows, range_.start_s)
-        else:
-            pcm44 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, ADTOF_RATE), self._cancel), np.float32)
-            self._start_picking(1 + len(chunks))
-            hits = self._drum_hits(project, pcm44, range_.start_s)
+        hits = HITS_BY_MODE[range_.mode](self, project, audio, range_, pcm22, len(chunks))
 
         self._check_cancel()
         beat_this = self._open(project, models.BEAT_THIS)
@@ -193,16 +174,24 @@ class PickJobs(JobSlot[PickJob]):
             raise JobFailed("no_beats", NO_BEATS)
         return Analysis(mode=range_.mode, start_s=range_.start_s, end_s=range_.end_s, beats=beats, downbeats=downbeats, hits=hits, picked_at=now_iso())
 
-    def _drum_hits(self, project: ProjectPaths, pcm44: "np.ndarray", start_s: float) -> list[Hit]:
-        """Drums mode: ADTOF over the whole stretch in one run (an RNN, D20), peak-picked into hits."""
+    def _drum_hits(self, project: ProjectPaths, audio: Path, range_: Range, pcm22: "np.ndarray", chunks: int) -> list[Hit]:
+        """Drums mode: the stretch decoded again at ADTOF's rate, then ADTOF over the whole of it in
+        one run (an RNN, D20), peak-picked into hits; `picking` counts that run and the `chunks` of Beat This!."""
+        import numpy as np
+
+        pcm44 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, ADTOF_RATE), self._cancel), np.float32)
+        self._start_picking(1 + chunks)
         self._check_cancel()
         adtof = self._open(project, models.ADTOF)
         activations = _run_model(lambda: onnx_runner.run_adtof(adtof, pcm44))
         self._step_done()
-        return score.drum_hits(activations, start_s)
+        return score.drum_hits(activations, range_.start_s)
 
-    def _melody_hits(self, project: ProjectPaths, pcm22: "np.ndarray", windows: list[score.Window], start_s: float) -> list[Hit]:
-        """Melody mode: Basic Pitch window by window, cancel checked before each, its onsets as snares (D14)."""
+    def _melody_hits(self, project: ProjectPaths, audio: Path, range_: Range, pcm22: "np.ndarray", chunks: int) -> list[Hit]:
+        """Melody mode: Basic Pitch window by window over the 22.05 kHz stretch Beat This! takes too,
+        cancel checked before each, its onsets as snares (D14); `picking` counts the windows and the `chunks`."""
+        windows = score.basic_pitch_windows(len(pcm22))
+        self._start_picking(len(windows) + chunks)
         self._check_cancel()
         basic_pitch = self._open(project, models.BASIC_PITCH)
         outputs = []
@@ -211,7 +200,7 @@ class PickJobs(JobSlot[PickJob]):
             samples = score.window_samples(pcm22, window)
             outputs.append((window, _run_model(lambda: onnx_runner.run_basic_pitch(basic_pitch, samples))))
             self._step_done()
-        return score.melody_hits(outputs, len(pcm22), start_s)
+        return score.melody_hits(outputs, len(pcm22), range_.start_s)
 
     def _start_picking(self, runs: int) -> None:
         """ffmpeg is done: `picking` from 0 %, over `runs` model runs."""
@@ -233,6 +222,11 @@ class PickJobs(JobSlot[PickJob]):
     def _check_cancel(self) -> None:
         if self._cancel.is_set():
             raise Cancelled()
+
+
+# The mode's model run, before Beat This!: what hears the hits and how many `picking` steps it takes (D14).
+HitsRun = Callable[[PickJobs, ProjectPaths, Path, Range, "np.ndarray", int], list[Hit]]
+HITS_BY_MODE: dict[Mode, HitsRun] = {"drums": PickJobs._drum_hits, "melody": PickJobs._melody_hits}
 
 
 def _pickable(song: Song) -> Range:

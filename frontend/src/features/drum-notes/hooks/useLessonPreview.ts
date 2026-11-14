@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { OFFLINE_TEXT, postForBlob, sendJson } from "../../../lib/api";
+import { postForBlob, sendJson } from "../../../lib/api";
 import { lessonHash } from "../../../lib/lesson";
-import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { OFFLINE, refusedOf, type Refused } from "../../../lib/refused";
+import type { Refusal } from "../../../lib/refusal";
 import { useListen } from "../../../lib/useListen";
 import { useMountedState } from "../../../lib/useMountedState";
 import { bpmOk, firstPickable, listenPath, pickableFrom, previewPath, songLessonsPath, type Created, type Choice, type FoundBar, type Preview } from "../lib/songs";
@@ -13,10 +14,10 @@ export type PreviewState =
   | { kind: "loading" }
   /** What `POST /preview` answered for the pick shown. */
   | ({ kind: "ready" } & Preview)
-  /** The API refused the pick: its message, and the field (`bar`, `bars`, `bpm`) when it named one. */
-  | { kind: "refused"; text: string; field: string | null };
+  /** The API refused the pick: its line, and the field (`bar`, `bars`, `bpm`) when it named one. */
+  | ({ kind: "refused" } & Refused);
 
-export type Creating = { kind: "idle" } | { kind: "creating" } | { kind: "refused"; text: string };
+export type Creating = { kind: "idle" } | { kind: "creating" } | ({ kind: "refused" } & Refused);
 
 /**
  * สร้างบทเรียน on the song page (spec › Frontend; D11, D13, D20, D21): the first bar (pressed on the
@@ -50,10 +51,10 @@ export function useLessonPreview(songId: string, found: FoundBar[]) {
         const reply = await sendJson<Preview | Refusal>("POST", previewPath(songId), asked);
         if (sequence !== sequences.current) return; // a later change asked again
         if (reply.status === 200 && reply.body) return setPreviewIfMounted({ kind: "ready", ...(reply.body as Preview) });
-        const refusal = refusalOf(reply.body);
-        setPreviewIfMounted({ kind: "refused", text: refusal?.message ?? OFFLINE_TEXT, field: refusal?.field ?? null });
+        const refused = await refusedOf(reply.body);
+        if (sequence === sequences.current) setPreviewIfMounted({ kind: "refused", ...refused });
       } catch {
-        if (sequence === sequences.current) setPreviewIfMounted({ kind: "refused", text: OFFLINE_TEXT, field: null });
+        if (sequence === sequences.current) setPreviewIfMounted({ kind: "refused", ...OFFLINE });
       }
     }, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -80,9 +81,9 @@ export function useLessonPreview(songId: string, found: FoundBar[]) {
         window.location.hash = lessonHash((reply.body as Created).lesson_id);
         return;
       }
-      setCreatingIfMounted({ kind: "refused", text: refusalOf(reply.body)?.message ?? OFFLINE_TEXT });
+      setCreatingIfMounted({ kind: "refused", ...(await refusedOf(reply.body)) });
     } catch {
-      setCreatingIfMounted({ kind: "refused", text: OFFLINE_TEXT });
+      setCreatingIfMounted({ kind: "refused", ...OFFLINE });
     }
   }, [songId, withBpm, setCreatingIfMounted]);
 

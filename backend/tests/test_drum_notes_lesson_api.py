@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from backend import checks, paths
 from backend.app import app
 from backend.drum_notes import songs
-from backend.drum_notes.songs import Analysis, Hit, Source
+from backend.drum_notes.songs import Analysis, Head, Hit, Source
 from backend.paths import ProjectPaths
 from backend.video_gen import lessons, timeline
 
@@ -56,7 +56,7 @@ def written_song(project: ProjectPaths, subtitle: str = "", downbeats: tuple[flo
     else:
         hits = [Hit(t=t, piece="kick", level="normal") for t in downbeats[:-1]]
     analysis = Analysis(mode=mode, start_s=0.0, end_s=downbeats[-1], beats=beats, downbeats=list(downbeats), hits=hits, picked_at="2026-11-14T00:00:00Z")
-    song = songs.new_song("writtensong0", "Teen Spirit", subtitle, Source(kind="file", name="song.mp3", size=1), downbeats[-1] + 1, songs.default_range(downbeats[-1] + 1), analysis)
+    song = songs.new_song("writtensong0", Head("Teen Spirit", subtitle, Source(kind="file", name="song.mp3", size=1)), downbeats[-1] + 1, songs.default_range(downbeats[-1] + 1), analysis)
     return songs.write_new(project, song).id
 
 

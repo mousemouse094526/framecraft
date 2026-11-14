@@ -147,8 +147,8 @@ def test_a_pick_goes_preparing_then_picking_with_a_percent_then_done_and_writes_
 def test_the_song_answers_the_bars_found_marking_one_without_four_beats(client, runner, tmp_path):
     song = import_song_tone(client, tmp_path, seconds=12)
 
-    def beat(frames, pad_before):
-        logits = FakeOnnxRunner().beat(frames, pad_before)
+    def beat(frames, pad_before, first_frame):
+        logits = FakeOnnxRunner().beat(frames, pad_before, first_frame)
         logits[pad_before + 125] = -5.0  # the beat at 2.5 s of the range is gone: the second bar has three
         return logits
 
@@ -363,7 +363,7 @@ def test_a_model_that_raises_while_running_fails_model_failed_with_the_first_lin
 
 
 def test_a_stretch_with_fewer_than_two_downbeats_fails_no_beats(client, runner, tmp_path):
-    runner.downbeat = lambda frames, pad_before: FakeOnnxRunner().downbeat(frames, pad_before) * 0 - 5.0
+    runner.downbeat = lambda frames, pad_before, first_frame: FakeOnnxRunner().downbeat(frames, pad_before, first_frame) * 0 - 5.0
     song = import_song_tone(client, tmp_path)
 
     job = pick_until_ended(client, song["id"])

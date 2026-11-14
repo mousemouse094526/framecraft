@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
-import { OFFLINE_TEXT, type BlobReply } from "./api";
-import { refusalOf } from "./refusal";
-import { fixesFor } from "./setupFixes";
+import type { BlobReply } from "./api";
+import { OFFLINE, refusedOf, type Refused } from "./refused";
 import { useMountedState } from "./useMountedState";
 
 export type ListenState =
   | { kind: "idle" }
   /** From the press until the wav plays: whatever comes before the request, then the backend's mix. */
   | { kind: "mixing" }
-  /** `fixes`: the commands of the Status check rows a `not_ready` names (setup-status D26). */
-  | { kind: "refused"; text: string; fixes: string[] };
+  /** The API refused the mix, or there is no backend. */
+  | ({ kind: "refused" } & Refused);
 
 /**
  * A ฟัง button that plays a wav the backend mixes: `request` asks for it (ฟังจังหวะ saves the lesson
@@ -49,11 +48,9 @@ export function useListen(request: () => Promise<BlobReply | null>) {
         setIfMounted({ kind: "idle" });
         return;
       }
-      const refusal = refusalOf(reply.body);
-      if (!refusal) return setIfMounted({ kind: "refused", text: OFFLINE_TEXT, fixes: [] });
-      setIfMounted({ kind: "refused", text: refusal.message, fixes: await fixesFor(refusal) });
+      setIfMounted({ kind: "refused", ...(await refusedOf(reply.body)) });
     } catch {
-      setIfMounted({ kind: "refused", text: OFFLINE_TEXT, fixes: [] });
+      setIfMounted({ kind: "refused", ...OFFLINE });
     }
   }, [request, stop, setIfMounted]);
 
