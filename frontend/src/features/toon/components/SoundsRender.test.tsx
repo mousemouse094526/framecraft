@@ -10,12 +10,11 @@ import { get, phased, send, sent, serve, type Route } from "../../../testing/tes
 import type { RenderJob, RenderResult } from "../lib/render";
 import type { Card, Ep } from "../lib/episodes";
 import { GENRE_DEFAULTS, type Series } from "../lib/series";
-import type { Sound } from "../lib/sounds";
+import type { Sound } from "../../sound-library/lib/sounds";
 
 const SERIES_ID = "s_1a2b3c4d";
 const EP_ID = "e_5e6f7a8b";
-const SOUNDS = "/api/toon/sounds";
-const IMPORT = "/api/toon/sounds/import/current";
+const SOUNDS = "/api/sounds";
 const RENDER = "/api/toon/render";
 const RENDER_JOB = "/api/toon/render/current";
 const RENDERS = `/api/toon/eps/${EP_ID}/renders`;
@@ -124,7 +123,6 @@ function open(hash: string, routes: Route[]) {
     ["/api/toon/jobs/current", null],
     [`/api/toon/series/${SERIES_ID}`, series],
     [SOUNDS, [rain]],
-    [IMPORT, null],
     [RENDER_JOB, null],
     [RENDERS, []],
   ]);
@@ -133,143 +131,20 @@ function open(hash: string, routes: Route[]) {
   return userEvent.setup({ advanceTimers: (ms) => vi.isFakeTimers() && vi.advanceTimersByTime(ms) });
 }
 
-describe("คลังเสียงพื้น", () => {
-  it("#/toon/sounds lists the library with each sound's length; the Series list links to it", async () => {
+/** Where the page's own คลังเสียง buttons go; the tab bar's is left out. */
+function libraryLinks() {
+  return screen
+    .getAllByRole("link", { name: "คลังเสียง" })
+    .filter((link) => !link.closest("nav"))
+    .map((link) => link.getAttribute("href"));
+}
+
+describe("คลังเสียงจากการ์ตูนเล่า", () => {
+  it("the Series list's คลังเสียง opens the library with a way back to it", async () => {
     open("#/toon", [get("/api/toon/series", [])]);
-    expect(await screen.findByRole("link", { name: "คลังเสียงพื้น" })).toHaveAttribute("href", "#/toon/sounds");
-    act(() => {
-      window.location.hash = "#/toon/sounds";
-    });
-
-    const row = await screen.findByRole("listitem", { name: "ฝนตกในป่า" });
-    expect(row).toHaveTextContent("3:42");
-    expect(screen.getByText("เสียงพื้น 1 เสียง")).toBeInTheDocument();
-  });
-
-  it("ฟัง plays that sound of the library", async () => {
-    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-    const user = open("#/toon/sounds", [get(SOUNDS, [rain, { ...rain, id: "m_02", name: "ลมพัด" }])]);
-
-    await user.click(await screen.findByRole("button", { name: "ฟัง ลมพัด" }));
-
-    expect(play).toHaveBeenCalledOnce();
-    expect((play.mock.contexts[0] as HTMLAudioElement).src).toMatch(/\/api\/toon\/sounds\/m_02\/file$/);
-  });
-
-  it("shows legal item 4 before the file picker and the link field (e2e)", async () => {
-    open("#/toon/sounds", []);
-
-    const rights = await screen.findByText(
-      "ใช้เสียงของคุณเอง หรือเสียงที่ license ให้ใช้ในวิดีโอที่เผยแพร่ได้ และใส่เครดิตตามที่ license กำหนด", // legal.md item 4
-    );
-    const picker = screen.getByLabelText("เลือกไฟล์เสียง");
-    const link = screen.getByRole("textbox", { name: /ลิงก์เสียง/ });
-    expect(rights.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(rights.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it("a file is checked, sent with its % out, and comes into the list", async () => {
-    const user = open("#/toon/sounds", [send("POST", `${SOUNDS}/imports/check`, { size: 3 }, 200)]);
-
-    await user.upload(await screen.findByLabelText("เลือกไฟล์เสียง"), new File(["wav"], "ลม.wav", { type: "audio/wav" }));
-
-    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
-    expect(sent(fetchMock, "POST", `${SOUNDS}/imports/check`)).toEqual([{ name: "ลม.wav", size: 3 }]);
-    expect(FakeXhr.sent[0].url).toBe(`${SOUNDS}/imports?name=${encodeURIComponent("ลม.wav")}&size=3`);
-    FakeXhr.sent[0].progress(1, 2);
-    expect(await screen.findByText("50%")).toBeInTheDocument();
-    await FakeXhr.sent[0].respond(201, { id: "m_02", name: "ลม", duration_s: 61, source: "file" });
-    expect(await screen.findByRole("listitem", { name: "ลม" })).toHaveTextContent("1:01");
-  });
-
-  it("ยกเลิก while a file is sent stops it: no notice, nothing comes in", async () => {
-    const user = open("#/toon/sounds", [send("POST", `${SOUNDS}/imports/check`, { size: 3 }, 200)]);
-    await user.upload(await screen.findByLabelText("เลือกไฟล์เสียง"), new File(["wav"], "ลม.wav", { type: "audio/wav" }));
-    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
-
-    await user.click(screen.getByRole("button", { name: "ยกเลิก" }));
-
-    expect(FakeXhr.sent[0].abort).toHaveBeenCalledOnce();
-    await waitFor(() => expect(screen.queryByRole("button", { name: "ยกเลิก" })).not.toBeInTheDocument());
-    expect(screen.queryByText("เอาไฟล์ ลม.wav เข้าไม่ได้")).not.toBeInTheDocument();
-    expect(screen.queryByRole("listitem", { name: "ลม" })).not.toBeInTheDocument();
-  });
-
-  it("a file the check refuses is not sent and says why", async () => {
-    const busy = { code: "busy", message: "มีงานเอาเสียงเข้าอยู่" };
-    const user = open("#/toon/sounds", [send("POST", `${SOUNDS}/imports/check`, busy, 409)]);
-
-    await user.upload(await screen.findByLabelText("เลือกไฟล์เสียง"), new File(["wav"], "ลม.wav", { type: "audio/wav" }));
-
-    expect(await screen.findByText("เอาไฟล์ ลม.wav เข้าไม่ได้")).toBeInTheDocument();
-    expect(screen.getByText("มีงานเอาเสียงเข้าอยู่")).toBeInTheDocument();
-    expect(FakeXhr.sent).toHaveLength(0);
-  });
-
-  it("a link loads with its % and its sound comes in; a refused one says why", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const loading = { url: "https://youtu.be/x", state: "downloading", title: "ลม", percent: 63, error: null, cancel_requested: false, sound_id: null };
-    const job = phased(IMPORT, loading, { ...loading, state: "done", percent: 100, sound_id: "m_02" });
-    const user = open("#/toon/sounds", [
-      send("POST", `${SOUNDS}/downloads`, { code: "invalid_url", message: "ลิงก์นี้ใช้ไม่ได้" }, 400),
-      send("POST", `${SOUNDS}/downloads`, loading, 202),
-      get(IMPORT, null),
-      job.route,
-    ]);
-    const field = await screen.findByRole("textbox", { name: /ลิงก์เสียง/ });
-
-    await user.type(field, "ftp://x");
-    await user.click(screen.getByRole("button", { name: "โหลด" }));
-    expect(await screen.findByText("ลิงก์นี้ใช้ไม่ได้")).toBeInTheDocument();
-
-    await user.clear(field);
-    await user.type(field, "https://youtu.be/x");
-    await user.click(screen.getByRole("button", { name: "โหลด" }));
-    expect(await screen.findByText("กำลังโหลด 63%")).toBeInTheDocument();
-    job.phases.at = 1;
-    await act(() => vi.advanceTimersByTimeAsync(1100));
-    await waitFor(() => expect(screen.queryByText("กำลังโหลด 63%")).not.toBeInTheDocument());
-    expect(sent(fetchMock, "POST", `${SOUNDS}/downloads`)).toEqual([{ url: "ftp://x" }, { url: "https://youtu.be/x" }]);
-  });
-
-  it("a sound in use can't be deleted: the EPs that play it show", async () => {
-    const inUse = { code: "in_use", message: "ยังมี EP ที่ใช้เสียงนี้อยู่", eps: [{ series_name: "รุ่นพี่เล่าว่า…", n: 3, title: "คืนที่ไฟดับ" }] };
-    const user = open("#/toon/sounds", [send("DELETE", `${SOUNDS}/m_01`, inUse, 409)]);
-
-    await user.click(await screen.findByRole("button", { name: "ลบ ฝนตกในป่า" }));
-
-    expect(await screen.findByText("ยังใช้อยู่ใน รุ่นพี่เล่าว่า… EP03 คืนที่ไฟดับ")).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: "ฝนตกในป่า" })).toBeInTheDocument();
-  });
-
-  it("a refused rename says why and the name stays", async () => {
-    const refused = { code: "invalid_name", message: "ชื่อยาวได้ไม่เกิน 60 ตัวอักษร" };
-    const user = open("#/toon/sounds", [send("PATCH", `${SOUNDS}/m_01`, refused, 400)]);
-    const field = await screen.findByRole("textbox", { name: "ชื่อเสียง ฝนตกในป่า" });
-
-    await user.tripleClick(field);
-    await user.keyboard("ฝน");
-    await user.tab();
-
-    expect(await screen.findByText("เปลี่ยนชื่อ ฝนตกในป่า ไม่ได้")).toBeInTheDocument();
-    expect(screen.getByText(refused.message)).toBeInTheDocument();
-    expect(sent(fetchMock, "PATCH", `${SOUNDS}/m_01`)).toEqual([{ name: "ฝน" }]);
-    expect(screen.getByRole("listitem", { name: "ฝนตกในป่า" })).toBeInTheDocument();
-  });
-
-  it("asks before leaving while a file is sent", async () => {
-    const user = open("#/toon/sounds", [send("POST", `${SOUNDS}/imports/check`, { size: 3 }, 200)]);
-    await user.upload(await screen.findByLabelText("เลือกไฟล์เสียง"), new File(["wav"], "ลม.wav", { type: "audio/wav" }));
-    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
-    const confirm = vi.fn(() => false);
-    vi.stubGlobal("confirm", confirm);
-
-    act(() => {
-      window.location.hash = "#/toon";
-    });
-
-    await waitFor(() => expect(confirm).toHaveBeenCalled());
-    expect(window.location.hash).toBe("#/toon/sounds");
+    await screen.findByRole("heading", { level: 2, name: "การ์ตูนเล่า" });
+    expect(libraryLinks()).toEqual(["#/sounds?back=#/toon"]);
+    expect(screen.queryByText(/คลังเสียงพื้น/)).not.toBeInTheDocument();
   });
 });
 
@@ -284,6 +159,7 @@ describe("เสียงพื้นของช่วง", () => {
     expect(select).toHaveValue("m_01");
     expect(screen.getByRole("slider", { name: "ความดังของช่วง 1" })).toHaveValue("30");
     expect(screen.getByRole("link", { name: "ไปหน้า render" })).toHaveAttribute("href", `#/toon/eps/${EP_ID}/render`);
+    expect(libraryLinks()).toEqual([`#/sounds?back=#/toon/eps/${EP_ID}`]);
 
     await user.selectOptions(select, "ไม่มีเสียงพื้น");
 

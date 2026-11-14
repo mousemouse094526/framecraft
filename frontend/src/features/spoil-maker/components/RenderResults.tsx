@@ -132,6 +132,7 @@ function RenderRow({ render, playing, inlinePlayer, onPlay, onDelete }: RowProps
                 <img src={copied ? checkIcon : copyIcon} alt="" width={16} height={16} />
               </button>
             </p>
+            {render.sound_name !== null && <p className="text-[13px] text-mid">เสียงพื้น: {render.sound_name}</p>}
           </div>
         </div>
         {playing && inlinePlayer && <Player render={render} className="aspect-[9/16] w-full" />}

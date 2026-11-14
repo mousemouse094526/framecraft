@@ -86,7 +86,7 @@ def _model_row(project: ProjectPaths, model: ModelSpec) -> dict[str, Row]:
 
 
 def _pick_rows(project: ProjectPaths, hits_model: ModelSpec) -> dict[str, Row]:
-    """What a Pick job needs: the model that hears the hits, Beat This!, onnxruntime and ffmpeg (drum-notes D7, ADR 0040: no `device`)."""
+    """What a Pick job needs: the model that hears the hits, Beat This!, onnxruntime and ffmpeg (drum-notes D7, ADR 0043: no `device`)."""
     return _model_row(project, hits_model) | _model_row(project, BEAT_THIS) | ONNXRUNTIME | FFMPEG
 
 

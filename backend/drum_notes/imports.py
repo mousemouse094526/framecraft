@@ -1,5 +1,5 @@
 """Song import: a song comes in from a link, an audio file or a MIDI file (drum-notes spec › Song
-import, D3, D4, D10, D18, D20; ADR 0028, ADR 0045, ADR 0046).
+import, D3, D4, D10, D18, D20; ADR 0028, ADR 0048, ADR 0049).
 
 A link is a job in its own slot (thread, ADR 0010) on `backend.audio_imports`: the info, the id it
 gives (a song already listed ends the job `done` with that id and loads nothing), the best audio

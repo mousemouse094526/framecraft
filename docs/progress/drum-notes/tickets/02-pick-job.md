@@ -6,7 +6,7 @@
 
 **Covers:**
 - Decisions: D5, D6, D7 (gate), D8, D9, D17, D18, D20
-- ADR: 0040, 0041
+- ADR: 0040, 0044
 - Screens: หน้าเพลง (ช่วงแกะ, โหมด, แกะโน้ต, ผลที่แกะได้)
 - Seams: 1 (range, pick), 2 (stitch, peak picking, จังหวะและห้อง)
 - User stories: 2

@@ -2,7 +2,12 @@
 // card's state and length (toon spec › ข้อมูล, › สถานะการ์ด, › API, D9, D13–D15, D21).
 
 import { getJson } from "../../../lib/api";
+import type { PlayedSound } from "../../sound-library/lib/sounds";
 import { seriesPath, type Series } from "./series";
+
+// A segment's sound volume (backend/toon/episodes.py, spec › Cards job step 5).
+export const VOLUME_MAX = 100;
+export const DEFAULT_VOLUME = 30;
 
 export const EPS_PATH = "/api/toon/eps";
 export const epPath = (epId: string) => `${EPS_PATH}/${epId}`;
@@ -55,7 +60,7 @@ export type Card = {
 export type Segment = {
   id: string;
   background_id: string;
-  sound: { sound_id: string; volume: number } | null;
+  sound: PlayedSound | null;
   cards: Card[];
 };
 

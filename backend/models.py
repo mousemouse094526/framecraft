@@ -120,7 +120,7 @@ KLEIN_GGUF = ModelSpec(
     author="Unsloth",
 )
 
-# The แกะเพลง tab's ONNX models, run on the CPU by onnxruntime (drum-notes D7, ADR 0041): setup
+# The แกะเพลง tab's ONNX models, run on the CPU by onnxruntime (drum-notes D7, ADR 0044): setup
 # downloads them after the drum kit and opens each file once before its marker (D20). ADTOF's
 # author line credits the model's authors and its converter, as its NOTICE.md asks (legal 3).
 ADTOF = ModelSpec(

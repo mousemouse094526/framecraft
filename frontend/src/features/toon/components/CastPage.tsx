@@ -8,10 +8,10 @@ import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import loader24Icon from "../assets/loader-24.svg";
-import uploadIcon from "../assets/upload.svg";
+import uploadIcon from "../../../components/ui/assets/upload.svg";
 import wandIcon from "../assets/wand.svg";
 import { useCast, type ItemFields } from "../hooks/useCast";
-import { NoticeLine } from "./NoticeLine";
+import { NoticeLine } from "../../../components/ui/NoticeLine";
 import {
   DESCRIPTION_MAX,
   isRunning,
@@ -199,7 +199,7 @@ function RefTile({ itemRef, item, running, sending, onRemove, onStartRef, onUplo
           <span className="rounded-full bg-accent-subtle px-2 py-0.5 font-button text-xs leading-4 font-medium text-link">
             3 แบบรอเลือก
           </span>
-          <a href={pickHash(itemRef)} className={`flex h-8 items-center px-3 ${PRIMARY_BUTTON}`}>
+          <a href={pickHash(itemRef)} className={`h-8 px-3 ${PRIMARY_BUTTON}`}>
             เลือกภาพ
           </a>
         </Slot>

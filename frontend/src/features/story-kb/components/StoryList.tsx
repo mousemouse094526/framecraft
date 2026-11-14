@@ -26,7 +26,7 @@ export function StoryList() {
     <PageLayout tab="stories">
       <div className="flex items-center gap-3">
         <h2 className="min-w-0 flex-1 text-xl leading-[1.5] font-semibold text-foreground">คลังความรู้</h2>
-        <a href={NEW_STORY_HASH} className={`flex h-11 items-center gap-2 px-4 sm:h-9 ${PRIMARY_BUTTON}`}>
+        <a href={NEW_STORY_HASH} className={`h-11 px-4 sm:h-9 ${PRIMARY_BUTTON}`}>
           <img src={plusWhiteIcon} alt="" width={16} height={16} />
           เพิ่มเรื่อง
         </a>

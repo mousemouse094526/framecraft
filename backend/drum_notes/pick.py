@@ -1,4 +1,4 @@
-"""The Pick job of the แกะเพลง tab (drum-notes spec › Pick job, D5, D6, D8, D14, D18, D20; ADR 0040):
+"""The Pick job of the แกะเพลง tab (drum-notes spec › Pick job, D5, D6, D8, D14, D18, D20; ADR 0043):
 one at a time for the whole tab, a plain `JobSlot` in a thread that holds no GPU slot. It reads the
 song's range once, has ffmpeg decode that stretch of `audio.m4a` as raw PCM at the rates the models
 take (`preparing`), runs the mode's model — ADTOF once over the whole stretch in drums mode, Basic

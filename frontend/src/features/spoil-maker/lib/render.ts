@@ -14,6 +14,8 @@ export type VideoSettings = {
   last_voice_id: string | null;
   /** How long an EP is when a clip is first cut, in minutes (D69). */
   ep_minutes: number;
+  /** The volume of a background sound chosen without one (sound-library D5). */
+  sound_volume: number;
 };
 
 /**
@@ -55,6 +57,8 @@ export type RenderResult = {
   size_bytes: number;
   /** The Temp clip's title (legal 1). */
   sources: string[];
+  /** The background sound's name at render time, null without one (sound-library legal 1). */
+  sound_name: string | null;
   /** The draft's clip and EP; null on a render from before EPs (D70). */
   clip_id: string | null;
   ep: number | null;

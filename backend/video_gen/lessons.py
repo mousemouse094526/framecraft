@@ -285,7 +285,7 @@ def create(project: ProjectPaths, body: dict[str, Any]) -> LessonView:
 
 
 def from_song(title: str, subtitle: str, bpm: int, groove: Groove) -> LessonFields:
-    """The fields of a lesson made from a song (drum-notes D12, ADR 0044): the song's title cut at
+    """The fields of a lesson made from a song (drum-notes D12, ADR 0047): the song's title cut at
     40 and its subtitle at 60, the BPM and Groove the Score gave, everything else a new lesson's
     (two chapters, no caption, a colour background). Checked by the rules of `PUT`: a Groove two
     hands can't play raises `ApiError` 400 `invalid_request` with its note's field."""

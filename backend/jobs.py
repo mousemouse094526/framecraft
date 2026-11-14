@@ -4,7 +4,7 @@ model runs in, reporting through a queue (ADR 0012).
 
 A model that runs on the card, or takes GBs of memory, is a `ModelJobSlot` in a child; a
 small ONNX model on the CPU (the แกะเพลง tab's Pick job) is a plain `JobSlot` in a thread,
-with no GPU slot (drum-notes D8, ADR 0040)."""
+with no GPU slot (drum-notes D8, ADR 0043)."""
 
 import logging
 import threading

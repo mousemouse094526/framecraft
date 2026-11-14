@@ -12,9 +12,9 @@ import pytest
 from PIL import Image
 
 from backend import app as app_module
-from backend import ffmpeg, gpu
+from backend import ffmpeg, gpu, sounds
 from backend.paths import EpAddress
-from backend.toon import render, sounds
+from backend.toon import render
 from backend.toon.kinds import CARD_SIZE
 from backend.toon.store import CardImage
 
@@ -235,6 +235,18 @@ def test_a_segment_on_a_sound_recovered_from_its_m4a_renders_with_it(client, llm
     job = rendered(client, ep["id"])
     assert job["state"] == "done", job
     assert f"{rain}.m4a" in renderer.commands[-1]
+
+
+def test_a_segment_on_a_sound_of_the_old_library_folder_renders_with_it_once_moved(client, llm, project, renderer, tmp_path):
+    rain = import_tone(client, tmp_path, "ฝน.wav", seconds=1.0)["id"]
+    _, ep = three_cards(client, llm, project, sounds=(rain, rain))
+    project.legacy_sounds_dir.parent.mkdir(parents=True, exist_ok=True)
+    project.sounds_dir.rename(project.legacy_sounds_dir)  # where an older app kept it
+    restart(client)
+    job = rendered(client, ep["id"])
+    assert job["state"] == "done", job
+    assert f"{rain}.m4a" in renderer.commands[-1]
+    assert (project.sounds_dir / f"{rain}.m4a").is_file()
 
 # --- the job (seam 1) ---
 

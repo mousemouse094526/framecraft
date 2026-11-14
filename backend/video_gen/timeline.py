@@ -1,4 +1,4 @@
-"""A drum lesson as every hit it plays, in time (video-gen spec › Timeline and audio, ADR 0038):
+"""A drum lesson as every hit it plays, in time (video-gen spec › Timeline and audio, ADR 0041):
 the one place a note's time is worked out. The sound (`mixer`) and the picture read it from
 here, rounded to a sample at 44.1 kHz once, so they never drift apart (D14, D19)."""
 

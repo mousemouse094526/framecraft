@@ -3,14 +3,22 @@ import { getJson, type FileUpload } from "../../../lib/api";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { usePollWhile } from "../../../lib/usePollWhile";
-import { isImporting, SOUND_IMPORT_PATH, SOUNDS_PATH, soundPath, type Sound, type SoundImport } from "../lib/sounds";
-import { sendEdit, stopJob } from "../lib/edit";
-import { NOT_NOW, type Notice } from "../lib/notice";
-import { sendChecked } from "../lib/upload";
-import { useReadyState } from "./useReadyState";
-
-/** The EPs a sound plays in, as `in_use` names them. */
-type SoundUser = { series_name: string; n: number; title: string };
+import {
+  isImporting,
+  LEGACY_PATH,
+  SOUND_IMPORT_PATH,
+  SOUNDS_PATH,
+  soundPath,
+  userLine,
+  type Legacy,
+  type Sound,
+  type SoundImport,
+  type SoundUser,
+} from "../lib/sounds";
+import { sendEdit, stopJob } from "../../../lib/edit";
+import { NOT_NOW, type Notice } from "../../../lib/notice";
+import { sendChecked } from "../../../lib/upload";
+import { useReadyState } from "../../../lib/useReadyState";
 
 export type SoundsState =
   | { kind: "loading" }
@@ -20,30 +28,34 @@ export type SoundsState =
       sounds: Sound[];
       /** The latest link import, null when none ran since the backend started. */
       job: SoundImport | null;
+      /** Where the old library still holds sounds start-up could not move (D10). */
+      leftBehind: string | null;
       /** Why a file or link didn't come in (Figma toon / 8 › Errors). */
       importNotice: Notice | null;
-      /** Why a sound can't be deleted (Figma toon / 8 › Delete blocked). */
+      /** Why a sound can't be deleted, with a line per thing that plays it (Figma toon / 8 › Delete blocked, D7). */
       listNotice: Notice | null;
       /** The file being sent: its name and the percent out. */
       upload: { name: string; percent: number } | null;
     };
 
-/** คลังเสียงพื้น: the library, renaming, deleting, a file's import with its % out, and a link's
- * import polled while it runs (spec › คลังเสียงพื้น, ADR 0028). */
+/** คลังเสียง: the library, renaming, deleting, a file's import with its % out, and a link's
+ * import polled while it runs (toon spec › คลังเสียงพื้น, ADR 0028, sound-library D6). */
 export function useSounds() {
   const [state, setState, update] = useReadyState<SoundsState>({ kind: "loading" });
   const sending = useRef<FileUpload<Sound | Refusal> | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [sounds, job] = await Promise.all([
+      const [sounds, job, legacy] = await Promise.all([
         getJson<Sound[]>(SOUNDS_PATH),
         getJson<SoundImport | null>(SOUND_IMPORT_PATH),
+        getJson<Legacy>(LEGACY_PATH),
       ]);
+      const leftBehind = legacy.left_behind;
       setState((s) =>
         s.kind === "ready"
-          ? { ...s, sounds, job }
-          : { kind: "ready", sounds, job, importNotice: null, listNotice: null, upload: null },
+          ? { ...s, sounds, job, leftBehind }
+          : { kind: "ready", sounds, job, leftBehind, importNotice: null, listNotice: null, upload: null },
       );
     } catch {
       setState({ kind: "offline" });
@@ -82,7 +94,7 @@ export function useSounds() {
 
   const remove = async (sound: Sound) => {
     const title = `ลบ ${sound.name} ไม่ได้`;
-    const reply = await sendEdit<null, Refusal & { eps?: SoundUser[] }>("DELETE", soundPath(sound.id), undefined, title, {
+    const reply = await sendEdit<null, Refusal & { users?: SoundUser[] }>("DELETE", soundPath(sound.id), undefined, title, {
       ok: [204],
       warnings: NOT_NOW,
     });
@@ -90,10 +102,9 @@ export function useSounds() {
       update((s) => ({ ...s, listNotice: null, sounds: s.sounds.filter((x) => x.id !== sound.id) }));
       return;
     }
-    // `in_use` names the EPs that still play it
-    const eps = reply.refusal?.eps;
-    const notice = eps?.length ? { ...reply.notice, text: `ยังใช้อยู่ใน ${eps.map(epName).join(", ")}` } : reply.notice;
-    update((s) => ({ ...s, listNotice: notice }));
+    // `in_use` names what still plays it, each under its tab
+    const lines = reply.refusal?.users?.map(userLine);
+    update((s) => ({ ...s, listNotice: { ...reply.notice, lines } }));
   };
 
   /** `/imports/check` first, then the file as the raw body (ADR 0028); the answer is the new sound. */
@@ -136,11 +147,6 @@ export function useSounds() {
   };
 
   return { state, reload: load, rename, remove, uploadFile, cancelUpload, download, cancelDownload };
-}
-
-function epName(user: SoundUser): string {
-  const ep = `EP${String(user.n).padStart(2, "0")}`;
-  return `${user.series_name} ${ep}${user.title ? ` ${user.title}` : ""}`;
 }
 
 function failedNotice(job: SoundImport): Notice {

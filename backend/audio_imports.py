@@ -1,5 +1,5 @@
-"""Audio brought in from a link or a file and converted to one m4a (ADR 0045): what the การ์ตูนเล่า
-tab's sound library and the แกะเพลง tab's songs share (toon D39, drum-notes D4, D20).
+"""Audio brought in from a link or a file and converted to one m4a (ADR 0048): what the app's sound
+library (`backend.sounds`) and the แกะเพลง tab's songs share (toon D39, drum-notes D4, D20).
 
 A link's audio comes through spoil's yt-dlp adapter (`bestaudio`, ADR 0029): its info first, so a
 length the site tells refuses it before anything loads, then the file into the caller's `.partial/`
@@ -162,10 +162,12 @@ def take_in(
     cancel: threading.Event,
     place: Callable[[float], Placed],
     still_wanted: Callable[[], bool] | None = None,
+    partial: Path | None = None,
 ) -> Placed:
     """In a thread: the file's length and sound (`unsupported_file`, `too_short`, `too_long`), then
-    aac in m4a at `target` through `partial_of(target)`, cut at `limits.max_seconds`, then `place(seconds)`,
-    which moves `partial_of(target)` to `target` and writes the entry, unless `still_wanted` says no by then.
+    aac in m4a at `target` through `partial` (`partial_of(target)` unless the caller keeps its half-done
+    files elsewhere), cut at `limits.max_seconds`, then `place(seconds)`, which moves the partial to
+    `target` and writes the entry, unless `still_wanted` says no by then.
     Raises `JobFailed`, or `Cancelled`; the partial is gone whenever this raises."""
     try:
         media = ffmpeg.probe(source)
@@ -177,11 +179,12 @@ def take_in(
         raise JobFailed("too_long", limits.too_long)
     if media.duration_s < limits.min_seconds:
         raise JobFailed("too_short", limits.too_short)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    partial = partial_of(target)
+    partial = partial or partial_of(target)
+    for folder in {target.parent, partial.parent}:
+        folder.mkdir(parents=True, exist_ok=True)
     try:
         try:
-            convert(convert_command(source, partial, limits.max_seconds), target.parent, cancel)
+            convert(convert_command(source, partial, limits.max_seconds), partial.parent, cancel)
             seconds = ffmpeg.probe(partial).duration_s
         except FfmpegFailed as failed:
             log.warning("could not convert %s: %s", source.name, failed.last_line)
@@ -194,7 +197,8 @@ def take_in(
 
 
 def partial_of(target: Path) -> Path:
-    """`{target}.partial`, where `take_in` converts and where the caller's `place` moves from."""
+    """`{target}.partial` beside the target: where `take_in` converts unless told another `partial`,
+    and where the caller's `place` moves from."""
     return target.with_name(target.name + ".partial")
 
 

@@ -6,7 +6,7 @@
 
 **Covers:**
 - Decisions: D11, D12, D13, D15, D19, D20, D21, video-gen D4, video-gen D5, video-gen D20, video-gen D22, video-gen D23
-- ADR: 0042, 0044
+- ADR: 0042, 0047
 - Screens: หน้าเพลง (สร้างบทเรียน, บทเรียนจากเพลงนี้)
 - Seams: 1 (preview, listen, lessons), 2 (quantize, มือ, ตัด, round trip), 3 (ทางเดินทั้งหมดจนถึง `#/drums/{id}`)
 - User stories: 3, 4, 6

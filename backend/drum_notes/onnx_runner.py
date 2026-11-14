@@ -1,4 +1,4 @@
-"""The only module that imports onnxruntime (drum-notes D7, D17; ADR 0041): it opens a model file
+"""The only module that imports onnxruntime (drum-notes D7, D17; ADR 0044): it opens a model file
 as a session, and runs the three models on it — ADTOF over a whole range in one call, Beat This!
 one chunk at a time, Basic Pitch one window at a time. Tests stand in with a fake at `open_session`
 (`PickJobs(open_session=…)`), so onnxruntime never runs in CI; the Pick job's chunk and window plans
@@ -17,7 +17,7 @@ from backend.drum_notes.score import BASIC_PITCH_FRAMES, BASIC_PITCH_NOTES
 if TYPE_CHECKING:
     import numpy as np
 
-CPU = ["CPUExecutionProvider"]  # the one provider: a CPU job in a thread, no GPU slot (ADR 0040)
+CPU = ["CPUExecutionProvider"]  # the one provider: a CPU job in a thread, no GPU slot (ADR 0043)
 
 # The models' input and output names (their cards; checked on the files in ticket 01's spike).
 WAVEFORM = "waveform"

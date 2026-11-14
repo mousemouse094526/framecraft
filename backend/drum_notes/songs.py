@@ -3,7 +3,7 @@
 A Song is `media/songs/{song_id}/song.json`, written with `write_atomic`, beside its `audio.m4a`
 (none for a MIDI file). Every read and write of the folder takes `lock`. The API answers a Song as
 a `SongView`: the Song and the bars its analysis found, worked out on read (spec › Score step 1). A `song_id` is the one
-`spoil.links` gives imported media (ADR 0046): a YouTube id, `{site}-{id}` or `local-{sha1}`,
+`spoil.links` gives imported media (ADR 0049): a YouTube id, `{site}-{id}` or `local-{sha1}`,
 `[A-Za-z0-9_-]{1,64}`; every function checks it before it builds a path, so `..` never reaches
 the disk. Start-up removes `.partial/` and any folder without a `song.json`: no json, no Song.
 """
@@ -262,7 +262,7 @@ def set_analysis(project: ProjectPaths, song_id: str, analysis: Analysis) -> Non
 
 
 def add_lesson(project: ProjectPaths, song_id: str, lesson_id: str) -> None:
-    """A lesson made from the song, remembered in its `lessons` (D12, ADR 0044). Raises `ApiError` 404 when the song went."""
+    """A lesson made from the song, remembered in its `lessons` (D12, ADR 0047). Raises `ApiError` 404 when the song went."""
     with lock:
         song = _read_known(project, song_id)
         _write(project, song.model_copy(update={"lessons": [*song.lessons, lesson_id], "updated_at": now_iso()}))
@@ -337,7 +337,7 @@ def clean_on_start(project: ProjectPaths) -> None:
 
 
 def checked_dir(project: ProjectPaths, song_id: str) -> Path:
-    """`project.song_dir(song_id)`, once the id is checked: `ApiError` 404 for one off the pattern (ADR 0046)."""
+    """`project.song_dir(song_id)`, once the id is checked: `ApiError` 404 for one off the pattern (ADR 0049)."""
     if not links.CLIP_ID.fullmatch(song_id):
         raise not_found()
     return project.song_dir(song_id)

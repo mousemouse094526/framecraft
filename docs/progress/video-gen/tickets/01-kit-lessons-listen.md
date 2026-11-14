@@ -6,7 +6,7 @@
 
 **Covers:**
 - Decisions: D1, D2, D4, D5, D8, D9, D10 (รายการ สร้าง ทำซ้ำ ลบ), D11, D13 (นับเข้า ความแรง round-robin), D15, D16, D19, D20, D21, D22 (id ใน path, ลบบทเรียน, บทเรียนใหม่, ฟังจังหวะ, ขอบของโน้ต, marker), D23 (ป้ายตั้งต้น), setup-status D9, setup-status D25, setup-status D26, story-kb D11, story-kb D12, story-kb D16, story-kb D18, spoil-maker D21, spoil-maker D63
-- ADR: 0002, 0003, 0004, 0009, 0013, 0038, 0039
+- ADR: 0002, 0003, 0004, 0009, 0013, 0041, 0042
 - Screens: รายการบทเรียนกลอง (ยกเว้นป้าย render), หน้าแก้บทเรียนกลอง (ยกเว้นส่วน render และภาพพื้นหลัง)
 - Seams: 1 (บทเรียนใหม่, ยาวเกิน, กฎ D20, id ใน path, copy และ delete, `lesson.json` เสีย, listen, `not_ready` ของ `drum_kit`), 2 (`timeline.build`, `mixer`), 3 (tab, ตาราง Groove, flam, ท่อนสอน, ฟังจังหวะ, ถามก่อนออก, ทำซ้ำ ลบ)
 - User stories: 1, 2, 3 (ท่อนสอนกับความเร็ว), 5 (รายการบทเรียน)
@@ -42,7 +42,7 @@
 - BPM 120 ท่อนแรกความเร็ว 50 → นับเข้ายาว 4.0 วินาที โน้ต step 2 ของห้องแรกอยู่ที่ 4.5 วินาที (step 4 ที่ 5.0, D27)
 - `flam` → สองการตีห่าง 0.03 วินาที โน้ตนำเป็นมืออีกข้างชั้น `soft` โน้ตหลัก `mid`
 - `accent` / `normal` / `ghost` → ชั้น `hard` / `mid` / `soft`; round-robin วนตามลำดับการตีของชิ้นและชั้นตั้งแต่ต้นคลิป
-- `length_s` ตามสูตรใน spec › Data รวมหางเสียง 1.5 วินาที; เวลาทุกการตีปัดเป็น sample 44.1 kHz ใน `timeline` ที่เดียว (ADR-0038)
+- `length_s` ตามสูตรใน spec › Data รวมหางเสียง 1.5 วินาที; เวลาทุกการตีปัดเป็น sample 44.1 kHz ใน `timeline` ที่เดียว (ADR-0041)
 - ไฮแฮทเปิดตามด้วยไฮแฮทปิดหรือเท้า → เสียงเปิดถูกตัด fade 10 ms
 - `mixer` สองครั้งบนบทเรียนเดิม → wav เดียวกันทุก byte; peak −1 dBFS, 16-bit, 44.1 kHz stereo
 - Groove ไม่มีโน้ต → wav มีนับเข้าแล้วเงียบ ยาว `length_s`

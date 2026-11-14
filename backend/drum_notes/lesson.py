@@ -1,5 +1,5 @@
 """A drum lesson from a song (drum-notes spec › Score steps 2–8 and API; D11, D12, D13, D14, D21;
-ADR 0044): the user picks consecutive 4/4 bars of what was found and a BPM; `preview` shows the
+ADR 0047): the user picks consecutive 4/4 bars of what was found and a BPM; `preview` shows the
 Groove the Score makes of them, `listen` mixes it through video-gen's timeline and mixer from a
 lesson that is nowhere on disk, and `create` writes it through `video_gen.lessons` with the rules
 of `PUT`, then the song remembers the lesson's id. `songs.lock` is never held while

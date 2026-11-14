@@ -1,5 +1,5 @@
 """A lesson from a song under /api/songs: `POST /preview`, `POST /listen` and `POST /lessons`, and
-the song's `lessons` (drum-notes seam 1 › preview, listen, lessons; D11, D12, D13, D21; ADR 0044).
+the song's `lessons` (drum-notes seam 1 › preview, listen, lessons; D11, D12, D13, D21; ADR 0047).
 A MIDI song has its analysis the moment it comes in, so no model stands in here."""
 
 import io
@@ -210,7 +210,7 @@ def test_creating_a_lesson_writes_it_through_video_gen_with_the_song_s_title_and
     assert lesson["groove"] == preview(client, song["id"], bar=0, bars=2, bpm=110).json()["groove"]
     assert [(c["label"], c["repeats"], c["speed"]) for c in lesson["chapters"]] == [("", 2, 100), ("ลองเล่นเอง", 2, 100)]
     on_disk = json.loads((lessons.lesson_dir(project, lesson_id) / "lesson.json").read_text(encoding="utf-8"))
-    assert set(on_disk) == {"version", "id", "updated_at", "title", "subtitle", "caption", "bpm", "background", "groove", "chapters"}  # no new field (ADR 0044)
+    assert set(on_disk) == {"version", "id", "updated_at", "title", "subtitle", "caption", "bpm", "background", "groove", "chapters"}  # no new field (ADR 0047)
     assert client.get(f"{SONGS}/{song['id']}").json()["lessons"] == [lesson_id]
     assert client.get(SONGS).json()[0]["lessons"] == 1
 

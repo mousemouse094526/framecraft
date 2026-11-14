@@ -6,7 +6,7 @@
 
 **Covers:**
 - Decisions: D1, D2, D3, D4, D7, D10, D16, D18, D20, spoil D47, spoil D50, spoil D51, spoil D53, spoil D58, toon D39, setup-status D26, story-kb D12
-- ADR: 0041, 0043, 0045, 0046
+- ADR: 0041, 0046, 0048, 0049
 - Screens: รายการเพลง, หน้าเพลง (หัว, player, ห้องที่พบจาก MIDI; ส่วนแกะและสร้างบทเรียนมาใน 02 และ 03)
 - Seams: 1 (Song import, Song, MIDI, start), 2 (MIDI), 3 (รายการ, ลิงก์, ไฟล์)
 - User stories: 1, 4 (เห็นห้องจาก MIDI; สร้างบทเรียนใน 03), 6 (รายการและลบ)

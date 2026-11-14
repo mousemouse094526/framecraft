@@ -135,6 +135,20 @@ class ProjectPaths:
         return self.markers_dir / "font_kanit"
 
     @property
+    def sounds_dir(self) -> Path:
+        """The sound library of the whole app (ADR 0037): `sounds.json` and `{sound_id}.m4a`."""
+        return self.root / "media" / "sounds"
+
+    @property
+    def sounds_file(self) -> Path:
+        return self.sounds_dir / "sounds.json"
+
+    @property
+    def sounds_partial_dir(self) -> Path:
+        """A Sound import's upload, link download and conversion not finished yet; emptied on every start."""
+        return self.sounds_dir / ".partial"
+
+    @property
     def drum_samples_dir(self) -> Path:
         """The drum samples, under their path in the pinned repo (video-gen D11, D19)."""
         return self.models_dir / "drums"
@@ -200,13 +214,9 @@ class ProjectPaths:
         return self.refs_dir(series_id) / ".pending"
 
     @property
-    def toon_sounds_dir(self) -> Path:
-        """The background sound library of the whole tab (toon D16): `sounds.json` and `{sound_id}.m4a`."""
+    def legacy_sounds_dir(self) -> Path:
+        """Where an app before sound-library kept the sound library; read only to move it (D6)."""
         return self.toon_dir / "sounds"
-
-    @property
-    def toon_sounds_file(self) -> Path:
-        return self.toon_sounds_dir / "sounds.json"
 
     @property
     def toon_render_dir(self) -> Path:

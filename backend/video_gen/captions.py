@@ -2,7 +2,7 @@
 libass draws over the frames — the title or the chapter's label in its box, the line under it,
 the beat counter, the caption, the L/R and RF/LF letters, and the beat numbers sliding over the
 lanes with the notes (`lane`) — and the `.srt` saved beside the mp4. Every time is read from
-`timeline` (ADR 0038)."""
+`timeline` (ADR 0041)."""
 
 import math
 from collections.abc import Callable
@@ -147,7 +147,7 @@ def _beat_numbers(lesson: "Lesson", timing: Timeline) -> list[str]:
 
 
 def _stick_letters(timing: Timeline) -> list[str]:
-    """L and R on the sticks' heads, where `frames` draws them (ADR 0037, D31): one event per stretch
+    """L and R on the sticks' heads, where `frames` draws them (ADR 0040, D31): one event per stretch
     of frames the head stays put, each frame's time in the middle of its event so libass can't
     show the one before."""
     swings = frames.stick_swings(timing)

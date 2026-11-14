@@ -14,7 +14,7 @@ const EP_PATH = `/api/toon/eps/${EP_ID}`;
 const SERIES_PATH = `/api/toon/series/${SERIES_ID}`;
 const JOBS_PATH = "/api/toon/jobs";
 const JOB_PATH = "/api/toon/jobs/current";
-const SOUNDS_PATH = "/api/toon/sounds";
+const SOUNDS_PATH = "/api/sounds";
 
 const fetchMock = vi.fn<typeof fetch>();
 

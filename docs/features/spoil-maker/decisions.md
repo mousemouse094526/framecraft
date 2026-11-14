@@ -137,7 +137,7 @@
 **Details:**
 - ค่าตั้งต้นของระดับเสียงต้นฉบับยังไม่ได้ตัดสิน
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by sound-library D5
 
 ## D10: ผลลัพธ์เป็น mp4 กับ .srt ของบทบรรยาย
 

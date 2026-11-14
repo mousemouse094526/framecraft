@@ -12,6 +12,7 @@ import {
   jobFailureText,
   shotsPath,
   type Draft,
+  type SoundChoice,
   type DraftJob,
   type Shot,
   type ShotRef,
@@ -40,12 +41,15 @@ export type ReviewState =
 
 export type ReviewMessage = { tone: "error" | "success"; text: string };
 
+/** Where a refused change says why: under the script, or by the field that sent it. */
+type AlertBy = "page" | "field";
+
 type Loaded = Extract<ReviewState, { kind: "loaded" }>;
 
 const whenLoaded = (change: (state: Loaded) => ReviewState) => onlyWhen<ReviewState, "loaded">("loaded", change);
 
-/** What a change answers: `saved` with the draft it made, or the refusal's message to show. */
-export type ChangeResult = { kind: "saved"; draft: Draft } | { kind: "refused"; message: string };
+/** What a change answers: `saved` with the draft it made, or the refusal's message to show (`code` null offline). */
+export type ChangeResult = { kind: "saved"; draft: Draft } | { kind: "refused"; message: string; code: string | null };
 
 /** What a followed job says once it ends: why it failed, or how many sentences a `polish` changed (spec › Frontend, D76). */
 function endMessage(job: DraftJob | null): ReviewMessage | null {
@@ -121,9 +125,10 @@ export function useScriptReview() {
     () => setIfMounted({ kind: "offline" }),
   );
 
-  /** One change to the draft, untracked; the answer is the whole draft again. */
+  /** One change to the draft, untracked; the answer is the whole draft again. A refusal shows
+   * under the script, or with `alertBy: "field"` only where the field that sent it shows it. */
   const sendChange = useCallback(
-    async (method: string, path: string, body?: unknown): Promise<ChangeResult> => {
+    async (method: string, path: string, body?: unknown, alertBy: AlertBy = "page"): Promise<ChangeResult> => {
       try {
         const reply = await sendJson<Draft | Refusal>(method, path, body);
         if (reply.status === 200 || reply.status === 201) {
@@ -135,22 +140,22 @@ export function useScriptReview() {
         if (refusal) {
           // `draft_locked`, `no_draft`, a sentence gone: what the page shows is old, so read it again.
           if (reply.status !== 400) void load();
-          setIfMounted(whenLoaded((s) => ({ ...s, message: { tone: "error", text: refusal.message } })));
-          return { kind: "refused", message: refusal.message };
+          if (alertBy === "page") setIfMounted(whenLoaded((s) => ({ ...s, message: { tone: "error", text: refusal.message } })));
+          return { kind: "refused", message: refusal.message, code: refusal.code };
         }
       } catch {
         // offline, below
       }
       setIfMounted({ kind: "offline" });
-      return { kind: "refused", message: OFFLINE_TEXT };
+      return { kind: "refused", message: OFFLINE_TEXT, code: null };
     },
     [load, setIfMounted],
   );
 
   /** Every change goes through here: it is remembered until answered, so เรียบเรียงใหม่ can wait for it (D76). */
   const change = useCallback(
-    (method: string, path: string, body?: unknown) => {
-      const sending = sendChange(method, path, body);
+    (method: string, path: string, body?: unknown, alertBy: AlertBy = "page") => {
+      const sending = sendChange(method, path, body, alertBy);
       saving.current.add(sending);
       void sending.finally(() => saving.current.delete(sending));
       return sending;
@@ -160,6 +165,12 @@ export function useScriptReview() {
 
   const changeDraft = useCallback(
     (fields: { top_text?: string; original_volume?: number }) => change("PATCH", DRAFT_PATH, fields),
+    [change],
+  );
+
+  /** The background sound: its refusal shows under the picker (sound-library spec › Frontend). */
+  const changeSound = useCallback(
+    (sound: SoundChoice) => change("PATCH", DRAFT_PATH, { sound }, "field"),
     [change],
   );
 
@@ -254,5 +265,5 @@ export function useScriptReview() {
   const refresh = useCallback(() => void load(), [load]);
   const goOffline = useCallback(() => setIfMounted({ kind: "offline" }), [setIfMounted]);
 
-  return { state, changeDraft, changeText, changeShots, insertAfter, remove, pick, polish, cancel, reload, refresh, goOffline };
+  return { state, changeDraft, changeSound, changeText, changeShots, insertAfter, remove, pick, polish, cancel, reload, refresh, goOffline };
 }

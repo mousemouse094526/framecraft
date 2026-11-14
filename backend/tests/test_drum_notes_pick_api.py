@@ -1,5 +1,5 @@
 """The range and the Pick job under /api/songs (drum-notes seam 1 › ช่วงแกะ, Pick job; D5, D6, D8,
-D17, D18, D20; ADR 0040): real ffmpeg decodes the stretch, `FakeOnnxRunner` stands in for the
+D17, D18, D20; ADR 0043): real ffmpeg decodes the stretch, `FakeOnnxRunner` stands in for the
 models, and the job is watched through the API without timers."""
 
 import threading

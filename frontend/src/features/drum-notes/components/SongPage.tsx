@@ -387,7 +387,7 @@ function LessonSection({ lesson, mode }: { lesson: ReturnType<typeof useLessonPr
   );
 }
 
-/** The lessons made from this song that are still there, as links to their editors (D12, ADR 0044). */
+/** The lessons made from this song that are still there, as links to their editors (D12, ADR 0047). */
 function MadeLessons({ ids }: { ids: string[] }) {
   return (
     <section aria-label="บทเรียนจากเพลงนี้" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-6">

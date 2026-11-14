@@ -6,7 +6,7 @@
 
 **Covers:**
 - Decisions: D3, D6 (พื้นหลังสีของแอป), D10 (ผล render), D12, D13 (ภาพ), D14, D17, D18, D21, D22 (ffmpeg ทาง stdin, ตัวหนังสือยาว, สถานะ render, `lesson_busy` ของลบ), spoil D36, toon D42, toon D45
-- ADR: 0005, 0010, 0017, 0024, 0037, 0038
+- ADR: 0005, 0010, 0017, 0024, 0040, 0041
 - Screens: ผล render ของบทเรียน, ส่วน render ของหน้าแก้บทเรียนกลอง, ป้าย render ในรายการบทเรียนกลอง
 - Seams: 1 (render จน `done`, เสียงตรงภาพ, `too_long`, `busy`, `lesson_busy`, ยกเลิก, `ffmpeg_failed`), 2 (`frame_at`), 3 (render แล้วพาไปหน้าผล, ป้ายในรายการ)
 - User stories: 3 (ชิ้นที่ไม่เน้นหรี่, ป้ายท่อน), 4, 5 (ผล render ทุกครั้ง)

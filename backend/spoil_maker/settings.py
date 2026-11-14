@@ -1,8 +1,8 @@
 """What the สปอย tab remembers between drafts: `media/spoil-maker/settings.json`
 (spoil-maker spec › ค่าที่จำไว้, D40, D45).
 
-`PATCH /settings` changes `watermarks` and `original_volume`; a draft's volume, a
-finished Draft job's voice and the minutes of the latest EP cut are written here too.
+`PATCH /settings` changes `watermarks`, `original_volume` and `sound_volume`; a draft's
+volumes, a finished Draft job's voice and the minutes of the latest EP cut are written here too.
 """
 
 import logging
@@ -21,6 +21,10 @@ from backend.json_values import is_int
 log = logging.getLogger(__name__)
 
 VOLUME_STEP = 5  # 0–100 in steps of 5 (spec › ค่าที่จำไว้)
+VOLUME_RULES = {  # the draft's and the remembered one's
+    "original_volume": "เสียงต้นฉบับต้องเป็น 0–100 ทีละ 5",
+    "sound_volume": "ความดังเสียงพื้นต้องเป็น 0–100 ทีละ 5",
+}
 WATERMARKS_MAX = 6  # D41
 WATERMARK_TEXT_MAX = 40  # letters that take space
 
@@ -42,9 +46,10 @@ class Settings(BaseModel):
     original_volume: int = 20  # D40
     last_voice_id: str | None = None
     ep_minutes: int = 30  # how long an EP is when a clip is first cut (D69)
+    sound_volume: int = 30  # a background sound chosen without one (sound-library D5)
 
 
-# One read-change-write at a time: a draft's `original_volume`, a finished Draft job and an EP cut all write (D71).
+# One read-change-write at a time: a draft's volumes, a finished Draft job and an EP cut all write (D71).
 _lock = threading.Lock()
 
 
@@ -70,18 +75,17 @@ def remember(project: ProjectPaths, **fields: object) -> Settings:
 
 
 def change(project: ProjectPaths, body: dict) -> Settings:
-    """`PATCH /settings`: `watermarks` and `original_volume`, each optional. Raises
-    `ApiError` 400 `invalid_settings` for anything outside the table, writing nothing."""
-    unknown = set(body) - {"watermarks", "original_volume"}
+    """`PATCH /settings`: `watermarks`, `original_volume` and `sound_volume`, each optional.
+    Raises `ApiError` 400 `invalid_settings` for anything outside the table, writing nothing."""
+    unknown = set(body) - {"watermarks", "original_volume", "sound_volume"}
     fields: dict[str, object] = {}
     if "watermarks" in body:
         fields["watermarks"] = _watermarks(body["watermarks"])
-    if "original_volume" in body:
-        if not is_volume(body["original_volume"]):
-            raise _invalid("เสียงต้นฉบับต้องเป็น 0–100 ทีละ 5")
-        fields["original_volume"] = body["original_volume"]
+    for name in VOLUME_RULES:
+        if name in body:
+            fields[name] = checked_volume(name, body[name], "invalid_settings")
     if unknown:
-        raise _invalid(f"แก้ได้แค่ลายน้ำและเสียงต้นฉบับ ไม่ใช่ {', '.join(sorted(unknown))}")
+        raise _invalid(f"แก้ได้แค่ลายน้ำ เสียงต้นฉบับ และความดังเสียงพื้น ไม่ใช่ {', '.join(sorted(unknown))}")
     return remember(project, **fields)
 
 
@@ -109,5 +113,8 @@ def _invalid(message: str) -> ApiError:
     return ApiError(400, "invalid_settings", message)
 
 
-def is_volume(value: object) -> bool:
-    return is_int(value) and 0 <= value <= 100 and value % VOLUME_STEP == 0
+def checked_volume(name: str, value: object, code: str) -> int:
+    """`value` as the volume `name` (a key of `VOLUME_RULES`); else `ApiError` 400 `code`."""
+    if not (is_int(value) and 0 <= value <= 100 and value % VOLUME_STEP == 0):
+        raise ApiError(400, code, VOLUME_RULES[name])
+    return value

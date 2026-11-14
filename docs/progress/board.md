@@ -10,5 +10,6 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [story-kb](story-kb/progress.md) | false | done | 🎨 4/4 | ✅ d75f574 | — | — |
 | [windows-launch](windows-launch/progress.md) | **true** | blocked | 🎨 1/1 | 2/3 | **งาน Windows ทั้งหมด** — รวม windows-check 01–02 (setup-status, spoil) + 03 ลอง Qwen บน RTX 30xx · รอเครื่อง | `/warroom-build windows-launch 03` (บนเครื่อง Windows) |
 | [toon](toon/progress.md) | false | done | 🎨 9/9 | ✅ 15604b7 | #33 (ค้างครั้งแรก), #37 (MPS pool EP ยาว) รอเกิดซ้ำ | — |
-| [video-gen](video-gen/progress.md) | false | blocked | ⏳ 0/3 | 3/3 | แบบ Figma 3 หน้า (Blocked 1–3) + เจ้าของเช็ค render/เสียงจริง; review ผ่าน 43ed0a9 | `/warroom video-gen` (พร้อมลิงก์แบบ) |
-| [drum-notes](drum-notes/progress.md) | false | blocked | ⏳ 0/2 | 4/4 | แบบ Figma 2 หน้า (Blocked 1–2) + เจ้าของฟังเทียบ (Blocked 5) + 3 คำถาม spec (Blocked 4) + refactor ค้าง (Blocked 3); review ผ่าน 56767e3; รอ video-gen merge ก่อน PR | `/warroom drum-notes` (พร้อมลิงก์แบบ) |
+| [sound-library](sound-library/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D18) | ✅ f89b1e9 | — | — |
+| [video-gen](video-gen/progress.md) | false | done | ⏳ 0/3 | ✅ 2b883ca | แบบ Figma 3 หน้า (Blocked 1–3, change request ภายหลัง D38) + เจ้าของเช็ค render/เสียงจริง | — |
+| [drum-notes](drum-notes/progress.md) | false | blocked | ⏳ 0/2 | 4/4 | แบบ Figma 2 หน้า (Blocked 1–2) + เจ้าของฟังเทียบ (Blocked 5) + 3 คำถาม spec (Blocked 4) + refactor ค้าง (Blocked 3); review ผ่าน 56767e3 | `/warroom drum-notes` (พร้อมลิงก์แบบ) |

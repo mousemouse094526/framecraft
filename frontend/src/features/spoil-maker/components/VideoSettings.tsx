@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import plusIcon from "../../../components/ui/assets/plus.svg";
@@ -6,8 +6,7 @@ import trashIcon from "../../../components/ui/assets/trash.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import type { SettingsState } from "../hooks/useVideoSettings";
 import { WATERMARK_TEXT_MAX, WATERMARKS_MAX, type MarkSize, type Position, type Watermark } from "../lib/render";
-
-const VOLUME_STEP = 5; // D40
+import { VolumeRange } from "./VolumeRange";
 
 // The picker is a 9:16 frame with three spots on top and three at the bottom (D41).
 const ROWS: { position: Position; label: string }[][] = [
@@ -30,6 +29,8 @@ const SIZES: { size: MarkSize; label: string }[] = [
 type Props = {
   volume: number;
   onVolume: (volume: number) => Promise<boolean>;
+  /** The background sound's picker, under the original sound (sound-library D5). */
+  backgroundSound: ReactNode;
   settings: SettingsState;
   /** `useVideoSettings().watermarks`: the list as loaded, empty until then. */
   watermarks: Watermark[];
@@ -40,7 +41,8 @@ type Props = {
   onRemove: (index: number) => Promise<boolean>;
 };
 
-/** Figma `Settings card` of ตรวจแก้บท: the original sound's level and the watermarks (D40, D41). */
+/** Figma `Settings card` of ตรวจแก้บท: the original sound's level, the background sound and the
+ * watermarks (D40, D41, sound-library D5). */
 export function VideoSettings(props: Props) {
   const { settings, watermarks: marks, locked } = props;
   // The slider saves itself like a text field: 800 ms after the last move, or on release.
@@ -58,24 +60,16 @@ export function VideoSettings(props: Props) {
           </label>
           <span className="font-mono font-medium">{volume.value}</span>
         </div>
-        <input
+        <VolumeRange
           id={volumeId}
-          type="range"
-          min={0}
-          max={100}
-          step={VOLUME_STEP}
           value={volume.value}
           disabled={locked}
           onChange={(event) => volume.change(event.target.value)}
           onPointerUp={() => void volume.flush()}
           onBlur={() => void volume.flush()}
-          className="h-11 w-full accent-brand-accent"
         />
-        <div className="flex justify-between font-mono text-xs text-muted-foreground">
-          <span>0</span>
-          <span>100</span>
-        </div>
       </div>
+      {props.backgroundSound}
       <hr className="border-border" />
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">

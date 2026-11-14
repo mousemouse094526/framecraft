@@ -13,9 +13,11 @@ from typing import NamedTuple
 from pydantic import BaseModel
 
 from backend import llm_reply
+from backend.ids import new_id
+from backend.sounds import SoundView
 from backend.toon import episodes, store
 from backend.toon.kinds import KINDS, ItemKind
-from backend.toon.store import Act, Card, Plot, Segment, Series, StoredSound
+from backend.toon.store import Act, Card, Plot, Segment, Series
 
 ATTEMPTS = 3
 TEMPERATURE = 0.3  # spoil-maker D61
@@ -109,7 +111,7 @@ def cards_prompt(
     index: int,
     characters: list[Known],
     backgrounds: list[Known],
-    sounds: list[StoredSound],
+    sounds: list[SoundView],
     target_letters: int,
 ) -> str:
     """Spec › Cards job step 3, for the act at `index`: its summary with the ones around it."""
@@ -224,7 +226,7 @@ def _lines(items) -> str:
 
 
 def _new_id(prefix: str, taken: set[str]) -> str:
-    found = store.new_id(prefix, taken)
+    found = new_id(prefix, taken)
     taken.add(found)
     return found
 

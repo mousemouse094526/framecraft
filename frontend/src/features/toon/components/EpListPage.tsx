@@ -13,7 +13,7 @@ import wandWhiteIcon from "../assets/wand-white.svg";
 import { useEpList } from "../hooks/useEpList";
 import { epLabel, IDEA_MAX, madeAt, type ListedEp } from "../lib/episodes";
 import { castHash, epHash, GENRE_LABELS, LAYOUT_LABELS, LIST_HASH, settingsHash, type Series } from "../lib/series";
-import { NoticeLine } from "./NoticeLine";
+import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { ToonDialog } from "./ToonDialog";
 
 const STAGE_LABELS: Record<ListedEp["stage"], string> = { plot: "พล็อต", cards: "การ์ด" };
@@ -41,7 +41,7 @@ export function EpListPage({ seriesId }: { seriesId: string }) {
 
   const { series, eps, notice } = state;
   const newButton = (
-    <button type="button" onClick={() => setWriting(true)} className={`flex h-8 items-center gap-2 px-3 ${PRIMARY_BUTTON}`}>
+    <button type="button" onClick={() => setWriting(true)} className={`h-8 px-3 ${PRIMARY_BUTTON}`}>
       <img src={plusWhiteIcon} alt="" width={16} height={16} />
       EP ใหม่
     </button>
@@ -170,7 +170,7 @@ function IdeaForm({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (ide
         <button type="button" onClick={onCancel} className={`h-8 px-3 ${GHOST_BUTTON}`}>
           ยกเลิก
         </button>
-        <button type="submit" disabled={!trimmed || sending} className={`flex h-8 items-center gap-2 px-3 ${PRIMARY_BUTTON}`}>
+        <button type="submit" disabled={!trimmed || sending} className={`h-8 px-3 ${PRIMARY_BUTTON}`}>
           <img src={wandWhiteIcon} alt="" width={16} height={16} />
           ให้ AI ร่างพล็อต
         </button>
