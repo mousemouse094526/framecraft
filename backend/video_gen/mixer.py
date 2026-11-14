@@ -1,7 +1,7 @@
 """The drum sound of a lesson, mixed from the samples at their own 44.1 kHz (video-gen spec ›
 Timeline and audio, D8, D19, D21): ฟังจังหวะ plays it, the Render job encodes it.
 
-Every hit's start comes from `timeline`; nothing here works out a time (ADR 0038). numpy and
+Every hit's start comes from `timeline`; nothing here works out a time (ADR 0041). numpy and
 soundfile are imported inside `mix`, so the backend starts fast.
 """
 

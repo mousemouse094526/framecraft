@@ -3,8 +3,9 @@ sentences that need it in an OmniVoice child (`voicing`, holding the GPU), then 
 ffmpeg (`rendering`, without it), and writes `media/spoil-maker/renders/{name}.mp4`,
 `.srt` and `.json` (ADR 0010, ADR 0012, ADR 0015).
 
-Steps and rules are in docs/features/spoil-maker/spec.md › Render job (D9, D10,
-D30, D31, D40–D42, D45, D51).
+Steps and rules are in docs/features/spoil-maker/spec.md › Render job (D10, D30,
+D31, D40–D42, D45, D51) and, for the background sound, sound-library spec › Render job
+ของสปอย (D5, D8, D12).
 """
 
 import logging
@@ -17,7 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from backend import checks, disk, ffmpeg, gate_rows, gpu, paths, renders
+from backend import checks, disk, ffmpeg, gate_rows, gpu, paths, renders, sounds
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, Runner, probe
 from backend.jobs import short
@@ -25,7 +26,7 @@ from backend.paths import ProjectPaths
 from backend.spoil import clips
 from backend.spoil_maker import captions, compose, draft, draft_file, settings, shots, voices
 from backend.spoil_maker.captions import Timed
-from backend.spoil_maker.compose import Piece
+from backend.spoil_maker.compose import Background, Piece
 from backend.spoil_maker.draft_file import Draft
 from backend.spoil_maker.voices import SentenceVoicer, SentencesPlan
 
@@ -33,10 +34,11 @@ log = logging.getLogger(__name__)
 
 State = Literal["voicing", "rendering", "done", "failed", "cancelled"]
 UNFINISHED: frozenset[State] = frozenset({"voicing", "rendering"})
-ErrorCode = Literal["ffmpeg_failed", "crashed", "model_failed", "internal"]
+ErrorCode = Literal["ffmpeg_failed", "crashed", "model_failed", "sound_not_found", "internal"]
 
 # Files in the work folder (`.render/`), named bare for ffmpeg (compose).
-PIECES_LIST, NARRATION, CAPTIONS = "pieces.txt", "narration.wav", "captions.ass"
+PIECES_LIST, NARRATION, CAPTIONS, SOUND = "pieces.txt", "narration.wav", "captions.ass", "sound.m4a"
+SOUND_NOT_FOUND = "ไม่พบเสียงพื้นนี้ในคลังเสียง เลือกเสียงใหม่ก่อน render"
 
 
 class RenderJobError(BaseModel):
@@ -66,6 +68,8 @@ class RenderResult(BaseModel):
     duration_s: float
     size_bytes: int
     sources: list[str]  # the Temp clip's title, for the clip's description (legal 1)
+    # The background sound's name at render time, for the description too (sound-library legal 1).
+    sound_name: str | None = None
     # The draft's EP (D70); a render from before EPs has none.
     clip_id: str | None = None
     ep: int | None = None
@@ -99,6 +103,8 @@ class RenderJobs(SentenceVoicer[RenderJob]):
             missing = [sid for sid, status in statuses.items() if status == "no_shot"]
             if missing:
                 raise ApiError(400, "missing_shots", "ทุกประโยคต้องมีภาพก่อน render", sentence_ids=missing)
+            if found.sound is not None and not sounds.exists(project, found.sound.sound_id):
+                raise ApiError(400, "sound_not_found", SOUND_NOT_FOUND)  # sound-library D8
             disk.require_free(project.root)  # spec › Render job step 1
             unvoiced = [sid for sid, status in statuses.items() if status != "ready"]
             require_rows(gate_rows.render(project, voices_first=bool(unvoiced)))
@@ -143,15 +149,18 @@ class RenderJobs(SentenceVoicer[RenderJob]):
                 timed, pieces = _timeline(project, drawn)
                 _start_work_folder(project)
                 _write_narration(project, drawn, project.render_work_dir / NARRATION)
+                sound_name = _copy_sound(project, drawn)
             self.free_gpu()  # voicing is over: the GPU is free for the next job while ffmpeg runs (D51)
             self.update(state="rendering", percent=0, done=None, total=None)
-            name = self._render(project, drawn, timed, pieces)
+            name = self._render(project, drawn, timed, pieces, sound_name)
         except FfmpegFailed as error:
             raise JobFailed("ffmpeg_failed", f"render ไม่สำเร็จ: {short(error)}") from None
         log.info("render wrote %s", name)
         return {"percent": 100}
 
-    def _render(self, project: ProjectPaths, drawn: Draft, timed: list[Timed], pieces: list[Piece]) -> str:
+    def _render(
+        self, project: ProjectPaths, drawn: Draft, timed: list[Timed], pieces: list[Piece], sound_name: str | None
+    ) -> str:
         """Step 3–4: cut the pieces, join them under the voice and the text, write the result."""
         work = project.render_work_dir
         marks = settings.read(project).watermarks  # every render's, the latest (spec › ค่าที่จำไว้)
@@ -171,14 +180,16 @@ class RenderJobs(SentenceVoicer[RenderJob]):
         project.renders_dir.mkdir(parents=True, exist_ok=True)
         render = renders.next_free(project.renders_dir)
         mp4_partial = render.file(".mp4.partial")
+        background = Background(file=SOUND, volume=drawn.sound.volume) if drawn.sound else None
         command = compose.final_command(
-            PIECES_LIST, NARRATION, CAPTIONS, os.path.relpath(project.kanit_dir, work), total, str(mp4_partial)
+            PIECES_LIST, NARRATION, CAPTIONS, os.path.relpath(project.kanit_dir, work), total, str(mp4_partial), background
         )
         self._run_ffmpeg(command, work, self._cancel, renders.encode_progress(self.update, total))
         info = {
             "created_at": checks.now_iso(),
             "duration_s": round(probe(mp4_partial).duration_s, 2),
             "sources": [clips.read_clip(project, drawn.clip_id).title],
+            "sound_name": sound_name,
             "clip_id": drawn.clip_id,
             "ep": drawn.ep.n,
             "start_s": drawn.ep.start_s,
@@ -214,6 +225,19 @@ def _timeline(project: ProjectPaths, drawn: Draft) -> tuple[list[Timed], list[Pi
 def _start_work_folder(project: ProjectPaths) -> None:
     shutil.rmtree(project.render_work_dir, ignore_errors=True)
     project.render_work_dir.mkdir(parents=True)
+
+
+def _copy_sound(project: ProjectPaths, drawn: Draft) -> str | None:
+    """Copies the background sound into the work folder, so a delete after this doesn't
+    reach the render (sound-library D12); returns its name. Call with the draft's lock held."""
+    if drawn.sound is None:
+        return None
+    name = sounds.name_of(project, drawn.sound.sound_id)
+    source = sounds.path(project, drawn.sound.sound_id)
+    if name is None or not source.is_file():
+        raise JobFailed("sound_not_found", SOUND_NOT_FOUND)
+    shutil.copyfile(source, project.render_work_dir / SOUND)
+    return name
 
 
 def _frame(seconds: float) -> int:

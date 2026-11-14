@@ -54,6 +54,14 @@ class Sentence(BaseModel):
     audio: Audio | None = None
 
 
+class DraftSound(BaseModel):
+    """The background sound under the whole clip: a sound of the library and its volume,
+    0–100 (sound-library D5). The draft keeps the id even after the sound is gone (D13)."""
+
+    sound_id: str
+    volume: int
+
+
 SAME_SECONDS = 0.01  # an EP named by its range matches a cut this close (D71)
 
 
@@ -88,6 +96,7 @@ class Draft(BaseModel):
     original_volume: int
     top_text: str
     sentences: list[Sentence]
+    sound: DraftSound | None = None  # a file written before it has none (sound-library spec › ข้อมูล)
 
 
 def read(project: ProjectPaths) -> Draft | None:

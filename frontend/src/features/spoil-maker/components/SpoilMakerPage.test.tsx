@@ -43,6 +43,7 @@ const DRAFT_EP2: Draft = {
   original_volume: 20,
   top_text: "",
   sentences: ["1", "2", "3", "4", "5", "6"].map((n) => sentenceOf(`s_0000000${n}`)),
+  sound: null,
   estimated_total_s: 15,
   locked: false,
 };
@@ -55,6 +56,7 @@ const RESULT: RenderResult = {
   sources: ["Night of the Living Dead"],
   clip_id: CLIP,
   ep: 2,
+  sound_name: null,
 };
 const resultsOf = (count: number) => Array.from({ length: count }, (_, i) => ({ ...RESULT, name: `2026110${i}-143200` }));
 

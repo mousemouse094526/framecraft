@@ -14,7 +14,7 @@ import radioSelected18Icon from "../assets/radio-selected-18.svg";
 import radioIcon from "../assets/radio.svg";
 import { VOICES_HASH, type SavedVoice } from "../../../lib/voices";
 import { useSeriesForm } from "../hooks/useSeriesForm";
-import type { Notice } from "../lib/notice";
+import type { Notice } from "../../../lib/notice";
 import {
   ACT_NAME_MAX,
   ACTS_MAX,

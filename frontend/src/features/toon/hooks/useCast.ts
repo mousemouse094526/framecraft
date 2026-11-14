@@ -13,11 +13,11 @@ import {
   type Series,
   type ToonJob,
 } from "../lib/series";
-import { sendEdit } from "../lib/edit";
-import { sendChecked } from "../lib/upload";
-import type { Notice } from "../lib/notice";
+import { sendEdit } from "../../../lib/edit";
+import { sendChecked } from "../../../lib/upload";
+import type { Notice } from "../../../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
-import { useReadyState } from "./useReadyState";
+import { useReadyState } from "../../../lib/useReadyState";
 
 export type ItemFields = { name: string; tag?: string; description: string };
 

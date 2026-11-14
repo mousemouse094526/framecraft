@@ -1,5 +1,5 @@
-import { sendEdit, type EditReply } from "./edit";
-import { NOT_NOW } from "./notice";
+import { sendEdit, type EditReply } from "../../../lib/edit";
+import { NOT_NOW } from "../../../lib/notice";
 import { isUnfinishedIn } from "../../../lib/job";
 import type { Refusal } from "../../../lib/refusal";
 
@@ -100,11 +100,10 @@ export const pendingUrl = (ref: ItemRef, n: number) => `${itemPath(ref)}/ref/pen
 
 // The tab's pages (D52, D53, D56): the Series list, a new Series, a Series' EPs, its characters and
 // backgrounds, its settings, the pick of a reference image, an EP: its plot, or its storyline
-// once the plot is confirmed (`/plot` opens the plot either way), its render, and the background
-// sound library.
+// once the plot is confirmed (`/plot` opens the plot either way), and its render. The sound library
+// is a tab of its own (sound-library D1).
 export const LIST_HASH = "#/toon";
 export const NEW_HASH = "#/toon/new";
-export const SOUNDS_HASH = "#/toon/sounds";
 export const seriesHash = (seriesId: string) => `#/toon/series/${seriesId}`;
 export const castHash = (seriesId: string) => `#/toon/series/${seriesId}/cast`;
 export const settingsHash = (seriesId: string) => `#/toon/series/${seriesId}/settings`;
@@ -121,13 +120,11 @@ export type Page =
   | { kind: "settings"; seriesId: string }
   | { kind: "pick"; itemRef: ItemRef }
   | { kind: "ep"; epId: string; plot: boolean }
-  | { kind: "render"; epId: string }
-  | { kind: "sounds" };
+  | { kind: "render"; epId: string };
 
 /** The page a `#/toon…` hash opens; anything else under the tab is the Series list. */
 export function pageOf(hash: string): Page {
   if (hash === NEW_HASH) return { kind: "new" };
-  if (hash === SOUNDS_HASH) return { kind: "sounds" };
   const parts = hash.split("/").slice(2); // after "#", "toon"
   if (parts[0] === "eps" && parts[1] && parts.length === 3 && parts[2] === "render") return { kind: "render", epId: parts[1] };
   if (parts[0] === "eps" && parts[1] && (parts.length === 2 || (parts.length === 3 && parts[2] === "plot"))) {

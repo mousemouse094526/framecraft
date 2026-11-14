@@ -18,6 +18,20 @@
 
 ## Log
 
+### Merge develop (sound-library PR #13) — 2026-11-14
+
+**Built:** merge `origin/develop` (`f89b1e9`) เข้า `feat/video-gen` แก้ conflict 10 ไฟล์ ทั้งสองฝั่งอยู่ครบ
+- `TABS` มีกลุ่มแล้ว (sound-library D3): สอนกลองอยู่ท้าย "ทำคลิป"; test กลุ่ม tab และเมนูจอแคบนับสอนกลองด้วย
+- `app.py` ใช้ `backend.sounds` ของคลังเสียงแทน `toon.sounds`, `drum_render` อยู่ใน `JOB_HOLDERS` ต่อ; `paths.py` มีทั้ง `sounds_*` และ `drum*`
+- ADR ของสอนกลองเลื่อนเป็น 0040–0042 (คลังเสียงใช้ 0037–0039 แล้ว) แก้ทุกที่อ้างในโค้ด docs ticket และ index
+- ADR-0028 รายการ route รวม `POST /api/sounds/imports` และ `PUT …/background`; web-platform notes รวมสองฝั่ง
+
+**Decided:** D39 (กลุ่ม tab, เลข ADR)
+
+**For the next ticket:** —
+
+**Checks:** `uv run pytest` 1289 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 529 passed; `npm --prefix frontend run build` ผ่าน
+
 ### Feature review — 2026-11-14
 
 **Built:** `refactor(video-gen): feature review fixes` (`43ed0a9`), review สามแกนจาก merge-base `e85a1f4`
@@ -29,7 +43,7 @@
 - ชื่อ: `played` → `timing` (Timeline), `Segment.chapter_index`, `Scene.shown_hits`/`shown_times`, `frames.frame_count` (captions เคยคำนวณซ้ำ), `backgrounds.partial_file` (test ใช้ด้วย); docstring `_tip_before` อธิบาย recursion, `cancel_render` body, `mixing` รวมขั้นบันทึก, ที่อยู่ jpg ของ `_take_upload`
 - `legal.md` ข้อ 4 ตาม D23 (`ลองเล่นเอง`)
 
-**Decided:** ไม่แก้ — `render._run` ซ้ำโครง `ModelJobSlot._run_job` (และ `toon/sounds._run`): ยกขึ้น `JobSlot` แตะสาม feature และรูป error ของ job ไม่เหมือนกัน (spec ขอ `error` แบบแบน) — ทิ้งไว้เป็นงาน refactor ข้าม feature ถ้าเจ้าของต้องการ; flag `too_large_status` (spec ขอ 413); ป้าย "(e2e)" ใน Vitest (กติกา testing: e2e = Vitest ผ่าน `App`); `lesson_jobs` เติมตอน import `render` (คอมเมนต์บอกแล้ว); `isRendering` ไม่ใช้ `isUnfinishedIn` (รับ null และเป็น type guard); `size_bytes` ใน `RenderResult` (มากับ `renders.listed` ที่ใช้ร่วม); `NOTICE.md` ไม่มี Big Rusty Drums (CC0 ไม่ต้องให้เครดิต, ADR-0039)
+**Decided:** ไม่แก้ — `render._run` ซ้ำโครง `ModelJobSlot._run_job` (และ `toon/sounds._run`): ยกขึ้น `JobSlot` แตะสาม feature และรูป error ของ job ไม่เหมือนกัน (spec ขอ `error` แบบแบน) — ทิ้งไว้เป็นงาน refactor ข้าม feature ถ้าเจ้าของต้องการ; flag `too_large_status` (spec ขอ 413); ป้าย "(e2e)" ใน Vitest (กติกา testing: e2e = Vitest ผ่าน `App`); `lesson_jobs` เติมตอน import `render` (คอมเมนต์บอกแล้ว); `isRendering` ไม่ใช้ `isUnfinishedIn` (รับ null และเป็น type guard); `size_bytes` ใน `RenderResult` (มากับ `renders.listed` ที่ใช้ร่วม); `NOTICE.md` ไม่มี Big Rusty Drums (CC0 ไม่ต้องให้เครดิต, ADR-0042)
 
 **For the next ticket:**
 - เจ้าของ: render Smells Like Teen Spirit intro fill เทียบคลิปอ้างอิง, ฟัง `chik` และทอม (D30), render บทเรียนที่มีภาพจริงดูความอ่านง่าย
@@ -76,7 +90,7 @@
 - smell ที่ค้าง: `render._run` ซ้ำโครง `ModelJobSlot._run_job`; ยก `_run_job` ขึ้น `JobSlot` ได้ใน refactor ภายหลัง
 - test ล้มหนึ่งครั้งแบบสุ่มในชุด backend (ผ่านเมื่อรันซ้ำ) — สงสัย test render ที่หยุดกลางเฟรม
 
-**Checks:** `uv run pytest` 1226 passed (สองรอบติด; ก่อนนั้นหนึ่งรอบมี 1 test ล้มแล้ว `--lf` ผ่าน ชื่อหาย — ถ้าเจออีกให้ `/kiki-debug`); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 482 passed; build ผ่าน. Review สามแกนจาก `fcf313a`: Standards 4 ข้อผิดกติกา (แก้: `fixesOf` ย้ายไป `lib/setupFixes`, หน้าผลสองคอลัมน์ที่ `lg:`, folder map ของ `fastapi-api` SKILL, ลำดับ lock ของ `lessons.lock`) + smell 11 (แก้: ท้าย `run`/`run_piped` ใช้ `_failed`, `OFFLINE` ซ้ำ, `RenderProgress`, `read_held` → `read_under_lock`, clean-up ของงานกัน error; ไม่แก้: `_run` ซ้ำแบบ `ModelJobSlot._run_job` (ยก `_run_job` ขึ้น `JobSlot` เป็น refactor ข้าม feature), คู่ (project, lesson_id), ตำแหน่งภาพอยู่ใน `kit`, `lesson_jobs` แบบ toon `ep_jobs`, body `{}` ของ cancel ตาม ADR-0013/spec), Spec 3 ขาด + 2 เกิน + 3 ผิด + 5 test (แก้: ตัว L/R บนหัวไม้เป็น ASS ตาม ADR-0037 (เดิมวาดด้วย Pillow), spec ข้อ 6 ตาม D33, AC `fontsdir` ตาม D34, ตัดบรรทัดไม่ล้น, ลบ test ที่ไม่ได้ผ่านทาง broken write จริงและ test `h264_args` ที่ซ้ำ trim, test busy ของหน้าแก้แยกสองกรณี; ไม่แก้: พื้นภาพเบลอมาก่อน ticket 03 (ใช้ทางเดียวกัน 03 test), ป้ายว่างทุกท่อน = หัวเรื่อง (D32), test ของ captions/ffmpeg นอก seam 2 เพราะ AC ขอเนื้อหา ASS ตรงๆ), Newcomer สรุปตรง What to build + เดา 13 จุด (แก้: `Segment.chapter` + `segment_at`, คอมเมนต์ `lesson_jobs` `CHAIN_DEPTH` `FADE_STEPS` `Drawn.ring` `not_running`, docstring `run_piped` `FakePiped`, ชื่อ test restart, `renderingPercent`; ไม่แก้: เลข D ในคอมเมนต์ (แบบของ repo))
+**Checks:** `uv run pytest` 1226 passed (สองรอบติด; ก่อนนั้นหนึ่งรอบมี 1 test ล้มแล้ว `--lf` ผ่าน ชื่อหาย — ถ้าเจออีกให้ `/kiki-debug`); `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 482 passed; build ผ่าน. Review สามแกนจาก `fcf313a`: Standards 4 ข้อผิดกติกา (แก้: `fixesOf` ย้ายไป `lib/setupFixes`, หน้าผลสองคอลัมน์ที่ `lg:`, folder map ของ `fastapi-api` SKILL, ลำดับ lock ของ `lessons.lock`) + smell 11 (แก้: ท้าย `run`/`run_piped` ใช้ `_failed`, `OFFLINE` ซ้ำ, `RenderProgress`, `read_held` → `read_under_lock`, clean-up ของงานกัน error; ไม่แก้: `_run` ซ้ำแบบ `ModelJobSlot._run_job` (ยก `_run_job` ขึ้น `JobSlot` เป็น refactor ข้าม feature), คู่ (project, lesson_id), ตำแหน่งภาพอยู่ใน `kit`, `lesson_jobs` แบบ toon `ep_jobs`, body `{}` ของ cancel ตาม ADR-0013/spec), Spec 3 ขาด + 2 เกิน + 3 ผิด + 5 test (แก้: ตัว L/R บนหัวไม้เป็น ASS ตาม ADR-0040 (เดิมวาดด้วย Pillow), spec ข้อ 6 ตาม D33, AC `fontsdir` ตาม D34, ตัดบรรทัดไม่ล้น, ลบ test ที่ไม่ได้ผ่านทาง broken write จริงและ test `h264_args` ที่ซ้ำ trim, test busy ของหน้าแก้แยกสองกรณี; ไม่แก้: พื้นภาพเบลอมาก่อน ticket 03 (ใช้ทางเดียวกัน 03 test), ป้ายว่างทุกท่อน = หัวเรื่อง (D32), test ของ captions/ffmpeg นอก seam 2 เพราะ AC ขอเนื้อหา ASS ตรงๆ), Newcomer สรุปตรง What to build + เดา 13 จุด (แก้: `Segment.chapter` + `segment_at`, คอมเมนต์ `lesson_jobs` `CHAIN_DEPTH` `FADE_STEPS` `Drawn.ring` `not_running`, docstring `run_piped` `FakePiped`, ชื่อ test restart, `renderingPercent`; ไม่แก้: เลข D ในคอมเมนต์ (แบบของ repo))
 
 **Measured:** บน Mac M1 คลิป 31.2 วินาที render จบ 6.9 วินาที (เป้า ≤ 60) ด้วย sample ปลอม + Kanit จริง; วาดเฟรมเฉลี่ย 4.6 ms (เป้า ≤ 30 ms → คงขยาย 2 เท่า D18); เสียงตรงภาพ test ผ่าน (ห่าง ≤ 1 เฟรม)
 
@@ -85,7 +99,7 @@
 **Built:**
 - Setup script โหลด sample กลอง Big Rusty Drums 117 ไฟล์ (13 MB) ลง `models/drums/` ลองสามครั้งต่อไฟล์; Status check มีแถว `drum_kit` ต่อจาก Kanit
 - tab "สอนกลอง" (`#/drums`): รายการ สร้าง ทำซ้ำ ลบบทเรียน; หน้าแก้มีตาราง Groove 16 ช่องต่อห้อง 1–4 ห้อง ไม้ R/L ลักษณะตี และกฎ D20, ท่อนสอน 1–6 ท่อน, ความยาวคลิปเทียบเพดาน 90 วินาที, ถามก่อนออก
-- "ฟังจังหวะ" ผสมเสียงนับเข้าและทุกท่อนจาก `timeline` ตัวเดียว (ADR-0038) เป็น wav 16-bit 44.1 kHz stereo peak −1 dBFS เหมือนเดิมทุก byte
+- "ฟังจังหวะ" ผสมเสียงนับเข้าและทุกท่อนจาก `timeline` ตัวเดียว (ADR-0041) เป็น wav 16-bit 44.1 kHz stereo peak −1 dBFS เหมือนเดิมทุก byte
 
 **Decided:**
 - D26 — ตาราง sample จาก `.sfz` ไมค์ใกล้: ชั้นแรก กลาง สุดท้าย; snare ไมค์ `top`, kick ไมค์ `kick`

@@ -16,6 +16,7 @@ const RESULT: RenderResult = {
   sources: ["Night of the Living Dead (1968)"],
   clip_id: "aaaaaaaaaaa",
   ep: 2,
+  sound_name: null,
 };
 const OLDER: RenderResult = { ...RESULT, name: "20261101-110500", created_at: "2026-11-01T11:05:00+07:00" };
 const VOICING: RenderJob = {
@@ -105,6 +106,16 @@ describe("ผล render", () => {
     const [newer, older] = await screen.findAllByRole("listitem", { name: /^render / });
     expect(within(newer).getByText("EP 2")).toBeInTheDocument();
     expect(within(older).queryByText(/^EP /)).not.toBeInTheDocument();
+  });
+
+  it("a render with a background sound names it under the source; one without has no such line", async () => {
+    backend([get(RENDERS, [{ ...RESULT, sound_name: "ฝนตก" }, OLDER]), get(CURRENT, null)]);
+    await openRenders();
+
+    const [withSound, without] = await screen.findAllByRole("listitem", { name: /^render / });
+    const credit = within(withSound).getByText("ต้นฉบับ: Night of the Living Dead (1968)");
+    expect(credit.compareDocumentPosition(within(withSound).getByText("เสียงพื้น: ฝนตก")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(without).queryByText(/^เสียงพื้น:/)).not.toBeInTheDocument();
   });
 
   it("copy puts the source line on the clipboard", async () => {

@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend import checks, gate_rows, gpu, paths, spoil_maker, stories
+from backend import checks, gate_rows, gpu, paths, sounds, spoil_maker, stories
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.jobs import ModelJobSlot
 from backend.models import qwen_for
@@ -23,7 +23,7 @@ from backend.paths import ProjectPaths
 from backend.spoil import clips, transcribe
 from backend.spoil.transcribe import Transcript
 from backend.spoil_maker import draft_file, episodes, script, settings, shots, thai, voices
-from backend.spoil_maker.draft_file import Draft, Ep, Layout, Ref, Sentence, ShotRef, Style
+from backend.spoil_maker.draft_file import Draft, DraftSound, Ep, Layout, Ref, Sentence, ShotRef, Style
 from backend.json_values import is_int
 from backend.spoil_maker.llm import Generate, Generated, Ready, Timeouts, WorkerError, timeouts
 from backend.spoil_maker.script import Brief
@@ -517,6 +517,19 @@ transcribe.clip_users.append(job_reads_clip)
 voices.voice_users.append(lambda voice_id: draft_jobs.uses_voice(voice_id))
 
 
+def draft_playing(project: ProjectPaths, sound_id: str) -> list[str]:
+    """`Spoil draft: {clip} · EP {n}` when the draft's background is the sound. A render
+    plays its own copy, so it doesn't count (sound-library D12). `sounds.delete` calls it
+    with the draft's lock held."""
+    found = draft_file.read(project)
+    if found is None or found.sound is None or found.sound.sound_id != sound_id:
+        return []
+    return [f"Spoil draft: {clips.read_clip(project, found.clip_id).title} · EP {found.ep.n}"]
+
+
+sounds.sound_users.append(sounds.SoundUser(tab="spoil", lock=lambda: gpu.slot.draft_lock, playing=draft_playing))
+
+
 # --- Reading and changing the draft ---
 
 
@@ -539,8 +552,9 @@ def view(project: ProjectPaths) -> DraftView | None:
 
 
 def change_draft(project: ProjectPaths, body: dict) -> DraftView:
-    """`PATCH /draft`: `top_text`, `layout`, `voice_id`, `original_volume`, each optional.
-    A new voice makes every voiced sentence `stale_audio`; the volume is remembered too (D40)."""
+    """`PATCH /draft`: `top_text`, `layout`, `voice_id`, `original_volume`, `sound`, each optional.
+    A new voice makes every voiced sentence `stale_audio`; the volumes are remembered too (D40,
+    sound-library D5)."""
     fields = {}
     if "top_text" in body:
         fields["top_text"] = _top_text(body["top_text"])
@@ -549,18 +563,24 @@ def change_draft(project: ProjectPaths, body: dict) -> DraftView:
             raise ApiError(400, "invalid_request", "layout ต้องเป็น A, B หรือ C")
         fields["layout"] = body["layout"]
     if "original_volume" in body:
-        if not settings.is_volume(body["original_volume"]):
-            raise ApiError(400, "invalid_request", "เสียงต้นฉบับต้องเป็น 0–100 ทีละ 5")
-        fields["original_volume"] = body["original_volume"]
+        fields["original_volume"] = settings.checked_volume("original_volume", body["original_volume"], "invalid_request")
+    if "sound" in body:
+        fields["sound"] = _sound(project, body["sound"])
     with gpu.slot.draft_lock:
         if "voice_id" in body:
             if not isinstance(body["voice_id"], str) or voices.chars_per_s(project, body["voice_id"]) is None:
                 raise ApiError(400, "voice_not_found", "ไม่พบเสียงที่เลือก")
             fields["voice_id"] = body["voice_id"]
         draft = _editable(project)
+        # Under the draft's lock, which a delete of the sound holds too (sound-library D11). Worded
+        # for a sound deleted since the page listed it; a render's `sound_not_found` is the draft's.
+        if fields.get("sound") is not None and not sounds.exists(project, fields["sound"].sound_id):
+            raise ApiError(400, "sound_not_found", "เสียงนี้ถูกลบจากคลังเสียงแล้ว เลือกเสียงอื่น")
         draft_file.write(project, draft.model_copy(update=fields))
     if "original_volume" in fields:
         settings.remember(project, original_volume=fields["original_volume"])
+    if isinstance(body.get("sound"), dict) and "volume" in body["sound"]:
+        settings.remember(project, sound_volume=fields["sound"].volume)
     return view(project)
 
 
@@ -654,6 +674,18 @@ def _sentence_text(text: object) -> str:
     if not text:
         raise ApiError(400, "invalid_request", "ประโยคต้องมีข้อความ")
     return text
+
+
+def _sound(project: ProjectPaths, value: object) -> DraftSound | None:
+    """`{sound_id, volume?}` or null; without a volume, the remembered one (sound-library D5)."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or not isinstance(value.get("sound_id"), str):
+        raise ApiError(400, "invalid_request", "เสียงพื้นต้องเป็นเสียงจากคลังเสียง หรือไม่มี")
+    if "volume" not in value:
+        return DraftSound(sound_id=value["sound_id"], volume=settings.read(project).sound_volume)
+    volume = settings.checked_volume("sound_volume", value["volume"], "invalid_request")
+    return DraftSound(sound_id=value["sound_id"], volume=volume)
 
 
 def _top_text(text: object) -> str:

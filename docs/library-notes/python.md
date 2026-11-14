@@ -38,6 +38,7 @@ Follows [subprocess](https://docs.python.org/3.12/library/subprocess.html).
 
 ## Traps
 
+- `os.replace(src, dst)` raises `OSError` when `dst` is a non-empty directory, and fails across filesystems; remove an existing `dst` folder first (`shutil.rmtree`) to move a folder into its place — [os.replace](https://docs.python.org/3.12/library/os.html#os.replace)
 - `os.kill(pid, 0)` is a liveness check on Unix only; on Windows any signal other than `CTRL_C_EVENT` or `CTRL_BREAK_EVENT` kills the process via `TerminateProcess` — [os.kill](https://docs.python.org/3.12/library/os.html#os.kill)
 - `json.dumps()` escapes non-ASCII by default; pass `ensure_ascii=False` to keep Thai text readable — [json](https://docs.python.org/3.12/library/json.html)
 - JSON keys always come back as `str`, so `loads(dumps(x)) != x` when `x` has int keys — [json](https://docs.python.org/3.12/library/json.html)
@@ -58,6 +59,7 @@ Follows [subprocess](https://docs.python.org/3.12/library/subprocess.html).
 - [pathlib](https://docs.python.org/3.12/library/pathlib.html) — encoding, `mkdir`, symlink behaviour (accessed 2026-10-29)
 - [subprocess](https://docs.python.org/3.12/library/subprocess.html) — `run`, `timeout`, `OSError` (accessed 2026-10-29)
 - [os](https://docs.python.org/3.12/library/os.html#os.kill) — `os.kill` Windows behaviour (accessed 2026-10-29)
+- [os.replace](https://docs.python.org/3.12/library/os.html#os.replace) — a folder onto a non-empty one, across filesystems (accessed 2026-11-13)
 - [shutil](https://docs.python.org/3.12/library/shutil.html) — `disk_usage` (accessed 2026-10-29)
 - [json](https://docs.python.org/3.12/library/json.html) — `ensure_ascii`, keys, `JSONDecodeError` (accessed 2026-10-29)
 - [datetime](https://docs.python.org/3.12/library/datetime.html) — `astimezone`, `isoformat`, `utcnow` (accessed 2026-10-29)

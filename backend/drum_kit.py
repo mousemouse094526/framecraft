@@ -1,4 +1,4 @@
-"""The drum samples the สอนกลอง tab mixes (video-gen D11, D19, ADR 0039): three velocity
+"""The drum samples the สอนกลอง tab mixes (video-gen D11, D19, ADR 0042): three velocity
 layers of ten pieces from Karoryfer Big Rusty Drums (CC0 1.0), close mics, pinned to a
 commit and checked by sha256 like Kanit (`backend.fonts`, ADR 0004).
 

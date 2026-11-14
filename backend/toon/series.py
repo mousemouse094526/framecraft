@@ -18,8 +18,9 @@ import anyio
 from pydantic import BaseModel
 
 from backend import disk, gpu, paths, uploads
+from backend.ids import new_id
 from backend.json_values import is_int
-from backend.errors import ApiError, invalid_request
+from backend.errors import ApiError, checked_text, invalid_request
 from backend.jobs import JobSlot
 from backend.paths import ProjectPaths
 from backend.spoil_maker import voices
@@ -132,7 +133,7 @@ def create(project: ProjectPaths, body: dict) -> SeriesView:
         voice_id = existing_voice(project, body.get("voice_id"))
         taken = {s.id for s in store.list_series(project)}
         series = Series(
-            id=store.new_id("s", taken),
+            id=new_id("s", taken),
             name=name,
             channel_name=channel_name,
             layout=layout,
@@ -226,7 +227,7 @@ def add_item(project: ProjectPaths, series_id: str, item_kind: ItemKind, body: d
         series = require_series(project, series_id)
         row = KINDS[item_kind]
         fields = _item_fields(body, item_kind, partial=False)
-        getattr(series, item_kind).append(row.model(id=store.new_id(row.id_prefix, _taken_ids(series)), **fields))
+        getattr(series, item_kind).append(row.model(id=new_id(row.id_prefix, _taken_ids(series)), **fields))
         store.write_series(project, series)
     return view(project, series_id)
 
@@ -239,7 +240,7 @@ def new_items(series: Series, plot: Plot) -> dict[ItemKind, list[Character | Bac
     for item_kind, row in KINDS.items():
         for item in getattr(plot, item_kind):
             if item.new:
-                item.id, item.new = store.new_id(row.id_prefix, taken), False
+                item.id, item.new = new_id(row.id_prefix, taken), False
                 taken.add(item.id)
                 added[item_kind].append(row.model(**item.model_dump(include=set(row.model.model_fields))))
     return added
@@ -520,14 +521,6 @@ def existing_voice(project: ProjectPaths, voice_id: object) -> str:
     if not isinstance(voice_id, str) or voices.chars_per_s(project, voice_id) is None:
         raise ApiError(400, "voice_not_found", "ไม่พบเสียงนี้: เลือกเสียงที่บันทึกไว้")
     return voice_id
-
-
-def checked_text(value: object, low: int, high: int) -> str:
-    """A text of `low`–`high` letters once the spaces around it are cut."""
-    text = value.strip() if isinstance(value, str) else None
-    if text is None or not low <= len(text) <= high:
-        raise ApiError(400, "invalid_request", f"ข้อความต้องยาว {low}–{high} ตัวอักษร")
-    return text
 
 
 voices.voice_users.append(uses_voice)

@@ -13,9 +13,9 @@ import {
   type RenderResult,
 } from "../lib/render";
 import type { Series } from "../lib/series";
-import { sendEdit, stopJob } from "../lib/edit";
-import { NOT_NOW, type Notice } from "../lib/notice";
-import { useReadyState } from "./useReadyState";
+import { sendEdit, stopJob } from "../../../lib/edit";
+import { NOT_NOW, type Notice } from "../../../lib/notice";
+import { useReadyState } from "../../../lib/useReadyState";
 
 export type RenderState =
   | { kind: "loading" }

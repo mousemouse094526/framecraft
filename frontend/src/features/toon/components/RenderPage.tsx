@@ -10,13 +10,13 @@ import chevronRightIcon from "../assets/chevron-right-16.svg";
 import downloadIcon from "../../../components/ui/assets/download.svg";
 import filmIcon from "../assets/film.svg";
 import filmWhiteIcon from "../assets/film-white.svg";
-import playIcon from "../assets/play.svg";
+import playIcon from "../../../components/ui/assets/play-16.svg";
 import { useRender } from "../hooks/useRender";
 import { isRendering, renderFilePath, type RenderJob, type RenderResult } from "../lib/render";
 import { cannotRender, cardsOf, epLabel, madeAt, type Ep } from "../lib/episodes";
 import { epHash, LAYOUT_LABELS, type Series } from "../lib/series";
 import { JobBanner } from "./JobBanner";
-import { NoticeLine } from "./NoticeLine";
+import { NoticeLine } from "../../../components/ui/NoticeLine";
 
 const FAILED_TITLE = "render ไม่สำเร็จ";
 

@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { getJson, getReply } from "../../../lib/api";
 import { castHash, isRunning, itemPath, JOB_PATH, seriesPath, startRefJob, type Item, type ItemRef, type Series, type ToonJob } from "../lib/series";
-import { sendEdit, stopJob, type EditReply } from "../lib/edit";
-import type { Notice } from "../lib/notice";
+import { sendEdit, stopJob, type EditReply } from "../../../lib/edit";
+import type { Notice } from "../../../lib/notice";
 import { useToonJobPoll } from "./useToonJobPoll";
-import { useReadyState } from "./useReadyState";
+import { useReadyState } from "../../../lib/useReadyState";
 
 export type PickState =
   | { kind: "loading" }

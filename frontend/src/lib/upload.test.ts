@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { OFFLINE_TEXT } from "../../../lib/api";
-import { FakeXhr } from "../../../testing/fakeXhr";
-import { send, sent, serve } from "../../../testing/testBackend";
+import { OFFLINE_TEXT } from "./api";
+import { FakeXhr } from "../testing/fakeXhr";
+import { send, sent, serve } from "../testing/testBackend";
 import { NOT_NOW } from "./notice";
 import { sendChecked, type FileToSend } from "./upload";
 
-const IMPORTS = "/api/toon/sounds/imports";
+const IMPORTS = "/api/sounds/imports";
 const CHECK = `${IMPORTS}/check`;
 const UPLOAD_URL = `${IMPORTS}?size=3`;
 const fetchMock = vi.fn<typeof fetch>();

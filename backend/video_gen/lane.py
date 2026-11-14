@@ -1,7 +1,7 @@
 """The note lanes' window in time (video-gen spec › Layout, D13): the playhead stands still at
 x 250 and the notes slide past it, the lanes as wide as 1.5 bars at the playing chapter's speed.
 `frames` draws the note heads and beat lines where this puts them, and `captions` moves the beat
-numbers the same way, so the two never part. Times are read from `timeline` (ADR 0038)."""
+numbers the same way, so the two never part. Times are read from `timeline` (ADR 0041)."""
 
 from typing import TYPE_CHECKING, NamedTuple
 

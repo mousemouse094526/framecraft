@@ -1,5 +1,5 @@
-import { sendJson } from "../../../lib/api";
-import { refusalOf, type Refusal } from "../../../lib/refusal";
+import { sendJson } from "./api";
+import { refusalOf, type Refusal } from "./refusal";
 import { noticeOf, type Notice } from "./notice";
 
 /**
@@ -19,7 +19,7 @@ export type EditOptions = {
 };
 
 /**
- * Every request of the tab that changes something (an add, change or delete, a job start): an
+ * Every request of a page that changes something (an add, change or delete, a job start): an
  * `ok` status is `ok`; a refusal, or no backend, is `refused` with the notice titled `title`.
  * `R` is the refusal with the fields its codes carry (`card_ids`, `eps`…).
  */
@@ -43,7 +43,7 @@ export async function sendEdit<T, R extends Refusal = Refusal>(
  * (`404` `not_found`), or `refused` with the notice (a refusal, or no backend). */
 export type StopReply<Job> = { kind: "cancelling"; job: Job } | { kind: "ended" } | { kind: "refused"; notice: Notice };
 
-/** หยุด of every job of the tab: `DELETE {path}` of the job's `…/current`. */
+/** หยุด of a job of การ์ตูนเล่า or คลังเสียง: `DELETE {path}` of the job's `…/current`. */
 export async function stopJob<Job>(path: string): Promise<StopReply<Job>> {
   const reply = await sendEdit<Job>("DELETE", path, undefined, "หยุดงานไม่ได้", { ok: [202] });
   if (reply.kind === "ok") return { kind: "cancelling", job: reply.value };

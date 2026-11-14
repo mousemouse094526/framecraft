@@ -32,6 +32,7 @@ from .fakes import (
     on_windows,
     ok_ffmpeg,
     write_temp_clip,
+    write_sound,
     write_transcript,
 )
 
@@ -1377,12 +1378,147 @@ def test_the_volume_is_remembered_and_a_new_draft_takes_it(client, project, read
     assert a_draft(client)["original_volume"] == 35
 
 
+# --- The background sound (sound-library D5, D13) ---
+
+SOUND = "m_0000abcd"
+
+
+def test_a_draft_written_before_the_sound_reads_no_sound_and_stays_version_2(client, project, ready):
+    write_draft(project)
+
+    found = a_draft(client)
+
+    assert (found["sound"], found["version"]) == (None, 2)
+
+
+def test_a_sound_with_its_volume_is_the_drafts_and_the_volume_is_remembered(client, project, ready):
+    write_draft(project)
+    write_sound(project)
+
+    response = client.patch(DRAFT, json={"sound": {"sound_id": SOUND, "volume": 45}})
+
+    assert response.status_code == 200, response.json()
+    assert response.json()["sound"] == {"sound_id": SOUND, "volume": 45}
+    assert json.loads(project.draft_file.read_text(encoding="utf-8"))["sound"] == {"sound_id": SOUND, "volume": 45}
+    assert client.get("/api/spoil-maker/settings").json()["sound_volume"] == 45
+
+
+def test_a_sound_without_a_volume_takes_the_remembered_one(client, project, ready):
+    write_draft(project)
+    write_sound(project)
+
+    first = client.patch(DRAFT, json={"sound": {"sound_id": SOUND}}).json()["sound"]
+    client.patch(DRAFT, json={"sound": {"sound_id": SOUND, "volume": 55}})
+    client.patch(DRAFT, json={"sound": None})
+    again = client.patch(DRAFT, json={"sound": {"sound_id": SOUND}}).json()["sound"]
+
+    assert (first["volume"], again["volume"]) == (30, 55)
+
+
+def test_no_sound_is_null(client, project, ready):
+    write_sound(project)
+    write_draft(project, sound={"sound_id": SOUND, "volume": 30})
+
+    assert client.patch(DRAFT, json={"sound": None}).json()["sound"] is None
+
+
+def test_a_sound_the_library_does_not_have_is_sound_not_found_and_the_draft_keeps_its_own(client, project, ready):
+    write_draft(project)
+
+    response = client.patch(DRAFT, json={"sound": {"sound_id": SOUND, "volume": 45}})
+
+    assert (response.status_code, response.json()["code"]) == (400, "sound_not_found")
+    assert a_draft(client)["sound"] is None
+    assert client.get("/api/spoil-maker/settings").json()["sound_volume"] == 30
+
+
+@pytest.mark.parametrize(
+    "sound",
+    [
+        {"sound_id": SOUND, "volume": 33},
+        {"sound_id": SOUND, "volume": 105},
+        {"sound_id": SOUND, "volume": -5},
+        {"sound_id": SOUND, "volume": "45"},
+        {"sound_id": 3},
+        {"volume": 45},
+        SOUND,
+    ],
+)
+def test_a_bad_sound_is_invalid_request(client, project, ready, sound):
+    write_draft(project)
+    write_sound(project)
+
+    response = client.patch(DRAFT, json={"sound": sound})
+
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_request")
+
+
+def test_choosing_a_sound_while_a_job_changes_the_draft_is_draft_locked(client, project, ready, llm):
+    write_draft(project)
+    write_sound(project)
+    llm.pause_at(0)
+
+    client.post(JOBS, json={"kind": "pick", "sentence_id": "s_00000001"})
+    llm.wait_until(0)
+    refused = client.patch(DRAFT, json={"sound": {"sound_id": SOUND}})
+    unknown = client.patch(DRAFT, json={"sound": {"sound_id": "m_ffffffff"}})
+    llm.release(0)
+    wait_for_end(client)
+
+    assert (refused.status_code, refused.json()["code"]) == (409, "draft_locked")
+    assert (unknown.status_code, unknown.json()["code"]) == (409, "draft_locked")
+    assert a_draft(client)["sound"] is None
+
+
+@pytest.mark.parametrize("value", [33, 105, -5, "30", None])
+def test_a_bad_remembered_sound_volume_is_invalid_settings(client, value):
+    response = client.patch("/api/spoil-maker/settings", json={"sound_volume": value})
+
+    assert (response.status_code, response.json()["code"]) == (400, "invalid_settings")
+
+
+def test_the_remembered_sound_volume_is_changed_alone(client):
+    response = client.patch("/api/spoil-maker/settings", json={"sound_volume": 50})
+
+    assert (response.json()["sound_volume"], response.json()["original_volume"]) == (50, 20)
+
+
+def test_a_new_draft_has_no_sound(client, project, ready, llm):
+    write_sound(project)
+    write_draft(project, sound={"sound_id": SOUND, "volume": 45})
+    llm.scripts = [passing_script()]
+
+    start(client, replace=True)
+    wait_for_end(client)
+
+    assert a_draft(client)["sound"] is None
+
+
+def test_a_polish_keeps_the_sound(client, project, ready, llm):
+    three_sentences(project)
+    write_sound(project)
+    client.patch(DRAFT, json={"sound": {"sound_id": SOUND, "volume": 45}})
+    llm.polishes = lambda request: polished({0: "ง" * 12, 2: "ฉ" * 12})
+
+    polish(client)
+    assert wait_for_end(client)["state"] == "done"
+
+    assert a_draft(client)["sound"] == {"sound_id": SOUND, "volume": 45}
+
+
+def test_the_draft_shows_its_sound_whether_the_library_has_it_or_not(client, project, ready):
+    write_draft(project, sound={"sound_id": SOUND, "volume": 45})
+
+    assert a_draft(client)["sound"] == {"sound_id": SOUND, "volume": 45}
+
+
 def test_settings_start_at_their_defaults(client):
     assert client.get("/api/spoil-maker/settings").json() == {
         "watermarks": [],
         "original_volume": 20,
         "last_voice_id": None,
         "ep_minutes": 30,
+        "sound_volume": 30,
     }
 
 

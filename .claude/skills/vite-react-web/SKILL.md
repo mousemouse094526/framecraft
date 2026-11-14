@@ -17,17 +17,22 @@ The local UI. It only talks to the backend through `/api` (Vite proxy to
 frontend/src/
 ├── main.tsx
 ├── App.tsx
-├── features/[feature]/   ← spoil (คลิป tab), story-kb (คลังความรู้ tab),
-│                           spoil-maker (สปอย tab), toon (การ์ตูนเล่า tab), video-gen (สอนกลอง tab), setup-status
+├── features/[feature]/   ← spoil (คลิป tab), story-kb (คลังความรู้ tab), sound-library
+│                           (คลังเสียง tab: its `lib/sounds` is what toon and spoil-maker read
+│                           of the library; it imports neither, sound-library D11),
+│                           spoil-maker (สปอย tab), toon (การ์ตูนเล่า tab), video-gen (สอนกลอง tab),
+│                           setup-status
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   ├── hooks/        ← data fetching and state (calls lib/api)
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)
 ├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
-│                        tab bar, action; `wide` = 1120px from lg for two
+│                        tab bar in groups from `sm`, one menu button below it,
+│                        sound-library D3; action; `wide` = 1120px from lg for two
 │                        columns), OfflinePanel, RefreshButton, ProgressBar,
 │                        Alert (the Figma toned box, optional title), FixCommand (a `fix` command with
 │                        its copy button: spoil's notices, a `not_ready` of สอนกลอง), ModalDialog (overlay, Esc,
-│                        focus kept inside), buttonStyles; assets/
+│                        focus kept inside), buttonStyles, NoticeLine (a `Notice` as an Alert),
+│                        CommitField (a field that sends on blur or Enter); assets/
 │                        holds the icons two features use (copy, trash, x, …)
 ├── testing/          ← testBackend.ts: the fake backend every tab's tests answer `fetch` with; fakeXhr.ts:
 │                        the `XMLHttpRequest` an upload test stubs (`sendFile`); statusBox.ts:
@@ -37,9 +42,16 @@ frontend/src/
     │                   the wav of ฟังจังหวะ, or its JSON refusal); sendFile (XHR upload with
     │                   its %, no timeout, spoil D58)
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
-    ├── useHash.ts    ← the URL hash (`useHash`), which top tab it opens (`tabOf`), and
+    ├── useHash.ts    ← the URL hash (`useHash`, a moved page's old hash put back as its new one),
+    │                   which top tab it opens (`tabOf`), the tabs and their groups (`TABS`, `TAB_GROUPS`), and
     │                   `useLeaveGuard` (asks "ออกโดยไม่บันทึก?" before the hash moves, story-kb D18)
+    ├── useDismiss.ts ← closes a disclosure's panel on `Esc` (focus back on its button) or a press
+    │                   outside: the คลังเสียง info box and the narrow tab menu (sound-library D16)
     ├── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
+    ├── useReadyState.ts ← a hook's state union with `update`, which changes only a `ready` state (toon D65)
+    ├── edit.ts       ← `sendEdit` (one request, its answer as ok, refused with a `Notice`) and `stopJob`
+    ├── notice.ts     ← `Notice`, the line a refused or failed request shows, `noticeOf`, `NOT_NOW`
+    ├── upload.ts     ← `sendChecked`: a file's `/check`, then its raw body with its % (ADR 0028)
     ├── usePollWhile.ts ← polls a job's `…/current` every second while it runs
     ├── job.ts        ← `isUnfinishedIn`, `onlyWhen`, `cancelCurrent` for every job hook
     ├── audio.ts      ← `playAudio`: the ฟัง buttons of the สปอย and การ์ตูนเล่า tabs
@@ -54,9 +66,10 @@ frontend/src/
 ```
 
 No router library and no `routes/`: `App` picks the page from the hash
-(`#/setup`, `#/clips`, `#/stories`, `#/spoil`, spoil D10, spoil-maker D53, story-kb D9); a page with
+(`#/setup`, `#/clips`, `#/stories`, `#/sounds`, `#/spoil`, spoil D10, spoil-maker D53, story-kb D9,
+sound-library D2; `#/sounds?back={hash}` is คลังเสียง with a "← กลับ" link, sound-library D11); a page with
 steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
-`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59); `#/toon/…` pages are picked by `pageOf` in `features/toon/lib/series.ts` (toon D52, D53, D56: a Series' EPs, its `/cast`, an EP's plot, storyline or `/render`, and `#/toon/sounds`); `#/stories/new` and `#/stories/{id}` open แก้ Story (story-kb); `#/drums/{id}` opens หน้าแก้บทเรียนกลอง and any other `#/drums…` hash the lesson list (`lessonIdOf` in `features/video-gen/lib/lesson.ts`, which also holds the D20 hand rules the Groove grid shares with the backend's `PUT`);
+`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59); `#/toon/…` pages are picked by `pageOf` in `features/toon/lib/series.ts` (toon D52, D53, D56: a Series' EPs, its `/cast`, an EP's plot, storyline or `/render`; `#/toon/sounds` became `#/sounds`, sound-library D6); `#/stories/new` and `#/stories/{id}` open แก้ Story (story-kb); `#/drums/{id}` opens หน้าแก้บทเรียนกลอง and any other `#/drums…` hash the lesson list (`lessonIdOf` in `features/video-gen/lib/lesson.ts`, which also holds the D20 hand rules the Groove grid shares with the backend's `PUT`);
 the สปอย tab's hashes, the Draft job's shapes, the styles and `sendDraft` (the one `POST` of a whole new draft, step 1 and step 2 both send it) live in `features/spoil-maker/lib/draft.ts`, the voice and render API shapes and `startJob` in `lib/render.ts` — a `lib/` module may call `lib/api` when two hooks send the same request. The tab's steps share one state (`useStepStatus`): `StepsRefreshContext` reads it again, `DraftRunContext` gives the latest Draft job to step 1 (locked while it runs) and step 2 (its progress card). Each page wraps itself in `PageLayout`,
 whose tabs are plain `#/…` links, so clicks and the back button both just
 change the hash.

@@ -4,7 +4,7 @@ each set of focused pieces, the lanes and the playhead. `frame_at(scene, t)` lay
 copy: the sticks, the rings, the note heads, the beat lines, the feet and the L/R circles. Every
 moving thing is drawn at twice the size and shrunk, since `ImageDraw` doesn't smooth edges.
 
-Every time is read from `timeline` (ADR 0038). Every letter is `captions`' (ADR 0037): it puts
+Every time is read from `timeline` (ADR 0041). Every letter is `captions`' (ADR 0040): it puts
 the L or R on a stick's head where `stick_tips` says the head is, frame by frame (D31).
 Pillow is imported inside the functions, so the backend starts fast.
 """
