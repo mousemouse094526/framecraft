@@ -1,6 +1,6 @@
 # Progress: drum-notes
 
-**Now:** ทุก ticket done (01–04), feature review ผ่าน, merge `origin/develop` (sound-library #13 + video-gen #14) แล้ว, Blocked 1–4 ปิดด้วย D28–D30; PR เข้า `develop` เปิดแล้ว (ลิงก์ในแถว board). เหลือ Blocked 5: เจ้าของฟังเทียบหลังเปิด PR
+**Now:** ทุก ticket done (01–04), feature review ผ่าน, merge `origin/develop` (sound-library #13 + video-gen #14) แล้ว, Blocked 1–4 ปิดด้วย D28–D30; [PR #15](https://github.com/mousemouse094526/framecraft/pull/15) เข้า `develop` เปิดแล้ว. เหลือ Blocked 5: เจ้าของฟังเทียบหลังเปิด PR
 
 **Next:** รอ review/merge PR แล้ว
 
@@ -31,7 +31,7 @@
 
 **Blocked 5:** ปล่อยไว้ เป็นการตรวจหลังเปิด PR: เจ้าของฟังเทียบตาราง intro ของ `reel.mp4`/SLTS (Log 03) และ kalimba `DdYi7i6t2R8` 0–30 s ห้อง 24–25 โหมดทำนอง (Log 04) บน `#/songs` แล้วบอกสิ่งที่ต้องแก้ (เป็น change request ถ้ามี).
 
-**Checks:** ดูท้ายข้อนี้ในรายงาน PR; ค่าล่าสุดก่อน commit บันทึกใต้ "Checks" ของ PR.
+**Checks:** `uv run pytest` 1430 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 584 passed; `npm --prefix frontend run build` ผ่าน. Commits: merge `e98c1c7`, refactor `dd71654`, จอ `95a8aea`, docs `694e7ff`.
 
 **Decided:** D28, D29, D30
 
