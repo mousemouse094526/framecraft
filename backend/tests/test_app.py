@@ -28,9 +28,9 @@ def test_status_api_returns_the_checklist_as_json(client):
     assert response.status_code == 200
     body = response.json()
     assert body["ready"] is True
-    assert body["ok_count"] == 20
-    assert body["total"] == 20
-    assert len(body["items"]) == 20
+    assert body["ok_count"] == 24
+    assert body["total"] == 24
+    assert len(body["items"]) == 24
 
 
 def test_status_api_rows_have_fix_null_when_ok_and_license_only_on_models(client):

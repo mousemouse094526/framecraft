@@ -6,7 +6,7 @@ import type { StatusResponse } from "../../../lib/statusTypes";
 import { FakeXhr } from "../../../testing/fakeXhr";
 import { findStatusWith } from "../../../testing/statusBox";
 import { get, jsonResponse, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
-import type { Lesson, LessonRow } from "../lib/lesson";
+import type { Lesson, LessonRow } from "../../../lib/lesson";
 import type { DrumRenderJob, RenderResult } from "../lib/render";
 
 const ID = "k3v9x0a1b2c4";

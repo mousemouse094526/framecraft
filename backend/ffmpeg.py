@@ -3,9 +3,11 @@
 streams from `ffmpeg -i`, since there is no ffprobe (docs/library-notes/ffmpeg.md).
 
 spoil_maker's `frames` (Shots) and `compose` (renders), and spoil's `trim` (cut ranges)
-run ffmpeg through these; video_gen's render sends its frames through `run_piped`.
+run ffmpeg through these; video_gen's render sends its frames through `run_piped`; drum_notes'
+Pick job reads a stretch of a song as raw PCM through `run_capture`.
 """
 
+import io
 import logging
 import re
 import subprocess
@@ -96,6 +98,25 @@ def _failed(returncode: int, stderr: deque[str]) -> FfmpegFailed:
     return FfmpegFailed(f"ffmpeg exited with {returncode}: {last_line}", last_line)
 
 
+def _watch_stderr(process: subprocess.Popen) -> tuple[deque[str], threading.Thread]:
+    """A thread that keeps the last 20 lines ffmpeg prints, started; `join` it once ffmpeg exited."""
+    stderr: deque[str] = deque(maxlen=STDERR_LINES)
+    text = isinstance(process.stderr, io.TextIOBase)
+    reader = threading.Thread(
+        target=lambda: stderr.extend((line if text else line.decode(errors="replace")).rstrip() for line in process.stderr), daemon=True
+    )
+    reader.start()
+    return stderr, reader
+
+
+def _ended(process: subprocess.Popen, cancel: threading.Event, stderr: deque[str]) -> None:
+    """How a run ended, once ffmpeg exited: `Cancelled` when `cancel` is set, `FfmpegFailed` on a bad exit code."""
+    if cancel.is_set():
+        raise Cancelled()
+    if process.returncode != 0:
+        raise _failed(process.returncode, stderr)
+
+
 class Runner(Protocol):
     """What runs an ffmpeg command: `run`, or a test's stand-in that pauses it."""
 
@@ -110,14 +131,12 @@ def run(command: list[str], cwd: Path, cancel: threading.Event, on_progress: Cal
     `FfmpegFailed` with the last line it printed (`last_line`); the last 20 go to the log."""
     if cancel.is_set():
         raise Cancelled()
-    stderr: deque[str] = deque(maxlen=STDERR_LINES)
     process = subprocess.Popen(
         command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors="replace"
     )
     finished = threading.Event()
     threading.Thread(target=kill_on_cancel, args=(process, cancel, finished), daemon=True).start()
-    reader = threading.Thread(target=lambda: stderr.extend(line.rstrip() for line in process.stderr), daemon=True)
-    reader.start()
+    stderr, reader = _watch_stderr(process)
     try:
         for line in process.stdout:
             key, _, value = line.strip().partition("=")
@@ -127,10 +146,7 @@ def run(command: list[str], cwd: Path, cancel: threading.Event, on_progress: Cal
         reader.join()
     finally:
         finished.set()
-    if cancel.is_set():
-        raise Cancelled()
-    if process.returncode != 0:
-        raise _failed(process.returncode, stderr)
+    _ended(process, cancel, stderr)
 
 
 class PipedRunner(Protocol):
@@ -151,12 +167,8 @@ def run_piped(
     decides — not 0 is `FfmpegFailed` with the last line of stderr, which one thread reads meanwhile."""
     if cancel.is_set():
         raise Cancelled()
-    stderr: deque[str] = deque(maxlen=STDERR_LINES)
     process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    reader = threading.Thread(
-        target=lambda: stderr.extend(line.decode(errors="replace").rstrip() for line in process.stderr), daemon=True
-    )
-    reader.start()
+    stderr, reader = _watch_stderr(process)
     try:
         for sent, frame in enumerate(frames, start=1):
             if cancel.is_set():
@@ -175,7 +187,30 @@ def run_piped(
             process.kill()
         process.wait()
         reader.join()
+    _ended(process, cancel, stderr)
+
+
+class CaptureRunner(Protocol):
+    """What runs an ffmpeg command whose output is its stdout: `run_capture`, or a test's stand-in."""
+
+    def __call__(self, command: list[str], cancel: threading.Event) -> bytes: ...
+
+
+def run_capture(command: list[str], cancel: threading.Event) -> bytes:
+    """Runs ffmpeg and returns everything it wrote to stdout (raw PCM, `-f f32le -`; drum-notes
+    D20). Raises `Cancelled` once `cancel` is set (ffmpeg is killed), or `FfmpegFailed` with the
+    last line it printed (`last_line`); the last 20 go to the log."""
     if cancel.is_set():
         raise Cancelled()
-    if process.returncode != 0:
-        raise _failed(process.returncode, stderr)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    finished = threading.Event()
+    threading.Thread(target=kill_on_cancel, args=(process, cancel, finished), daemon=True).start()
+    stderr, reader = _watch_stderr(process)
+    try:
+        output = process.stdout.read()
+        process.wait()
+        reader.join()
+    finally:
+        finished.set()
+    _ended(process, cancel, stderr)
+    return output

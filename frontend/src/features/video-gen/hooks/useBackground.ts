@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { OFFLINE_TEXT, sendFile, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
-import { backgroundPath, type Lesson } from "../lib/lesson";
+import { backgroundPath, type Lesson } from "../../../lib/lesson";
 
 /** `sending`: a picture going out, or its removal; both buttons wait. `refused`: the API's message, or offline. */
 export type BackgroundState = { kind: "idle" } | { kind: "sending" } | { kind: "refused"; text: string };

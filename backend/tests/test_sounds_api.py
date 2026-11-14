@@ -14,7 +14,7 @@ import anyio
 import deno
 import pytest
 
-from backend import checks, ffmpeg, files, sounds, spoil
+from backend import audio_imports, checks, ffmpeg, files, sounds, spoil
 from backend.spoil.adapter import DownloadOptions, YtDlpAdapter, select_formats
 
 from .fakes import (
@@ -417,7 +417,7 @@ def test_a_page_that_goes_away_while_ffmpeg_converts_its_file_stops_ffmpeg_and_a
 def test_a_page_that_goes_away_as_ffmpeg_ends_adds_no_sound(client, project, tmp_path, monkeypatch):
     # The page is asked about once a second at most here, so only the last question before
     # the sound comes in can see it gone.
-    monkeypatch.setattr(sounds, "GONE_POLL_SECONDS", 1)
+    monkeypatch.setattr(audio_imports, "GONE_POLL_SECONDS", 1)
     data = tone(tmp_path / "in.wav", 1).read_bytes()
     upload = Upload(data, then="leave")
 

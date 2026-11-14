@@ -6,6 +6,7 @@ import functools
 import io
 import json
 import queue
+import struct
 import subprocess
 import threading
 import time
@@ -210,6 +211,10 @@ def ok_gguf() -> str:
     return "0.19.0"
 
 
+def ok_onnxruntime() -> str:
+    return "1.32.0"
+
+
 def fake_probes(**overrides) -> Probes:
     """Every probe passing on a CUDA machine, unless overridden by field name."""
     probes = Probes(
@@ -223,6 +228,7 @@ def fake_probes(**overrides) -> Probes:
         bitsandbytes=ok_bitsandbytes,
         diffusers=ok_diffusers,
         gguf=ok_gguf,
+        onnxruntime=ok_onnxruntime,
     )
     return dataclasses.replace(probes, **overrides)
 
@@ -393,6 +399,37 @@ class FakeAdapter:
         if point in self._paused:
             self._reached[point].set()
             assert self._paused[point].wait(5), f"test never released {point}"
+
+
+class AudioLinkAdapter(FakeAdapter):
+    """yt-dlp for a link's audio (toon's sounds, drum-notes' songs): the options it was asked with,
+    and the audio file it leaves where they say, named by `outtmpl`."""
+
+    def __init__(self, audio: Path, info: dict | None = None, **kwargs):
+        super().__init__(info=info, **kwargs)
+        self.audio = audio
+        self.options: list = []
+        self.landed: list[str] = []
+
+    def fetch_info(self, url: str, options=None) -> dict:
+        self.options.append(options)
+        return super().fetch_info(url)
+
+    def download(self, info, project, clip_id, on_progress, options=None) -> Path:
+        self.options.append(options)
+        self.download_calls += 1
+        self.clip_ids.append(clip_id)
+        folder = options.folder(project)
+        for index, event in enumerate(self.events):
+            on_progress(event)
+            if index == 0:
+                self._checkpoint("progress")
+        if self.download_error:
+            raise self.download_error
+        target = folder / options.name.format(id=clip_id).replace("%(ext)s", "webm")
+        target.write_bytes(self.audio.read_bytes())
+        self.landed = sorted(path.name for path in folder.iterdir())
+        return target
 
 
 class FakeMp4Check:
@@ -912,14 +949,16 @@ class Gate:
         self.opened.set()
 
 
-async def play(upload: Upload, name: str, size: int, path: str = "/api/spoil/imports") -> tuple[int | None, dict | None]:
-    """POST `path` through the app as ASGI; returns the status and the JSON body."""
+async def play(
+    upload: Upload, name: str, size: int, path: str = "/api/spoil/imports", method: str = "POST"
+) -> tuple[int | None, dict | None]:
+    """`method` `path` through the app as ASGI; returns the status and the JSON body."""
     query = httpx.QueryParams({"name": name, "size": size})
     scope = {
         "type": "http",
         "asgi": {"version": "3.0"},
         "http_version": "1.1",
-        "method": "POST",
+        "method": method,
         "scheme": "http",
         "path": path,
         "raw_path": path.encode(),
@@ -940,6 +979,74 @@ async def play(upload: Upload, name: str, size: int, path: str = "/api/spoil/imp
     status = next((m["status"] for m in sent if m["type"] == "http.response.start"), None)
     body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
     return status, json.loads(body) if body else None
+
+
+# --- MIDI files, built with struct (drum-notes spec › Testing decisions) ---
+
+
+def vlq(value: int) -> bytes:
+    """A variable-length quantity, as the file format writes delta times and lengths."""
+    out = [value & 0x7F]
+    value >>= 7
+    while value:
+        out.append((value & 0x7F) | 0x80)
+        value >>= 7
+    return bytes(reversed(out))
+
+
+def meta(kind: int, body: bytes) -> bytes:
+    return bytes([0xFF, kind]) + vlq(len(body)) + body
+
+
+def tempo_meta(bpm: float) -> bytes:
+    return meta(0x51, round(60_000_000 / bpm).to_bytes(3, "big"))
+
+
+def time_signature(numerator: int = 4, denominator_power: int = 2) -> bytes:
+    return meta(0x58, bytes([numerator, denominator_power, 24, 8]))
+
+
+def track(events: bytes) -> bytes:
+    body = events + b"\x00" + meta(0x2F, b"")
+    return b"MTrk" + struct.pack(">I", len(body)) + body
+
+
+def notes_track(notes: list[tuple[int, int, int]], channel: int = 9, *, running_status: bool = False) -> bytes:
+    """Note-ons at ascending absolute ticks (tick, note, velocity), each followed by its note-off at
+    the same tick as a note-on of velocity 0, so running status can carry through the whole track."""
+    events, last, on = b"", 0, bytes([0x90 | channel])
+    for index, (tick, note, velocity) in enumerate(notes):
+        status = b"" if running_status and index else on
+        events += vlq(tick - last) + status + bytes([note, velocity]) + vlq(0) + (b"" if running_status else on) + bytes([note, 0])
+        last = tick
+    return events
+
+
+def midi_file(
+    notes: list[tuple[int, int, int]],
+    bpm: float = 100,
+    division: int = 480,
+    signature: tuple[int, int] | None = (4, 2),
+    fmt: int = 1,
+    name: bytes | None = None,
+    channel: int = 9,
+    smpte: bool = False,
+) -> bytes:
+    """A format 1 file (format 0 puts everything in one track): a tempo track with the time
+    signature and name, then the notes' track."""
+    header = b"\x00" + tempo_meta(bpm) + (b"\x00" + time_signature(*signature) if signature else b"") + (b"\x00" + meta(0x03, name) if name else b"")
+    division_field = 0x8000 | (0xE8 << 8) | 40 if smpte else division  # SMPTE: -24 fps, 40 ticks a frame
+    if fmt == 1:
+        tracks = track(header) + track(notes_track(notes, channel))
+        count = 2
+    else:
+        tracks = track(header + notes_track(notes, channel))
+        count = 1
+    return b"MThd" + struct.pack(">IHHH", 6, fmt, count, division_field) + tracks
+
+
+BEAT = 480  # ticks of a quarter at division 480
+ROCK = [(0, 36, 110), (0, 42, 110), (BEAT, 42, 110), (2 * BEAT, 38, 110), (2 * BEAT, 42, 110), (3 * BEAT, 42, 110)]
 
 
 # --- toon API tests ---
@@ -1191,3 +1298,160 @@ def import_tone(client, tmp_path, name: str = "ฝนตก.wav", seconds: float
     response = import_file(client, name, tone(tmp_path / "in.wav", seconds).read_bytes())
     assert response.status_code == 201, response.json()
     return response.json()
+
+
+# --- drum-notes API tests (the แกะเพลง tab) ---
+
+SONGS = "/api/songs"
+OCTET = {"Content-Type": "application/octet-stream"}
+
+
+def put_song_file(client, name: str, body: bytes, size: int | None = None, headers: dict = OCTET):
+    """`PUT /api/songs?name=&size=` with `body` as the file (ADR 0028)."""
+    return client.put(f"{SONGS}?name={name}&size={len(body) if size is None else size}", content=body, headers=headers)
+
+
+def import_song_tone(client, tmp_path, name: str = "song.mp3", seconds: float = 6) -> dict:
+    """A sine tone of `seconds` as a Song, as `PUT /api/songs` answers it."""
+    response = put_song_file(client, name, tone(tmp_path / "in.mp3", seconds).read_bytes())
+    assert response.status_code == 201, response.json()
+    return response.json()
+
+
+def song_refusal(response) -> tuple[int, str]:
+    return response.status_code, response.json()["code"]
+
+
+BEAT_THIS_FPS = 50
+ADTOF_FPS = 100
+
+
+def logit_peaks(frames: int, every: int, pad_before: int = 0, first_frame: int = 0) -> np.ndarray:
+    """Beat This! logits over `frames` output frames of a chunk whose first unpadded frame is the
+    range's `first_frame` (the `pad_before` frames before it are padding): 3.0 at every frame of
+    the range that is a multiple of `every`, −5.0 elsewhere — so every chunk agrees on where the
+    beats are, not only the first."""
+    logits = np.full(frames, -5.0, np.float32)
+    first = (pad_before - first_frame) % every
+    logits[first::every] = 3.0
+    return logits
+
+
+def melody_onsets(first_sample: int) -> np.ndarray:
+    """Basic Pitch onsets over the window from `first_sample`: 1.0 on note 60 at the first frame on
+    or after each half second of the range (frame `k` is sample `first_sample + k × 256`), so the
+    hits `melody_hits` makes land every 0.5 s, up to one frame (11.6 ms) late."""
+    from backend.drum_notes import score
+
+    onset = np.zeros((score.BASIC_PITCH_FRAMES, score.BASIC_PITCH_NOTES), np.float32)
+    half_second = score.BASIC_PITCH_RATE // 2
+    for frame in range(score.BASIC_PITCH_FRAMES):
+        sample = first_sample + frame * score.BASIC_PITCH_FRAME_HOP
+        if sample >= 0 and sample // half_second != (sample - score.BASIC_PITCH_FRAME_HOP) // half_second:
+            onset[frame, 60] = 1.0
+    return onset
+
+
+def drum_activations(frames: int) -> np.ndarray:
+    """ADTOF activations over `frames`: a kick on every second (frame 0, 100, …), a snare half a
+    second after each, nothing else."""
+    activations = np.zeros((frames, 5), np.float32)
+    activations[0::ADTOF_FPS, 0] = 1.0
+    activations[ADTOF_FPS // 2 :: ADTOF_FPS, 1] = 1.0
+    return activations
+
+
+class FakeOnnxRunner:
+    """Stands in for `onnx_runner.open_session` (drum-notes D17, D20): opens a model file as a
+    `FakeSession` whose `run` answers arrays of the real models' shapes, made up from the input's
+    length — `activations(frames)` for ADTOF, `beat(T, pad_before, first_frame)` and `downbeat(T, pad_before,
+    first_frame)` for a Beat This! chunk of `T` output frames whose first unpadded frame is the
+    range's `first_frame` (the fake counts chunks: `score.KEPT_FRAMES` kept per chunk before it), `onset(first_sample)` for a Basic Pitch window
+    (the fake counts windows to know where each starts, as the job runs them in order, once each).
+    It counts what it opened and ran, pauses
+    at a step ("adtof", "window 0", "chunk 0", "chunk 1", …) until released, raises `open_error`
+    at `open_session` or `run_error` at the first `run`."""
+
+    def __init__(self, activations=drum_activations, beat=None, downbeat=None, onset=None, open_error: Exception | None = None, run_error: Exception | None = None):
+        self.activations = activations
+        self.beat = beat or (lambda frames, pad_before, first_frame: logit_peaks(frames, BEAT_THIS_FPS // 2, pad_before, first_frame))  # every 0.5 s
+        self.downbeat = downbeat or (lambda frames, pad_before, first_frame: logit_peaks(frames, 2 * BEAT_THIS_FPS, pad_before, first_frame))  # every 2 s
+        self.onset = onset or melody_onsets
+        self.open_error, self.run_error = open_error, run_error
+        self.opened: list[str] = []
+        self.runs: list[tuple[str, dict[str, tuple[int, ...]]]] = []  # the file run and each input's shape
+        self.pad_frames: list[list[int]] = []
+        self.chunks = 0
+        self.windows = 0
+        self.range_frames: int | None = None  # Beat This! frames of the range, from ADTOF's input (drums mode)
+        self._paused: dict[str, threading.Event] = {}
+        self._reached: dict[str, threading.Event] = {}
+
+    def pause_at(self, step: str) -> None:
+        self._paused[step] = threading.Event()
+        self._reached[step] = threading.Event()
+
+    def wait_until(self, step: str) -> None:
+        assert self._reached[step].wait(5), f"the runner never reached {step}"
+
+    def release(self, step: str) -> None:
+        self._paused[step].set()
+
+    def __call__(self, model_file: Path) -> "FakeSession":
+        self.opened.append(model_file.name)
+        if self.open_error is not None:
+            raise self.open_error
+        if not model_file.is_file():
+            raise FileNotFoundError(str(model_file))  # as onnxruntime: `NoSuchFile`
+        return FakeSession(self, model_file.name)
+
+    def _checkpoint(self, step: str) -> None:
+        if step in self._paused:
+            self._reached[step].set()
+            assert self._paused[step].wait(5), f"test never released {step}"
+
+
+class FakeSession:
+    """What `FakeOnnxRunner` opens: `run(output_names, feeds)` as onnxruntime's session."""
+
+    def __init__(self, runner: FakeOnnxRunner, name: str):
+        self.runner, self.name = runner, name
+
+    def run(self, output_names, feeds: dict) -> list:
+        from backend.drum_notes import onnx_runner, score
+
+        self.runner.runs.append((self.name, {key: tuple(value.shape) for key, value in feeds.items()}))
+        if onnx_runner.BASIC_PITCH_INPUT in feeds:
+            step = f"window {self.runner.windows}"
+            first_sample = self.runner.windows * score.BASIC_PITCH_HOP - score.BASIC_PITCH_PAD
+            self.runner.windows += 1
+            self.runner._checkpoint(step)
+            self._maybe_fail()
+            return [self.runner.onset(first_sample)[None, :, :]]
+        waveform = feeds["waveform"]
+        if "pad_frames" in feeds:
+            step = f"chunk {self.runner.chunks}"
+            self.runner.chunks += 1
+            pad_before, pad_after = (int(n) for n in feeds["pad_frames"])
+            self.runner.pad_frames.append([pad_before, pad_after])
+            frames = pad_before + score.beat_this_frames(waveform.shape[1]) + pad_after
+            # Where this chunk starts in the range: `beat_this_chunks` lays chunks `KEPT_FRAMES` apart, each
+            # reaching `OVERLAP_FRAMES` back over the one before, except the first (which the model pads instead);
+            # the last is shifted to end with the range, which ADTOF's input told the length of (drums mode;
+            # a melody range in the tests fits one chunk).
+            first_frame = max(0, (self.runner.chunks - 1) * score.KEPT_FRAMES - score.OVERLAP_FRAMES)
+            if pad_after and self.runner.range_frames is not None:
+                first_frame = self.runner.range_frames - score.beat_this_frames(waveform.shape[1])
+            self.runner._checkpoint(step)
+            self._maybe_fail()
+            return [self.runner.beat(frames, pad_before, first_frame)[None, :], self.runner.downbeat(frames, pad_before, first_frame)[None, :]]
+        self.runner._checkpoint("adtof")
+        self._maybe_fail()
+        self.runner.range_frames = score.beat_this_frames(waveform.shape[1] // 2)  # the same stretch at 22,050 Hz
+        frames = -(-waveform.shape[1] // 441)  # ceil(samples / 441)
+        return [self.runner.activations(frames)[None, :, :]]
+
+    def _maybe_fail(self) -> None:
+        if self.runner.run_error is not None:
+            error, self.runner.run_error = self.runner.run_error, None
+            raise error

@@ -1,6 +1,10 @@
 """What every long job shares: one job of a kind at a time, held in memory behind
 one lock with a cancel flag its thread checks (ADR 0010), and the child process a
-model runs in, reporting through a queue (ADR 0012)."""
+model runs in, reporting through a queue (ADR 0012).
+
+A model that runs on the card, or takes GBs of memory, is a `ModelJobSlot` in a child; a
+small ONNX model on the CPU (the แกะเพลง tab's Pick job) is a plain `JobSlot` in a thread,
+with no GPU slot (drum-notes D8, ADR 0043)."""
 
 import logging
 import threading
@@ -42,10 +46,14 @@ Job = TypeVar("Job", bound=BaseModel)
 
 
 class JobSlot(Generic[Job]):
-    """Holds the latest job of one kind. Subclasses set `unfinished`, the states
-    that keep the slot taken."""
+    """Holds the latest job of one kind. Subclasses set `unfinished`, the states that keep the
+    slot taken, `nothing_to_cancel`, the message of a cancel with no running job, and
+    `cancel_refusal`, that refusal's status and code: `404 not_found` (the model jobs' API) unless
+    the feature's API says `409 not_running` (video-gen, drum-notes)."""
 
     unfinished: frozenset[str]
+    nothing_to_cancel: str
+    cancel_refusal: tuple[int, str] = (404, "not_found")
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -72,12 +80,29 @@ class JobSlot(Generic[Job]):
             for name, value in fields.items():
                 setattr(self._job, name, value)
 
+    def cancel(self) -> Job:
+        """Asks the thread to stop (its child, ffmpeg, or the next model call never starts); the job
+        ends as `cancelled`, and says `cancel_requested` meanwhile when it has the field. Raises
+        `ApiError` `cancel_refusal` with `nothing_to_cancel` when no job is running."""
+        with self._lock:
+            if not self._taken():
+                status, code = self.cancel_refusal
+                raise ApiError(status, code, self.nothing_to_cancel)
+            if "cancel_requested" in type(self._job).model_fields:
+                self._job.cancel_requested = True
+            self._cancel.set()
+            return self._job.model_copy(deep=True)
+
+    def stop_on_shutdown(self) -> None:
+        """Ctrl+C: the thread sees the flag at its next check; nothing of a thread job is on disk
+        that start-up doesn't clean."""
+        self._cancel.set()
+
 
 class ModelJobSlot(JobSlot[Job]):
     """A job slot whose job runs a model in a child process and holds the GPU slot
-    as `gpu_kind` (ADR 0012, ADR 0015). Subclasses also set `nothing_to_cancel`, the
-    message of a cancel with no running job, `error_type`, the job's `{code, message}`
-    error, and for `reply`: the child's `worker_error` message type, `child_name`
+    as `gpu_kind` (ADR 0012, ADR 0015). Subclasses also set `error_type`, the job's
+    `{code, message}` error, and for `reply`: the child's `worker_error` message type, `child_name`
     ("ตัวบรรยายฉาก") and `failure` ("บรรยายฉากไม่สำเร็จ"), the words a failed job's
     message is made of.
 
@@ -87,7 +112,6 @@ class ModelJobSlot(JobSlot[Job]):
     ffmpeg); otherwise the job's end stops it."""
 
     gpu_kind: gpu.Kind
-    nothing_to_cancel: str
     error_type: type[BaseModel]
     worker_error: type
     child_name: str
@@ -98,20 +122,10 @@ class ModelJobSlot(JobSlot[Job]):
         super().__init__()
         self._process = None  # the running child, for shutdown
 
-    def cancel(self) -> Job:
-        """Asks the thread to stop its child; the job ends as `cancelled`. Raises
-        `ApiError` 404 `not_found` when no job is running."""
-        with self._lock:
-            if not self._taken():
-                raise ApiError(404, "not_found", self.nothing_to_cancel)
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
-
     def stop_on_shutdown(self) -> None:
         """Ctrl+C must not leave a child holding the GPU. A child started after this
         sees the cancel flag at its first poll and is stopped by its thread."""
-        self._cancel.set()
+        super().stop_on_shutdown()
         with self._lock:
             process = self._process
         if process is not None:

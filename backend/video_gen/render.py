@@ -64,6 +64,8 @@ class DrumRenderJobs(JobSlot[DrumRenderJob]):
     test passes ones that pause or stand in (`fastapi-api` › testing)."""
 
     unfinished = frozenset({"rendering"})
+    nothing_to_cancel = NOT_RUNNING
+    cancel_refusal = (409, "not_running")  # spec › API: `cancel` kills ffmpeg before the next frame
 
     def __init__(self, run_piped: PipedRunner = ffmpeg.run_piped, title_font: TitleFont = captions.kanit_bold):
         super().__init__()
@@ -98,18 +100,6 @@ class DrumRenderJobs(JobSlot[DrumRenderJob]):
         threading.Thread(target=self._run, args=(project, lesson_id), daemon=True).start()
         return job
 
-    def cancel(self) -> DrumRenderJob:
-        """`POST /render/cancel`: ffmpeg is killed before the next frame. Raises `ApiError` 409 `not_running`
-        (spec › API; the model jobs' `404 not_found` is their own API's)."""
-        with self._lock:
-            if not self._taken():
-                raise ApiError(409, "not_running", NOT_RUNNING)
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
-
-    def stop_on_shutdown(self) -> None:
-        """Ctrl+C: the frames stop and ffmpeg is killed; start-up removes what it left."""
-        self._cancel.set()
 
     def _run(self, project: ProjectPaths, lesson_id: str) -> None:
         started = time.monotonic()

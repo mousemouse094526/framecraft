@@ -21,7 +21,7 @@ from typing import Literal, NamedTuple, get_args
 from pydantic import BaseModel
 
 from backend import drum_kit, fonts, paths
-from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, WHISPER, ModelSpec, qwen_for
+from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, ONNX_MODELS, WHISPER, ModelSpec, qwen_for
 from backend.paths import ProjectPaths
 
 ItemStatus = Literal["ok", "missing", "warning"]
@@ -33,6 +33,7 @@ MLX_VLM_VERSION = "0.7.11"  # the pin in pyproject.toml (spoil-maker spec › De
 PYTHAINLP_VERSION = "5.4.0"  # the pin in pyproject.toml (spoil-maker spec › Dependencies)
 DIFFUSERS_VERSION = "0.42.1"  # the pin in pyproject.toml (toon spec › Dependencies)
 GGUF_VERSION = "0.19.0"  # the pin in pyproject.toml (toon D47)
+ONNXRUNTIME_VERSION = "1.32.0"  # the pin in pyproject.toml (drum-notes D7)
 
 
 @dataclass(frozen=True)
@@ -84,11 +85,20 @@ def _fix_texts(sys_platform: str) -> FixTexts:
     )
 
 
+def setup_fix() -> str:
+    """The Setup script's command on this OS, the `fix` of a job that finds a model file broken (drum-notes D20)."""
+    return _fix_texts(this_platform()).setup.text
+
+
 class License(BaseModel):
     name: str
     url: str
     author: str
     model_url: str
+
+
+# The runtime's credit on the status page, beside the three models it runs (drum-notes legal 4).
+ONNXRUNTIME_LICENSE = License(name="MIT", url="https://opensource.org/license/mit", author="Microsoft", model_url="https://onnxruntime.ai/")
 
 
 class ChecklistItem(BaseModel):
@@ -247,6 +257,12 @@ def probe_gguf() -> str:
     return _installed_version("gguf")
 
 
+def probe_onnxruntime() -> str:
+    """The installed onnxruntime version, from its metadata only: importing it loads its native
+    library (docs/library-notes/onnxruntime.md)."""
+    return _installed_version("onnxruntime")
+
+
 def _installed_version(name: str) -> str:
     """Raises when the package isn't installed."""
     try:
@@ -321,6 +337,7 @@ class Probes:
     bitsandbytes: Callable[[], str]  # Windows only
     diffusers: Callable[[], str]
     gguf: Callable[[], str]
+    onnxruntime: Callable[[], str]
 
 
 def real_probes() -> Probes:
@@ -336,6 +353,7 @@ def real_probes() -> Probes:
         bitsandbytes=probe_bitsandbytes,
         diffusers=probe_diffusers,
         gguf=probe_gguf,
+        onnxruntime=probe_onnxruntime,
     )
 
 
@@ -397,6 +415,9 @@ def run_checks(
         _item(fonts.CHECK_ID, fonts.LABEL, lambda: fonts.check_kanit(project), fixes.setup),
         # The สอนกลอง tab's samples follow Kanit (video-gen spec › Status check and Setup).
         _item(drum_kit.CHECK_ID, drum_kit.LABEL, lambda: drum_kit.check_drum_kit(project), fixes.setup),
+        # The แกะเพลง tab's rows follow the drum kit (drum-notes spec › Status check and Setup).
+        *(_model_item(project, model, fixes.setup, sys_platform) for model in ONNX_MODELS),
+        _item("onnxruntime", "onnxruntime", lambda: onnxruntime_check(probes), fixes.setup, ONNXRUNTIME_LICENSE),
         # The การ์ตูนเล่า tab's rows follow Kanit (toon spec › Status check).
         _model_item(project, KLEIN, fixes.setup, sys_platform),
         _model_item(project, KLEIN_GGUF, fixes.setup, sys_platform),
@@ -445,6 +466,12 @@ def klein_packages(probes: Probes) -> dict[str, tuple[str, Check]]:
         "diffusers": ("diffusers", lambda: check_pinned(probes.diffusers, DIFFUSERS_VERSION)),
         "gguf": ("gguf", lambda: check_pinned(probes.gguf, GGUF_VERSION)),
     }
+
+
+def onnxruntime_check(probes: Probes) -> CheckResult:
+    """The `onnxruntime` row: installed at the pinned version; the Status check and the gate of a
+    Pick job both read it (drum-notes D7)."""
+    return check_pinned(probes.onnxruntime, ONNXRUNTIME_VERSION)
 
 
 def device_check(device: Callable[[], str], sys_platform: str, gpu: Callable[[], GpuInfo]) -> Check:

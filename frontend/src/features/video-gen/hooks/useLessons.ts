@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
-import { lessonHash, lessonPath, LESSONS_PATH, type Lesson, type LessonRow } from "../lib/lesson";
+import { lessonHash, lessonPath, LESSONS_PATH, type Lesson, type LessonRow } from "../../../lib/lesson";
 
 export type ListState =
   | { kind: "loading" }

@@ -25,7 +25,8 @@ backend/
 │                    `/eps/{ep_id}` routes take (`episodes.address_of`
 │                    makes it and never refuses; `episodes.read` gives `404`)
 ├── models.py     ← the model registry, pinned commits (ADR 0004)
-├── checks.py     ← Status check, shared by setup and the API
+├── checks.py     ← Status check, shared by setup and the API; `setup_fix` is the Setup
+│                    script's command on this OS, the `fix` a job answers with
 ├── disk.py       ← free disk space and the 1 GiB `disk_full` check: setup, spoil, both renders, toon jobs
 ├── fonts.py      ← Kanit Bold pinned by commit and sha256: setup fetches it, the
 │                    Status check checks it, the Render job draws with it
@@ -42,10 +43,11 @@ backend/
 │                    `checked_text` (a trimmed text field within its length)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`, `drums`), named once (ADR 0009)
-├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`),
-│                    ModelJobSlot (a job whose model runs in a child: cancel,
-│                    shutdown, `_run_job`, the one ending of every job's thread
+│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
+├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`, `cancel` —
+│                    `cancel_refusal`/`nothing_to_cancel` say how a cancel with no job is refused —
+│                    and `stop_on_shutdown`), ModelJobSlot (a job whose model runs in a child:
+│                    shutdown that stops it, `_run_job`, the one ending of every job's thread
 │                    that frees the GPU) and the child process helpers every GPU
 │                    job uses (ADR 0012); a child starts only through
 │                    `start_child` (tracked, then its first message waited for;
@@ -73,18 +75,20 @@ backend/
 │                    guards putting the new mp4 in place; `advised` ends a failed
 │                    job's message with `ADVICE`
 ├── ffmpeg.py     ← the ffmpeg binary, running it (progress, killing on cancel),
-│                    `run_piped` (frames through stdin, video-gen D22), `h264_args`
+│                    `run_piped` (frames through stdin, video-gen D22), `run_capture` (stdout
+│                    as bytes: a stretch of a song as raw PCM, drum-notes D20), `h264_args`
 │                    (videotoolbox or libx264, spoil D36) and `ffmpeg -i` reading;
-│                    spoil's trim, spoil_maker's frames and compose, video_gen's render share it
+│                    spoil's trim, spoil_maker's frames and compose, video_gen's render,
+│                    drum_notes' pick share it
 ├── setup.py      ← entry point: python -m backend.setup
 ├── qwen_tokens.py← an EP's lines and a Story block counted to Qwen behind its
 │                    Status check row (spoil-maker D46, story-kb D14)
 ├── ids.py        ← `new_id`: `{prefix}_` and 8 hex digits, the id of a Series, an EP, a sound…
 ├── sounds.py     ← the sound library of the whole app (sound-library, ADR 0037):
 │                    `media/sounds/` (`sounds.json`, `{id}.m4a`, `.partial/`), its own
-│                    lock, its Sound import slot (a file in one request, which a page
-│                    gone during ffmpeg never brings in, a link through spoil's adapter
-│                    with `LINK_OPTIONS`), `exists`/`path` for the tabs that keep a
+│                    lock, its Sound import slot (an `audio_imports.ImportSlot`: a file in one
+│                    request, which a page gone during ffmpeg never brings in, a link through
+│                    spoil's adapter with `LINK_OPTIONS`), `exists`/`path` for the tabs that keep a
 │                    `sound_id`, `sound_users` (each registers its tab, a function
 │                    giving its lock, and `playing`, the labels of what plays a sound; locks taken in `LOCK_ORDER`, ADR 0038), and `move_legacy` at start (D10); it imports
 │                    neither toon nor spoil_maker
@@ -156,7 +160,7 @@ backend/
 ├── video_gen/    ← the สอนกลอง tab (video-gen spec): kit (the ten pieces: lane, colour,
 │                    foot), lessons (`lesson.json` under `media/drums/lessons/{id}/`, its
 │                    checks with D20's rules, the tab's one lock; `require_id` before any
-│                    path), timeline (every hit, beat and chapter span in samples at
+│                    path; `from_song`/`create_from`/`unsaved` are drum_notes' way in), timeline (every hit, beat and chapter span in samples at
 │                    44.1 kHz: the one place a note's time is worked out, ADR 0041), mixer
 │                    (the wav from the samples, ฟังจังหวะ's `listen`; numpy and soundfile
 │                    imported inside); kit also holds the diagram's points (kit-sketch);
@@ -183,8 +187,37 @@ backend/
 │                    spoil_maker's, toon's and video_gen's render keep their folders and call
 │                    it; the first two gate on `gate_rows.render`, video_gen's on `gate_rows.drums`
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
-│                    File import, toon's reference uploads and video_gen's
-│                    backgrounds share it
+│                    File import, toon's reference uploads, video_gen's
+│                    backgrounds and drum_notes' songs share it
+├── audio_imports.py ← audio from a link (`bestaudio` through spoil's adapter) or a file,
+│                    its length read and refused (`too_long`, `too_short`, `unsupported_file`),
+│                    converted to aac in m4a through a `.partial`, then the caller's `place`
+│                    moves it in and writes the entry (ADR 0048): the sound library and
+│                    drum_notes' songs share it; it takes the folder, the `Limits` and the
+│                    callback from the caller and imports nothing of the features
+├── drum_notes/   ← the แกะเพลง tab (drum-notes spec): songs (`song.json` under
+│                    `media/songs/{id}/` beside `audio.m4a`, its checks, the tab's one lock;
+│                    the id is `spoil.links`' (ADR 0049) and checked before any path),
+│                    imports (Song import: a link's job in its own slot and a file in one
+│                    request, both on `audio_imports`; a `.mid` goes to midi), midi (the
+│                    app's own Standard MIDI File parser: channel 10 on the GM map as an
+│                    `analysis`, D10), onnx_runner (the only onnxruntime import: `open_session`,
+│                    which setup's smoke test and the Pick job share, and the three models' runs
+│                    — ADTOF whole, Beat This! by chunk, Basic Pitch by window — ADR 0044), pick
+│                    (the Pick job in its own `JobSlot`, no GPU, ADR 0043: ffmpeg decodes the
+│                    range, the mode's model — ADTOF once in drums mode, Basic Pitch by window in
+│                    melody mode (D14) — then Beat This! by chunk, then `songs.set_analysis`;
+│                    `PickJobs(open_session=…, run_ffmpeg=…)` for tests; registers itself in
+│                    `songs.song_jobs` for `song_busy`; `HITS_BY_MODE` is the mode's model run),
+│                    score (the signal numbers: the Beat This! chunk plan and `stitch`, ADTOF peak
+│                    picking into hits, the Basic Pitch window plan and its onsets into snare hits,
+│                    beats and downbeats from logits; the bars found are `songs.bars_of`), groove
+│                    (a lesson's Groove from the bars picked, Score steps 3–8: `preview` — the
+│                    default BPM, quantize, `BASE_GROOVES[mode]` under the hits, trim to two hands,
+│                    sticking), lesson (a lesson from a song, D12, D21, ADR 0047: `preview`/`listen`/`create`
+│                    check the pick and the bars, then `groove.preview`; `listen` mixes an unsaved
+│                    lesson through video_gen's timeline and mixer; `create` writes through
+│                    `video_gen.lessons.from_song`/`create_from`, never holding `songs.lock` meanwhile)
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK
@@ -224,8 +257,8 @@ through a queue; the thread writes the result file (ADR 0012).
   `spoil_maker.tokens`, the diffusers adapter `toon.klein`); tests replace it with a
   fake (`spoil.adapter`, `spoil.start_worker`, `spoil_maker.start_worker`,
   `spoil_maker.start_tts_worker`, `spoil_maker.count_tokens`, `toon.klein.start_encoder`,
-  `toon.klein.start_drawer`).
-- torch, transformers, diffusers, mlx-vlm, omnivoice, numpy, soundfile, pythainlp and Pillow are imported
+  `toon.klein.start_drawer`); onnxruntime is imported by `drum_notes.onnx_runner` alone.
+- torch, transformers, diffusers, mlx-vlm, omnivoice, onnxruntime, numpy, soundfile, pythainlp and Pillow are imported
   inside the function that needs them, never at module import: the backend must
   start in under a second. Qwen's tokenizer (`spoil_maker.tokens`) is the one
   transformers use in the backend process: no model, no GPU.
@@ -239,10 +272,14 @@ through a queue; the thread writes the result file (ADR 0012).
   `sounds.LOCK_ORDER`, then `sounds.lock` (sound-library D7, D11, ADR 0038).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
   `video_gen.lessons.lock` comes after the drum Render job slot's own (video-gen D33).
+  `drum_notes.songs.lock` comes after the Song import slot's own and is innermost: nothing
+  else is taken while it is held.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
-- Every job that loads a model takes `gpu.slot` before it starts and releases
-  it on every ending, before its state reads as finished (ADR 0015).
+- Every job that loads a model onto the card (Metal or CUDA), or one that takes GBs of
+  memory, takes `gpu.slot` before it starts and releases it on every ending, before its
+  state reads as finished (ADR 0015). A small ONNX model on the CPU (the แกะเพลง tab's
+  Pick job) is a plain `JobSlot` in a thread with no GPU slot and no `device` row (ADR 0043).
 - Every `POST`, `PUT` and `PATCH` must be `application/json`, else `415` (ADR 0013);
   `app.py` enforces it with an app-wide dependency, `body_types.require_json`. A route
   that takes a raw file lists `Depends(body_types.require_octet_stream)` itself, and

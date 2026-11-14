@@ -10,7 +10,7 @@ export const TAB_GROUPS = [
 type TabGroupId = (typeof TAB_GROUPS)[number]["id"];
 
 // The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9,
-// sound-library D2, video-gen D9), with the group each sits in; ติดตั้ง is in none (sound-library D3). The bar
+// sound-library D2, video-gen D9, drum-notes D2), with the group each sits in; ติดตั้ง is in none (sound-library D3). The bar
 // and the menu draw the tabs in no group first, then each group, so those stay at the top.
 export const TABS = [
   { id: "setup", label: "ติดตั้ง", hash: "#/setup", group: null },
@@ -20,6 +20,7 @@ export const TABS = [
   { id: "spoil", label: "สปอย", hash: "#/spoil", group: "make" },
   { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon", group: "make" },
   { id: "drums", label: "สอนกลอง", hash: "#/drums", group: "make" },
+  { id: "songs", label: "แกะเพลง", hash: "#/songs", group: "make" },
 ] as const satisfies readonly { id: string; label: string; hash: string; group: TabGroupId | null }[];
 
 export type TabId = (typeof TABS)[number]["id"];
@@ -28,9 +29,9 @@ export const tabLabel = (id: TabId) => TABS.find((tab) => tab.id === id)?.label;
 
 /**
  * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/sounds?…` คลังเสียง
- * with the page it came from (sound-library D11), `#/toon/…` a page of การ์ตูนเล่า and
- * `#/drums/…` a page of สอนกลอง; an empty or
- * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9).
+ * with the page it came from (sound-library D11), `#/toon/…` a page of การ์ตูนเล่า,
+ * `#/drums/…` a page of สอนกลอง and `#/songs/…` a song of แกะเพลง; an empty or
+ * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9, drum-notes D2).
  */
 export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/spoil/")) return "spoil";
@@ -38,6 +39,7 @@ export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/stories/")) return "stories";
   if (hash.startsWith("#/toon/")) return "toon";
   if (hash.startsWith("#/drums/")) return "drums";
+  if (hash.startsWith("#/songs/")) return "songs";
   return TABS.find((tab) => tab.hash === hash)?.id ?? "setup";
 }
 

@@ -26,7 +26,8 @@ from backend.checks import (
     real_probes,
     run_checks,
 )
-from backend.models import MODELS, ModelSpec, qwen_for
+from backend.drum_notes import onnx_runner
+from backend.models import MODELS, ONNX_MODELS, ModelSpec, qwen_for
 from backend.paths import ROOT, ProjectPaths
 
 IS_WINDOWS = sys.platform == "win32"
@@ -39,6 +40,7 @@ REQUIRED_FREE_BYTES_WITHOUT_QWEN = 27_000_000_000
 STATUS_ICONS = {"ok": "✓", "warning": "!", "missing": "✗"}
 
 Download = Callable[..., str]
+OpenSession = onnx_runner.OpenSession
 
 
 def run_setup(
@@ -50,10 +52,13 @@ def run_setup(
     backend_running: Callable[[], bool] | None = None,
     free_bytes: Callable[[Path], int] | None = None,
     probes: Probes | None = None,
+    open_session: OpenSession | None = None,
     sys_platform: str = sys.platform,
 ) -> int:
-    """Downloads what is missing and prints the checklist. Returns the exit code."""
+    """Downloads what is missing and prints the checklist. Returns the exit code. `open_session`
+    opens a downloaded ONNX file once, the smoke test before its marker (drum-notes D20)."""
     download = download or _snapshot_download
+    open_session = open_session or onnx_runner.open_session
     npm_install = npm_install or _npm_install
     fetch = fetch or fonts.fetch_https
     backend_running = backend_running or _backend_running
@@ -91,16 +96,10 @@ def run_setup(
                 print(f"ที่ว่างบนดิสก์ไม่พอ: มี {free / 1e9:.1f} GB ต้องการ {required // 1_000_000_000} GB")
                 return 1
         for model in to_download:
+            if model in ONNX_MODELS:
+                continue  # after the drum kit (drum-notes D7)
             step = f"โหลด {model.repo_id}"
-            print(f"กำลังโหลด {model.repo_id} ({model.short_revision})…")
-            snapshot = download(
-                model.repo_id,
-                revision=model.revision,
-                cache_dir=project.hub_dir,
-                allow_patterns=list(model.allow_patterns),
-            )
-            _check_named_files(model, Path(snapshot))
-            _write_marker(project, model, Path(snapshot))
+            _download_model(project, model, download)
         if fonts.check_kanit(project)[0] != "ok":
             step = "โหลด Kanit"
             print("กำลังโหลด font Kanit…")
@@ -109,6 +108,13 @@ def run_setup(
             step = "โหลดเสียงกลอง"
             print("กำลังโหลดเสียงกลอง Big Rusty Drums…")
             drum_kit.install_drum_kit(project, fetch)
+        for model in to_download:
+            if model not in ONNX_MODELS:
+                continue
+            step = f"โหลด {model.repo_id}"
+            snapshot = _download_model(project, model, download, marker=False)
+            _open_onnx_files(model, snapshot, open_session)
+            _write_marker(project, model, snapshot)
         step = "npm install"
         print("กำลังรัน npm install…", flush=True)  # before npm writes its own output
         npm_install(root)
@@ -220,6 +226,31 @@ def _windows_pid_alive(pid: int) -> bool:
         return code.value == still_active
     finally:
         kernel32.CloseHandle(handle)
+
+
+def _download_model(project: ProjectPaths, model: ModelSpec, download: Download, marker: bool = True) -> Path:
+    """One model's snapshot, its named files checked; its marker too unless the caller writes it
+    after a check of its own. Returns the snapshot folder."""
+    print(f"กำลังโหลด {model.repo_id} ({model.short_revision})…")
+    snapshot = Path(
+        download(model.repo_id, revision=model.revision, cache_dir=project.hub_dir, allow_patterns=list(model.allow_patterns))
+    )
+    _check_named_files(model, snapshot)
+    if marker:
+        _write_marker(project, model, snapshot)
+    return snapshot
+
+
+def _open_onnx_files(model: ModelSpec, snapshot: Path, open_session: OpenSession) -> None:
+    """Opens each `.onnx` file of the snapshot once: a file onnxruntime can't load ends setup
+    naming it, with no marker (drum-notes D20)."""
+    for pattern in model.allow_patterns:
+        if not pattern.endswith(".onnx"):
+            continue
+        try:
+            open_session(snapshot / pattern)
+        except Exception as error:
+            raise RuntimeError(f"เปิดไฟล์โมเดล {pattern} ไม่ได้: {error}") from None
 
 
 def _check_named_files(model: ModelSpec, snapshot: Path) -> None:

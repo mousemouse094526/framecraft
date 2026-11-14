@@ -6,7 +6,7 @@ import pytest
 
 from backend import checks
 from backend.checks import DeviceProbe, run_checks
-from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
+from backend.models import ADTOF, BASIC_PITCH, BEAT_THIS, KLEIN, KLEIN_GGUF, OMNIVOICE, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
 
 from .fakes import (
@@ -25,18 +25,18 @@ def checks_with_fakes(root, sys_platform=None, **probe_overrides):
     return run_checks(root, fake_probes(**probe_overrides), sys_platform)
 
 
-def test_a_complete_root_on_a_mac_is_ready_with_twenty_ok(fake_root):
+def test_a_complete_root_on_a_mac_is_ready_with_twenty_four_ok(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="darwin")
 
     assert result.ready is True
-    assert result.ok_count == 20
-    assert result.total == 20
+    assert result.ok_count == 24
+    assert result.total == 24
 
 
 def test_cpu_only_device_is_a_warning_but_still_ready(fake_root):
     result = checks_with_fakes(fake_root, device=lambda: "cpu")
 
-    assert result.ok_count == 19
+    assert result.ok_count == 23
     assert result.warning_count == 1
     assert item(result, "device").status == "warning"
     assert result.ready is True
@@ -83,7 +83,7 @@ def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
 
     assert item(result, "ffmpeg").status == "missing"
     assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
-    assert len(result.items) == 20
+    assert len(result.items) == 24
 
 
 def test_yt_dlp_and_deno_rows_follow_ffmpeg_with_their_versions(fake_root):
@@ -112,7 +112,7 @@ def test_deno_probe_that_raises_makes_only_deno_missing(fake_root):
 
     assert item(result, "deno").status == "missing"
     assert item(result, "deno").fix == "./setup.sh"
-    assert len(result.items) == 20
+    assert len(result.items) == 24
     assert result.missing_count == 1
 
 
@@ -129,7 +129,7 @@ def test_cpu_device_is_not_cached_but_cuda_is(fake_root):
     assert item(third, "device").detail == "cuda"
 
 
-def test_only_model_rows_carry_a_license(fake_root):
+def test_only_model_rows_and_onnxruntime_carry_a_license(fake_root):
     result = checks_with_fakes(fake_root)
 
     omnivoice = item(result, "model_omnivoice").license
@@ -138,7 +138,7 @@ def test_only_model_rows_carry_a_license(fake_root):
     assert omnivoice.author == "k2-fsa"
     assert omnivoice.model_url == "https://huggingface.co/k2-fsa/OmniVoice"
     assert item(result, "model_whisper").license.name == "MIT"
-    others = [i for i in result.items if not i.id.startswith("model_")]
+    others = [i for i in result.items if not i.id.startswith("model_") and i.id != "onnxruntime"]
     assert all(i.license is None for i in others)
 
 
@@ -162,6 +162,10 @@ def test_items_come_in_the_spec_order(fake_root):
         "pythainlp",
         "font_kanit",
         "drum_kit",
+        "model_adtof",
+        "model_beat_this",
+        "model_basic_pitch",
+        "onnxruntime",
         "model_klein",
         "model_klein_gguf",
         "diffusers",
@@ -266,7 +270,7 @@ def test_an_rtx_3060_with_everything_installed_is_ok_on_windows(fake_root):
     for row in ("device", *GPU_ROWS):
         assert item(result, row).status == "ok"
     assert "mlx_vlm" not in ids(result)
-    assert result.ok_count == result.total == 21
+    assert result.ok_count == result.total == 25
 
 
 def test_windows_rows_sit_where_mlx_vlm_was_with_gpu_right_after_device(fake_root):
@@ -409,7 +413,7 @@ def test_a_mac_has_no_gpu_or_bitsandbytes_row_and_never_reads_the_card(fake_root
     result = checks_with_fakes(fake_root, sys_platform="darwin", gpu=must_not_run, bitsandbytes=must_not_run)
 
     assert {"gpu", "bitsandbytes"} & set(ids(result)) == set()
-    assert result.ok_count == result.total == 20
+    assert result.ok_count == result.total == 24
 
 
 def test_the_qwen_row_on_a_mac_still_checks_the_mlx_model(fake_root):
@@ -608,4 +612,55 @@ def test_a_gguf_marker_of_the_q8_0_file_makes_the_gguf_row_missing(fake_root):
 
     row = item(result, "model_klein_gguf")
     assert (row.status, row.detail) == ("missing", "ไม่มีไฟล์ flux-2-klein-4b-Q4_K_M.gguf ใน marker")
+    assert result.missing_count == 1
+
+
+# --- the แกะเพลง tab's rows (drum-notes D7) ---
+
+
+def test_the_onnx_model_rows_follow_drum_kit_and_carry_each_repo_s_license(fake_root):
+    result = checks_with_fakes(fake_root)
+
+    ids = [i.id for i in result.items]
+    after_drum_kit = ids.index("drum_kit") + 1
+    assert ids[after_drum_kit : after_drum_kit + 4] == ["model_adtof", "model_beat_this", "model_basic_pitch", "onnxruntime"]
+    adtof, beat_this, basic_pitch = (item(result, m.check_id) for m in (ADTOF, BEAT_THIS, BASIC_PITCH))
+    assert (adtof.status, adtof.label, adtof.detail) == ("ok", "ADTOF drum model", "d0e809b · 0.0 GB")
+    assert (adtof.license.name, adtof.license.url) == ("CC BY-NC-SA 4.0", "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+    assert adtof.license.author == "Zehren, Alunno, Bientinesi · ONNX by thebluescreen"
+    assert (beat_this.label, beat_this.license.name, beat_this.license.model_url) == (
+        "Beat This! model", "MIT", "https://huggingface.co/thebluescreen/beat-this-onnx"
+    )
+    assert (basic_pitch.label, basic_pitch.license.name, basic_pitch.license.author) == ("Basic Pitch model", "Apache-2.0", "Spotify")
+
+
+def test_the_onnx_model_rows_are_ok_on_windows_too(fake_root):
+    result = checks_with_fakes(fake_root, sys_platform="win32")
+
+    assert [item(result, m.check_id).status for m in (ADTOF, BEAT_THIS, BASIC_PITCH)] == ["ok"] * 3
+
+
+@pytest.mark.parametrize("model", [ADTOF, BEAT_THIS, BASIC_PITCH])
+def test_a_missing_onnx_marker_makes_only_its_row_missing_with_the_setup_fix(fake_root, model):
+    ProjectPaths(fake_root).marker(model).unlink()
+
+    result = checks_with_fakes(fake_root)
+
+    assert (item(result, model.check_id).status, item(result, model.check_id).fix) == ("missing", "./setup.sh")
+    assert result.missing_count == 1
+
+
+def test_the_onnxruntime_row_shows_the_pinned_version(fake_root):
+    result = checks_with_fakes(fake_root)
+
+    assert (item(result, "onnxruntime").status, item(result, "onnxruntime").detail) == ("ok", "1.32.0")
+    assert (item(result, "onnxruntime").license.name, item(result, "onnxruntime").license.author) == ("MIT", "Microsoft")
+
+
+def test_another_onnxruntime_version_makes_onnxruntime_missing_with_the_setup_command(fake_root):
+    result = checks_with_fakes(fake_root, onnxruntime=lambda: "1.31.0")
+
+    assert item(result, "onnxruntime").status == "missing"
+    assert item(result, "onnxruntime").detail == "version ไม่ตรง: ติดตั้งไว้ 1.31.0 ต้องการ 1.32.0"
+    assert item(result, "onnxruntime").fix == "./setup.sh"
     assert result.missing_count == 1

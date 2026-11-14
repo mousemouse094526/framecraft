@@ -12,7 +12,7 @@ import trashIcon from "../../../components/ui/assets/trash.svg";
 import { editedAt, formatDuration } from "../../../lib/format";
 import { useDrumRender } from "../hooks/useDrumRender";
 import { useLessons } from "../hooks/useLessons";
-import { lessonHash, TITLE_MAX, type LessonRow } from "../lib/lesson";
+import { lessonHash, TITLE_MAX, type LessonRow } from "../../../lib/lesson";
 import { renderingOf } from "../lib/render";
 
 /** รายการบทเรียนกลอง (`#/drums`): newest edit first; new, copy and delete (D10). The design is pending, so the app's own parts. */

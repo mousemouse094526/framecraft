@@ -1,4 +1,4 @@
-import { lessonPath } from "./lesson";
+import { lessonPath } from "../../../lib/lesson";
 
 // The Render job of the สอนกลอง tab and its results, as `/api/drums` answers them (spec › API).
 

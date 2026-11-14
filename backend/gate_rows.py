@@ -4,7 +4,7 @@ Each check looks its probe and the OS up when it runs, so a test's fakes are the
 
 from backend import checks, drum_kit, fonts
 from backend.errors import Row
-from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE
+from backend.models import ADTOF, BASIC_PITCH, BEAT_THIS, KLEIN, KLEIN_GGUF, OMNIVOICE, ModelSpec
 from backend.paths import ProjectPaths
 
 FFMPEG: dict[str, Row] = {"ffmpeg": ("ffmpeg", lambda: checks.check_ffmpeg(checks.probe_ffmpeg))}
@@ -73,6 +73,35 @@ def render(project: ProjectPaths, voices_first: bool) -> dict[str, Row]:
     """What every Render job's ffmpeg needs: ffmpeg, Kanit and pythainlp (each spec › Status
     check); a job that voices first adds the Voice job's rows."""
     return FFMPEG | _kanit(project) | PYTHAINLP | (voice(project) if voices_first else {})
+
+
+# The แกะเพลง tab's imports (drum-notes D7): a link needs yt-dlp and Deno too, a file ffmpeg alone.
+SONGS_LINK: dict[str, Row] = FFMPEG | LINK_TOOLS
+SONGS_FILE: dict[str, Row] = FFMPEG
+ONNXRUNTIME: dict[str, Row] = {"onnxruntime": ("onnxruntime", lambda: checks.onnxruntime_check(checks.real_probes()))}
+
+
+def _model_row(project: ProjectPaths, model: ModelSpec) -> dict[str, Row]:
+    return {model.check_id: (model.label, lambda: checks.check_model(project, model))}
+
+
+def _pick_rows(project: ProjectPaths, hits_model: ModelSpec) -> dict[str, Row]:
+    """What a Pick job needs: the model that hears the hits, Beat This!, onnxruntime and ffmpeg (drum-notes D7, ADR 0043: no `device`)."""
+    return _model_row(project, hits_model) | _model_row(project, BEAT_THIS) | ONNXRUNTIME | FFMPEG
+
+
+def pick_drums(project: ProjectPaths) -> dict[str, Row]:
+    """Drums mode: ADTOF hears the hits."""
+    return _pick_rows(project, ADTOF)
+
+
+def pick_melody(project: ProjectPaths) -> dict[str, Row]:
+    """Melody mode: Basic Pitch hears the hits (D14)."""
+    return _pick_rows(project, BASIC_PITCH)
+
+
+# The Pick job's gate by `range.mode` (spec › Pick job step 2).
+PICK_GATES = {"drums": pick_drums, "melody": pick_melody}
 
 
 def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:

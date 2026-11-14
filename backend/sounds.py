@@ -6,7 +6,8 @@ A sound comes in through a Sound import, one at a time in its own slot (no GPU):
 this machine as a raw body in one request (ADR 0028), or a link loaded by a job that reads its
 info, checks its length, then downloads its best audio into `.partial/` (spoil's Download
 job, ADR 0029). Either way ffmpeg converts it to aac in m4a with no picture, so a render reads
-one format (toon D39). A restart half-way leaves only `.partial/` files, which start-up removes.
+one format (toon D39); those steps are `backend.audio_imports`, shared with the แกะเพลง tab's songs
+(ADR 0048). A restart half-way leaves only `.partial/` files, which start-up removes.
 Start-up also makes `sounds.json` match the m4a files, which are the sounds themselves: a
 library file that won't read never takes the sounds with it (toon D70, D71).
 
@@ -19,14 +20,13 @@ yt-dlp adapter, which keeps no sound (ADR 0037).
 
 import json
 import logging
-import math
 import os
 import re
 import secrets
 import shutil
 import threading
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
-from contextlib import AbstractContextManager, ExitStack, contextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AbstractContextManager, ExitStack
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, NamedTuple, get_args
@@ -35,14 +35,15 @@ import anyio
 from pydantic import BaseModel, ValidationError
 from starlette.requests import ClientDisconnect
 
-from backend import checks, disk, ffmpeg, files, gate_rows, paths, spoil, uploads
+from backend import audio_imports, checks, disk, ffmpeg, files, gate_rows, paths, uploads
+from backend.audio_imports import ImportSlot, Limits, State
 from backend.ids import new_id
 from backend.errors import ApiError, JobFailed, Row, checked_text, invalid_request, require_rows
 from backend.ffmpeg import FfmpegFailed
-from backend.jobs import Cancelled, JobSlot
+from backend.jobs import Cancelled
 from backend.paths import ProjectPaths
 from backend.spoil import links
-from backend.spoil.adapter import DownloadCancelled, DownloadOptions, error_code
+from backend.spoil.adapter import DownloadCancelled, error_code
 
 log = logging.getLogger(__name__)
 
@@ -51,31 +52,27 @@ SOUND_ID = re.compile(r"m_[0-9a-f]{8}")
 
 lock = threading.RLock()
 
-State = Literal["checking", "downloading", "converting", "done", "failed", "cancelled"]
-UNFINISHED: frozenset[State] = frozenset({"checking", "downloading", "converting"})
 ErrorCode = Literal["login_required", "download_error", "disk_full", "too_long", "unsupported_file", "internal"]
 Source = Literal["file", "link"]
 Tab = Literal["toon", "spoil"]  # in the order `in_use` lists their users (D7)
 # The order a delete takes the users' locks: `gpu.slot.draft_lock` before `toon.store.lock` (D7).
 LOCK_ORDER: tuple[Tab, ...] = ("spoil", "toon")
 
-AUDIO_RATE = 48_000  # every sound's, and the การ์ตูนเล่า mix's
-AUDIO_BITRATE = "192k"
+# Every sound's format, and the การ์ตูนเล่า mix's (toon D39).
+AUDIO_RATE, AUDIO_BITRATE = audio_imports.M4A_RATE, audio_imports.M4A_BITRATE
 UPLOAD_MAX_BYTES = 200 * 1024**2  # toon spec › คลังเสียงพื้น
 MAX_SECONDS = 20 * 60
-NAME_MAX = 60
-GONE_POLL_SECONDS = 0.25  # how often a file's conversion asks whether the page is still there
+NAME_MAX = audio_imports.NAME_MAX
 PROBE_SECONDS = 10  # how long start-up reads the length of an m4a the library lacks (toon D70)
 
 # Where a link's audio lands: the library's `.partial/`, no thumbnail, no mp4 merge (D11).
-LINK_OPTIONS = DownloadOptions(
-    format="bestaudio", folder=lambda project: project.sounds_partial_dir, thumbnail=False, merge_mp4=False
-)
+LINK_OPTIONS = audio_imports.link_options(lambda project: project.sounds_partial_dir)
 
 BUSY = "กำลังเอาเสียงอื่นเข้าคลังอยู่"
 IN_USE = "ยังมีที่ใช้เสียงนี้อยู่ ลบไม่ได้"
-UNREADABLE = "ไฟล์นี้ไม่มีเสียงที่อ่านได้"
+UNREADABLE = audio_imports.UNREADABLE
 TOO_LONG = f"เสียงยาวเกิน {MAX_SECONDS // 60} นาที"
+LIMITS = Limits(max_seconds=MAX_SECONDS, too_long=TOO_LONG)
 ERROR_MESSAGES: dict[ErrorCode, str] = {
     "login_required": "เว็บนี้ขอให้ login หรือยืนยันว่าไม่ใช่ bot โหลดอัตโนมัติไม่ได้ โหลดเสียงเองแล้วเอาไฟล์เข้า",
     "download_error": "โหลดเสียงจากลิงก์นี้ไม่สำเร็จ",
@@ -136,17 +133,12 @@ class Legacy(BaseModel):
     left_behind: str | None
 
 
-class SoundImports(JobSlot[SoundImport]):
-    """Holds the latest link import, and whether a file is being received: one of the two at a
-    time (toon spec › คลังเสียงพื้น). `convert` runs ffmpeg; a test passes one that pauses."""
+class SoundImports(ImportSlot[SoundImport]):
+    """The library's import slot: the latest link import, and whether a file is being received,
+    one of the two at a time (toon spec › คลังเสียงพื้น)."""
 
-    unfinished = UNFINISHED
-
-    def __init__(self, convert: ffmpeg.Runner = ffmpeg.run, stall_seconds: float = uploads.STALL_SECONDS):
-        super().__init__()
-        self._convert = convert
-        self._stall_seconds = stall_seconds
-        self._receiving_file = False
+    busy = BUSY
+    nothing_to_cancel = "ไม่มีการเอาเสียงเข้าที่ยังไม่จบ"
 
     # --- a file ---
 
@@ -166,20 +158,18 @@ class SoundImports(JobSlot[SoundImport]):
         Raises `ApiError`, or `ClientDisconnect` once its file is gone."""
         project, expected = paths.project(), uploads.whole_number(size)
         await anyio.to_thread.run_sync(_file_checks, project, name, expected)
-        with self._receiving():
+        with self.receiving():
             sound_id = _new_sound_id(project)
             partial = project.sounds_partial_dir / f"{sound_id}.upload"
             try:
                 await uploads.receive(body, partial, expected, self._stall_seconds)
                 cancel = threading.Event()
-
-                def still_wanted() -> bool:  # asked once more right before the sound comes in
-                    return not cancel.is_set() and not anyio.from_thread.run(page_gone)
-
-                return await _run_unless_gone(
+                return await audio_imports.run_unless_gone(
                     page_gone,
                     cancel,
-                    lambda: self._take_in(project, sound_id, partial, _file_title(name), "file", cancel, still_wanted),
+                    lambda: self._take_in(
+                        project, sound_id, partial, _file_title(name), "file", cancel, audio_imports.still_wanted(page_gone, cancel)
+                    ),
                 )
             except (Cancelled, ClientDisconnect):  # `Cancelled`: the page left during ffmpeg
                 log.info("the sound import %s stopped: the page went away", sound_id)
@@ -189,22 +179,6 @@ class SoundImports(JobSlot[SoundImport]):
             finally:
                 with anyio.CancelScope(shield=True):
                     await anyio.to_thread.run_sync(lambda: partial.unlink(missing_ok=True))
-
-    @contextmanager
-    def _receiving(self) -> Iterator[None]:
-        with self._lock:
-            self._require_free()
-            self._receiving_file = True
-        try:
-            yield
-        finally:
-            with self._lock:
-                self._receiving_file = False
-
-    def _require_free(self) -> None:
-        """Call with the lock held."""
-        if self._taken() or self._receiving_file:
-            raise ApiError(409, "busy", BUSY)
 
     # --- a link ---
 
@@ -224,17 +198,6 @@ class SoundImports(JobSlot[SoundImport]):
         threading.Thread(target=self._run, args=(project, link.url), daemon=True).start()
         return job
 
-    def cancel(self) -> SoundImport:
-        with self._lock:
-            if not self._taken():
-                raise ApiError(404, "not_found", "ไม่มีการเอาเสียงเข้าที่ยังไม่จบ")
-            self._job.cancel_requested = True
-            self._cancel.set()
-            return self._job.model_copy(deep=True)
-
-    def stop_on_shutdown(self) -> None:
-        self._cancel.set()
-
     def _run(self, project: ProjectPaths, url: str) -> None:
         sound_id = _new_sound_id(project)
         ending: dict = {"state": "failed"}
@@ -244,48 +207,29 @@ class SoundImports(JobSlot[SoundImport]):
         except (DownloadCancelled, Cancelled):
             ending = {"state": "cancelled"}
         except JobFailed as failure:
-            ending["error"] = SoundImportError(code=failure.code, message=failure.message)
+            # The library's error words are fewer than the shared steps' (a playlist is a download error here).
+            code = failure.code if failure.code in ERROR_MESSAGES else "download_error"
+            ending["error"] = SoundImportError(code=code, message=failure.message)
         except Exception as error:
             code = "login_required" if error_code(error) == "login_required" else "download_error"
             log.exception("sound download of %s failed", url)
             ending["error"] = SoundImportError(code=code, message=ERROR_MESSAGES[code])
         finally:
-            partial_dir = project.sounds_partial_dir
-            for leftover in partial_dir.glob(f"{sound_id}.*") if partial_dir.is_dir() else ():
-                leftover.unlink(missing_ok=True)
+            audio_imports.remove_leftovers(project.sounds_partial_dir, sound_id)
             self.update(**ending)
 
     def _download(self, project: ProjectPaths, url: str, sound_id: str) -> SoundView:
         """Spoil's Download job steps: the info, its length before loading, the load with %."""
-        info = spoil.adapter.fetch_info(url, LINK_OPTIONS)
-        if info.get("_type") == "playlist":
-            raise JobFailed("download_error", "ลิงก์นี้เป็น playlist วางลิงก์ของคลิปเดียว")
-        if (info.get("duration") or 0) > MAX_SECONDS:
-            raise JobFailed("too_long", TOO_LONG)
-        if self._cancel.is_set():
-            raise DownloadCancelled()
-        estimate = sum(f.get("filesize") or f.get("filesize_approx") or 0 for f in info.get("requested_formats") or [info])
+        info = audio_imports.fetch_info(url, LINK_OPTIONS, LIMITS, self._cancel)
         try:
-            disk.require_free(project.root, estimate)
+            disk.require_free(project.root, audio_imports.estimate_bytes(info))
         except ApiError as full:
             raise JobFailed("disk_full", full.message) from None
-        title = _first_name(info.get("title")) or sound_id
+        title = audio_imports.first_name(info.get("title"), fallback=sound_id)
         self.update(state="downloading", title=title, percent=0)
-        project.sounds_partial_dir.mkdir(parents=True, exist_ok=True)
-        loaded = spoil.adapter.download(
-            info, project, sound_id, lambda event: self._on_progress(estimate, event), LINK_OPTIONS
-        )
+        loaded = audio_imports.download(project, info, sound_id, LINK_OPTIONS, lambda percent: self.update(percent=percent), self._cancel)
         self.update(state="converting", percent=None)
         return self._take_in(project, sound_id, loaded, title, "link", self._cancel)
-
-    def _on_progress(self, estimate: int, event: dict) -> None:
-        with self._lock:
-            if self._cancel.is_set():
-                raise DownloadCancelled()
-            total = event.get("total_bytes") or event.get("total_bytes_estimate") or estimate
-            if event.get("status") == "downloading" and total:
-                percent = min(100, math.floor((event.get("downloaded_bytes") or 0) / total * 100))
-                self._job.percent = max(percent, self._job.percent or 0)
 
     # --- both ---
 
@@ -299,76 +243,23 @@ class SoundImports(JobSlot[SoundImport]):
         cancel: threading.Event,
         still_wanted: Callable[[], bool] | None = None,
     ) -> SoundView:
-        """In a thread: its length and sound (`unsupported_file`, `too_long`), then aac in m4a
-        through `.partial/`, then the library's entry, unless `still_wanted` says no by then.
-        Raises `JobFailed`, or `Cancelled`."""
-        try:
-            media = ffmpeg.probe(source)
-        except FfmpegFailed:
-            raise JobFailed("unsupported_file", UNREADABLE) from None
-        if not media.has_audio:
-            raise JobFailed("unsupported_file", UNREADABLE)
-        if media.duration_s > MAX_SECONDS:
-            raise JobFailed("too_long", TOO_LONG)
-        project.sounds_partial_dir.mkdir(parents=True, exist_ok=True)
+        """In a thread: `audio_imports.take_in` into the library through its `.partial/` (D11), the
+        entry written under `lock`. Raises `JobFailed`, or `Cancelled`."""
         target = path(project, sound_id)
         partial = project.sounds_partial_dir / f"{target.name}.partial"
-        try:
-            self._convert(convert_command(source, partial), project.sounds_partial_dir, cancel)
-            seconds = ffmpeg.probe(partial).duration_s
-        except FfmpegFailed as failed:
-            partial.unlink(missing_ok=True)
-            log.warning("could not convert %s: %s", source.name, failed.last_line)
-            raise JobFailed("unsupported_file", UNREADABLE) from None
-        except BaseException:
-            partial.unlink(missing_ok=True)
-            raise
-        if still_wanted and not still_wanted():
-            partial.unlink(missing_ok=True)
-            raise Cancelled()
-        sound = StoredSound(id=sound_id, name=name, duration_s=round(seconds, 1), source=origin)
-        # Read before the m4a is in place, all under the lock: a library recovered on the read
-        # never lists the new sound already, so it is in it once (toon D70).
-        with lock:
-            sounds = [listed for listed in read_sounds(project) if listed.id != sound_id]
-            os.replace(partial, target)
-            write_sounds(project, [*sounds, sound])
-        log.info("imported sound %s (%s, %.1f s)", sound_id, origin, seconds)
-        return _view(sound)
 
+        def place(seconds: float) -> SoundView:
+            sound = StoredSound(id=sound_id, name=name, duration_s=round(seconds, 1), source=origin)
+            # Read before the m4a is in place, all under the lock: a library recovered on the read
+            # never lists the new sound already, so it is in it once (toon D70).
+            with lock:
+                sounds = [listed for listed in read_sounds(project) if listed.id != sound_id]
+                os.replace(partial, target)
+                write_sounds(project, [*sounds, sound])
+            log.info("imported sound %s (%s, %.1f s)", sound_id, origin, seconds)
+            return _view(sound)
 
-async def _run_unless_gone(
-    page_gone: Callable[[], Awaitable[bool]], cancel: threading.Event, work: Callable[[], SoundView]
-) -> SoundView:
-    """`work()` in a thread, with `cancel` set once `page_gone()` says the page went away.
-    `work`'s exception is raised as it is: from inside the task group it would come out
-    wrapped in an ExceptionGroup, which `receive`'s `except` lines don't catch."""
-
-    async def watch() -> None:
-        while not await page_gone():
-            await anyio.sleep(GONE_POLL_SECONDS)
-        cancel.set()
-
-    failure: Exception | None = None
-    async with anyio.create_task_group() as group:
-        group.start_soon(watch)
-        try:
-            done = await anyio.to_thread.run_sync(work)
-        except Exception as error:
-            failure = error
-        group.cancel_scope.cancel()
-    if failure is not None:
-        raise failure
-    return done
-
-
-def convert_command(source: Path, out: Path) -> list[str]:
-    """The first audio stream as aac 192k 48 kHz stereo in m4a, no picture (toon D39)."""
-    return [
-        ffmpeg.exe(), "-nostdin", "-hide_banner", "-v", "error", "-y", "-i", str(source),
-        "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", str(AUDIO_RATE), "-ac", "2",
-        "-f", "mp4", str(out),
-    ]  # fmt: skip
+        return audio_imports.take_in(source, target, LIMITS, self._convert, cancel, place, still_wanted, partial=partial)
 
 
 # --- the library ---
@@ -633,14 +524,8 @@ def _file_checks(project: ProjectPaths, name: object, size: object) -> int:
 
 
 def _file_title(name: str | None) -> str:
-    """A file's sound's first name: the file's without its extension (`_first_name`)."""
-    return _first_name(os.path.splitext((name or "").strip())[0])
-
-
-def _first_name(text: object) -> str:
-    """A sound's first name cut to 60 letters: the file's name, or the link's clip title;
-    empty when there is none (a link's then falls back to the sound's id)."""
-    return text.strip()[:NAME_MAX].strip() if isinstance(text, str) else ""
+    """A file's sound's first name: the file's without its extension, cut to 60; empty for no name."""
+    return audio_imports.file_title(name)
 
 
 def _length(m4a: Path) -> float:

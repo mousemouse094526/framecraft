@@ -2,4 +2,6 @@
 
 ทุกงานที่โหลดโมเดล AI ต้องจองช่อง GPU ช่องเดียวใน `backend.gpu` ก่อนเริ่ม และงานที่จองไม่ได้ถูกปฏิเสธทันทีพร้อมบอกว่างานไหนรันอยู่ ไม่มีคิว. เพราะ LLM ใช้ memory ราว 10 GB บน Mac 16 GB จึงรันพร้อม Whisper หรือ OmniVoice ไม่ได้ และ crash ของ Metal ฆ่าทั้ง process ไม่ใช่แค่งานเดียว (ADR-0012). งานที่ไม่โหลดโมเดล (โหลดคลิป, encode ด้วย ffmpeg) ไม่จองช่องนี้.
 
+**Status:** accepted — narrowed by ADR-0043 (โมเดล ONNX เล็กบน CPU ไม่จองช่อง)
+
 Source: spoil-maker D13, D45, D51 · spoil D24

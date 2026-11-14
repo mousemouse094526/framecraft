@@ -6,8 +6,11 @@ from typing import Literal, NamedTuple
 Lane = Literal["cymbals", "middle", "bottom"]
 
 
+PieceId = Literal["hihat_closed", "hihat_open", "crash", "ride", "snare", "tom_high", "tom_mid", "tom_floor", "kick", "hihat_pedal"]
+
+
 class Piece(NamedTuple):
-    id: str
+    id: PieceId
     lane: Lane
     color: str
     foot: bool  # kick and hi-hat pedal: no hand, no flam (D20)

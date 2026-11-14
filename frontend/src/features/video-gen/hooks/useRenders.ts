@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { getJson, getReply, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
-import { lessonPath, type Lesson } from "../lib/lesson";
+import { lessonPath, type Lesson } from "../../../lib/lesson";
 import { renderPath, rendersPath, type RenderResult } from "../lib/render";
 
 export type RendersState =

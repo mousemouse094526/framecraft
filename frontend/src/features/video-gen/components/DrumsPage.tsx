@@ -1,5 +1,5 @@
 import { useHash } from "../../../lib/useHash";
-import { drumsViewOf } from "../lib/lesson";
+import { drumsViewOf } from "../../../lib/lesson";
 import { LessonEditor } from "./LessonEditor";
 import { LessonList } from "./LessonList";
 import { RendersPage } from "./RendersPage";
