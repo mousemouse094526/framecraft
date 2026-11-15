@@ -68,13 +68,14 @@ def set_background(project: ProjectPaths, song_id: str, picture: Path | None) ->
         song = songs.read_under_lock(project, song_id)
         _require_idle(song)
         folder = songs.checked_dir(project, song_id)
+        fields = cover.used(project, song, check_backing=False)
+        saved = Cover(version=cover.VERSION, updated_at=now_iso(), **(fields.model_dump() | {"background": "color" if picture is None else "image"}))
+        # The json first: a cover saying `image` with no picture reads as `color` (`cover.view`), never the other way.
+        cover.write(project, song_id, saved)
         if picture is None:
             (folder / cover.BACKGROUND).unlink(missing_ok=True)
         else:
             os.replace(picture, folder / cover.BACKGROUND)
-        fields = cover.used(project, song, check_backing=False)
-        saved = Cover(version=cover.VERSION, updated_at=now_iso(), **(fields.model_dump() | {"background": "color" if picture is None else "image"}))
-        cover.write(project, song_id, saved)
         return cover.view(project, song, saved)
 
 

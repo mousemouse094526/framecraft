@@ -393,7 +393,8 @@ def test_a_picture_is_cropped_to_1080x1920_kept_and_removed(client, project):
 def test_a_picture_that_isn_t_one_or_is_too_large_is_refused(client, project):
     song_id = picked(project)
 
-    assert put_picture(client, song_id, b"just text").json()["code"] == "unsupported_image"
+    text = put_picture(client, song_id, b"just text")
+    assert (text.status_code, text.json()["code"]) == (415, "unsupported_image")
     over = pictures.MAX_BYTES + 1
     checked = client.post(f"{SONGS}/{song_id}/cover/background/check", json={"size": over})
     assert (checked.status_code, checked.json()["code"]) == (413, "file_too_large")
@@ -423,6 +424,7 @@ def test_a_cover_saved_as_image_whose_picture_went_renders_on_the_app_s_colours(
     song_id = picked(project)
     assert put_picture(client, song_id, png(540, 960, "#FF0000")).status_code == 200
     (project.song_dir(song_id) / "cover-background.jpg").unlink()
+    assert client.get(f"{SONGS}/{song_id}/cover").json()["background"] == "color"  # so its next save isn't refused
 
     job = rendered(client, song_id)
     assert job["state"] == "done"

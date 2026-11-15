@@ -31,9 +31,11 @@
 - frontend: `BackgroundPicker` + `useBackground` ย้ายไป `components/ui` และ `lib` (รับ `path`, `imageUrl`, `apply`); การ์ดพื้นหลังบนหน้า reel; หน้าเพลงมี Alert "ไม่พบการตีกลองในช่วง…" และ "ห้อง 1–{k} ไม่มีการตี การตีแรกอยู่ที่ {t} วินาที" + ปุ่ม "เริ่มช่วงที่การตีแรก" (`PUT /range` แล้ว `POST /pick`), `lateStart` ในกรณีขอบ D19
 - tests: API +4 (ครอป 1080×1920, 415/413, render ภาพเบลอและ `song_busy` ระหว่าง render, ภาพหายแล้วใช้สี), e2e +4 (Alert ไม่มีการตี, ห้องว่าง + ปุ่ม, การตีก่อน downbeat ไม่ขึ้น, เลือก/ลบ/ปฏิเสธภาพ), lib +3 (`lateStart`)
 
+- review (subagent): 7 ข้อ แก้ 6 — ภาพหายแล้ว `GET` ยังบอก `image` (บันทึกไม่ได้), เขียน `cover.json` ก่อนวางไฟล์, test 415 ผ่าน `PUT` จริง, status ของ 415, e2e ปุ่มใกล้ท้ายเพลง, e2e การตีกลางห้อง; ยึด D9 (ต้นห้องแรกที่มีการตี) แทนเวลาการตี และคำของ `BackgroundPicker` ร่วม — บันทึกใน D23
+
 **Decided:** D23
 
-**Checks:** `uv run pytest` 1470 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 605 passed; `npm --prefix frontend run build` ผ่าน
+**Checks:** `uv run pytest` 1470 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 606 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 01: reel cover จากเพลงที่แกะ — done 2026-11-15
 

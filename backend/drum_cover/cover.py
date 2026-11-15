@@ -257,6 +257,8 @@ def view(project: ProjectPaths, song: Song, stored: Cover | None) -> CoverView:
         fields, adjusted = defaults(song, analysis), False
     else:
         fields, adjusted = clamped(_fields(stored), analysis)
+    if fields.background == "image" and not (songs.checked_dir(project, song.id) / BACKGROUND).is_file():
+        fields = fields.model_copy(update={"background": "color"})  # its picture went: the page shows, and saves, the app's colours
     return CoverView(
         **fields.model_dump(),
         saved=stored is not None,

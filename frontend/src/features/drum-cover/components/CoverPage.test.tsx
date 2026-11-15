@@ -173,7 +173,7 @@ describe("หน้าเพลง หลังแกะ", () => {
   });
 
   it("empty first bars say where the first hit is, and เริ่มช่วงที่การตีแรก saves the range from there and picks again (e2e)", async () => {
-    const late = analysis.hits.map((hit) => ({ ...hit, t: hit.t - 1.5 })); // the first at 10.0, bar 6's start
+    const late = analysis.hits.map((hit) => ({ ...hit, t: hit.t - 1 })); // the first at 10.5, inside bar 6 (from 10.0): the range starts at the bar (D9)
     const lateBars = bars.map((bar) => ({ ...bar, hits: late.filter((hit) => bar.start_s <= hit.t && hit.t < bar.end_s).length }));
     const user = open(`#/songs/${ID}`, [
       get(SONG_PATH, songOf({ analysis: { ...analysis, hits: late }, bars: lateBars })),
@@ -182,11 +182,22 @@ describe("หน้าเพลง หลังแกะ", () => {
       send("POST", PICK_PATH, { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "2026-11-15T10:00:00+07:00" }, 202),
     ]);
 
-    expect(await screen.findByText("ห้อง 1–5 ไม่มีการตี การตีแรกอยู่ที่ 10.0 วินาที")).toBeInTheDocument();
+    expect(await screen.findByText("ห้อง 1–5 ไม่มีการตี การตีแรกอยู่ที่ 10.5 วินาที")).toBeInTheDocument();
     await user.click(button("เริ่มช่วงที่การตีแรก"));
 
     await waitFor(() => expect(sent(fetchMock, "POST", PICK_PATH)).toEqual([{}]));
     expect(sent(fetchMock, "PUT", RANGE_PATH)).toEqual([{ start_s: 10, end_s: 40, mode: "drums" }]);
+  });
+
+  it("near the song's end the new range is still 4 s: bar 6 (10.0) to the end (13.0) is 3 s, so it starts at 9.0 (e2e)", async () => {
+    const user = open(`#/songs/${ID}`, [
+      get(SONG_PATH, songOf({ duration_s: 13, analysis: { ...analysis, end_s: 13 }, range: { start_s: 0, end_s: 13, mode: "drums" } })),
+      preview,
+      send("PUT", RANGE_PATH, songOf(), 200),
+      send("POST", PICK_PATH, { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "" }, 202),
+    ]);
+    await user.click(await screen.findByRole("button", { name: "เริ่มช่วงที่การตีแรก" }));
+    await waitFor(() => expect(sent(fetchMock, "PUT", RANGE_PATH)).toEqual([{ start_s: 9, end_s: 13, mode: "drums" }]) );
   });
 
   it("a hit before the first downbeat means the drums are there: no empty-bars line", async () => {
@@ -349,7 +360,7 @@ describe("หน้า reel", () => {
 
   it("a picked picture is checked, PUT as the raw body and shown; ลบภาพ goes back to the app's colours; a refusal shows by the button (e2e)", async () => {
     const pictured = coverOf({ background: "image", updated_at: "2026-11-15T11:00:00+07:00" });
-    const user = open(COVER_HASH, [send("POST", `${BACKGROUND_PATH}/check`, { size: 3 }, 200), send("DELETE", BACKGROUND_PATH, coverOf(), 200), send("POST", `${BACKGROUND_PATH}/check`, { code: "unsupported_image", message: "รับเฉพาะไฟล์ภาพ PNG หรือ JPG" }, 415)]);
+    const user = open(COVER_HASH, [send("POST", `${BACKGROUND_PATH}/check`, { size: 3 }, 200), send("DELETE", BACKGROUND_PATH, coverOf(), 200)]);
     const section = await screen.findByRole("region", { name: "พื้นหลัง" });
     expect(within(section).getByText("ใช้ภาพของคุณเองหรือภาพที่มีสิทธิ์ใช้ ห้ามใช้ปกอัลบั้ม")).toBeInTheDocument();
 
@@ -363,6 +374,8 @@ describe("หน้า reel", () => {
     await user.click(within(section).getByRole("button", { name: "ลบภาพ" }));
     expect(await within(section).findByText("สีของแอป")).toBeInTheDocument();
     await user.upload(within(section).getByLabelText("ไฟล์ภาพพื้นหลัง"), new File(["txt"], "a.png", { type: "image/png" }));
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(2));
+    await FakeXhr.sent[1].respond(415, { code: "unsupported_image", message: "รับเฉพาะไฟล์ภาพ PNG หรือ JPG" });
     expect(await within(section).findByText("รับเฉพาะไฟล์ภาพ PNG หรือ JPG")).toBeInTheDocument();
   });
 });
