@@ -21,7 +21,10 @@ frontend/src/
 │                           (คลังเสียง tab: its `lib/sounds` is what toon and spoil-maker read
 │                           of the library; it imports neither, sound-library D11),
 │                           spoil-maker (สปอย tab), toon (การ์ตูนเล่า tab), video-gen (สอนกลอง tab),
-│                           drum-notes (แกะเพลง tab), setup-status
+│                           drum-notes (แกะเพลง tab), drum-cover (a song's reel page,
+│                           `#/songs/{id}/cover`: App picks it by `coverViewOf` before the
+│                           tabs; it reads `drum-notes/lib/songs` for the Song's shape and paths, while drum-notes
+│                           knows it by HTTP and `reelHash` alone, drum-cover D22), setup-status
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   ├── hooks/        ← data fetching and state (calls lib/api)
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)
@@ -31,7 +34,8 @@ frontend/src/
 │                        columns), OfflinePanel, RefreshButton, ProgressBar,
 │                        Alert (the Figma toned box, optional title), Labeled (a field with its label, hint and error), FixCommand (a `fix` command with
 │                        its copy button: spoil's notices, a `not_ready` of สอนกลอง), ModalDialog (overlay, Esc,
-│                        focus kept inside), GrooveGrid (the Groove table: editing with `editing`
+│                        focus kept inside), BackgroundPicker (a clip's colour or picture at a route's
+│                        `…/background`, with `lib/useBackground`: a lesson's and a reel's, drum-cover D21), GrooveGrid (the Groove table: editing with `editing`
 │                        for the lesson editor, read-only without it for the song page's preview),
 │                        buttonStyles, NoticeLine (a `Notice` as an Alert), RefusedAlert (a
 │                        `Refused` as an Alert with its fix commands: the สอนกลอง and แกะเพลง tabs),

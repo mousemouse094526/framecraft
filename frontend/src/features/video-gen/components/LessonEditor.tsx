@@ -12,6 +12,8 @@ import { postForBlob } from "../../../lib/api";
 import { useListen } from "../../../lib/useListen";
 import type { PieceId } from "../../../lib/kit";
 import {
+  backgroundPath,
+  backgroundUrl,
   BPM_MAX,
   BPM_MIN,
   DRUMS_HASH,
@@ -24,11 +26,12 @@ import {
   rendersHash,
   sameFields,
   STEPS_PER_BAR,
+  type Lesson,
   type LessonFields,
   type Note,
 } from "../../../lib/lesson";
 import { isRendering, jobOf, renderingOf } from "../lib/render";
-import { BackgroundPicker } from "./BackgroundPicker";
+import { BackgroundPicker } from "../../../components/ui/BackgroundPicker";
 import { ChapterList } from "./ChapterList";
 import { GrooveGrid } from "../../../components/ui/GrooveGrid";
 import { Labeled } from "../../../components/ui/Labeled";
@@ -152,7 +155,12 @@ function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
         </Labeled>
       </div>
 
-      <BackgroundPicker id={editing.id} background={editing.saved.background} updatedAt={editing.updatedAt} applyBackground={applyBackground} />
+      <BackgroundPicker
+        path={backgroundPath(editing.id)}
+        background={editing.saved.background}
+        imageUrl={backgroundUrl(editing.id, editing.updatedAt)}
+        apply={(body) => applyBackground(body as Lesson)}
+      />
 
       <section aria-label="Groove" className="flex flex-col gap-3">
         <h3 className="text-sm leading-[1.5] font-medium text-foreground">Groove</h3>

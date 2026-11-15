@@ -208,3 +208,15 @@ _Avoid_: quantizer, converter, โน้ตเพลง (score ในควา�
 **โหมดทำนอง**:
 โหมดของ Pick job ที่ใช้ Basic Pitch หา onset ของโน้ตทำนอง (piano, kalimba) แทนกลอง; Score ทำ onset เป็น snare และเติม kick กับไฮแฮทพื้นฐาน (drum-notes D14).
 _Avoid_: melody transcription, pitch mode, โหมด kalimba
+
+**Reel cover**:
+คลิป cover แนวตั้งหนึ่งคลิปที่ทำจาก Song ที่แกะแล้ว: ชุดกลองที่ไม้ตีตรงกับการตีที่พบตามเวลาจริง เลนโน้ตเลื่อนผ่าน playhead ตัวนับจังหวะ และเสียงกลองที่ผสมจาก sample ไม่มี BPM ท่อนสอน ป้าย หรือนับเข้า (drum-cover D1, D3). ภาษาไทยในหน้าจอเรียก "reel cover" หรือ "reel".
+_Avoid_: คลิปสอน, บทเรียนกลอง, drum video, cover (คำเดี่ยว)
+
+**Cover**:
+การตั้งค่า Reel cover หนึ่งชุดของเพลงหนึ่งเพลงใน `media/songs/{id}/cover.json`: ช่วง หัวเรื่อง บรรทัดรอง คำบรรยาย พื้นหลัง และ backing; render ได้หลายครั้ง ผลอยู่ใต้เพลง หายตามเพลง (drum-cover D2, D6).
+_Avoid_: โปรเจกต์, บทเรียน, Lesson, reel (ซึ่งคือผล)
+
+**Backing**:
+เสียงบันทึกของเพลงต้นฉบับ (`audio.m4a` ช่วงของ Reel cover) ที่ผสมใต้เสียงกลองเมื่อผู้ใช้เปิดเอง ที่ความดัง 10–100; ปิดเป็นค่าตั้งต้น และไม่มีในคลิปสอน (drum-cover D7).
+_Avoid_: เสียงพื้น, BGM, backing track (ในหน้าจอ), เพลงประกอบ

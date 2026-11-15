@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickableFrom, pickedText, pickingOf, pickText, rangeFault, type FoundBar, type PickJob, type SongRow } from "./songs";
+import { lateStart, pickableFrom, pickedText, pickingOf, pickText, rangeFault, type FoundBar, type PickJob, type Song, type SongRow } from "./songs";
 
 const job = (change: Partial<PickJob> = {}): PickJob => ({ song_id: "a", state: "picking", percent: 40, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "", ...change });
 const row = (change: Partial<SongRow> = {}): SongRow => ({ id: "a", title: "A", subtitle: "", source_kind: "link", duration_s: 60, analysis: null, lessons: 0, updated_at: "", ...change });
@@ -52,5 +52,38 @@ describe("pickableFrom", () => {
     expect(pickableFrom(bars, 5)).toBe(0);
     expect(pickableFrom(bars, 6)).toBe(1);
     expect(pickableFrom([], 0)).toBe(0);
+  });
+});
+
+describe("lateStart (drum-cover D9, D19)", () => {
+  const song = (hits: number[], duration_s = 60): Song => ({
+    version: 1,
+    id: "s",
+    title: "t",
+    subtitle: "",
+    source: { kind: "file", url: null, name: "a.mp3", size: 1 },
+    duration_s,
+    range: { start_s: 0, end_s: 30, mode: "drums" },
+    analysis: { mode: "drums", start_s: 0, end_s: 30, beats: [], downbeats: [0, 2, 4], hits: hits.map((t) => ({ t, piece: "snare", level: "normal" })), picked_at: "" },
+    bars: [
+      { n: 1, start_s: 0, end_s: 2, beats: 4, hits: hits.filter((t) => t < 2).length, four_four: true },
+      { n: 2, start_s: 2, end_s: 4, beats: 4, hits: hits.filter((t) => t >= 2 && t < 4).length, four_four: true },
+    ],
+    lessons: [],
+    created_at: "",
+    updated_at: "",
+  });
+
+  it("moves the range to the first bar with a hit, as long as before", () => {
+    expect(lateStart(song([2.5]))).toEqual({ empty: 1, first_s: 2.5, range: { start_s: 2, end_s: 32, mode: "drums" } });
+  });
+
+  it("near the song's end keeps at least 4 s", () => {
+    expect(lateStart(song([2.5], 5))?.range).toEqual({ start_s: 1, end_s: 5, mode: "drums" });
+  });
+
+  it("says nothing when bar 1 has a hit or none was found", () => {
+    expect(lateStart(song([0.5, 2.5]))).toBeNull();
+    expect(lateStart(song([]))).toBeNull();
   });
 });

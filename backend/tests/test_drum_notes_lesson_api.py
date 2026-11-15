@@ -11,12 +11,10 @@ from fastapi.testclient import TestClient
 
 from backend import checks, paths
 from backend.app import app
-from backend.drum_notes import songs
-from backend.drum_notes.songs import Analysis, Head, Hit, Source
 from backend.paths import ProjectPaths
 from backend.video_gen import lessons, timeline
 
-from .fakes import BEAT, ROCK, SONGS, import_song_tone, midi_file, ok_ffmpeg, put_song_file, song_refusal
+from .fakes import BEAT, ROCK, SONGS, import_song_tone, midi_file, ok_ffmpeg, put_song_file, song_refusal, written_song
 
 LESSONS = "/api/drums/lessons"
 # MIDI notes are `(tick, GM number, velocity)`: 36 kick, 38 snare, 42 closed hi-hat, 49 crash (`midi.GM_PIECES`).
@@ -44,20 +42,6 @@ def midi_song(client, notes=THREE_BARS, name: str = "Smells Like Teen Spirit.mid
 
 def preview(client, song_id: str, **body):
     return client.post(f"{SONGS}/{song_id}/preview", json=body)
-
-
-def written_song(project: ProjectPaths, subtitle: str = "", downbeats: tuple[float, ...] = (0.0, 2.0, 4.0, 6.0), mode: str = "drums") -> str:
-    """A picked audio song written as the Pick job leaves it: beats every 0.5 s and, in drums mode, a
-    kick on every downbeat, in melody mode two snares a beat apart from the second beat of every bar
-    (D14); `downbeats` decide the bars found, so one 1.5 s apart makes a 3-beat bar (D20)."""
-    beats = [t / 2 for t in range(int(downbeats[-1] * 2) + 1)]
-    if mode == "melody":
-        hits = [Hit(t=t + after, piece="snare", level="normal") for t in downbeats[:-1] for after in (0.5, 1.0)]
-    else:
-        hits = [Hit(t=t, piece="kick", level="normal") for t in downbeats[:-1]]
-    analysis = Analysis(mode=mode, start_s=0.0, end_s=downbeats[-1], beats=beats, downbeats=list(downbeats), hits=hits, picked_at="2026-11-14T00:00:00Z")
-    song = songs.new_song("writtensong0", Head("Teen Spirit", subtitle, Source(kind="file", name="song.mp3", size=1)), downbeats[-1] + 1, songs.default_range(downbeats[-1] + 1), analysis)
-    return songs.write_new(project, song).id
 
 
 def placed(groove: dict) -> list[tuple[str, int, str | None]]:

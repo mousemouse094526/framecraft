@@ -1,26 +1,27 @@
 import { useRef } from "react";
-import { GHOST_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
-import { useBackground } from "../hooks/useBackground";
-import { backgroundUrl, type Lesson } from "../../../lib/lesson";
+import { useBackground } from "../../lib/useBackground";
+import { GHOST_BUTTON, SECONDARY_BUTTON } from "./buttonStyles";
 
-/** Beside the button, as legal item 3 asks (D23). */
+/** Beside the button, as video-gen legal item 3 asks (video-gen D23, drum-cover legal 3). */
 export const RIGHTS_NOTE = "ใช้ภาพของคุณเองหรือภาพที่มีสิทธิ์ใช้ ห้ามใช้ปกอัลบั้ม";
 
 type Props = {
-  id: string;
-  /** The saved lesson's: the picture is on the backend the moment a pick answers. */
-  background: Lesson["background"];
-  updatedAt: string;
-  applyBackground: (lesson: Lesson) => void;
+  /** The route of the picture: a lesson's or a reel cover's `…/background`. */
+  path: string;
+  /** The saved one's: the picture is on the backend the moment a pick answers. */
+  background: "color" | "image";
+  /** Where the cropped picture is shown from, new with each picture (`?v=`). */
+  imageUrl: string;
+  apply: (body: unknown) => void;
 };
 
 /**
  * พื้นหลัง: the app's colours, or the user's PNG or JPG that each render blurs and darkens
- * (D6). The one picture a lesson takes: no logo or watermark (D23). The design is pending, so
- * the app's own parts.
+ * (video-gen D6, drum-cover D8). The one picture a clip takes: no logo or watermark (video-gen D23).
+ * The สอนกลอง tab's lesson editor and the reel page share it.
  */
-export function BackgroundPicker({ id, background, updatedAt, applyBackground }: Props) {
-  const { state, pick, remove } = useBackground(id, applyBackground);
+export function BackgroundPicker({ path, background, imageUrl, apply }: Props) {
+  const { state, pick, remove } = useBackground(path, apply);
   const file = useRef<HTMLInputElement>(null);
   const sending = state.kind === "sending";
 
@@ -29,7 +30,7 @@ export function BackgroundPicker({ id, background, updatedAt, applyBackground }:
       <h3 className="text-sm leading-[1.5] font-medium text-foreground">พื้นหลัง</h3>
       <div className="flex items-start gap-4">
         {background === "image" ? (
-          <img src={backgroundUrl(id, updatedAt)} alt="ภาพพื้นหลัง" className="aspect-[9/16] w-20 shrink-0 rounded-lg border border-border object-cover" />
+          <img src={imageUrl} alt="ภาพพื้นหลัง" className="aspect-[9/16] w-20 shrink-0 rounded-lg border border-border object-cover" />
         ) : (
           <div className="flex aspect-[9/16] w-20 shrink-0 items-end rounded-lg border border-border bg-gradient-to-b from-drum-clip-top to-drum-clip-bottom p-1.5">
             <span className="text-[11px] leading-4 text-card/80">สีของแอป</span>

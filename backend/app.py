@@ -17,7 +17,8 @@ from backend.errors import ApiError
 from backend.paths import ProjectPaths
 from backend.drum_notes import imports as song_imports
 from backend.drum_notes import pick, songs
-from backend.routes import drum_notes, setup_status, spoil, spoil_maker, toon, video_gen
+from backend.drum_cover import render as cover_render
+from backend.routes import drum_cover, drum_notes, setup_status, spoil, spoil_maker, toon, video_gen
 from backend.routes import sounds as sounds_routes
 from backend.routes import stories as stories_routes
 from backend.spoil import clips, downloads, transcribe, trim
@@ -75,6 +76,7 @@ JOB_HOLDERS = (
     JobEntry(lambda: toon_render.render_jobs, toon_render.clean_on_start),
     JobEntry(lambda: sounds.sound_imports, sounds.clean_on_start),
     JobEntry(lambda: drum_render.render_jobs, drum_render.clean_on_start),
+    JobEntry(lambda: cover_render.render_jobs, cover_render.clean_on_start),
     # The songs' leftovers (`.partial/`, a folder with no `song.json`) are the songs module's to clean.
     JobEntry(lambda: song_imports.song_imports, songs.clean_on_start),
     JobEntry(lambda: pick.pick_jobs),  # nothing of a Pick job is on disk until its `analysis` is written whole
@@ -154,3 +156,4 @@ app.include_router(sounds_routes.router, prefix="/api")
 app.include_router(toon.router, prefix="/api")
 app.include_router(video_gen.router, prefix="/api")
 app.include_router(drum_notes.router, prefix="/api")
+app.include_router(drum_cover.router, prefix="/api")

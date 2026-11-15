@@ -188,6 +188,11 @@ class ProjectPaths:
         return self.songs_dir / song_id
 
     @property
+    def songs_render_dir(self) -> Path:
+        """The running reel cover Render job's copies, wav and ASS file; removed when it ends (drum-cover D12)."""
+        return self.songs_dir / ".render"
+
+    @property
     def songs_partial_dir(self) -> Path:
         """Audio being loaded, received or converted; emptied on every start (D3, D20)."""
         return self.songs_dir / ".partial"

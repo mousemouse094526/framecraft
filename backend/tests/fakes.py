@@ -8,6 +8,7 @@ import json
 import queue
 import struct
 import subprocess
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -25,6 +26,8 @@ from PIL import Image
 from backend import checks, gpu, paths, sounds, spoil_maker
 from backend.app import app
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
+from backend.drum_notes import songs
+from backend.drum_notes.songs import Analysis, Head, Hit, Source
 from backend.errors import ApiError
 from backend.models import MODELS, ModelSpec
 from backend.paths import EpAddress, ProjectPaths
@@ -1455,3 +1458,52 @@ class FakeSession:
         if self.runner.run_error is not None:
             error, self.runner.run_error = self.runner.run_error, None
             raise error
+
+
+def written_song(
+    project: ProjectPaths,
+    subtitle: str = "",
+    downbeats: tuple[float, ...] = (0.0, 2.0, 4.0, 6.0),
+    mode: str = "drums",
+    *,
+    hits: list[tuple[float, str, str]] | None = None,
+    beats: list[float] | None = None,
+    start_s: float = 0.0,
+    song_id: str = "writtensong0",
+    title: str = "Teen Spirit",
+    audio: bytes | None = None,
+) -> str:
+    """A picked song written as the Pick job leaves it (drum-notes, drum-cover D13): beats every
+    0.5 s from `start_s` and, unless `hits` (`(t, piece, level)`) are given, in drums mode a kick on
+    every downbeat, in melody mode two snares a beat apart from the second beat of every bar (D14);
+    `downbeats` decide the bars found, so one 1.5 s apart makes a 3-beat bar (D20). `audio`: the
+    bytes of its `audio.m4a`; None writes none, as a MIDI song has none."""
+    end_s = downbeats[-1]
+    if beats is None:
+        beats = [start_s + n / 2 for n in range(int((end_s - start_s) * 2) + 1)]
+    if hits is not None:
+        found = [Hit(t=t, piece=piece, level=level) for t, piece, level in hits]
+    elif mode == "melody":
+        found = [Hit(t=t + after, piece="snare", level="normal") for t in downbeats[:-1] for after in (0.5, 1.0)]
+    else:
+        found = [Hit(t=t, piece="kick", level="normal") for t in downbeats[:-1]]
+    analysis = Analysis(mode=mode, start_s=start_s, end_s=end_s, beats=beats, downbeats=list(downbeats), hits=found, picked_at="2026-11-14T00:00:00Z")
+    song = songs.new_song(song_id, Head(title, subtitle, Source(kind="file", name="song.mp3", size=1)), end_s + 1, songs.default_range(end_s + 1), analysis)
+    with songs.lock:
+        written = songs.write_new(project, song).id
+        if audio is not None:
+            (project.song_dir(written) / songs.AUDIO_FILE).write_bytes(audio)
+    return written
+
+
+@functools.cache
+def song_m4a(seconds: float = 40.0, volume: float = 1.0) -> bytes:
+    """An `audio.m4a` of a 440 Hz tone `seconds` long, made by ffmpeg's `lavfi` (no file kept in the repo)."""
+    with tempfile.TemporaryDirectory() as folder:
+        out = Path(folder) / "audio.m4a"
+        subprocess.run(
+            [imageio_ffmpeg.get_ffmpeg_exe(), "-nostdin", "-v", "error", "-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}",
+             "-af", f"volume={volume}", "-ac", "2", "-c:a", "aac", "-b:a", "128k", str(out)],
+            check=True,
+        )  # fmt: skip
+        return out.read_bytes()

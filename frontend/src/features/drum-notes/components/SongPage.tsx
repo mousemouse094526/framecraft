@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type RefObject } from "react";
+import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { GrooveGrid } from "../../../components/ui/GrooveGrid";
@@ -16,6 +16,7 @@ import { useLessonPreview } from "../hooks/useLessonPreview";
 import { useLessonTitles } from "../hooks/useLessonTitles";
 import { refusedLine, type Refused } from "../../../lib/refused";
 import { usePick } from "../hooks/usePick";
+import { useReelRenders } from "../hooks/useReelRenders";
 import { useSong } from "../hooks/useSong";
 import {
   audioUrl,
@@ -24,15 +25,19 @@ import {
   droppedText,
   firstPickable,
   isPicking,
+  lateStart,
+  lateStartText,
   MELODY_BASE,
   MELODY_HINT,
   MODE_LABELS,
   NO_FOUR_FOUR,
+  noHitsText,
   pickingOf,
   pickText,
   RANGE_MAX_S,
   RANGE_RULE,
   rangeFault,
+  reelHash,
   seconds,
   SONGS_HASH,
   SOURCE_LABELS,
@@ -80,6 +85,8 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
           <Head song={state.song} player={player} />
           {state.song.source.kind !== "midi" && state.song.range && (
             <PickSection
+              // A range saved elsewhere (เริ่มช่วงที่การตีแรก) shows in the fields.
+              key={`${state.song.range.start_s}-${state.song.range.end_s}-${state.song.range.mode}`}
               song={state.song}
               range={state.song.range}
               job={pick.job}
@@ -89,9 +96,10 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
               onCancel={() => void pick.cancel()}
             />
           )}
+          {state.song.analysis && <DrumsStart song={state.song} picking={pick.job !== null && isPicking(pick.job)} onRepick={(range) => void pick.start(id, range)} />}
           {state.song.analysis ? (
             // Keyed by `picked_at`, so a new analysis starts the lesson's pick over at its first 4/4 bar.
-            <FoundSection key={state.song.analysis.picked_at} song={state.song} mode={state.song.analysis.mode} player={player} />
+            <FoundSection key={state.song.analysis.picked_at} song={state.song} mode={state.song.analysis.mode} player={player} reel={<ReelCover song={state.song} />} />
           ) : (
             <EmptyNote text="ตั้งช่วงแล้วกด แกะโน้ต" />
           )}
@@ -230,19 +238,20 @@ function RangeField({ id, label, value, error, disabled, onChange, onUseCurrent 
   );
 }
 
-type FoundSectionProps = { song: Song; mode: Mode; player: RefObject<HTMLAudioElement | null> };
+type FoundSectionProps = { song: Song; mode: Mode; player: RefObject<HTMLAudioElement | null>; reel: ReactNode };
 
-/** The bars found in the analysis's `mode` and, when one is 4/4, the lesson made of the ones picked (spec › Design, D11, D14, D20). */
-function FoundSection({ song, mode, player }: FoundSectionProps) {
+/** The bars found in the analysis's `mode`, the reel cover (`reel`, drum-cover D11) and, when one is 4/4, the lesson made of the ones picked (spec › Design, D11, D14, D20). */
+function FoundSection({ song, mode, player, reel }: FoundSectionProps) {
   if (firstPickable(song.bars) < 0) {
     return (
       <>
         <FoundBars bars={song.bars} mode={mode} selected={null} onPick={(_, start) => seek(player.current, start)} />
+        {reel}
         <EmptyNote text={NO_FOUR_FOUR} />
       </>
     );
   }
-  return <LessonPick song={song} mode={mode} player={player} />;
+  return <LessonPick song={song} mode={mode} player={player} reel={reel} />;
 }
 
 /** A card that says why a section has nothing to show. */
@@ -251,7 +260,7 @@ function EmptyNote({ text }: { text: string }) {
 }
 
 /** The strip and สร้างบทเรียน of a song with a 4/4 bar: pressing a bar seeks the player and makes it the lesson's first (D20). */
-function LessonPick({ song, mode, player }: { song: Song; mode: Mode; player: RefObject<HTMLAudioElement | null> }) {
+function LessonPick({ song, mode, player, reel }: { song: Song; mode: Mode; player: RefObject<HTMLAudioElement | null>; reel: ReactNode }) {
   const lesson = useLessonPreview(song.id, song.bars);
   return (
     <>
@@ -264,6 +273,7 @@ function LessonPick({ song, mode, player }: { song: Song; mode: Mode; player: Re
           lesson.pickBar(index);
         }}
       />
+      {reel}
       <LessonSection lesson={lesson} mode={mode} />
     </>
   );
@@ -366,7 +376,7 @@ function LessonSection({ lesson, mode }: { lesson: ReturnType<typeof useLessonPr
         <button type="button" disabled={!ready || mixing || creating.kind === "creating"} onClick={() => void listen.listen()} className={`h-11 px-5 sm:h-10 ${SECONDARY_BUTTON}`}>
           {mixing ? "กำลังผสมเสียง…" : "ฟัง"}
         </button>
-        <button type="button" disabled={!ready || creating.kind === "creating"} onClick={() => void lesson.create()} className={`h-11 px-6 sm:h-10 ${PRIMARY_BUTTON}`}>
+        <button type="button" disabled={!ready || creating.kind === "creating"} onClick={() => void lesson.create()} className={`h-11 px-6 sm:h-10 ${SECONDARY_BUTTON}`}>
           {creating.kind === "creating" ? "กำลังสร้าง…" : "สร้างบทเรียนกลอง"}
         </button>
         <p className="text-[13px] leading-[1.5] text-mid">แก้โน้ต ท่อนสอน และ render ต่อใน tab สอนกลอง</p>
@@ -404,4 +414,55 @@ function MadeLessons({ ids }: { ids: string[] }) {
 /** The player to the start of a bar (D20); nothing to do for a song with no player. */
 function seek(player: HTMLAudioElement | null, start_s: number) {
   if (player) player.currentTime = start_s;
+}
+
+/**
+ * Reel cover, above สร้างบทเรียน: the picked range, its hits and how many reels were rendered, and
+ * ทำ reel cover as the page's main button (drum-cover D11). It knows the reel by HTTP alone
+ * (ADR 0052): the count is `GET …/cover/renders`'s length.
+ */
+function ReelCover({ song }: { song: Song }) {
+  const rendered = useReelRenders(song.id);
+  const analysis = song.analysis!;
+  return (
+    <section aria-label="Reel cover" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:p-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h3 className="text-base leading-[1.5] font-semibold text-foreground">Reel cover</h3>
+        <p className="text-[13px] leading-[1.5] text-mid">
+          ช่วงแกะ {analysis.start_s.toFixed(1)}–{analysis.end_s.toFixed(1)} วินาที · {analysis.hits.length} การตี
+          {rendered !== null && ` · render แล้ว ${rendered} ครั้ง`}
+        </p>
+      </div>
+      <a href={reelHash(song.id)} className={`h-11 px-6 sm:h-10 ${PRIMARY_BUTTON}`}>
+        ทำ reel cover
+      </a>
+    </section>
+  );
+}
+
+/**
+ * Above ผลแกะ: a pick that found no hit says so; one whose first bars are empty says where the
+ * first hit is, with เริ่มช่วงที่การตีแรก, which saves the range from there and picks again at once
+ * (drum-cover D9, D19). A blank strip read as a broken app.
+ */
+function DrumsStart({ song, picking, onRepick }: { song: Song; picking: boolean; onRepick: (range: Range) => void }) {
+  if (!song.analysis) return null;
+  if (song.analysis.hits.length === 0) return <Alert tone="warning">{noHitsText(song.analysis)}</Alert>;
+  const late = lateStart(song);
+  if (!late) return null;
+  const range = late.range;
+  return (
+    <Alert
+      tone="info"
+      action={
+        range && (
+          <button type="button" disabled={picking} onClick={() => onRepick(range)} className={`h-11 px-4 sm:h-9 ${SECONDARY_BUTTON}`}>
+            เริ่มช่วงที่การตีแรก
+          </button>
+        )
+      }
+    >
+      {lateStartText(late)}
+    </Alert>
+  );
 }

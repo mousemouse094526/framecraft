@@ -17,6 +17,9 @@ export const listenPath = (id: string) => `${songPath(id)}/listen`;
 export const songLessonsPath = (id: string) => `${songPath(id)}/lessons`;
 export const SONGS_HASH = "#/songs";
 export const songHash = (id: string) => `${SONGS_HASH}/${id}`;
+/** A song's reel page, drum-cover's (drum-cover D11): this tab links to it and reads its renders by HTTP alone (ADR 0052). */
+export const reelHash = (id: string) => `${songHash(id)}/cover`;
+export const reelRendersPath = (id: string) => `${songPath(id)}/cover/renders`;
 
 export type SourceKind = "link" | "file" | "midi";
 export type Mode = "drums" | "melody";
@@ -179,3 +182,37 @@ export const droppedText = (dropped: Dropped) => notePlace(dropped.piece, droppe
 
 /** "12.5 s", a bar's start as the strip shows it. */
 export const seconds = (t: number) => `${t.toFixed(1)} s`;
+
+// --- where the drums start (drum-cover D9, D19) ---
+
+/** An analysis that found no hit: what the page says above ผลแกะ. */
+export const noHitsText = (analysis: Analysis) => `ไม่พบการตีกลองในช่วง ${analysis.start_s.toFixed(1)}–${analysis.end_s.toFixed(1)} วินาที ลองเลื่อนช่วงไปที่กลองเริ่มเล่น`;
+
+/** The first bars found empty, before any hit: how many, where the first hit is, and the range that starts there. */
+export type LateStart = { empty: number; first_s: number; range: Range | null };
+
+/**
+ * The bars found with no hit from the first on, when no hit comes before them (one before the first
+ * downbeat means the drums are there already); null when bar 1 has a hit or nothing was found. The
+ * new range starts at the first bar with a hit (or the hit), rounded down to 0.1 s, as long as the
+ * old one up to the song's end, and at least 4 s (D9, D19); a MIDI song has no range to move.
+ */
+export function lateStart(song: Song): LateStart | null {
+  const analysis = song.analysis;
+  if (!analysis || analysis.hits.length === 0) return null;
+  const empty = song.bars.findIndex((bar) => bar.hits > 0);
+  const leading = empty < 0 ? song.bars.length : empty;
+  const first_s = Math.min(...analysis.hits.map((hit) => hit.t));
+  if (leading === 0 || first_s < song.bars[leading - 1].end_s) return null;
+  if (!song.range) return { empty: leading, first_s, range: null };
+  let start_s = Math.floor((empty < 0 ? first_s : song.bars[empty].start_s) * 10) / 10;
+  let end_s = Math.min(song.duration_s, start_s + (song.range.end_s - song.range.start_s));
+  if (end_s - start_s < RANGE_MIN_S) {
+    start_s = Math.max(0, song.duration_s - RANGE_MIN_S);
+    end_s = song.duration_s;
+  }
+  return { empty: leading, first_s, range: { start_s, end_s, mode: song.range.mode } };
+}
+
+export const lateStartText = (late: LateStart) =>
+  `${late.empty === 1 ? "ห้อง 1" : `ห้อง 1–${late.empty}`} ไม่มีการตี การตีแรกอยู่ที่ ${late.first_s.toFixed(1)} วินาที`;
