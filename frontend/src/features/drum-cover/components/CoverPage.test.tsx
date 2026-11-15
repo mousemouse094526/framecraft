@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
+import { FakeXhr } from "../../../testing/fakeXhr";
 import { get, jsonResponse, phased, send, sent, serve, type Route } from "../../../testing/testBackend";
 import type { Analysis, FoundBar, Song } from "../../drum-notes/lib/songs";
 import type { Cover, CoverRenderJob, CoverRenderResult } from "../lib/cover";
@@ -15,6 +16,9 @@ const RENDERS_PATH = `${COVER_PATH}/renders`;
 const RENDER_PATH = "/api/covers/render";
 const CANCEL_PATH = `${RENDER_PATH}/cancel`;
 const COVER_HASH = `#/songs/${ID}/cover`;
+const BACKGROUND_PATH = `${COVER_PATH}/background`;
+const RANGE_PATH = `${SONG_PATH}/range`;
+const PICK_PATH = `${SONG_PATH}/pick`;
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -108,6 +112,8 @@ function bodyOf(cover: Cover, change: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("XMLHttpRequest", FakeXhr);
+  FakeXhr.sent = [];
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:wav", revokeObjectURL: () => {} }));
   vi.stubGlobal(
     "Audio",
@@ -155,6 +161,39 @@ describe("หน้าเพลง", () => {
     await user.click(within(reel).getByRole("link", { name: "ทำ reel cover" }));
     expect(window.location.hash).toBe(COVER_HASH);
     expect(await screen.findByRole("heading", { name: "Reel cover" })).toBeInTheDocument();
+  });
+});
+
+describe("หน้าเพลง หลังแกะ", () => {
+  const preview = send("POST", `${SONG_PATH}/preview`, { groove: { bars: 1, notes: [] }, bpm: 120, dropped: [] }, 200);
+
+  it("a pick that found no hit says so above ผลแกะ (e2e)", async () => {
+    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, hits: [] }, bars: bars.map((bar) => ({ ...bar, hits: 0 })) })), preview]);
+    expect(await screen.findByText("ไม่พบการตีกลองในช่วง 0.0–30.0 วินาที ลองเลื่อนช่วงไปที่กลองเริ่มเล่น")).toBeInTheDocument();
+  });
+
+  it("empty first bars say where the first hit is, and เริ่มช่วงที่การตีแรก saves the range from there and picks again (e2e)", async () => {
+    const late = analysis.hits.map((hit) => ({ ...hit, t: hit.t - 1.5 })); // the first at 10.0, bar 6's start
+    const lateBars = bars.map((bar) => ({ ...bar, hits: late.filter((hit) => bar.start_s <= hit.t && hit.t < bar.end_s).length }));
+    const user = open(`#/songs/${ID}`, [
+      get(SONG_PATH, songOf({ analysis: { ...analysis, hits: late }, bars: lateBars })),
+      preview,
+      send("PUT", RANGE_PATH, songOf({ range: { start_s: 10, end_s: 40, mode: "drums" } }), 200),
+      send("POST", PICK_PATH, { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "2026-11-15T10:00:00+07:00" }, 202),
+    ]);
+
+    expect(await screen.findByText("ห้อง 1–5 ไม่มีการตี การตีแรกอยู่ที่ 10.0 วินาที")).toBeInTheDocument();
+    await user.click(button("เริ่มช่วงที่การตีแรก"));
+
+    await waitFor(() => expect(sent(fetchMock, "POST", PICK_PATH)).toEqual([{}]));
+    expect(sent(fetchMock, "PUT", RANGE_PATH)).toEqual([{ start_s: 10, end_s: 40, mode: "drums" }]);
+  });
+
+  it("a hit before the first downbeat means the drums are there: no empty-bars line", async () => {
+    const early = [{ t: 0.5, piece: "kick" as const, level: "normal" as const }, ...analysis.hits];
+    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, downbeats: [1, ...analysis.downbeats.slice(1)], hits: early }, bars: [{ ...bars[0], start_s: 1, hits: 0 }, ...bars.slice(1)] })), preview]);
+    expect(await screen.findByRole("region", { name: "Reel cover" })).toBeInTheDocument();
+    expect(screen.queryByText(/ไม่มีการตี การตีแรกอยู่ที่/)).not.toBeInTheDocument();
   });
 });
 
@@ -306,5 +345,24 @@ describe("หน้า reel", () => {
     open(COVER_HASH, []);
     const strip = await screen.findByRole("list", { name: "ห้องที่พบ" });
     expect(within(strip).getAllByText(/^ห้อง \d+$/).map((bar) => bar.textContent)).toEqual(["ห้อง 6", "ห้อง 7"]); // 10–30 s: bars from 10.0 and 12.0
+  });
+
+  it("a picked picture is checked, PUT as the raw body and shown; ลบภาพ goes back to the app's colours; a refusal shows by the button (e2e)", async () => {
+    const pictured = coverOf({ background: "image", updated_at: "2026-11-15T11:00:00+07:00" });
+    const user = open(COVER_HASH, [send("POST", `${BACKGROUND_PATH}/check`, { size: 3 }, 200), send("DELETE", BACKGROUND_PATH, coverOf(), 200), send("POST", `${BACKGROUND_PATH}/check`, { code: "unsupported_image", message: "รับเฉพาะไฟล์ภาพ PNG หรือ JPG" }, 415)]);
+    const section = await screen.findByRole("region", { name: "พื้นหลัง" });
+    expect(within(section).getByText("ใช้ภาพของคุณเองหรือภาพที่มีสิทธิ์ใช้ ห้ามใช้ปกอัลบั้ม")).toBeInTheDocument();
+
+    await user.upload(within(section).getByLabelText("ไฟล์ภาพพื้นหลัง"), new File(["png"], "me.png", { type: "image/png" }));
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    expect([FakeXhr.sent[0].method, FakeXhr.sent[0].url]).toEqual(["PUT", `${BACKGROUND_PATH}?size=3`]);
+    await FakeXhr.sent[0].respond(200, pictured);
+    expect(await within(section).findByRole("img", { name: "ภาพพื้นหลัง" })).toHaveAttribute("src", `${COVER_PATH}/background.jpg?v=${encodeURIComponent("2026-11-15T11:00:00+07:00")}`);
+    expect(screen.queryByText("· ยังไม่บันทึก")).not.toBeInTheDocument();
+
+    await user.click(within(section).getByRole("button", { name: "ลบภาพ" }));
+    expect(await within(section).findByText("สีของแอป")).toBeInTheDocument();
+    await user.upload(within(section).getByLabelText("ไฟล์ภาพพื้นหลัง"), new File(["txt"], "a.png", { type: "image/png" }));
+    expect(await within(section).findByText("รับเฉพาะไฟล์ภาพ PNG หรือ JPG")).toBeInTheDocument();
   });
 });

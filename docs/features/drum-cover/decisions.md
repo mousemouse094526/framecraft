@@ -351,3 +351,16 @@
 **Why:** เลือกตามกติกาและโค้ดรอบข้าง ไม่เปลี่ยนสิ่งที่ spec สัญญา.
 
 **From:** build ticket 01 · **Status:** active
+
+## D23: ทางเลือกเล็กตอน build ticket 02
+
+**Chosen:**
+- `backend.pictures` ถือขนาด 20 MB ข้อความ และการครอป; `video_gen.backgrounds.MAX_BYTES` ชี้ไปที่ค่าเดียวกัน (test เดิมใช้ชื่อนี้) และ log หลัง `place` สำเร็จ
+- ไฟล์ชั่วคราวของภาพ cover อยู่ใน `media/songs/.partial/` ชื่อ `cover-background.{hex}.tmp` ไม่ขึ้นต้นด้วย song id (Song import ลบ `{song_id}.*` ใน folder เดียวกัน)
+- `PUT`/`DELETE` ภาพของ cover ที่ยังไม่เคยบันทึก บันทึก cover ด้วยค่าตั้งต้น (ดึงเข้าช่วงแล้ว) พร้อม `background` ใหม่; ข้อความอื่นที่กำลังพิมพ์บนหน้าอยู่ต่อ ฟอร์มรับแค่ `background` ใหม่
+- `GET …/cover/background.jpg` ไม่มีภาพ → `404` "ยังไม่มีภาพพื้นหลัง"
+- Alert ของหน้าเพลง (D9) แสดงทุกครั้งที่มี `analysis` (ไม่ใช่แค่ตอนงานเพิ่งจบ) จนกว่าแกะใหม่; ห้องว่าง 1 ห้องเขียน "ห้อง 1 ไม่มีการตี …"; เพลง MIDI ไม่มีปุ่ม (ไม่มีช่วงให้เลื่อน); `PickSection` key ตามช่วงที่บันทึก เพื่อให้ช่องแสดงช่วงใหม่หลังกดปุ่ม
+
+**Why:** ตามโค้ดเดิมของ video-gen และ drum-notes; ไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**From:** build ticket 02 · **Status:** active

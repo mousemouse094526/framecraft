@@ -1,11 +1,11 @@
 # Progress: drum-cover
 
-**Now:** ticket 01 done; กำลังทำ 02
+**Now:** ticket 01–02 done; เปิด PR เข้า `develop`
 
 **Next:**
 
 ```
-/warroom-build drum-cover 02
+/warroom next
 ```
 
 ## Tickets
@@ -13,15 +13,27 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | reel cover จากเพลงที่แกะ: ตั้งช่วง ข้อความ เสียง ฟัง render | done |
-| 02 | ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า | ready |
+| 02 | ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า | done |
 
 ## Blocked
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01) |
+| 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01, 02) |
 
 ## Log
+
+### 02: ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า — done 2026-11-15
+
+**Built:**
+- `backend.pictures` (ใช้ร่วม: `checked_size`, `receive(body, partial, expected, place)`); `video_gen.backgrounds` เรียกมัน (test เดิม 86 ผ่านโดยไม่แก้)
+- `drum_cover.backgrounds`: `check`/`PUT ?size=`/`DELETE`/`GET background.jpg`, `song_busy` "กำลัง render reel ของเพลงนี้อยู่" ระหว่าง render (และของ drum-notes ระหว่าง Pick job), `.tmp` ไม่ขึ้นต้นด้วย song id; render ใช้ภาพที่ copy ไว้ เบลอ ทำมืด
+- frontend: `BackgroundPicker` + `useBackground` ย้ายไป `components/ui` และ `lib` (รับ `path`, `imageUrl`, `apply`); การ์ดพื้นหลังบนหน้า reel; หน้าเพลงมี Alert "ไม่พบการตีกลองในช่วง…" และ "ห้อง 1–{k} ไม่มีการตี การตีแรกอยู่ที่ {t} วินาที" + ปุ่ม "เริ่มช่วงที่การตีแรก" (`PUT /range` แล้ว `POST /pick`), `lateStart` ในกรณีขอบ D19
+- tests: API +4 (ครอป 1080×1920, 415/413, render ภาพเบลอและ `song_busy` ระหว่าง render, ภาพหายแล้วใช้สี), e2e +4 (Alert ไม่มีการตี, ห้องว่าง + ปุ่ม, การตีก่อน downbeat ไม่ขึ้น, เลือก/ลบ/ปฏิเสธภาพ), lib +3 (`lateStart`)
+
+**Decided:** D23
+
+**Checks:** `uv run pytest` 1470 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 605 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 01: reel cover จากเพลงที่แกะ — done 2026-11-15
 

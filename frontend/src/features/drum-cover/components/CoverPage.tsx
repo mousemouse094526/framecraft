@@ -1,5 +1,6 @@
 import { useCallback, useId, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
+import { BackgroundPicker } from "../../../components/ui/BackgroundPicker";
 import { DESTRUCTIVE_BUTTON, GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { inputClass } from "../../../components/ui/inputStyles";
 import { Labeled } from "../../../components/ui/Labeled";
@@ -23,6 +24,8 @@ import { useCoverRender } from "../hooks/useCoverRender";
 import {
   adjustedText,
   BACKING_WARNING,
+  coverBackgroundPath,
+  coverBackgroundUrl,
   coverListenPath,
   downloadName,
   fieldsOf,
@@ -234,6 +237,20 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
         <TextField id={`${id}-subtitle`} label="บรรทัดรอง" value={draft.subtitle} max={LINE_MAX} error={fieldError("subtitle")} onChange={(v) => set("subtitle", v)} />
         <TextField id={`${id}-caption`} label="คำบรรยายล่าง" value={draft.caption} max={LINE_MAX} error={fieldError("caption")} onChange={(v) => set("caption", v)} />
       </section>
+
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+        <BackgroundPicker
+          path={coverBackgroundPath(song.id)}
+          background={saved.background}
+          imageUrl={coverBackgroundUrl(song.id, saved.updated_at)}
+          apply={(body) => {
+            const next = body as Cover;
+            cover.applyCover(next);
+            // Saved at once: the form takes the new background, whatever else is being typed.
+            setDraft((now) => ({ ...now, background: next.background }));
+          }}
+        />
+      </div>
 
       <section aria-label="เสียง" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h3 className="text-base leading-[1.5] font-semibold text-foreground">เสียง</h3>

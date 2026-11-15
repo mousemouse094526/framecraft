@@ -70,6 +70,9 @@ export function useCover(id: string) {
     [id, setState],
   );
 
+  /** The cover a picture's `PUT` or `DELETE` answered (the picture is saved at once, D8). */
+  const applyCover = useCallback((cover: Cover) => setState((now) => (now.kind === "ready" ? { ...now, cover } : now)), [setState]);
+
   const removeRender = useCallback(
     async (name: string) => {
       try {
@@ -84,5 +87,5 @@ export function useCover(id: string) {
     [id, reloadRenders, setIfMounted],
   );
 
-  return { state, reload: load, reloadRenders, save, removeRender, fileOf: (name: string, suffix: ".mp4" | ".srt") => coverRenderFile(id, name, suffix) };
+  return { state, reload: load, reloadRenders, save, applyCover, removeRender, fileOf: (name: string, suffix: ".mp4" | ".srt") => coverRenderFile(id, name, suffix) };
 }

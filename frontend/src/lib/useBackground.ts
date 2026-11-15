@@ -1,8 +1,7 @@
 import { useCallback } from "react";
-import { OFFLINE_TEXT, sendFile, sendJson } from "../../../lib/api";
-import { refusalOf } from "../../../lib/refusal";
-import { useMountedState } from "../../../lib/useMountedState";
-import { backgroundPath, type Lesson } from "../../../lib/lesson";
+import { OFFLINE_TEXT, sendFile, sendJson } from "./api";
+import { refusalOf } from "./refusal";
+import { useMountedState } from "./useMountedState";
 
 /** `sending`: a picture going out, or its removal; both buttons wait. `refused`: the API's message, or offline. */
 export type BackgroundState = { kind: "idle" } | { kind: "sending" } | { kind: "refused"; text: string };
@@ -19,29 +18,29 @@ async function jsonReply(method: string, path: string, body?: unknown): Promise<
 }
 
 /**
- * The lesson's background picture: a picked file is checked (`/background/check`), then sent
- * as the raw body with `PUT` (ADR 0028); ลบภาพ is a `DELETE`. Each answers the lesson, which
- * goes to `applyBackground` (D6, spec › API).
+ * A background picture at `path` (a drum lesson's or a reel cover's `…/background`, video-gen D6,
+ * drum-cover D21): a picked file is checked (`{path}/check`), then sent as the raw body with `PUT`
+ * (ADR 0028); ลบภาพ is a `DELETE`. Each answers what owns the picture, which goes to `apply`.
  */
-export function useBackground(id: string, applyBackground: (lesson: Lesson) => void) {
+export function useBackground(path: string, apply: (body: unknown) => void) {
   const [state, , setIfMounted] = useMountedState<BackgroundState>({ kind: "idle" });
 
   const end = useCallback(
     (reply: Reply) => {
       if (reply.kind === "answer" && reply.status === 200 && reply.body) {
-        applyBackground(reply.body as Lesson);
+        apply(reply.body);
         setIfMounted({ kind: "idle" });
       } else {
         setIfMounted({ kind: "refused", text: (reply.kind === "answer" && refusalOf(reply.body)?.message) || OFFLINE_TEXT });
       }
     },
-    [applyBackground, setIfMounted],
+    [apply, setIfMounted],
   );
 
   const pick = useCallback(
     async (file: File) => {
       setIfMounted({ kind: "sending" });
-      const check = await jsonReply("POST", `${backgroundPath(id)}/check`, { size: file.size });
+      const check = await jsonReply("POST", `${path}/check`, { size: file.size });
       if (check.kind === "offline" || check.status !== 200) {
         end(check);
         return;
@@ -49,16 +48,16 @@ export function useBackground(id: string, applyBackground: (lesson: Lesson) => v
       // 20 MB at most, on this machine: no percent to show (no `onProgress`, no `onSent`), the
       // button says it is sending.
       const noop = () => {};
-      const sent = await sendFile<unknown>(`${backgroundPath(id)}?size=${file.size}`, file, noop, noop, "PUT").reply;
+      const sent = await sendFile<unknown>(`${path}?size=${file.size}`, file, noop, noop, "PUT").reply;
       end(sent.kind === "answer" ? sent : { kind: "offline" });
     },
-    [id, end, setIfMounted],
+    [path, end, setIfMounted],
   );
 
   const remove = useCallback(async () => {
     setIfMounted({ kind: "sending" });
-    end(await jsonReply("DELETE", backgroundPath(id)));
-  }, [id, end, setIfMounted]);
+    end(await jsonReply("DELETE", path));
+  }, [path, end, setIfMounted]);
 
   return { state, pick, remove };
 }

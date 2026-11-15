@@ -119,7 +119,7 @@ def get(project: ProjectPaths, song_id: str) -> CoverView:
     """`GET /cover`. Raises `ApiError` 404 `not_found`, or 409 `no_analysis`."""
     with songs.lock:
         song = songs.read_under_lock(project, song_id)
-        return _view(project, song, _stored(project, song_id))
+        return view(project, song, _stored(project, song_id))
 
 
 def replace(project: ProjectPaths, song_id: str, body: dict[str, Any]) -> CoverView:
@@ -130,19 +130,19 @@ def replace(project: ProjectPaths, song_id: str, body: dict[str, Any]) -> CoverV
         analysis = require_analysis(song)
         fields = checked(body, song, analysis, songs.checked_dir(project, song_id))
         cover = Cover(version=VERSION, updated_at=now_iso(), **fields.model_dump())
-        files.write_atomic(cover_file(project, song_id), json.dumps(cover.model_dump(), ensure_ascii=False, indent=2))
+        write(project, song_id, cover)
         log.info("saved the reel cover of song %s", song_id)
-        return _view(project, song, cover)
+        return view(project, song, cover)
 
 
-def used(project: ProjectPaths, song: Song) -> CoverFields:
+def used(project: ProjectPaths, song: Song, check_backing: bool = True) -> CoverFields:
     """What a render or a listen plays: the stored cover pulled into the range, or the defaults.
     Call with `songs.lock` held. Raises `ApiError` 409 `no_analysis`, or 400 for backing on a
-    song with no audio (D7)."""
+    song with no audio (D7) unless `check_backing` is off (a picture's change keeps the rest as stored)."""
     analysis = require_analysis(song)
     stored = _stored(project, song.id)
     fields = clamped(_fields(stored), analysis)[0] if stored is not None else defaults(song, analysis)
-    if fields.backing.on and not has_audio(project, song.id):
+    if check_backing and fields.backing.on and not has_audio(project, song.id):
         raise songs.invalid("backing.on", NO_AUDIO)
     return fields
 
@@ -174,6 +174,11 @@ def has_audio(project: ProjectPaths, song_id: str) -> bool:
 
 def cover_file(project: ProjectPaths, song_id: str) -> Path:
     return songs.checked_dir(project, song_id) / COVER_FILE
+
+
+def write(project: ProjectPaths, song_id: str, cover: Cover) -> None:
+    """The whole `cover.json`, atomically. Call with `songs.lock` held."""
+    files.write_atomic(cover_file(project, song_id), json.dumps(cover.model_dump(), ensure_ascii=False, indent=2))
 
 
 # --- checking a body ---
@@ -246,7 +251,7 @@ def _fields(stored: Cover) -> CoverFields:
     return CoverFields.model_validate(stored.model_dump(include=set(CoverFields.model_fields)))
 
 
-def _view(project: ProjectPaths, song: Song, stored: Cover | None) -> CoverView:
+def view(project: ProjectPaths, song: Song, stored: Cover | None) -> CoverView:
     analysis = require_analysis(song)
     if stored is None:
         fields, adjusted = defaults(song, analysis), False

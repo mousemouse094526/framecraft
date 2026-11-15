@@ -4,6 +4,8 @@ import { reelRendersPath, songPath, type Song } from "../../drum-notes/lib/songs
 // A song's reel cover as `/api/songs/{id}/cover` answers it, its Render job and its results, and
 // the page's hash (drum-cover spec › Data, API, Frontend; D2, D6, D7, D11, D12, D18, D19).
 export const coverPath = (id: string) => `${songPath(id)}/cover`;
+export const coverBackgroundPath = (id: string) => `${coverPath(id)}/background`;
+export const coverBackgroundUrl = (id: string, updatedAt: string | null) => `${coverPath(id)}/background.jpg?v=${encodeURIComponent(updatedAt ?? "")}`;
 export const coverListenPath = (id: string) => `${coverPath(id)}/listen`;
 export const coverRenderPath = (id: string) => `${coverPath(id)}/render`;
 export const coverRenderFile = (id: string, name: string, suffix: ".mp4" | ".srt") => `${reelRendersPath(id)}/${name}${suffix}`;

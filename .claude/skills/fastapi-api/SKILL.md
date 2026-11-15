@@ -189,6 +189,10 @@ backend/
 ├── uploads.py    ← a raw file body to disk as it comes (ADR 0028): spoil's
 │                    File import, toon's reference uploads, video_gen's
 │                    backgrounds and drum_notes' songs share it
+├── pictures.py   ← a background picture from the page (ADR 0028): `checked_size` (413 over
+│                    20 MB) and `receive` — the body to the caller's `.tmp`, EXIF turned,
+│                    cropped to 1080×1920, then the caller's `place`; video_gen's lesson
+│                    backgrounds and drum_cover's share it and keep their own idle and disk checks
 ├── audio_imports.py ← audio from a link (`bestaudio` through spoil's adapter) or a file,
 │                    its length read and refused (`too_long`, `too_short`, `unsupported_file`),
 │                    converted to aac in m4a through a `.partial`, then the caller's `place`
@@ -226,7 +230,9 @@ backend/
 │                    the one sound ฟัง and the render play: the mixer's drums, the backing laid
 │                    under in numpy, ADR 0050), render (the reel's Render job in its own
 │                    `JobSlot`, no GPU, video-gen's own ffmpeg command; registers in
-│                    `songs.song_jobs`); imports drum_notes and video_gen, never the other way
+│                    `songs.song_jobs`), backgrounds (`cover-background.jpg` through
+│                    `pictures`, `song_busy` while its reel renders or its notes are picked);
+│                    imports drum_notes and video_gen, never the other way
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK

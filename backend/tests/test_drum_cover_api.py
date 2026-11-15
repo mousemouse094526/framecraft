@@ -12,9 +12,9 @@ import numpy as np
 import pytest
 import soundfile
 from fastapi.testclient import TestClient
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
-from backend import ffmpeg, paths
+from backend import ffmpeg, paths, pictures
 from backend.app import app
 from backend.drum_cover import render
 from backend.drum_notes import songs
@@ -22,7 +22,7 @@ from backend.paths import ProjectPaths
 from backend.video_gen import captions, frames, kit
 from backend.video_gen import render as drum_render
 
-from .fakes import FINISHED, poll_until, restart, song_m4a, written_song
+from .fakes import FINISHED, png, poll_until, restart, song_m4a, written_song
 
 SONGS = "/api/songs"
 RENDER = "/api/covers/render"
@@ -358,3 +358,73 @@ def test_renders_are_served_and_deleted_and_go_with_their_song(client, project):
     assert put_cover(client, song_id, title="Yellow").status_code == 200
     assert client.delete(f"{SONGS}/{song_id}").status_code == 204
     assert not project.song_dir(song_id).exists()
+
+
+# --- the background picture (D8, D21) ---
+
+
+def put_picture(client, song_id: str, body: bytes, size: int | None = None, content_type: str = "application/octet-stream"):
+    return client.put(f"{SONGS}/{song_id}/cover/background?size={len(body) if size is None else size}", content=body, headers={"Content-Type": content_type})
+
+
+def corner_of_first_frame(mp4: Path) -> tuple[int, int, int]:
+    pixels = ffmpeg_out("-i", str(mp4), "-vf", "crop=2:2:0:0", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
+    return pixels[0], pixels[1], pixels[2]
+
+
+def test_a_picture_is_cropped_to_1080x1920_kept_and_removed(client, project):
+    song_id = picked(project)
+
+    assert client.post(f"{SONGS}/{song_id}/cover/background/check", json={"size": 1000}).json() == {"size": 1000}
+    response = put_picture(client, song_id, png(540, 400, "#FF0000"))
+
+    assert response.status_code == 200, response.json()
+    assert (response.json()["background"], response.json()["saved"]) == ("image", True)
+    with Image.open(project.song_dir(song_id) / "cover-background.jpg") as kept:
+        assert kept.size == (1080, 1920)
+    picture = client.get(f"{SONGS}/{song_id}/cover/background.jpg")
+    assert (picture.status_code, picture.headers["content-type"]) == (200, "image/jpeg")
+    removed = client.delete(f"{SONGS}/{song_id}/cover/background")
+    assert removed.json()["background"] == "color"
+    assert not (project.song_dir(song_id) / "cover-background.jpg").exists()
+    assert client.get(f"{SONGS}/{song_id}/cover/background.jpg").status_code == 404
+
+
+def test_a_picture_that_isn_t_one_or_is_too_large_is_refused(client, project):
+    song_id = picked(project)
+
+    assert put_picture(client, song_id, b"just text").json()["code"] == "unsupported_image"
+    over = pictures.MAX_BYTES + 1
+    checked = client.post(f"{SONGS}/{song_id}/cover/background/check", json={"size": over})
+    assert (checked.status_code, checked.json()["code"]) == (413, "file_too_large")
+    assert put_picture(client, song_id, b"x", size=over).status_code == 413
+    assert not project.songs_partial_dir.exists() or not any(project.songs_partial_dir.iterdir())  # no upload left behind
+
+
+def test_a_render_uses_the_picture_blurred_and_the_picture_can_t_change_meanwhile(client, project, piped):
+    plain, pictured = picked(project), picked(project, song_id="pictured000")
+    assert put_picture(client, pictured, png(540, 960, "#FF0000")).status_code == 200
+    plain_corner = corner_of_first_frame(renders_dir(project, plain) / f"{rendered(client, plain)['result']}.mp4")
+
+    piped.pause_at = 10
+    assert start(client, pictured).status_code == 202
+    assert piped.reached.wait(10)
+    refused = [put_picture(client, pictured, png(540, 960, "#00FF00")), client.delete(f"{SONGS}/{pictured}/cover/background")]
+    piped.released.set()
+    job = poll_until(client, RENDER, lambda job: job["state"] in FINISHED, timeout_s=60)
+
+    for response in refused:
+        assert (response.status_code, response.json()["code"], response.json()["message"]) == (409, "song_busy", "กำลัง render reel ของเพลงนี้อยู่")
+    corner = corner_of_first_frame(renders_dir(project, pictured) / f"{job['result']}.mp4")
+    assert corner != plain_corner and corner[0] > 80 and corner[1] < 30  # red under 55 % black
+
+
+def test_a_cover_saved_as_image_whose_picture_went_renders_on_the_app_s_colours(client, project):
+    song_id = picked(project)
+    assert put_picture(client, song_id, png(540, 960, "#FF0000")).status_code == 200
+    (project.song_dir(song_id) / "cover-background.jpg").unlink()
+
+    job = rendered(client, song_id)
+    assert job["state"] == "done"
+    corner = corner_of_first_frame(renders_dir(project, song_id) / f"{job['result']}.mp4")
+    assert corner[0] < 40  # the navy, not the red

@@ -25,10 +25,13 @@ import {
   droppedText,
   firstPickable,
   isPicking,
+  lateStart,
+  lateStartText,
   MELODY_BASE,
   MELODY_HINT,
   MODE_LABELS,
   NO_FOUR_FOUR,
+  noHitsText,
   pickingOf,
   pickText,
   RANGE_MAX_S,
@@ -82,6 +85,8 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
           <Head song={state.song} player={player} />
           {state.song.source.kind !== "midi" && state.song.range && (
             <PickSection
+              // A range saved elsewhere (เริ่มช่วงที่การตีแรก) shows in the fields.
+              key={`${state.song.range.start_s}-${state.song.range.end_s}-${state.song.range.mode}`}
               song={state.song}
               range={state.song.range}
               job={pick.job}
@@ -91,6 +96,7 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
               onCancel={() => void pick.cancel()}
             />
           )}
+          {state.song.analysis && <DrumsStart song={state.song} picking={pick.job !== null && isPicking(pick.job)} onRepick={(range) => void pick.start(id, range)} />}
           {state.song.analysis ? (
             // Keyed by `picked_at`, so a new analysis starts the lesson's pick over at its first 4/4 bar.
             <FoundSection key={state.song.analysis.picked_at} song={state.song} mode={state.song.analysis.mode} player={player} reel={<ReelCover song={state.song} />} />
@@ -431,5 +437,32 @@ function ReelCover({ song }: { song: Song }) {
         ทำ reel cover
       </a>
     </section>
+  );
+}
+
+/**
+ * Above ผลแกะ: a pick that found no hit says so; one whose first bars are empty says where the
+ * first hit is, with เริ่มช่วงที่การตีแรก, which saves the range from there and picks again at once
+ * (drum-cover D9, D19). A blank strip read as a broken app.
+ */
+function DrumsStart({ song, picking, onRepick }: { song: Song; picking: boolean; onRepick: (range: Range) => void }) {
+  if (!song.analysis) return null;
+  if (song.analysis.hits.length === 0) return <Alert tone="warning">{noHitsText(song.analysis)}</Alert>;
+  const late = lateStart(song);
+  if (!late) return null;
+  const range = late.range;
+  return (
+    <Alert
+      tone="info"
+      action={
+        range && (
+          <button type="button" disabled={picking} onClick={() => onRepick(range)} className={`h-11 px-4 sm:h-9 ${SECONDARY_BUTTON}`}>
+            เริ่มช่วงที่การตีแรก
+          </button>
+        )
+      }
+    >
+      {lateStartText(late)}
+    </Alert>
   );
 }
