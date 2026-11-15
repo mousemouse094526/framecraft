@@ -1,6 +1,6 @@
 # Progress: drum-cover
 
-**Now:** ticket 01–02 done; เปิด PR เข้า `develop`
+**Now:** ticket 01–02 done; [PR #16](https://github.com/mousemouse094526/framecraft/pull/16) เข้า `develop` เปิดแล้ว รอ review/merge และเจ้าของเช็ค reel Yellow (D15)
 
 **Next:**
 
