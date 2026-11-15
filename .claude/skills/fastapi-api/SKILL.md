@@ -218,6 +218,15 @@ backend/
 │                    check the pick and the bars, then `groove.preview`; `listen` mixes an unsaved
 │                    lesson through video_gen's timeline and mixer; `create` writes through
 │                    `video_gen.lessons.from_song`/`create_from`, never holding `songs.lock` meanwhile)
+├── drum_cover/   ← a song's reel cover (drum-cover spec, ADR 0052): cover (`cover.json` in the
+│                    Song's folder under `songs.lock`, its defaults and the clamp into a new
+│                    pick's range), timeline (an analysis's hits at their real times through
+│                    `video_gen.timeline.assemble`, hands by drum_notes' `groove`, ADR 0051; the
+│                    unsaved one-chapter lesson `frames` and `captions` draw), audio (`reel_wav`,
+│                    the one sound ฟัง and the render play: the mixer's drums, the backing laid
+│                    under in numpy, ADR 0050), render (the reel's Render job in its own
+│                    `JobSlot`, no GPU, video-gen's own ffmpeg command; registers in
+│                    `songs.song_jobs`); imports drum_notes and video_gen, never the other way
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK
@@ -272,8 +281,8 @@ through a queue; the thread writes the result file (ADR 0012).
   `sounds.LOCK_ORDER`, then `sounds.lock` (sound-library D7, D11, ADR 0038).
   `stories`' lock comes after all of them: nothing else is taken while it is held.
   `video_gen.lessons.lock` comes after the drum Render job slot's own (video-gen D33).
-  `drum_notes.songs.lock` comes after the Song import slot's own and is innermost: nothing
-  else is taken while it is held.
+  `drum_notes.songs.lock` comes after the Song import slot's own and the reel Render job
+  slot's own (drum-cover D21), and is innermost: nothing else is taken while it is held.
 - pythainlp's data folder is `models/pythainlp/` (`PYTHAINLP_DATA`, set right
   before the import in `spoil_maker.thai`), never `~/pythainlp-data` (ADR 0003).
 - Every job that loads a model onto the card (Metal or CUDA), or one that takes GBs of

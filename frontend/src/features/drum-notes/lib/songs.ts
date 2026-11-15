@@ -17,6 +17,9 @@ export const listenPath = (id: string) => `${songPath(id)}/listen`;
 export const songLessonsPath = (id: string) => `${songPath(id)}/lessons`;
 export const SONGS_HASH = "#/songs";
 export const songHash = (id: string) => `${SONGS_HASH}/${id}`;
+/** A song's reel page, drum-cover's (drum-cover D11): this tab links to it and reads its renders by HTTP alone (ADR 0052). */
+export const reelHash = (id: string) => `${songHash(id)}/cover`;
+export const reelRendersPath = (id: string) => `${songPath(id)}/cover/renders`;
 
 export type SourceKind = "link" | "file" | "midi";
 export type Mode = "drums" | "melody";

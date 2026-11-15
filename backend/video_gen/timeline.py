@@ -22,6 +22,8 @@ COUNT_IN_PIECE = "hihat_closed"
 OTHER_HAND = {"R": "L", "L": "R"}
 # What a hit is on screen: a count-in tick (no note head, no stick), a flam's grace note, or a note by its hit.
 NoteKind = Literal["count", "grace", "normal", "accent", "ghost", "flam"]
+# One sound to play: its time in seconds from the clip's start, piece, hand, layer and what it is on screen.
+Sound = tuple[float, str, str | None, Layer, NoteKind]
 
 
 class Hit(NamedTuple):
@@ -82,7 +84,7 @@ def length_s(bpm: int, bars: int, chapters: "list[Chapter]") -> float:
 
 def build(lesson: "Lesson") -> Timeline:
     """Every hit, beat and chapter span of the lesson, in time order (spec › Timeline and audio)."""
-    sounds: list[tuple[float, str, str | None, Layer, NoteKind]] = []
+    sounds: list[Sound] = []
     beats: list[Beat] = []
     spans: list[Span] = []
 
@@ -109,15 +111,17 @@ def build(lesson: "Lesson") -> Timeline:
             start += lesson.groove.bars * BEATS_PER_BAR * beat
         spans.append(Span(to_sample(chapter_start), to_sample(start)))
 
-    return Timeline(
-        hits=_with_round_robins(sounds),
-        beats=tuple(beats),
-        chapters=tuple(spans),
-        length_s=length_s(lesson.bpm, lesson.groove.bars, lesson.chapters),
-    )
+    return assemble(sounds, beats, spans, length_s(lesson.bpm, lesson.groove.bars, lesson.chapters))
 
 
-def _with_round_robins(sounds: list[tuple[float, str, str | None, Layer, NoteKind]]) -> tuple[Hit, ...]:
+def assemble(sounds: list[Sound], beats: list[Beat], spans: list[Span], length_s: float) -> Timeline:
+    """A `Timeline` of sounds at their times: each rounded to a sample once, in time and kit order,
+    with its round-robin. A lesson's `build` and a reel cover's timeline (drum-cover D4, ADR 0051)
+    both end here, so the two never round or cycle samples differently."""
+    return Timeline(hits=_with_round_robins(sounds), beats=tuple(beats), chapters=tuple(spans), length_s=length_s)
+
+
+def _with_round_robins(sounds: list[Sound]) -> tuple[Hit, ...]:
     """Each piece and layer cycles through its round-robins in the order it is hit from the
     clip's start, so a render of the same lesson mixes the same wav (D13). Hits on the same
     sample go in kit order, so the order never depends on how the notes were listed."""

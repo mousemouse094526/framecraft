@@ -21,7 +21,10 @@ frontend/src/
 │                           (คลังเสียง tab: its `lib/sounds` is what toon and spoil-maker read
 │                           of the library; it imports neither, sound-library D11),
 │                           spoil-maker (สปอย tab), toon (การ์ตูนเล่า tab), video-gen (สอนกลอง tab),
-│                           drum-notes (แกะเพลง tab), setup-status
+│                           drum-notes (แกะเพลง tab), drum-cover (a song's reel page,
+│                           `#/songs/{id}/cover`: App picks it by `coverViewOf` before the
+│                           tabs; it reads `drum-notes/lib/songs` for the Song's shape and paths, while drum-notes
+│                           knows it by HTTP and `reelHash` alone, drum-cover D22), setup-status
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   ├── hooks/        ← data fetching and state (calls lib/api)
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)

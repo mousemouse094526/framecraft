@@ -492,3 +492,4 @@ question; the full entry is in the feature's decisions.md.
 | กรณีขอบ: โหมดทำนองเล่น snare ตามจริง, ช่วงตั้งต้น < 2 วิ, ปุ่มเริ่มช่วงใกล้ท้ายเพลง, Alert ห้องว่างเมื่อการตีแรกหลังห้อง k | [drum-cover](features/drum-cover/decisions.md) | D19 | — | — | active |
 | Render job ของ reel รันพร้อมสอนกลองและ Pick job ได้; เป้าเวลาวัดตอนรันเดี่ยว | [drum-cover](features/drum-cover/decisions.md) | D20 | — | — | active |
 | ทางเลือกเล็ก: ห้องจาก downbeats ทั้งหมด, `pictures.receive(…, place)`, `useBackground`/`BackgroundPicker` ร่วมรับ `paths`, `song_busy` ของ reel, ลำดับ lock | [drum-cover](features/drum-cover/decisions.md) | D21 | — | — | active |
+| ทางเลือกเล็กตอน build 01: ส่วน Reel cover ของ drum-notes รู้ reel ผ่าน HTTP, เรียก `_command` ของ video-gen ตรง, `.srt` cue เดียว, "ยังไม่บันทึก" = แก้แล้วหรือ `adjusted`, `fakes.written_song`/`song_m4a`, 30 วิ render 12.7 วิ | [drum-cover](features/drum-cover/decisions.md) | D22 | — | — | active |

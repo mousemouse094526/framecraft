@@ -337,3 +337,17 @@
 **Why:** red team (Builder) ชี้จุดที่ builder ต้องถาม; spec เขียน `downbeats < 2` อ่านได้สองแบบ.
 
 **From:** red team · **Status:** active
+
+## D22: ทางเลือกเล็กตอน build ticket 01
+
+**Chosen:**
+- ส่วน "Reel cover" บนหน้าเพลงเป็น component ของ drum-notes (`ReelCover` + `useReelRenders`) ที่รู้จัก reel ผ่าน HTTP (`GET …/cover/renders`) และ `reelHash` เท่านั้น ไม่ import `features/drum-cover` (ADR 0052); ปุ่ม "สร้างบทเรียนกลอง" เป็นปุ่มรอง (D11)
+- `drum_cover.render` เรียก `video_gen.render._command` ตรง (ไม่แก้ ไม่ย้าย, D17) และใช้ `AUDIO`, `TEXT`, `BYTES_PER_SECOND` ของมัน; `.srt` ของ reel เป็น cue เดียวทั้งคลิปจาก `subtitles.srt_file` เอง (`captions.srt_file` จะมี cue ยาว 0 ของช่วงนับเข้า)
+- ฟอร์มหน้า reel: "ยังไม่บันทึก" = แก้แล้ว หรือ `adjusted`; cover ที่ยังไม่เคยบันทึกไม่ถามก่อนออก แต่ "ฟัง"/"render reel" บันทึกก่อนเสมอ; ช่วงผิดกติกาบนหน้า → ข้อความ `RANGE_RULE` ที่ช่อง ไม่ส่ง `PUT`
+- ไม่มีการ์ดพื้นหลังใน ticket 01 (ticket 02); `background` ที่ส่งกลับไปคือค่าที่เก็บ
+- `fakes.written_song` (ย้ายจาก test ของ drum-notes) รับ `hits`, `beats`, `start_s`, `song_id`, `title`, `audio`; `fakes.song_m4a` ทำ `audio.m4a` ปลอมด้วย `lavfi`
+- วัดเวลา render: reel 30 วินาที (การตี 270 ตัว) 12.7 วินาทีบน Mac ของเจ้าของ ด้วย sample ปลอม (D15)
+
+**Why:** เลือกตามกติกาและโค้ดรอบข้าง ไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**From:** build ticket 01 · **Status:** active

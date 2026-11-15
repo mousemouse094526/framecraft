@@ -1,27 +1,45 @@
 # Progress: drum-cover
 
-**Now:** plan approved (D1–D21, ADR 0050–0053), tickets 01–02 cut; กำลังทำ 01
+**Now:** ticket 01 done; กำลังทำ 02
 
 **Next:**
 
 ```
-/warroom-build drum-cover 01
+/warroom-build drum-cover 02
 ```
 
 ## Tickets
 
 | # | Title | Status |
 |---|---|---|
-| 01 | reel cover จากเพลงที่แกะ: ตั้งช่วง ข้อความ เสียง ฟัง render | ready |
+| 01 | reel cover จากเพลงที่แกะ: ตั้งช่วง ข้อความ เสียง ฟัง render | done |
 | 02 | ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า | ready |
 
 ## Blocked
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | closed |
+| 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01) |
 
 ## Log
+
+### 01: reel cover จากเพลงที่แกะ — done 2026-11-15
+
+**Built:**
+- backend `drum_cover`: `cover` (`cover.json` ใต้ `songs.lock`, ค่าตั้งต้นจากต้นห้องแรกที่มีการตี, ช่วงตั้งต้น ≥ 2 วิ, ดึงเข้าช่วงเมื่อแกะใหม่ `adjusted`, `has_audio`, `hits`), `timeline` (การตีตามเวลาจริงผ่าน `video_gen.timeline.assemble`, มือจาก `groove.trimmed`/`with_hands` บนห้องของ downbeats ทั้งหมด, เลขจังหวะนับถอยจากจำนวนจังหวะของห้องแรก, Lesson ชั่วคราวท่อนเดียว), `audio.reel_wav` (กลองของ mixer; backing ถอด m4a เป็น f32le ผสม numpy แล้ว peak −1 dBFS; `ffmpeg_failed` 500 เมื่อไฟล์เสีย), `render` (slot ของตัวเอง, copy เข้า `media/songs/.render/`, คำสั่ง ffmpeg เดิมของ video-gen, json มี `start_s`/`end_s`/`picked_at`/`backing`, ลงทะเบียน `songs.song_jobs`), routes `/api/songs/{id}/cover…` + `/api/covers/render`, `JOB_HOLDERS`, `paths.songs_render_dir`
+- prefactor: `video_gen.timeline.assemble` (`build` ให้ผลเดิม; test เดิมผ่านโดยไม่แก้)
+- frontend `features/drum-cover`: `CoverPage` (ช่วง + แถบห้องในช่วง, ข้อความ + ตัวนับ, เสียง กลองล้วน/+ เพลงต้นฉบับ, บันทึก/ฟัง/render reel, ผล render พร้อมป้าย "มีเพลงต้นฉบับ"/"แกะใหม่แล้ว", ลบพร้อมยืนยัน, ถามก่อนออก), `useCover`, `useCoverRender`; `App` เลือกหน้าด้วย `coverViewOf`; หน้าเพลงมีส่วน "Reel cover" เหนือ "สร้างบทเรียน" (`ReelCover` + `useReelRenders`), ปุ่มสร้างบทเรียนเป็นปุ่มรอง
+- tests: `test_drum_cover_timeline.py` (17), `test_drum_cover_api.py` (19, ffmpeg จริง: mp4 1080×1920 h264+aac, เสียงตรงภาพ ≤ 1 เฟรม, wav เดิมทุก byte, backing ไม่ clip, busy/song_busy/cancel/restart), `CoverPage.test.tsx` (14 ผ่าน `App`); `written_song` ย้ายไป `fakes.py` + `song_m4a`
+- วัดมือ: reel 30 วินาที render 12.7 วินาที (D15 ≤ 60)
+- review (subagent): 11 ข้อ แก้ครบ — volume ที่ซ่อนแล้วผิด, ช่องว่าง = 0, save ซ้อน/ทับสิ่งที่พิมพ์, listen 500 เปล่า, `__init__.py`, `field` ของช่วงที่ไม่ใช่ตัวเลข/NaN, แถบห้องทั้งเพลง, เลขจังหวะห้องแรก 3/4, เทียบ draft ตามลำดับ key, alias ชื่อซ้ำ, error ค้างหลังแก้; เพิ่ม test `..`
+
+**Decided:** D22
+
+**For the next ticket:**
+- ร่างของ 02 อยู่ใน tree แล้ว (ยังไม่ commit): `backend/pictures.py`, `frontend/src/lib/useBackground.ts`, `frontend/src/components/ui/BackgroundPicker.tsx` — ต่อสาย `video_gen.backgrounds` และ `LessonEditor` เข้าแล้วลบของเดิม
+- vitest `DraftProgress.test.tsx` (spoil-maker) ล้มครั้งหนึ่งตอนรันทั้งชุดใต้โหลด ผ่านเมื่อรันซ้ำ 3 ครั้ง — flaky ไม่ใช่ของ ticket นี้
+
+**Checks:** `uv run pytest` 1466 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 598 passed; `npm --prefix frontend run build` ผ่าน
 
 ### Planning — 2026-11-15
 
