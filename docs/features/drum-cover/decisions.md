@@ -67,7 +67,7 @@
 
 **Details:**
 - prefactor ใน `video_gen.timeline`: `assemble(sounds, beats, spans, length_s)` เป็นทาง public ที่ `build` ของบทเรียนและ `drum_cover` ใช้ร่วม (round-robin และการเรียง)
-- prefactor ใน `video_gen.captions`: ช่วง (section) ที่ยาว 0 (นับเข้าที่ไม่มี) ไม่สร้าง event
+- ~~prefactor ใน `video_gen.captions`~~ ตัดโดย D17: event ยาว 0 libass ไม่วาด
 - `bpm` ของ Lesson ชั่วคราว = `round(60 / มัธยฐานช่วงห่างของจังหวะในช่วง)` จำกัด 40–240; จังหวะน้อยกว่า 2 → 120
 - ช่วงเดียว `Span(0, end_s − start_s)`; `length_s` = ความยาวช่วง + 1.5
 - เวลาของการตี = `hit.t − start_s` ปัดเป็น sample ที่ 44.1 kHz ใน `assemble`
@@ -89,6 +89,7 @@
 - ห้องสำหรับปัด: ช่วงระหว่าง downbeat ติดกัน; การตีก่อน downbeat แรกใช้ความยาวห้องแรกถอยหลัง หลัง downbeat สุดท้ายใช้ความยาวห้องสุดท้ายต่อไป; ไม่มี downbeat สองตัว (เพลง MIDI สั้น) → ห้องยาว 2 วินาทีจาก `start_s`
 - ชิ้นเดียวซ้ำช่องเดียว: ตัวแรก (เวลาแรก) ได้มือ ตัวถัดไปไม่มีไม้
 - ไม่มีรายการ `dropped` ให้ผู้ใช้: reel ไม่มีหน้าแก้โน้ต (D3)
+- ต่างจาก video-gen D20 (บทเรียนตัดโน้ตที่ไม้ตีไม่ได้ออกทั้งเสียงและภาพ): บทเรียนเป็นโน้ตที่ผู้ใช้กรอก แก้ได้; reel คือเสียงของเพลงที่แกะ ตัดทิ้งไม่ได้
 
 **From:** change request · **Status:** active
 
@@ -121,8 +122,8 @@
 - เสียงพื้นจากคลังเสียงแทนเพลง — คนละความต้องการ (เสียงบรรยากาศ ไม่ใช่เพลงที่ cover)
 
 **Details:**
-- เปลี่ยน drum-notes D15 และแทน ADR-0045: เสียงบันทึกของเพลงเข้าคลิปได้เฉพาะ reel ที่ผู้ใช้เปิดเองต่อ cover ค่าตั้งต้นปิด; เสียงกลองยังมาจาก `Timeline` ชุดเดียว (ADR-0041 ไม่ขัด: เพลงไม่ใช่โน้ต)
-- ffmpeg: `-ss start_s -t ความยาวช่วง -i audio.m4a` เป็น input ที่สาม, `filter_complex` `volume` แล้ว `amix` กับ wav กลอง (`duration=first` ตาม wav ที่ยาวรวมหางเสียง, `normalize=0` ไม่ลดเสียงกลอง); ฟังผ่าน `ffmpeg.run_capture` คืน wav
+- เปลี่ยน drum-notes D15 และแทน ADR-0045 ด้วย ADR-0050: เสียงบันทึกของเพลงเข้าคลิปได้เฉพาะ reel ที่ผู้ใช้เปิดเองต่อ cover ค่าตั้งต้นปิด; เสียงกลองยังมาจาก `Timeline` ชุดเดียว (ADR-0041 ไม่ขัด: เพลงไม่ใช่โน้ต)
+- การผสม: ทางเดียวใน numpy ตาม D17 (แทน `amix` ของคำสั่ง ffmpeg)
 - ผล render บันทึก `backing` ใน json ของผล (ADR-0034)
 - คำเตือนบนจอ: "เพลงต้นฉบับมีลิขสิทธิ์ แพลตฟอร์มอาจ claim ปิดเสียง หรือบล็อกคลิป เปิดเมื่อคุณมีสิทธิ์ใช้เสียงนี้" (legal 2)
 - ตารางผลใน json ของผลใช้ `backing: {on, volume}` เดิมของ cover ตอน render
@@ -262,3 +263,77 @@
 **Accepted risk:** legal ข้อ 1 UNVERIFIED ว่า cover ส่วนกลอง ≤ 90 วินาทีเป็น "บางตอนตามสมควร" ตามมาตรา 33; legal ข้อ 2 UNVERIFIED ผลจริงของแพลตฟอร์มต่อคลิปที่มีเสียงบันทึก — ยอมรับเพราะไม่หารายได้ ผู้ใช้เปิด backing เองโดยเห็นคำเตือน และเปลี่ยนค่าตั้งต้นได้ทุกเมื่อ.
 
 **From:** legal · **Status:** active
+
+## D17: เสียงของ reel มีทางเดียว `drum_cover.audio.reel_wav` ผสมใน numpy; ของเดิมใน video-gen เปลี่ยนแค่ที่ไม่เปลี่ยนพฤติกรรม
+
+**Chosen:** wav ของ reel ทำที่ฟังก์ชันเดียว `drum_cover.audio.reel_wav(project, song, cover, timing)` ซึ่งทั้ง "ฟัง" และ Render job ใช้: wav กลองจาก `mixer.mix`; backing เปิด → `ffmpeg.run_capture` ถอด `audio.m4a` ช่วง `[start_s, end_s)` เป็น `f32le` 44.1 kHz stereo ออก stdout, numpy บวกใต้กลองที่ `volume / 100` แล้วปรับ peak ของผลรวมเป็น −1 dBFS แบบ `mixer` และเขียน wav 16-bit ด้วย `soundfile`. Render job เขียนผลนี้เป็น `audio.wav` แล้วใช้คำสั่ง ffmpeg เดิมของ `video_gen.render` (`_command` ไม่แก้). ของเดิมที่เปลี่ยน: `video_gen.timeline.assemble` (เพิ่ม public, `build` ให้ผลเดิม) และการย้ายโค้ดรับภาพไป `backend.pictures` กับ `BackgroundPicker` ไป `components/ui` (test เดิมผ่านโดยไม่แก้ assertion); ไม่แก้ `captions`.
+
+**Why:** red team (Skeptic, Breaker): ฟังกับ render ผสมสองทางจะได้เสียงต่างกัน; wav จาก pipe ของ ffmpeg ไม่มีขนาดใน header; `amix normalize=0` บน peak −1 dBFS ทำให้ clip; `-map "[a]"` ทำให้ไม่มีภาพถ้าลืม `0:v`. ผสมใน numpy แก้ทั้งสี่ข้อ. เจ้าของสั่ง "ห้ามแก้หรือลบ feature เหล่านั้น ให้ต่อยอด" จึงเปลี่ยนเฉพาะที่ผลเดิมไม่เปลี่ยน ตามกติกา "Where shared code goes" ของ `fastapi-api`.
+
+**Rejected:**
+- `amix` ใน `filter_complex` ของคำสั่ง render และ `run_capture` `-f wav -` ตอนฟัง (D7 เดิม) — สองทาง, header ผิด, clip
+- ไม่แตะ video-gen เลย (copy round-robin และโค้ดครอปภาพ) — สองสำเนาของกติกาเดียว
+- prefactor `captions` ให้ช่วงยาว 0 ไม่มี event — event ที่เริ่มเท่ากับจบ libass ไม่วาด; test ภาพใน Seams 2 พิสูจน์แทน
+
+**Details:**
+- ฟังไม่เขียนไฟล์ชั่วคราว (ffmpeg อ่าน m4a ออก stdout); หน้าเว็บปิดปุ่ม "ฟัง" ระหว่างรอคำตอบ
+- ผลรวมยาวเท่า wav กลอง (`timing.samples`); เสียงเพลงสั้นกว่า (ท้ายเพลง) เติมศูนย์
+- backing ปิด → ผลคือ `mixer.mix` ตรง ๆ (byte เดียวกันทุกครั้ง D15)
+- เปลี่ยน D4 Details (ตัด prefactor captions) และ D7 Details (ffmpeg `amix`)
+
+**From:** red team · **Status:** active
+
+## D18: หน้า reel บอกสิ่งที่เปลี่ยนใต้มือผู้ใช้: ช่วงไม่มีการตี ช่วงที่ถูกดึงเข้า backing ที่ใช้ไม่ได้ และผล render ที่เก่ากว่าผลแกะ
+
+**Chosen:**
+- ช่วงของ reel มี 0 การตี → Alert "ช่วงนี้ไม่มีการตีกลอง เลื่อนช่วงหรือกด เริ่มที่การตีแรก" และปุ่ม "ฟัง" กับ "render reel" กดไม่ได้ (หน้าเว็บ; API ไม่ปฏิเสธ)
+- `GET /cover` มี `adjusted: true` เมื่อค่าที่เก็บถูกดึงเข้าช่วง → Notice "ช่วงแกะเปลี่ยน ช่วงของ reel ถูกปรับเป็น {start}–{end} วินาที" และฟอร์มเป็น "ยังไม่บันทึก"
+- `GET /cover` มี `has_audio`; `false` (เพลง MIDI) → ตัวเลือก "กลอง + เพลงต้นฉบับ" กดไม่ได้พร้อมข้อความ "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ"; `400` ของ D7 เหลือเป็นตัวกันฝั่ง server
+- ใต้ช่อง "หัวเรื่อง" มีคำใบ้ "ค่าตั้งต้นมาจากชื่อคลิปและช่อง แก้เป็นชื่อเพลงและศิลปิน" (legal 1: ใส่ชื่อเพลงและศิลปิน)
+- การ์ด "ช่วงของ reel" มีบรรทัด "อยากได้ท่อนอื่น? แกะช่วงใหม่ที่หน้าเพลง" ลิงก์ `#/songs/{id}`
+- แถวผล render บอกช่วง `{start_s}–{end_s}` วินาที และป้าย "แกะใหม่แล้ว" เมื่อ `picked_at` ของผลไม่ตรง `analysis.picked_at` (ADR-0034)
+
+**Why:** red team (Advocate, Successor): ทั้งหกจุดเป็นที่ผู้ใช้ "ไม่รู้ว่าเกิดอะไร" แบบเดียวกับห้องว่างที่ D9 แก้; ค่าตั้งต้นของหัวเรื่องคือชื่อคลิปของ DRUMMATE ไม่ใช่ชื่อเพลง (drum-notes D4).
+
+**Rejected:**
+- API ปฏิเสธ render ที่ไม่มีการตี — backing เปิดกับช่วงที่มีแต่เพลงยังเป็นคลิปได้ ให้หน้าเว็บกันกรณีปกติพอ
+- ตั้งค่าตั้งต้นของบรรทัดรองเป็น "{ช่อง} · drum cover" — เดาชื่อศิลปินจากชื่อช่องไม่ได้
+
+**From:** red team · **Status:** active
+
+## D19: กรณีขอบของช่วงและโหมด
+
+**Chosen:**
+- เพลงที่แกะโหมดทำนอง (`analysis.mode` = `melody`): reel เล่นการตีที่พบตามจริง (snare ล้วน) ไม่เติม kick/ไฮแฮทแบบบทเรียน (drum-notes D14 เติมเฉพาะตอนสร้างบทเรียน); หน้า reel บอก "เพลงนี้แกะโหมดทำนอง reel มีแต่สแนร์"
+- ค่าตั้งต้นที่สั้นกว่า 2 วินาที (การตีแรกอยู่ใน 2 วินาทีท้ายช่วงแกะ) → `start_s` = `analysis.end_s − 2` (ไม่ต่ำกว่า `analysis.start_s`); ดึงเข้าช่วงที่สั้นกว่า 2 ใช้กติกาเดียวกัน
+- ปุ่ม "เริ่มช่วงที่การตีแรก" (D9) ใกล้ท้ายเพลง: `end` = `min(duration_s, start + ความยาวเดิม)`; ยังสั้นกว่า 4 → `start` = `max(0, duration_s − 4)`
+- Alert "ห้อง 1–{k} ไม่มีการตี" ขึ้นเมื่อ `k` ≥ 1 และการตีแรก ≥ ท้ายห้อง `k` เท่านั้น: การตีก่อน downbeat แรกไม่ทำให้ขึ้น
+- ช่วงที่ไม่มี hits เลยในเพลง (`hits` ว่าง): ส่วน "Reel cover" บนหน้าเพลงยังแสดง "0 การตี" และปุ่มยังพาไปหน้า reel ที่ D18 กันฟังและ render
+
+**Why:** red team (Tester): กรณีเหล่านี้ไม่มีผลที่คาดไว้ใน spec; builder ต้องถาม.
+
+**From:** red team · **Status:** active
+
+## D20: Render job ของ reel รันพร้อมงานอื่นได้; เป้าเวลาวัดตอนรันเดี่ยว
+
+**Chosen:** slot ของ reel แยกจาก Render job ของสอนกลองและ Pick job (D12): สามงานรันพร้อมกันได้ใน process เดียว (ADR-0010) แย่ง CPU กัน; เป้า ≤ 60 วินาทีของ D15 วัดเมื่อ reel รันเดี่ยว.
+
+**Why:** red team (Breaker): ไม่มีคำตอบว่ารันพร้อมกันได้ไหม. ใช้ slot ร่วมกับ video-gen ต้องแก้ `DrumRenderJobs` ของ video-gen (D17) และผู้ใช้คนเดียวไม่ค่อยกดสองงานพร้อมกัน.
+
+**Rejected:**
+- ใช้ slot ร่วมกับ Render job ของสอนกลอง — แก้ video-gen และ `busy` ต้องรู้จักสองชนิดงาน
+
+**From:** red team · **Status:** active
+
+## D21: ทางเลือกเล็กจาก red team (Builder)
+
+**Chosen:**
+- **ห้องสำหรับเลือกมือ** มาจาก `analysis.downbeats` ทั้งหมด ไม่ใช่เฉพาะในช่วงของ reel: ก่อนตัวแรกขยายด้วยความยาวห้องแรก หลังตัวสุดท้ายด้วยความยาวห้องสุดท้าย; ห้อง 2.0 วินาทีเหลือแค่ `analysis` ที่เขียนตรงด้วย downbeat น้อยกว่า 2 (`songs.checked_analysis` ไม่ยอมอยู่แล้ว) (D5)
+- **`backend.pictures`:** `checked_size(size, ...)` ตรวจขนาด (`413` 20 MB) และ `async receive(body, partial, expected, place) -> T`: รับ body ลง `partial` (ผู้เรียกให้ path ใต้ `.partial/` ของตัวเอง), อ่านด้วย Pillow (`415` `unsupported_image`), หมุน EXIF ครอป 1080×1920 เขียน jpg ข้าง `partial` แล้วเรียก `place(jpg) -> T` ของผู้เรียก (วางไฟล์ใต้ lock ของตัวเองและคืนค่าตอบ) และลบไฟล์ชั่วคราวทุกทาง; ผู้เรียกตรวจ idle และดิสก์เอง. `video_gen.backgrounds` เรียกมัน ผลและ test เดิมไม่เปลี่ยน
+- **`BackgroundPicker` + `useBackground`** ย้ายไป `components/ui/` และ `lib/useBackground.ts` รับ `paths` (`check`, `put`, `delete`, `image`) และ `apply(body: unknown)` แทน `Lesson`; หน้าบทเรียนส่ง path เดิมของตัวเอง
+- **`song_busy` ของ route ภาพ cover:** `drum_cover` ตรวจงานของตัวเองก่อน → `409` `song_busy` "กำลัง render reel ของเพลงนี้อยู่"; แล้ว `songs.require_idle` ของ drum-notes (Pick job). `DELETE /songs/{id}` ระหว่าง render ใช้ข้อความเดิมของ drum-notes ("กำลังแกะเพลงนี้อยู่") — ไม่แก้ drum-notes (D17); ยอมรับข้อความกว้าง
+- **lock:** ลำดับ `slot ของ reel` → `songs.lock`; ไม่มี lock ใหม่
+
+**Why:** red team (Builder) ชี้จุดที่ builder ต้องถาม; spec เขียน `downbeats < 2` อ่านได้สองแบบ.
+
+**From:** red team · **Status:** active
