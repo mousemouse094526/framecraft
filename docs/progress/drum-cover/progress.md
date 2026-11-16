@@ -1,6 +1,6 @@
 # Progress: drum-cover
 
-**Now:** ticket 01–02 done; [PR #16](https://github.com/mousemouse094526/framecraft/pull/16) เข้า `develop` เปิดแล้ว รอ review/merge และเจ้าของเช็ค reel Yellow (D15)
+**Now:** ticket 01–02 done; [PR #16](https://github.com/mousemouse094526/framecraft/pull/16) merge เข้า `develop` แล้ว (`fb354f2`) — เหลือเจ้าของเช็ค reel Yellow (D15). คำขอเปลี่ยน (ความดังกลอง + ความชัดของ UI กลอง) เปิดเป็น change request ผ่าน `/warroom drum-cover`
 
 **Next:**
 
