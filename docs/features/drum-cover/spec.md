@@ -11,10 +11,11 @@
 ## Solution
 
 - จากหน้าเพลงที่แกะแล้ว กด "ทำ reel cover" แล้วตั้งค่า reel ของเพลงนั้นหนึ่งชุด: ช่วง ข้อความบนจอ พื้นหลัง เสียง (D1, D2, D6)
-- reel เล่นการตีที่พบตามเวลาจริง ไม่ quantize ไม่มี BPM ท่อนสอน ป้าย หรือนับเข้า; ภาพใช้ชุดกลอง เลนโน้ต ตัวนับ และคำบรรยายของ video-gen (D3, D4)
+- reel เล่นการตีที่พบตามเวลาจริง ไม่ quantize ไม่มี BPM ท่อนสอน ป้าย หรือนับเข้า; ภาพเป็นของ reel เอง: ชุดกลองมุมบนติดชื่อทุกชิ้น ไม้สองสี เลนละชิ้น ตัวนับห้อง (D25, D26); คำบรรยายของ video-gen (D3, D4)
 - ฟังเสียงของ reel ก่อน render แล้ว render เป็น mp4 1080×1920 เก็บผลทุกครั้ง เล่น โหลด ลบได้ (D7, D12)
 - เสียงกลองล้วนเป็นค่าตั้งต้น; เปิดเสียงเพลงต้นฉบับเป็น backing ได้เองพร้อมคำเตือน (D7)
 - พื้นหลังสีของแอป หรือภาพของผู้ใช้ (D8)
+- ความดังกลองตั้งแยกจากเพลงและปิดเสียงกลองได้ ผล render บันทึกค่านี้ (D24)
 - หลังแกะ หน้าเพลงบอกเมื่อช่วงไม่มีการตีหรือห้องแรก ๆ ว่าง และเริ่มช่วงใหม่ที่การตีแรกได้ปุ่มเดียว (D9)
 
 ## User Stories
@@ -27,6 +28,8 @@
 5. As a ผู้ทำคลิป, I want เลือกใส่เสียงเพลงต้นฉบับใต้กลองได้เอง, so that reel ฟังเหมือน cover จริงเมื่อฉันรับความเสี่ยงเรื่อง claim เอง (D7)
 6. As a ผู้ทำคลิป, I want ใช้ภาพของตัวเองเป็นพื้นหลัง, so that reel แต่ละเพลงหน้าตาไม่ซ้ำกัน (D8)
 7. As a ผู้ทำคลิป, I want รู้ทันทีว่าช่วงที่แกะไม่มีกลองหรือกลองเข้าตรงไหน และเลื่อนช่วงไปที่กลองเริ่มได้ปุ่มเดียว, so that ไม่เห็นหน้าว่างแล้วคิดว่าแอปพัง (D9)
+8. As a ผู้ทำคลิป, I want ตั้งความดังกลองแยกจากเพลงต้นฉบับและปิดเสียงกลองได้, so that ได้ balance ของ cover ที่ต้องการ หรือใช้แค่ภาพกลองกับเพลงจริง (D24)
+9. As a ผู้ทำคลิป, I want เห็นในคลิปทันทีว่าแต่ละโน้ตตีชิ้นไหน มือไหน ห้องไหน, so that คนดู reel อ่านการตีออกโดยไม่ต้องเดา (D25, D26)
 
 ## Design
 
@@ -35,7 +38,7 @@
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
 | หน้าเพลง — ส่วนที่เพิ่ม (`#/songs/{id}`) | 1, 7 | เหนือส่วน "ผลแกะ" หลัง Pick job `done`: `hits` ว่าง → Alert เตือน "ไม่พบการตีกลองในช่วง {start}–{end} วินาที ลองเลื่อนช่วงไปที่กลองเริ่มเล่น"; ห้องที่พบตัวแรกว่าง → Alert "ห้อง 1–{k} ไม่มีการตี การตีแรกอยู่ที่ {t} วินาที" กับปุ่ม "เริ่มช่วงที่การตีแรก" ที่ตั้งช่วงใหม่แล้วบันทึกและแกะทันที (D9); เหนือส่วน "สร้างบทเรียน" เมื่อมี `analysis`: ส่วน "Reel cover" บรรทัด "ช่วงแกะ {start}–{end} วินาที · {n} การตี · render แล้ว {m} ครั้ง" และปุ่มหลัก "ทำ reel cover" → `#/songs/{id}/cover`; ปุ่ม "สร้างบทเรียนกลอง" เป็นปุ่มรอง (D11); ของเดิมอื่นตาม drum-notes spec › Design | pending |
-| หน้า reel (`#/songs/{id}/cover`) | 2, 3, 4, 5, 6 | ลิงก์กลับ "← {ชื่อเพลง}" และหัว "Reel cover"; ยังไม่แกะ (`no_analysis`) → ข้อความ "แกะโน้ตก่อน แล้วกลับมาทำ reel" กับลิงก์กลับ; การ์ด "ช่วงของ reel": ช่องเริ่มและจบ (วินาที) ภายในช่วงแกะ `{analysis.start_s}–{analysis.end_s}`, บรรทัด "ยาว {n} วินาที (2–90)", ปุ่ม "เริ่มที่การตีแรก" (ตั้งเริ่ม = `suggested_start_s`), แถบห้องที่พบในช่วงพร้อมจำนวนการตี (อ่านอย่างเดียว) (D6); การ์ด "ข้อความบนจอ": "หัวเรื่อง" (1–40), "บรรทัดรอง" (0–60), "คำบรรยายล่าง" (0–60) ค่าตั้งต้นชื่อเพลง บรรทัดรองของเพลง และว่าง (D12); การ์ด "พื้นหลัง": "สีเข้มของแอป" / "ภาพของฉัน" เลือก PNG/JPG ≤ 20 MB ภาพย่อ 9:16 "เปลี่ยนภาพ" "ลบภาพ" คำเตือน "ใช้ภาพของคุณเองหรือภาพที่มีสิทธิ์ใช้ ห้ามใช้ปกอัลบั้ม" (D8); การ์ด "เสียง": "กลองล้วน" (ตั้งต้น) / "กลอง + เพลงต้นฉบับ" กับ "ความดังเพลง" 10–100 (ตั้งต้น 35) และคำเตือน "เพลงต้นฉบับมีลิขสิทธิ์ แพลตฟอร์มอาจ claim ปิดเสียง หรือบล็อกคลิป เปิดเมื่อคุณมีสิทธิ์ใช้เสียงนี้" (D7); แถบท้าย: "บันทึก" (จุด "ยังไม่บันทึก" เมื่อแก้แล้ว ถามก่อนออก story-kb D11), "ฟัง" (บันทึกก่อน → "กำลังผสมเสียง…" → เล่น), ปุ่มหลัก "render reel" (บันทึกก่อนแล้วเริ่มงาน แถบ % กับ "ยกเลิก"; `failed`/`cancelled` ข้อความกับ "ลองอีกครั้ง"); การ์ด "ผล render": ใหม่สุดก่อน เวลาสร้าง ความยาว ป้าย "มีเพลงต้นฉบับ" เมื่อ `backing.on`, player 9:16 ของอันที่เลือก (อันใหม่สุดหลัง render จบ), "โหลด mp4" "โหลด .srt" "ลบ" (ถามยืนยัน; `in_use`); ว่าง: "ยังไม่เคย render reel นี้" (D12); error: `invalid_request` ที่ช่อง (`field`), `not_ready` แสดง `fix` ของแถว (setup-status D26), `busy` บอกเพลงที่ render อยู่, `song_busy`, `not_found` → กลับรายการเพลง; ช่วงไม่มีการตี → Alert "ช่วงนี้ไม่มีการตีกลอง เลื่อนช่วงหรือกด เริ่มที่การตีแรก" ปิด "ฟัง"/"render reel"; `adjusted` → Notice "ช่วงแกะเปลี่ยน ช่วงของ reel ถูกปรับเป็น {start}–{end} วินาที"; MIDI → backing กดไม่ได้ "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ"; โหมดทำนอง → "เพลงนี้แกะโหมดทำนอง reel มีแต่สแนร์"; คำใบ้ใต้หัวเรื่อง "ค่าตั้งต้นมาจากชื่อคลิปและช่อง แก้เป็นชื่อเพลงและศิลปิน"; ลิงก์ "อยากได้ท่อนอื่น? แกะช่วงใหม่ที่หน้าเพลง"; แถวผลบอกช่วงและป้าย "แกะใหม่แล้ว" (D18, D19) | pending |
+| หน้า reel (`#/songs/{id}/cover`) | 2, 3, 4, 5, 6, 8 | ลิงก์กลับ "← {ชื่อเพลง}" และหัว "Reel cover"; ยังไม่แกะ (`no_analysis`) → ข้อความ "แกะโน้ตก่อน แล้วกลับมาทำ reel" กับลิงก์กลับ; การ์ด "ช่วงของ reel": ช่องเริ่มและจบ (วินาที) ภายในช่วงแกะ `{analysis.start_s}–{analysis.end_s}`, บรรทัด "ยาว {n} วินาที (2–90)", ปุ่ม "เริ่มที่การตีแรก" (ตั้งเริ่ม = `suggested_start_s`), แถบห้องที่พบในช่วงพร้อมจำนวนการตี (อ่านอย่างเดียว) (D6); การ์ด "ข้อความบนจอ": "หัวเรื่อง" (1–40), "บรรทัดรอง" (0–60), "คำบรรยายล่าง" (0–60) ค่าตั้งต้นชื่อเพลง บรรทัดรองของเพลง และว่าง (D12); การ์ด "พื้นหลัง": "สีเข้มของแอป" / "ภาพของฉัน" เลือก PNG/JPG ≤ 20 MB ภาพย่อ 9:16 "เปลี่ยนภาพ" "ลบภาพ" คำเตือน "ใช้ภาพของคุณเองหรือภาพที่มีสิทธิ์ใช้ ห้ามใช้ปกอัลบั้ม" (D8); การ์ด "เสียง": บรรทัด "กลอง" มีสวิตช์ "ปิดเสียงกลอง" และสไลเดอร์ "ความดังกลอง" 10–100 (ตั้งต้น 100) ซ่อนเมื่อปิด (D24); "กลองล้วน" (ตั้งต้น) / "กลอง + เพลงต้นฉบับ" กับ "ความดังเพลง" 10–100 (ตั้งต้น 35); ปิดกลองและไม่มีเพลง → ข้อความ "เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง" ปุ่ม "ฟัง"/"render reel" กดไม่ได้ (D24) และคำเตือน "เพลงต้นฉบับมีลิขสิทธิ์ แพลตฟอร์มอาจ claim ปิดเสียง หรือบล็อกคลิป เปิดเมื่อคุณมีสิทธิ์ใช้เสียงนี้" (D7); แถบท้าย: "บันทึก" (จุด "ยังไม่บันทึก" เมื่อแก้แล้ว ถามก่อนออก story-kb D11), "ฟัง" (บันทึกก่อน → "กำลังผสมเสียง…" → เล่น), ปุ่มหลัก "render reel" (บันทึกก่อนแล้วเริ่มงาน แถบ % กับ "ยกเลิก"; `failed`/`cancelled` ข้อความกับ "ลองอีกครั้ง"); การ์ด "ผล render": ใหม่สุดก่อน เวลาสร้าง ความยาว ป้าย "มีเพลงต้นฉบับ" เมื่อ `backing.on`, "กลอง {v}%" เมื่อ `drums.volume` ไม่ใช่ 100, "ไม่มีเสียงกลอง" เมื่อ `drums.on` `false` (D24), player 9:16 ของอันที่เลือก (อันใหม่สุดหลัง render จบ), "โหลด mp4" "โหลด .srt" "ลบ" (ถามยืนยัน; `in_use`); ว่าง: "ยังไม่เคย render reel นี้" (D12); error: `invalid_request` ที่ช่อง (`field`), `not_ready` แสดง `fix` ของแถว (setup-status D26), `busy` บอกเพลงที่ render อยู่, `song_busy`, `not_found` → กลับรายการเพลง; ช่วงไม่มีการตี → Alert "ช่วงนี้ไม่มีการตีกลอง เลื่อนช่วงหรือกด เริ่มที่การตีแรก" ปิด "ฟัง"/"render reel"; `adjusted` → Notice "ช่วงแกะเปลี่ยน ช่วงของ reel ถูกปรับเป็น {start}–{end} วินาที"; MIDI → backing กดไม่ได้ "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ"; โหมดทำนอง → "เพลงนี้แกะโหมดทำนอง reel มีแต่สแนร์"; คำใบ้ใต้หัวเรื่อง "ค่าตั้งต้นมาจากชื่อคลิปและช่อง แก้เป็นชื่อเพลงและศิลปิน"; ลิงก์ "อยากได้ท่อนอื่น? แกะช่วงใหม่ที่หน้าเพลง"; แถวผลบอกช่วงและป้าย "แกะใหม่แล้ว" (D18, D19) | pending |
 
 Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 
@@ -46,12 +49,16 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 - **หน้าเพลงหลังแกะ:** เห็นว่ากลองเข้าที่วินาทีไหน กดปุ่มเดียวแล้วช่วงใหม่ถูกแกะ; เห็นปุ่ม "ทำ reel cover" เป็นปุ่มหลัก
 - **หน้า reel:** กด "ฟัง" ได้ยินกลองของช่วงนั้นตามเวลาจริง; กด "render reel" แถบ % เดินจนจบแล้วเห็นคลิปที่ไม้ตีตรงเสียงทุกครั้ง หัวเรื่องตามที่ตั้ง ไม่มี BPM ไม่มีป้ายสอน
 - **backing:** เปิด "กลอง + เพลงต้นฉบับ" แล้วฟังหรือ render ได้ยินเพลงเบาใต้กลอง ตรงจังหวะกัน
+- **ความดังกลอง:** ลดสไลเดอร์กลองแล้วฟัง กลองเบาลงเทียบกับเพลง; ปิดเสียงกลองแล้วได้ยินแต่เพลง ภาพยังตีครบ (D24)
+- **ภาพ:** ทุกการตีในคลิปบอกชิ้น (ชื่อบนชุดกลองและหัวเลน) มือ (สีไม้ + L/R) และห้อง ("ห้อง n") ได้จากเฟรมเดียว (D26)
 
 **How success is judged:**
 - เจ้าของทำ reel จาก Yellow (DRUMMATE `Ssz69tFTS7Y`) ช่วง 11.5–30 วินาที (7 ห้อง 88 การตี) แล้วรับว่าเป็นแบบที่ต้องการ (D15)
 - หน้าเพลงหลังแกะ Yellow ช่วง 0–30 บอกห้อง 1–5 ว่างและการตีแรกที่ 11.5 วินาที (D9, D15)
 - ในคลิปที่ render: เฟรมแรกที่วงแหวนของโน้ตขึ้น กับจุดเริ่มเสียงของโน้ตนั้น ห่างไม่เกิน 1 เฟรม (D15; Seams 1)
-- reel 30 วินาที render จบใน ≤ 60 วินาทีบน Mac Apple Silicon (D15)
+- reel 30 วินาที render จบใน ≤ 60 วินาทีบน Mac Apple Silicon (D15) ด้วยภาพใหม่ (D27)
+- เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่แล้วบอกได้ว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27)
+- กลองล้วน volume 50 → peak ต่ำกว่า volume 100 6.0 dB ± 0.1 (D27)
 - render cover เดิมสองครั้ง (backing ปิด) ได้ `audio.wav` เหมือนกันทุก byte (D15)
 
 ## Implementation
@@ -64,9 +71,13 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
   - `audio`: `reel_wav` ทางเดียวของเสียง reel ที่ฟังและ render ใช้ — `mixer.mix` แล้วถ้า backing เปิดผสม `audio.m4a` ใน numpy (D7, D17)
   - `render`: Render job ของ reel slot ของตัวเอง, ผลใต้ `renders/` ผ่าน `backend.renders`, ลงทะเบียน `songs.song_jobs` (D2, D12)
   - `backgrounds`: ภาพพื้นหลังของ cover ผ่าน `backend.pictures` (D8)
+  - `frames` (change request): ภาพของ reel ตาม spec › ภาพของ reel — `Scene(lesson, timing, background)`, `frame_at(scene, t) -> bytes` (D25, D26)
+  - `captions` (change request): `ass_file(project, lesson, timing, title_font)` ของ reel — หัวเรื่อง บรรทัดรอง คำบรรยายแบบ video-gen + ป้ายชิ้น ชื่อเลน ตัว L/R ตัวนับห้อง (D25, D26)
 - **`backend.pictures`** (module ใหม่ ใช้ร่วม, prefactor จาก `video_gen.backgrounds`, D8, D21): `checked_size` และ `receive(body, partial, expected, place)`; `video_gen.backgrounds` เรียกมันแทนโค้ดเดิม (test เดิมของ video-gen ยังผ่านโดยไม่แก้ assertion)
 - **`backend.video_gen.timeline`**: `assemble(sounds, beats, spans, length_s) -> Timeline` public ที่ `build` ใช้เองด้วย (D4)
 - **`backend.video_gen.render`**: `_command` ใช้ตามเดิม ไม่แก้ (D17)
+- **`backend.video_gen.frames`** (change request, prefactor ผลเดิม D25): `background_image(picture)` (เดิม `_background`), `stick_tip(times, targets, rest, t)` (ห่อ `_tip_before`); test เดิมผ่านโดยไม่แก้ assertion
+- **`backend.video_gen.captions`** (change request, prefactor ผลเดิม D25): helper ที่ reel ใช้ (`_style`, `_pos`, `_at_most_two`, หัวเรื่องในกล่อง) เปิดเป็นชื่อ public หรือแยกฟังก์ชัน โดย `ass_file` ของบทเรียนให้ข้อความเดิมทุกตัวอักษร
 - **`backend.paths`**: `songs_render_dir` (`media/songs/.render/`), `song_renders_dir(song_id)` (D12)
 - **`backend.routes`**: router ใหม่ `drum_cover` ไม่มี prefix (D12)
 - **`backend.app`**: `JOB_HOLDERS` เพิ่ม Render job ของ reel พร้อม `clean_on_start` (D12)
@@ -98,6 +109,7 @@ Schema ของ `cover.json`:
   "subtitle": "DRUMMATE",
   "caption": "",
   "background": "color",
+  "drums": { "on": true, "volume": 100 },
   "backing": { "on": false, "volume": 35 },
   "updated_at": "2026-11-15T10:30:00+07:00"
 }
@@ -111,8 +123,10 @@ Schema ของ `cover.json`:
 | `background` | `color` หรือ `image`; `image` ต้องมี `cover-background.jpg` (D8) |
 | `backing.on` | `true`/`false` (D7) |
 | `backing.volume` | จำนวนเต็ม 10–100 (D7) |
+| `drums.on` | `true`/`false`; `false` ต้องคู่ `backing.on` `true` ไม่งั้น `400` field `drums.on` "เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง" (D24) |
+| `drums.volume` | จำนวนเต็ม 10–100; ไม่มี `drums` ในไฟล์เก่า → `{on: true, volume: 100}` (D24) |
 
-ค่าไม่ผ่าน = `400` `invalid_request` พร้อม `field`. ไม่มี `cover.json` → `GET` คืนค่าตั้งต้น (`saved: false`): `title` = ชื่อเพลงตัดที่ 40, `subtitle` = บรรทัดรองของเพลงตัดที่ 60, `caption` ว่าง, `background` `color`, `backing` ปิด 35, `start_s` = `suggested_start_s`, `end_s` = `min(analysis.end_s, start_s + 90)`; สั้นกว่า 2 → `start_s` = `max(analysis.start_s, analysis.end_s − 2)` (D19). ค่าที่เก็บเกินช่วงหลังแกะใหม่ถูกดึงเข้าช่วงตอนอ่านด้วยกติกาเดียวกัน และ `adjusted` = `true` (D6, D18). `hits` = จำนวนการตีในช่วงของ reel. `title`/`subtitle` ตั้งต้นมาจากชื่อคลิปและช่องของเพลง (drum-notes D4) ไม่ใช่ชื่อเพลงเสมอ (D18).
+ค่าไม่ผ่าน = `400` `invalid_request` พร้อม `field`. ไม่มี `cover.json` → `GET` คืนค่าตั้งต้น (`saved: false`): `title` = ชื่อเพลงตัดที่ 40, `subtitle` = บรรทัดรองของเพลงตัดที่ 60, `caption` ว่าง, `background` `color`, `drums` เปิด 100, `backing` ปิด 35, `start_s` = `suggested_start_s`, `end_s` = `min(analysis.end_s, start_s + 90)`; สั้นกว่า 2 → `start_s` = `max(analysis.start_s, analysis.end_s − 2)` (D19). ค่าที่เก็บเกินช่วงหลังแกะใหม่ถูกดึงเข้าช่วงตอนอ่านด้วยกติกาเดียวกัน และ `adjusted` = `true` (D6, D18). `hits` = จำนวนการตีในช่วงของ reel. `title`/`subtitle` ตั้งต้นมาจากชื่อคลิปและช่องของเพลง (drum-notes D4) ไม่ใช่ชื่อเพลงเสมอ (D18).
 
 `suggested_start_s` (D6, D9) = ต้นห้องที่พบตัวแรกที่มี `hits` > 0; การตีแรกอยู่ก่อน downbeat แรก → เวลาการตีแรก; ไม่มีการตี → `analysis.start_s`.
 
@@ -132,13 +146,27 @@ Schema ของ `cover.json`:
 
 ### เสียง
 
-`drum_cover.audio.reel_wav(project, song, cover, timing)` (D7, D17) — ทางเดียวที่ "ฟัง" และ Render job ใช้:
+`drum_cover.audio.reel_wav(project, audio, fields, timing, cancel)` (D7, D17, D24) — ทางเดียวที่ "ฟัง" และ Render job ใช้:
 
-1. wav กลอง = `mixer.mix(project, timing)` (video-gen spec › Timeline and audio)
-2. `backing.on` = `false` → wav นี้คือเสียงของ reel ตรง ๆ (byte เดียวกันทุกครั้ง D15)
-3. `backing.on` = `true` → `ffmpeg.run_capture` คำสั่ง `-ss start_s -t (end_s − start_s) -i audio.m4a -f f32le -ac 2 -ar 44100 -` (แบบ Pick job ถอดเสียง) → numpy: กลอง (float) + เพลง × `volume / 100` วางที่ sample 0 ยาวเท่า `timing.samples` (เพลงสั้นกว่าเติมศูนย์) → peak ของผลรวม −1 dBFS แบบ `mixer` → wav 16-bit 44.1 kHz stereo ด้วย `soundfile`
-4. เพลงจาก MIDI ไม่มี `audio.m4a` → `backing.on` = `true` ตอบ `400` `invalid_request` field `backing.on` "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ" (หน้าเว็บกันไว้ก่อนด้วย `has_audio`, D18)
-5. ฟังไม่เขียนไฟล์ชั่วคราว; หน้าเว็บปิดปุ่ม "ฟัง" ระหว่างรอ
+1. `drums.on` `true` → wav กลอง = `mixer.mix(project, timing)` (video-gen spec › Timeline and audio); `false` → ไม่ผสมกลอง
+2. `backing.on` `false` และ `drums.volume` 100 → wav ของ mixer คือเสียงของ reel ตรง ๆ (byte เดียวกันทุกครั้ง D15)
+3. `backing.on` `false` และ `drums.volume` < 100 → กลอง (float) × `drums.volume / 100` → 16-bit ด้วย numpy `rint` (เหมือนกันทุกครั้ง)
+4. `backing.on` `true` → `ffmpeg.run_capture` คำสั่ง `-ss start_s -t (end_s − start_s) -i audio.m4a -f f32le -ac 2 -ar 44100 -` (แบบ Pick job ถอดเสียง) → numpy: กลอง × `drums.volume / 100` (เมื่อ `drums.on`) + เพลง × `backing.volume / 100` วางที่ sample 0 ยาวเท่า `timing.samples` (เพลงสั้นกว่าเติมศูนย์)
+5. peak ของผลรวมเกิน −1 dBFS → คูณลงให้ peak เท่า −1 dBFS; ไม่เกิน → คงไว้ ไม่ดันขึ้น (D24) → wav 16-bit 44.1 kHz stereo ด้วย `soundfile`
+6. `drums.on` `false` และ `backing.on` `false` ไม่มีทางมาถึงที่นี่: `PUT` ปฏิเสธ (spec › Data); ค่าที่อ่านจากไฟล์ที่แก้มือแบบนี้ → `400` field `drums.on` ที่ `listen` และ `render`
+7. เพลงจาก MIDI ไม่มี `audio.m4a` → `backing.on` = `true` ตอบ `400` `invalid_request` field `backing.on` "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ" (หน้าเว็บกันไว้ก่อนด้วย `has_audio`, D18)
+8. ฟังไม่เขียนไฟล์ชั่วคราว; หน้าเว็บปิดปุ่ม "ฟัง" ระหว่างรอ
+
+### ภาพของ reel
+
+`drum_cover.frames` และ `drum_cover.captions` (D25, D26) วาดตาม [reel-picture-sketch.md](reel-picture-sketch.md); เวลาทุกอย่างอ่านจาก `Timeline` (ADR-0041, 0051) ตัวหนังสือทุกตัวอยู่ใน ASS (ADR-0040).
+
+1. `Scene(lesson, timing, background)`: ของนิ่งวาดครั้งเดียว — พื้นหลัง (`video_gen.frames.background_image`), ชุดกลองมุมบนตอนพัก, กรอบเลน แถวของชิ้นที่มีใน `timing.hits`, playhead
+2. `frame_at(scene, t)` วาดบนสำเนา ตามลำดับ: เส้นจังหวะและเส้นห้อง → หัวโน้ต → ชิ้นที่ถูกตีใน 0.15 วิ (เติมเต็ม ขอบขาว ขยายแล้วหด) → ไม้ L/R → ป้ายมือ → จุดจังหวะของตัวนับ; `t` เดียวกันได้ bytes เดียวกัน
+3. ตำแหน่งในเลน: `x = 330 + (at − now) × px_per_s`, `px_per_s = 816 / (1.5 × 4 × 60 / bpm)`; `now` = `min(t, end_s − start_s)` (หางเสียงหยุดนิ่ง)
+4. ไม้: เป้า = จุดตีของชิ้นใน sketch (ครึ่งล่าง ป้ายชื่ออยู่ครึ่งบน); จังหวะขยับจาก `video_gen.frames.stick_tip`; ไม่มีไม้สำหรับ `hand` `null` และ grace (แบบเดิม)
+5. `captions.ass_file`: หัวเรื่อง บรรทัดรอง คำบรรยายแบบ video-gen (ช่วงเดียวทั้งคลิป) + ป้ายชิ้นตลอดคลิป + ชื่อเลน + "ห้อง {n}" ต่อห้อง + ตัว L/R บนหัวไม้ (แบบ `_stick_letters`) + ตัว L/R ในหัวโน้ตเลื่อนด้วย `\move` + ป้ายมือ 0.15 วิ + เลขห้องเหนือเลน
+6. ไม่มีของ video-gen ที่เป็นหน้าตา: วงแหวนแดง วงกลม L/R RF/LF พื้นตาราง ขาตั้ง เลน 3 เลน
 
 ### Render job
 
@@ -150,9 +178,9 @@ Schema ของ `cover.json`:
 4. อ่าน `cover.json` (หรือค่าตั้งต้น) และดึงเข้าช่วง; `backing.on` กับเพลง MIDI → `400` ตามข้อ 4 ของเสียง
 5. `disk.require_free` ด้วย `length_s × 2 MB` → `507` `disk_full`
 6. copy `song.json`, `cover.json` (ค่าที่ใช้จริง) และ `cover-background.jpg` เข้า `media/songs/.render/` ใต้ `songs.lock` แล้วตอบ `202` และทำต่อใน thread (video-gen D33)
-7. `drum_cover.timeline.build` → `audio.reel_wav` เขียน `audio.wav`; `captions.ass_file` เขียน `text.ass` จาก Lesson ชั่วคราว; `frames.Scene`
+7. `drum_cover.timeline.build` → `audio.reel_wav` เขียน `audio.wav`; `drum_cover.captions.ass_file` เขียน `text.ass` จาก Lesson ชั่วคราว; `drum_cover.frames.Scene` (D25)
 8. `ffmpeg.run_piped` ด้วย `video_gen.render._command` เดิม: rawvideo `rgb24` 1080×1920 30 fps จาก stdin + `audio.wav`, filter `ass`, `h264_args`, aac 48 kHz, เขียน `{name}.mp4.partial`; `percent` = เฟรมที่ส่ง / ทั้งหมด
-9. `renders.Render.finish` เขียน `.srt` (cue เดียว: หัวเรื่อง บรรทัดรอง คำบรรยาย) กับ `.json` (`song_id`, `title`, `length_s`, `start_s`, `end_s`, `picked_at`, `backing`, `created_at`)
+9. `renders.Render.finish` เขียน `.srt` (cue เดียว: หัวเรื่อง บรรทัดรอง คำบรรยาย) กับ `.json` (`song_id`, `title`, `length_s`, `start_s`, `end_s`, `picked_at`, `drums`, `backing`, `created_at`) (D24)
 
 | State | ความหมาย |
 |---|---|
@@ -179,7 +207,7 @@ restart ระหว่างรัน: start ล้าง `media/songs/.render/
 | `POST` | `/songs/{id}/cover/render` | `{}` → `202` งาน | ตาม Render job |
 | `GET` | `/covers/render` | งานล่าสุด: `state`, `song_id`, `title`, `percent`, `result`, `error`, `message` หรือ `null` | — |
 | `POST` | `/covers/render/cancel` | `{}` → งาน | `409` `not_running` |
-| `GET` | `/songs/{id}/cover/renders` | ผลเรียงใหม่สุดก่อน (`renders.listed`) พร้อม `start_s`, `end_s`, `picked_at`, `backing` (D18) | `404` |
+| `GET` | `/songs/{id}/cover/renders` | ผลเรียงใหม่สุดก่อน (`renders.listed`) พร้อม `start_s`, `end_s`, `picked_at`, `drums`, `backing` (D18, D24) | `404` |
 | `GET` | `/songs/{id}/cover/renders/{name}.mp4` และ `.srt` | ไฟล์ (`FileResponse` ตอบ `Range`) | `404` `not_found` |
 | `DELETE` | `/songs/{id}/cover/renders/{name}` | `204` | `409` `in_use`, `404` |
 
@@ -218,7 +246,10 @@ restart ระหว่างรัน: start ล้าง `media/songs/.render/
    - `POST /render` แล้ว poll จน `done` → `renders/` มี mp4, srt, json ที่มี `start_s`, `end_s`, `picked_at`, `backing`; `ffmpeg -i` บอก 1080×1920, 30 fps, h264, aac, ความยาวตรง `length_s` ± 0.1 วินาที
    - backing เปิด: `POST /render` → mp4 มี h264 + aac ความยาว `length_s` ± 0.1, json `backing.on` `true`; ช่วงที่ไม่มีการตี: wav ของ `/listen` ไม่เงียบเมื่อ backing เปิด เงียบเมื่อปิด; `audio.m4a` ปลอมดังเต็ม scale → ไม่มี sample ที่ ±32767 ค้างติดกันเกิน 1 ตัว (peak −1 dBFS) (D17)
    - render cover เดิมสองครั้ง (backing ปิด) → `audio.wav` ในงานทั้งสองเหมือนกันทุก byte (D15; แบบ `test_the_same_lesson_rendered_twice_mixes_the_same_audio_wav`)
-   - **เสียงตรงภาพ:** `analysis` snare ตัวเดียวที่ `start_s + 1.0` กับ sample ปลอมที่เริ่มด้วยคลิก → sample แรกของเสียงใน mp4 และเฟรมแรกที่จุดกระทบของ snare เป็นสีแดง ห่างไม่เกิน 1 เฟรม (แบบ video-gen Seams 1)
+   - **เสียงตรงภาพ:** `analysis` snare ตัวเดียวที่ `start_s + 1.0` กับ sample ปลอมที่เริ่มด้วยคลิก → sample แรกของเสียงใน mp4 และเฟรมแรกที่จุดกระทบของ snare เป็นสีแดง ห่างไม่เกิน 1 เฟรม (แบบ video-gen Seams 1); ภาพใหม่ (D25): เฟรมแรกที่จุดวัดสี (probe) ของ `SNARE` ใน sketch เป็นสีเติมเต็มของ snare (`#60A5FA` ± 12 ต่อช่องสี) แทนสีแดง (D27)
+   - `PUT /cover` `drums.volume` 5 หรือ 101 → `400` field `drums.volume`; `drums.on` `false` กับ backing ปิด → `400` field `drums.on`; `cover.json` เก่าไม่มี `drums` → `GET` ตอบ `{on: true, volume: 100}` (D24)
+   - `/listen` กลองล้วน volume 100 → bytes เดียวกับก่อน change request (`mixer.mix` ตรง); volume 50 → peak ต่ำกว่า 6.0 dB ± 0.1; กลองปิด + backing → wav เท่ากับเพลงล้วน × volume (ไม่ดันขึ้น) ± 1 LSB; กลอง + backing ดังเต็ม → peak −1 dBFS ไม่ clip (D24, D27)
+   - render ที่ `drums` `{on: false}` + backing → `.json` มี `drums.on` `false`; `GET …/renders` ของ `.json` เก่าที่ไม่มี `drums` → `{on: true, volume: 100}` (D24)
    - render ซ้อน → `409` `busy` มี `song_id`; `DELETE /songs/{id}` ระหว่าง render → `409` `song_busy`; ยกเลิกกลางการส่งเฟรม → `cancelled` ไม่มี `.partial`; `PUT /cover` ระหว่าง render → `200` และผลของงานใช้ค่าก่อนแก้
    - `PUT /background` PNG → `cover-background.jpg` 1080×1920, `background` = `image`; `DELETE /background` → `color`; ไฟล์ข้อความ → `415`; เกิน 20 MB → `413` ที่ `check` และ `PUT`; test เดิมของ `video_gen` backgrounds ยังผ่าน
    - `DELETE /songs/{id}` → `cover.json` และ `renders/` หาย; `DELETE …/renders/{name}` → `204`; id `..` → `404` ไม่มีไฟล์ใดหาย
@@ -228,7 +259,13 @@ restart ระหว่างรัน: start ล้าง `media/songs/.render/
    - ไฮแฮท 16th 8 ตัว → R L R L …; snare + crash + ไฮแฮทช่องเดียว → ไฮแฮท `hand` `null` และยังอยู่ใน `hits`; ชิ้นเดียวสองครั้งห่าง 20 ms → ตัวที่สอง `hand` `null`
    - `level` `accent` → `layer` `hard`, `note` `accent`; `ghost` → `soft`
    - ไม่มี `downbeats` สองตัว → ห้อง 2.0 วินาที; ไม่มีการตีในช่วง → `hits` ว่าง `length_s` ยังเท่าช่วง + 1.5
-   - เฟรมที่เวลาของ snare → พิกเซลที่จุดกระทบของ snare เป็นสีแดง; เฟรมก่อนหน้าไม่แดง; เวลาเดียวกันเรียกสองครั้ง → bytes เดียวกัน
+   - `drum_cover.frames.frame_at` ที่เวลาของ snare → พิกเซลที่จุดวัดสีของ `SNARE` เป็นสีเติมเต็มของ snare; เฟรมก่อนการตี (เกิน 0.15 วิหลังการตีก่อนหน้า) เป็นสีพัก 30 %; เวลาเดียวกันเรียกสองครั้ง → bytes เดียวกัน (D25, D26)
+   - ตารางชิ้นใน sketch: ทุกคู่ไม่ทับกันที่ขนาด 1.2 เท่า และอยู่ในกรอบ; หัวไม้ที่ที่พักไม่อยู่ในชิ้นใด; สีของแปดชิ้นต่างกันทุกคู่ (D26)
+   - ห้องที่มี 5 จังหวะ → จังหวะที่ 5 จุดที่ 4 สว่าง; หัวเรื่องยาว → event หัวเรื่องบีบไม่เกิน 760 px (D26)
+   - การตี R ที่ hihat แล้ว L ที่ snare → พิกเซลบนไม้ระหว่าง grip กับ tip ของแต่ละมือเป็นสีของมือนั้น (ขาว / `#FF4FD8`) (D26)
+   - เลน: การตีมีแค่ hihat_closed, snare, kick → 3 แถว ความสูง 84 เรียง HI-HAT, SNARE, KICK; หัวโน้ตของ snare ที่ `t` = เวลาการตีอยู่ที่ x 330 แถว SNARE (D26)
+   - `drum_cover.captions.ass_file`: มีป้าย `SNARE`/`KICK`/… ทุกชิ้นตลอดคลิป, ชื่อเลนเฉพาะชิ้นที่มี, "ห้อง 1"/"ห้อง 2" เริ่มที่ downbeat, ตัว L/R ของหัวโน้ตมือ (ไม่มีของเท้า/`hand` `null`), หัวเรื่องเดียวกับ video-gen (D26)
+   - test เดิมของ `video_gen` frames/captions ผ่านโดยไม่แก้ assertion หลัง prefactor (D25)
    - `assemble` ให้ `Timeline` เดียวกับ `build` ของบทเรียน video-gen สำหรับบทเรียนตัวอย่าง (prefactor ไม่เปลี่ยนผล)
    - `analysis.mode` `melody` → `hits` มีแต่ snare ตามที่พบ; เฟรมของช่วงต้น (ช่วง section ยาว 0) ไม่มีตัวหนังสือซ้อน (D17, D19)
 3. **หน้าเพลงและหน้า reel** (e2e) ผ่าน `App` กับ fetch ปลอม (story-kb D18)
@@ -238,6 +275,7 @@ restart ระหว่างรัน: start ล้าง `media/songs/.render/
    - แก้หัวเรื่องแล้วกด "บันทึก" → `PUT /cover`; "เริ่มที่การตีแรก" → ช่องเริ่ม = `suggested_start_s`; "ฟัง" → บันทึกแล้ว `POST /listen` ปุ่มเป็น "กำลังผสมเสียง…" แล้วเล่น blob
    - `hits` 0 → Alert "ช่วงนี้ไม่มีการตีกลอง…" ปุ่ม "ฟัง"/"render reel" กดไม่ได้; `adjusted` → Notice "ช่วงแกะเปลี่ยน…" และจุด "ยังไม่บันทึก"; `has_audio` `false` → "กลอง + เพลงต้นฉบับ" กดไม่ได้; แถวผลที่ `picked_at` เก่า → ป้าย "แกะใหม่แล้ว" (D18)
    - เลือก "กลอง + เพลงต้นฉบับ" → ช่องความดังและคำเตือนขึ้น บันทึก → `PUT` ส่ง `backing: {on: true, volume: 35}`
+   - เลื่อน "ความดังกลอง" เป็น 60 บันทึก → `PUT` ส่ง `drums: {on: true, volume: 60}`; กด "ปิดเสียงกลอง" กับกลองล้วน → ข้อความ "เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง" ปุ่ม "ฟัง"/"render reel" กดไม่ได้; แถวผลที่ `drums.on` `false` → ป้าย "ไม่มีเสียงกลอง", `volume` 60 → "กลอง 60%" (D24)
    - "render reel" → `POST /render` → แถบ % → `done` → รายการผลมีอันใหม่ที่เลือกอยู่; `failed` → ข้อความกับ "ลองอีกครั้ง"
    - เลือกภาพ → `background/check` แล้ว `PUT` body ดิบ แล้วเห็นภาพ; ลบภาพ → กลับเป็นสีของแอป; `415` → error ข้างปุ่ม
    - ออกจากหน้า reel ก่อนบันทึก → ถามยืนยัน; ลบผล render พร้อมยืนยัน → `DELETE`
@@ -252,6 +290,8 @@ restart ระหว่างรัน: start ล้าง `media/songs/.render/
 - `audio.m4a` ปลอมสำหรับ backing สร้างด้วย ffmpeg `lavfi` ใน fixture (ไม่ commit ไฟล์เสียง)
 - `analysis` ใน test เขียนตรงด้วย `songs.new_song` + `write_new` ไม่ผ่าน Pick job
 - เป้าเวลา render (D15) และหน้าตาที่เจ้าของรับ วัดมือบน Mac ไม่อยู่ใน CI
+- **Copy (change request):** `backend/tests/test_video_gen_frames.py` — พิกเซลที่จุดกระทบ, bytes เดียวกัน, ไม้; `backend/tests/test_video_gen_captions.py` — อ่าน event ของ ASS
+- ตอน build ภาพ: ดึงเฟรม Yellow 3–4 เฟรม (เวลาที่มีหลายชิ้นพร้อมกัน) แนบใน progress.md ให้เจ้าของดู (D27)
 
 ## Out of Scope
 
@@ -263,6 +303,9 @@ restart ระหว่างรัน: start ล้าง `media/songs/.render/
 - backing เปิดเป็นค่าตั้งต้น หรือ fade/ducking ของเพลง (D7)
 - reel ยาวกว่า 90 วินาที (D6)
 - Windows: ทางเดียวกับทุก feature (setup-status D25)
+- เปลี่ยนภาพของคลิปสอนกลอง (video-gen) ให้เหมือน reel (D25)
+- ความดังแยกรายชิ้นกลอง, EQ, fade ของกลอง (D24)
+- เลือกธีม/สีชุดกลองเอง (D26)
 
 ## Open Questions
 

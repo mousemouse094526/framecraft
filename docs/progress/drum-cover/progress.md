@@ -1,11 +1,11 @@
 # Progress: drum-cover
 
-**Now:** ticket 01–02 done; [PR #16](https://github.com/mousemouse094526/framecraft/pull/16) merge เข้า `develop` แล้ว (`fb354f2`) — เหลือเจ้าของเช็ค reel Yellow (D15). คำขอเปลี่ยน (ความดังกลอง + ความชัดของ UI กลอง) เปิดเป็น change request ผ่าน `/warroom drum-cover`
+**Now:** change request (D24–D27) อนุมัติแล้ว ตัดเป็น ticket 03–04; ticket 01–02 done (merge `fb354f2`)
 
 **Next:**
 
 ```
-/warroom next
+/warroom-build drum-cover 03
 ```
 
 ## Tickets
@@ -14,14 +14,28 @@
 |---|---|---|
 | 01 | reel cover จากเพลงที่แกะ: ตั้งช่วง ข้อความ เสียง ฟัง render | done |
 | 02 | ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า | done |
+| 03 | ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ | ready-for-agent |
+| 04 | ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน | ready-for-agent |
 
 ## Blocked
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01, 02) |
+| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ (ดูเฟรมที่ ticket 04 แนบ) | open |
 
 ## Log
+
+### Change request — 2026-11-16
+
+- คำขอเจ้าของ (Telegram): ความดังกลองแยก + mute และบันทึกในผล render; ภาพกลองอ่านไม่ออก; "ทำได้โดยไม่อิงคลิปต้นฉบับ" → ตีความว่าออกแบบภาพ reel ใหม่ได้ทั้งหมด (auto mode, Recommended)
+- ดูเฟรมจริงของ reel Yellow: กระเดื่องบัง snare/ทอม, ไม่มีชื่อชิ้น, ทอม 2 ใบสีเดียว, crash/ride สีเดียว, เลน 3 เลนรวมชิ้น, ไม้สีเดียวไขว้กัน
+- Decided: D24 (`drums {on, volume}`, ลดเฉพาะเมื่อเกิน −1 dBFS), D25 (ภาพ reel เป็นของ `drum_cover`, video-gen ไม่เปลี่ยน; D3/D4 changed by D25), D26 (sketch `reel-picture-sketch.md`), D27 (เป้า)
+- legal: ข้อ 2 และ 4 คง CONDITIONAL ไม่มีเงื่อนไขใหม่
+- Breaker: 1 BLOCKER + 4 CONCERN แก้ docs ครบ — จุดวัดสีแยกจากจุดตีและป้าย (BLOCKER), ป้ายครึ่งบน/จุดตีครึ่งล่าง, หัวเรื่อง ≤ 760 px ไม่ชนตัวนับ, ที่พักไม้นอกกระเดื่อง, จังหวะ > 4 → จุดที่ 4
+- ADR: 0054 (ภาพ reel เป็นของ `drum_cover`); D24 เป็นพฤติกรรมของ feature ไม่ใช่ ADR
+- Gate: Approve (auto mode, Recommended)
+
 
 ### 02: ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า — done 2026-11-15
 
