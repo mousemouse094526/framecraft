@@ -268,6 +268,7 @@ describe("หน้า reel", () => {
   it("ความดังกลอง at 60 is saved as the drums' volume (e2e)", async () => {
     const user = open(COVER_HASH, [send("PUT", COVER_PATH, coverOf({ drums: { on: true, volume: 60 } }), 200)]);
 
+    // user-event can't drag a range input to a value: set it the way the browser reports a drag.
     fireEvent.change(await screen.findByRole("slider", { name: "ความดังกลอง" }), { target: { value: "60" } });
     expect(screen.getByText("60%")).toBeInTheDocument();
     await user.click(button(/บันทึก/));

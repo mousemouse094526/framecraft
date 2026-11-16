@@ -39,7 +39,8 @@ frontend/src/
 │                        for the lesson editor, read-only without it for the song page's preview),
 │                        buttonStyles, NoticeLine (a `Notice` as an Alert), RefusedAlert (a
 │                        `Refused` as an Alert with its fix commands: the สอนกลอง and แกะเพลง tabs),
-│                        CommitField (a field that sends on blur or Enter); assets/
+│                        CommitField (a field that sends on blur or Enter), Switch (an on/off
+│                        toggle with its label: spoil's video settings, a reel's ปิดเสียงกลอง, drum-cover D28); assets/
 │                        holds the icons two features use (copy, trash, x, …)
 ├── testing/          ← testBackend.ts: the fake backend every tab's tests answer `fetch` with; fakeXhr.ts:
 │                        the `XMLHttpRequest` an upload test stubs (`sendFile`); statusBox.ts:

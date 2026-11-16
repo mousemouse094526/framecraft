@@ -77,7 +77,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 - **`backend.video_gen.timeline`**: `assemble(sounds, beats, spans, length_s) -> Timeline` public ที่ `build` ใช้เองด้วย (D4)
 - **`backend.video_gen.render`**: `_command` ใช้ตามเดิม ไม่แก้ (D17)
 - **`backend.video_gen.frames`** (change request, prefactor ผลเดิม D25): `background_image(picture)` (เดิม `_background`), `stick_tip(times, targets, rest, t)` (ห่อ `_tip_before`); test เดิมผ่านโดยไม่แก้ assertion
-- **`backend.video_gen.captions`** (change request, prefactor ผลเดิม D25): helper ที่ reel ใช้ (`_style`, `_pos`, `_at_most_two`, หัวเรื่องในกล่อง) เปิดเป็นชื่อ public หรือแยกฟังก์ชัน โดย `ass_file` ของบทเรียนให้ข้อความเดิมทุกตัวอักษร
+- **`backend.video_gen.captions`** → **`backend.subtitles`** (change request, prefactor ผลเดิม D25, D29): helper ของ ASS ที่ reel ใช้ (`style`, `pos`, `ass_color`, `squeeze`, `at_most_two`) ย้ายไป `backend/subtitles.py`; `video_gen.captions` เหลือ `stick_letters(tips_at, total)` ที่ reel เรียก และ `ass_file` ของบทเรียนให้ข้อความเดิมทุกตัวอักษร
 - **`backend.paths`**: `songs_render_dir` (`media/songs/.render/`), `song_renders_dir(song_id)` (D12)
 - **`backend.routes`**: router ใหม่ `drum_cover` ไม่มี prefix (D12)
 - **`backend.app`**: `JOB_HOLDERS` เพิ่ม Render job ของ reel พร้อม `clean_on_start` (D12)

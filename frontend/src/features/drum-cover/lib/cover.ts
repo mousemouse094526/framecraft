@@ -18,10 +18,9 @@ export function coverViewOf(hash: string): { id: string } | null {
   return found ? { id: found[1] } : null;
 }
 
-export type Backing = { on: boolean; volume: number };
-/** The drums' sound: off mutes them and keeps the volume for when they come back; the volume
- * turns them down from `FULL_VOLUME` (D24). */
-export type Drums = { on: boolean; volume: number };
+/** One sound of the reel, the drums' or the song's backing: off mutes it and keeps the volume for
+ * when it comes back; the volume (`VOLUME_MIN`–`VOLUME_MAX`) turns it down from `FULL_VOLUME` (D24). */
+export type Sound = { on: boolean; volume: number };
 
 /** What `PUT /cover` takes. */
 export type CoverFields = {
@@ -31,8 +30,8 @@ export type CoverFields = {
   subtitle: string;
   caption: string;
   background: "color" | "image";
-  drums: Drums;
-  backing: Backing;
+  drums: Sound;
+  backing: Sound;
 };
 
 /** What `GET`/`PUT /cover` answer: the fields and what the page says about them (D18). */
@@ -80,8 +79,8 @@ export type CoverRenderResult = {
   start_s: number;
   end_s: number;
   picked_at: string;
-  drums: Drums;
-  backing: Backing;
+  drums: Sound;
+  backing: Sound;
   created_at: string;
   size_bytes: number;
 };
@@ -101,7 +100,7 @@ export const isSilent = (fields: CoverFields) => !fields.drums.on && !fields.bac
 /** The drums' volume at first: as the mixer makes them. */
 export const FULL_VOLUME = 100;
 /** A render's drums as its row marks them: nothing at full volume (D24). */
-export const drumsLabel = (drums: Drums) => (!drums.on ? "ไม่มีเสียงกลอง" : drums.volume !== FULL_VOLUME ? `กลอง ${drums.volume}%` : null);
+export const drumsLabel = (drums: Sound) => (!drums.on ? "ไม่มีเสียงกลอง" : drums.volume !== FULL_VOLUME ? `กลอง ${drums.volume}%` : null);
 /** The one message of a stretch that breaks a rule, the backend's too. */
 export const RANGE_RULE = `ช่วงต้องยาว ${MIN_S}–${MAX_S} วินาที และอยู่ในช่วงแกะ`;
 

@@ -46,7 +46,8 @@ class Drawn(NamedTuple):
     @property
     def probe(self) -> Point:
         """Between the piece's label and its strike point, where nothing but the piece is drawn
-        (inside a cymbal's bell): where the sound-and-picture test reads the snare's colour."""
+        (inside a cymbal's bell): the one spot that shows the piece's own colour, rest or hit.
+        The sketch fixes it so the sound-and-picture check (D27) can read the snare there."""
         return self.center[0], round(self.center[1] - PROBE_SHARE * self.r)
 
     @property
@@ -73,7 +74,18 @@ KIT: dict[str, Drawn] = {
     "hihat_pedal": Drawn("PEDAL", (160, 960), 40, "plain", "#FACC15"),
 }
 DRAWN_OF = {piece: piece for piece in KIT} | {"hihat_closed": "hihat", "hihat_open": "hihat"}
-KIT_BOX = (54, 400, 1026, 1090)  # the sketch's box every piece, swollen to its accent's size, stays inside
+
+
+def drawn_of(piece: str) -> Drawn:
+    """The kit piece a hit's piece is drawn as: every hi-hat hit on the one hi-hat."""
+    return KIT[DRAWN_OF[piece]]
+
+
+def is_stroke(hit: timeline.Hit) -> bool:
+    """A hit a stick plays: a hand's, and not a grace note (which moves no stick and gets no letter)."""
+    return hit.hand in STICKS and hit.note != "grace"
+
+
 REST_FILL = 0.30
 REST_OUTLINE = 5
 HIT_OUTLINE = 8
@@ -106,6 +118,7 @@ NAMES_LEFT = 54
 PLAYHEAD_X = 330
 ROW_MAX = 84
 WINDOW_BARS = 1.5
+FULL_SPEED = 100  # percent: a reel plays as recorded, never slowed like a lesson chapter
 ROW_LINE = "#2A3A50"
 BEAT_LINE = (255, 255, 255, 40)
 BAR_LINE = (255, 255, 255, 102)  # 40 %
@@ -182,8 +195,9 @@ class Scene:
         self.lanes = lanes_of(timing)
         self.bars = bars_of(timing)
         self.bar_starts = [bar.start for bar in self.bars]
-        # The lanes scroll 1.5 bars of 4 at the lesson's BPM across their width and hold still in the tail.
-        self.px_per_s = (LANES_RIGHT - LANES_LEFT) / (WINDOW_BARS * timeline.BEATS_PER_BAR * timeline.beat_s(lesson.bpm, 100))
+        # The lanes show 1.5 bars of 4 at the lesson's BPM, played at full speed, across their width and
+        # hold still in the tail. Only the scroll speed assumes 4 beats: bar lines come from the downbeats.
+        self.px_per_s = (LANES_RIGHT - LANES_LEFT) / (WINDOW_BARS * timeline.BEATS_PER_BAR * timeline.beat_s(lesson.bpm, FULL_SPEED))
         self.end_s = timing.chapters[-1].end / timeline.RATE
         # Something in the lanes is at most this far ahead of the playhead (it entered on the right),
         # and at most this far behind it (it leaves on the left).
@@ -302,7 +316,7 @@ def _note_head(piece: str, note: str, glow: bool, row_h: float) -> "PilImage.Ima
     sprite = Image.new("RGBA", (box, box), (0, 0, 0, 0))
     draw = ImageDraw.Draw(sprite)
     c, r = box / 2, size / 2
-    color = (*_rgb(KIT[DRAWN_OF[piece]].color), 255)
+    color = (*_rgb(drawn_of(piece).color), 255)
     edge = (255, 255, 255, 255) if note == "accent" else None
     edge_w = ACCENT_OUTLINE * SCALE
     if glow:
@@ -325,7 +339,7 @@ def _note_head(piece: str, note: str, glow: bool, row_h: float) -> "PilImage.Ima
     return shrunk(sprite)
 
 
-def _lit(scene: Scene, t: float) -> dict[str, tuple[timeline.Hit, float]]:
+def _latest_hits(scene: Scene, t: float) -> dict[str, tuple[timeline.Hit, float]]:
     """The latest hit of each drawn piece in its first 0.15 s, by the drawn piece."""
     first, last = bisect_left(scene.times, t - HIT_S), bisect_right(scene.times, t)
     lit = {}
@@ -338,7 +352,7 @@ def _lit(scene: Scene, t: float) -> dict[str, tuple[timeline.Hit, float]]:
 def _hit_pieces(frame: "PilImage.Image", scene: Scene, t: float) -> None:
     """Each piece hit in the last 0.15 s filled in full (60 % for a ghost) and outlined white,
     swollen 1.12 times (1.2 for an accent) and shrinking back in `FADE_STEPS` steps."""
-    for name, (hit, at) in _lit(scene, t).items():
+    for name, (hit, at) in _latest_hits(scene, t).items():
         drawn = KIT[name]
         step = round(FADE_STEPS * (1 - (t - at) / HIT_S))
         peak = ACCENT_GROW if hit.note == "accent" else HIT_GROW
@@ -351,8 +365,8 @@ def stick_swings(timing: Timeline) -> Swings:
     """For each hand, when it strikes and where, in order; a hit with no hand moves no stick."""
     swings = {}
     for hand in STICKS:
-        hits = [hit for hit in timing.hits if hit.hand == hand and hit.note != "grace"]
-        swings[hand] = ([hit.at / timeline.RATE for hit in hits], [KIT[DRAWN_OF[hit.piece]].strike for hit in hits])
+        hits = [hit for hit in timing.hits if is_stroke(hit) and hit.hand == hand]
+        swings[hand] = ([hit.at / timeline.RATE for hit in hits], [drawn_of(hit.piece).strike for hit in hits])
     return swings
 
 
@@ -383,7 +397,7 @@ def _stick(frame: "PilImage.Image", hand: str, tip: Point) -> None:
 
 def _badges(frame: "PilImage.Image", scene: Scene, t: float) -> None:
     """The hand's coloured badge on a piece a hand hit in the last 0.15 s (its letter is `captions`')."""
-    for name, (hit, _at) in _lit(scene, t).items():
+    for name, (hit, _at) in _latest_hits(scene, t).items():
         if hit.hand in STICKS:
             paste(frame, _dot_sprite(BADGE_R, (*_rgb(STICKS[hit.hand].color), 255)), KIT[name].badge_at)
 
@@ -403,6 +417,7 @@ def _dots(frame: "PilImage.Image", scene: Scene, t: float) -> None:
     playing = bisect_right(scene.beat_times, t) - 1
     number = scene.timing.beats[playing].number if playing >= 0 and scene.beat_times[playing] >= bar.start else 0
     for index in range(bar.dots):
+        # Beat n lights dot n; a fifth or later beat keeps the last (fourth) dot lit. Beat 0 (before the bar's first) lights none.
         lit = index == min(number, MAX_DOTS) - 1
         paste(frame, _dot_sprite(DOT_R, (255, 255, 255, 255 if lit else DOT_DIM)), dot_center(index, bar.dots))
 

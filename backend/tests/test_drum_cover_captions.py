@@ -11,8 +11,7 @@ from backend.drum_cover import captions, frames
 from backend.paths import ProjectPaths
 from backend.video_gen import captions as lesson_captions
 
-from .fakes import drum_lesson
-from .test_drum_cover_frames import timing_of
+from .fakes import drum_lesson, timing_of
 
 
 @pytest.fixture

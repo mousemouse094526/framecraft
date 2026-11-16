@@ -9,23 +9,11 @@ from PIL import Image
 
 from backend.drum_cover import frames
 from backend.video_gen import frames as lesson_frames
-from backend.video_gen import timeline
-from backend.video_gen.timeline import Beat, Span
+from .fakes import END_S, drum_lesson, timing_of
 
-from .fakes import drum_lesson
-
-END_S = 4.0  # the stretch; the clip runs 1.5 s more
 SNARE = frames.KIT["snare"]
 SNARE_FILL = (0x60, 0xA5, 0xFA)  # the sketch's snare colour, written out so a changed table shows here
 PINK = (0xFF, 0x4F, 0xD8)  # the sketch's right stick
-
-
-def timing_of(*hits: tuple[float, str, str | None, str], beats: list[tuple[float, int]] | None = None):
-    """A reel's timeline from `(t, piece, hand, note)`: a 4 s stretch with a beat every 0.5 s, bars of 4, unless given."""
-    beats = beats if beats is not None else [(n / 2, n % 4 + 1) for n in range(8)]
-    sounds = [(t, piece, hand, "mid", note) for t, piece, hand, note in hits]
-    spans = [Span(0, timeline.to_sample(END_S))]
-    return timeline.assemble(sounds, [Beat(timeline.to_sample(t), n) for t, n in beats], spans, END_S + timeline.TAIL_S)
 
 
 def scene_of(timing) -> frames.Scene:
@@ -98,6 +86,7 @@ def test_a_lane_for_each_piece_played_in_kit_order_with_the_snare_s_head_on_the_
     playing = picture(scene, 1.0)
 
     beside_playhead = 330 + 12  # off the white playhead itself
+    assert near(playing.getpixel((beside_playhead, 1306 + 12)), (0xFA, 0xCC, 0x15), 40)  # on the hi-hat X's diagonal
     assert playing.getpixel((beside_playhead, 1390)) == SNARE_FILL
     assert picture(scene, 0.5).getpixel((beside_playhead, 1474)) == (0xF8, 0x71, 0x71)
     assert picture(scene, 0.5).getpixel((beside_playhead, 1390)) != SNARE_FILL
@@ -111,7 +100,9 @@ def test_the_lanes_hold_still_in_the_tail_so_only_a_piece_still_lit_changes():
     # 0.1 s after the kick only the kick's piece and its glowing note head may differ from later on.
     kick = frames.KIT["kick"]
     kick_box = around(kick.center, kick.r * frames.ACCENT_GROW + frames.HIT_OUTLINE)
-    head_box = around((330 - 0.05 * scene.px_per_s, 1306 + 84), 84)  # one row: KICK under SNARE
+    # Two rows of 84 px centred in y 1180–1600: SNARE y 1306–1390, KICK y 1390–1474; the box
+    # around their boundary holds the kick's whole note head, glow and all.
+    head_box = around((330 - 0.05 * scene.px_per_s, 1390), 84)
     assert blacked_out(lit, kick_box, head_box) == blacked_out(later, kick_box, head_box)
 
 

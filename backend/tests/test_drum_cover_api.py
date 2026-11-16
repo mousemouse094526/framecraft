@@ -33,6 +33,7 @@ SNARE = reel_frames.KIT["snare"]
 SNARE_FILL = (0x60, 0xA5, 0xFA)  # the sketch's snare, filled in full (D27)
 # Bars 2.0 s long from 10.0; the picked range 10–16.
 DOWNBEATS = (10.0, 12.0, 14.0, 16.0)
+CLIP_S = 6.0 + 1.5  # the picked range 10–16, then the clip's tail
 
 
 class FakePiped:
@@ -235,7 +236,7 @@ def test_listen_mixes_the_drums_of_the_stretch_as_long_as_it_and_the_tail(client
 
     assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
     sound = wav_of(response)
-    assert len(sound) / 44_100 == pytest.approx(7.5, abs=0.05)
+    assert len(sound) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
     assert np.abs(sound[: 44_100 - 100]).max() == 0  # the snare comes at 1.0 s
     assert np.abs(sound[44_100 : 44_100 + 4410]).max() > 0
 
@@ -245,7 +246,7 @@ def test_listen_at_full_drum_volume_is_the_mixer_s_wav_and_at_half_is_six_db_dow
     with songs.lock:
         song = songs.read_under_lock(project, song_id)
     # The cover's defaults: the whole picked range 10–16, drums alone.
-    fields = cover.CoverFields(start_s=10.0, end_s=16.0, title="Teen Spirit", subtitle="", caption="", background="color", backing=cover.Backing(on=False, volume=35))
+    fields = cover.CoverFields(start_s=10.0, end_s=16.0, title="Teen Spirit", subtitle="", caption="", background="color", backing=cover.Backing(on=False, volume=35), drums=cover.Drums(on=True, volume=100))
     mixed = mixer.mix(project, reel_timeline.build(song.analysis, fields))
 
     full = client.post(f"{SONGS}/{song_id}/cover/listen", json={})
@@ -253,7 +254,7 @@ def test_listen_at_full_drum_volume_is_the_mixer_s_wav_and_at_half_is_six_db_dow
 
     assert put_cover(client, song_id, drums={"on": True, "volume": 50}).status_code == 200
     half = listened(client, song_id)
-    assert len(half) / 44_100 == pytest.approx(7.5, abs=0.05)
+    assert len(half) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
     peaks = [np.abs(sound.astype(np.int32)).max() for sound in (wav_of(full), half)]
     assert 20 * np.log10(peaks[1] / peaks[0]) == pytest.approx(-6.0, abs=0.1)  # 50 % is −6.0 dB, not brought back up
 
@@ -268,17 +269,17 @@ def test_drums_off_under_backing_is_the_song_alone_at_its_volume(client, project
     song = np.frombuffer(raw, dtype="<f4").reshape(-1, 2) * 0.6
     expected = np.zeros_like(sound, dtype=np.float32)
     expected[: len(song)] = song[: len(sound)]
-    assert len(sound) / 44_100 == pytest.approx(7.5, abs=0.05)
+    assert len(sound) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
     assert np.abs(sound.astype(np.int32) - np.rint(expected * 32767)).max() <= 1  # no drums, and not pushed up to −1 dBFS
 
 
 def test_listen_with_backing_lays_the_song_under_the_drums_and_never_clips(client, project):
-    song_id = picked(project, hits=[(11.0, "snare", "accent")], audio=song_m4a(40.0, volume=16.0))  # past full scale (lavfi's sine decodes near 0.09): the sum must go over −1 dBFS to be brought down
+    song_id = picked(project, hits=[(11.0, "snare", "accent")], audio=song_m4a(40.0, volume=16.0))  # lavfi's sine decodes near 0.09 of full scale, so 16 times over makes the sum pass −1 dBFS: D24 only ever lowers it
     assert put_cover(client, song_id, backing={"on": True, "volume": 100}).status_code == 200
 
     sound = wav_of(client.post(f"{SONGS}/{song_id}/cover/listen", json={}))
 
-    assert len(sound) / 44_100 == pytest.approx(7.5, abs=0.05)
+    assert len(sound) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
     assert np.abs(sound[: 44_100 - 100]).max() > 1000  # the song plays before the first hit
     peak = np.abs(sound.astype(np.int32)).max()
     assert peak == round(32767 * 10 ** (-1 / 20))  # −1 dBFS: the sum was brought down, not clipped
@@ -322,7 +323,7 @@ def test_a_render_is_a_vertical_h264_aac_mp4_of_the_stretch_with_its_srt_and_jso
     mp4 = folder / f"{job['result']}.mp4"
     info = ffmpeg.input_info(mp4)
     assert "1080x1920" in info and "30 fps" in info and "Video: h264" in info and "Audio: aac" in info
-    assert ffmpeg.probe(mp4).duration_s == pytest.approx(7.5, abs=0.1)
+    assert ffmpeg.probe(mp4).duration_s == pytest.approx(CLIP_S, abs=0.1)
     [listed] = client.get(f"{SONGS}/{song_id}/cover/renders").json()
     assert (listed["start_s"], listed["end_s"], listed["picked_at"], listed["backing"]) == (10.0, 16.0, "2026-11-14T00:00:00Z", {"on": False, "volume": 35})
     assert "Teen Spirit" in client.get(f"{SONGS}/{song_id}/cover/renders/{job['result']}.srt").text
@@ -353,7 +354,7 @@ def test_a_render_with_backing_has_its_picture_and_the_song_under_the_drums(clie
     mp4 = renders_dir(project, song_id) / f"{job['result']}.mp4"
     info = ffmpeg.input_info(mp4)
     assert "Video: h264" in info and "Audio: aac" in info
-    assert ffmpeg.probe(mp4).duration_s == pytest.approx(7.5, abs=0.1)
+    assert ffmpeg.probe(mp4).duration_s == pytest.approx(CLIP_S, abs=0.1)
     sound = np.frombuffer(ffmpeg_out("-i", str(mp4), "-ac", "1", "-ar", "48000", "-t", "0.8", "-f", "s16le", "-"), dtype=np.int16)
     assert np.abs(sound).max() > 100  # before the snare: the song (backing off is silent there)
     [listed] = client.get(f"{SONGS}/{song_id}/cover/renders").json()
@@ -369,7 +370,7 @@ def test_a_render_with_the_drums_off_is_a_whole_mp4_that_says_so_and_an_older_on
     mp4 = renders_dir(project, song_id) / f"{job['result']}.mp4"
     info = ffmpeg.input_info(mp4)
     assert "Video: h264" in info and "Audio: aac" in info
-    assert ffmpeg.probe(mp4).duration_s == pytest.approx(7.5, abs=0.1)
+    assert ffmpeg.probe(mp4).duration_s == pytest.approx(CLIP_S, abs=0.1)
     stored = json.loads((renders_dir(project, song_id) / f"{job['result']}.json").read_text(encoding="utf-8"))
     assert stored["drums"] == {"on": False, "volume": 80}
 

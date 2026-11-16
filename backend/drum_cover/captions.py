@@ -7,7 +7,7 @@ and every place from `frames.Scene`, so the letters never part from what they si
 
 from backend import subtitles
 from backend.drum_cover import frames
-from backend.drum_cover.frames import DRAWN_OF, KIT, LANE_NAMES, LANES_LEFT, LANES_RIGHT, STICKS, Scene
+from backend.drum_cover.frames import DRAWN_OF, KIT, LANE_NAMES, LANES_LEFT, LANES_RIGHT, STICKS, Scene, drawn_of, is_stroke
 from backend.paths import ProjectPaths
 from backend.subtitles import BLACK, WHITE, ass_color, at_most_two, pos, squeeze, style
 from backend.video_gen import captions as lesson_captions
@@ -29,7 +29,7 @@ BAR_WORD = "ห้อง"
 
 def ass_file(project: ProjectPaths, lesson: Lesson, timing: Timeline, title_font: TitleFont = lesson_captions.kanit_bold) -> str:
     """Every line of text of the reel at the sketch's places."""
-    scene = Scene(lesson, timing, None)  # its places only: no picture is drawn
+    scene = Scene(lesson, timing, None)  # its places only: `Scene.still` is drawn lazily, so no background is read
     styles = [
         style("Heading", TITLE_SIZE, BLACK, WHITE, border=lesson_captions.BOX_PAD, boxed=True),
         style("Line", SUBTITLE_SIZE, WHITE, BLACK, border=2),
@@ -56,7 +56,7 @@ def ass_file(project: ProjectPaths, lesson: Lesson, timing: Timeline, title_font
         events.append(subtitles.event("Pedal" if name == "hihat_pedal" else "Label", 0.0, end, "\\an5" + pos(drawn.label_at), [drawn.label]))
     for piece in scene.lanes.pieces:
         at = (frames.NAMES_LEFT, round(scene.lanes.y_of(piece)))
-        events.append(subtitles.event("Lane", 0.0, end, f"\\an4{pos(at)}\\1c{ass_color(KIT[DRAWN_OF[piece]].color)}", [lane_name(piece)]))
+        events.append(subtitles.event("Lane", 0.0, end, f"\\an4{pos(at)}\\1c{ass_color(drawn_of(piece).color)}", [lane_name(piece)]))
     events += _bars(scene)
     events += _note_letters(scene)
     events += _badges(scene)
@@ -65,7 +65,7 @@ def ass_file(project: ProjectPaths, lesson: Lesson, timing: Timeline, title_font
 
 
 def lane_name(piece: str) -> str:
-    return LANE_NAMES.get(piece, KIT[DRAWN_OF[piece]].label)
+    return LANE_NAMES.get(piece, drawn_of(piece).label)
 
 
 def _bars(scene: Scene) -> list[str]:
@@ -85,7 +85,7 @@ def _note_letters(scene: Scene) -> list[str]:
     """The hand's L or R in its colour on each note head a hand plays, sliding with it."""
     events = []
     for hit, at in zip(scene.hits, scene.times, strict=True):
-        if hit.hand in STICKS and hit.note != "grace":
+        if is_stroke(hit):
             tags = f"\\an5\\1c{ass_color(STICKS[hit.hand].color)}"
             events += _sliding(scene, "NoteLetter", at, round(scene.lanes.y_of(hit.piece)), tags, hit.hand)
     return events
@@ -116,7 +116,7 @@ def _badges(scene: Scene) -> list[str]:
         name = DRAWN_OF[hit.piece]
         if hit.hand in STICKS:
             until = min(at + frames.HIT_S, next_on.get(name, at + frames.HIT_S))
-            if until > at:  # a hit on the same sample shows the last one's letter, as the picture does
+            if until > at:  # empty when the next hit of this piece is on the same sample: only the last one's letter shows, as in the picture
                 events.append(subtitles.event("Badge", at, until, "\\an5" + pos(KIT[name].badge_at), [hit.hand]))
         next_on[name] = at
     return events[::-1]

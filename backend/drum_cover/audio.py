@@ -26,6 +26,7 @@ from backend.video_gen.timeline import Timeline
 
 MIX_FAILED = "ผสมเสียงเพลงต้นฉบับไม่สำเร็จ"
 CaptureRunner = Callable[[list[str], threading.Event], bytes]
+INT16_MAX = 32767  # full scale of a 16-bit sample, both ways
 
 
 def reel_wav(project: ProjectPaths, audio: Path, fields: CoverFields, timing: Timeline, cancel: threading.Event,
@@ -45,7 +46,7 @@ def reel_wav(project: ProjectPaths, audio: Path, fields: CoverFields, timing: Ti
     if mixed_drums is not None:
         # Read as the mixer's 16-bit values over 32767, so a volume of 100 rounds back to them exactly.
         drum_pcm, _ = soundfile.read(io.BytesIO(mixed_drums), dtype="int16")
-        mixed += drum_pcm.astype(np.float32) * (drums.volume / 100 / 32767)
+        mixed += drum_pcm.astype(np.float32) * (drums.volume / 100 / INT16_MAX)
     if backing.on:
         song = np.frombuffer(run_capture(_decode_command(audio, fields), cancel), dtype="<f4").reshape(-1, mixer.CHANNELS)
         length = min(len(song), len(mixed))
@@ -54,9 +55,9 @@ def reel_wav(project: ProjectPaths, audio: Path, fields: CoverFields, timing: Ti
     ceiling = 10 ** (mixer.PEAK_DBFS / 20)
     if peak > ceiling:
         mixed *= ceiling / peak
-    out = np.clip(np.rint(mixed * 32767), -32768, 32767).astype(np.int16)
+    pcm = np.clip(np.rint(mixed * INT16_MAX), -32768, INT16_MAX).astype(np.int16)
     buffer = io.BytesIO()
-    soundfile.write(buffer, out, timeline.RATE, subtype="PCM_16", format="WAV")
+    soundfile.write(buffer, pcm, timeline.RATE, subtype="PCM_16", format="WAV")
     return buffer.getvalue()
 
 
