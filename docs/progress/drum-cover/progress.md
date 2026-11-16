@@ -1,6 +1,6 @@
 # Progress: drum-cover
 
-**Now:** ready to merge — ticket 4/4, feature review, Blocked 2 เจ้าของยืนยันแล้ว
+**Now:** ticket 01–04 done; [PR #17](https://github.com/mousemouse094526/framecraft/pull/17) merge เข้า `develop` แล้ว (`4d471f8`) — ครั้งที่ 2 (ความดังกลองแยก + ภาพกลองที่อ่านออก). เหลือข้อเล็กของเจ้าของ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ขวา
 
 **Next:**
 
