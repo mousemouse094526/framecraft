@@ -43,7 +43,7 @@ backend/
 │                    `checked_text` (a trimmed text field within its length)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
+│                    `drum_kit_row`, `drums`, `kalimba`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`, `cancel` —
 │                    `cancel_refusal`/`nothing_to_cancel` say how a cancel with no job is refused —
 │                    and `stop_on_shutdown`), ModelJobSlot (a job whose model runs in a child:
@@ -250,8 +250,12 @@ backend/
 │                    17 C-major tines, pure numbers; imports only `drum_notes.songs`, so
 │                    `drum_cover.cover` counts with it), timeline (`KalimbaTimeline`: notes at their
 │                    samples on their tines, beats by `drum_cover.timeline.numbered_beats`, ADR 0041),
-│                    sound (the synthesised tine, `note`, and `mix` to the mixer's wav); imports
-│                    drum_cover, which imports it only in `cover` (arrange) and `render` (ADR 0058)
+│                    sound (the synthesised tine, `note`, and `mix` to the mixer's wav), frames
+│                    (falling notes and the lit tine, sketch's `TINES`) and captions (the tines'
+│                    numbers; the title and "ห้อง n" are `drum_cover.captions`' `text_events`,
+│                    `bar_counter_events`); imports drum_cover, which imports it only in `cover`
+│                    (arrange) and `render` (`INSTRUMENTS`: each one's timeline, sound, text,
+│                    picture and gate rows, ADR 0058)
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK

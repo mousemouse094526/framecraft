@@ -104,6 +104,8 @@ function resultOf(change: Partial<CoverRenderResult> = {}): CoverRenderResult {
     picked_at: analysis.picked_at,
     drums: { on: true, volume: 100 },
     backing: { on: false, volume: 35 },
+    instrument: "drums",
+    kalimba: { on: true, volume: 100 },
     created_at: "2026-11-15T10:30:00+07:00",
     size_bytes: 1000,
     ...change,
@@ -521,7 +523,7 @@ describe("หน้า reel คาลิมบา", () => {
     expect(button("render reel")).toBeDisabled();
   });
 
-  it("ฟัง saves first then plays the kalimba's mix; render reel waits for the kalimba's render (e2e)", async () => {
+  it("ฟัง saves first then plays the kalimba's mix (e2e)", async () => {
     const user = open(COVER_HASH, [
       get(COVER_PATH, coverOf(arranged)),
       send("PUT", COVER_PATH, coverOf({ ...arranged, instrument: "kalimba" }), 200),
@@ -529,11 +531,65 @@ describe("หน้า reel คาลิมบา", () => {
     ]);
 
     await user.click(await within(await screen.findByRole("radiogroup", { name: "เครื่องดนตรี" })).findByRole("radio", { name: "คาลิมบา" }));
-    expect(button("render reel")).toBeDisabled();
     await user.click(button("ฟัง"));
 
     await waitFor(() => expect(sent(fetchMock, "POST", LISTEN_PATH)).toEqual([{}]));
     expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { instrument: "kalimba" })]);
     expect(await screen.findByRole("button", { name: "ฟัง" })).toBeEnabled();
+  });
+  it("render reel on คาลิมบา saves first, shows its percent, and the new render is chosen with its คาลิมบา badge (e2e)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const job = phased(RENDER_PATH, null, jobOf({ percent: 40 }), jobOf({ state: "done", percent: 100, result: "20261116-110000" }));
+    const user = open(COVER_HASH, [
+      job.route,
+      get(COVER_PATH, coverOf(arranged)),
+      send("PUT", COVER_PATH, coverOf({ ...arranged, instrument: "kalimba" }), 200),
+      get(RENDERS_PATH, [resultOf()]),
+      get(RENDERS_PATH, [resultOf({ name: "20261116-110000", instrument: "kalimba" }), resultOf()]),
+      { method: "POST", path: START_PATH, reply: () => ((job.phases.at = 1), jsonResponse(jobOf(), 202)) },
+    ]);
+
+    await user.click(await within(await screen.findByRole("radiogroup", { name: "เครื่องดนตรี" })).findByRole("radio", { name: "คาลิมบา" }));
+    expect(button("render reel")).toBeEnabled();
+    await user.click(button("render reel"));
+
+    await waitFor(() => expect(sent(fetchMock, "POST", START_PATH)).toEqual([{}]));
+    expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { instrument: "kalimba" })]);
+    const running = await screen.findByRole("group", { name: "งาน render" });
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    expect(running).toHaveTextContent("40%");
+    job.phases.at = 2;
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    const rows = within(await screen.findByRole("list", { name: "ผล render ทั้งหมด" })).getAllByRole("listitem");
+    expect(rows[0]).toHaveAttribute("aria-current", "true");
+    expect(rows[0]).toHaveTextContent("คาลิมบา");
+    expect(rows[1]).not.toHaveTextContent("คาลิมบา");
+    expect(screen.getByLabelText("ผล render 20261116-110000")).toBeInTheDocument();
+  });
+
+  it("a kalimba render's row says when the kalimba was off or not at full volume (e2e)", async () => {
+    open(COVER_HASH, [
+      get(RENDERS_PATH, [
+        resultOf({ name: "20261116-120000", instrument: "kalimba", kalimba: { on: false, volume: 100 }, backing: { on: true, volume: 35 } }),
+        resultOf({ name: "20261116-110000", instrument: "kalimba", kalimba: { on: true, volume: 60 } }),
+      ]),
+    ]);
+
+    const rows = within(await screen.findByRole("list", { name: "ผล render ทั้งหมด" })).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("ไม่มีเสียงคาลิมบา");
+    expect(rows[1]).toHaveTextContent("คาลิมบา 60%");
+    expect(rows[1]).not.toHaveTextContent("กลอง");
+  });
+
+  it("a render refused for no notes says the backend's message (e2e)", async () => {
+    const user = open(COVER_HASH, [
+      get(COVER_PATH, coverOf({ ...arranged, instrument: "kalimba" })),
+      { method: "POST", path: START_PATH, reply: () => jsonResponse({ code: "no_notes", message: "ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง" }, 409) },
+    ]);
+
+    await user.click(await screen.findByRole("button", { name: "render reel" }));
+
+    expect(await screen.findByText("ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง")).toBeInTheDocument();
+    expect(screen.getByText("ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง").closest("[role=status]")).not.toBeNull();
   });
 });

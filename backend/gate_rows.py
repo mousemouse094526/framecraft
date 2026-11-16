@@ -112,3 +112,9 @@ def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:
 def drums(project: ProjectPaths) -> dict[str, Row]:
     """What a drum lesson's Render job needs: the samples, Kanit, ffmpeg and pythainlp (video-gen D11, D22)."""
     return drum_kit_row(project) | _kanit(project) | FFMPEG | PYTHAINLP
+
+
+def kalimba(project: ProjectPaths) -> dict[str, Row]:
+    """What a kalimba reel's Render job needs: Kanit, ffmpeg and pythainlp; its sound is made in
+    the app, so no samples (kalimba-cover D9)."""
+    return _kanit(project) | FFMPEG | PYTHAINLP

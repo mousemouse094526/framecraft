@@ -260,6 +260,21 @@
 
 **From:** build ticket 02 · **Status:** active
 
+## D17: ทางเลือกเล็กของ ticket 03
+
+**Chosen:** bundle ของทางเลือกเล็กตอน build ticket 03 ที่ไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Details:**
+- **ลำดับตรวจของ render ใช้กับกลองด้วย:** `start` อ่าน `cover.used` (400) และ `require_notes` ก่อน gate ทุกเครื่องดนตรีตาม spec › Render job ข้อ 2–4; ก่อนนี้ reel กลองตรวจแถว Status ก่อน cover ที่แก้มือจนเงียบ — ตอนนี้ได้ `400` ก่อน `503`
+- **`render.INSTRUMENTS`:** ของแต่ละเครื่องดนตรี (timeline, เสียง, ASS, `Scene`/`frame_at`, แถวของ render และของฟัง) อยู่ใน map เดียว แทนการแยก `if instrument == "kalimba"` ใน render/listen — ตามข้อ review ของ ticket 02
+- **คำบรรยายของ reel คาลิมบา:** `text_events` เพิ่ม `with_caption=True` (ค่าเดิมของกลอง); คาลิมบาส่ง `False` แล้ววางคำบรรยายเองบรรทัดเดียว 34 px ที่ (540, 455) บีบไม่เกิน 760 px ตาม sketch; `text_styles(caption_size)` และ `bar_style()` ใช้ร่วม
+- **เลขห้องบนเส้นห้อง:** ASS 22 px ชิดขวาที่ x 1016 เหนือเส้น (`\an3`) ตกลงด้วย `\move` ตัดด้วย `\clip` ที่คอลัมน์ y 520–1330 หยุดนิ่งในหาง — แบบ `_sliding` ของ reel กลองแนวตั้ง
+- **คีย์ที่เล่น:** ขยายแค่ความกว้าง ความยาวเท่าเดิม; สีจางกลับเป็นเหล็กพร้อมหดใน `FADE_STEPS` ขั้น (D7 "จางใน 0.15 วิ") เฟรมแรกเต็มสี; จุดอ็อกเทฟวาดทับอีกครั้งให้ไม่หายตอนคีย์สว่าง; แสงเรืองของโน้ตที่แตะเส้น = ขาว alpha 90 กว้างกว่าโน้ต 6 px
+- **ป้ายแถวผล render:** คาลิมบามีป้ายเสมอ ("คาลิมบา", "คาลิมบา {v}%", "ไม่มีเสียงคาลิมบา"); กลองที่ 100 % ไม่มีป้ายเหมือนเดิม — `soundLabel` ตัวเดียวแทน `drumsLabel`
+- **ภาพสามเฟรมให้เจ้าของ:** แกะสำเนาของ Yellow 0–30 วิใน project ชั่วคราว (ไม่แตะ `song.json` ของเจ้าของที่ `notes` ยัง `null`) แล้ว render ด้วยโค้ดจริง
+
+**From:** build ticket 03 · **Status:** active
+
 ## Sources
 
 - [VCSL — Versilian Community Sample Library (CC0)](https://github.com/sgossner/VCSL) — ชุด CC0 ที่มี "Kalimba, Tanzania" 27 ไฟล์ (accessed 2026-11-16)

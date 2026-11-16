@@ -5,9 +5,10 @@ starts, so a `PUT` while it runs reaches the next render only (video-gen D33). T
 (`audio.reel_wav`), the reel's own text (`captions`) and every frame (`frames`, ADR 0054, sent to
 ffmpeg through stdin with video-gen's own command) make `songs/{song_id}/renders/{name}.mp4`, `.srt` and `.json`.
 
-ฟัง (`listen`) lives here too: it plays the chosen instrument's sound, and ADR 0058 lets only this
-module and `cover` of `drum_cover` import an instrument's package. A kalimba reel isn't rendered
-yet (kalimba-cover D16): `start` refuses it until its picture is drawn.
+A kalimba reel goes the same way with the kalimba's own timeline, sound, text and picture
+(kalimba-cover spec › Render job, D8): `INSTRUMENTS` holds each instrument's, and ADR 0058 lets
+only this module and `cover` of `drum_cover` import an instrument's package. ฟัง (`listen`) lives
+here too, so it plays the chosen instrument as a render does.
 """
 
 import logging
@@ -15,8 +16,9 @@ import os
 import shutil
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, Field
 
@@ -24,12 +26,14 @@ from backend import disk, ffmpeg, gate_rows, paths, renders, subtitles
 from backend.checks import now_iso
 from backend.drum_cover import audio, captions, cover, frames
 from backend.drum_cover import timeline as reel_timeline
-from backend.drum_cover.cover import Backing, CoverFields, Drums
+from backend.drum_cover.cover import Backing, CoverFields, Drums, Instrument, Kalimba
 from backend.drum_notes import songs
-from backend.drum_notes.songs import Song
-from backend.errors import ApiError, JobFailed, require_rows
+from backend.drum_notes.songs import Analysis, Song
+from backend.errors import ApiError, JobFailed, Row, require_rows
 from backend.ffmpeg import FfmpegFailed, PipedRunner
 from backend.jobs import Cancelled, JobSlot, short
+from backend.kalimba_cover import captions as kalimba_captions
+from backend.kalimba_cover import frames as kalimba_frames
 from backend.kalimba_cover import sound
 from backend.kalimba_cover import timeline as kalimba_timeline
 from backend.paths import ProjectPaths
@@ -46,7 +50,41 @@ ErrorCode = Literal["ffmpeg_failed", "internal"]
 NOT_RUNNING = "ไม่มีงาน render reel ที่ยังไม่จบ"
 RENDERS = "renders"
 MIX_FAILED = "ผสมเสียงเพลงต้นฉบับไม่สำเร็จ"
-NO_KALIMBA_RENDER = "render reel คาลิมบายังไม่พร้อม"
+
+
+class InstrumentReel(NamedTuple):
+    """How one instrument's reel is made, render and ฟัง alike (kalimba-cover D8): its timeline from the analysis
+    and the cover, its wav from that timeline, its ASS text and picture (`Scene`, `frame_at`) from
+    the timeline and the reel's lesson, and the Status check rows its render and its ฟัง need."""
+
+    timeline: Callable[[Analysis, CoverFields], Any]
+    mix: Callable[[ProjectPaths, Any], bytes]
+    ass_file: Callable[..., str]
+    scene: Callable[..., Any]
+    frame_at: Callable[[Any, float], bytes]
+    render_rows: Callable[[ProjectPaths], dict[str, Row]]
+    listen_rows: Callable[[ProjectPaths], dict[str, Row]]
+
+
+def _no_rows(_project: ProjectPaths) -> dict[str, Row]:
+    """The kalimba's ฟัง: its sound is the app's own, so no Status check row (kalimba-cover D9)."""
+    return {}
+
+
+INSTRUMENTS: dict[Instrument, InstrumentReel] = {
+    "drums": InstrumentReel(
+        reel_timeline.build, mixer.mix, captions.ass_file, frames.Scene, frames.frame_at, gate_rows.drums, gate_rows.drum_kit_row
+    ),
+    "kalimba": InstrumentReel(
+        kalimba_timeline.build,
+        lambda _project, timing: sound.mix(timing),
+        kalimba_captions.ass_file,
+        kalimba_frames.Scene,
+        kalimba_frames.frame_at,
+        gate_rows.kalimba,
+        _no_rows,
+    ),
+}
 
 
 class CoverRenderJob(BaseModel):
@@ -74,6 +112,8 @@ class CoverRenderResult(BaseModel):
     picked_at: str
     drums: Drums = Field(default_factory=Drums)
     backing: Backing
+    instrument: Instrument = "drums"  # a render made before the kalimba was the drums'
+    kalimba: Kalimba = Field(default_factory=Kalimba)
     created_at: str
     size_bytes: int
 
@@ -102,17 +142,17 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
         project = paths.project()
         with songs.lock:
             song = songs.read_under_lock(project, song_id)
-            cover.require_analysis(song)
-            if cover.used(project, song, check_sound=False).instrument == "kalimba":
-                raise ApiError(409, "not_ready", NO_KALIMBA_RENDER)
-        require_rows(gate_rows.drums(project))
+            fields = cover.used(project, song)  # 400 before any row, the drums' too (kalimba-cover D17)
+            cover.require_notes(song, fields)
+        require_rows(INSTRUMENTS[fields.instrument].render_rows(project))
         with self._lock:
             running = self.running()
             if running is not None:
                 raise ApiError(409, "busy", f"กำลัง render {running.title} อยู่", song_id=running.song_id)
             with songs.lock:
-                song = songs.read_under_lock(project, song_id)
+                song = songs.read_under_lock(project, song_id)  # again: a `PUT` may have changed it since the checks above
                 fields = cover.used(project, song)
+                cover.require_notes(song, fields)
                 length_s = fields.end_s - fields.start_s + timeline.TAIL_S
                 disk.require_free(project.root, round(length_s * drum_render.BYTES_PER_SECOND))
                 _copy_in(project, song, fields)
@@ -147,28 +187,30 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
             log.info("reel render of %s ended %s after %.1f s", song_id, ending["state"], time.monotonic() - started)
 
     def _render(self, project: ProjectPaths, song_id: str) -> str:
-        """Spec › Render job steps 7–9, from the copies in `.render/`."""
+        """Spec › Render job steps 7–9 (kalimba-cover spec › Render job step 7), from the copies
+        in `.render/`: the chosen instrument's timeline makes the sound, the text and every frame."""
         work = project.songs_render_dir
         song = Song.model_validate_json((work / songs.SONG_FILE).read_bytes())
         fields = CoverFields.model_validate_json((work / cover.COVER_FILE).read_bytes())
         analysis = cover.require_analysis(song)
-        timing = reel_timeline.build(analysis, fields)
+        reel = INSTRUMENTS[fields.instrument]
+        timing = reel.timeline(analysis, fields)
         song_audio = songs.checked_dir(project, song_id) / songs.AUDIO_FILE  # `song_busy` keeps it there
-        drums = mixer.mix(project, timing) if fields.drums.on else None
-        (work / drum_render.AUDIO).write_bytes(audio.reel_wav(song_audio, fields, drums, timing.samples, self._cancel))
+        instrument_wav = reel.mix(project, timing) if fields.instrument_sound().on else None
+        (work / drum_render.AUDIO).write_bytes(audio.reel_wav(song_audio, fields, instrument_wav, timing.samples, self._cancel))
         lesson = reel_timeline.lesson(analysis, fields)
-        (work / drum_render.TEXT).write_text(captions.ass_file(project, lesson, timing, self._title_font), encoding="utf-8")
+        (work / drum_render.TEXT).write_text(reel.ass_file(project, lesson, timing, self._title_font), encoding="utf-8")
         background = work / cover.BACKGROUND if fields.background == "image" else None
         if background is not None and not background.is_file():
             background = None  # a cover saved as `image` whose picture went: the app's colours
-        scene = frames.Scene(lesson, timing, background)
+        scene = reel.scene(lesson, timing, background)
         total = scene.frames()
         folder = _renders_dir(project, song_id)
         folder.mkdir(parents=True, exist_ok=True)
         render = renders.next_free(folder)
         # video-gen's own command, unchanged (D17): the backing is already in `audio.wav`.
         command = drum_render._command(os.path.relpath(project.kanit_dir, work), str(render.file(".mp4.partial")))
-        drawn = (frames.frame_at(scene, n / frames.FPS) for n in range(total))
+        drawn = (reel.frame_at(scene, n / frames.FPS) for n in range(total))
         self._run_piped(command, work, self._cancel, drawn, lambda sent: self.update(percent=min(99, sent * 100 // total)))
         info = {
             "song_id": song_id,
@@ -179,6 +221,8 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
             "picked_at": analysis.picked_at,
             "drums": fields.drums.model_dump(),
             "backing": fields.backing.model_dump(),
+            "instrument": fields.instrument,
+            "kalimba": fields.kalimba.model_dump(),
             "created_at": now_iso(),
         }
         render.finish(srt_file(fields, timing.length_s), info)
@@ -255,12 +299,9 @@ songs.song_jobs.append(lambda: render_jobs.song_use())
 def instrument_wav(project: ProjectPaths, song: Song, fields: CoverFields) -> tuple[bytes | None, int]:
     """The chosen instrument's wav from its own timeline (None while its sound is off), and the
     clip's length in samples."""
-    analysis = cover.require_analysis(song)
-    if fields.instrument == "kalimba":
-        notes = kalimba_timeline.build(analysis, fields)
-        return (sound.mix(notes) if fields.kalimba.on else None), notes.samples
-    hits = reel_timeline.build(analysis, fields)
-    return (mixer.mix(project, hits) if fields.drums.on else None), hits.samples
+    reel = INSTRUMENTS[fields.instrument]
+    timing = reel.timeline(cover.require_analysis(song), fields)
+    return (reel.mix(project, timing) if fields.instrument_sound().on else None), timing.samples
 
 
 def listen(project: ProjectPaths, song_id: str) -> bytes:
@@ -272,8 +313,7 @@ def listen(project: ProjectPaths, song_id: str) -> bytes:
         song = songs.read_under_lock(project, song_id)
         fields = cover.used(project, song)
         cover.require_notes(song, fields)
-    drum_rows = gate_rows.drum_kit_row(project) if fields.instrument == "drums" else {}
-    require_rows(drum_rows | (gate_rows.FFMPEG if fields.backing.on else {}))
+    require_rows(INSTRUMENTS[fields.instrument].listen_rows(project) | (gate_rows.FFMPEG if fields.backing.on else {}))
     wav, samples = instrument_wav(project, song, fields)
     song_audio = songs.checked_dir(project, song_id) / songs.AUDIO_FILE
     try:

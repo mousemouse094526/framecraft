@@ -99,6 +99,9 @@ export type CoverRenderResult = {
   picked_at: string;
   drums: Sound;
   backing: Sound;
+  /** The instrument it plays and the kalimba's sound; a render made before the kalimba reads as the drums' (kalimba-cover D9). */
+  instrument: Instrument;
+  kalimba: Sound;
   created_at: string;
   size_bytes: number;
 };
@@ -117,8 +120,14 @@ export const silentText = (instrument: Instrument) => `เปิดเสีย�
 export const isSilent = (fields: CoverFields) => !soundOf(fields).on && !fields.backing.on;
 /** The drums' volume at first: as the mixer makes them. */
 export const FULL_VOLUME = 100;
-/** A render's drums as its row marks them: nothing at full volume (D24). */
-export const drumsLabel = (drums: Sound) => (!drums.on ? "ไม่มีเสียงกลอง" : drums.volume !== FULL_VOLUME ? `กลอง ${drums.volume}%` : null);
+/** A render's instrument and its sound as its row marks them: the drums at full volume nothing (D24), the kalimba always its name (kalimba-cover D10). */
+export function soundLabel(result: Pick<CoverRenderResult, "instrument" | "drums" | "kalimba">): string | null {
+  const sound = soundOf(result);
+  const name = INSTRUMENT_NAME[result.instrument];
+  if (!sound.on) return `ไม่มีเสียง${name}`;
+  if (sound.volume !== FULL_VOLUME) return `${name} ${sound.volume}%`;
+  return result.instrument === "kalimba" ? name : null;
+}
 /** The one message of a stretch that breaks a rule, the backend's too. */
 export const RANGE_RULE = `ช่วงต้องยาว ${MIN_S}–${MAX_S} วินาที และอยู่ในช่วงแกะ`;
 

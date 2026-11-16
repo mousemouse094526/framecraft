@@ -14,4 +14,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [video-gen](video-gen/progress.md) | false | done | 🎨 3/3 (ui-prompt.md, D38) | ✅ 2b883ca | เจ้าของเช็ค render/เสียงจริง | — |
 | [drum-notes](drum-notes/progress.md) | false | done | 🎨 2/2 (ui-prompt.md, D28) | ✅ e782f02 | Blocked 5: เจ้าของฟังเทียบตาราง intro/kalimba ใน `#/songs` | — |
 | [drum-cover](drum-cover/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D14) | ✅ 4d471f8 | ข้อเล็กถ้าทำต่อ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
-| [kalimba-cover](kalimba-cover/progress.md) | false | building | ⏳ 0/2 (ui-prompt.md, D10) | 2/3 | ticket 03; Blocked 2–3 เจ้าของฟังคาลิมบา | `/warroom-build kalimba-cover 03` |
+| [kalimba-cover](kalimba-cover/progress.md) | false | review | ⏳ 0/2 (ui-prompt.md, D10) | 3/3 | feature review; Blocked 2–3 เจ้าของฟังคาลิมบา, 5 เจ้าของ render จาก MIDI | `/warroom-build kalimba-cover --review-feature` |

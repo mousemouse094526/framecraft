@@ -1,11 +1,11 @@
 # Progress: kalimba-cover
 
-**Now:** 01–02 done; 03 next
+**Now:** 01–03 done; feature review next (Blocked 2, 3, 5 รอเจ้าของฟัง/ดู)
 
 **Next:**
 
 ```
-/warroom-build kalimba-cover 03
+/warroom-build kalimba-cover --review-feature
 ```
 
 ## Tickets
@@ -14,9 +14,31 @@
 |---|---|---|
 | 01 | โน้ตทำนองเข้าเพลง — จากการแกะและจากไฟล์ MIDI | done |
 | 02 | เลือกคาลิมบาบนหน้า reel แล้วฟังทำนองที่จัดลงคาลิมบา | done |
-| 03 | render reel คาลิมบา — โน้ตตกลงบนคีย์ที่สว่างตรงเสียง | ready |
+| 03 | render reel คาลิมบา — โน้ตตกลงบนคีย์ที่สว่างตรงเสียง | done |
 
 ## Log
+
+### 03: render reel คาลิมบา — โน้ตตกลงบนคีย์ที่สว่างตรงเสียง — done 2026-11-16
+
+**Built:**
+- `kalimba_cover.frames`: คอลัมน์ 17 คีย์ โน้ตสีของเลขตกถึงเส้นเล่น (ต่ำสุด 350 px/วิ), คาลิมบาไม้ คีย์เหล็กมีแถบสีที่ปลาย, คีย์ที่เล่นเติมสีเต็ม ขอบขาว กว้างขึ้น 1.15 (accent 1.25) หดกลับใน 0.15 วิ, จุดอ็อกเทฟ, จุดจังหวะของ reel กลอง; `TINES` ตามตารางใน sketch
+- `kalimba_cover.captions`: เลขและตัวอักษรใต้คีย์ 34 event, หัวเรื่อง/บรรทัดรอง/"ห้อง n" จาก `drum_cover.captions`, คำบรรยายบรรทัดเดียวเหนือคอลัมน์, เลขห้องตกตามเส้นห้อง
+- `drum_cover`: `bars_of(beats)`, `bar_at(bars, t)`, `beat_dots(...)`, `text_styles`, `text_events`, `bar_counter_events`, `bar_style` แยกออกมาใช้ร่วม — ASS ของ reel กลองได้บรรทัดเดิมทุกบรรทัด (เทียบกับโค้ดก่อนแยก)
+- `render`: `INSTRUMENTS` (timeline, เสียง, ASS, ภาพ, gate ต่อเครื่องดนตรี); ลำดับตรวจ 404/`no_analysis` → 400 → `no_notes` → 503 → `busy`; `.json` มี `instrument`, `kalimba` (เก่า → `drums`, `{on: true, volume: 100}`); `gate_rows.kalimba` = Kanit + ffmpeg + pythainlp
+- หน้า reel: "render reel" กดได้เมื่อคาลิมบา; ป้ายแถวผล `soundLabel` ("คาลิมบา", "คาลิมบา 60%", "ไม่มีเสียงคาลิมบา")
+- เจ้าของ: 3 เฟรมของ reel คาลิมบา Yellow 0–30 วิ (แกะสำเนาใน project ชั่วคราว ได้ 211 โน้ต จัดแล้ว 89 ย้ายคีย์ −4 ตัด 122 ปรับ 11): [07.1 วิ](frames/yellow-07.1s.jpg) · [12.0 วิ](frames/yellow-12.0s.jpg) · [20.0 วิ](frames/yellow-20.0s.jpg)
+- เป้า D12 render: reel คาลิมบา 30 วิ render จบใน 5.6 วิบน Apple M1 (≤ 60 วิ ผ่าน); แกะ 0–30 วิโหมดกลอง 2.4 วิ
+
+**Decided:**
+- D17 — ลำดับตรวจ render ใช้กับกลองด้วย; `render.INSTRUMENTS`; คำบรรยายคาลิมบาบรรทัดเดียว (`text_events(..., with_caption=False)`); คีย์ที่เล่นจางกลับเป็นเหล็กพร้อมหดใน 0.15 วิ; เลขห้องตกตามเส้น; ป้ายผล render คาลิมบาเสมอ; ภาพเจ้าของจากสำเนา
+
+**For the next ticket:**
+- review: `render.InstrumentReel` พิมพ์ field เป็น `Callable[..., Any]` — ถ้ามีเครื่องดนตรีที่สาม ทำ `Protocol` ของ timeline/scene ให้ type ตรวจได้
+- review: `beat_dots(frame, bars, beat_times, beats, t)` คง signature ตาม spec D14; `Scene` ทั้งสองถือ `bars` + `beat_times` คู่กัน — รวมเป็นวัตถุเดียวถ้าแตะอีก
+- โน้ตคีย์เดียวกันห่าง 0.08 วิที่ 350 px/วิ ชิดกันพอดี 28 px (มุมมนแยกให้เห็น) — ถ้าเจ้าของดูแล้วเหมือนโน้ตเดียว ขึ้นความเร็วต่ำสุดได้ที่ `frames.SLOWEST_PX_PER_S`
+- feature review: ข้อ review ของ ticket 02 ที่ยังไม่ทำ (`transpose`/`dropped`/`bent` เป็นวัตถุเดียว, fixture `project`/`client`/`COVER_KEYS` ซ้ำสองไฟล์ test)
+
+**Checks:** `uv run pytest` 1545 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 622 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 02: เลือกคาลิมบาบนหน้า reel แล้วฟังทำนองที่จัดลงคาลิมบา — done 2026-11-16
 

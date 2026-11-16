@@ -5,7 +5,6 @@ D12, D15, D17, D18, D19, D24, D27; ADR 0050, 0052)."""
 import io
 import json
 import subprocess
-import threading
 from pathlib import Path
 
 import imageio_ffmpeg
@@ -23,9 +22,8 @@ from backend.drum_cover import timeline as reel_timeline
 from backend.drum_notes import songs
 from backend.paths import ProjectPaths
 from backend.video_gen import captions, mixer
-from backend.video_gen import render as drum_render
 
-from .fakes import FINISHED, png, poll_until, restart, song_m4a, written_song
+from .fakes import FINISHED, FakePiped, png, poll_until, restart, song_m4a, written_song
 
 SONGS = "/api/songs"
 RENDER = "/api/covers/render"
@@ -34,29 +32,6 @@ SNARE_FILL = (0x60, 0xA5, 0xFA)  # the sketch's snare, filled in full (D27)
 # Bars 2.0 s long from 10.0; the picked range 10–16.
 DOWNBEATS = (10.0, 12.0, 14.0, 16.0)
 CLIP_S = 6.0 + 1.5  # the picked range 10–16, then the clip's tail
-
-
-class FakePiped:
-    """The job's `run_piped`: the real one, but frame `pause_at` waits for `released` or the
-    cancel, and `audio` keeps each run's `audio.wav`."""
-
-    def __init__(self):
-        self.pause_at: int | None = None
-        self.reached, self.released = threading.Event(), threading.Event()
-        self.audio: list[bytes] = []
-
-    def __call__(self, command, cwd, cancel, drawn, on_frame) -> None:
-        self.audio.append((Path(cwd) / drum_render.AUDIO).read_bytes())
-
-        def paused():
-            for n, frame in enumerate(drawn):
-                if n == self.pause_at:
-                    self.reached.set()
-                    while not (self.released.is_set() or cancel.is_set()):
-                        cancel.wait(0.01)
-                yield frame
-
-        ffmpeg.run_piped(command, cwd, cancel, paused(), on_frame)
 
 
 @pytest.fixture
@@ -395,6 +370,15 @@ def test_a_render_without_the_drum_samples_is_not_ready_and_an_unpicked_song_has
     response = start(client, song_id)
     assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", ["drum_kit"])
     assert start(client, "nosuchsong0").status_code == 404
+
+
+def test_a_hand_edited_silent_cover_is_refused_before_the_missing_drum_samples(client, project):
+    song_id = picked(project)
+    stored_cover(project, song_id, drums={"on": False, "volume": 100})
+    project.drum_kit_marker.unlink()
+
+    response = start(client, song_id)
+    assert (response.status_code, response.json()["field"]) == (400, "drums.on")  # kalimba-cover spec › Render job steps 2, 4
 
 
 def test_a_second_render_is_busy_the_song_can_t_be_deleted_and_a_put_reaches_only_the_next(client, project, piped):

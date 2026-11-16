@@ -1544,3 +1544,47 @@ def timing_of(*hits: tuple[float, str, str | None, str], beats: list[tuple[float
     sounds = [(t, piece, hand, "mid", note) for t, piece, hand, note in hits]
     spans = [timeline.Span(0, timeline.to_sample(END_S))]
     return timeline.assemble(sounds, [timeline.Beat(timeline.to_sample(t), n) for t, n in beats], spans, END_S + timeline.TAIL_S)
+
+
+def kalimba_timing_of(*notes: tuple[float, int, str], beats: list[tuple[float, int]] | None = None) -> "KalimbaTimeline":
+    """A kalimba timeline from `(t, tine, level)`: a 4 s stretch with a beat every 0.5 s, bars of 4, unless given."""
+    from backend.kalimba_cover import arrange
+    from backend.kalimba_cover.timeline import KalimbaNote, KalimbaTimeline
+    from backend.video_gen import timeline
+
+    beats = beats if beats is not None else [(n / 2, n % 4 + 1) for n in range(8)]
+    struck = [KalimbaNote(timeline.to_sample(t), tine, arrange.TINES[tine], level) for t, tine, level in notes]
+    return KalimbaTimeline(
+        notes=tuple(struck),
+        beats=tuple(timeline.Beat(timeline.to_sample(t), number) for t, number in beats),
+        length_s=END_S + timeline.TAIL_S,
+        transpose=0,
+        dropped=0,
+        bent=0,
+    )
+
+
+class FakePiped:
+    """A reel Render job's `run_piped`: the real one, but frame `pause_at` waits for `released` or the
+    cancel, and `audio` keeps each run's `audio.wav`."""
+
+    def __init__(self):
+        self.pause_at: int | None = None
+        self.reached, self.released = threading.Event(), threading.Event()
+        self.audio: list[bytes] = []
+
+    def __call__(self, command, cwd, cancel, drawn, on_frame) -> None:
+        from backend import ffmpeg
+        from backend.video_gen import render
+
+        self.audio.append((Path(cwd) / render.AUDIO).read_bytes())
+
+        def paused():
+            for n, frame in enumerate(drawn):
+                if n == self.pause_at:
+                    self.reached.set()
+                    while not (self.released.is_set() or cancel.is_set()):
+                        cancel.wait(0.01)
+                yield frame
+
+        ffmpeg.run_piped(command, cwd, cancel, paused(), on_frame)

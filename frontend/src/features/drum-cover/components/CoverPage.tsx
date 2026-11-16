@@ -30,7 +30,6 @@ import {
   coverBackgroundUrl,
   coverListenPath,
   downloadName,
-  drumsLabel,
   fieldsOf,
   hitsIn,
   INSTRUMENT_NAME,
@@ -54,6 +53,7 @@ import {
   TITLE_HINT,
   TITLE_MAX,
   transposeWarning,
+  soundLabel,
   soundOf,
   VOLUME_MAX,
   VOLUME_MIN,
@@ -213,8 +213,6 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
   const mixing = listen.state.kind === "mixing";
   const silent = isSilent(fields);
   const canPlay = !fault && !silent && (kalimba ? noNotes === null : hits > 0);
-  // The kalimba's reel renders from ticket 03 on; until then only ฟัง plays it.
-  const canRender = canPlay && !kalimba;
 
   const fieldError = (name: string) => (refused?.field === name ? refused.text : undefined);
   // The found bars the stretch takes in; the saved stretch's while a box is wrong.
@@ -364,7 +362,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
           ) : (
             <button
               type="button"
-              disabled={!canRender || rendering !== null || saving}
+              disabled={!canPlay || rendering !== null || saving}
               onClick={async () => {
                 if (await saveFirst()) await render.start(song.id);
               }}
@@ -398,7 +396,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
                     <span className="flex flex-wrap gap-1.5 text-[13px] text-mid">
                       {formatDuration(Math.round(result.length_s))} · {seconds(result.start_s)}–{seconds(result.end_s)}
                       {result.backing.on && <span className="rounded bg-muted px-1.5 text-xs">มีเพลงต้นฉบับ</span>}
-                      {drumsLabel(result.drums) && <span className="rounded bg-muted px-1.5 text-xs">{drumsLabel(result.drums)}</span>}
+                      <SoundBadge result={result} />
                       {isStale(result, song) && <span className="rounded bg-warning-surface px-1.5 text-xs text-warning">แกะใหม่แล้ว</span>}
                     </span>
                   </button>
@@ -434,6 +432,12 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
 }
 
 type SoundRowProps = { id: string; name: string; sound: Sound; error?: string; onChange: (sound: Sound) => void };
+
+/** A render's instrument and sound, when its row marks them (`soundLabel`). */
+function SoundBadge({ result }: { result: CoverRenderResult }) {
+  const label = soundLabel(result);
+  return label && <span className="rounded bg-muted px-1.5 text-xs">{label}</span>;
+}
 
 /** The chosen instrument's sound: ปิดเสียง{name}, and its volume while it plays (D24, kalimba-cover D9). */
 function SoundRow({ id, name, sound, error, onChange }: SoundRowProps) {
