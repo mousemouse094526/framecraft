@@ -1,8 +1,8 @@
 # Progress: drum-cover
 
-**Now:** ticket ครบ 4/4 และ feature review เสร็จ (`3cf9bfd`); เหลือ Blocked 2 — เจ้าของดูเฟรม reel Yellow ภาพใหม่ใน `docs/features/drum-cover/reel-frames/` แล้วจึง `/pr-open`
+**Now:** ready to merge — ticket 4/4, feature review, Blocked 2 เจ้าของยืนยันแล้ว
 
-**Next:** เจ้าของตอบ Blocked 2 → อ่านออก: `/pr-open`; อ่านไม่ออก: `/warroom drum-cover` (change request)
+**Next:**
 
 ```
 /pr-open
@@ -22,9 +22,15 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01, 02) |
-| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ: ดู `docs/features/drum-cover/reel-frames/yellow-{0.03,2.1,5.53,6.22}s.jpg` (หรือ render reel Yellow ใหม่จากหน้า reel) แล้วตอบว่าอ่านออก/ไม่ออกตรงไหน; ดูด้วยว่าไม้ R (ชมพู) ที่ตีไฮแฮทไขว้ไม้ L ผ่าน SNARE/KICK (`yellow-2.1s.jpg`) อ่านยากไหม — ตาม sketch แต่ D25 นับไม้ไขว้เป็นต้นเหตุเดิม (feature review) | open |
+| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ: ดู `docs/features/drum-cover/reel-frames/yellow-{0.03,2.1,5.53,6.22}s.jpg` (หรือ render reel Yellow ใหม่จากหน้า reel) แล้วตอบว่าอ่านออก/ไม่ออกตรงไหน; ดูด้วยว่าไม้ R (ชมพู) ที่ตีไฮแฮทไขว้ไม้ L ผ่าน SNARE/KICK (`yellow-2.1s.jpg`) อ่านยากไหม — ตาม sketch แต่ D25 นับไม้ไขว้เป็นต้นเหตุเดิม (feature review) | done (เจ้าของ 2026-11-16: อ่านออกครบ; ไม้ไขว้ไม่สับสน) |
 
 ## Log
+
+### Blocked 2 — เจ้าของดูเฟรม — 2026-11-16
+
+- เจ้าของดู `yellow-2.1s`, `yellow-5.53s`: อ่านออกทุกอย่าง — ชื่อชิ้นในวงครบ, ป้ายเลน, L/R ในหัวโน้ต, ป้ายมือบนชิ้นที่ตี; ไม้ชมพูทับไม้ขาวตอนตีไฮแฮทไม่สับสนเพราะป้ายมืออยู่บนชิ้น ไม่ใช่บนไม้ — D27 ข้อเจ้าของผ่าน
+- ข้อเล็ก "ถ้าปรับได้" (ไม่บล็อก, change request ถ้าจะทำ): ป้าย PEDAL ตัวเล็กจมไปหน่อย; สีแฟลชตอนตีที่เป็นชมพูใกล้กับสีไม้ขวา
+
 
 ### Feature review — 2026-11-16
 
