@@ -18,17 +18,19 @@ from PIL import Image, ImageFont
 from backend import ffmpeg, paths, pictures
 from backend.app import app
 from backend.drum_cover import cover, render
+from backend.drum_cover import frames as reel_frames
 from backend.drum_cover import timeline as reel_timeline
 from backend.drum_notes import songs
 from backend.paths import ProjectPaths
-from backend.video_gen import captions, frames, kit, mixer
+from backend.video_gen import captions, mixer
 from backend.video_gen import render as drum_render
 
 from .fakes import FINISHED, png, poll_until, restart, song_m4a, written_song
 
 SONGS = "/api/songs"
 RENDER = "/api/covers/render"
-SNARE = kit.STRIKE["snare"].center
+SNARE = reel_frames.KIT["snare"]
+SNARE_FILL = (0x60, 0xA5, 0xFA)  # the sketch's snare, filled in full (D27)
 # Bars 2.0 s long from 10.0; the picked range 10–16.
 DOWNBEATS = (10.0, 12.0, 14.0, 16.0)
 
@@ -327,7 +329,7 @@ def test_a_render_is_a_vertical_h264_aac_mp4_of_the_stretch_with_its_srt_and_jso
     assert not project.songs_render_dir.exists()
 
 
-def test_the_snare_s_sound_starts_within_a_frame_of_its_red_ring(client, project):
+def test_the_snare_s_sound_starts_within_a_frame_of_it_lighting_up(client, project):
     song_id = picked(project)  # a snare 1.0 s into the stretch
     job = rendered(client, song_id)
     mp4 = renders_dir(project, song_id) / f"{job['result']}.mp4"
@@ -336,10 +338,10 @@ def test_the_snare_s_sound_starts_within_a_frame_of_its_red_ring(client, project
     sound = np.frombuffer(ffmpeg_out("-i", str(mp4), "-ac", "1", "-ar", str(rate), "-f", "s16le", "-"), dtype=np.int16)
     near = np.abs(sound[int(0.9 * rate) : int(1.3 * rate)].astype(np.int32))
     sound_at = (int(0.9 * rate) + int(np.argmax(near > near.max() // 2))) / rate
-    x, y = SNARE[0] - 16, SNARE[1]  # beside the stick's head, whose letter libass draws over the strike point
+    x, y = SNARE.probe  # nothing but the snare there: its label is above, the stick's head below
     pixels = ffmpeg_out("-i", str(mp4), "-vf", f"crop=2:2:{x}:{y}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
-    red = [n for n in range(len(pixels) // 12) if pixels[12 * n] > 180 and pixels[12 * n + 1] < 110 and pixels[12 * n + 2] < 110]
-    assert abs(red[0] / frames.FPS - sound_at) <= 1 / frames.FPS
+    full = [n for n in range(len(pixels) // 12) if all(abs(pixels[12 * n + i] - c) <= 12 for i, c in enumerate(SNARE_FILL))]
+    assert abs(full[0] / reel_frames.FPS - sound_at) <= 1 / reel_frames.FPS
 
 
 def test_a_render_with_backing_has_its_picture_and_the_song_under_the_drums(client, project):

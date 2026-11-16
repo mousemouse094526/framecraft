@@ -1,19 +1,16 @@
-"""A reel cover's timeline and frames from a hand-made analysis (drum-cover seam 2; D3, D4, D5, D19,
+"""A reel cover's timeline from a hand-made analysis (drum-cover seam 2; D3, D4, D5, D19,
 D21; ADR 0051): hits at their real times, the hands from drum-notes' rules, the beats numbered, and
 `timeline.assemble` giving a lesson the same timeline `build` always gave it."""
 
 import pytest
-from PIL import ImageFont
 
 from backend.drum_cover import timeline as reel
 from backend.drum_cover.cover import Backing, CoverFields
 from backend.drum_notes.songs import Analysis, Hit
-from backend.video_gen import captions, frames, kit, timeline
+from backend.video_gen import timeline
 from backend.video_gen.timeline import Span
 
 from .fakes import drum_chapter, drum_lesson, drum_note
-
-SNARE = kit.STRIKE["snare"].center
 
 
 def analysis(hits: list[tuple[float, str, str]] = (), downbeats=(10.0, 12.0, 14.0), beats=None, mode: str = "drums") -> Analysis:
@@ -112,28 +109,6 @@ def test_the_picture_s_lesson_has_the_cover_s_texts_one_bare_chapter_and_the_bea
     assert [(c.label, c.focus, c.repeats, c.speed) for c in drawn.chapters] == [("", [], 1, 100)]
     assert reel.scroll_bpm(analysis(beats=[10.0, 10.4, 10.8, 11.2]), cover()) == 150
     assert reel.scroll_bpm(analysis(beats=[10.0, 20.0]), cover()) == 120  # one beat in the stretch
-
-
-def test_the_frame_at_the_snare_s_time_is_red_at_its_strike_point_and_the_same_every_time():
-    hits = analysis([(11.0, "snare", "normal")])
-    timing = reel.build(hits, cover())
-    scene = frames.Scene(reel.lesson(hits, cover()), timing, None)
-
-    at = frames.frame_at(scene, 1.0)
-    before = frames.frame_at(scene, 0.9)
-    offset = 3 * (SNARE[1] * frames.WIDTH + SNARE[0])
-    assert tuple(at[offset : offset + 3]) == frames.HIT_RED
-    assert tuple(before[offset : offset + 3]) != frames.HIT_RED
-    assert frames.frame_at(scene, 1.0) == at
-
-
-def test_the_text_has_no_zero_length_event_drawn_and_the_title_shows_from_the_start():
-    hits, bare = analysis([(11.0, "snare", "normal")]), cover().model_copy(update={"subtitle": ""})  # no line to cut into words
-    font = lambda _project: ImageFont.load_default(captions.TITLE_SIZE)  # noqa: E731
-    text = captions.ass_file(None, reel.lesson(hits, bare), reel.build(hits, bare), font)
-    headings = [line for line in text.splitlines() if line.startswith("Dialogue:") and ",Heading," in line]
-    assert headings[0].split(",")[1:3] == ["0:00:00.00", "0:00:00.00"]  # begins and ends at 0: libass draws nothing
-    assert headings[1].split(",")[1] == "0:00:00.00" and "Yellow" in headings[1]
 
 
 # --- assemble (the prefactor) ---

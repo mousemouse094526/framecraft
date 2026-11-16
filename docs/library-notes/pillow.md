@@ -18,6 +18,7 @@
 - `im.tobytes()` of an RGB image is raw `rgb24`, row after row: what ffmpeg's `rawvideo` reads — [Image.tobytes](https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.tobytes)
 - `ImageFilter.GaussianBlur(radius)`; `Image.blend(a, b, alpha)`; `Image.linear_gradient("L")` is a 256×256 black-to-white ramp top to bottom, a mask for `Image.composite` — [ImageFilter](https://pillow.readthedocs.io/en/stable/reference/ImageFilter.html), [Image](https://pillow.readthedocs.io/en/stable/reference/Image.html)
 - `ImageFont.truetype(path, size).getlength(text)` is the text's advance in px; `ImageFont.load_default(size)` (FreeType builds) is a scalable font shipped inside Pillow, no file needed — [ImageFont](https://pillow.readthedocs.io/en/stable/reference/ImageFont.html)
+- `font.font_variant(size=…)` is the same FreeType font at another size, to measure text at a second size without loading the file again — [ImageFont.FreeTypeFont.font_variant](https://pillow.readthedocs.io/en/stable/reference/ImageFont.html#PIL.ImageFont.FreeTypeFont.font_variant)
 - Import Pillow inside the function that needs it: the backend must start in under a second — project rule (`fastapi-api`)
 
 ## Pattern

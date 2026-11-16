@@ -177,7 +177,9 @@ backend/
 │                    toon's Voice and Render jobs
 ├── subtitles.py  ← what every render's text shares: the ASS header, a Dialogue line,
 │                    Thai text cut into lines or short chunks and their times, the
-│                    `.srt`; spoil_maker's captions and toon's compose lay them out
+│                    `.srt`, and the ASS helpers both drum renders use (`style`, `pos`,
+│                    `ass_color`, `squeeze`, `at_most_two`); spoil_maker's captions, toon's
+│                    compose and video_gen's and drum_cover's captions lay them out
 ├── renders.py    ← what every render's results folder shares: a `Render` (folder and
 │                    name as one value, `next_free` picks it; its `finish`,
 │                    `require`, `delete`), the complete
@@ -231,7 +233,11 @@ backend/
 │                    under in numpy, ADR 0050), render (the reel's Render job in its own
 │                    `JobSlot`, no GPU, video-gen's own ffmpeg command; registers in
 │                    `songs.song_jobs`), backgrounds (`cover-background.jpg` through
-│                    `pictures`, `song_busy` while its reel renders or its notes are picked);
+│                    `pictures`, `song_busy` while its reel renders or its notes are picked),
+│                    frames and captions (the reel's own picture and ASS file, ADR 0054: the kit
+│                    from above, a lane a piece, the bar counter; from video-gen only the frame
+│                    size, `background_image`, `stick_tip`, the sprite helpers `paste`/`shrunk`/
+│                    `lighter` and `captions.stick_letters`);
 │                    imports drum_notes and video_gen, never the other way
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it

@@ -1,11 +1,11 @@
 # Progress: drum-cover
 
-**Now:** ticket 03 (ความดังกลอง) done; เหลือ ticket 04 (ภาพ reel ใหม่) แล้วเจ้าของดูเฟรม Yellow (Blocked 2)
+**Now:** ticket ครบ 4/4; รอเจ้าของดูเฟรม reel Yellow ภาพใหม่ใน `docs/features/drum-cover/reel-frames/` (Blocked 2) แล้ว feature review
 
 **Next:**
 
 ```
-/warroom-build drum-cover 04
+/warroom-build drum-cover --review-feature
 ```
 
 ## Tickets
@@ -15,16 +15,37 @@
 | 01 | reel cover จากเพลงที่แกะ: ตั้งช่วง ข้อความ เสียง ฟัง render | done |
 | 02 | ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า | done |
 | 03 | ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ | done |
-| 04 | ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน | ready-for-agent |
+| 04 | ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน | done |
 
 ## Blocked
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01, 02) |
-| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ (ดูเฟรมที่ ticket 04 แนบ) | open |
+| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ: ดู `docs/features/drum-cover/reel-frames/yellow-{0.03,2.1,5.53,6.22}s.jpg` (หรือ render reel Yellow ใหม่จากหน้า reel) แล้วตอบว่าอ่านออก/ไม่ออกตรงไหน | open |
 
 ## Log
+
+### 04: ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน — done 2026-11-16
+
+**Built:**
+- prefactor video-gen (ผลเดิม): `frames.background_image`, `frames.stick_tip(times, targets, rest, t)`, `frames.paste`/`shrunk`/`lighter` public; `captions.stick_letters(tips_at, total)`; helper ASS `style`, `pos`, `ass_color`, `squeeze(width, max_px)`, `at_most_two` ย้ายไป `backend/subtitles.py` — `text.ass` และ hash เฟรมของบทเรียนตัวอย่างเท่าเดิมทุกตัวอักษร (เทียบก่อน/หลังด้วยมือ); test เดิมของ video-gen ไม่แก้
+- `drum_cover.frames`: ชุดกลองมุมบน 9 ชิ้นตาม sketch (พัก 30 %, ตีเติมเต็ม ขอบขาว ขยาย 1.12/1.2 แล้วหด, ghost 60 %, HH เปิดมีวงขาว), ไม้ L ขาว R ชมพู ขยับด้วย `stick_tip`, ป้ายมือ, เลนละชิ้นที่เล่น (สูง `min(84, 420/n)` กลางกรอบ, หัวโน้ตตามชนิด, ตัดที่ขอบเลน), จุดจังหวะ, `Scene.still` วาดเมื่อใช้
+- `drum_cover.captions`: หัวเรื่องบีบ ≤ 760 px, บรรทัดรองบีบ ≤ 760 px, คำบรรยาย, ป้ายชิ้นตลอดคลิป, ชื่อเลนสีของชิ้น, "ห้อง n" ต่อ downbeat, เลขห้องเหนือเลน, ตัว L/R ในหัวโน้ตเลื่อนด้วย `\move` + `\clip`, ป้ายมือ, ตัว L/R บนหัวไม้
+- `render` ใช้ภาพและตัวหนังสือของ reel; test เสียงตรงภาพอ่านสีเติมเต็มของ snare ที่จุดวัดสี (`#60A5FA` ± 12) แทนวงแดง
+- tests: `test_drum_cover_frames.py` (7: ตารางชิ้น, สีเติม/พัก + bytes เดียวกัน, สีไม้, เลน 3 แถว + หัวโน้ตที่ x 330, หางเสียงนิ่ง, ห้อง 5 จังหวะ + ห้อง 3 จังหวะ, จังหวะก่อน downbeat), `test_drum_cover_captions.py` (7: ป้ายชิ้น, ชื่อเลน, "ห้อง 1/2", ตัว L/R ของมือเท่านั้น, หัวเรื่องและบรรทัดรองบีบ 760, ป้ายมือถึงการตีถัดไป); ลบ test ภาพเดิมสองตัวใน `test_drum_cover_timeline.py`
+- วัดมือ: reel 30 วินาที (Yellow 11.5–30 ต่อซ้ำ) render 8.9 วินาที; reel Yellow 11.54–30 render 6.3 วินาที (D15 ≤ 60)
+- เฟรมให้เจ้าของดู: `docs/features/drum-cover/reel-frames/yellow-0.03s.jpg` (crash + kick ต้นห้อง 1), `yellow-2.1s.jpg` (snare L + hi-hat R), `yellow-5.53s.jpg` (crash + kick ห้อง 3), `yellow-6.22s.jpg` (snare + hi-hat) — Blocked 2
+- review (subagent): Standards 3 breach + smells, Spec 0 blocking + 4 ข้อ, Newcomer 14 จุดเดา — แก้: helper ASS ไป `subtitles`, ใช้ `paste`/`shrunk`/`lighter` ของ video-gen แทนสำเนา, test แยกตาม module, import ที่ไม่ใช้, `Scene.ahead_s`/`behind_s` ที่เดียว, `_dot_sprite` แทน `_badge`/`_dot`, `bar_starts`, swings ซ้ำ, `__all__`, ชื่อ `note head`/`NoteLetter`, docstring `bars_of`, comment crop/hand loop, test ใช้ค่าคงที่ของ sketch (y 1390/1474, สี) แทนค่าของโค้ด, test ป้ายมือสลับมือ, บรรทัดรอง 760 px, ป้ายมือชนป้าย HI-HAT ย้ายไปขอบขวา
+
+**Decided:** D29
+
+**For the next ticket:**
+- `px_per_s` ใช้ห้อง 4 จังหวะที่ `scroll_bpm` (ค่ากลางของระยะจังหวะ) ไม่ว่าเพลงเป็นกี่จังหวะ (D4 เดิม) — Newcomer สังเกต; feature review ดูว่าต้องเปลี่ยนไหม
+- ชื่อจังหวะ/มือเป็น string เปล่า (`"accent"`, `"L"`) ทั้ง video-gen และ reel — Standards: Primitive Obsession; ใช้ร่วมกับ `timeline.NoteKind` อยู่แล้ว ยังไม่รื้อ
+- `_note_head` แยกรูปตาม piece id แทน `Drawn.shape` (ฉาบกับไฮแฮทรูปต่างกันในเลน จึงยังไม่รวม)
+
+**Checks:** `uv run pytest` 1487 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 609 passed (รอบแรก 1 ล้มใต้โหลด ผ่านเมื่อรันซ้ำ — frontend ไม่ถูกแตะ, flaky เดิม); `npm --prefix frontend run build` ผ่าน
 
 ### 03: ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ — done 2026-11-16
 

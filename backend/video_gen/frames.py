@@ -75,7 +75,7 @@ class Scene:
         self.lesson = lesson
         self.timing = timing
         self.segments = lane.segments(lesson, timing)
-        self._background = _background(background)
+        self._background = background_image(background)
         self._still: dict[frozenset[str], PilImage.Image] = {}
         # Every hit but the count-in's clicks: the lanes' note heads, the rings and the feet.
         self.shown_hits = [hit for hit in timing.hits if hit.note != "count"]
@@ -110,14 +110,14 @@ def frame_at(scene: Scene, t: float) -> bytes:
         _stick(frame, hand, tip)
     _rings(frame, scene, t)
     for hand, at in LR_CIRCLES.items():
-        _paste(frame, _lr_circle(LR_BRIGHT if tips[hand] != kit.STICKS[hand].rest else LR_FAINT), at)
+        paste(frame, _lr_circle(LR_BRIGHT if tips[hand] != kit.STICKS[hand].rest else LR_FAINT), at)
     return frame.tobytes()
 
 
 # --- What stands still ---
 
 
-def _background(picture: Path | None) -> "PilImage.Image":
+def background_image(picture: Path | None) -> "PilImage.Image":
     """`color`: navy fading down to near black; `image`: the picture blurred and darkened."""
     from PIL import Image, ImageFilter
 
@@ -241,12 +241,12 @@ def _color(hex_color: str, lit: bool = True) -> tuple[int, int, int]:
 # --- What moves ---
 
 
-def _paste(frame: "PilImage.Image", sprite: "PilImage.Image", center: tuple[float, float]) -> None:
+def paste(frame: "PilImage.Image", sprite: "PilImage.Image", center: tuple[float, float]) -> None:
     """A 1× sprite laid on the frame, centred on `center`."""
     frame.paste(sprite, (round(center[0] - sprite.width / 2), round(center[1] - sprite.height / 2)), sprite)
 
 
-def _shrunk(sprite: "PilImage.Image") -> "PilImage.Image":
+def shrunk(sprite: "PilImage.Image") -> "PilImage.Image":
     from PIL import Image
 
     return sprite.resize((sprite.width // SCALE, sprite.height // SCALE), Image.Resampling.LANCZOS)
@@ -270,7 +270,7 @@ def _note_heads(frame: "PilImage.Image", scene: Scene, t: float, segment: lane.S
     for hit, at in zip(scene.shown_hits[first:last], scene.shown_times[first:last], strict=True):
         x = lane.x_of(at, t, segment)
         glow = at <= t < at + GLOW_S
-        _paste(frame, _head(hit.piece, hit.note, glow), (x, lane.LANE_Y[kit.BY_ID[hit.piece].lane]))
+        paste(frame, _head(hit.piece, hit.note, glow), (x, lane.LANE_Y[kit.BY_ID[hit.piece].lane]))
 
 
 @functools.lru_cache(maxsize=256)
@@ -302,13 +302,13 @@ def _head(piece: str, note: str, glow: bool) -> "PilImage.Image":
     else:  # snare and toms: a small drum
         draw.ellipse([c - r, c, c + r, c + r * 0.8], fill=color)
         draw.rectangle([c - r, c - r * 0.4, c + r, c + r * 0.4], fill=color)
-        draw.ellipse([c - r, c - r * 0.8, c + r, c], fill=(*_lighter(color[:3]), 255))
+        draw.ellipse([c - r, c - r * 0.8, c + r, c], fill=(*lighter(color[:3]), 255))
     if note == "ghost":
         sprite.putalpha(sprite.getchannel("A").point(lambda a: round(a * GHOST_ALPHA)))
-    return _shrunk(sprite)
+    return shrunk(sprite)
 
 
-def _lighter(color: tuple[int, ...]) -> tuple[int, int, int]:
+def lighter(color: tuple[int, ...]) -> tuple[int, int, int]:
     return tuple(round(c + (255 - c) * BELL_LIGHTER) for c in color)
 
 
@@ -326,7 +326,13 @@ def stick_swings(timing: Timeline) -> Swings:
 
 def stick_tips(swings: Swings, t: float) -> dict[str, Point]:
     """Where each stick's tip (its head) is at `t`: the picture draws the stick to it, the ASS file letters it."""
-    return {hand: _tip_before(times, targets, kit.STICKS[hand].rest, t, len(times), 0) for hand, (times, targets) in swings.items()}
+    return {hand: stick_tip(times, targets, kit.STICKS[hand].rest, t) for hand, (times, targets) in swings.items()}
+
+
+def stick_tip(times: list[float], targets: list[Point], rest: Point, t: float) -> Point:
+    """Where a stick's tip is at `t`, striking `targets` at `times` from `rest` (`_tip_before`). A
+    reel cover's sticks swing through here too, to their own kit (drum-cover D25)."""
+    return _tip_before(times, targets, rest, t, len(times), 0)
 
 
 def _tip_before(times: list[float], targets: list[Point], rest: Point, t: float, limit: int, depth: int) -> Point:
@@ -372,8 +378,8 @@ def _stick(frame: "PilImage.Image", hand: str, tip: Point) -> None:
     w = STICK_WIDTH * SCALE
     draw.line([a, b], fill="white", width=w)
     draw.ellipse([a[0] - w / 2, a[1] - w / 2, a[0] + w / 2, a[1] + w / 2], fill="white")
-    frame.paste(shrunk := _shrunk(sprite), (left, top), shrunk)
-    _paste(frame, _stick_head(), tip)
+    frame.paste(drawn := shrunk(sprite), (left, top), drawn)
+    paste(frame, _stick_head(), tip)
 
 
 @functools.lru_cache(maxsize=1)
@@ -383,7 +389,7 @@ def _stick_head() -> "PilImage.Image":
     box = HEAD_R * 2 * SCALE + 4
     sprite = Image.new("RGBA", (box, box), (0, 0, 0, 0))
     ImageDraw.Draw(sprite).ellipse([2, 2, box - 2, box - 2], fill="white")
-    return _shrunk(sprite)
+    return shrunk(sprite)
 
 
 def _rings(frame: "PilImage.Image", scene: Scene, t: float) -> None:
@@ -396,7 +402,7 @@ def _rings(frame: "PilImage.Image", scene: Scene, t: float) -> None:
             drawn = kit.STRIKE[hit.piece]
             radius = drawn.ring * (GRACE_SHARE if hit.note == "grace" else 1.0)
             fade = round(FADE_STEPS * (1 - (t - at) / RING_S))
-            _paste(frame, _ring(round(radius), fade), drawn.center)
+            paste(frame, _ring(round(radius), fade), drawn.center)
 
 
 @functools.lru_cache(maxsize=256)
@@ -412,7 +418,7 @@ def _ring(radius: int, fade: int) -> "PilImage.Image":
     draw.ellipse([c - r, c - r, c + r, c + r], outline=(*HIT_RED, alpha), width=RING_WIDTH * SCALE)
     f = r * FLASH_SHARE
     draw.ellipse([c - f, c - f, c + f, c + f], fill=(*HIT_RED, alpha))
-    return _shrunk(sprite)
+    return shrunk(sprite)
 
 
 def _feet(frame: "PilImage.Image", scene: Scene, t: float) -> None:
@@ -423,7 +429,7 @@ def _feet(frame: "PilImage.Image", scene: Scene, t: float) -> None:
         foot = kit.FOOT_OF.get(hit.piece)
         if foot is not None and at <= t < at + RING_S:
             grow = round(FADE_STEPS * (FOOT_PULSE - 1) * (1 - (t - at) / RING_S))
-            _paste(frame, _foot(hit.piece, grow), foot.center)
+            paste(frame, _foot(hit.piece, grow), foot.center)
 
 
 @functools.lru_cache(maxsize=32)
@@ -434,7 +440,7 @@ def _foot(piece: str, grow: int) -> "PilImage.Image":
     box = round(r * 2) + 4
     sprite = Image.new("RGBA", (box, box), (0, 0, 0, 0))
     ImageDraw.Draw(sprite).ellipse([2, 2, box - 2, box - 2], fill=(*_color(kit.BY_ID[piece].color), 255))
-    return _shrunk(sprite)
+    return shrunk(sprite)
 
 
 @functools.lru_cache(maxsize=2)
@@ -444,4 +450,4 @@ def _lr_circle(alpha: int) -> "PilImage.Image":
     box = LR_R * 2 * SCALE
     sprite = Image.new("RGBA", (box, box), (0, 0, 0, 0))
     ImageDraw.Draw(sprite).ellipse([0, 0, box - 1, box - 1], fill=(255, 255, 255, alpha))
-    return _shrunk(sprite)
+    return shrunk(sprite)

@@ -4,6 +4,7 @@ into lines or short chunks at word edges and sharing a sentence's time out among
 `.srt` saved beside the mp4. spoil_maker's `captions` and toon's `compose` lay them out.
 """
 
+import math
 from typing import NamedTuple
 
 from backend import clock
@@ -105,3 +106,40 @@ def ass_time(seconds: float) -> str:
     """`H:MM:SS.cc`, centiseconds."""
     cs = round(seconds * 100)
     return f"{cs // 360000}:{cs // 6000 % 60:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}"
+
+
+# --- ASS helpers a drum lesson's and a reel cover's text share (video-gen D22, D32; drum-cover D25) ---
+
+
+def style(name: str, size: int, fill: str, outline: str, border: int, boxed: bool = False) -> str:
+    """A bold Kanit style; ASS BorderStyle 3 when `boxed`: an opaque box in the outline colour, `border` px past the letters."""
+    return (
+        f"Style: {name},{FONT},{size},{fill},{fill},{outline},{outline},-1,0,0,0,"
+        f"100,100,0,0,{3 if boxed else 1},{border},0,7,0,0,0,1"
+    )
+
+
+def pos(at: tuple[int, int]) -> str:
+    return f"\\pos({at[0]},{at[1]})"
+
+
+def ass_color(hex_color: str) -> str:
+    """`#RRGGBB` as ASS's `&H00BBGGRR`, opaque."""
+    return f"&H00{hex_color[5:7]}{hex_color[3:5]}{hex_color[1:3]}".upper()
+
+
+def squeeze(width_px: float, max_px: int) -> str:
+    """`\\fscx` that brings a line wider than `max_px` down to it, on one line (video-gen D22)."""
+    if width_px <= max_px:
+        return ""
+    return f"\\fscx{math.floor(max_px / width_px * 100)}"
+
+
+def at_most_two(project: ProjectPaths, text: str, per_line: int) -> list[str]:
+    """Cut at word edges (`cut_lines`); words that would make a third line widen both lines a
+    little at a time instead, so no line runs far past the others (video-gen D32)."""
+    lines = cut_lines(project, text, per_line)
+    while len(lines) > 2:
+        per_line += 2
+        lines = cut_lines(project, text, per_line)
+    return lines
