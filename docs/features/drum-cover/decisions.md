@@ -439,3 +439,17 @@
 **Why:** ทำให้ "ปรับความดัง" และ "ชัดขึ้น" ตรวจได้ทั้งในเทสต์และด้วยตาเจ้าของ.
 
 **From:** change request · **Status:** active
+
+## D28: ทางเลือกเล็กตอน build ticket 03
+
+**Chosen:**
+- `PUT /cover` ต้องส่ง `drums` ทุกครั้ง ทรงเดียวกับ `backing` (ไม่มีหรือ `on` ไม่ใช่ boolean → `400` field `drums.on`); ค่าตั้งต้น `{on: true, volume: 100}` ใช้เฉพาะตอนอ่าน `cover.json` และ `.json` ของ render ที่เขียนก่อน D24
+- ข้อความ volume ผิด: "ความดังกลองต้องเป็นจำนวนเต็ม 10–100" (แบบ "ความดังเพลง…" เดิม); ทั้งสองตรวจด้วย `_sound` ตัวเดียว; `Drums` เป็น model แยกจาก `Backing` เพราะมีค่าตั้งต้นสำหรับไฟล์เก่า
+- `cover.used(check_sound=…)` (ชื่อเดิม `check_backing`): ฟังและ render ปฏิเสธ cover ที่แก้มือจนเงียบ (`drums.on`) และ backing ของเพลง MIDI; การเปลี่ยนภาพพื้นหลังไม่ตรวจทั้งสองข้อ
+- `reel_wav` อ่าน wav ของ mixer เป็น int16 แล้วหาร 32767 (กลับเป็น 16-bit ได้ค่าเดิมพอดี) แทน float32 ÷ 32768 เดิม; backing เปิดจึงต่างจากก่อน ≤ 1 LSB
+- test "never clips" ใช้ `song_m4a(volume=16)` (sine ของ `lavfi` ถอดแล้ว peak ≈ 0.09 ต่อ 1.0) เพราะ D24 ไม่ดันขึ้นแล้ว เพลงต้องดังพอให้ผลรวมเกิน −1 dBFS จริง
+- หน้า reel: "ความดังกลอง" เป็น `input type="range"` 10–100 step 1 พร้อมตัวเลข "{v}%"; "ความดังเพลง" คงช่องตัวเลขเดิม; สวิตช์ "ปิดเสียงกลอง" (checked = ปิด) ใช้ `Switch` ที่ย้ายจาก `spoil-maker/VideoSettings` ไป `components/ui/Switch` (ผู้ใช้คนที่สอง ตาม `vite-react-web` › Where shared code goes; ผลเดิม); ขณะปิดทั้งคู่ ข้อความ `SILENT` ที่การ์ดเสียง ปุ่ม "บันทึก" ยังกดได้ (backend ตอบ `drums.on` ที่ช่องเดียวกัน); ป้าย "กลอง {v}%"/"ไม่มีเสียงกลอง" สไตล์เดียวกับ "มีเพลงต้นฉบับ"
+
+**Why:** ตามโค้ดและกติกาเดิมของ `backing` (D7, D17); ไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**From:** build ticket 03 · **Status:** active

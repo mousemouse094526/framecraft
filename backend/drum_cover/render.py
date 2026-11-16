@@ -14,13 +14,13 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend import disk, ffmpeg, gate_rows, paths, renders, subtitles
 from backend.checks import now_iso
 from backend.drum_cover import audio, cover
 from backend.drum_cover import timeline as reel_timeline
-from backend.drum_cover.cover import Backing, CoverFields
+from backend.drum_cover.cover import Backing, CoverFields, Drums
 from backend.drum_notes import songs
 from backend.drum_notes.songs import Song
 from backend.errors import ApiError, JobFailed, require_rows
@@ -54,7 +54,7 @@ class CoverRenderJob(BaseModel):
 
 class CoverRenderResult(BaseModel):
     """One finished render of a song's reel, as `GET /songs/{id}/cover/renders` lists it: the
-    stretch, the pick and the backing it was made from (ADR 0034, D18)."""
+    stretch, the pick and the sound it was made from (ADR 0034, D18, D24)."""
 
     name: str
     song_id: str
@@ -63,6 +63,7 @@ class CoverRenderResult(BaseModel):
     start_s: float
     end_s: float
     picked_at: str
+    drums: Drums = Field(default_factory=Drums)
     backing: Backing
     created_at: str
     size_bytes: int
@@ -163,6 +164,7 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
             "start_s": fields.start_s,
             "end_s": fields.end_s,
             "picked_at": analysis.picked_at,
+            "drums": fields.drums.model_dump(),
             "backing": fields.backing.model_dump(),
             "created_at": now_iso(),
         }

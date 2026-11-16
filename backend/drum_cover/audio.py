@@ -1,8 +1,9 @@
-"""The sound of a reel cover (drum-cover spec › เสียง, D7, D17; ADR 0050): one function, `reel_wav`,
-that ฟัง and the Render job both play, so the two never sound different. The drums are
-`video_gen.mixer`'s, timed by the `Timeline` (ADR 0041). With backing on, the song's own audio of the
-stretch is decoded by ffmpeg to raw floats, laid under the drums at its volume, and the sum brought
-to the mixer's −1 dBFS peak: nothing clips, and the render's ffmpeg command stays video-gen's.
+"""The sound of a reel cover (drum-cover spec › เสียง, D7, D17, D24; ADR 0050): one function,
+`reel_wav`, that ฟัง and the Render job both play, so the two never sound different. The drums are
+`video_gen.mixer`'s, timed by the `Timeline` (ADR 0041), at the cover's drum volume. With backing
+on, the song's own audio of the stretch is decoded by ffmpeg to raw floats and laid under them at
+its volume. A sum over the mixer's −1 dBFS peak is brought down to it, never pushed up: nothing
+clips, a lower volume stays lower, and the render's ffmpeg command stays video-gen's.
 
 numpy and soundfile are imported inside the functions, so the backend starts fast.
 """
@@ -29,25 +30,33 @@ CaptureRunner = Callable[[list[str], threading.Event], bytes]
 
 def reel_wav(project: ProjectPaths, audio: Path, fields: CoverFields, timing: Timeline, cancel: threading.Event,
              run_capture: CaptureRunner = ffmpeg.run_capture) -> bytes:  # fmt: skip
-    """A 16-bit 44.1 kHz stereo wav exactly `timing.samples` long. Backing off: the mixer's wav as
-    it is (the same bytes every time, D15). Backing on: `audio` (the song's `audio.m4a`) of the
-    stretch under the drums. Raises `Cancelled` or `FfmpegFailed` from ffmpeg."""
-    drums = mixer.mix(project, timing)
-    if not fields.backing.on:
-        return drums
+    """A 16-bit 44.1 kHz stereo wav exactly `timing.samples` long. Drums at full volume and backing
+    off: the mixer's wav as it is (the same bytes every time, D15). Drums off: no mixer at all.
+    Backing on: `audio` (the song's `audio.m4a`) of the stretch under the drums. Raises
+    `Cancelled` or `FfmpegFailed` from ffmpeg."""
+    drums, backing = fields.drums, fields.backing
+    mixed_drums = mixer.mix(project, timing) if drums.on else None
+    if mixed_drums is not None and not backing.on and drums.volume == cover.FULL_VOLUME:
+        return mixed_drums
     import numpy as np
     import soundfile
 
-    mixed, _ = soundfile.read(io.BytesIO(drums), dtype="float32")
-    song = np.frombuffer(run_capture(_decode_command(audio, fields), cancel), dtype="<f4").reshape(-1, mixer.CHANNELS)
-    length = min(len(song), len(mixed))
-    mixed[:length] += song[:length] * (fields.backing.volume / 100)
+    mixed = np.zeros((timing.samples, mixer.CHANNELS), dtype=np.float32)
+    if mixed_drums is not None:
+        # Read as the mixer's 16-bit values over 32767, so a volume of 100 rounds back to them exactly.
+        drum_pcm, _ = soundfile.read(io.BytesIO(mixed_drums), dtype="int16")
+        mixed += drum_pcm.astype(np.float32) * (drums.volume / 100 / 32767)
+    if backing.on:
+        song = np.frombuffer(run_capture(_decode_command(audio, fields), cancel), dtype="<f4").reshape(-1, mixer.CHANNELS)
+        length = min(len(song), len(mixed))
+        mixed[:length] += song[:length] * (backing.volume / 100)
     peak = float(np.max(np.abs(mixed))) if len(mixed) else 0.0
-    if peak > 0:
-        mixed *= 10 ** (mixer.PEAK_DBFS / 20) / peak
-    pcm = np.clip(np.rint(mixed * 32767), -32768, 32767).astype(np.int16)
+    ceiling = 10 ** (mixer.PEAK_DBFS / 20)
+    if peak > ceiling:
+        mixed *= ceiling / peak
+    out = np.clip(np.rint(mixed * 32767), -32768, 32767).astype(np.int16)
     buffer = io.BytesIO()
-    soundfile.write(buffer, pcm, timeline.RATE, subtype="PCM_16", format="WAV")
+    soundfile.write(buffer, out, timeline.RATE, subtype="PCM_16", format="WAV")
     return buffer.getvalue()
 
 

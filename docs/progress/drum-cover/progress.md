@@ -1,11 +1,11 @@
 # Progress: drum-cover
 
-**Now:** change request (D24–D27) อนุมัติแล้ว ตัดเป็น ticket 03–04; ticket 01–02 done (merge `fb354f2`)
+**Now:** ticket 03 (ความดังกลอง) done; เหลือ ticket 04 (ภาพ reel ใหม่) แล้วเจ้าของดูเฟรม Yellow (Blocked 2)
 
 **Next:**
 
 ```
-/warroom-build drum-cover 03
+/warroom-build drum-cover 04
 ```
 
 ## Tickets
@@ -14,7 +14,7 @@
 |---|---|---|
 | 01 | reel cover จากเพลงที่แกะ: ตั้งช่วง ข้อความ เสียง ฟัง render | done |
 | 02 | ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า | done |
-| 03 | ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ | ready-for-agent |
+| 03 | ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ | done |
 | 04 | ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน | ready-for-agent |
 
 ## Blocked
@@ -25,6 +25,23 @@
 | 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ (ดูเฟรมที่ ticket 04 แนบ) | open |
 
 ## Log
+
+### 03: ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ — done 2026-11-16
+
+**Built:**
+- backend: `cover.Drums` `{on, volume}` (ค่าตั้งต้น เปิด 100 สำหรับ `cover.json`/`.json` ของ render เก่า); `PUT` ตรวจ `drums` ด้วย `_sound` ตัวเดียวกับ `backing`, ปิดทั้งคู่ → `400` `drums.on`; `used(check_sound)` ปฏิเสธ cover แก้มือที่เงียบที่ฟังและ render; `audio.reel_wav`: กลอง 100 + backing ปิด = `mixer.mix` ตรง ๆ, กลองปิดไม่เรียก mixer, ผลรวมลดเฉพาะเมื่อเกิน −1 dBFS (ไม่ดันขึ้น); render `.json` มี `drums`
+- frontend: การ์ดเสียงมีบรรทัด "กลอง" สวิตช์ "ปิดเสียงกลอง" + สไลเดอร์ "ความดังกลอง" ({v}%); ปิดทั้งคู่ → ข้อความที่การ์ด ปุ่ม "ฟัง"/"render reel" กดไม่ได้; แถวผลป้าย "ไม่มีเสียงกลอง"/"กลอง {v}%"; `Switch` ย้ายไป `components/ui`
+- tests: API +5 (field ของ `drums`, ปิดทั้งคู่, ไฟล์เก่า + cover เงียบที่ listen/render, wav เดิมที่ 100 และ −6.0 dB ที่ 50, กลองปิด = เพลง × volume ± 1 LSB, render กลองปิด + `.json` เก่า) และ test "never clips" ใช้เพลงดังเกิน full scale; e2e +3 (สไลเดอร์ 60, ปิดเสียงกลอง, ป้ายแถวผล)
+- review (subagent): Standards 1 breach + 8 smell, Spec 0 + 1 test note, Newcomer 9 จุดเดา — แก้: `Switch` ร่วม, `_sound` คืน model, ชื่อ `drum_pcm`/`ceiling`, `BACKING_VOLUME`/`FULL_VOLUME` (ทั้งสองฝั่ง), test wav 100 ไม่วนผ่าน `cover.used`, ชื่อ test สองตัว, comment สวิตช์กลับด้านและ int16 ÷ 32767
+
+**Decided:** D28
+
+**For the next ticket:**
+- สวิตช์ของ `toon` (`CardEditor.tsx:187`, `SeriesForm.tsx:393`) ยังเขียนเอง — ใช้ `components/ui/Switch` เมื่อแตะไฟล์นั้น
+- รายชื่อ field ของ cover ซ้ำหลายที่ (`fieldsOf`, `sameFields`, รายการ field ที่แสดงข้อผิดพลาดในช่อง, `cover_body`/`bodyOf` ของ test) — review: Shotgun Surgery; ยังไม่ใหญ่พอให้รื้อ
+- backing เปิด: wav ต่างจากก่อน ticket นี้ ≤ 1 LSB (อ่านกลองเป็น int16 ÷ 32767, D28); D15 ยังจริงสำหรับกลองล้วน 100
+
+**Checks:** `uv run pytest` 1475 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 609 passed; `npm --prefix frontend run build` ผ่าน
 
 ### Change request — 2026-11-16
 

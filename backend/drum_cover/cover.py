@@ -11,7 +11,7 @@ import math
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from backend import files
 from backend.checks import now_iso
@@ -31,11 +31,21 @@ MIN_S, MAX_S = 2, 90  # a reel's stretch (D6)
 TITLE_MAX = 40
 LINE_MAX = 60  # subtitle, caption
 VOLUME_RANGE = (10, 100)
-DEFAULT_VOLUME = 35
+BACKING_VOLUME = 35  # the song under the drums, at first (D7)
+FULL_VOLUME = 100  # the drums, at first: as the mixer makes them (D24)
 NO_ANALYSIS = "แกะโน้ตก่อน แล้วกลับมาทำ reel"
 RANGE_RULE = f"ช่วงต้องยาว {MIN_S}–{MAX_S} วินาที และอยู่ในช่วงแกะ"
 NO_AUDIO = "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ"
 NO_PICTURE = "ยังไม่มีภาพพื้นหลัง"
+SILENT = "เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง"
+
+
+class Drums(BaseModel):
+    """The drums' sound, on at full volume unless the user turns it down or off (D24); a
+    `cover.json` or render written before this had none, and read as the defaults."""
+
+    on: bool = True
+    volume: int = FULL_VOLUME
 
 
 class Backing(BaseModel):
@@ -54,6 +64,7 @@ class CoverFields(BaseModel):
     subtitle: str
     caption: str
     background: Literal["color", "image"]
+    drums: Drums = Field(default_factory=Drums)
     backing: Backing
 
 
@@ -135,15 +146,18 @@ def replace(project: ProjectPaths, song_id: str, body: dict[str, Any]) -> CoverV
         return view(project, song, cover)
 
 
-def used(project: ProjectPaths, song: Song, check_backing: bool = True) -> CoverFields:
+def used(project: ProjectPaths, song: Song, check_sound: bool = True) -> CoverFields:
     """What a render or a listen plays: the stored cover pulled into the range, or the defaults.
     Call with `songs.lock` held. Raises `ApiError` 409 `no_analysis`, or 400 for backing on a
-    song with no audio (D7) unless `check_backing` is off (a picture's change keeps the rest as stored)."""
+    song with no audio (D7) or for a hand-edited cover with neither drums nor backing (D24),
+    unless `check_sound` is off (a picture's change keeps the rest as stored)."""
     analysis = require_analysis(song)
     stored = _stored(project, song.id)
     fields = clamped(_fields(stored), analysis)[0] if stored is not None else defaults(song, analysis)
-    if check_backing and fields.backing.on and not has_audio(project, song.id):
+    if check_sound and fields.backing.on and not has_audio(project, song.id):
         raise songs.invalid("backing.on", NO_AUDIO)
+    if check_sound and not (fields.drums.on or fields.backing.on):
+        raise songs.invalid("drums.on", SILENT)
     return fields
 
 
@@ -158,7 +172,8 @@ def defaults(song: Song, analysis: Analysis) -> CoverFields:
         subtitle=song.subtitle[:LINE_MAX],
         caption="",
         background="color",
-        backing=Backing(on=False, volume=DEFAULT_VOLUME),
+        drums=Drums(),
+        backing=Backing(on=False, volume=BACKING_VOLUME),
     )
 
 
@@ -200,14 +215,12 @@ def checked(body: dict[str, Any], song: Song, analysis: Analysis, folder: Path) 
         raise songs.invalid("background", "พื้นหลังไม่ถูกต้อง")
     if background == "image" and not (folder / BACKGROUND).is_file():
         raise songs.invalid("background", NO_PICTURE)
-    backing = body.get("backing")
-    if not isinstance(backing, dict) or not isinstance(backing.get("on"), bool):
-        raise songs.invalid("backing.on", "ตัวเลือกเสียงไม่ถูกต้อง")
-    volume = backing.get("volume")
-    if not is_int(volume) or not VOLUME_RANGE[0] <= volume <= VOLUME_RANGE[1]:
-        raise songs.invalid("backing.volume", f"ความดังเพลงต้องเป็นจำนวนเต็ม {VOLUME_RANGE[0]}–{VOLUME_RANGE[1]}")
-    if backing["on"] and not (folder / songs.AUDIO_FILE).is_file():
+    drums = _sound(body, "drums", "ความดังกลอง", Drums)
+    backing = _sound(body, "backing", "ความดังเพลง", Backing)
+    if backing.on and not (folder / songs.AUDIO_FILE).is_file():
         raise songs.invalid("backing.on", NO_AUDIO)
+    if not (drums.on or backing.on):
+        raise songs.invalid("drums.on", SILENT)
     return CoverFields(
         start_s=start_s,
         end_s=end_s,
@@ -215,8 +228,20 @@ def checked(body: dict[str, Any], song: Song, analysis: Analysis, folder: Path) 
         subtitle=_text(body, "subtitle", 0, LINE_MAX, "บรรทัดรอง"),
         caption=_text(body, "caption", 0, LINE_MAX, "คำบรรยาย"),
         background=background,
-        backing=Backing(on=backing["on"], volume=volume),
+        drums=drums,
+        backing=backing,
     )
+
+
+def _sound[S: (Drums, Backing)](body: dict, key: str, name: str, model: type[S]) -> S:
+    """`drums` or `backing`: `{on, volume}`, the volume a whole 10–100 (D7, D24)."""
+    sound = body.get(key)
+    if not isinstance(sound, dict) or not isinstance(sound.get("on"), bool):
+        raise songs.invalid(f"{key}.on", "ตัวเลือกเสียงไม่ถูกต้อง")
+    volume = sound.get("volume")
+    if not is_int(volume) or not VOLUME_RANGE[0] <= volume <= VOLUME_RANGE[1]:
+        raise songs.invalid(f"{key}.volume", f"{name}ต้องเป็นจำนวนเต็ม {VOLUME_RANGE[0]}–{VOLUME_RANGE[1]}")
+    return model(on=sound["on"], volume=volume)
 
 
 def _text(body: dict, key: str, low: int, high: int, name: str) -> str:
