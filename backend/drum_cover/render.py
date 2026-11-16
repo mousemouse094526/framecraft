@@ -2,8 +2,8 @@
 one at a time in its own slot, holding no GPU (no model runs) and running beside a lesson's render
 or a Pick job. The song and the cover it plays are copied into `media/songs/.render/` as the job
 starts, so a `PUT` while it runs reaches the next render only (video-gen D33). Then the sound
-(`audio.reel_wav`), the text (`captions`) and every frame (`frames`, sent to ffmpeg through stdin
-with video-gen's own command) make `songs/{song_id}/renders/{name}.mp4`, `.srt` and `.json`.
+(`audio.reel_wav`), the reel's own text (`captions`) and every frame (`frames`, ADR 0054, sent to
+ffmpeg through stdin with video-gen's own command) make `songs/{song_id}/renders/{name}.mp4`, `.srt` and `.json`.
 """
 
 import logging
@@ -14,13 +14,13 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend import disk, ffmpeg, gate_rows, paths, renders, subtitles
 from backend.checks import now_iso
-from backend.drum_cover import audio, cover
+from backend.drum_cover import audio, captions, cover, frames
 from backend.drum_cover import timeline as reel_timeline
-from backend.drum_cover.cover import Backing, CoverFields
+from backend.drum_cover.cover import Backing, CoverFields, Drums
 from backend.drum_notes import songs
 from backend.drum_notes.songs import Song
 from backend.errors import ApiError, JobFailed, require_rows
@@ -28,8 +28,9 @@ from backend.ffmpeg import FfmpegFailed, PipedRunner
 from backend.jobs import Cancelled, JobSlot, short
 from backend.paths import ProjectPaths
 from backend.subtitles import Timed
-from backend.video_gen import captions, frames, timeline
+from backend.video_gen import captions as lesson_captions
 from backend.video_gen import render as drum_render
+from backend.video_gen import timeline
 from backend.video_gen.captions import TitleFont
 
 log = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class CoverRenderJob(BaseModel):
 
 class CoverRenderResult(BaseModel):
     """One finished render of a song's reel, as `GET /songs/{id}/cover/renders` lists it: the
-    stretch, the pick and the backing it was made from (ADR 0034, D18)."""
+    stretch, the pick and the sound it was made from (ADR 0034, D18, D24)."""
 
     name: str
     song_id: str
@@ -63,6 +64,7 @@ class CoverRenderResult(BaseModel):
     start_s: float
     end_s: float
     picked_at: str
+    drums: Drums = Field(default_factory=Drums)
     backing: Backing
     created_at: str
     size_bytes: int
@@ -76,7 +78,7 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
     nothing_to_cancel = NOT_RUNNING
     cancel_refusal = (409, "not_running")
 
-    def __init__(self, run_piped: PipedRunner = ffmpeg.run_piped, title_font: TitleFont = captions.kanit_bold):
+    def __init__(self, run_piped: PipedRunner = ffmpeg.run_piped, title_font: TitleFont = lesson_captions.kanit_bold):
         super().__init__()
         self._run_piped = run_piped
         self._title_font = title_font
@@ -163,6 +165,7 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
             "start_s": fields.start_s,
             "end_s": fields.end_s,
             "picked_at": analysis.picked_at,
+            "drums": fields.drums.model_dump(),
             "backing": fields.backing.model_dump(),
             "created_at": now_iso(),
         }

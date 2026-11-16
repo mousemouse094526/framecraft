@@ -9,6 +9,7 @@ import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
+import { Switch } from "../../../components/ui/Switch";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import downloadIcon from "../../../components/ui/assets/download.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
@@ -28,9 +29,11 @@ import {
   coverBackgroundUrl,
   coverListenPath,
   downloadName,
+  drumsLabel,
   fieldsOf,
   hitsIn,
   isCoverRendering,
+  isSilent,
   isStale,
   LINE_MAX,
   MAX_S,
@@ -40,6 +43,7 @@ import {
   NO_AUDIO,
   NO_HITS,
   RANGE_RULE,
+  SILENT,
   stretchFault,
   TITLE_HINT,
   TITLE_MAX,
@@ -52,7 +56,7 @@ import {
 
 /**
  * หน้า reel (`#/songs/{id}/cover`): the stretch, the text, the sound, ฟัง and render reel, and the
- * renders made (spec › Design, D6, D7, D11, D12, D18, D19; ui-prompt.md screen 2, D14).
+ * renders made (spec › Design, D6, D7, D11, D12, D18, D19, D24; ui-prompt.md screen 2, D14).
  */
 export function CoverPage({ id }: { id: string }) {
   const cover = useCover(id);
@@ -120,6 +124,8 @@ const sameFields = (a: CoverFields, b: CoverFields) =>
   a.subtitle === b.subtitle &&
   a.caption === b.caption &&
   a.background === b.background &&
+  a.drums.on === b.drums.on &&
+  a.drums.volume === b.drums.volume &&
   a.backing.on === b.backing.on &&
   a.backing.volume === b.backing.volume;
 
@@ -151,9 +157,11 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((now) => ({ ...now, [key]: value }));
-    // A field the backend refused is being fixed: its line goes (`backing` covers `backing.on` and `.volume`).
+    // A field the backend refused is being fixed: its line goes (`backing` covers `backing.on` and `.volume`;
+    // either sound covers `drums.on`, the silent reel's).
     const field = key === "start" ? "start_s" : key === "end" ? "end_s" : key;
-    setRefused((now) => (now?.field === field || now?.field?.startsWith(`${field}.`) ? null : now));
+    const fixes = (refusedField: string) => refusedField.startsWith(`${field}.`) || (refusedField === "drums.on" && key === "backing");
+    setRefused((now) => (now?.field === field || (now?.field && fixes(now.field)) ? null : now));
   };
   /** กลองล้วน puts a volume the backend would refuse back to the saved one: hidden, it can't be fixed. */
   const chooseBacking = (on: boolean) => {
@@ -183,7 +191,8 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
 
   const listen = useListen(async () => ((await saveFirst()) ? postForBlob(coverListenPath(song.id), {}) : null));
   const mixing = listen.state.kind === "mixing";
-  const canPlay = hits > 0 && !fault;
+  const silent = isSilent(fields);
+  const canPlay = hits > 0 && !fault && !silent;
 
   const fieldError = (name: string) => (refused?.field === name ? refused.text : undefined);
   // The found bars the stretch takes in; the saved stretch's while a box is wrong.
@@ -254,6 +263,32 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
 
       <section aria-label="เสียง" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h3 className="text-base leading-[1.5] font-semibold text-foreground">เสียง</h3>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <span className="flex-1 text-sm leading-[1.5] font-medium text-foreground">กลอง</span>
+            <span aria-hidden className="text-sm leading-[1.5] text-mid">
+              ปิดเสียงกลอง
+            </span>
+            {/* On = muted: the switch says ปิดเสียงกลอง, the field says whether the drums play. */}
+            <Switch label="ปิดเสียงกลอง" on={!draft.drums.on} onToggle={() => set("drums", { ...draft.drums, on: !draft.drums.on })} />
+          </div>
+          {draft.drums.on && (
+            <Labeled label="ความดังกลอง" htmlFor={`${id}-drums`} error={fieldError("drums.volume")}>
+              <div className="flex items-center gap-3">
+                <input
+                  id={`${id}-drums`}
+                  type="range"
+                  min={VOLUME_MIN}
+                  max={VOLUME_MAX}
+                  value={draft.drums.volume}
+                  onChange={(e) => set("drums", { ...draft.drums, volume: Number(e.target.value) })}
+                  className="h-11 w-full accent-brand-accent"
+                />
+                <span className="w-12 text-right font-mono text-sm text-mid">{draft.drums.volume}%</span>
+              </div>
+            </Labeled>
+          )}
+        </div>
         <div role="radiogroup" aria-label="เสียงของ reel" className="flex flex-wrap gap-2">
           {[
             { on: false, label: "กลองล้วน" },
@@ -290,6 +325,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
           </>
         )}
         {fieldError("backing.on") && <p className="font-button text-xs leading-4 text-destructive">{fieldError("backing.on")}</p>}
+        {(silent || fieldError("drums.on")) && <p className="font-button text-xs leading-4 text-destructive">{silent ? SILENT : fieldError("drums.on")}</p>}
       </section>
 
       <section aria-label="ทำ reel" className="sticky bottom-0 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -325,7 +361,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
         </div>
         {rendering && !ownRendering && <p className="text-[13px] leading-[1.5] text-mid">กำลัง render {rendering.title} อยู่ รอให้เสร็จก่อน</p>}
         {listen.state.kind === "refused" && <RefusedAlert refused={listen.state} />}
-        {refused && !["start_s", "end_s", "title", "subtitle", "caption", "backing.on", ...(draft.backing.on ? ["backing.volume"] : [])].includes(refused.field ?? "") && <RefusedAlert refused={refused} />}
+        {refused && !["start_s", "end_s", "title", "subtitle", "caption", "backing.on", "drums.on", ...(draft.drums.on ? ["drums.volume"] : []), ...(draft.backing.on ? ["backing.volume"] : [])].includes(refused.field ?? "") && <RefusedAlert refused={refused} />}
         {render.refused && <RefusedAlert refused={render.refused} />}
         {failed && <Alert tone={failed.state === "failed" ? "error" : "info"}>{failed.state === "failed" ? failed.message : "ยกเลิก render แล้ว"}</Alert>}
       </section>
@@ -346,6 +382,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
                     <span className="flex flex-wrap gap-1.5 text-[13px] text-mid">
                       {formatDuration(Math.round(result.length_s))} · {seconds(result.start_s)}–{seconds(result.end_s)}
                       {result.backing.on && <span className="rounded bg-muted px-1.5 text-xs">มีเพลงต้นฉบับ</span>}
+                      {drumsLabel(result.drums) && <span className="rounded bg-muted px-1.5 text-xs">{drumsLabel(result.drums)}</span>}
                       {isStale(result, song) && <span className="rounded bg-warning-surface px-1.5 text-xs text-warning">แกะใหม่แล้ว</span>}
                     </span>
                   </button>

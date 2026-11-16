@@ -1,8 +1,9 @@
 """A song's reel cover under /api/songs/{id}/cover and its Render job under /api/covers/render, with
 real ffmpeg, the fake samples and analyses written straight to disk (drum-cover seam 1; D2, D6, D7,
-D12, D15, D17, D18, D19; ADR 0050, 0052)."""
+D12, D15, D17, D18, D19, D24, D27; ADR 0050, 0052)."""
 
 import io
+import json
 import subprocess
 import threading
 from pathlib import Path
@@ -16,19 +17,23 @@ from PIL import Image, ImageFont
 
 from backend import ffmpeg, paths, pictures
 from backend.app import app
-from backend.drum_cover import render
+from backend.drum_cover import cover, render
+from backend.drum_cover import frames as reel_frames
+from backend.drum_cover import timeline as reel_timeline
 from backend.drum_notes import songs
 from backend.paths import ProjectPaths
-from backend.video_gen import captions, frames, kit
+from backend.video_gen import captions, mixer
 from backend.video_gen import render as drum_render
 
 from .fakes import FINISHED, png, poll_until, restart, song_m4a, written_song
 
 SONGS = "/api/songs"
 RENDER = "/api/covers/render"
-SNARE = kit.STRIKE["snare"].center
+SNARE = reel_frames.KIT["snare"]
+SNARE_FILL = (0x60, 0xA5, 0xFA)  # the sketch's snare, filled in full (D27)
 # Bars 2.0 s long from 10.0; the picked range 10–16.
 DOWNBEATS = (10.0, 12.0, 14.0, 16.0)
+CLIP_S = 6.0 + 1.5  # the picked range 10–16, then the clip's tail
 
 
 class FakePiped:
@@ -79,7 +84,7 @@ def picked(project: ProjectPaths, hits=((11.0, "snare", "normal"),), downbeats=D
 
 def cover_body(client, song_id: str, **changes) -> dict:
     stored = client.get(f"{SONGS}/{song_id}/cover").json()
-    keys = ("start_s", "end_s", "title", "subtitle", "caption", "background", "backing")
+    keys = ("start_s", "end_s", "title", "subtitle", "caption", "background", "drums", "backing")
     return {key: stored[key] for key in keys} | changes
 
 
@@ -103,6 +108,19 @@ def renders_dir(project: ProjectPaths, song_id: str) -> Path:
 
 def ffmpeg_out(*args: str) -> bytes:
     return subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-nostdin", "-v", "error", *args], check=True, capture_output=True).stdout
+
+
+def listened(client, song_id: str) -> np.ndarray:
+    response = client.post(f"{SONGS}/{song_id}/cover/listen", json={})
+    assert response.status_code == 200, response.json()
+    return wav_of(response)
+
+
+def stored_cover(project: ProjectPaths, song_id: str, **changes) -> None:
+    """Writes `cover.json` by hand, as an older build or a hand edit leaves it."""
+    stored = {"version": 1, "updated_at": "2026-11-15T00:00:00Z", "start_s": 10.0, "end_s": 16.0, "title": "Teen Spirit",
+              "subtitle": "", "caption": "", "background": "color", "backing": {"on": False, "volume": 35}} | changes  # fmt: skip
+    (project.song_dir(song_id) / cover.COVER_FILE).write_text(json.dumps(stored), encoding="utf-8")
 
 
 def wav_of(response) -> np.ndarray:
@@ -150,6 +168,12 @@ def test_a_put_saves_the_cover_and_a_bad_field_is_refused_by_name(client, projec
         ("end_s", {"end_s": 16.5}),
         ("start_s", {"start_s": 9.0}),
         ("backing.volume", {"backing": {"on": False, "volume": 5}}),
+        ("drums.volume", {"drums": {"on": True, "volume": 5}}),
+        ("drums.volume", {"drums": {"on": True, "volume": 101}}),
+        ("drums.volume", {"drums": {"on": True, "volume": 60.5}}),
+        ("drums.volume", {"drums": {"on": True, "volume": True}}),
+        ("drums.on", {"drums": {"on": "no", "volume": 100}}),
+        ("drums.on", {"drums": None}),
         ("title", {"title": "  "}),
         ("subtitle", {"subtitle": "ก" * 61}),
         ("backing.on", {"backing": {"on": True, "volume": 35}}),  # no audio.m4a: a MIDI song's case
@@ -164,6 +188,30 @@ def test_a_put_saves_the_cover_and_a_bad_field_is_refused_by_name(client, projec
     assert response.status_code == 200, response.json()
     assert (response.json()["saved"], response.json()["title"], response.json()["start_s"]) == (True, "Yellow", 10.5)
     assert (project.song_dir(song_id) / "cover.json").is_file()
+
+
+def test_drums_off_with_backing_off_is_refused_as_a_silent_reel(client, project):
+    song_id = picked(project, audio=song_m4a(40.0))
+
+    response = put_cover(client, song_id, drums={"on": False, "volume": 100})
+    assert (response.status_code, response.json()["field"]) == (400, "drums.on")
+    assert response.json()["message"] == "เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง"
+    response = put_cover(client, song_id, drums={"on": False, "volume": 60}, backing={"on": True, "volume": 35})
+    assert response.status_code == 200, response.json()
+    assert response.json()["drums"] == {"on": False, "volume": 60}
+
+
+def test_a_cover_without_drums_reads_them_as_full_and_a_hand_edited_silent_one_is_refused(client, project):
+    song_id = picked(project)
+    assert client.get(f"{SONGS}/{song_id}/cover").json()["drums"] == {"on": True, "volume": 100}
+
+    stored_cover(project, song_id)  # written before drums had a volume (D24)
+    body = client.get(f"{SONGS}/{song_id}/cover").json()
+    assert (body["saved"], body["drums"]) == (True, {"on": True, "volume": 100})
+
+    stored_cover(project, song_id, drums={"on": False, "volume": 100})
+    for response in (client.post(f"{SONGS}/{song_id}/cover/listen", json={}), start(client, song_id)):
+        assert (response.status_code, response.json()["field"]) == (400, "drums.on")
 
 
 def test_a_new_pick_that_no_longer_covers_the_stretch_pulls_it_in_and_says_so(client, project):
@@ -188,21 +236,54 @@ def test_listen_mixes_the_drums_of_the_stretch_as_long_as_it_and_the_tail(client
 
     assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
     sound = wav_of(response)
-    assert len(sound) / 44_100 == pytest.approx(7.5, abs=0.05)
+    assert len(sound) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
     assert np.abs(sound[: 44_100 - 100]).max() == 0  # the snare comes at 1.0 s
     assert np.abs(sound[44_100 : 44_100 + 4410]).max() > 0
 
 
+def test_listen_at_full_drum_volume_is_the_mixer_s_wav_and_at_half_is_six_db_down(client, project):
+    song_id = picked(project, hits=[(11.0, "snare", "normal"), (11.5, "kick", "accent"), (12.0, "hihat_closed", "normal")])
+    with songs.lock:
+        song = songs.read_under_lock(project, song_id)
+    # The cover's defaults: the whole picked range 10–16, drums alone.
+    fields = cover.CoverFields(start_s=10.0, end_s=16.0, title="Teen Spirit", subtitle="", caption="", background="color", backing=cover.Backing(on=False, volume=35), drums=cover.Drums(on=True, volume=100))
+    mixed = mixer.mix(project, reel_timeline.build(song.analysis, fields))
+
+    full = client.post(f"{SONGS}/{song_id}/cover/listen", json={})
+    assert full.content == mixed  # D15: the same bytes as before drums had a volume
+
+    assert put_cover(client, song_id, drums={"on": True, "volume": 50}).status_code == 200
+    half = listened(client, song_id)
+    assert len(half) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
+    peaks = [np.abs(sound.astype(np.int32)).max() for sound in (wav_of(full), half)]
+    assert 20 * np.log10(peaks[1] / peaks[0]) == pytest.approx(-6.0, abs=0.1)  # 50 % is −6.0 dB, not brought back up
+
+
+def test_drums_off_under_backing_is_the_song_alone_at_its_volume(client, project):
+    song_id = picked(project, audio=song_m4a(40.0, volume=0.5))
+    assert put_cover(client, song_id, drums={"on": False, "volume": 100}, backing={"on": True, "volume": 60}).status_code == 200
+
+    sound = listened(client, song_id)
+
+    raw = ffmpeg_out("-ss", "10.000", "-t", "6.000", "-i", str(project.song_dir(song_id) / songs.AUDIO_FILE), "-vn", "-ac", "2", "-ar", "44100", "-f", "f32le", "-")
+    song = np.frombuffer(raw, dtype="<f4").reshape(-1, 2) * 0.6
+    expected = np.zeros_like(sound, dtype=np.float32)
+    expected[: len(song)] = song[: len(sound)]
+    assert len(sound) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
+    assert np.abs(sound.astype(np.int32) - np.rint(expected * 32767)).max() <= 1  # no drums, and not pushed up to −1 dBFS
+
+
 def test_listen_with_backing_lays_the_song_under_the_drums_and_never_clips(client, project):
-    song_id = picked(project, hits=[(11.0, "snare", "accent")], audio=song_m4a(40.0, volume=1.0))
+    song_id = picked(project, hits=[(11.0, "snare", "accent")], audio=song_m4a(40.0, volume=16.0))  # lavfi's sine decodes near 0.09 of full scale, so 16 times over makes the sum pass −1 dBFS: D24 only ever lowers it
     assert put_cover(client, song_id, backing={"on": True, "volume": 100}).status_code == 200
 
     sound = wav_of(client.post(f"{SONGS}/{song_id}/cover/listen", json={}))
 
-    assert len(sound) / 44_100 == pytest.approx(7.5, abs=0.05)
+    assert len(sound) / 44_100 == pytest.approx(CLIP_S, abs=0.05)
     assert np.abs(sound[: 44_100 - 100]).max() > 1000  # the song plays before the first hit
     peak = np.abs(sound.astype(np.int32)).max()
     assert peak == round(32767 * 10 ** (-1 / 20))  # −1 dBFS: the sum was brought down, not clipped
+    assert not np.any(np.abs(sound.astype(np.int32)) >= 32767)
 
 
 def test_listen_with_a_broken_song_file_says_the_mix_failed(client, project):
@@ -242,14 +323,14 @@ def test_a_render_is_a_vertical_h264_aac_mp4_of_the_stretch_with_its_srt_and_jso
     mp4 = folder / f"{job['result']}.mp4"
     info = ffmpeg.input_info(mp4)
     assert "1080x1920" in info and "30 fps" in info and "Video: h264" in info and "Audio: aac" in info
-    assert ffmpeg.probe(mp4).duration_s == pytest.approx(7.5, abs=0.1)
+    assert ffmpeg.probe(mp4).duration_s == pytest.approx(CLIP_S, abs=0.1)
     [listed] = client.get(f"{SONGS}/{song_id}/cover/renders").json()
     assert (listed["start_s"], listed["end_s"], listed["picked_at"], listed["backing"]) == (10.0, 16.0, "2026-11-14T00:00:00Z", {"on": False, "volume": 35})
     assert "Teen Spirit" in client.get(f"{SONGS}/{song_id}/cover/renders/{job['result']}.srt").text
     assert not project.songs_render_dir.exists()
 
 
-def test_the_snare_s_sound_starts_within_a_frame_of_its_red_ring(client, project):
+def test_the_snare_s_sound_starts_within_a_frame_of_it_lighting_up(client, project):
     song_id = picked(project)  # a snare 1.0 s into the stretch
     job = rendered(client, song_id)
     mp4 = renders_dir(project, song_id) / f"{job['result']}.mp4"
@@ -258,10 +339,10 @@ def test_the_snare_s_sound_starts_within_a_frame_of_its_red_ring(client, project
     sound = np.frombuffer(ffmpeg_out("-i", str(mp4), "-ac", "1", "-ar", str(rate), "-f", "s16le", "-"), dtype=np.int16)
     near = np.abs(sound[int(0.9 * rate) : int(1.3 * rate)].astype(np.int32))
     sound_at = (int(0.9 * rate) + int(np.argmax(near > near.max() // 2))) / rate
-    x, y = SNARE[0] - 16, SNARE[1]  # beside the stick's head, whose letter libass draws over the strike point
+    x, y = SNARE.probe  # nothing but the snare there: its label is above, the stick's head below
     pixels = ffmpeg_out("-i", str(mp4), "-vf", f"crop=2:2:{x}:{y}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
-    red = [n for n in range(len(pixels) // 12) if pixels[12 * n] > 180 and pixels[12 * n + 1] < 110 and pixels[12 * n + 2] < 110]
-    assert abs(red[0] / frames.FPS - sound_at) <= 1 / frames.FPS
+    full = [n for n in range(len(pixels) // 12) if all(abs(pixels[12 * n + i] - c) <= 12 for i, c in enumerate(SNARE_FILL))]
+    assert abs(full[0] / reel_frames.FPS - sound_at) <= 1 / reel_frames.FPS
 
 
 def test_a_render_with_backing_has_its_picture_and_the_song_under_the_drums(client, project):
@@ -273,11 +354,30 @@ def test_a_render_with_backing_has_its_picture_and_the_song_under_the_drums(clie
     mp4 = renders_dir(project, song_id) / f"{job['result']}.mp4"
     info = ffmpeg.input_info(mp4)
     assert "Video: h264" in info and "Audio: aac" in info
-    assert ffmpeg.probe(mp4).duration_s == pytest.approx(7.5, abs=0.1)
+    assert ffmpeg.probe(mp4).duration_s == pytest.approx(CLIP_S, abs=0.1)
     sound = np.frombuffer(ffmpeg_out("-i", str(mp4), "-ac", "1", "-ar", "48000", "-t", "0.8", "-f", "s16le", "-"), dtype=np.int16)
     assert np.abs(sound).max() > 100  # before the snare: the song (backing off is silent there)
     [listed] = client.get(f"{SONGS}/{song_id}/cover/renders").json()
     assert listed["backing"] == {"on": True, "volume": 35}
+
+
+def test_a_render_with_the_drums_off_is_a_whole_mp4_that_says_so_and_an_older_one_reads_as_full(client, project):
+    song_id = picked(project, audio=song_m4a(40.0, volume=0.5))
+    assert put_cover(client, song_id, drums={"on": False, "volume": 80}, backing={"on": True, "volume": 35}).status_code == 200
+
+    job = rendered(client, song_id)
+
+    mp4 = renders_dir(project, song_id) / f"{job['result']}.mp4"
+    info = ffmpeg.input_info(mp4)
+    assert "Video: h264" in info and "Audio: aac" in info
+    assert ffmpeg.probe(mp4).duration_s == pytest.approx(CLIP_S, abs=0.1)
+    stored = json.loads((renders_dir(project, song_id) / f"{job['result']}.json").read_text(encoding="utf-8"))
+    assert stored["drums"] == {"on": False, "volume": 80}
+
+    del stored["drums"]  # a render made before drums had a volume (D24)
+    (renders_dir(project, song_id) / f"{job['result']}.json").write_text(json.dumps(stored), encoding="utf-8")
+    [listed] = client.get(f"{SONGS}/{song_id}/cover/renders").json()
+    assert listed["drums"] == {"on": True, "volume": 100}
 
 
 def test_the_same_cover_rendered_twice_mixes_the_same_audio_wav(client, project, piped):

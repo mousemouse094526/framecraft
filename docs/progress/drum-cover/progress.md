@@ -1,11 +1,11 @@
 # Progress: drum-cover
 
-**Now:** ticket 01–02 done; [PR #16](https://github.com/mousemouse094526/framecraft/pull/16) merge เข้า `develop` แล้ว (`fb354f2`) — เหลือเจ้าของเช็ค reel Yellow (D15). คำขอเปลี่ยน (ความดังกลอง + ความชัดของ UI กลอง) เปิดเป็น change request ผ่าน `/warroom drum-cover`
+**Now:** ready to merge — ticket 4/4, feature review, Blocked 2 เจ้าของยืนยันแล้ว
 
 **Next:**
 
 ```
-/warroom next
+/pr-open
 ```
 
 ## Tickets
@@ -14,14 +14,88 @@
 |---|---|---|
 | 01 | reel cover จากเพลงที่แกะ: ตั้งช่วง ข้อความ เสียง ฟัง render | done |
 | 02 | ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า | done |
+| 03 | ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ | done |
+| 04 | ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน | done |
 
 ## Blocked
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01, 02) |
+| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ: ดู `docs/features/drum-cover/reel-frames/yellow-{0.03,2.1,5.53,6.22}s.jpg` (หรือ render reel Yellow ใหม่จากหน้า reel) แล้วตอบว่าอ่านออก/ไม่ออกตรงไหน; ดูด้วยว่าไม้ R (ชมพู) ที่ตีไฮแฮทไขว้ไม้ L ผ่าน SNARE/KICK (`yellow-2.1s.jpg`) อ่านยากไหม — ตาม sketch แต่ D25 นับไม้ไขว้เป็นต้นเหตุเดิม (feature review) | done (เจ้าของ 2026-11-16: อ่านออกครบ; ไม้ไขว้ไม่สับสน) |
 
 ## Log
+
+### Blocked 2 — เจ้าของดูเฟรม — 2026-11-16
+
+- เจ้าของดู `yellow-2.1s`, `yellow-5.53s`: อ่านออกทุกอย่าง — ชื่อชิ้นในวงครบ, ป้ายเลน, L/R ในหัวโน้ต, ป้ายมือบนชิ้นที่ตี; ไม้ชมพูทับไม้ขาวตอนตีไฮแฮทไม่สับสนเพราะป้ายมืออยู่บนชิ้น ไม่ใช่บนไม้ — D27 ข้อเจ้าของผ่าน
+- ข้อเล็ก "ถ้าปรับได้" (ไม่บล็อก, change request ถ้าจะทำ): ป้าย PEDAL ตัวเล็กจมไปหน่อย; สีแฟลชตอนตีที่เป็นชมพูใกล้กับสีไม้ขวา
+
+
+### Feature review — 2026-11-16
+
+**Built:** review สามแกน (subagent) บน `ba5135b..aff80f5` — Standards 0 breach + 2 ข้อ soft + ~10 smell, Spec 0 blocking + 6 ข้อ, Newcomer 15 จุดเดา (สรุปตรงกับ spec › Solution). แก้ใน `3cf9bfd` (auto mode, ตัวเลือก Recommended: ข้อเล็กที่ชัด):
+- `drum_cover.frames.drawn_of`/`is_stroke` แทน `KIT[DRAWN_OF[…]]` และเงื่อนไขมือซ้ำใน frames/captions; ลบ `KIT_BOX` ที่ไม่ใช้; `_lit` → `_latest_hits`; `FULL_SPEED`; comment `probe`, ความเร็วเลน 4 จังหวะ, จุดจังหวะ, `Scene(…, None)`, `until > at`
+- `audio`: `INT16_MAX`, `pcm`
+- tests: `timing_of`/`END_S` ไป `fakes.py` (test ไม่ import test อื่น, fastapi-api testing.md); เลน test เช็คแถว HI-HAT ด้วย; `CLIP_S`; test volume ใส่ `drums` เอง; comment แถวและ `volume=16`
+- frontend: `Sound` type เดียวของ `drums`/`backing`; comment `fireEvent.change` ของ range
+- `vite-react-web/SKILL.md` มี `Switch`; spec › Modules touched ชี้ `backend.subtitles` (D29)
+
+**Decided:** ไม่มี D ใหม่ — ปัด (บันทึกไว้ ไม่ทำ):
+- `px_per_s` 4 จังหวะ (For the next ticket ของ 04): เป็นความเร็วเลนเท่านั้น เส้นห้องมาจาก downbeat — ไม่ต้องเปลี่ยน
+- `scene.hits`/`times` คู่กัน, hex parse สามที่ (สองที่ใน video-gen), รายชื่อ field ของ cover หลายที่, `_note_head` แยกตาม piece id, string ของจังหวะ/มือ, สวิตช์ของ `toon`, test อ่าน `scene.bars`/`px_per_s`, `KIT` เทียบตัวเอง, ป้ายมือคิดสองที่ (`_latest_hits` vs `_badges`), `text.ass` ของบทเรียนเช็คด้วยมือ — smell ที่ยังไม่คุ้มรื้อ
+- ไม้ไขว้ตอน R ตีไฮแฮท: ตาม sketch (D26) — ส่งให้เจ้าของดูใน Blocked 2
+
+**Checks:** `uv run pytest` 1487 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 609 passed; `npm --prefix frontend run build` ผ่าน
+
+### 04: ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน — done 2026-11-16
+
+**Built:**
+- prefactor video-gen (ผลเดิม): `frames.background_image`, `frames.stick_tip(times, targets, rest, t)`, `frames.paste`/`shrunk`/`lighter` public; `captions.stick_letters(tips_at, total)`; helper ASS `style`, `pos`, `ass_color`, `squeeze(width, max_px)`, `at_most_two` ย้ายไป `backend/subtitles.py` — `text.ass` และ hash เฟรมของบทเรียนตัวอย่างเท่าเดิมทุกตัวอักษร (เทียบก่อน/หลังด้วยมือ); test เดิมของ video-gen ไม่แก้
+- `drum_cover.frames`: ชุดกลองมุมบน 9 ชิ้นตาม sketch (พัก 30 %, ตีเติมเต็ม ขอบขาว ขยาย 1.12/1.2 แล้วหด, ghost 60 %, HH เปิดมีวงขาว), ไม้ L ขาว R ชมพู ขยับด้วย `stick_tip`, ป้ายมือ, เลนละชิ้นที่เล่น (สูง `min(84, 420/n)` กลางกรอบ, หัวโน้ตตามชนิด, ตัดที่ขอบเลน), จุดจังหวะ, `Scene.still` วาดเมื่อใช้
+- `drum_cover.captions`: หัวเรื่องบีบ ≤ 760 px, บรรทัดรองบีบ ≤ 760 px, คำบรรยาย, ป้ายชิ้นตลอดคลิป, ชื่อเลนสีของชิ้น, "ห้อง n" ต่อ downbeat, เลขห้องเหนือเลน, ตัว L/R ในหัวโน้ตเลื่อนด้วย `\move` + `\clip`, ป้ายมือ, ตัว L/R บนหัวไม้
+- `render` ใช้ภาพและตัวหนังสือของ reel; test เสียงตรงภาพอ่านสีเติมเต็มของ snare ที่จุดวัดสี (`#60A5FA` ± 12) แทนวงแดง
+- tests: `test_drum_cover_frames.py` (7: ตารางชิ้น, สีเติม/พัก + bytes เดียวกัน, สีไม้, เลน 3 แถว + หัวโน้ตที่ x 330, หางเสียงนิ่ง, ห้อง 5 จังหวะ + ห้อง 3 จังหวะ, จังหวะก่อน downbeat), `test_drum_cover_captions.py` (7: ป้ายชิ้น, ชื่อเลน, "ห้อง 1/2", ตัว L/R ของมือเท่านั้น, หัวเรื่องและบรรทัดรองบีบ 760, ป้ายมือถึงการตีถัดไป); ลบ test ภาพเดิมสองตัวใน `test_drum_cover_timeline.py`
+- วัดมือ: reel 30 วินาที (Yellow 11.5–30 ต่อซ้ำ) render 8.9 วินาที; reel Yellow 11.54–30 render 6.3 วินาที (D15 ≤ 60)
+- เฟรมให้เจ้าของดู: `docs/features/drum-cover/reel-frames/yellow-0.03s.jpg` (crash + kick ต้นห้อง 1), `yellow-2.1s.jpg` (snare L + hi-hat R), `yellow-5.53s.jpg` (crash + kick ห้อง 3), `yellow-6.22s.jpg` (snare + hi-hat) — Blocked 2
+- review (subagent): Standards 3 breach + smells, Spec 0 blocking + 4 ข้อ, Newcomer 14 จุดเดา — แก้: helper ASS ไป `subtitles`, ใช้ `paste`/`shrunk`/`lighter` ของ video-gen แทนสำเนา, test แยกตาม module, import ที่ไม่ใช้, `Scene.ahead_s`/`behind_s` ที่เดียว, `_dot_sprite` แทน `_badge`/`_dot`, `bar_starts`, swings ซ้ำ, `__all__`, ชื่อ `note head`/`NoteLetter`, docstring `bars_of`, comment crop/hand loop, test ใช้ค่าคงที่ของ sketch (y 1390/1474, สี) แทนค่าของโค้ด, test ป้ายมือสลับมือ, บรรทัดรอง 760 px, ป้ายมือชนป้าย HI-HAT ย้ายไปขอบขวา
+
+**Decided:** D29
+
+**For the next ticket:**
+- `px_per_s` ใช้ห้อง 4 จังหวะที่ `scroll_bpm` (ค่ากลางของระยะจังหวะ) ไม่ว่าเพลงเป็นกี่จังหวะ (D4 เดิม) — Newcomer สังเกต; feature review ดูว่าต้องเปลี่ยนไหม
+- ชื่อจังหวะ/มือเป็น string เปล่า (`"accent"`, `"L"`) ทั้ง video-gen และ reel — Standards: Primitive Obsession; ใช้ร่วมกับ `timeline.NoteKind` อยู่แล้ว ยังไม่รื้อ
+- `_note_head` แยกรูปตาม piece id แทน `Drawn.shape` (ฉาบกับไฮแฮทรูปต่างกันในเลน จึงยังไม่รวม)
+
+**Checks:** `uv run pytest` 1487 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 609 passed (รอบแรก 1 ล้มใต้โหลด ผ่านเมื่อรันซ้ำ — frontend ไม่ถูกแตะ, flaky เดิม); `npm --prefix frontend run build` ผ่าน
+
+### 03: ความดังกลองแยกจากเพลง และปิดเสียงกลองได้ — done 2026-11-16
+
+**Built:**
+- backend: `cover.Drums` `{on, volume}` (ค่าตั้งต้น เปิด 100 สำหรับ `cover.json`/`.json` ของ render เก่า); `PUT` ตรวจ `drums` ด้วย `_sound` ตัวเดียวกับ `backing`, ปิดทั้งคู่ → `400` `drums.on`; `used(check_sound)` ปฏิเสธ cover แก้มือที่เงียบที่ฟังและ render; `audio.reel_wav`: กลอง 100 + backing ปิด = `mixer.mix` ตรง ๆ, กลองปิดไม่เรียก mixer, ผลรวมลดเฉพาะเมื่อเกิน −1 dBFS (ไม่ดันขึ้น); render `.json` มี `drums`
+- frontend: การ์ดเสียงมีบรรทัด "กลอง" สวิตช์ "ปิดเสียงกลอง" + สไลเดอร์ "ความดังกลอง" ({v}%); ปิดทั้งคู่ → ข้อความที่การ์ด ปุ่ม "ฟัง"/"render reel" กดไม่ได้; แถวผลป้าย "ไม่มีเสียงกลอง"/"กลอง {v}%"; `Switch` ย้ายไป `components/ui`
+- tests: API +5 (field ของ `drums`, ปิดทั้งคู่, ไฟล์เก่า + cover เงียบที่ listen/render, wav เดิมที่ 100 และ −6.0 dB ที่ 50, กลองปิด = เพลง × volume ± 1 LSB, render กลองปิด + `.json` เก่า) และ test "never clips" ใช้เพลงดังเกิน full scale; e2e +3 (สไลเดอร์ 60, ปิดเสียงกลอง, ป้ายแถวผล)
+- review (subagent): Standards 1 breach + 8 smell, Spec 0 + 1 test note, Newcomer 9 จุดเดา — แก้: `Switch` ร่วม, `_sound` คืน model, ชื่อ `drum_pcm`/`ceiling`, `BACKING_VOLUME`/`FULL_VOLUME` (ทั้งสองฝั่ง), test wav 100 ไม่วนผ่าน `cover.used`, ชื่อ test สองตัว, comment สวิตช์กลับด้านและ int16 ÷ 32767
+
+**Decided:** D28
+
+**For the next ticket:**
+- สวิตช์ของ `toon` (`CardEditor.tsx:187`, `SeriesForm.tsx:393`) ยังเขียนเอง — ใช้ `components/ui/Switch` เมื่อแตะไฟล์นั้น
+- รายชื่อ field ของ cover ซ้ำหลายที่ (`fieldsOf`, `sameFields`, รายการ field ที่แสดงข้อผิดพลาดในช่อง, `cover_body`/`bodyOf` ของ test) — review: Shotgun Surgery; ยังไม่ใหญ่พอให้รื้อ
+- backing เปิด: wav ต่างจากก่อน ticket นี้ ≤ 1 LSB (อ่านกลองเป็น int16 ÷ 32767, D28); D15 ยังจริงสำหรับกลองล้วน 100
+
+**Checks:** `uv run pytest` 1475 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 609 passed; `npm --prefix frontend run build` ผ่าน
+
+### Change request — 2026-11-16
+
+- คำขอเจ้าของ (Telegram): ความดังกลองแยก + mute และบันทึกในผล render; ภาพกลองอ่านไม่ออก; "ทำได้โดยไม่อิงคลิปต้นฉบับ" → ตีความว่าออกแบบภาพ reel ใหม่ได้ทั้งหมด (auto mode, Recommended)
+- ดูเฟรมจริงของ reel Yellow: กระเดื่องบัง snare/ทอม, ไม่มีชื่อชิ้น, ทอม 2 ใบสีเดียว, crash/ride สีเดียว, เลน 3 เลนรวมชิ้น, ไม้สีเดียวไขว้กัน
+- Decided: D24 (`drums {on, volume}`, ลดเฉพาะเมื่อเกิน −1 dBFS), D25 (ภาพ reel เป็นของ `drum_cover`, video-gen ไม่เปลี่ยน; D3/D4 changed by D25), D26 (sketch `reel-picture-sketch.md`), D27 (เป้า)
+- legal: ข้อ 2 และ 4 คง CONDITIONAL ไม่มีเงื่อนไขใหม่
+- Breaker: 1 BLOCKER + 4 CONCERN แก้ docs ครบ — จุดวัดสีแยกจากจุดตีและป้าย (BLOCKER), ป้ายครึ่งบน/จุดตีครึ่งล่าง, หัวเรื่อง ≤ 760 px ไม่ชนตัวนับ, ที่พักไม้นอกกระเดื่อง, จังหวะ > 4 → จุดที่ 4
+- ADR: 0054 (ภาพ reel เป็นของ `drum_cover`); D24 เป็นพฤติกรรมของ feature ไม่ใช่ ADR
+- Gate: Approve (auto mode, Recommended)
+
 
 ### 02: ภาพพื้นหลังของ reel และหน้าเพลงบอกเมื่อกลองเข้าช้า — done 2026-11-15
 

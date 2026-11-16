@@ -1507,3 +1507,16 @@ def song_m4a(seconds: float = 40.0, volume: float = 1.0) -> bytes:
             check=True,
         )  # fmt: skip
         return out.read_bytes()
+
+
+END_S = 4.0  # `timing_of`'s stretch; the clip runs 1.5 s more
+
+
+def timing_of(*hits: tuple[float, str, str | None, str], beats: list[tuple[float, int]] | None = None):
+    """A reel's timeline from `(t, piece, hand, note)`: a 4 s stretch with a beat every 0.5 s, bars of 4, unless given."""
+    from backend.video_gen import timeline
+
+    beats = beats if beats is not None else [(n / 2, n % 4 + 1) for n in range(8)]
+    sounds = [(t, piece, hand, "mid", note) for t, piece, hand, note in hits]
+    spans = [timeline.Span(0, timeline.to_sample(END_S))]
+    return timeline.assemble(sounds, [timeline.Beat(timeline.to_sample(t), n) for t, n in beats], spans, END_S + timeline.TAIL_S)

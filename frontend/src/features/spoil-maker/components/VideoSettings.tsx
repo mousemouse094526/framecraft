@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
+import { Switch } from "../../../components/ui/Switch";
 import plusIcon from "../../../components/ui/assets/plus.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
@@ -205,17 +206,6 @@ function WatermarkRow({ number, mark, locked, focus, onChange, onRemove }: RowPr
         </div>
       </div>
     </fieldset>
-  );
-}
-
-/** On or off for one watermark (D64): the brand-accent track of the selected Position cell, 44 px to tap. */
-function Switch({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onToggle} className="flex size-11 items-center justify-center">
-      <span className={`flex h-5 w-9 items-center rounded-full p-0.5 transition-colors ${on ? "bg-brand-accent" : "bg-border-strong"}`}>
-        <span className={`size-4 rounded-full bg-card shadow-sm transition-transform ${on ? "translate-x-4" : ""}`} />
-      </span>
-    </button>
   );
 }
 

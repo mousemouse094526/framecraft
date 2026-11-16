@@ -17,9 +17,10 @@ flowchart LR
   end
   subgraph cover["drum-cover (ใหม่)"]
     direction LR
-    Cover["cover.json<br/>ช่วง ข้อความ พื้นหลัง backing"]
+    Cover["cover.json<br/>ช่วง ข้อความ พื้นหลัง drums backing"]
     Build["drum_cover.timeline.build"]
-    Wav["drum_cover.audio.reel_wav<br/>+ backing ใน numpy"]
+    Wav["drum_cover.audio.reel_wav<br/>กลอง × volume + backing ใน numpy"]
+    Frames["drum_cover.frames + captions<br/>ภาพของ reel D25"]
     Timeline["Timeline<br/>ของ video-gen"]
     Cover -->|ช่วงและข้อความ| Build
     Build -->|การตีจริง + มือ D5| Timeline
@@ -28,21 +29,22 @@ flowchart LR
     direction LR
     Mixer["mixer"]
     FF["ffmpeg<br/>_command เดิม"]
-    Frames["frame_at + captions"] -->|rgb24 + text.ass| FF
   end
   Analysis -->|hits ในช่วง| Build
   Timeline --> Mixer
   Mixer -->|wav กลอง| Wav
   Wav -->|audio.wav| FF
   Timeline --> Frames
+  Frames -->|rgb24 + text.ass| FF
   FF -->|mp4| Renders["renders/ ใต้เพลง"]
 ```
 
-**reel ใช้ของเดิมสองข้าง: `analysis` จาก drum-notes เข้า และ mixer/frames ของ video-gen ออก; ของใหม่คือ `cover.json` กับตัวแปลงเป็น `Timeline`**
+**reel ใช้ของเดิมสองข้าง: `analysis` จาก drum-notes เข้า และ mixer/ffmpeg ของ video-gen ออก; ของใหม่คือ `cover.json` ตัวแปลงเป็น `Timeline` และภาพของ reel**
 - บทเรียนกลอง (`drum_notes.lesson` → `video_gen.lessons`) ยังอยู่เป็นทางออกที่สองของ `analysis` ไม่อยู่ในภาพ (D1, D11)
 - `Timeline` ตัวเดียวขับทั้งเสียงและภาพ reel จึงตรงกันเท่าคลิปสอน (D4, ADR-0041, ADR-0051)
 - backing ผสมใต้กลองใน `reel_wav` ทางเดียวที่ทั้งฟังและ render ใช้; คำสั่ง ffmpeg ของ video-gen ไม่แก้ (D17, ADR-0050)
-- Lesson ชั่วคราวหนึ่งท่อนถือหัวเรื่อง บรรทัดรอง คำบรรยาย พื้นหลัง ให้ `frames` และ `captions` อ่าน (D4)
+- Lesson ชั่วคราวหนึ่งท่อนถือหัวเรื่อง บรรทัดรอง คำบรรยาย พื้นหลัง bpm ให้ `drum_cover.frames` และ `drum_cover.captions` อ่าน (D4, D25)
+- ภาพของ reel เป็นของ drum-cover เอง; คลิปสอนยังใช้ `video_gen.frames` เดิม (D25, D26)
 - `cover.json` และ `renders/` อยู่ใน folder ของเพลงและหายตามเพลง (D2)
 
 ## 2. Render job ของ reel
@@ -64,14 +66,14 @@ sequenceDiagram
     Job->>FF: frame_at(t) เป็น rgb24
   end
   FF-->>Job: จบ (exit 0)
-  Job->>Job: renders.Render.finish (srt, json มี backing)
+  Job->>Job: renders.Render.finish (srt, json มี drums และ backing)
   Web->>API: GET /api/covers/render ทุก 1 วินาที
   API-->>Web: done + result
 ```
 
 **ระหว่างกด render จนได้ไฟล์ เกิดอะไรตามลำดับ และ backing เข้าทาง `audio.wav` ไม่ใช่ทาง `Timeline`**
 - การตรวจทั้งหมดเกิดก่อน `202`; ลำดับและ error code อยู่ใน spec › Render job (D12)
-- backing ปิด: `audio.wav` = เสียงกลอง; เปิด: `reel_wav` ถอด `audio.m4a` ช่วง `[start_s, end_s)` ผสมใต้กลองแล้ว peak −1 dBFS (D7, D17)
+- backing ปิด: `audio.wav` = เสียงกลอง × `drums.volume` (100 = byte เดิม); เปิด: `reel_wav` ถอด `audio.m4a` ช่วง `[start_s, end_s)` ผสมกับกลอง (หรือไม่มีกลองเมื่อ mute) แล้วลดเฉพาะเมื่อ peak เกิน −1 dBFS (D7, D17, D24)
 - รันพร้อม Render job ของสอนกลองและ Pick job ได้ (D20)
 - งานใช้สำเนาใน `media/songs/.render/`; `PUT /cover` ระหว่างงานถึงงานถัดไป (D12)
 - ลบเพลงระหว่างงาน → `409` `song_busy`; `audio.m4a` จึงอ่านที่เดิมได้ (D2, D12)

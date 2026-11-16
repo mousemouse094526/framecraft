@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
@@ -72,6 +72,7 @@ function coverOf(change: Partial<Cover> = {}): Cover {
     subtitle: "DRUMMATE",
     caption: "",
     background: "color",
+    drums: { on: true, volume: 100 },
     backing: { on: false, volume: 35 },
     saved: true,
     adjusted: false,
@@ -93,6 +94,7 @@ function resultOf(change: Partial<CoverRenderResult> = {}): CoverRenderResult {
     start_s: 10,
     end_s: 30,
     picked_at: analysis.picked_at,
+    drums: { on: true, volume: 100 },
     backing: { on: false, volume: 35 },
     created_at: "2026-11-15T10:30:00+07:00",
     size_bytes: 1000,
@@ -106,8 +108,8 @@ function jobOf(change: Partial<CoverRenderJob> = {}): CoverRenderJob {
 
 /** The PUT body of the cover as the page shows it, with `change`. */
 function bodyOf(cover: Cover, change: Record<string, unknown> = {}) {
-  const { start_s, end_s, title, subtitle, caption, background, backing } = cover;
-  return { start_s, end_s, title, subtitle, caption, background, backing, ...change };
+  const { start_s, end_s, title, subtitle, caption, background, drums, backing } = cover;
+  return { start_s, end_s, title, subtitle, caption, background, drums, backing, ...change };
 }
 
 beforeEach(() => {
@@ -261,6 +263,51 @@ describe("หน้า reel", () => {
     expect(screen.getByText(/เพลงต้นฉบับมีลิขสิทธิ์ แพลตฟอร์มอาจ claim/)).toBeInTheDocument();
     await user.click(button(/บันทึก/));
     expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { backing: { on: true, volume: 35 } })]);
+  });
+
+  it("ความดังกลอง at 60 is saved as the drums' volume (e2e)", async () => {
+    const user = open(COVER_HASH, [send("PUT", COVER_PATH, coverOf({ drums: { on: true, volume: 60 } }), 200)]);
+
+    // user-event can't drag a range input to a value: set it the way the browser reports a drag.
+    fireEvent.change(await screen.findByRole("slider", { name: "ความดังกลอง" }), { target: { value: "60" } });
+    expect(screen.getByText("60%")).toBeInTheDocument();
+    await user.click(button(/บันทึก/));
+
+    expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { drums: { on: true, volume: 60 } })]);
+  });
+
+  it("ปิดเสียงกลอง hides the slider; with no backing nothing would play, so ฟัง and render reel wait for it (e2e)", async () => {
+    const user = open(COVER_HASH, [send("PUT", COVER_PATH, coverOf({ drums: { on: false, volume: 100 }, backing: { on: true, volume: 35 } }), 200)]);
+
+    await user.click(await screen.findByRole("switch", { name: "ปิดเสียงกลอง" }));
+
+    expect(screen.queryByRole("slider", { name: "ความดังกลอง" })).not.toBeInTheDocument();
+    expect(screen.getByText("เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง")).toBeInTheDocument();
+    expect(button("ฟัง")).toBeDisabled();
+    expect(button("render reel")).toBeDisabled();
+
+    await user.click(screen.getByRole("radio", { name: "กลอง + เพลงต้นฉบับ" }));
+    expect(screen.queryByText("เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง")).not.toBeInTheDocument();
+    expect(button("ฟัง")).toBeEnabled();
+    expect(button("render reel")).toBeEnabled();
+    await user.click(button(/บันทึก/));
+    expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { drums: { on: false, volume: 100 }, backing: { on: true, volume: 35 } })]);
+  });
+
+  it("a render's row says when its drums were off or not at full volume (e2e)", async () => {
+    open(COVER_HASH, [
+      get(RENDERS_PATH, [
+        resultOf({ name: "20261115-120000", drums: { on: false, volume: 100 }, backing: { on: true, volume: 35 } }),
+        resultOf({ name: "20261115-110000", drums: { on: true, volume: 60 } }),
+        resultOf(),
+      ]),
+    ]);
+
+    const rows = within(await screen.findByRole("list", { name: "ผล render ทั้งหมด" })).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("ไม่มีเสียงกลอง");
+    expect(rows[0]).not.toHaveTextContent("กลอง 100%");
+    expect(rows[1]).toHaveTextContent("กลอง 60%");
+    expect(rows[2]).not.toHaveTextContent(/ไม่มีเสียงกลอง|กลอง \d+%/);
   });
 
   it("a song with no audio of its own can't take the backing", async () => {

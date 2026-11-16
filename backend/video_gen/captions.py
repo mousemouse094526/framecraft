@@ -4,14 +4,14 @@ the beat counter, the caption, the L/R and RF/LF letters, and the beat numbers s
 lanes with the notes (`lane`) — and the `.srt` saved beside the mp4. Every time is read from
 `timeline` (ADR 0041)."""
 
-import math
 from collections.abc import Callable
 from typing import TYPE_CHECKING, NamedTuple
 
 from backend import subtitles
 from backend.paths import ProjectPaths
-from backend.subtitles import BLACK, WHITE, Timed
+from backend.subtitles import BLACK, WHITE, Timed, ass_color, at_most_two, pos, squeeze, style
 from backend.video_gen import frames, kit, lane, timeline
+from backend.video_gen.kit import Point
 from backend.video_gen.timeline import Timeline
 
 if TYPE_CHECKING:
@@ -29,7 +29,6 @@ SUBTITLE_AT = (54, 340)
 COUNTER_AT = (1000, 282)
 CAPTION_AT = (54, 1656)
 BEAT_Y = lane.TOP - 6  # the numbers' bottom, over the lanes
-LINES = 2  # the line under the title and the caption, at most (D22)
 SUBTITLE_PER_LINE = 40  # letters that take space, about 860 px at each size
 CAPTION_PER_LINE = 34
 DARK_TEXT_OVER = 0.6  # a box this light (0–1) takes black letters, a darker one white
@@ -81,35 +80,36 @@ def ass_file(project: ProjectPaths, lesson: "Lesson", timing: Timeline, title_fo
     """Every line of text of the clip at spec › Layout's places."""
     font = title_font(project)
     styles = [
-        _style("Heading", TITLE_SIZE, BLACK, WHITE, border=BOX_PAD, boxed=True),
-        _style("Line", SUBTITLE_SIZE, WHITE, BLACK, border=2),
-        _style("Counter", COUNTER_SIZE, WHITE, BLACK, border=3),
-        _style("Caption", CAPTION_SIZE, WHITE, BLACK, border=2),
-        _style("Letter", LETTER_SIZE, NAVY, NAVY, border=0),
-        _style("Foot", FOOT_SIZE, NAVY, NAVY, border=0),
-        _style("Stick", STICK_LETTER_SIZE, NAVY, NAVY, border=0),
-        _style("Beat", BEAT_SIZE, WHITE, BLACK, border=0),
+        style("Heading", TITLE_SIZE, BLACK, WHITE, border=BOX_PAD, boxed=True),
+        style("Line", SUBTITLE_SIZE, WHITE, BLACK, border=2),
+        style("Counter", COUNTER_SIZE, WHITE, BLACK, border=3),
+        style("Caption", CAPTION_SIZE, WHITE, BLACK, border=2),
+        style("Letter", LETTER_SIZE, NAVY, NAVY, border=0),
+        style("Foot", FOOT_SIZE, NAVY, NAVY, border=0),
+        style("Stick", STICK_LETTER_SIZE, NAVY, NAVY, border=0),
+        style("Beat", BEAT_SIZE, WHITE, BLACK, border=0),
     ]
     end = timing.length_s
     events: list[str] = []
     for section in sections(lesson, timing):
-        squeeze = _squeeze(font.getlength(section.heading))
-        tags = f"\\an7{_pos(TITLE_AT)}\\1c{section.letters}\\3c{section.box}{squeeze}"
+        squeezed = squeeze(font.getlength(section.heading), TITLE_MAX_PX)
+        tags = f"\\an7{pos(TITLE_AT)}\\1c{section.letters}\\3c{section.box}{squeezed}"
         events.append(subtitles.event("Heading", section.start, section.end, tags, [section.heading]))
         if section.line:
-            lines = _at_most_two(project, section.line, SUBTITLE_PER_LINE)
-            events.append(subtitles.event("Line", section.start, section.end, "\\an7" + _pos(SUBTITLE_AT), lines))
+            lines = at_most_two(project, section.line, SUBTITLE_PER_LINE)
+            events.append(subtitles.event("Line", section.start, section.end, "\\an7" + pos(SUBTITLE_AT), lines))
     beats = [beat.at / timeline.RATE for beat in timing.beats]
     for beat, start, until in zip(timing.beats, beats, [*beats[1:], end], strict=True):
-        events.append(subtitles.event("Counter", start, until, "\\an9" + _pos(COUNTER_AT), [str(beat.number)]))
+        events.append(subtitles.event("Counter", start, until, "\\an9" + pos(COUNTER_AT), [str(beat.number)]))
     if lesson.caption:
-        lines = _at_most_two(project, lesson.caption, CAPTION_PER_LINE)
-        events.append(subtitles.event("Caption", 0.0, end, "\\an7" + _pos(CAPTION_AT), lines))
+        lines = at_most_two(project, lesson.caption, CAPTION_PER_LINE)
+        events.append(subtitles.event("Caption", 0.0, end, "\\an7" + pos(CAPTION_AT), lines))
     for hand, at in frames.LR_CIRCLES.items():
-        events.append(subtitles.event("Letter", 0.0, end, "\\an5" + _pos(at), [hand]))
+        events.append(subtitles.event("Letter", 0.0, end, "\\an5" + pos(at), [hand]))
     for foot in kit.FEET:
-        events.append(subtitles.event("Foot", 0.0, end, "\\an5" + _pos(foot.center), [foot.name]))
-    events += _stick_letters(timing)
+        events.append(subtitles.event("Foot", 0.0, end, "\\an5" + pos(foot.center), [foot.name]))
+    swings = frames.stick_swings(timing)
+    events += stick_letters(lambda t: frames.stick_tips(swings, t), frames.frame_count(timing))
     events += _beat_numbers(lesson, timing)
     return subtitles.HEADER.format(styles="\n".join(styles)) + "\n".join(events) + "\n"
 
@@ -146,59 +146,23 @@ def _beat_numbers(lesson: "Lesson", timing: Timeline) -> list[str]:
     return events
 
 
-def _stick_letters(timing: Timeline) -> list[str]:
-    """L and R on the sticks' heads, where `frames` draws them (ADR 0040, D31): one event per stretch
-    of frames the head stays put, each frame's time in the middle of its event so libass can't
-    show the one before."""
-    swings = frames.stick_swings(timing)
-    total = frames.frame_count(timing)
+def stick_letters(tips_at: Callable[[float], dict[str, Point]], total: int) -> list[str]:
+    """L and R on the sticks' heads, where `tips_at(t)` says the picture draws them (ADR 0040, D31):
+    one event per stretch of frames the head stays put, each frame's time in the middle of its
+    event so libass can't show the one before. A reel cover's sticks go through here too (drum-cover D25)."""
     events = []
-    for hand in kit.STICKS:
+    for hand in tips_at(0.0):  # the hands the picture has sticks for
         first, at = 0, None
         for n in range(total + 1):
-            tip = frames.stick_tips(swings, n / frames.FPS)[hand] if n < total else None
+            tip = tips_at(n / frames.FPS)[hand] if n < total else None
             if tip != at:
                 if at is not None:
                     start, until = (first - 0.5) / frames.FPS, (n - 0.5) / frames.FPS
-                    events.append(subtitles.event("Stick", max(start, 0.0), until, "\\an5" + _pos(at), [hand]))
+                    events.append(subtitles.event("Stick", max(start, 0.0), until, "\\an5" + pos(at), [hand]))
                 first, at = n, tip
     return events
-
-
-def _squeeze(width_px: float) -> str:
-    """`\\fscx` that brings a heading wider than 860 px down to it, on one line (D22)."""
-    if width_px <= TITLE_MAX_PX:
-        return ""
-    return f"\\fscx{math.floor(TITLE_MAX_PX / width_px * 100)}"
-
-
-def _at_most_two(project: ProjectPaths, text: str, per_line: int) -> list[str]:
-    """Cut at word edges (`subtitles.cut_lines`); words that would make a third line widen both
-    lines a little at a time instead, so no line runs far past the others (D32)."""
-    lines = subtitles.cut_lines(project, text, per_line)
-    while len(lines) > LINES:
-        per_line += 2
-        lines = subtitles.cut_lines(project, text, per_line)
-    return lines
-
-
-def _pos(at: tuple[int, int]) -> str:
-    return f"\\pos({at[0]},{at[1]})"
-
-
-def ass_color(hex_color: str) -> str:
-    """`#RRGGBB` as ASS's `&H00BBGGRR`, opaque."""
-    return f"&H00{hex_color[5:7]}{hex_color[3:5]}{hex_color[1:3]}".upper()
 
 
 def _lightness(hex_color: str) -> float:
     r, g, b = (int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5))
     return 0.299 * r + 0.587 * g + 0.114 * b
-
-
-def _style(name: str, size: int, fill: str, outline: str, border: int, boxed: bool = False) -> str:
-    """ASS BorderStyle 3 when `boxed`: an opaque box in the outline colour, `border` px past the letters."""
-    return (
-        f"Style: {name},{subtitles.FONT},{size},{fill},{fill},{outline},{outline},-1,0,0,0,"
-        f"100,100,0,0,{3 if boxed else 1},{border},0,7,0,0,0,1"
-    )
