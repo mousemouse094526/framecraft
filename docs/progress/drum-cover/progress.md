@@ -1,11 +1,11 @@
 # Progress: drum-cover
 
-**Now:** ticket ครบ 4/4; รอเจ้าของดูเฟรม reel Yellow ภาพใหม่ใน `docs/features/drum-cover/reel-frames/` (Blocked 2) แล้ว feature review
+**Now:** ticket ครบ 4/4 และ feature review เสร็จ (`3cf9bfd`); เหลือ Blocked 2 — เจ้าของดูเฟรม reel Yellow ภาพใหม่ใน `docs/features/drum-cover/reel-frames/` แล้วจึง `/pr-open`
 
-**Next:**
+**Next:** เจ้าของตอบ Blocked 2 → อ่านออก: `/pr-open`; อ่านไม่ออก: `/warroom drum-cover` (change request)
 
 ```
-/warroom-build drum-cover --review-feature
+/pr-open
 ```
 
 ## Tickets
@@ -22,9 +22,25 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 01, 02 | design: หน้าเพลง — ส่วนที่เพิ่ม, หน้า reel | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D14, แบบ drum-notes D28) | done (01, 02) |
-| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ: ดู `docs/features/drum-cover/reel-frames/yellow-{0.03,2.1,5.53,6.22}s.jpg` (หรือ render reel Yellow ใหม่จากหน้า reel) แล้วตอบว่าอ่านออก/ไม่ออกตรงไหน | open |
+| 2 | 04 | เจ้าของดู reel Yellow 11.5–30 ด้วยภาพใหม่ แล้วยืนยันว่าอ่านออกว่าแต่ละโน้ตตีชิ้นไหนมือไหน (D27; แทนข้อเช็คภาพเดิมของ D15) | เจ้าของ: ดู `docs/features/drum-cover/reel-frames/yellow-{0.03,2.1,5.53,6.22}s.jpg` (หรือ render reel Yellow ใหม่จากหน้า reel) แล้วตอบว่าอ่านออก/ไม่ออกตรงไหน; ดูด้วยว่าไม้ R (ชมพู) ที่ตีไฮแฮทไขว้ไม้ L ผ่าน SNARE/KICK (`yellow-2.1s.jpg`) อ่านยากไหม — ตาม sketch แต่ D25 นับไม้ไขว้เป็นต้นเหตุเดิม (feature review) | open |
 
 ## Log
+
+### Feature review — 2026-11-16
+
+**Built:** review สามแกน (subagent) บน `ba5135b..aff80f5` — Standards 0 breach + 2 ข้อ soft + ~10 smell, Spec 0 blocking + 6 ข้อ, Newcomer 15 จุดเดา (สรุปตรงกับ spec › Solution). แก้ใน `3cf9bfd` (auto mode, ตัวเลือก Recommended: ข้อเล็กที่ชัด):
+- `drum_cover.frames.drawn_of`/`is_stroke` แทน `KIT[DRAWN_OF[…]]` และเงื่อนไขมือซ้ำใน frames/captions; ลบ `KIT_BOX` ที่ไม่ใช้; `_lit` → `_latest_hits`; `FULL_SPEED`; comment `probe`, ความเร็วเลน 4 จังหวะ, จุดจังหวะ, `Scene(…, None)`, `until > at`
+- `audio`: `INT16_MAX`, `pcm`
+- tests: `timing_of`/`END_S` ไป `fakes.py` (test ไม่ import test อื่น, fastapi-api testing.md); เลน test เช็คแถว HI-HAT ด้วย; `CLIP_S`; test volume ใส่ `drums` เอง; comment แถวและ `volume=16`
+- frontend: `Sound` type เดียวของ `drums`/`backing`; comment `fireEvent.change` ของ range
+- `vite-react-web/SKILL.md` มี `Switch`; spec › Modules touched ชี้ `backend.subtitles` (D29)
+
+**Decided:** ไม่มี D ใหม่ — ปัด (บันทึกไว้ ไม่ทำ):
+- `px_per_s` 4 จังหวะ (For the next ticket ของ 04): เป็นความเร็วเลนเท่านั้น เส้นห้องมาจาก downbeat — ไม่ต้องเปลี่ยน
+- `scene.hits`/`times` คู่กัน, hex parse สามที่ (สองที่ใน video-gen), รายชื่อ field ของ cover หลายที่, `_note_head` แยกตาม piece id, string ของจังหวะ/มือ, สวิตช์ของ `toon`, test อ่าน `scene.bars`/`px_per_s`, `KIT` เทียบตัวเอง, ป้ายมือคิดสองที่ (`_latest_hits` vs `_badges`), `text.ass` ของบทเรียนเช็คด้วยมือ — smell ที่ยังไม่คุ้มรื้อ
+- ไม้ไขว้ตอน R ตีไฮแฮท: ตาม sketch (D26) — ส่งให้เจ้าของดูใน Blocked 2
+
+**Checks:** `uv run pytest` 1487 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 609 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 04: ภาพกลองของ reel ใหม่ที่อ่านออกว่าตีชิ้นไหน มือไหน ห้องไหน — done 2026-11-16
 
