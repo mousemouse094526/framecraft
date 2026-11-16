@@ -5,3 +5,5 @@
 **Status:** accepted
 
 Source: drum-cover D1, D2, D6
+
+**Extended by:** ADR-0055, ADR-0056, ADR-0058 (kalimba-cover)

@@ -217,7 +217,7 @@
 - **ความยาว:** `end_s − start_s` > 90 ถูก `PUT` ปฏิเสธอยู่แล้ว; ฟังและ render ไม่มี `too_long`
 - **หน้าเว็บ:** หน้า reel อ่าน `GET /covers/render` ตอนเปิดและ poll ทุก 1 วินาทีระหว่าง `rendering`; ผล render อยู่ท้ายหน้าเดียวกัน ไม่มีหน้าผลแยก
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** extended by kalimba-cover D9
 
 ## D13: seam สามจุด: API ด้วย ffmpeg จริงและ `analysis` ที่เขียนเอง, timeline ของ reel ด้วยการตีสังเคราะห์, หน้าเว็บผ่าน `App`
 
@@ -387,7 +387,7 @@
 - gate ไม่เปลี่ยน: ฟังและ render ยังต้องมี sample (`drum_kit`) แม้กลองปิด — กติกาเดียว ไม่มีกรณีพิเศษ
 - หน้า reel การ์ด "เสียง": บรรทัด "กลอง" มีสวิตช์ "ปิดเสียงกลอง" กับสไลเดอร์ "ความดังกลอง" 10–100; ตัวเลือก backing เดิมคงอยู่; ปิดทั้งคู่ → ข้อความที่การ์ด ปุ่ม "ฟัง"/"render reel" กดไม่ได้; แถวผล render มีป้าย "กลอง {v}%" เมื่อไม่ใช่ 100 และ "ไม่มีเสียงกลอง" เมื่อปิด
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** extended by kalimba-cover D9
 
 ## D25: ภาพของ reel เป็นของ `drum_cover` เอง ออกแบบให้อ่านว่าตีอะไรได้ทันที ไม่อิงคลิปต้นฉบับ; คลิปสอนของ video-gen ไม่เปลี่ยน
 

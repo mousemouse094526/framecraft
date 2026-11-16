@@ -5,3 +5,5 @@ Setup script โหลดเฉพาะชั้นที่ใช้ของ 
 Source: video-gen D11, D19 · legal 1
 
 Links: [Big Rusty Drums LICENSE](https://github.com/sfzinstruments/karoryfer.big-rusty-drums/blob/f07ce00df34a46b6b08375be56fe116cf15782bc/LICENSE)
+
+**Extended by:** ADR-0059 (kalimba-cover)
