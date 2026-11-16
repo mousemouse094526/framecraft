@@ -11,19 +11,17 @@ import imageio_ffmpeg
 import numpy as np
 import pytest
 import soundfile
-from fastapi.testclient import TestClient
-from PIL import Image, ImageFont
+from PIL import Image
 
-from backend import ffmpeg, paths, pictures
-from backend.app import app
-from backend.drum_cover import cover, render
+from backend import ffmpeg, pictures
+from backend.drum_cover import cover
 from backend.drum_cover import frames as reel_frames
 from backend.drum_cover import timeline as reel_timeline
 from backend.drum_notes import songs
 from backend.paths import ProjectPaths
-from backend.video_gen import captions, mixer
+from backend.video_gen import mixer
 
-from .fakes import FINISHED, FakePiped, png, poll_until, restart, song_m4a, written_song
+from .fakes import COVER_KEYS, FINISHED, cover_api, png, poll_until, restart, song_m4a, written_song
 
 SONGS = "/api/songs"
 RENDER = "/api/covers/render"
@@ -34,23 +32,7 @@ DOWNBEATS = (10.0, 12.0, 14.0, 16.0)
 CLIP_S = 6.0 + 1.5  # the picked range 10–16, then the clip's tail
 
 
-@pytest.fixture
-def project(fake_root, monkeypatch) -> ProjectPaths:
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    return ProjectPaths(fake_root)
-
-
-@pytest.fixture
-def piped(monkeypatch) -> FakePiped:
-    fake = FakePiped()
-    title_font = lambda _project: ImageFont.load_default(captions.TITLE_SIZE)  # noqa: E731 – the fake root's Kanit is a name only
-    monkeypatch.setattr(render, "render_jobs", render.CoverRenderJobs(run_piped=fake, title_font=title_font))
-    return fake
-
-
-@pytest.fixture
-def client(project, piped) -> TestClient:
-    return TestClient(app, base_url="http://127.0.0.1")
+project, piped, client = cover_api()
 
 
 def picked(project: ProjectPaths, hits=((11.0, "snare", "normal"),), downbeats=DOWNBEATS, start_s: float = 10.0, **fields) -> str:
@@ -59,8 +41,7 @@ def picked(project: ProjectPaths, hits=((11.0, "snare", "normal"),), downbeats=D
 
 def cover_body(client, song_id: str, **changes) -> dict:
     stored = client.get(f"{SONGS}/{song_id}/cover").json()
-    keys = ("start_s", "end_s", "title", "subtitle", "caption", "background", "drums", "backing", "instrument", "kalimba")
-    return {key: stored[key] for key in keys} | changes
+    return {key: stored[key] for key in COVER_KEYS} | changes
 
 
 def put_cover(client, song_id: str, **changes):

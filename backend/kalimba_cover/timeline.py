@@ -17,7 +17,7 @@ from backend.video_gen.timeline import Beat
 
 class KalimbaNote(NamedTuple):
     """One tine struck: where it starts (a sample at `timeline.RATE`), the tine's index on screen
-    (0–16, `arrange.TINES`), its pitch and its level."""
+    (0–16, `arrange.TINE_PITCHES`), its pitch and its level."""
 
     at: int
     tine: int
@@ -29,9 +29,7 @@ class KalimbaTimeline(NamedTuple):
     notes: tuple[KalimbaNote, ...]
     beats: tuple[Beat, ...]
     length_s: float
-    transpose: int
-    dropped: int
-    bent: int
+    changes: arrange.Changes
 
     @property
     def samples(self) -> int:
@@ -43,9 +41,9 @@ def build(analysis: Analysis, cover: CoverFields) -> KalimbaTimeline:
     """The stretch's arranged notes in sample, then tine order; the beats as the drum reel numbers
     them; the stretch and the tail long. A song picked before its notes were kept has none."""
     start, end = cover.start_s, cover.end_s
-    arranged = arrange.arranged(analysis.notes or [], start, end)
+    arranged = arrange.arranged_in(analysis, start, end)
     notes = sorted(
-        (KalimbaNote(timeline.to_sample(note.t - start), arrange.TINES.index(note.pitch), note.pitch, note.level) for note in arranged.notes),
+        (KalimbaNote(timeline.to_sample(note.t - start), arrange.TINE_PITCHES.index(note.pitch), note.pitch, note.level) for note in arranged.notes),
         key=lambda note: (note.at, note.tine),
     )
     beats = tuple(Beat(timeline.to_sample(t - start), number) for t, number in reel_timeline.numbered_beats(analysis, start, end))
@@ -53,7 +51,5 @@ def build(analysis: Analysis, cover: CoverFields) -> KalimbaTimeline:
         notes=tuple(notes),
         beats=beats,
         length_s=end - start + timeline.TAIL_S,
-        transpose=arranged.transpose,
-        dropped=arranged.dropped,
-        bent=arranged.bent,
+        changes=arranged.changes,
     )

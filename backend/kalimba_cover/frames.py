@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 from backend.drum_cover import frames as reel_frames
+from backend.drum_notes.songs import Level
 from backend.kalimba_cover import arrange
 from backend.kalimba_cover.timeline import KalimbaNote, KalimbaTimeline
 from backend.video_gen import frames as lesson_frames
@@ -36,7 +37,7 @@ OCTAVE_PITCHES = (72, 84)  # C5 and up: one dot; C6 and up: two
 # The sketch's places, in px on the 1080×1920 frame.
 FIRST_X, TINE_GAP = 92, 56  # tine i's centre x = 92 + 56 i
 COLUMNS_TOP, PLAY_Y = 520, 1330
-COLUMNS_LEFT, COLUMNS_RIGHT = FIRST_X - TINE_GAP // 2, FIRST_X + TINE_GAP * (len(arrange.TINES) - 1) + TINE_GAP // 2
+COLUMNS_LEFT, COLUMNS_RIGHT = FIRST_X - TINE_GAP // 2, FIRST_X + TINE_GAP * (len(arrange.TINE_PITCHES) - 1) + TINE_GAP // 2
 COLUMN_LINE = "#1F2A3A"
 PLAY_LINE_WIDTH = 4
 BODY = (40, 1350, 1040, 1800)
@@ -59,7 +60,7 @@ HIT_OUTLINE = 6
 GHOST_FILL = 0.6
 
 NOTE_W, NOTE_H, NOTE_RADIUS = 44, 28, 8
-SLOWEST_PX_PER_S = 350  # two notes of a tine 0.08 s apart never overlap (D14)
+SLOWEST_PX_PER_S = 350  # two notes of a tine 0.08 s apart touch, NOTE_H apart, never overlap (D14)
 ACCENT_OUTLINE = 3
 GHOST_ALPHA = 0.5
 GLOW_S, GLOW_PAD = 0.15, 6
@@ -106,11 +107,11 @@ class Tine(NamedTuple):
 def _tine(index: int, pitch: int) -> Tine:
     number = NUMBER_OF[pitch % 12]
     dots = sum(pitch >= octave for octave in OCTAVE_PITCHES)
-    length = LONGEST - SHORTER_BY * abs(index - len(arrange.TINES) // 2)
+    length = LONGEST - SHORTER_BY * abs(index - len(arrange.TINE_PITCHES) // 2)
     return Tine(index, pitch, number, LETTERS[number - 1], dots, FIRST_X + TINE_GAP * index, length)
 
 
-TINES = tuple(_tine(index, pitch) for index, pitch in enumerate(arrange.TINES))
+TINES = tuple(_tine(index, pitch) for index, pitch in enumerate(arrange.TINE_PITCHES))
 
 
 def tine_box(tine: Tine, grow: float = 1.0) -> tuple[float, float, float, float]:
@@ -258,7 +259,7 @@ def _columns(frame: "PilImage.Image", scene: Scene, t: float) -> None:
 
 
 @functools.lru_cache(maxsize=64)
-def _note_sprite(color: str, level: str, glow: bool) -> "PilImage.Image":
+def _note_sprite(color: str, level: Level, glow: bool) -> "PilImage.Image":
     """A falling note in its tine's colour: an accent outlined white, a ghost faint, a white glow
     around it while it plays. No letter on it: the colour says its number (D14)."""
     from PIL import Image, ImageDraw

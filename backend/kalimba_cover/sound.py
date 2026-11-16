@@ -60,10 +60,10 @@ def mix(timing: KalimbaTimeline) -> bytes:
     made: dict[tuple[int, Level], np.ndarray] = {}
     out = np.zeros(timing.samples, dtype=np.float32)
     for index, struck in enumerate(timing.notes):
-        key = (struck.pitch, struck.level)
-        if key not in made:
-            made[key] = note(*key)
-        ring = _choked(made[key][: timing.samples - struck.at], struck, timing.notes[index + 1 :])
+        sound = (struck.pitch, struck.level)
+        if sound not in made:
+            made[sound] = note(*sound)
+        ring = _choked(made[sound][: timing.samples - struck.at], struck, timing.notes[index + 1 :])
         out[struck.at : struck.at + len(ring)] += ring
     return mixer.to_wav(out)
 

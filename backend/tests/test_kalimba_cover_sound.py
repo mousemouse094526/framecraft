@@ -7,14 +7,14 @@ import numpy as np
 import pytest
 import soundfile
 
-from backend.kalimba_cover import sound
+from backend.kalimba_cover import arrange, sound
 from backend.kalimba_cover.timeline import KalimbaNote, KalimbaTimeline
 
 RATE = 44_100
 
 
 def timing(*notes: KalimbaNote, length_s: float = 3.0) -> KalimbaTimeline:
-    return KalimbaTimeline(notes=notes, beats=(), length_s=length_s, transpose=0, dropped=0, bent=0)
+    return KalimbaTimeline(notes=notes, beats=(), length_s=length_s, changes=arrange.Changes(transpose=0, dropped=0, bent=0))
 
 
 def pcm(wav: bytes) -> np.ndarray:

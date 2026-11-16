@@ -25,6 +25,7 @@ import { useCover } from "../hooks/useCover";
 import { useCoverRender } from "../hooks/useCoverRender";
 import {
   adjustedText,
+  backingLabels,
   BACKING_WARNING,
   coverBackgroundPath,
   coverBackgroundUrl,
@@ -43,9 +44,8 @@ import {
   NO_ANALYSIS,
   NO_AUDIO,
   NO_HITS,
-  NO_NOTES,
-  NOT_IMPORTED,
-  NOT_PICKED,
+  NO_NOTES_LINK,
+  NO_NOTES_TEXT,
   notesLine,
   RANGE_RULE,
   silentText,
@@ -60,6 +60,7 @@ import {
   type Cover,
   type CoverFields,
   type CoverRenderResult,
+  type NoNotes,
   type Instrument,
   type Sound,
 } from "../lib/cover";
@@ -162,7 +163,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
   const name = INSTRUMENT_NAME[fields.instrument];
   // The backend arranges the notes (D9), so its counts are the saved stretch's: shown while that is the stretch typed (D16).
   const savedStretch = fields.start_s === saved.start_s && fields.end_s === saved.end_s;
-  const noNotes = !saved.notes_picked ? (song.source.kind === "midi" ? NOT_IMPORTED : NOT_PICKED) : savedStretch && saved.notes === 0 ? NO_NOTES : null;
+  const noNotes: NoNotes | null = !saved.notes_picked ? (song.source.kind === "midi" ? "not_imported" : "not_picked") : savedStretch && saved.notes === 0 ? "empty" : null;
   const render = useCoverRender((job) => {
     if (job.song_id !== song.id) return;
     void cover.reloadRenders();
@@ -237,12 +238,12 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
         {kalimba && noNotes === null && savedStretch && <p className="text-[13px] leading-[1.5] text-mid">{notesLine(saved)}</p>}
         {kalimba && noNotes !== null && (
           <Alert tone="warning">
-            {noNotes}
-            {noNotes !== NO_NOTES && (
+            {NO_NOTES_TEXT[noNotes]}
+            {noNotes !== "empty" && (
               <>
                 {" "}
-                <a href={noNotes === NOT_IMPORTED ? SONGS_HASH : songHash(song.id)} className="text-brand underline">
-                  {noNotes === NOT_IMPORTED ? "ไปรายการเพลง" : "กลับไปหน้าเพลง"}
+                <a href={noNotes === "not_imported" ? SONGS_HASH : songHash(song.id)} className="text-brand underline">
+                  {NO_NOTES_LINK[noNotes]}
                 </a>
               </>
             )}
@@ -313,8 +314,8 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
         <SegmentedChoice<boolean>
           label="เสียงของ reel"
           options={[
-            { value: false, label: `${name}ล้วน` },
-            { value: true, label: `${name} + เพลงต้นฉบับ`, disabled: !saved.has_audio },
+            { value: false, label: backingLabels(name).alone },
+            { value: true, label: backingLabels(name).withSong, disabled: !saved.has_audio },
           ]}
           value={draft.backing.on}
           onChoose={chooseBacking}

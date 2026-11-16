@@ -245,7 +245,7 @@ backend/
 │                    `lighter` and `captions.stick_letters`);
 │                    imports drum_notes and video_gen, never the other way; one cover plays
 │                    either instrument (`instrument`, kalimba-cover D9): `render` (the Render job
-│                    and ฟัง, `listen`) picks the drums' mixer or the kalimba's `sound` (`voice_wav`)
+│                    and ฟัง, `listen`) picks the drums' mixer or the kalimba's `sound` (`instrument_wav`)
 ├── kalimba_cover/← a reel cover on the kalimba (kalimba-cover spec, D8): arrange (melody notes onto
 │                    17 C-major tines, pure numbers; imports only `drum_notes.songs`, so
 │                    `drum_cover.cover` counts with it), timeline (`KalimbaTimeline`: notes at their

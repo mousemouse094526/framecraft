@@ -145,10 +145,16 @@ export const NO_ANALYSIS = "แกะโน้ตก่อน แล้วกล
 export const NO_HITS = "ช่วงนี้ไม่มีการตีกลอง เลื่อนช่วงหรือกด เริ่มที่การตีแรก";
 export const NO_AUDIO = "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ";
 export const MELODY_ONLY = "เพลงนี้แกะโหมดทำนอง reel มีแต่สแนร์";
-/** A kalimba with no notes to play (kalimba-cover spec › API, the backend's `no_notes`). */
-export const NOT_PICKED = "เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ที่หน้าเพลงเพื่อได้โน้ตทำนอง";
-export const NOT_IMPORTED = "เพลงนี้นำเข้าก่อนมีคาลิมบา นำเข้าไฟล์ MIDI เดิมอีกครั้ง";
-export const NO_NOTES = "ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง";
+/** Why a kalimba has no notes to play (kalimba-cover spec › API, the backend's `no_notes`): picked or
+ * imported before notes were kept, or none in the stretch. */
+export type NoNotes = "not_picked" | "not_imported" | "empty";
+export const NO_NOTES_TEXT: Record<NoNotes, string> = {
+  not_picked: "เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ที่หน้าเพลงเพื่อได้โน้ตทำนอง",
+  not_imported: "เพลงนี้นำเข้าก่อนมีคาลิมบา นำเข้าไฟล์ MIDI เดิมอีกครั้ง",
+  empty: "ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง",
+};
+/** The link after the message, to the page where it is fixed; an empty stretch is fixed on this one. */
+export const NO_NOTES_LINK: Record<Exclude<NoNotes, "empty">, string> = { not_picked: "กลับไปหน้าเพลง", not_imported: "ไปรายการเพลง" };
 const keyMove = (k: number) => (k > 0 ? `+${k}` : String(k));
 /** How the stretch's notes were laid on the kalimba (D4, D14). */
 export const notesLine = (cover: Cover) =>
@@ -162,6 +168,8 @@ export const notesLine = (cover: Cover) =>
     .join(" · ");
 /** Beside the backing choice when the kalimba plays in another key than the song (D14). */
 export const transposeWarning = (k: number) => `คาลิมบาย้ายคีย์ ${keyMove(k)} เสียงจะไม่ตรงกับเพลงต้นฉบับ`;
+/** The backing choice's two options, named by the instrument. */
+export const backingLabels = (name: string) => ({ alone: `${name}ล้วน`, withSong: `${name} + เพลงต้นฉบับ` });
 export const TITLE_HINT = "ค่าตั้งต้นมาจากชื่อคลิปและช่อง แก้เป็นชื่อเพลงและศิลปิน";
 /** Beside the backing choice (legal 2, D7). */
 export const BACKING_WARNING = "เพลงต้นฉบับมีลิขสิทธิ์ แพลตฟอร์มอาจ claim ปิดเสียง หรือบล็อกคลิป เปิดเมื่อคุณมีสิทธิ์ใช้เสียงนี้";

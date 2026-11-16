@@ -1553,15 +1553,47 @@ def kalimba_timing_of(*notes: tuple[float, int, str], beats: list[tuple[float, i
     from backend.video_gen import timeline
 
     beats = beats if beats is not None else [(n / 2, n % 4 + 1) for n in range(8)]
-    struck = [KalimbaNote(timeline.to_sample(t), tine, arrange.TINES[tine], level) for t, tine, level in notes]
+    struck = [KalimbaNote(timeline.to_sample(t), tine, arrange.TINE_PITCHES[tine], level) for t, tine, level in notes]
     return KalimbaTimeline(
         notes=tuple(struck),
         beats=tuple(timeline.Beat(timeline.to_sample(t), number) for t, number in beats),
         length_s=END_S + timeline.TAIL_S,
-        transpose=0,
-        dropped=0,
-        bent=0,
+        changes=arrange.Changes(transpose=0, dropped=0, bent=0),
     )
+
+
+# The fields of `PUT /api/songs/{id}/cover`: a test takes them from the GET and changes a few.
+COVER_KEYS = ("start_s", "end_s", "title", "subtitle", "caption", "background", "drums", "backing", "instrument", "kalimba")
+
+
+def cover_api() -> tuple[Callable, Callable, Callable]:
+    """The `project`, `piped` and `client` fixtures of a reel cover API test file (drum and kalimba
+    alike), kept under those names as pytest finds a fixture by its module-level name:
+    `project, piped, client = cover_api()`. `piped` is the Render job's `run_piped`, a `FakePiped`,
+    with the default font standing in for Kanit (the fake root's Kanit is a name only)."""
+
+    @pytest.fixture(name="project")
+    def project_fixture(fake_root, monkeypatch) -> ProjectPaths:
+        monkeypatch.setattr(paths, "ROOT", fake_root)
+        return ProjectPaths(fake_root)
+
+    @pytest.fixture(name="piped")
+    def piped_fixture(monkeypatch) -> "FakePiped":
+        from PIL import ImageFont
+
+        from backend.drum_cover import render
+        from backend.video_gen import captions
+
+        fake = FakePiped()
+        title_font = lambda _project: ImageFont.load_default(captions.TITLE_SIZE)  # noqa: E731
+        monkeypatch.setattr(render, "render_jobs", render.CoverRenderJobs(run_piped=fake, title_font=title_font))
+        return fake
+
+    @pytest.fixture(name="client")
+    def client_fixture(project, piped) -> TestClient:
+        return TestClient(app, base_url="http://127.0.0.1")
+
+    return project_fixture, piped_fixture, client_fixture
 
 
 class FakePiped:

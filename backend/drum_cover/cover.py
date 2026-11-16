@@ -152,13 +152,8 @@ def clamped(fields: CoverFields, analysis: Analysis) -> tuple[CoverFields, bool]
     return fields.model_copy(update={"start_s": start, "end_s": end}), adjusted
 
 
-def hits_in(analysis: Analysis, fields: CoverFields) -> int:
-    return sum(1 for hit in analysis.hits if fields.start_s <= hit.t < fields.end_s)
-
-
-def arranged_in(analysis: Analysis, start_s: float, end_s: float) -> arrange.Arranged:
-    """The kalimba's notes of the stretch; none for a song picked before notes were kept."""
-    return arrange.arranged(analysis.notes or [], start_s, end_s)
+def hits_in(analysis: Analysis, start_s: float, end_s: float) -> int:
+    return sum(1 for hit in analysis.hits if start_s <= hit.t < end_s)
 
 
 def require_notes(song: Song, fields: CoverFields) -> None:
@@ -170,7 +165,7 @@ def require_notes(song: Song, fields: CoverFields) -> None:
     analysis = require_analysis(song)
     if analysis.notes is None:
         raise ApiError(409, "no_notes", NOT_IMPORTED if song.source.kind == "midi" else NOT_PICKED)
-    if not arranged_in(analysis, fields.start_s, fields.end_s).notes:
+    if not arrange.arranged_in(analysis, fields.start_s, fields.end_s).notes:
         raise ApiError(409, "no_notes", NO_NOTES)
 
 
@@ -218,8 +213,7 @@ def defaults(song: Song, analysis: Analysis) -> CoverFields:
     which the page asks the user to make the song's and artist's (D18). The kalimba when the
     stretch has no hit but notes to play, as a melody-only MIDI song's (kalimba-cover D9)."""
     start, end = default_stretch(analysis)
-    no_hits = not any(start <= hit.t < end for hit in analysis.hits)
-    instrument: Instrument = "kalimba" if no_hits and arranged_in(analysis, start, end).notes else "drums"
+    instrument: Instrument = "kalimba" if not hits_in(analysis, start, end) and arrange.arranged_in(analysis, start, end).notes else "drums"
     return CoverFields(
         start_s=start,
         end_s=end,
@@ -348,18 +342,16 @@ def view(project: ProjectPaths, song: Song, stored: Cover | None) -> CoverView:
         fields, adjusted = clamped(_fields(stored), analysis)
     if fields.background == "image" and not (songs.checked_dir(project, song.id) / BACKGROUND).is_file():
         fields = fields.model_copy(update={"background": "color"})  # its picture went: the page shows, and saves, the app's colours
-    arranged = arranged_in(analysis, fields.start_s, fields.end_s)
+    arranged = arrange.arranged_in(analysis, fields.start_s, fields.end_s)
     return CoverView(
         **fields.model_dump(),
         saved=stored is not None,
         adjusted=adjusted,
         has_audio=has_audio(project, song.id),
-        hits=hits_in(analysis, fields),
+        hits=hits_in(analysis, fields.start_s, fields.end_s),
         notes=len(arranged.notes),
         notes_picked=analysis.notes is not None,
-        transpose=arranged.transpose,
-        dropped=arranged.dropped,
-        bent=arranged.bent,
+        **arranged.changes._asdict(),
         length_s=round(fields.end_s - fields.start_s, 3),
         suggested_start_s=suggested_start(analysis),
         updated_at=stored.updated_at if stored is not None else None,

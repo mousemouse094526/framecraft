@@ -330,7 +330,7 @@ def fill_notes(project: ProjectPaths, song_id: str, notes: list[Note]) -> Song:
     analysis = song.analysis.model_copy(update={"notes": inside})  # the caller checked `notes`
     song = song.model_copy(update={"analysis": analysis, "updated_at": now_iso()})
     _write(project, song)
-    log.info("notes filled in for song %s (%d)", song_id, len(notes))
+    log.info("notes filled in for song %s (%d)", song_id, len(inside))
     return song
 
 

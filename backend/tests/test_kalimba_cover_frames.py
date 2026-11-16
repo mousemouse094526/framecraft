@@ -64,7 +64,8 @@ def test_at_60_bpm_two_c4s_0_08_s_apart_fall_one_above_the_other_without_overlap
     column = frames.TINES[C4].cx
 
     assert near(shown.getpixel((column, 980 - 14)), RED) and near(shown.getpixel((column, 952 - 14)), RED)
-    assert not near(shown.getpixel((column - 20, 952)), RED, 40)  # their round corners part where they meet
+    # Where the two meet (y 952), 20 px left of centre lies inside both notes' round corners: not red, so two notes show.
+    assert not near(shown.getpixel((column - 20, 952)), RED, 40)
 
 
 def test_a_note_lands_on_the_play_line_as_it_plays_and_the_notes_hold_still_in_the_tail():

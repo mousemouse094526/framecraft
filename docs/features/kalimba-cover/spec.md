@@ -191,7 +191,7 @@ Lesson ชั่วคราวสำหรับตัวหนังสือ�
 
 ### เสียงของ reel
 
-`drum_cover.audio.reel_wav(project, audio, fields, voice_wav, samples, cancel)` (D8): `voice_wav` = `mixer.mix(project, timing)` เมื่อกลอง หรือ `sound.mix(timing)` เมื่อคาลิมบา; `None` เมื่อเสียงของเครื่องดนตรีที่เลือกปิด. ความดังของเครื่องดนตรีที่เลือก (`drums.volume` หรือ `kalimba.volume`), backing และ peak เป็นกติกาเดิมของ drum-cover spec › เสียง ข้อ 2–5 ทุกข้อ. `volume` 100 + backing ปิด → `voice_wav` ตรง ๆ (byte เดิม).
+`drum_cover.audio.reel_wav(audio, fields, instrument_wav, samples, cancel)` (D8, D16): `instrument_wav` = `mixer.mix(project, timing)` เมื่อกลอง หรือ `sound.mix(timing)` เมื่อคาลิมบา; `None` เมื่อเสียงของเครื่องดนตรีที่เลือกปิด. ความดังของเครื่องดนตรีที่เลือก (`drums.volume` หรือ `kalimba.volume`), backing และ peak เป็นกติกาเดิมของ drum-cover spec › เสียง ข้อ 2–5 ทุกข้อ. `volume` 100 + backing ปิด → `instrument_wav` ตรง ๆ (byte เดิม).
 
 ### ภาพของ reel คาลิมบา
 

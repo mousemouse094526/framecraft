@@ -11,18 +11,14 @@ import imageio_ffmpeg
 import numpy as np
 import pytest
 import soundfile
-from fastapi.testclient import TestClient
-from PIL import ImageFont
 
-from backend import ffmpeg, fonts, paths
-from backend.app import app
-from backend.drum_cover import cover, render
+from backend import ffmpeg, fonts
+from backend.drum_cover import cover
 from backend.drum_notes import songs
 from backend.kalimba_cover import frames
 from backend.paths import ProjectPaths
-from backend.video_gen import captions
 
-from .fakes import FINISHED, FakePiped, poll_until, song_m4a, write_kanit, written_song
+from .fakes import COVER_KEYS, FINISHED, cover_api, poll_until, song_m4a, write_kanit, written_song
 
 SONGS = "/api/songs"
 RENDER = "/api/covers/render"
@@ -31,26 +27,7 @@ CLIP_S = 6.0 + 1.5
 # A melody of the stretch: C5 B4 A4 F4 every half second from 11.0, then an F#4 bent to F4; no key holds more than four.
 MELODY = [(11.0, 72, "normal"), (11.5, 71, "normal"), (12.0, 69, "accent"), (12.5, 65, "normal"), (13.0, 66, "normal")]
 KALIMBA = {"on": True, "volume": 100}
-COVER_KEYS = ("start_s", "end_s", "title", "subtitle", "caption", "background", "drums", "backing", "instrument", "kalimba")
-
-
-@pytest.fixture
-def project(fake_root, monkeypatch) -> ProjectPaths:
-    monkeypatch.setattr(paths, "ROOT", fake_root)
-    return ProjectPaths(fake_root)
-
-
-@pytest.fixture
-def piped(monkeypatch) -> FakePiped:
-    fake = FakePiped()
-    title_font = lambda _project: ImageFont.load_default(captions.TITLE_SIZE)  # noqa: E731 – the fake root's Kanit is a name only
-    monkeypatch.setattr(render, "render_jobs", render.CoverRenderJobs(run_piped=fake, title_font=title_font))
-    return fake
-
-
-@pytest.fixture
-def client(project, piped) -> TestClient:
-    return TestClient(app, base_url="http://127.0.0.1")
+project, piped, client = cover_api()
 
 
 def picked(project: ProjectPaths, hits=((11.0, "snare", "normal"),), notes=MELODY, **fields) -> str:
@@ -263,11 +240,13 @@ def test_a_c4_s_sound_starts_within_a_frame_of_its_tine_lighting_up(client, proj
     rate = 48_000
     sound = np.frombuffer(ffmpeg_out("-i", str(mp4), "-ac", "1", "-ar", str(rate), "-f", "s16le", "-"), dtype=np.int16)
     near = np.abs(sound[int(0.9 * rate) : int(1.3 * rate)].astype(np.int32))
+    # The sound starts where it first reaches half its peak: the struck tine's click, past any codec smear before it.
     sound_at = (int(0.9 * rate) + int(np.argmax(near > near.max() // 2))) / rate
     tine = frames.TINES[8]
     x, y = tine.probe
     pixels = ffmpeg_out("-i", str(mp4), "-vf", f"crop=2:2:{x}:{y}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
     red = (0xF8, 0x71, 0x71)  # a 1's colour, filled in full
+    # One frame of the 2×2 crop is 12 bytes (4 pixels × RGB); the frames whose 4 pixels are all the 1's red.
     full = [n for n in range(len(pixels) // 12) if all(abs(pixels[12 * n + i] - c) <= 12 for i, c in enumerate(red))]
     assert full and abs(full[0] / frames.FPS - sound_at) <= 1 / frames.FPS
 

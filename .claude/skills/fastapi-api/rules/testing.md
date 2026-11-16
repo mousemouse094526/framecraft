@@ -80,6 +80,7 @@ def test_missing_marker(tmp_path):
   a file writes none of them itself, and conftest keeps `fake_root` only. The calls more than
   one toon test file makes (`new_series`, `new_ep`, `run`, `upload`, `import_tone`, …) and the toon paths (`TOON_SERIES`, …) live in
   `fakes.py` too: a toon test file never imports another test file.
+  `cover_api()` does the same for the reel cover API test files (drum and kalimba): `project, piped, client = cover_api()`, with `COVER_KEYS`, the fields of `PUT …/cover`.
 - [backend/tests/test_setup.py](../../../../backend/tests/test_setup.py) — `FakeDownload` stands in for `snapshot_download`.
 - [backend/tests/test_app.py](../../../../backend/tests/test_app.py) — API tests monkeypatch `backend.paths.ROOT` and the default probes in `backend.checks`.
 - [backend/tests/test_spoil_api.py](../../../../backend/tests/test_spoil_api.py) — `FakeAdapter` from `fakes.py` stands in for yt-dlp; `wait_for_end` polls the job.

@@ -52,20 +52,13 @@ def ass_file(project: ProjectPaths, lesson: Lesson, timing: KalimbaTimeline, tit
 def _bar_numbers(scene: Scene) -> list[str]:
     """Each bar's n at the right end of its line, falling with it: one `\\move` while the notes
     fall, held still in the tail, cut at the columns' top and the play line as the picture cuts."""
-    clip = f"\\clip(0,{COLUMNS_TOP},{frames.WIDTH},{PLAY_Y})"
+    tags = f"\\an3{{}}\\clip(0,{COLUMNS_TOP},{frames.WIDTH},{PLAY_Y})"
     events = []
     for bar in scene.bars:
         if bar.number == 0:
             continue
-        # The line enters at the columns' top and leaves at the play line; the tail freezes the
-        # picture at `end_s`, so a line still in the columns then is held there to the clip's end.
-        enters, leaves = bar.start - (PLAY_Y - COLUMNS_TOP) / scene.px_per_s, bar.start
-        start, until = max(enters, 0.0), min(leaves, scene.end_s)
-        if start < until:
-            y1, y2 = scene.y_of(bar.start, start), scene.y_of(bar.start, until)
-            moving = f"\\an3\\move({BAR_NUMBER_RIGHT},{y1:.0f},{BAR_NUMBER_RIGHT},{y2:.0f}){clip}"
-            events.append(subtitles.event("BarNumber", start, until, moving, [str(bar.number)]))
-        if enters <= scene.end_s < leaves:
-            held = f"\\an3\\pos({BAR_NUMBER_RIGHT},{scene.y_of(bar.start, scene.end_s):.0f}){clip}"
-            events.append(subtitles.event("BarNumber", scene.end_s, scene.timing.length_s, held, [str(bar.number)]))
+        # The line enters at the columns' top and leaves at the play line.
+        on_screen = (bar.start - (PLAY_Y - COLUMNS_TOP) / scene.px_per_s, bar.start)
+        place = lambda t, bar=bar: (BAR_NUMBER_RIGHT, scene.y_of(bar.start, t))  # noqa: E731
+        events += reel_captions.riding("BarNumber", on_screen, (scene.end_s, scene.timing.length_s), place, tags, str(bar.number))
     return events

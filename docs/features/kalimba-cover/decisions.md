@@ -250,7 +250,7 @@
 
 **Details:**
 - **ตัวเลขของโน้ตบนหน้า reel เป็นของช่วงที่บันทึก:** backend เป็นคนจัดโน้ต (D9) หน้าจึงแสดงบรรทัด "{n} โน้ตทำนองในช่วง…", Alert "ช่วงนี้ไม่มีโน้ตทำนอง…" และคำเตือนย้ายคีย์เฉพาะเมื่อช่วงที่พิมพ์ตรงกับช่วงที่บันทึก; ระหว่างแก้ช่วงไม่แสดง และ "ฟัง" (บันทึกก่อน) ได้ `no_notes` จาก backend ถ้าไม่มีโน้ต — ไม่มีการจัดโน้ตชุดที่สองใน TypeScript
-- **`listen` ย้ายไป `drum_cover.render`:** ฟังเลือกเสียงตามเครื่องดนตรีแบบ render และ ADR-0058 ให้ `drum_cover` import `kalimba_cover` ได้แค่ใน `render` กับ `cover`; `render.instrument_wav(project, song, fields)` ให้ wav ของเครื่องดนตรีที่เลือกกับความยาว; `audio.reel_wav(audio, fields, instrument_wav, samples, cancel)` ไม่รับ `project` เพราะไม่ได้ใช้อีกเมื่อ wav มาจากข้างนอก
+- **`listen` ย้ายไป `drum_cover.render`:** ฟังเลือกเสียงตามเครื่องดนตรีแบบ render และ ADR-0058 ให้ `drum_cover` import `kalimba_cover` ได้แค่ใน `render` กับ `cover`; `render._instrument_wav(project, reel, timing, fields)` ให้ wav ของเครื่องดนตรีที่เลือก ใช้ทั้ง render และ ฟัง (feature review); `audio.reel_wav(audio, fields, instrument_wav, samples, cancel)` ไม่รับ `project` เพราะไม่ได้ใช้อีกเมื่อ wav มาจากข้างนอก
 - **`PUT` ของ `instrument`:** ไม่มีหรือไม่ใช่ `drums`/`kalimba` → `400` field `instrument` "เครื่องดนตรีไม่ถูกต้อง"; `kalimba` ตรวจด้วย `_sound` ตัวเดียวกับ `drums` ("ความดังคาลิมบาต้องเป็นจำนวนเต็ม 10–100")
 - **เสียงกระทบ:** `default_rng(0).uniform(-1, 1, 6 ms)` สร้างใหม่ทุกครั้งที่เรียก `note` จึงเท่ากันทุกโน้ต; numpy รุ่นใหม่อาจเปลี่ยน stream (docs/library-notes/numpy.md) — byte เดิมสัญญาภายใน numpy รุ่นเดียว
 - **ลิงก์ใน Alert ของโน้ต:** แกะก่อนมีคาลิมบา → "กลับไปหน้าเพลง"; เพลง MIDI ที่นำเข้าก่อน → "ไปรายการเพลง" (`#/songs`) ที่นำเข้าไฟล์ได้

@@ -6,6 +6,7 @@ import pytest
 from backend.drum_cover import timeline as reel
 from backend.drum_cover.cover import Backing, CoverFields
 from backend.drum_notes.songs import Analysis, Note
+from backend.kalimba_cover import arrange
 from backend.kalimba_cover import timeline as kalimba
 from backend.kalimba_cover.timeline import KalimbaNote
 
@@ -39,7 +40,7 @@ def test_a_chord_on_one_sample_plays_its_top_and_the_arrangement_s_counts_come_a
     timing = kalimba.build(analysis([(10.5, 59), (11.0, 61), (11.0 + 1 / 88_200, 74)]), cover())
 
     assert timing.notes == (KalimbaNote(22_050, 5, 69, "normal"), KalimbaNote(44_100, 4, 72, "normal"))
-    assert (timing.transpose, timing.dropped, timing.bent) == (-2, 1, 0)
+    assert timing.changes == arrange.Changes(transpose=-2, dropped=1, bent=0)
 
 
 def test_the_beats_are_numbered_as_the_drum_reel_numbers_them():

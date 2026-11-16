@@ -196,8 +196,8 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
         reel = INSTRUMENTS[fields.instrument]
         timing = reel.timeline(analysis, fields)
         song_audio = songs.checked_dir(project, song_id) / songs.AUDIO_FILE  # `song_busy` keeps it there
-        instrument_wav = reel.mix(project, timing) if fields.instrument_sound().on else None
-        (work / drum_render.AUDIO).write_bytes(audio.reel_wav(song_audio, fields, instrument_wav, timing.samples, self._cancel))
+        wav = _instrument_wav(project, reel, timing, fields)
+        (work / drum_render.AUDIO).write_bytes(audio.reel_wav(song_audio, fields, wav, timing.samples, self._cancel))
         lesson = reel_timeline.lesson(analysis, fields)
         (work / drum_render.TEXT).write_text(reel.ass_file(project, lesson, timing, self._title_font), encoding="utf-8")
         background = work / cover.BACKGROUND if fields.background == "image" else None
@@ -296,12 +296,9 @@ songs.song_jobs.append(lambda: render_jobs.song_use())
 # --- ฟัง ---
 
 
-def instrument_wav(project: ProjectPaths, song: Song, fields: CoverFields) -> tuple[bytes | None, int]:
-    """The chosen instrument's wav from its own timeline (None while its sound is off), and the
-    clip's length in samples."""
-    reel = INSTRUMENTS[fields.instrument]
-    timing = reel.timeline(cover.require_analysis(song), fields)
-    return (reel.mix(project, timing) if fields.instrument_sound().on else None), timing.samples
+def _instrument_wav(project: ProjectPaths, reel: InstrumentReel, timing: Any, fields: CoverFields) -> bytes | None:
+    """The chosen instrument's wav from its own timeline, render and ฟัง alike; None while its sound is off."""
+    return reel.mix(project, timing) if fields.instrument_sound().on else None
 
 
 def listen(project: ProjectPaths, song_id: str) -> bytes:
@@ -313,10 +310,12 @@ def listen(project: ProjectPaths, song_id: str) -> bytes:
         song = songs.read_under_lock(project, song_id)
         fields = cover.used(project, song)
         cover.require_notes(song, fields)
-    require_rows(INSTRUMENTS[fields.instrument].listen_rows(project) | (gate_rows.FFMPEG if fields.backing.on else {}))
-    wav, samples = instrument_wav(project, song, fields)
+    reel = INSTRUMENTS[fields.instrument]
+    require_rows(reel.listen_rows(project) | (gate_rows.FFMPEG if fields.backing.on else {}))
+    timing = reel.timeline(cover.require_analysis(song), fields)
+    wav = _instrument_wav(project, reel, timing, fields)
     song_audio = songs.checked_dir(project, song_id) / songs.AUDIO_FILE
     try:
-        return audio.reel_wav(song_audio, fields, wav, samples, threading.Event())
+        return audio.reel_wav(song_audio, fields, wav, timing.samples, threading.Event())
     except FfmpegFailed as error:  # a broken `audio.m4a`, or one deleted with its song meanwhile
         raise ApiError(500, "ffmpeg_failed", f"{MIX_FAILED}: {error.last_line}") from None

@@ -9,26 +9,33 @@ Imports only `drum_notes.songs`, so `drum_cover.cover` can call it (D8, D14).
 
 from typing import NamedTuple
 
-from backend.drum_notes.songs import Note
+from backend.drum_notes.songs import Analysis, Note
 
 # The tines' pitches from left to right on screen, index 0–16 (spec › การจัดโน้ตลงคาลิมบา).
-TINES = (86, 83, 79, 76, 72, 69, 65, 62, 60, 64, 67, 71, 74, 77, 81, 84, 88)
-LOWEST, HIGHEST = min(TINES), max(TINES)  # C4, E6
+TINE_PITCHES = (86, 83, 79, 76, 72, 69, 65, 62, 60, 64, 67, 71, 74, 77, 81, 84, 88)
+LOWEST, HIGHEST = min(TINE_PITCHES), max(TINE_PITCHES)  # C4, E6
 BASS_BELOW = 48  # C3: lower is the bass, dropped first (D14)
 SCALE = frozenset({0, 2, 4, 5, 7, 9, 11})  # C major's pitch classes
-KEYS = range(-6, 6)  # the semitones the whole stretch may move
+TRANSPOSES = range(-6, 6)  # the semitones the whole stretch may move
 TOGETHER_S = 0.03  # notes this close to a chord's first are one chord
 REPEAT_S = 0.08  # one tine played again this soon after is dropped
 
 
-class Arranged(NamedTuple):
-    """The notes the kalimba plays, at their own times and levels with the tines' pitches; the key
-    moved (`transpose`), the notes dropped and the notes bent into the scale (D9)."""
+class Changes(NamedTuple):
+    """What the arranging did to the song, as the reel page tells it (D9): the semitones the key
+    moved, the notes dropped and the notes bent into the scale."""
 
-    notes: list[Note]
     transpose: int
     dropped: int
     bent: int
+
+
+class Arranged(NamedTuple):
+    """The notes the kalimba plays, at their own times and levels with the tines' pitches, and
+    what the arranging changed."""
+
+    notes: list[Note]
+    changes: Changes
 
 
 class _Scaled(NamedTuple):
@@ -39,13 +46,18 @@ class _Scaled(NamedTuple):
     bent: bool
 
 
+def arranged_in(analysis: Analysis, start_s: float, end_s: float) -> Arranged:
+    """The kalimba's notes of a song's stretch; none for a song picked before notes were kept."""
+    return arranged(analysis.notes or [], start_s, end_s)
+
+
 def arranged(notes: list[Note], start_s: float, end_s: float) -> Arranged:
     """Spec › การจัดโน้ตลงคาลิมบา steps 1–7, over the notes with `start_s ≤ t < end_s`."""
     inside = sorted((note for note in notes if start_s <= note.t < end_s), key=lambda note: (note.t, note.pitch))
     melody = [note for note in inside if note.pitch >= BASS_BELOW]
     dropped = len(inside) - len(melody)
-    key = _key(melody)
-    moved = [(note, note.pitch + key) for note in melody]
+    transpose = _transpose(melody)
+    moved = [(note, note.pitch + transpose) for note in melody]
     in_scale = [_Scaled(note, pitch if pitch % 12 in SCALE else pitch - 1, pitch % 12 not in SCALE) for note, pitch in moved]
     tops = _tops(in_scale)
     dropped += len(in_scale) - len(tops)
@@ -60,14 +72,14 @@ def arranged(notes: list[Note], start_s: float, end_s: float) -> Arranged:
         last_on[tine] = note.t
         kept.append(Note(t=note.t, pitch=tine, level=note.level))
         bent += was_bent
-    return Arranged(notes=kept, transpose=key, dropped=dropped, bent=bent)
+    return Arranged(notes=kept, changes=Changes(transpose=transpose, dropped=dropped, bent=bent))
 
 
-def _key(melody: list[Note]) -> int:
+def _transpose(melody: list[Note]) -> int:
     """Step 2: the move that puts the most notes in the scale; a tie moves least, then up."""
     if not melody:
         return 0
-    return max(KEYS, key=lambda k: (sum((note.pitch + k) % 12 in SCALE for note in melody), -abs(k), k))
+    return max(TRANSPOSES, key=lambda k: (sum((note.pitch + k) % 12 in SCALE for note in melody), -abs(k), k))
 
 
 def _tops(in_scale: list[_Scaled]) -> list[_Scaled]:
