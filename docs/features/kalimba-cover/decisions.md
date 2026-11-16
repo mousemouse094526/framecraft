@@ -231,6 +231,19 @@
 
 **From:** red team · **Status:** active
 
+## D15: ทางเลือกเล็กของ ticket 01
+
+**Chosen:** bundle ของทางเลือกเล็กตอน build ticket 01 ที่ไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Details:**
+- **MIDI โน้ตเกิน 20,000:** ไฟล์ที่มีโน้ตทำนองเกิน `MAX_HITS` ตอบ `415` `unsupported_file` แบบการตีที่เกิน (drum-notes D20) — ตัดท้ายไฟล์ทิ้งเงียบ ๆ ทำให้เพลงจบกลางทาง; การตัด 20,000 ตัวแรกของ spec ใช้กับผลแกะจากเสียงเท่านั้น
+- **Basic Pitch พังในโหมดกลอง:** log `warning` ข้อความของ error แล้ว `notes` `null`; หน้าต่างที่ยังไม่รันออกจากจำนวนขั้นของ `percent` ให้ยังขึ้นถึง 99 ตาม Beat This! — ไม่ค้างที่เลขเดิม
+- **`POST /songs/check` ของ MIDI เก่า:** ไฟล์ที่ตรงเพลง MIDI ที่ `notes` `null` ตอบ `{size}` แทน `KnownSong` ให้หน้าส่งไฟล์ด้วย `PUT` เดิม — ไม่ต้องแก้หน้ารายการเพลง; `song.json` ที่อ่านไม่ได้ยังตอบ `KnownSong` แบบเดิม (drum-notes D20)
+- **เติม `notes` ของ MIDI เก่า:** เก็บเฉพาะโน้ตใน `start_s ≤ t < end_s` ของ analysis เดิม — `end_s` เดิมคือการตีสุดท้าย + 1 ห้อง; `hits`, `end_s` และห้องไม่เปลี่ยน (D14) ทำนองที่ยาวกว่ากลองจึงถูกตัดท้าย นำเข้าไฟล์ใหม่ (ชื่ออื่น) ได้ทั้งเพลง
+- `midi.DrumTrack` เปลี่ยนชื่อเป็น `MidiSong` เพราะถือทั้งกลองและทำนอง
+
+**From:** build ticket 01 · **Status:** active
+
 ## Sources
 
 - [VCSL — Versilian Community Sample Library (CC0)](https://github.com/sgossner/VCSL) — ชุด CC0 ที่มี "Kalimba, Tanzania" 27 ไฟล์ (accessed 2026-11-16)

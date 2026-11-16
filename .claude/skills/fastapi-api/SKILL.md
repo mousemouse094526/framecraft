@@ -205,19 +205,24 @@ backend/
 │                    `media/songs/{id}/` beside `audio.m4a`, its checks, the tab's one lock;
 │                    the id is `spoil.links`' (ADR 0049) and checked before any path),
 │                    imports (Song import: a link's job in its own slot and a file in one
-│                    request, both on `audio_imports`; a `.mid` goes to midi), midi (the
-│                    app's own Standard MIDI File parser: channel 10 on the GM map as an
-│                    `analysis`, D10), onnx_runner (the only onnxruntime import: `open_session`,
+│                    request, both on `audio_imports`; a `.mid` goes to midi, and the same file
+│                    of a MIDI song with `notes` null fills them, kalimba-cover D14), midi (the
+│                    app's own Standard MIDI File parser: channel 10 on the GM map as the hits,
+│                    every other channel as the melody's notes, D10, kalimba-cover D3), onnx_runner
+│                    (the only onnxruntime import: `open_session`,
 │                    which setup's smoke test and the Pick job share, and the three models' runs
 │                    — ADTOF whole, Beat This! by chunk, Basic Pitch by window — ADR 0044), pick
 │                    (the Pick job in its own `JobSlot`, no GPU, ADR 0043: ffmpeg decodes the
-│                    range, the mode's model — ADTOF once in drums mode, Basic Pitch by window in
+│                    range, the mode's models — ADTOF once then Basic Pitch by window in drums mode
+│                    (its failure leaves `notes` null, kalimba-cover D14), Basic Pitch alone in
 │                    melody mode (D14) — then Beat This! by chunk, then `songs.set_analysis`;
 │                    `PickJobs(open_session=…, run_ffmpeg=…)` for tests; registers itself in
-│                    `songs.song_jobs` for `song_busy`; `HITS_BY_MODE` is the mode's model run),
+│                    `songs.song_jobs` for `song_busy`; `HITS_AND_NOTES_BY_MODE` is the mode's
+│                    model runs),
 │                    score (the signal numbers: the Beat This! chunk plan and `stitch`, ADTOF peak
-│                    picking into hits, the Basic Pitch window plan and its onsets into snare hits,
-│                    beats and downbeats from logits; the bars found are `songs.bars_of`), groove
+│                    picking into hits, the Basic Pitch window plan and its onsets into snare hits
+│                    and melody notes, beats and downbeats from logits; the bars found are
+│                    `songs.bars_of`), groove
 │                    (a lesson's Groove from the bars picked, Score steps 3–8: `preview` — the
 │                    default BPM, quantize, `BASE_GROOVES[mode]` under the hits, trim to two hands,
 │                    sticking), lesson (a lesson from a song, D12, D21, ADR 0047: `preview`/`listen`/`create`

@@ -417,9 +417,9 @@ function seek(player: HTMLAudioElement | null, start_s: number) {
 }
 
 /**
- * Reel cover, above สร้างบทเรียน: the picked range, its hits and how many reels were rendered, and
- * ทำ reel cover as the page's main button (drum-cover D11). It knows the reel by HTTP alone
- * (ADR 0052): the count is `GET …/cover/renders`'s length.
+ * Reel cover, above สร้างบทเรียน: the picked range, its hits, its melody notes (once picked with them,
+ * kalimba-cover D2) and how many reels were rendered, and ทำ reel cover as the page's main button
+ * (drum-cover D11). It knows the reel by HTTP alone (ADR 0052): the count is `GET …/cover/renders`'s length.
  */
 function ReelCover({ song }: { song: Song }) {
   const rendered = useReelRenders(song.id);
@@ -430,6 +430,7 @@ function ReelCover({ song }: { song: Song }) {
         <h3 className="text-base leading-[1.5] font-semibold text-foreground">Reel cover</h3>
         <p className="text-[13px] leading-[1.5] text-mid">
           ช่วงแกะ {analysis.start_s.toFixed(1)}–{analysis.end_s.toFixed(1)} วินาที · {analysis.hits.length} การตี
+          {analysis.notes !== null && ` · ${analysis.notes.length} โน้ตทำนอง`}
           {rendered !== null && ` · render แล้ว ${rendered} ครั้ง`}
         </p>
       </div>

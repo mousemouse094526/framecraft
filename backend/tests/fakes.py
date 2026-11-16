@@ -27,7 +27,7 @@ from backend import checks, gpu, paths, sounds, spoil_maker
 from backend.app import app
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
 from backend.drum_notes import songs
-from backend.drum_notes.songs import Analysis, Head, Hit, Source
+from backend.drum_notes.songs import Analysis, Head, Hit, Note, Source
 from backend.errors import ApiError
 from backend.models import MODELS, ModelSpec
 from backend.paths import EpAddress, ProjectPaths
@@ -1052,6 +1052,15 @@ BEAT = 480  # ticks of a quarter at division 480
 ROCK = [(0, 36, 110), (0, 42, 110), (BEAT, 42, 110), (2 * BEAT, 38, 110), (2 * BEAT, 42, 110), (3 * BEAT, 42, 110)]
 
 
+def drums_and_melody(
+    drums: tuple[tuple[int, int, int], ...] = ((0, 36, 100),), melody: tuple[tuple[int, int, int], ...] = ((0, 72, 100), (3 * BEAT, 74, 100)), bpm: float = 100
+) -> bytes:
+    """A format 1 file of three tracks: tempo and 4/4, the drums on channel 10, the melody on channel 1 (kalimba-cover D3)."""
+    header = b"\x00" + tempo_meta(bpm) + b"\x00" + time_signature()
+    tracks = track(header) + track(notes_track(list(drums), 9)) + track(notes_track(list(melody), 0))
+    return b"MThd" + struct.pack(">IHHH", 6, 1, 3, 480) + tracks
+
+
 # --- toon API tests ---
 
 TOON_VOICE = "v_8f2c01ab"
@@ -1472,12 +1481,14 @@ def written_song(
     song_id: str = "writtensong0",
     title: str = "Teen Spirit",
     audio: bytes | None = None,
+    notes: list[tuple[float, int, str]] | None = None,
 ) -> str:
     """A picked song written as the Pick job leaves it (drum-notes, drum-cover D13): beats every
     0.5 s from `start_s` and, unless `hits` (`(t, piece, level)`) are given, in drums mode a kick on
     every downbeat, in melody mode two snares a beat apart from the second beat of every bar (D14);
     `downbeats` decide the bars found, so one 1.5 s apart makes a 3-beat bar (D20). `audio`: the
-    bytes of its `audio.m4a`; None writes none, as a MIDI song has none."""
+    bytes of its `audio.m4a`; None writes none, as a MIDI song has none. `notes` (`(t, pitch, level)`):
+    the melody's (kalimba-cover D2); None leaves the key out of `analysis`, as a song picked before them."""
     end_s = downbeats[-1]
     if beats is None:
         beats = [start_s + n / 2 for n in range(int((end_s - start_s) * 2) + 1)]
@@ -1487,13 +1498,26 @@ def written_song(
         found = [Hit(t=t + after, piece="snare", level="normal") for t in downbeats[:-1] for after in (0.5, 1.0)]
     else:
         found = [Hit(t=t, piece="kick", level="normal") for t in downbeats[:-1]]
-    analysis = Analysis(mode=mode, start_s=start_s, end_s=end_s, beats=beats, downbeats=list(downbeats), hits=found, picked_at="2026-11-14T00:00:00Z")
+    melody = None if notes is None else [Note(t=t, pitch=pitch, level=level) for t, pitch, level in notes]
+    analysis = Analysis(
+        mode=mode, start_s=start_s, end_s=end_s, beats=beats, downbeats=list(downbeats), hits=found, notes=melody, picked_at="2026-11-14T00:00:00Z"
+    )
     song = songs.new_song(song_id, Head(title, subtitle, Source(kind="file", name="song.mp3", size=1)), end_s + 1, songs.default_range(end_s + 1), analysis)
     with songs.lock:
         written = songs.write_new(project, song).id
+        if notes is None:
+            without_notes(project, written)
         if audio is not None:
             (project.song_dir(written) / songs.AUDIO_FILE).write_bytes(audio)
     return written
+
+
+def without_notes(project: ProjectPaths, song_id: str) -> None:
+    """`song.json` as a pick or import before kalimba-cover left it: no `notes` key in its analysis."""
+    stored = project.song_dir(song_id) / songs.SONG_FILE
+    text = json.loads(stored.read_text(encoding="utf-8"))
+    del text["analysis"]["notes"]
+    stored.write_text(json.dumps(text, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @functools.cache

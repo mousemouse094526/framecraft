@@ -1,10 +1,11 @@
 """The Pick job of the แกะเพลง tab (drum-notes spec › Pick job, D5, D6, D8, D14, D18, D20; ADR 0043):
 one at a time for the whole tab, a plain `JobSlot` in a thread that holds no GPU slot. It reads the
 song's range once, has ffmpeg decode that stretch of `audio.m4a` as raw PCM at the rates the models
-take (`preparing`), runs the mode's model — ADTOF once over the whole stretch in drums mode, Basic
-Pitch window by window in melody mode — then Beat This! chunk by chunk (`picking`, `percent` per
-model run, cancel checked between them), turns the arrays into an `analysis` through `score`, and
-writes it into `song.json` in place of the old one (`done`).
+take (`preparing`), runs the mode's models — ADTOF once over the whole stretch then Basic Pitch window
+by window in drums mode, Basic Pitch alone in melody mode, its notes kept in both (kalimba-cover D2)
+— then Beat This! chunk by chunk (`picking`, `percent` per model run, cancel checked between them),
+turns the arrays into an `analysis` through `score`, and writes it into `song.json` in place of the
+old one (`done`).
 """
 
 import logging
@@ -12,7 +13,7 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeVar
+from typing import TYPE_CHECKING, Literal, NamedTuple, TypeVar
 
 from pydantic import BaseModel
 
@@ -20,7 +21,7 @@ from backend import checks, ffmpeg, gate_rows, models, paths
 from backend.checks import now_iso
 from backend.drum_notes import onnx_runner, score, songs
 from backend.drum_notes.onnx_runner import OpenSession, Session
-from backend.drum_notes.songs import Analysis, Hit, Mode, Range, Song
+from backend.drum_notes.songs import Analysis, Hit, Mode, Note, Range, Song
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import CaptureRunner, FfmpegFailed
 from backend.jobs import Cancelled, JobSlot, short
@@ -47,8 +48,8 @@ FAILED = "แกะโน้ตไม่สำเร็จ"
 
 
 class Steps:
-    """The model runs of one job — the mode's model (one run of ADTOF, or one per Basic Pitch window) and
-    one per Beat This! chunk — and how many are done: the job's `percent` is their ratio (D18, D20)."""
+    """The model runs of one job — the mode's models (one run of ADTOF in drums mode, one per Basic Pitch
+    window in both) and one per Beat This! chunk — and how many are done: the job's `percent` is their ratio (D18, D20)."""
 
     def __init__(self, total: int):
         self.total, self.done = total, 0
@@ -57,6 +58,18 @@ class Steps:
         """One more run finished: the percent to show, 99 at most until the analysis is written."""
         self.done += 1
         return min(99, self.done * 100 // self.total)
+
+    def skip_rest(self, planned: int, done_before: int) -> None:
+        """Of `planned` runs started when `done_before` were done, the ones that won't run now (a drums
+        pick's Basic Pitch that failed) go out of the total, so the percent still reaches 99."""
+        self.total -= planned - (self.done - done_before)
+
+
+class HitsAndNotes(NamedTuple):
+    """What the mode's models heard before Beat This!: the hits, and the melody's notes (None: not heard, kalimba-cover D14)."""
+
+    hits: list[Hit]
+    notes: list[Note] | None
 
 
 class PickJob(BaseModel):
@@ -146,7 +159,7 @@ class PickJobs(JobSlot[PickJob]):
             log.info("pick of %s ended %s after %.1f s", song.id, ending["state"], time.monotonic() - started)
 
     def _pick(self, project: ProjectPaths, song: Song, range_: Range) -> Analysis:
-        """`preparing` then `picking`: the arrays of the mode's model and of Beat This!, scored into
+        """`preparing` then `picking`: the arrays of the mode's models and of Beat This!, scored into
         an analysis in seconds of the song. Raises `Cancelled`, `ModelBroken`, `JobFailed`
         (`model_failed`, `no_beats`), `FfmpegFailed`."""
         import numpy as np
@@ -155,7 +168,7 @@ class PickJobs(JobSlot[PickJob]):
         pcm22 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, MODELS_RATE), self._cancel), np.float32)
         frames = score.beat_this_frames(len(pcm22))
         chunks = score.beat_this_chunks(frames)
-        hits = HITS_BY_MODE[range_.mode](self, project, audio, range_, pcm22, len(chunks))
+        hits, notes = HITS_AND_NOTES_BY_MODE[range_.mode](self, project, audio, range_, pcm22, len(chunks))
 
         self._check_cancel()
         beat_this = self._open(project, models.BEAT_THIS)
@@ -172,26 +185,45 @@ class PickJobs(JobSlot[PickJob]):
         beats, downbeats = score.beats_and_downbeats(beat, downbeat, range_.start_s)
         if len(downbeats) < 2:
             raise JobFailed("no_beats", NO_BEATS)
-        return Analysis(mode=range_.mode, start_s=range_.start_s, end_s=range_.end_s, beats=beats, downbeats=downbeats, hits=hits, picked_at=now_iso())
+        return Analysis(
+            mode=range_.mode, start_s=range_.start_s, end_s=range_.end_s, beats=beats, downbeats=downbeats, hits=hits, notes=notes, picked_at=now_iso()
+        )
 
-    def _drum_hits(self, project: ProjectPaths, audio: Path, range_: Range, pcm22: "np.ndarray", chunks: int) -> list[Hit]:
+    def _drums_hits_and_notes(self, project: ProjectPaths, audio: Path, range_: Range, pcm22: "np.ndarray", chunks: int) -> HitsAndNotes:
         """Drums mode: the stretch decoded again at ADTOF's rate, then ADTOF over the whole of it in
-        one run (an RNN, D20), peak-picked into hits; `picking` counts that run and the `chunks` of Beat This!."""
+        one run (an RNN, D20), peak-picked into hits; then Basic Pitch for the melody's notes, which
+        a model that is missing or fails leaves None without failing the job (kalimba-cover D14).
+        `picking` counts that run, the windows and the `chunks` of Beat This!."""
         import numpy as np
 
         pcm44 = np.frombuffer(self._run_ffmpeg(_decode(audio, range_, ADTOF_RATE), self._cancel), np.float32)
-        self._start_picking(1 + chunks)
+        windows = score.basic_pitch_windows(len(pcm22))
+        self._start_picking(1 + len(windows) + chunks)
         self._check_cancel()
         adtof = self._open(project, models.ADTOF)
         activations = _run_model(lambda: onnx_runner.run_adtof(adtof, pcm44))
         self._step_done()
-        return score.drum_hits(activations, range_.start_s)
+        hits = score.drum_hits(activations, range_.start_s)
+        done_before = self._steps.done
+        try:
+            outputs = self._basic_pitch(project, pcm22, windows)
+        except JobFailed as failed:  # `ModelBroken` too: the notes are an extra a drums pick goes without
+            log.warning("no melody notes for the drums pick: %s", failed.message)
+            self._steps.skip_rest(len(windows), done_before)
+            return HitsAndNotes(hits, None)
+        return HitsAndNotes(hits, score.melody_notes(outputs, len(pcm22), range_.start_s))
 
-    def _melody_hits(self, project: ProjectPaths, audio: Path, range_: Range, pcm22: "np.ndarray", chunks: int) -> list[Hit]:
-        """Melody mode: Basic Pitch window by window over the 22.05 kHz stretch Beat This! takes too,
-        cancel checked before each, its onsets as snares (D14); `picking` counts the windows and the `chunks`."""
+    def _melody_hits_and_notes(self, project: ProjectPaths, audio: Path, range_: Range, pcm22: "np.ndarray", chunks: int) -> HitsAndNotes:
+        """Melody mode: Basic Pitch once, its onsets both as snares (D14) and as the melody's notes
+        (kalimba-cover D2); `picking` counts the windows and the `chunks`."""
         windows = score.basic_pitch_windows(len(pcm22))
         self._start_picking(len(windows) + chunks)
+        outputs = self._basic_pitch(project, pcm22, windows)
+        return HitsAndNotes(score.melody_hits(outputs, len(pcm22), range_.start_s), score.melody_notes(outputs, len(pcm22), range_.start_s))
+
+    def _basic_pitch(self, project: ProjectPaths, pcm22: "np.ndarray", windows: list[score.Window]) -> list[tuple[score.Window, "np.ndarray"]]:
+        """Basic Pitch window by window over the 22.05 kHz stretch Beat This! takes too, cancel
+        checked before each, a step done after each: each window's onset output."""
         self._check_cancel()
         basic_pitch = self._open(project, models.BASIC_PITCH)
         outputs = []
@@ -200,7 +232,7 @@ class PickJobs(JobSlot[PickJob]):
             samples = score.window_samples(pcm22, window)
             outputs.append((window, _run_model(lambda: onnx_runner.run_basic_pitch(basic_pitch, samples))))
             self._step_done()
-        return score.melody_hits(outputs, len(pcm22), range_.start_s)
+        return outputs
 
     def _start_picking(self, runs: int) -> None:
         """ffmpeg is done: `picking` from 0 %, over `runs` model runs."""
@@ -224,9 +256,9 @@ class PickJobs(JobSlot[PickJob]):
             raise Cancelled()
 
 
-# The mode's model run, before Beat This!: what hears the hits and how many `picking` steps it takes (D14).
-HitsRun = Callable[[PickJobs, ProjectPaths, Path, Range, "np.ndarray", int], list[Hit]]
-HITS_BY_MODE: dict[Mode, HitsRun] = {"drums": PickJobs._drum_hits, "melody": PickJobs._melody_hits}
+# The mode's model runs, before Beat This!: what hears the hits and the notes, and how many `picking` steps they take (D14, kalimba-cover D2).
+HitsAndNotesRun = Callable[[PickJobs, ProjectPaths, Path, Range, "np.ndarray", int], HitsAndNotes]
+HITS_AND_NOTES_BY_MODE: dict[Mode, HitsAndNotesRun] = {"drums": PickJobs._drums_hits_and_notes, "melody": PickJobs._melody_hits_and_notes}
 
 
 def _pickable(song: Song) -> Range:

@@ -34,6 +34,7 @@ const analysis: Analysis = {
     { t: 12, piece: "kick", level: "normal" },
     { t: 13, piece: "snare", level: "accent" },
   ],
+  notes: null, // picked before the melody was kept (kalimba-cover D2)
   picked_at: "2026-11-15T10:00:00+07:00",
 };
 
@@ -163,6 +164,14 @@ describe("หน้าเพลง", () => {
     await user.click(within(reel).getByRole("link", { name: "ทำ reel cover" }));
     expect(window.location.hash).toBe(COVER_HASH);
     expect(await screen.findByRole("heading", { name: "Reel cover" })).toBeInTheDocument();
+  });
+
+  it("a song picked with its melody counts the notes in Reel cover (kalimba-cover D2) (e2e)", async () => {
+    const notes = Array.from({ length: 120 }, (_, n) => ({ t: n / 4, pitch: 60 + (n % 12), level: "normal" as const }));
+    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, notes } })), send("POST", `${SONG_PATH}/preview`, { groove: { bars: 1, notes: [] }, bpm: 120, dropped: [] }, 200)]);
+
+    const reel = await screen.findByRole("region", { name: "Reel cover" });
+    await waitFor(() => expect(reel).toHaveTextContent("ช่วงแกะ 0.0–30.0 วินาที · 3 การตี · 120 โน้ตทำนอง"));
   });
 });
 

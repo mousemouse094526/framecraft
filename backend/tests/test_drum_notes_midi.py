@@ -8,7 +8,7 @@ import pytest
 from backend.drum_notes import midi
 from backend.errors import ApiError
 
-from .fakes import BEAT, ROCK, meta, midi_file, notes_track, tempo_meta, time_signature, track
+from .fakes import BEAT, ROCK, drums_and_melody, midi_file, notes_track, tempo_meta, time_signature, track
 
 
 def refused(data: bytes) -> ApiError:
@@ -66,6 +66,38 @@ def test_a_format_0_file_with_running_status_and_no_track_name_reads_the_same_wi
     assert [hit.t for hit in found.analysis.hits] == [0.0, 0.0, 0.6, 1.2, 1.2, 1.8]
 
 
+def test_a_drum_track_has_no_melody_notes():
+    found = midi.read(midi_file([(0, 38, 100)]))
+
+    assert [hit.piece for hit in found.analysis.hits] == ["snare"]
+    assert found.analysis.notes == []
+
+
+# --- a melody track (kalimba-cover D3) ---
+
+
+def test_a_note_off_channel_10_is_a_melody_note_its_level_by_velocity_and_the_song_has_no_hits():
+    found = midi.read(midi_file([(0, 60, 40), (BEAT, 64, 80), (2 * BEAT, 67, 110)], channel=0))
+
+    assert found.analysis.hits == []
+    assert [(note.t, note.pitch, note.level) for note in found.analysis.notes] == [(0.0, 60, "ghost"), (0.6, 64, "normal"), (1.2, 67, "accent")]
+
+
+def test_drums_and_melody_in_one_file_are_both_read_and_the_song_ends_a_bar_after_the_last_of_either():
+    found = midi.read(drums_and_melody(drums=((0, 36, 100),), melody=((0, 72, 100), (3 * BEAT, 74, 100))))
+
+    assert [hit.piece for hit in found.analysis.hits] == ["kick"]
+    assert [(note.t, note.pitch) for note in found.analysis.notes] == [(0.0, 72), (1.8, 74)]
+    assert found.duration_s == pytest.approx(1.8 + 2.4)  # the last note, then one bar at 100 BPM
+    assert found.analysis.downbeats == [0.0, 2.4]
+
+
+def test_notes_at_one_tick_are_in_pitch_order():
+    found = midi.read(midi_file([(0, 67, 100), (0, 60, 100), (0, 64, 100)], channel=3))
+
+    assert [note.pitch for note in found.analysis.notes] == [60, 64, 67]
+
+
 def test_a_file_with_no_tempo_is_120_bpm():
     data = b"MThd" + struct.pack(">IHHH", 6, 1, 1, 480) + track(notes_track([(0, 36, 100), (BEAT, 38, 100)]))
 
@@ -82,7 +114,9 @@ def test_a_file_with_no_tempo_is_120_bpm():
     "data",
     [
         midi_file(ROCK, signature=(3, 2)),  # 3/4
-        midi_file(ROCK, channel=0),  # no channel 10
+        midi_file([(0, 60, 100), (BEAT, 37, 100)]),  # channel 10, both off the GM map: no hits and no notes
+        midi_file([(0, 60, 100)], channel=0, signature=(3, 2)),  # a melody in 3/4
+        midi_file([(index * 12, 60, 100) for index in range(20_001)], channel=0),  # 20,001 notes
         midi_file(ROCK, bpm=1000),
         midi_file(ROCK, bpm=10),
         midi_file(ROCK, division=10),
@@ -92,12 +126,12 @@ def test_a_file_with_no_tempo_is_120_bpm():
         b"RIFF not a midi file",
         midi_file(ROCK)[:-10],  # cut short
     ],
-    ids=["3/4", "no drum track", "1000 BPM", "10 BPM", "division 10", "SMPTE", "format 2", "20,001 hits", "junk", "truncated"],
+    ids=["3/4", "nothing to read", "melody in 3/4", "20,001 notes", "1000 BPM", "10 BPM", "division 10", "SMPTE", "format 2", "20,001 hits", "junk", "truncated"],
 )
-def test_a_file_that_is_not_a_4_4_drum_track_is_unsupported_file(data):
+def test_a_file_that_is_not_4_4_with_drums_or_a_melody_is_unsupported_file(data):
     error = refused(data)
 
-    assert (error.status, error.code, error.message) == (415, "unsupported_file", "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลอง")
+    assert (error.status, error.code, error.message) == (415, "unsupported_file", "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลองหรือโน้ตทำนอง")
 
 
 def test_twenty_thousand_hits_are_still_read():

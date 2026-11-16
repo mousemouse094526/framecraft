@@ -38,6 +38,7 @@ RANGE_MIN_S = 4
 RANGE_MAX_S = 90
 DEFAULT_RANGE_END_S = 30
 MAX_HITS = 20_000
+MAX_NOTES = 20_000  # the melody's own cap, apart from the hits' (kalimba-cover D2)
 TOO_LONG = f"เพลงยาวเกิน {MAX_SECONDS // 60} นาที"
 TOO_SHORT = f"เพลงสั้นกว่า {MIN_SECONDS} วินาที"
 IN_USE = "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง"
@@ -77,8 +78,17 @@ class Hit(BaseModel):
     level: Level
 
 
+class Note(BaseModel):
+    """One melody note (kalimba-cover D2): `pitch` is its MIDI number (60 = C4)."""
+
+    t: float  # seconds of the song
+    pitch: int = Field(ge=0, le=127)
+    level: Level
+
+
 class Analysis(BaseModel):
-    """What was found: beats and downbeats in seconds of the song, the hits, and when (D6, D10)."""
+    """What was found: beats and downbeats in seconds of the song, the hits, the melody's notes, and
+    when (D6, D10). `notes` None: picked before the melody was kept (kalimba-cover D2); `[]`: none heard."""
 
     mode: Mode
     start_s: float
@@ -86,6 +96,7 @@ class Analysis(BaseModel):
     beats: list[float]
     downbeats: list[float]
     hits: list[Hit]
+    notes: list[Note] | None = None
     picked_at: str
 
 
@@ -167,7 +178,8 @@ lock = threading.Lock()
 
 def checked_analysis(analysis: Analysis) -> Analysis:
     """The rules of spec › Data: beats and downbeats ascending seconds, the downbeats among the
-    beats and at least two, hits of known pieces and at most 20,000. Raises `invalid` with the field."""
+    beats and at least two, hits of known pieces and at most 20,000, notes at most 20,000 apart
+    (kalimba-cover D2). Raises `invalid` with the field."""
     if analysis.beats != sorted(analysis.beats):
         raise invalid("analysis.beats", "จังหวะต้องเรียงตามเวลา")
     if analysis.downbeats != sorted(analysis.downbeats) or len(analysis.downbeats) < 2:
@@ -176,6 +188,8 @@ def checked_analysis(analysis: Analysis) -> Analysis:
         raise invalid("analysis.downbeats", "ต้นห้องต้องเป็นจังหวะด้วย")
     if len(analysis.hits) > MAX_HITS:
         raise invalid("analysis.hits", f"การตีเกิน {MAX_HITS:,} ตัว")
+    if analysis.notes is not None and len(analysis.notes) > MAX_NOTES:
+        raise invalid("analysis.notes", f"โน้ตทำนองเกิน {MAX_NOTES:,} ตัว")
     for index, hit in enumerate(analysis.hits):
         if hit.piece not in kit.BY_ID:
             raise invalid(f"analysis.hits[{index}]", "ไม่รู้จักชิ้นกลองนี้")
@@ -301,6 +315,22 @@ def write_new(project: ProjectPaths, song: Song) -> Song:
         return existing
     _write(project, song)
     log.info("new song %s (%s, %.1f s)", song.id, song.source.kind, song.duration_s)
+    return song
+
+
+def fill_notes(project: ProjectPaths, song_id: str, notes: list[Note]) -> Song:
+    """The song with `notes` (those inside its analysis' range) as its analysis' notes when it has none
+    yet (kalimba-cover D14, D15); one that has them is returned as it is; `hits` and `end_s` stay. Call
+    with `lock` held. Raises `ApiError` 404."""
+    song = _read_known(project, song_id)
+    if song.analysis is None or song.analysis.notes is not None:
+        return song
+    # Only the notes inside the old analysis (spec › Data): its `end_s` was the last hit's bar, which a longer melody passes.
+    inside = [note for note in notes if song.analysis.start_s <= note.t < song.analysis.end_s]
+    analysis = song.analysis.model_copy(update={"notes": inside})  # the caller checked `notes`
+    song = song.model_copy(update={"analysis": analysis, "updated_at": now_iso()})
+    _write(project, song)
+    log.info("notes filled in for song %s (%d)", song_id, len(notes))
     return song
 
 

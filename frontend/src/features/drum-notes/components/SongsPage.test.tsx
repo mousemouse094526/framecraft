@@ -64,6 +64,7 @@ const midiAnalysis: Analysis = {
     { t: 1.8, piece: "hihat_closed", level: "accent" },
     { t: 2.4, piece: "kick", level: "accent" },
   ],
+  notes: [],
   picked_at: "2026-11-14T10:20:00+07:00",
 };
 
@@ -305,6 +306,27 @@ describe("รายการเพลง", () => {
     await user.upload(screen.getByLabelText("ไฟล์เพลง"), new File([new Uint8Array(3)], "song.mp3"));
     expect(await findStatusWith("เพลงนี้มีอยู่แล้ว")).toBeInTheDocument();
     expect(window.location.hash).toBe(`#/songs/${ID}`);
+  });
+
+  it("the file box says how a MIDI file's channels are read and to use one you made or may use (e2e)", async () => {
+    open("#/songs", []);
+
+    const box = await screen.findByRole("button", { name: /เลือกไฟล์ในเครื่อง/ });
+    expect(box).toHaveTextContent("MIDI: ช่อง 10 เป็นกลอง ช่องอื่นเป็นทำนองสำหรับคาลิมบา");
+    expect(box).toHaveTextContent("ใช้ไฟล์ MIDI ที่ทำเองหรือมีสิทธิ์ใช้");
+  });
+
+  it("a MIDI file the backend refuses shows its message (e2e)", async () => {
+    const message = "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลองหรือโน้ตทำนอง";
+    const user = open("#/songs", [send("POST", CHECK_PATH, { size: 3 }, 200)]);
+    await screen.findByRole("textbox", { name: "ลิงก์เพลง" });
+
+    await user.upload(screen.getByLabelText("ไฟล์เพลง"), new File([new Uint8Array(3)], "waltz.mid"));
+    await waitFor(() => expect(FakeXhr.sent).toHaveLength(1));
+    await FakeXhr.sent[0].respond(415, { code: "unsupported_file", message });
+
+    expect(await findStatusWith(message)).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/songs");
   });
 
   it("ลบ asks first, saying the lessons stay, then DELETEs (e2e)", async () => {

@@ -26,7 +26,10 @@ export type Mode = "drums" | "melody";
 export type Level = "ghost" | "normal" | "accent";
 /** A hit the models (or the MIDI file) found, in seconds of the song; not a lesson's `Hit` (its dynamic) in `lib/lesson.ts`. */
 export type FoundHit = { t: number; piece: string; level: Level };
-export type Analysis = { mode: Mode; start_s: number; end_s: number; beats: number[]; downbeats: number[]; hits: FoundHit[]; picked_at: string };
+/** A melody note found (or read from a MIDI file), its pitch a MIDI number (kalimba-cover D2); not a lesson's `Note`. */
+export type MelodyNote = { t: number; pitch: number; level: Level };
+/** `notes` null: picked before the melody was kept; `[]`: none heard (kalimba-cover D2). */
+export type Analysis = { mode: Mode; start_s: number; end_s: number; beats: number[]; downbeats: number[]; hits: FoundHit[]; notes: MelodyNote[] | null; picked_at: string };
 export type Range = { start_s: number; end_s: number; mode: Mode };
 /** One bar the analysis found, as the API works it out on read: four beats make a 4/4 bar, any other count can't be picked (D20). */
 export type FoundBar = { n: number; start_s: number; end_s: number; beats: number; hits: number; four_four: boolean };
@@ -135,8 +138,9 @@ export function rangeFault(start_s: number, end_s: number, duration_s: number): 
 export const NOTES_ONLY = "ใช้เพลงเพื่อแกะโน้ตเท่านั้น เสียงเพลงไม่เข้าคลิป";
 /** A link or file that is a song already: shown, then the page goes to that song (D3, D20). */
 export const ALREADY_IN = "เพลงนี้มีอยู่แล้ว";
-/** The hint on the file box. */
-export const FILE_HINT = "ไฟล์เสียงทุกชนิดที่อ่านได้ ไม่เกิน 200 MB · ไฟล์ MIDI (.mid) ไม่เกิน 5 MB · เพลงยาว 4 วินาทีถึง 10 นาที";
+/** The hint on the file box: how a MIDI file's channels are read, and whose file it should be (kalimba-cover D3, D13). */
+export const FILE_HINT =
+  "ไฟล์เสียงทุกชนิดที่อ่านได้ ไม่เกิน 200 MB · ไฟล์ MIDI (.mid) ไม่เกิน 5 MB · เพลงยาว 4 วินาทีถึง 10 นาที · MIDI: ช่อง 10 เป็นกลอง ช่องอื่นเป็นทำนองสำหรับคาลิมบา · ใช้ไฟล์ MIDI ที่ทำเองหรือมีสิทธิ์ใช้";
 export const FILE_ACCEPT = "audio/*,video/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.opus,.mp4,.webm,.mid,.midi";
 
 export type SongsView = { kind: "list" } | { kind: "song"; id: string };

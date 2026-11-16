@@ -106,11 +106,12 @@ class SongImports(ImportSlot[SongImport]):
 
     def check(self, body: dict) -> uploads.UploadCheck | KnownSong:
         """Every check of the file but its body's, before the page sends it (ADR 0028); a file
-        already in as a Song answers its id instead (D20)."""
+        already in as a Song answers its id instead (D20), unless it is a MIDI song imported before
+        its notes were kept: the page sends the file again to fill them (kalimba-cover D14)."""
         project = paths.project()
         name, size = _file_checks(project, body.get("name"), body.get("size"))
         song_id = links.local_id(name, size)
-        if songs.exists(project, song_id):
+        if songs.exists(project, song_id) and not _lacks_notes(project, song_id):
             return KnownSong(song_id=song_id)
         with self._lock:
             self._require_free()
@@ -120,12 +121,13 @@ class SongImports(ImportSlot[SongImport]):
         self, name: str | None, size: str | None, body: AsyncIterator[bytes], page_gone: Callable[[], Awaitable[bool]]
     ) -> SongView:
         """Checks again, writes `body` to `.partial/`, then the Song with its bars: a `.mid` read by
-        `midi`, anything else converted to `audio.m4a`. `page_gone` says whether the page went away:
-        ffmpeg stops then and no song comes in. Raises `ApiError`, or `ClientDisconnect` once its file is gone."""
+        `midi` (the notes of a MIDI song imported before them filled in, kalimba-cover D14), anything
+        else converted to `audio.m4a`. `page_gone` says whether the page went away: ffmpeg stops then
+        and no song comes in. Raises `ApiError`, or `ClientDisconnect` once its file is gone."""
         project = paths.project()
         name, expected = await anyio.to_thread.run_sync(_file_checks, project, name, uploads.whole_number(size))
         song_id = links.local_id(name, expected)
-        if songs.exists(project, song_id):
+        if songs.exists(project, song_id) and not _lacks_notes(project, song_id):
             return songs.get(project, song_id)
         source = Source(kind="midi" if _is_midi(name) else "file", name=name, size=expected)
         with self.receiving():
@@ -260,12 +262,27 @@ class SongImports(ImportSlot[SongImport]):
 
 
 def _midi_song(project: ProjectPaths, song_id: str, partial: Path, source: Source) -> Song:
-    """A `.mid` as a Song with its analysis and no audio (D10)."""
-    track = midi.read(partial.read_bytes())
-    head = Head(audio_imports.first_name(track.title, fallback=audio_imports.file_title(source.name)), "", source)
-    song = songs.new_song(song_id, head, track.duration_s, None, songs.checked_analysis(track.analysis))
+    """A `.mid` as a Song with its analysis and no audio (D10); the same file of a song imported
+    before notes were kept fills only its `analysis.notes` (kalimba-cover D14)."""
+    midi_song = midi.read(partial.read_bytes())
+    analysis = songs.checked_analysis(midi_song.analysis)
     with songs.lock:
-        return songs.write_new(project, song)
+        if songs.exists(project, song_id):
+            return songs.fill_notes(project, song_id, analysis.notes or [])
+        head = Head(audio_imports.first_name(midi_song.title, fallback=audio_imports.file_title(source.name)), "", source)
+        return songs.write_new(project, songs.new_song(song_id, head, midi_song.duration_s, None, analysis))
+
+
+def _lacks_notes(project: ProjectPaths, song_id: str) -> bool:
+    """Whether the song is a MIDI one imported before its notes were kept (kalimba-cover D14); one
+    whose `song.json` can't be read is not (D20: it stays a song already in). Read under its own lock:
+    `songs.fill_notes` looks again under the lock it writes with."""
+    try:
+        with songs.lock:
+            song = songs.read_under_lock(project, song_id)
+    except ApiError:
+        return False
+    return song.source.kind == "midi" and song.analysis is not None and song.analysis.notes is None
 
 
 def _file_checks(project: ProjectPaths, name: object, size: object) -> tuple[str, int]:

@@ -22,6 +22,7 @@ from .fakes import (
     SONGS,
     AudioLinkAdapter,
     Upload,
+    drums_and_melody,
     import_song_tone,
     midi_file,
     ok_deno,
@@ -34,6 +35,8 @@ from .fakes import (
     site_info,
     song_refusal,
     tone,
+    without_notes,
+    written_song,
     yt_dlp_error,
     youtube_info,
 )
@@ -420,13 +423,65 @@ def test_a_mid_file_comes_in_with_its_analysis_and_no_audio(client, project):
     assert (row["source_kind"], row["analysis"]) == ("midi", {"mode": "drums", "bars": 1})
 
 
-def test_a_mid_file_that_is_not_a_4_4_drum_track_is_unsupported_file_and_a_long_one_too_long(client):
+def test_a_mid_file_that_is_not_4_4_with_drums_or_a_melody_is_unsupported_file_and_a_long_one_too_long(client):
     response = put_song_file(client, "waltz.mid", midi_file(ROCK, signature=(3, 2)))
     assert song_refusal(response) == (415, "unsupported_file")
-    assert response.json()["message"] == "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลอง"
-    assert song_refusal(put_song_file(client, "piano.mid", midi_file(ROCK, channel=0))) == (415, "unsupported_file")
+    assert response.json()["message"] == "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลองหรือโน้ตทำนอง"
+    assert song_refusal(put_song_file(client, "bongo.mid", midi_file([(0, 60, 100)]))) == (415, "unsupported_file")  # channel 10, off the GM map
     assert song_refusal(put_song_file(client, "long.mid", midi_file([(0, 36, 100), (480 * 4 * 250, 36, 100)]))) == (422, "too_long")
     assert client.get(SONGS).json() == []
+
+
+def test_a_mid_file_of_a_melody_alone_comes_in_with_its_notes_and_no_hits(client):
+    response = put_song_file(client, "tune.mid", midi_file([(0, 60, 40), (480, 62, 100)], channel=0))
+
+    assert response.status_code == 201, response.json()
+    analysis = response.json()["analysis"]
+    assert analysis["hits"] == []
+    assert analysis["notes"] == [{"t": 0.0, "pitch": 60, "level": "ghost"}, {"t": 0.6, "pitch": 62, "level": "accent"}]
+    assert response.json()["duration_s"] == pytest.approx(0.6 + 2.4)
+
+
+def test_a_song_json_with_no_notes_reads_as_null_and_a_write_keeps_it_readable(client, project):
+    song_id = written_song(project, audio=b"m4a")
+    assert "notes" not in json.loads(song_file(project, song_id).read_text(encoding="utf-8"))["analysis"]
+
+    assert client.get(f"{SONGS}/{song_id}").json()["analysis"]["notes"] is None
+    assert client.put(f"{SONGS}/{song_id}/range", json={"start_s": 0, "end_s": 6, "mode": "drums"}).status_code == 200
+    assert client.get(f"{SONGS}/{song_id}").json()["analysis"]["notes"] is None
+
+
+def test_the_same_mid_file_again_fills_the_notes_of_a_song_imported_before_them_and_keeps_its_hits(client, project):
+    data = drums_and_melody()
+    song = put_song_file(client, "both.mid", data).json()
+    without_notes(project, song["id"])
+
+    check = client.post(f"{SONGS}/check", json={"name": "both.mid", "size": len(data)})
+    again = put_song_file(client, "both.mid", data)
+
+    assert (check.status_code, check.json()) == (200, {"size": len(data)})  # the page sends the file
+    assert again.status_code == 201, again.json()
+    assert again.json()["id"] == song["id"]
+    assert again.json()["analysis"]["hits"] == song["analysis"]["hits"]
+    assert [note["pitch"] for note in again.json()["analysis"]["notes"]] == [72, 74]
+    assert client.get(f"{SONGS}/{song['id']}").json()["analysis"]["notes"] == again.json()["analysis"]["notes"]
+    # Once filled, the file is a song already in, as before.
+    assert client.post(f"{SONGS}/check", json={"name": "both.mid", "size": len(data)}).json() == {"song_id": song["id"]}
+
+
+def test_notes_filled_in_past_the_old_analysis_end_are_left_out(client, project):
+    """Before kalimba-cover a MIDI song ended a bar after its last hit: a melody running longer keeps only what lies inside."""
+    data = drums_and_melody(drums=((0, 36, 100),), melody=((0, 72, 100), (4 * 480, 74, 100), (8 * 480, 76, 100)))
+    song = put_song_file(client, "long tune.mid", data).json()
+    without_notes(project, song["id"])
+    stored = json.loads(song_file(project, song["id"]).read_text(encoding="utf-8"))
+    stored["analysis"]["end_s"] = 2.4  # the old end: the kick at 0, then one bar at 100 BPM
+    song_file(project, song["id"]).write_text(json.dumps(stored, ensure_ascii=False), encoding="utf-8")
+
+    again = put_song_file(client, "long tune.mid", data).json()
+
+    assert [(note["t"], note["pitch"]) for note in again["analysis"]["notes"]] == [(0.0, 72)]  # 2.4 and 4.8 are past the end
+    assert again["analysis"]["end_s"] == 2.4
 
 
 # --- the list, one song, delete ---
