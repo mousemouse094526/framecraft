@@ -12,7 +12,7 @@
 - User stories: 1, 2, 4, 6
 - Legal: 3, 4
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

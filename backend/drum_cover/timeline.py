@@ -35,7 +35,7 @@ def build(analysis: Analysis, cover: CoverFields) -> Timeline:
     for index, hit in enumerate(found):
         layer, note = SHOWN[hit.level]
         sounds.append((hit.t - start, hit.piece, hands[index], layer, note))
-    beats = [Beat(timeline.to_sample(t - start), number) for t, number in _numbered_beats(analysis, start, end)]
+    beats = [Beat(timeline.to_sample(t - start), number) for t, number in numbered_beats(analysis, start, end)]
     spans = [Span(0, timeline.to_sample(end - start))]
     return timeline.assemble(sounds, beats, spans, end - start + timeline.TAIL_S)
 
@@ -67,7 +67,7 @@ def scroll_bpm(analysis: Analysis, cover: CoverFields) -> int:
 # --- the beats ---
 
 
-def _numbered_beats(analysis: Analysis, start: float, end: float) -> list[tuple[float, int]]:
+def numbered_beats(analysis: Analysis, start: float, end: float) -> list[tuple[float, int]]:
     """Step 5: each beat in the stretch numbered from the downbeat before it (1 on a downbeat);
     one before every downbeat counts back from the first bar's number of beats, at least 1 (D3, D6)."""
     numbered = []

@@ -84,7 +84,7 @@ def picked(project: ProjectPaths, hits=((11.0, "snare", "normal"),), downbeats=D
 
 def cover_body(client, song_id: str, **changes) -> dict:
     stored = client.get(f"{SONGS}/{song_id}/cover").json()
-    keys = ("start_s", "end_s", "title", "subtitle", "caption", "background", "drums", "backing")
+    keys = ("start_s", "end_s", "title", "subtitle", "caption", "background", "drums", "backing", "instrument", "kalimba")
     return {key: stored[key] for key in keys} | changes
 
 

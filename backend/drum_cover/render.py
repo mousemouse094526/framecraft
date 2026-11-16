@@ -4,6 +4,10 @@ or a Pick job. The song and the cover it plays are copied into `media/songs/.ren
 starts, so a `PUT` while it runs reaches the next render only (video-gen D33). Then the sound
 (`audio.reel_wav`), the reel's own text (`captions`) and every frame (`frames`, ADR 0054, sent to
 ffmpeg through stdin with video-gen's own command) make `songs/{song_id}/renders/{name}.mp4`, `.srt` and `.json`.
+
+ฟัง (`listen`) lives here too: it plays the chosen instrument's sound, and ADR 0058 lets only this
+module and `cover` of `drum_cover` import an instrument's package. A kalimba reel isn't rendered
+yet (kalimba-cover D16): `start` refuses it until its picture is drawn.
 """
 
 import logging
@@ -26,11 +30,13 @@ from backend.drum_notes.songs import Song
 from backend.errors import ApiError, JobFailed, require_rows
 from backend.ffmpeg import FfmpegFailed, PipedRunner
 from backend.jobs import Cancelled, JobSlot, short
+from backend.kalimba_cover import sound
+from backend.kalimba_cover import timeline as kalimba_timeline
 from backend.paths import ProjectPaths
 from backend.subtitles import Timed
 from backend.video_gen import captions as lesson_captions
 from backend.video_gen import render as drum_render
-from backend.video_gen import timeline
+from backend.video_gen import mixer, timeline
 from backend.video_gen.captions import TitleFont
 
 log = logging.getLogger(__name__)
@@ -39,6 +45,8 @@ State = Literal["rendering", "done", "failed", "cancelled"]
 ErrorCode = Literal["ffmpeg_failed", "internal"]
 NOT_RUNNING = "ไม่มีงาน render reel ที่ยังไม่จบ"
 RENDERS = "renders"
+MIX_FAILED = "ผสมเสียงเพลงต้นฉบับไม่สำเร็จ"
+NO_KALIMBA_RENDER = "render reel คาลิมบายังไม่พร้อม"
 
 
 class CoverRenderJob(BaseModel):
@@ -93,7 +101,10 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
         under `songs.lock`, so neither a delete nor a `PUT` slips between the read and the job."""
         project = paths.project()
         with songs.lock:
-            cover.require_analysis(songs.read_under_lock(project, song_id))
+            song = songs.read_under_lock(project, song_id)
+            cover.require_analysis(song)
+            if cover.used(project, song, check_sound=False).instrument == "kalimba":
+                raise ApiError(409, "not_ready", NO_KALIMBA_RENDER)
         require_rows(gate_rows.drums(project))
         with self._lock:
             running = self.running()
@@ -143,7 +154,8 @@ class CoverRenderJobs(JobSlot[CoverRenderJob]):
         analysis = cover.require_analysis(song)
         timing = reel_timeline.build(analysis, fields)
         song_audio = songs.checked_dir(project, song_id) / songs.AUDIO_FILE  # `song_busy` keeps it there
-        (work / drum_render.AUDIO).write_bytes(audio.reel_wav(project, song_audio, fields, timing, self._cancel))
+        drums = mixer.mix(project, timing) if fields.drums.on else None
+        (work / drum_render.AUDIO).write_bytes(audio.reel_wav(song_audio, fields, drums, timing.samples, self._cancel))
         lesson = reel_timeline.lesson(analysis, fields)
         (work / drum_render.TEXT).write_text(captions.ass_file(project, lesson, timing, self._title_font), encoding="utf-8")
         background = work / cover.BACKGROUND if fields.background == "image" else None
@@ -235,3 +247,36 @@ def clean_on_start(project: ProjectPaths) -> None:
 
 render_jobs = CoverRenderJobs()
 songs.song_jobs.append(lambda: render_jobs.song_use())
+
+
+# --- ฟัง ---
+
+
+def instrument_wav(project: ProjectPaths, song: Song, fields: CoverFields) -> tuple[bytes | None, int]:
+    """The chosen instrument's wav from its own timeline (None while its sound is off), and the
+    clip's length in samples."""
+    analysis = cover.require_analysis(song)
+    if fields.instrument == "kalimba":
+        notes = kalimba_timeline.build(analysis, fields)
+        return (sound.mix(notes) if fields.kalimba.on else None), notes.samples
+    hits = reel_timeline.build(analysis, fields)
+    return (mixer.mix(project, hits) if fields.drums.on else None), hits.samples
+
+
+def listen(project: ProjectPaths, song_id: str) -> bytes:
+    """ฟัง: the reel's whole sound from the saved cover (or its defaults), mixed as a render mixes
+    it (D17). Raises `ApiError` 404, 409 `no_analysis`, 400 for backing on a song with no audio,
+    409 `no_notes` for a kalimba with none to play, then 503 `not_ready` without the drum samples
+    (drums only) or ffmpeg (backing on) (kalimba-cover spec › Render job)."""
+    with songs.lock:
+        song = songs.read_under_lock(project, song_id)
+        fields = cover.used(project, song)
+        cover.require_notes(song, fields)
+    drum_rows = gate_rows.drum_kit_row(project) if fields.instrument == "drums" else {}
+    require_rows(drum_rows | (gate_rows.FFMPEG if fields.backing.on else {}))
+    wav, samples = instrument_wav(project, song, fields)
+    song_audio = songs.checked_dir(project, song_id) / songs.AUDIO_FILE
+    try:
+        return audio.reel_wav(song_audio, fields, wav, samples, threading.Event())
+    except FfmpegFailed as error:  # a broken `audio.m4a`, or one deleted with its song meanwhile
+        raise ApiError(500, "ffmpeg_failed", f"{MIX_FAILED}: {error.last_line}") from None

@@ -1,11 +1,11 @@
 # Progress: kalimba-cover
 
-**Now:** 01 done; 02 next
+**Now:** 01–02 done; 03 next
 
 **Next:**
 
 ```
-/warroom-build kalimba-cover 02
+/warroom-build kalimba-cover 03
 ```
 
 ## Tickets
@@ -13,10 +13,32 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | โน้ตทำนองเข้าเพลง — จากการแกะและจากไฟล์ MIDI | done |
-| 02 | เลือกคาลิมบาบนหน้า reel แล้วฟังทำนองที่จัดลงคาลิมบา | ready |
+| 02 | เลือกคาลิมบาบนหน้า reel แล้วฟังทำนองที่จัดลงคาลิมบา | done |
 | 03 | render reel คาลิมบา — โน้ตตกลงบนคีย์ที่สว่างตรงเสียง | ready |
 
 ## Log
+
+### 02: เลือกคาลิมบาบนหน้า reel แล้วฟังทำนองที่จัดลงคาลิมบา — done 2026-11-16
+
+**Built:**
+- `backend/kalimba_cover/`: `arrange` (ทิ้งเบส, ย้ายคีย์, `bent`, โน้ตบนสุดของคอร์ด, พับ octave, ตัดโน้ตซ้ำเร็ว; import แค่ `drum_notes.songs`), `timeline` (`KalimbaTimeline` sample + tine, เลขจังหวะจาก `drum_cover.timeline.numbered_beats`), `sound` (สังเคราะห์ 3 partial + เสียงกระทบ seed 0, ออกด้วย `mixer.to_wav` ตัวเดียวกับกลอง)
+- `cover.json` มี `instrument` และ `kalimba {on, volume}`; ไฟล์เก่า → `drums` + `{on: true, volume: 100}`; ไม่มี cover กับช่วงไม่มีการตีแต่มีโน้ต → `kalimba`; `GET /cover` มี `notes`, `notes_picked`, `transpose`, `dropped`, `bent`; กฎห้ามเงียบใช้กับเครื่องดนตรีที่เลือก (`CoverFields.instrument_sound()`)
+- ฟังย้ายไป `drum_cover.render.listen` + `render.instrument_wav`; `audio.reel_wav` รับ wav ของเครื่องดนตรี; คาลิมบาไม่ต้องมี sample กลอง; `409 no_notes` สามข้อความ
+- `POST …/render` ของคาลิมบา → `409 not_ready` จน ticket 03 (review: ก่อนนี้ render reel กลองเงียบได้)
+- หน้า reel: การ์ดเครื่องดนตรี (`components/ui/SegmentedChoice`, ใช้กับ "กลองล้วน/กลอง + เพลงต้นฉบับ" ด้วย), แถว "ความดังคาลิมบา", บรรทัดจำนวนโน้ต/ย้ายคีย์/ตัด/ปรับ, Alert โน้ต, คำเตือนย้ายคีย์กับ backing, "render reel" ปิดเมื่อคาลิมบา
+
+**Decided:**
+- D16 — ตัวเลขโน้ตเป็นของช่วงที่บันทึก; `listen` อยู่ `render`; `instrument` ผิด → `400`; seed เสียงกระทบ; ลิงก์ใน Alert; render คาลิมบา `409 not_ready`; `SegmentedChoice` อยู่ `components/ui/` ตาม D10
+
+**For the next ticket:**
+- ticket 03 แทน `409 not_ready` ใน `CoverRenderJobs.start` ด้วยลำดับตรวจของ spec › Render job และให้ `_render` ใช้ `render.instrument_wav` แทน `mixer.mix` ตรง (ตอนนี้ render กับ listen ผสมเสียงกลองคนละทาง)
+- review: การแยก `instrument == "kalimba"` ยังกระจายหลายที่ (`cover.require_notes`, `cover.defaults`, `render.instrument_wav`, `render.listen`, `soundOf` และ ternary ใน `CoverPage`) — ถ้า ticket 03 เพิ่มอีก ให้รวมเป็น map ต่อเครื่องดนตรี (sound model, gate rows, timeline, mixer)
+- review: `transpose`/`dropped`/`bent` เดินคู่กันใน `Arranged`, `KalimbaTimeline`, `CoverView`, TS `Cover` — พิจารณาวัตถุนับเดียว
+- review: fixture `project`/`client` และรายการ key ของ PUT ซ้ำระหว่าง `test_drum_cover_api.py` กับ `test_kalimba_cover_api.py` (`COVER_KEYS`) — ย้ายเข้า `fakes.py` ถ้าเพิ่ม test ไฟล์ที่สาม
+- frontend test "แกะก่อนเก็บโน้ต"/"ช่วงไม่มีโน้ต" assert "render reel" ปิด ซึ่งปิดเสมอเมื่อคาลิมบาใน ticket นี้ — ticket 03 เปิด render แล้ว assertion นี้จึงเริ่มทดสอบ gating จริง
+- บรรทัดโน้ตและคำเตือนย้ายคีย์แสดงเฉพาะเมื่อช่วงที่พิมพ์ = ช่วงที่บันทึก (`savedStretch`, D16)
+
+**Checks:** `uv run pytest` 1531 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 619 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 01: โน้ตทำนองเข้าเพลง — จากการแกะและจากไฟล์ MIDI — done 2026-11-16
 

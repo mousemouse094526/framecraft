@@ -50,7 +50,7 @@ def get_background(song_id: str) -> FileResponse:
 @router.post("/songs/{song_id}/cover/listen")
 def listen(song_id: str, body: dict[str, Any]) -> Response:
     """The reel's sound from the saved cover, never cached: it may change before the next press (D17)."""
-    wav = audio.listen(paths.project(), song_id)
+    wav = render.listen(paths.project(), song_id)
     return Response(wav, media_type="audio/wav", headers={"Cache-Control": "no-store"})
 
 

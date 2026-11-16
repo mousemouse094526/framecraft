@@ -244,6 +244,22 @@
 
 **From:** build ticket 01 · **Status:** active
 
+## D16: ทางเลือกเล็กของ ticket 02
+
+**Chosen:** bundle ของทางเลือกเล็กตอน build ticket 02 ที่ไม่เปลี่ยนสิ่งที่ spec สัญญา.
+
+**Details:**
+- **ตัวเลขของโน้ตบนหน้า reel เป็นของช่วงที่บันทึก:** backend เป็นคนจัดโน้ต (D9) หน้าจึงแสดงบรรทัด "{n} โน้ตทำนองในช่วง…", Alert "ช่วงนี้ไม่มีโน้ตทำนอง…" และคำเตือนย้ายคีย์เฉพาะเมื่อช่วงที่พิมพ์ตรงกับช่วงที่บันทึก; ระหว่างแก้ช่วงไม่แสดง และ "ฟัง" (บันทึกก่อน) ได้ `no_notes` จาก backend ถ้าไม่มีโน้ต — ไม่มีการจัดโน้ตชุดที่สองใน TypeScript
+- **`listen` ย้ายไป `drum_cover.render`:** ฟังเลือกเสียงตามเครื่องดนตรีแบบ render และ ADR-0058 ให้ `drum_cover` import `kalimba_cover` ได้แค่ใน `render` กับ `cover`; `render.instrument_wav(project, song, fields)` ให้ wav ของเครื่องดนตรีที่เลือกกับความยาว; `audio.reel_wav(audio, fields, instrument_wav, samples, cancel)` ไม่รับ `project` เพราะไม่ได้ใช้อีกเมื่อ wav มาจากข้างนอก
+- **`PUT` ของ `instrument`:** ไม่มีหรือไม่ใช่ `drums`/`kalimba` → `400` field `instrument` "เครื่องดนตรีไม่ถูกต้อง"; `kalimba` ตรวจด้วย `_sound` ตัวเดียวกับ `drums` ("ความดังคาลิมบาต้องเป็นจำนวนเต็ม 10–100")
+- **เสียงกระทบ:** `default_rng(0).uniform(-1, 1, 6 ms)` สร้างใหม่ทุกครั้งที่เรียก `note` จึงเท่ากันทุกโน้ต; numpy รุ่นใหม่อาจเปลี่ยน stream (docs/library-notes/numpy.md) — byte เดิมสัญญาภายใน numpy รุ่นเดียว
+- **ลิงก์ใน Alert ของโน้ต:** แกะก่อนมีคาลิมบา → "กลับไปหน้าเพลง"; เพลง MIDI ที่นำเข้าก่อน → "ไปรายการเพลง" (`#/songs`) ที่นำเข้าไฟล์ได้
+- **`SegmentedChoice` อยู่ `components/ui/` ตั้งแต่ผู้ใช้แรก:** ตาม D10 ที่ตั้งชื่อที่อยู่ไว้; ปุ่มกลุ่ม `radiogroup` ของ feature อื่น (drum-notes, toon, spoil-maker) ยังไม่ย้ายมาใช้ — ย้ายเมื่อแตะหน้านั้น
+- **การย้ายคีย์บนหน้า:** `+2` เมื่อขึ้น, `-1` เมื่อลง
+- **render คาลิมบาก่อน ticket 03:** ปุ่ม "render reel" ปิดเมื่อเลือกคาลิมบาโดยไม่มีข้อความ; `POST …/render` ของ cover ที่บันทึกเป็นคาลิมบา → `409` `not_ready` "render reel คาลิมบายังไม่พร้อม" (ตรวจก่อนแถว Status ของกลอง) แทนที่จะ render reel กลองเงียบ; ticket 03 แทนด้วยลำดับตรวจของ spec › Render job
+
+**From:** build ticket 02 · **Status:** active
+
 ## Sources
 
 - [VCSL — Versilian Community Sample Library (CC0)](https://github.com/sgossner/VCSL) — ชุด CC0 ที่มี "Kalimba, Tanzania" 27 ไฟล์ (accessed 2026-11-16)

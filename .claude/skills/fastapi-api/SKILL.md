@@ -243,7 +243,15 @@ backend/
 │                    from above, a lane a piece, the bar counter; from video-gen only the frame
 │                    size, `background_image`, `stick_tip`, the sprite helpers `paste`/`shrunk`/
 │                    `lighter` and `captions.stick_letters`);
-│                    imports drum_notes and video_gen, never the other way
+│                    imports drum_notes and video_gen, never the other way; one cover plays
+│                    either instrument (`instrument`, kalimba-cover D9): `render` (the Render job
+│                    and ฟัง, `listen`) picks the drums' mixer or the kalimba's `sound` (`voice_wav`)
+├── kalimba_cover/← a reel cover on the kalimba (kalimba-cover spec, D8): arrange (melody notes onto
+│                    17 C-major tines, pure numbers; imports only `drum_notes.songs`, so
+│                    `drum_cover.cover` counts with it), timeline (`KalimbaTimeline`: notes at their
+│                    samples on their tines, beats by `drum_cover.timeline.numbered_beats`, ADR 0041),
+│                    sound (the synthesised tine, `note`, and `mix` to the mixer's wav); imports
+│                    drum_cover, which imports it only in `cover` (arrange) and `render` (ADR 0058)
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK
