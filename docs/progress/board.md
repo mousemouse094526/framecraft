@@ -13,4 +13,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [sound-library](sound-library/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D18) | ✅ f89b1e9 | — | — |
 | [video-gen](video-gen/progress.md) | false | done | 🎨 3/3 (ui-prompt.md, D38) | ✅ 2b883ca | เจ้าของเช็ค render/เสียงจริง | — |
 | [drum-notes](drum-notes/progress.md) | false | done | 🎨 2/2 (ui-prompt.md, D28) | ✅ e782f02 | Blocked 5: เจ้าของฟังเทียบตาราง intro/kalimba ใน `#/songs` | — |
-| [drum-cover](drum-cover/progress.md) | false | review | 🎨 2/2 (ui-prompt.md, D14) | ✅ e9de3b4 | ready to merge · ข้อเล็กเจ้าของ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | `/pr-open` |
+| [drum-cover](drum-cover/progress.md) | false | review | 🎨 2/2 (ui-prompt.md, D14) | ✅ e9de3b4 | [PR #17](https://github.com/mousemouse094526/framecraft/pull/17) · ข้อเล็กเจ้าของ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
