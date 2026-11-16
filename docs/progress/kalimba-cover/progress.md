@@ -1,12 +1,14 @@
 # Progress: kalimba-cover
 
-**Now:** 01–03 done; feature review next (Blocked 2, 3, 5 รอเจ้าของฟัง/ดู)
+**Now:** 01–03 done, feature review done (3c034d3); CI green. Not ready to merge: Blocked 2–5 wait on the owner (listen, MusicXML answer, render from MIDI); Blocked 1 builds without Figma (D10).
 
 **Next:**
 
 ```
-/warroom-build kalimba-cover --review-feature
+/warroom kalimba-cover
 ```
+
+(after the owner answers Blocked 2–5; nothing left → `/pr-open`)
 
 ## Tickets
 
@@ -17,6 +19,27 @@
 | 03 | render reel คาลิมบา — โน้ตตกลงบนคีย์ที่สว่างตรงเสียง | done |
 
 ## Log
+
+### Feature review — done 2026-11-16
+
+**Built:**
+- `arrange.Changes(transpose, dropped, bent)`: one value through `Arranged`, `KalimbaTimeline.changes` and `CoverView` (API stays flat); `arrange.arranged_in(analysis, …)` replaces `cover.arranged_in` and the direct call in `timeline`; `TINES` → `TINE_PITCHES`, `KEYS`/`_key` → `TRANSPOSES`/`_transpose`
+- `render._instrument_wav` builds the wav for render and ฟัง alike (was built inline in `_render`)
+- `cover.hits_in(analysis, start_s, end_s)` used by `defaults` too
+- `drum_cover.captions.riding(...)`: text that rides the picture, shared by the drum lanes' `_sliding` and the kalimba's bar numbers (ASS output unchanged)
+- frontend: `NoNotes` union with `NO_NOTES_TEXT`/`NO_NOTES_LINK`, `backingLabels(name)` in `lib/cover` (spec: all new copy in one place)
+- tests: `fakes.cover_api()` + `COVER_KEYS` for both cover API files (rules/testing.md); comments on the frames probe and the sync test's stride and half-peak
+- docs: spec `reel_wav(audio, fields, instrument_wav, …)`, SKILL.md `instrument_wav`, D16 text; `frames.SLOWEST_PX_PER_S` comment (notes touch); `fill_notes` logs the notes kept; `_note_sprite(level: Level)`; `sound.mix` cache name
+
+**Decided:** (dropped, auto mode took the recommended set)
+- `SegmentedChoice` stays in `components/ui/` (D16 per D10)
+- per-instrument map for every drums/kalimba switch, `InstrumentReel` as a `Protocol`, `frame_count(length_s)` — wait for a third instrument
+- `bar_at(bars, t)`, the sync test's half-peak start, no job-level 20,000-note test, `beat_dots` signature (D14) — kept as they are
+- `SongsPage` "MIDI ที่ไม่รับ" test checks the page shows the backend's message; the copy is the backend test's
+
+**For the next ticket:** —
+
+**Checks:** `uv run pytest` 1545 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 622 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 03: render reel คาลิมบา — โน้ตตกลงบนคีย์ที่สว่างตรงเสียง — done 2026-11-16
 
