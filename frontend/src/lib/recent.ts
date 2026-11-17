@@ -68,7 +68,8 @@ function itemOf(area: RecentArea, entry: unknown): RecentItem | null {
   const { hash, label, parent } = entry as Record<string, unknown>;
   if (typeof hash !== "string" || !SHAPES[area].test(hash)) return null;
   if (typeof label !== "string" || !label.trim()) return null;
-  const item: RecentItem = { hash, label: label.trim().slice(0, LABEL_MAX) };
+  // By character, not UTF-16 unit, so an emoji is never cut in half.
+  const item: RecentItem = { hash, label: Array.from(label.trim()).slice(0, LABEL_MAX).join("") };
   if (area === "toon" && typeof parent === "string" && SERIES_SHAPE.test(parent)) item.parent = parent;
   return item;
 }

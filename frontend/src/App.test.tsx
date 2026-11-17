@@ -176,14 +176,16 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
   });
 
   it("closes when the open item is picked again, though the hash stays the same", async () => {
+    window.location.hash = "#/setup";
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(menuButton());
     await user.click(item("ติดตั้ง"));
 
+    expect(window.location.hash).toBe("#/setup");
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
-    await waitFor(() => expect(menuButton()).toHaveFocus());
+    expect(menuButton()).toHaveFocus();
   });
 
   it("closes on Esc with the focus back on the button (e2e)", async () => {
@@ -211,7 +213,38 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("closes on back or forward, with the page live again", async () => {
+    const user = userEvent.setup();
+    window.location.hash = "#/spoil";
+    render(<App />);
+    await user.click(item("ตรวจแก้บท"));
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / ตรวจแก้บท"));
+    await user.click(menuButton());
+
+    act(() => {
+      window.history.back();
+    });
+
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / เลือกคลิป"));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(document.querySelector("[inert]")).toBeNull();
+  });
+
+  it("keeps the header's action out of reach behind an open drawer", async () => {
+    const user = userEvent.setup();
+    window.location.hash = "#/clips";
+    render(<App />);
+    await user.click(menuButton());
+
+    expect(document.querySelectorAll("[inert]")).toHaveLength(2);
+    expect(menuButton().closest("[inert]")).toBeNull();
+  });
+
   it("closes, keeping the page, when the leave guard is declined (e2e)", async () => {
+    // The hash the last test's cleanup reset is still on its way; let it land before the guard is up.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(false);
     function Unsaved() {
@@ -235,6 +268,10 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
   });
 
   it("moves on when the leave guard is accepted", async () => {
+    // The hash the last test's cleanup reset is still on its way; let it land before the guard is up.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     function Unsaved() {

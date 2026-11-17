@@ -29,8 +29,9 @@ describe("ล่าสุด (ui-nav D5, D10, D11)", () => {
     rememberRecent("drums", "#/drums/../setup", "แปลก");
     rememberRecent("songs", "#/toon/series/s_1", "ผิดหัวข้อ");
     rememberRecent("songs", "#/songs/s_1", "   ");
+    rememberRecent("songs", "#/songs/s_2", `${"ก".repeat(79)}🥁🥁`);
 
-    expect(stored()).toEqual({ toon: [], drums: [{ hash: "#/drums/a1b2c3d4e5f6", label: "ก".repeat(80) }], songs: [] });
+    expect(stored()).toEqual({ toon: [], drums: [{ hash: "#/drums/a1b2c3d4e5f6", label: "ก".repeat(80) }], songs: [{ hash: "#/songs/s_2", label: `${"ก".repeat(79)}🥁` }] });
   });
 
   it("forgets a Series together with its EPs, and leaves the rest", () => {

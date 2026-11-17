@@ -791,10 +791,15 @@ describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
   });
 
   it("keeps the song open in the menu on its reel page, which writes nothing", async () => {
-    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }] }));
-    open(`#/songs/${ID}/cover`, []);
+    const seeded = JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "ชื่อเก่า" }] });
+    window.localStorage.setItem("framecraft.nav.recent", seeded);
+    open(`#/songs/${ID}/cover`, [get(PATH, songOf())]);
 
-    expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page");
+    expect(songsGroup().getByRole("link", { name: "ชื่อเก่า" })).toHaveAttribute("aria-current", "page");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(window.localStorage.getItem("framecraft.nav.recent")).toBe(seeded);
   });
 
   it("forgets a song that is deleted (e2e)", async () => {

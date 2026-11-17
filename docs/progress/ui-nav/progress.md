@@ -17,6 +17,19 @@
 
 ## Log
 
+### Feature review — 2026-11-17
+
+**Fixed (reviewer 1 สีแดง 5 สีเหลือง ทั้งหมด):**
+- action ในหัวหน้าเป็น `inert` ขณะ drawer เปิด เหลือแค่ปุ่ม ☰ (D10)
+- คืนโฟกัสหลังเลือก: หน้าที่วาด hash ใหม่รับโฟกัสจาก flag แทนการเดาเวลา; ทางสำรองเมื่อ leave guard ไม่ยอม
+- back/forward ขณะ drawer เปิด → drawer ปิด หน้าไม่ค้าง `inert`
+- ชื่อล่าสุดตัดที่ 80 ตัวอักษรจริง ไม่ผ่า emoji
+- test "เลือกรายการเดิม" เข้า branch hash เดิมจริง; test หน้า reel ตรวจว่า storage ไม่ถูกเขียน
+- test guard รอ `hashchange` ที่ค้างจาก test ก่อนหน้า
+
+**Checks:** `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend run build` ผ่าน; `npm --prefix frontend test` 655 tests: ผ่านครบ 4 ใน 5 รอบ (ปิด dev server ระหว่างวัด); อีกรอบ D87 ล้ม — ดู Blocked 1
+
+
 ### 02: ล่าสุดในเมนู — done 2026-11-17
 
 **Built:**
@@ -57,3 +70,4 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
+| 1 | 02 | `DraftProgress.test.tsx` › D87 (spoil-maker) ล้มราว 1 ใน 5 รอบเมื่อรันทั้งชุดบน branch นี้ (บน develop 0 ใน 5); ผ่านเสมอเมื่อรันเดี่ยว. การกด "เลือก Shot ใหม่" ไม่ส่ง POST บางรอบ. ลองสลับลำดับ phase และ poll วนแล้ว ทั้งสองแบบแย่ลง จึงถอยคืน; ยังไม่รู้สาเหตุ | `/kiki-debug DraftProgress D87 flaky on feat/ui-nav` | open |

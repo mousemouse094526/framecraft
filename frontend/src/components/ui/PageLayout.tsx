@@ -40,9 +40,17 @@ function writeCollapsed(collapsed: boolean) {
   }
 }
 
-// The menu button of the page that mounted last: after a pick in the drawer the page may be a new
-// one, and the focus goes to its button rather than falling to <body> (ui-nav D10).
+// The menu button of the page that mounted last, and whether a pick in the drawer still owes it the
+// focus: after the pick the page may be a new one, and the focus goes to its button rather than
+// falling to <body> (ui-nav D10).
 let latestButton: HTMLButtonElement | null = null;
+let refocus = false;
+
+function takeRefocus(button: HTMLButtonElement | null) {
+  if (!refocus || !button) return;
+  refocus = false;
+  button.focus();
+}
 
 /** The column every page sits in: the main menu, then the header (menu button, wordmark, where the
  * user is, the page's action) and the page's content (ui-nav D4, D6). */
@@ -68,6 +76,13 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
 
   const closeDrawer = useCallback(() => setDrawer(false), []);
   useDismiss(drawerOpen, closeDrawer, button, menu);
+
+  // A new hash (a pick, or back and forward while the drawer is open) closes the drawer, and the
+  // page that drew it takes the focus a pick owes (D10).
+  useEffect(() => {
+    setDrawer(false);
+    takeRefocus(button.current);
+  }, [hash]);
 
   // Crossing into the pinned width closes the drawer; the sidebar then follows its own setting.
   useEffect(() => {
@@ -102,8 +117,10 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
       button.current?.focus();
       return;
     }
-    // The hash moves after this click: once the page (or the declined leave) has drawn, focus its button.
-    window.addEventListener("hashchange", () => setTimeout(() => latestButton?.focus()), { once: true });
+    // The hash moves after this click: the page that draws it takes the focus, or, when the leave is
+    // declined and nothing draws, this fallback does.
+    refocus = true;
+    window.addEventListener("hashchange", () => setTimeout(() => takeRefocus(latestButton)), { once: true });
   };
 
   return (
@@ -137,7 +154,10 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
             <Wordmark />
             <p className="order-last basis-full truncate text-sm leading-[1.5] font-medium text-mid sm:order-none sm:basis-auto">{text}</p>
             <div className="flex-1" />
-            {action}
+            {/* Behind an open drawer only the menu button stays live (D10). */}
+            <div inert={drawerOpen || undefined} className="contents">
+              {action}
+            </div>
           </header>
           <div inert={drawerOpen || undefined} className="flex flex-col gap-4">
             {children}
