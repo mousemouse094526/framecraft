@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 import soundfile
 
-from backend import ffmpeg, fonts
+from backend import ffmpeg, fonts, kalimba_kit
 from backend.drum_cover import cover
 from backend.drum_notes import songs
 from backend.kalimba_cover import frames
@@ -173,6 +173,15 @@ def test_the_kalimba_needs_no_drum_samples_and_off_under_backing_plays_the_song_
     assert np.abs(sound[: 44_100 - 100]).max() > 1000  # the song, before the first note
 
 
+def test_listen_on_the_kalimba_without_its_samples_is_refused_naming_their_row(client, project):
+    song_id = picked(project)
+    assert put_cover(client, song_id, instrument="kalimba").status_code == 200
+    project.kalimba_kit_marker.unlink()
+
+    response = listen(client, song_id)
+    assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", [kalimba_kit.CHECK_ID])
+
+
 def test_a_kalimba_stretch_with_no_notes_is_refused(client, project):
     song_id = picked(project, notes=[(10.5, 36, "normal")])  # the bass alone, dropped (D14)
     assert put_cover(client, song_id, instrument="kalimba").status_code == 200
@@ -282,8 +291,11 @@ def test_a_render_is_refused_for_no_notes_then_missing_rows_then_another_render_
     assert poll_until(client, RENDER, lambda job: job["state"] in FINISHED, timeout_s=60)["state"] == "done"
 
 
-def test_a_kalimba_render_needs_no_drum_samples(client, project):
+def test_a_kalimba_render_needs_the_kalimba_samples_but_no_drum_samples(client, project):
     song_id = kalimba_song(project)
     project.drum_kit_marker.unlink()
 
     assert rendered(client, song_id)["state"] == "done"
+    project.kalimba_kit_marker.unlink()
+    response = start(client, song_id)
+    assert (response.status_code, response.json()["code"], response.json()["rows"]) == (503, "not_ready", [kalimba_kit.CHECK_ID])

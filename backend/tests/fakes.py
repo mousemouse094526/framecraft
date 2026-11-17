@@ -111,6 +111,34 @@ def fake_sample() -> bytes:
     return buffer.getvalue()
 
 
+@functools.cache
+def fake_pluck(pitch: float) -> bytes:
+    """A 0.45 s mono 16-bit wav at 48 kHz like a VCSL kalimba file: 50 ms of silence, then a sine at
+    `pitch` (a fractional MIDI number) decaying from full scale, so a test hears which sample was
+    moved where (kalimba-cover D18). Made once per pitch."""
+    rate = 48_000
+    t = np.arange(round(0.4 * rate)) / rate
+    tone = np.exp(-t / 0.1) * np.sin(2 * np.pi * 440 * 2 ** ((pitch - 69) / 12) * t)
+    audio = np.concatenate([np.zeros(round(0.05 * rate)), tone]).astype(np.float32)
+    buffer = io.BytesIO()
+    soundfile.write(buffer, audio, rate, subtype="PCM_16", format="WAV")
+    return buffer.getvalue()
+
+
+def write_kalimba_kit(root: Path) -> None:
+    """Every kalimba sample as `fake_pluck` at its own pitch and the marker setup writes once their
+    sha256 match the pins; nothing is fetched."""
+    from backend import kalimba_kit
+
+    project = ProjectPaths(root)
+    project.kalimba_samples_dir.mkdir(parents=True, exist_ok=True)
+    for sample in kalimba_kit.SAMPLES:
+        kalimba_kit.sample_path(project, sample).write_bytes(fake_pluck(sample.pitch))
+    project.kalimba_kit_marker.parent.mkdir(parents=True, exist_ok=True)
+    pinned = {sample.path: sample.sha256 for sample in kalimba_kit.SAMPLES}
+    project.kalimba_kit_marker.write_text(json.dumps({"files": pinned}), encoding="utf-8")
+
+
 def write_drum_kit(root: Path) -> None:
     """Every drum sample as `fake_sample` and the marker setup writes once their sha256 match
     the pins; nothing is fetched."""

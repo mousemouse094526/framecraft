@@ -66,23 +66,18 @@ class InstrumentReel(NamedTuple):
     listen_rows: Callable[[ProjectPaths], dict[str, Row]]
 
 
-def _no_rows(_project: ProjectPaths) -> dict[str, Row]:
-    """The kalimba's ฟัง: its sound is the app's own, so no Status check row (kalimba-cover D9)."""
-    return {}
-
-
 INSTRUMENTS: dict[Instrument, InstrumentReel] = {
     "drums": InstrumentReel(
         reel_timeline.build, mixer.mix, captions.ass_file, frames.Scene, frames.frame_at, gate_rows.drums, gate_rows.drum_kit_row
     ),
     "kalimba": InstrumentReel(
         kalimba_timeline.build,
-        lambda _project, timing: sound.mix(timing),
+        sound.mix,
         kalimba_captions.ass_file,
         kalimba_frames.Scene,
         kalimba_frames.frame_at,
         gate_rows.kalimba,
-        _no_rows,
+        gate_rows.kalimba_kit_row,
     ),
 }
 
@@ -304,8 +299,8 @@ def _instrument_wav(project: ProjectPaths, reel: InstrumentReel, timing: Any, fi
 def listen(project: ProjectPaths, song_id: str) -> bytes:
     """ฟัง: the reel's whole sound from the saved cover (or its defaults), mixed as a render mixes
     it (D17). Raises `ApiError` 404, 409 `no_analysis`, 400 for backing on a song with no audio,
-    409 `no_notes` for a kalimba with none to play, then 503 `not_ready` without the drum samples
-    (drums only) or ffmpeg (backing on) (kalimba-cover spec › Render job)."""
+    409 `no_notes` for a kalimba with none to play, then 503 `not_ready` without the chosen
+    instrument's samples or ffmpeg (backing on) (kalimba-cover spec › Render job)."""
     with songs.lock:
         song = songs.read_under_lock(project, song_id)
         fields = cover.used(project, song)

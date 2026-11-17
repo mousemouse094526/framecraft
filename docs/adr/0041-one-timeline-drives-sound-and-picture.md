@@ -6,4 +6,4 @@
 
 Source: video-gen D2, D15, D19
 
-**Extended by:** ADR-0057, ADR-0059 (kalimba-cover)
+**Extended by:** ADR-0057, ADR-0059 (kalimba-cover, superseded), ADR-0061 (kalimba-cover)

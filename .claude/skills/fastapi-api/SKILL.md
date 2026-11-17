@@ -33,6 +33,9 @@ backend/
 ├── drum_kit.py   ← the drum samples (Big Rusty Drums, CC0, ADR 0042) pinned the same
 │                    way: `SAMPLES` (piece, layer, round-robin, path, sha256), setup's
 │                    `install_drum_kit` (three tries a file), the `drum_kit` row's check
+├── kalimba_kit.py← the kalimba samples (VCSL "Kalimba, Tanzania", CC0, ADR 0061) pinned the
+│                    drum kit's way: `SAMPLES` (path, measured pitch, sha256), `nearest(pitch)`,
+│                    setup's `install_kalimba_kit`, the `kalimba_kit` row's check
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
 ├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
 ├── body_types.py ← what a POST/PUT/PATCH body may be: JSON everywhere, a raw
@@ -43,7 +46,7 @@ backend/
 │                    `checked_text` (a trimmed text field within its length)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`, `drums`, `kalimba`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
+│                    `drum_kit_row`, `drums`, `kalimba_kit_row`, `kalimba`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`, `cancel` —
 │                    `cancel_refusal`/`nothing_to_cancel` say how a cancel with no job is refused —
 │                    and `stop_on_shutdown`), ModelJobSlot (a job whose model runs in a child:
@@ -250,7 +253,8 @@ backend/
 │                    17 C-major tines, pure numbers; imports only `drum_notes.songs`, so
 │                    `drum_cover.cover` counts with it), timeline (`KalimbaTimeline`: notes at their
 │                    samples on their tines, beats by `drum_cover.timeline.numbered_beats`, ADR 0041),
-│                    sound (the synthesised tine, `note`, and `mix` to the mixer's wav), frames
+│                    sound (`note`: the nearest VCSL sample moved to the tine, buzz filtered; `mix`
+│                    to the mixer's wav), frames
 │                    (falling notes and the lit tine, sketch's `TINES`) and captions (the tines'
 │                    numbers; the title and "ห้อง n" are `drum_cover.captions`' `text_events`,
 │                    `bar_counter_events`); imports drum_cover, which imports it only in `cover`

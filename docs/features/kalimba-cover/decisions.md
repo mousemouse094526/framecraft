@@ -91,7 +91,7 @@
 
 **Sources:** [VCSL](https://github.com/sgossner/VCSL)
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** superseded by D18
 
 ## D6: Reel คาลิมบามี timeline ของตัวเองที่เสียงและภาพอ่านจากที่เดียว
 
@@ -274,6 +274,30 @@
 - **ภาพสามเฟรมให้เจ้าของ:** แกะสำเนาของ Yellow 0–30 วิใน project ชั่วคราว (ไม่แตะ `song.json` ของเจ้าของที่ `notes` ยัง `null`) แล้ว render ด้วยโค้ดจริง
 
 **From:** build ticket 03 · **Status:** active
+
+## D18: เสียงคาลิมบาจาก sample VCSL "Kalimba, Tanzania" แทนเสียงสังเคราะห์
+
+**Chosen:** `kalimba_cover.sound.note` เล่น sample จริงของ VCSL "Kalimba, Tanzania" (CC0 1.0) ที่ pin commit `c1ea7bc` โหลดผ่าน Setup พร้อม sha256 ลง `models/kalimba/` มี marker และแถว Status check `kalimba_kit` "Kalimba samples" ต่อจาก `drum_kit` — กติกาของ ADR-0042 แบบ `backend.drum_kit`. ทุกคีย์ใช้ sample ที่ pitch ที่วัดได้ใกล้ที่สุด ย้าย pitch ให้ตรง C major และกรองเสียงซ่ากับคีย์อื่นที่ดังตามออก; timeline และภาพไม่เปลี่ยน (D5, D6).
+
+**Why:** เจ้าของฟัง reel คาลิมบาของ Yellow แล้ว: จำทำนองได้ (Blocked 2) แต่ "เสียงไม่เหมือนคาลิมบาเลย" จึงเลือก sample จริงแทนเสียงสังเคราะห์ทุกกรณี (Blocked 3, change request 2026-11-17).
+
+**Rejected:**
+- คงเสียงสังเคราะห์ หรือให้เลือกได้สองแบบ — เจ้าของบอกให้แทนทุกกรณี
+- โหลดครบ 27 ไฟล์ (~23 MB) — 13 ไฟล์ไม่ใกล้คีย์ใดใน C4–E6 เลย (ต่ำกว่า C#3 หรือสูงกว่า E5 ของชื่อไฟล์); 14 ไฟล์ ~9 MB ครบทุกคีย์ ย้ายมากสุด 1.51 ครึ่งเสียง (A4 จาก 70.51)
+- ใช้ pitch ตามชื่อไฟล์ — ชื่อไฟล์ต่ำไปหนึ่งอ็อกเทฟ (ระบบ C3 = MIDI 60) และ mbira ตั้งเสียงคลาด ±60 cent; วัดจาก peak ที่แรงที่สุดของ 0.6 วิแรกแทน
+- resample ด้วย scipy หรือ linear interpolation — scipy ไม่ได้ pin ใน `pyproject.toml` (ADR-0002); interpolation ทำเสียงสูงหาย ใช้ spectrum ของ numpy ที่มีอยู่
+
+**Details:**
+- `kalimba_kit.SAMPLES`: 14 ไฟล์ (`path`, `pitch` ที่วัด, `sha256`); `nearest(pitch)` เสมอกัน → ตัวสูงกว่าเลื่อนลง
+- ตัดความเงียบหน้าเสียง (~0.1 วิในไฟล์) ที่ sample แรกที่ดัง ≥ 5% ของ peak ลบ 1 ms ให้เสียงเริ่มตรง `at` ของ timeline (ADR-0041)
+- ย้าย pitch และ 48 → 44.1 kHz ในขั้นเดียวด้วย `rfft`/`irfft` (เติมศูนย์กันหางวนทับหัว); กรองใน spectrum เดียวกัน: ตัดต่ำกว่า 0.7–0.9 × ความถี่ของคีย์ (คีย์อื่นของ mbira ที่ดังตาม — วัดได้ถึง 1.0 เท่าของคีย์ที่ดีดในไฟล์เสียงสูง) และสูงกว่า 4–9 kHz (เสียงซ่า); ทั้งสองเป็น raised cosine
+- ยาวไม่เกิน 4.0 วิ fade out 50 ms; peak ต่อ `level` 0.45 / 0.7 / 1.0 แบบเดิม; render ซ้ำได้ wav เดิมทุก byte เมื่อ sample ชุดเดียวกัน
+- `gate_rows.kalimba` เพิ่มแถว `kalimba_kit`; ฟังคาลิมบา gate `kalimba_kit_row`; `sound.mix` ไม่ gate เอง ผู้เรียก gate แบบ `video_gen.mixer`
+- วัดหลังทำ: ทุกคีย์ตรงเสียง ±2 cent; MIDI Twinkle Twinkle 14 โน้ตนำเข้าแล้ว render ได้ทุกโน้ตตรง pitch (Blocked 5)
+
+**Sources:** [VCSL LICENSE ที่ commit c1ea7bc](https://github.com/sgossner/VCSL/blob/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE)
+
+**From:** owner answer to Blocked 2–3 (change request) · **Status:** active
 
 ## Sources
 

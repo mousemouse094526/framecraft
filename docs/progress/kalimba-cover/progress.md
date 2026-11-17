@@ -1,14 +1,12 @@
 # Progress: kalimba-cover
 
-**Now:** 01–03 done, feature review done (3c034d3); CI green. Not ready to merge: Blocked 2–5 wait on the owner (listen, MusicXML answer, render from MIDI); Blocked 1 builds without Figma (D10).
+**Now:** 01–04 done; Blocked 2, 3, 5 ปิด (04: เสียง sample VCSL); เหลือ Blocked 4 (MusicXML ยังไม่ทำ, เจ้าของตอบแล้วว่ารอ) และ 1 (สร้างโดยไม่รอ Figma, D10). PR เข้า develop.
 
 **Next:**
 
 ```
-/warroom kalimba-cover
+/warroom next
 ```
-
-(after the owner answers Blocked 2–5; nothing left → `/pr-open`)
 
 ## Tickets
 
@@ -17,8 +15,29 @@
 | 01 | โน้ตทำนองเข้าเพลง — จากการแกะและจากไฟล์ MIDI | done |
 | 02 | เลือกคาลิมบาบนหน้า reel แล้วฟังทำนองที่จัดลงคาลิมบา | done |
 | 03 | render reel คาลิมบา — โน้ตตกลงบนคีย์ที่สว่างตรงเสียง | done |
+| 04 | เสียงคาลิมบาจาก sample จริง VCSL แทนเสียงสังเคราะห์ | done |
 
 ## Log
+
+### 04: เสียงคาลิมบาจาก sample จริง VCSL แทนเสียงสังเคราะห์ — done 2026-11-17
+
+**Built:**
+- `backend/kalimba_kit`: 14 ไฟล์ VCSL "Kalimba, Tanzania" (CC0) ที่ commit `c1ea7bc` (~9 MB) พร้อม pitch ที่วัดจากเสียงจริงและ sha256; `nearest(pitch)`; Setup โหลดต่อจาก sample กลอง (ลองสามครั้งต่อไฟล์); แถว Status check `kalimba_kit` ต่อจาก `drum_kit`; `paths.kalimba_samples_dir`/`kalimba_kit_marker`
+- `kalimba_cover.sound.note(project, pitch, level)`: sample ใกล้สุด → ตัดความเงียบหน้า → ย้าย pitch และ 48 → 44.1 kHz ทีเดียวด้วย spectrum → กรองต่ำกว่า 0.7–0.9 × ความถี่คีย์ (คีย์อื่นที่ดังตาม) และสูงกว่า 4–9 kHz (เสียงซ่า) → fade out → peak ตาม level; `mix(project, timing)` gate แถว `kalimba_kit`
+- `render.INSTRUMENTS` คาลิมบา: `sound.mix` ตรง, ฟัง gate `gate_rows.kalimba_kit_row`; `gate_rows.kalimba` เพิ่มแถว sample
+- test: `fakes.fake_pluck`/`write_kalimba_kit` ใน `fake_root`; sound test ใหม่ (pitch ต่อคีย์, sample ใกล้สุด, กรองต่ำ/สูง, 503); Setup/Status/API test ของ sample คาลิมบา
+- วัดด้วย sample จริง: ทุกคีย์ 17 ตัวตรงเสียง ±2 cent; MIDI Twinkle Twinkle (ช่อง 1, 14 โน้ต) import → cover ตั้งต้นคาลิมบา → render 2.6 วิ → ฟังกลับจาก mp4 ได้ 60 60 67 67 69 69 67 65 65 64 64 62 62 60 ตรงทุกโน้ต (Blocked 5): mp4 อยู่ที่ scratchpad ของ session ไม่ได้ commit
+- docs: spec › เสียงคาลิมบา ใหม่ (7 ข้อ), Modules touched, Render job (ฟัง gate `kalimba_kit`), seams, Library assumptions; D5 → superseded by D18; ADR-0061 แทน ADR-0059; ADR-0042 extended by 0061; ADR-0060 changed by 0061; legal ข้อ 3 (CC0, ALLOWED); SKILL.md และ rules/testing.md
+
+**Decided:**
+- D18 — sample VCSL แทนเสียงสังเคราะห์ทุกกรณี (เจ้าของ); โหลด 14 จาก 27 ไฟล์ (ตัวที่ใกล้คีย์ใดคีย์หนึ่ง); pitch วัดจากเสียงจริงเพราะชื่อไฟล์ต่ำไปอ็อกเทฟและ mbira คลาด ±60 cent; resample ด้วย `numpy.fft` ไม่เพิ่ม scipy (ADR-0002)
+
+**For the next ticket:**
+- ระดับการกรองเสียงซ่า (`sound.BUZZ_FROM/TO` 4–9 kHz) และคีย์ต่ำ (`BELOW_FROM/TO`) ตั้งจากการวัด ไม่ได้ฟัง — เจ้าของฟังตอน review PR; ถ้ายังซ่าหรือทึบ ปรับสองค่านี้ที่เดียว
+- review: `kalimba_kit` ลอก check/install/marker ของ `drum_kit` (และ `fonts`) — ชุดที่สาม; ถ้ามีชุด asset ที่สี่ ทำ helper "pinned files" (dir, marker, base_url, files) ใช้ร่วม
+- คนที่ติดตั้งแล้วต้องรัน `./setup.sh` อีกครั้งเพื่อโหลด sample คาลิมบา (Status check บอก `missing` จนกว่าจะรัน)
+
+**Checks:** `uv run pytest` 1555 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 622 passed; `npm --prefix frontend run build` ผ่าน; review สามแกน: แก้ทุกข้อ ยกเว้น helper ร่วมของ asset ที่ pin (For the next ticket)
 
 ### Feature review — done 2026-11-16
 
@@ -108,8 +127,8 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01, 02, 03 | design: หน้า reel — ส่วนที่เพิ่ม, หน้าเพลงและรายการเพลง — ส่วนที่เพิ่ม | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D10); แบบ Figma ภายหลัง → `/warroom kalimba-cover` พร้อมลิงก์ | open |
-| 2 | 02 | เจ้าของฟังคาลิมบาของเพลงที่แกะจากเสียง (Yellow 11.5–30 แกะใหม่) ว่ายังจำทำนองได้ไหม (D12) | เจ้าของ: เปิด `#/songs/Ssz69tFTS7Y/cover` เลือก "คาลิมบา" กด "ฟัง" แล้วตอบ จำได้ / ไม่ได้ → `/warroom kalimba-cover` ถ้าไม่ได้ | open |
-| 3 | 02 | เสียงสังเคราะห์พอไหม หรืออยากได้ sample จริง VCSL "Kalimba, Tanzania" (CC0, 27 คีย์ ~23 MB โหลดผ่าน Setup ต้องเลื่อน pitch เสียงออก mbira) (D5) | เจ้าของตอบหลังฟัง → `/warroom kalimba-cover` | open |
-| 4 | 03 | อยากให้รับ MusicXML (`.musicxml`, `.mxl` จาก MuseScore) ด้วยไหม; PDF และภาพไม่ทำ (D3) | เจ้าของตอบ → `/warroom kalimba-cover` (ticket แยก) | open |
-| 5 | 03 | เจ้าของ import MIDI ทำนองแล้วรับ reel คาลิมบาว่าเล่นทำนองถูก (D12) | เจ้าของ: import `.mid` ที่ `#/songs` เปิด reel แล้ว render | open |
+| 1 | 01, 02, 03 | design: หน้า reel — ส่วนที่เพิ่ม, หน้าเพลงและรายการเพลง — ส่วนที่เพิ่ม | ไม่รอ Figma: สร้างตาม `ui-prompt.md` กับ design system เดิม (D10); แบบ Figma ภายหลัง → `/warroom kalimba-cover` พร้อมลิงก์ | open (ไม่กันการ merge) |
+| 2 | 02 | เจ้าของฟังคาลิมบาของเพลงที่แกะจากเสียง (Yellow 11.5–30 แกะใหม่) ว่ายังจำทำนองได้ไหม (D12) | เจ้าของ: เปิด `#/songs/Ssz69tFTS7Y/cover` เลือก "คาลิมบา" กด "ฟัง" แล้วตอบ จำได้ / ไม่ได้ → `/warroom kalimba-cover` ถ้าไม่ได้ | done (เจ้าของ 2026-11-17: จำได้ แต่เสียงไม่เหมือนคาลิมบา → ข้อ 3) |
+| 3 | 02 | เสียงสังเคราะห์พอไหม หรืออยากได้ sample จริง VCSL "Kalimba, Tanzania" (CC0, 27 คีย์ ~23 MB โหลดผ่าน Setup ต้องเลื่อน pitch เสียงออก mbira) (D5) | เจ้าของตอบหลังฟัง → `/warroom kalimba-cover` | done (ticket 04: sample VCSL ทุกกรณี, D18) |
+| 4 | 03 | อยากให้รับ MusicXML (`.musicxml`, `.mxl` จาก MuseScore) ด้วยไหม; PDF และภาพไม่ทำ (D3) | เจ้าของตอบ → `/warroom kalimba-cover` (ticket แยก) | open (เจ้าของ 2026-11-17: ยังไม่ทำ เก็บไว้; ไม่กันการ merge) |
+| 5 | 03 | เจ้าของ import MIDI ทำนองแล้วรับ reel คาลิมบาว่าเล่นทำนองถูก (D12) | เจ้าของ: import `.mid` ที่ `#/songs` เปิด reel แล้ว render | done (เจ้าของ 2026-11-17 ให้ทดสอบเอง; ticket 04 ตรวจด้วยโค้ดจริง ทุกโน้ตตรง pitch) |

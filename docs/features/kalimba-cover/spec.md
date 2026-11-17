@@ -18,7 +18,7 @@ Reel cover ของเพลงเลือกได้ว่าจะ render �
 - ทุกการแกะเก็บโน้ตทำนองพร้อม pitch ไว้ข้างการตีกลอง เพลงเดียวจึงได้ทั้งสองแบบ (D2)
 - ไฟล์ MIDI ที่มีแต่ทำนองเข้าได้ ช่องอื่นนอกจากช่อง 10 เป็นโน้ตทำนอง (D3)
 - โน้ตถูกจัดลงคาลิมบา 17 คีย์ C major อัตโนมัติ: ย้ายคีย์ พับอ็อกเทฟ เหลือโน้ตบนสุดเมื่อหลายโน้ตพร้อมกัน; หน้า reel บอกผลการจัด (D4, D9, D14)
-- เสียงคาลิมบาสังเคราะห์ในแอป ความดังตั้งแยกและปิดได้แบบเสียงกลอง (D5, D9)
+- เสียงคาลิมบาจาก sample จริง VCSL "Kalimba, Tanzania" (CC0) ที่ Setup โหลด จูนเข้า C major และกรองเสียงซ่า; ความดังตั้งแยกและปิดได้แบบเสียงกลอง (D5, D9, D18)
 - ภาพ: โน้ตตกลงตามคอลัมน์ของคีย์ คาลิมบาด้านล่างที่คีย์ถูกเล่นสว่าง เลขโน้ตใต้คีย์ ตัวนับห้องเดิม (D7)
 
 ## User Stories
@@ -69,7 +69,12 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 - **`backend/drum_notes/pick`**
   - `_pick` รัน Basic Pitch ทุกโหมดครั้งเดียว แล้วโหมดทำนองใช้ผลชุดนั้นทำ snare; `percent` นับหน้าต่างของ Basic Pitch ทุกโหมด (D2); โหมดกลอง: โมเดล Basic Pitch ไม่มีหรือรันพัง → log แล้ว `notes` `null` งานกลองจบตามเดิม (D14)
 - **`backend/gate_rows`**
-  - `pick_drums` ไม่เปลี่ยน (D14); `kalimba(project)` = Kanit + ffmpeg + pythainlp (D9)
+  - `pick_drums` ไม่เปลี่ยน (D14); `kalimba(project)` = sample คาลิมบา + Kanit + ffmpeg + pythainlp (D9, D18); `kalimba_kit_row(project)` = แถว sample คาลิมบาอย่างเดียว ให้ฟัง (D18)
+- **`backend/kalimba_kit`** (ใหม่, D18)
+  - `SAMPLES` 14 ไฟล์ของ VCSL ที่ commit `c1ea7bc` พร้อม pitch ที่วัดได้และ sha256; `nearest(pitch)`, `check_kalimba_kit`, `install_kalimba_kit` แบบ `drum_kit` (ADR-0042, ADR-0061)
+- **`backend/paths`**: `kalimba_samples_dir` (`models/kalimba/`), `kalimba_kit_marker` (D18)
+- **`backend/setup`**: โหลด sample คาลิมบาต่อจาก sample กลอง (D18)
+- **`backend/checks`**: แถว `kalimba_kit` "Kalimba samples" ต่อจาก `drum_kit` (D18)
 - **`backend/drum_notes/midi`**
   - อ่าน note-on ทุกช่อง: ช่อง 10 เป็น `hits` ตาม GM map เดิม ช่องอื่นเป็น `notes`; ข้อความใหม่ (D3)
 - **`backend/drum_notes/imports`**
@@ -77,7 +82,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
 - **`backend/kalimba_cover`** (package ใหม่, D8)
   - `arrange`: คีย์ของคาลิมบาและ `arranged(notes, start_s, end_s) -> Arranged` (spec › การจัดโน้ตลงคาลิมบา, D4); import ได้แค่ `drum_notes.songs` เพื่อให้ `drum_cover.cover` เรียกได้ (D8, D14)
   - `timeline`: `build(analysis, cover) -> KalimbaTimeline` (D6)
-  - `sound`: `note(pitch, level)` และ `mix(timing) -> bytes` (spec › เสียงคาลิมบา, D5)
+  - `sound`: `note(project, pitch, level)` และ `mix(project, timing) -> bytes` (spec › เสียงคาลิมบา, D5, D18)
   - `frames`: `Scene(lesson, timing, background)`, `frame_at(scene, t) -> bytes` ตาม [kalimba-picture-sketch.md](kalimba-picture-sketch.md) (D7)
   - `captions`: `ass_file(project, lesson, timing, title_font)` — หัวเรื่อง บรรทัดรอง คำบรรยาย ตัวนับ เลขและตัวอักษรของคีย์ (D7, D14)
 - **`backend/drum_cover`**
@@ -180,18 +185,19 @@ Lesson ชั่วคราวสำหรับตัวหนังสือ�
 
 ### เสียงคาลิมบา
 
-`kalimba_cover.sound` (D5) ค่าเริ่มต้นให้ build ใช้ ปรับตอนเจ้าของฟังได้ แต่กติกาผลเดิมทุก byte ต้องคง:
+`kalimba_cover.sound` (D5, D18) เล่น sample VCSL "Kalimba, Tanzania" (`backend.kalimba_kit`); กติกาผลเดิมทุก byte ต้องคง (sample ชุดเดียวกัน):
 
-1. `note(pitch, level)`: `f0 = 440 × 2^((pitch − 69) / 12)`; ผลรวมของ sine สามตัว ratio (1, 5.4, 13.0) amplitude (1.0, 0.12, 0.04) decay τ (`1.4 × (261.63 / f0)^0.5`, 0.18, 0.05) วิ; partial ที่สูงกว่า 20 kHz ไม่ใส่
-2. เสียงกระทบ: noise จาก `numpy.random.default_rng(0)` ยาว 6 ms × amplitude 0.06 decay 1.5 ms — seed ตายตัว ผลเดิมทุกครั้ง
-3. attack เชิงเส้น 2 ms; ยาว `min(5 × τ0, 4.0)` วิ; คูณตาม `level`: ghost 0.45, normal 0.7, accent 1.0
-4. `mix(timing)`: วาง `note` ที่ `at` ของแต่ละโน้ต (cache ต่อ `(pitch, level)` ในหนึ่งครั้งที่เรียก); คีย์เดียวกันถูกเล่นซ้ำ → เสียงก่อนหน้า fade 10 ms จาก `at` ใหม่แล้วหยุด (แบบ choke ของ `mixer`)
-5. ผลรวม float32 → peak −1 dBFS → `rint` เป็น 16-bit → wav stereo สองช่องเท่ากัน 44.1 kHz ยาว `timing.samples` ด้วย `soundfile` (แบบ `video_gen.mixer.mix`)
-6. ไม่มีโน้ต → wav เงียบยาว `timing.samples`
+1. `note(project, pitch, level)`: sample ที่ pitch ที่วัดได้ใกล้ `pitch` ที่สุด (`kalimba_kit.nearest`; เสมอกัน → ตัวสูงกว่าเลื่อนลง). ชื่อไฟล์บอกโน้ตต่ำไปหนึ่งอ็อกเทฟ (ระบบ C3 = MIDI 60) และ mbira ไม่ได้ตั้งเสียงตรง C major จึงใช้ pitch ที่วัดจากเสียงจริงในตาราง
+2. อ่าน wav (48 kHz stereo) เฉลี่ยเป็น mono; ตัดความเงียบหน้าเสียงที่ sample แรกที่ดัง ≥ 5% ของ peak ลบ 1 ms; ยาวไม่เกิน 4.0 วิหลังย้าย
+3. ย้าย pitch และ rate ทีเดียวด้วย spectrum (`numpy.fft`, เติมศูนย์ก่อนกันหางวนมาทับหัว): อ่าน `2^((pitch − pitch ที่วัด) / 12) × 48000 / 44100` sample ต้นทางต่อหนึ่ง sample ปลายทาง; ระหว่างนั้นกรอง (D18): ต่ำกว่า 0.7–0.9 × ความถี่ของคีย์ (คีย์อื่นของ mbira ที่ดังตาม) และสูงกว่า 4–9 kHz (เสียงซ่า) ด้วย raised cosine
+4. fade out 50 ms ท้ายเสียง; ปรับ peak เป็น `level`: ghost 0.45, normal 0.7, accent 1.0
+5. `mix(project, timing)` (ผู้เรียก gate แถว `kalimba_kit` ก่อน — render ด้วย `gate_rows.kalimba`, ฟังด้วย `kalimba_kit_row`): วาง `note` ที่ `at` ของแต่ละโน้ต (cache ต่อ `(pitch, level)` ในหนึ่งครั้งที่เรียก); คีย์เดียวกันถูกเล่นซ้ำ → เสียงก่อนหน้า fade 10 ms จาก `at` ใหม่แล้วหยุด (แบบ choke ของ `mixer`)
+6. ผลรวม float32 → peak −1 dBFS → `rint` เป็น 16-bit → wav stereo สองช่องเท่ากัน 44.1 kHz ยาว `timing.samples` ด้วย `soundfile` (แบบ `video_gen.mixer.mix`)
+7. ไม่มีโน้ต → wav เงียบยาว `timing.samples`
 
 ### เสียงของ reel
 
-`drum_cover.audio.reel_wav(audio, fields, instrument_wav, samples, cancel)` (D8, D16): `instrument_wav` = `mixer.mix(project, timing)` เมื่อกลอง หรือ `sound.mix(timing)` เมื่อคาลิมบา; `None` เมื่อเสียงของเครื่องดนตรีที่เลือกปิด. ความดังของเครื่องดนตรีที่เลือก (`drums.volume` หรือ `kalimba.volume`), backing และ peak เป็นกติกาเดิมของ drum-cover spec › เสียง ข้อ 2–5 ทุกข้อ. `volume` 100 + backing ปิด → `instrument_wav` ตรง ๆ (byte เดิม).
+`drum_cover.audio.reel_wav(audio, fields, instrument_wav, samples, cancel)` (D8, D16): `instrument_wav` = `mixer.mix(project, timing)` เมื่อกลอง หรือ `sound.mix(project, timing)` เมื่อคาลิมบา; `None` เมื่อเสียงของเครื่องดนตรีที่เลือกปิด. ความดังของเครื่องดนตรีที่เลือก (`drums.volume` หรือ `kalimba.volume`), backing และ peak เป็นกติกาเดิมของ drum-cover spec › เสียง ข้อ 2–5 ทุกข้อ. `volume` 100 + backing ปิด → `instrument_wav` ตรง ๆ (byte เดิม).
 
 ### ภาพของ reel คาลิมบา
 
@@ -215,7 +221,7 @@ Render job ของ reel เดิม (drum-cover spec › Render job) slot เ
 7. ใน thread: `kalimba` → `kalimba_cover.timeline.build` → `sound.mix` → `reel_wav`; `kalimba_cover.captions.ass_file`; `kalimba_cover.frames.Scene`; `drums` ทางเดิม
 8. `.json` เพิ่ม `instrument`, `kalimba`; `.srt` cue เดียวเดิม; ffmpeg `_command`, `percent`, `cancelled`, `failed` และการล้างตอน start เดิม
 
-`POST …/listen` ตรวจข้อ 1–3 ตามลำดับเดียวกัน แล้ว gate: `drums` → `drum_kit`; `kalimba` → ไม่มีแถว; backing เปิด → เพิ่ม `ffmpeg`.
+`POST …/listen` ตรวจข้อ 1–3 ตามลำดับเดียวกัน แล้ว gate: `drums` → `drum_kit`; `kalimba` → `kalimba_kit` (D18); backing เปิด → เพิ่ม `ffmpeg`.
 
 ### API
 
@@ -245,7 +251,8 @@ route ของ drum-cover spec › API คงเดิม; ที่เปล�
 
 | Library | Version | The plan needs | Docs |
 |---|---|---|---|
-| numpy | 2.5.4 | `random.default_rng(seed)` ให้ลำดับเดิมทุกครั้งใน version เดียวกัน; `exp`, `sin` บน `float32` | [Random Generator](https://numpy.org/doc/stable/reference/random/generator.html) |
+| numpy | 2.5.4 | `fft.rfft`/`irfft(a, n)`: `irfft` ที่ `n` ยาวกว่าเติมศูนย์, สั้นกว่าตัด — ใช้ย้าย pitch และ rate ของ sample (D18) | [numpy.fft.irfft](https://numpy.org/doc/stable/reference/generated/numpy.fft.irfft.html) |
+| soundfile | ตาม `uv.lock` | อ่าน wav 24-bit 48 kHz ของ VCSL เป็น `float32` `always_2d` (D18) | [soundfile.read](https://python-soundfile.readthedocs.io/en/latest/#soundfile.read) |
 | numpy | 2.5.4 | `fft.rfft` หาความถี่หลักใน test (D12) | [numpy.fft.rfft](https://numpy.org/doc/stable/reference/generated/numpy.fft.rfft.html) |
 | soundfile | ตาม `uv.lock` | เขียน `PCM_16` wav ลง `BytesIO` แบบ `mixer` | [soundfile.write](https://python-soundfile.readthedocs.io/en/latest/#soundfile.write) |
 | Pillow | 12.3.0 | `ImageDraw.rounded_rectangle` สำหรับคีย์และโน้ต | [ImageDraw](https://pillow.readthedocs.io/en/stable/reference/ImageDraw.html) |
@@ -261,7 +268,7 @@ route ของ drum-cover spec › API คงเดิม; ที่เปล�
    - render คาลิมบาลำดับ error ตาม spec › Render job: ไม่มี Kanit + `notes` 0 → `409` `no_notes` (ข้อ 3 ก่อน 4); ไม่มี Kanit + งานกลองรันอยู่ → `503` (ข้อ 4 ก่อน 5)
    - `PUT /songs` ไฟล์ MIDI เดิมของเพลงที่ `notes` `null` → ตอบเพลงเดิม `analysis.notes` ครบ `hits` เท่าเดิม; Pick job โหมดกลองที่ Basic Pitch ปลอมโยน error → `done` `notes` `null` `hits` ครบ
    - `PUT /cover` ไม่มี `instrument`, `instrument` `piano`, `kalimba.volume` 5, `kalimba.on` `false` กับ backing ปิดและคาลิมบา → `400` มี `field`; `drums.on` `false` กับคาลิมบา → `200`
-   - `POST /listen` คาลิมบา → wav ยาว `length_s` ± 0.05 วิ ไม่เงียบ; สองครั้ง → bytes เดียวกัน; volume 50 → peak ต่ำกว่า 6.0 dB ± 0.1; ไม่มี sample กลองบนดิสก์ → ยังตอบ `200`; `notes` 0 → `409` `no_notes`; `notes_picked` `false` → `409` `no_notes` ข้อความแกะใหม่
+   - `POST /listen` คาลิมบา → wav ยาว `length_s` ± 0.05 วิ ไม่เงียบ; สองครั้ง → bytes เดียวกัน; volume 50 → peak ต่ำกว่า 6.0 dB ± 0.1; ไม่มี sample กลองบนดิสก์ → ยังตอบ `200`; ไม่มี sample คาลิมบา → `503` `not_ready` แถว `kalimba_kit` (D18); `notes` 0 → `409` `no_notes`; `notes_picked` `false` → `409` `no_notes` ข้อความแกะใหม่
    - `POST /listen` กลอง volume 100 → bytes เดียวกับ `mixer.mix` ตรง (ผลเดิม D12)
    - `POST /render` คาลิมบา poll จน `done` → mp4 1080×1920 30 fps h264 aac ความยาว `length_s` ± 0.1; `.json` มี `instrument` `kalimba` และ `kalimba`; `GET …/renders` ของ `.json` เก่า → `drums`
    - **เสียงตรงภาพ:** โน้ต C4 ตัวเดียวที่ `start_s + 1.0` → sample แรกของเสียงใน mp4 กับเฟรมแรกที่จุดวัดสีของคีย์ C4 เป็นสีเติมเต็ม (± 12 ต่อช่องสี) ห่างไม่เกิน 1 เฟรม
@@ -273,7 +280,8 @@ route ของ drum-cover spec › API คงเดิม; ที่เปล�
    - MIDI: ช่อง 1 note 60 velocity 40 → `notes` `{pitch: 60, level: ghost}`; ช่อง 10 note 38 → `hits` snare; ช่อง 10 note 60 (นอก GM map) → ไม่มีทั้งสอง
    - ตัวอย่างใน spec › การจัดโน้ตลงคาลิมบา ทุกข้อ; ไม่มีโน้ต → `transpose` 0 `notes` ว่าง
    - `timeline.build`: โน้ตที่ `start_s + 1.0` → `at` 44100; เลขจังหวะเท่า `drum_cover.timeline` สำหรับ `analysis` เดียวกัน
-   - `sound.note(60, "normal")` → ความถี่หลักใน FFT 261.6 ± 1 Hz; `mix` สองครั้ง → bytes เดียวกัน; peak −1 dBFS
+   - `sound.note(project, 60, "normal")` จาก sample ปลอม (`fakes.fake_pluck` ที่ pitch ที่วัดของแต่ละไฟล์) → ความถี่หลักใน FFT 261.6 ± 1.5 Hz; คีย์ 62, 81, 88 ตรงเสียงของตัวเอง; sine อ็อกเทฟต่ำกว่าและ 12 kHz ใน sample → เหลือ < 1% ของความถี่หลัก (D18); เสียงเริ่มใน 2 ms; `mix` สองครั้ง → bytes เดียวกัน; peak −1 dBFS
+   - Setup โหลด sample คาลิมบาต่อจาก sample กลอง (`#` ใน URL เป็น `%23`) เขียน marker; ไฟล์ sha256 ไม่ตรงสามครั้ง → setup จบ `1` ไม่มี marker; Status check แถว `kalimba_kit` ต่อจาก `drum_kit` (D18)
    - `frames.frame_at` ที่ `bpm` 60 กับ C4 สองครั้งห่าง 0.08 วิ → สองโน้ตในคอลัมน์ไม่ทับกัน
    - `frames.frame_at` ที่เวลาโน้ต → จุดวัดสีของคีย์นั้นเป็นสีเติมเต็ม; 0.2 วิหลัง → สีพัก; `t` เดียวกันสองครั้ง → bytes เดียวกัน; ตารางคีย์ใน sketch: คีย์ไม่ทับกัน อยู่ในกรอบ สีของเลข 1–7 ต่างกันทุกคู่
    - `captions.ass_file`: เลขและตัวอักษรใต้คีย์ทั้ง 17 (34 event ไม่ขึ้นกับจำนวนโน้ต), ไม่มี event ของโน้ตที่ตก, หัวเรื่องและ "ห้อง 1" เท่ากับของ reel กลอง
@@ -303,7 +311,6 @@ route ของ drum-cover spec › API คงเดิม; ที่เปล�
 - MusicXML, PDF หรือภาพแผ่นโน้ต (D3) — MusicXML เป็นคำถามใน progress.md › Blocked
 - คาลิมบาโครมาติก คาลิมบาจำนวนคีย์อื่น หรือตั้งเสียงอื่นนอก C major (D4)
 - แก้โน้ตหรือเลือกการจัดโน้ตเอง (D4, drum-cover D3)
-- sample คาลิมบาจริงตอนนี้ (D5) — เป็นคำถามใน progress.md › Blocked
 - reel ที่มีกลองและคาลิมบาพร้อมกันในคลิปเดียว (D1)
 - เสียงประสานหรือคอร์ดบนคาลิมบา และเลขบนโน้ตที่ตก (D14)
 - ภาพมือหรือนิ้วโป้ง (D7)
@@ -314,12 +321,12 @@ route ของ drum-cover spec › API คงเดิม; ที่เปล�
 
 1. legal ข้อ 1 UNVERIFIED: reel คาลิมบาของทำนองที่มีลิขสิทธิ์ ≤ 90 วิ เข้ามาตรา 33 "บางตอนตามสมควร" หรือไม่ — non-blocking: รับความเสี่ยงใน D13
 2. legal ข้อ 2 UNVERIFIED: ไฟล์ MIDI ที่โหลดจากเว็บเป็นงานเรียบเรียงที่มีลิขสิทธิ์ของผู้ทำไฟล์หรือไม่ — non-blocking: ผู้ใช้รับผิดชอบ คำใบ้บนหน้า (D13)
-3. เจ้าของอยากได้ sample คาลิมบาจริง (VCSL CC0) แทนเสียงสังเคราะห์หรือไม่ — non-blocking: `sound.note` เปลี่ยนแหล่งเสียงได้โดยไม่แตะ timeline หรือภาพ (D5)
-4. เจ้าของอยากให้รับ MusicXML ด้วยหรือไม่ — non-blocking: MIDI ครอบเส้นทาง "sheet note → reel" แล้ว (D3)
+3. เจ้าของอยากให้รับ MusicXML ด้วยหรือไม่ — non-blocking: MIDI ครอบเส้นทาง "sheet note → reel" แล้ว (D3)
 
 ## Sources
 
-- [numpy Random Generator](https://numpy.org/doc/stable/reference/random/generator.html) — `default_rng(seed)` (accessed 2026-11-16)
+- [numpy.fft.irfft](https://numpy.org/doc/stable/reference/generated/numpy.fft.irfft.html) — ย้าย pitch และ rate ของ sample (accessed 2026-11-17)
+- [VCSL LICENSE ที่ commit c1ea7bc](https://github.com/sgossner/VCSL/blob/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE) — CC0 1.0 Universal (accessed 2026-11-17)
 - [numpy.fft.rfft](https://numpy.org/doc/stable/reference/generated/numpy.fft.rfft.html) — ความถี่หลักใน test (accessed 2026-11-16)
 - [soundfile.write](https://python-soundfile.readthedocs.io/en/latest/#soundfile.write) — wav 16-bit (accessed 2026-11-16)
 - [Pillow ImageDraw](https://pillow.readthedocs.io/en/stable/reference/ImageDraw.html) — `rounded_rectangle` (accessed 2026-11-16)

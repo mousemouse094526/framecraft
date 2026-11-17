@@ -1,6 +1,6 @@
 # Legal check: kalimba-cover
 
-**Jurisdiction:** Thailand — checked 2026-11-16
+**Jurisdiction:** Thailand — checked 2026-11-16; ข้อ 3 ตรวจใหม่ 2026-11-17 (D18)
 
 - แอปทำงานในเครื่องผู้ใช้คนเดียว ไม่มี server ไม่เก็บข้อมูลส่วนบุคคล: ไม่มีเรื่อง PDPA
 - โปรเจกต์ใช้แบบไม่หารายได้ (ADR-0017, ADR-0046, ADR-0053); การหารายได้เป็น change request ที่ต้องตรวจข้อ 1–2 ใหม่
@@ -8,14 +8,14 @@
 - Basic Pitch (Apache-2.0) ใช้อยู่แล้วในโหมดทำนองและตรวจใน [drum-notes legal.md](../drum-notes/legal.md); feature นี้รันมันในโหมดกลองด้วยแต่ไม่เปลี่ยนเงื่อนไข
 - backing, ภาพพื้นหลัง และการโหลดเพลงจากลิงก์ ตรวจแล้วใน [drum-cover legal.md](../drum-cover/legal.md) ข้อ 2–3; reel คาลิมบาใช้ทางเดียวกัน verdict เดิม
 
-## 1. เผยแพร่ reel คาลิมบาของทำนองเพลงที่มีลิขสิทธิ์ (ไม่เกิน 90 วินาที) ด้วยเสียงสังเคราะห์ แสดงชื่อเพลงและศิลปิน (D1, D4, D13)
+## 1. เผยแพร่ reel คาลิมบาของทำนองเพลงที่มีลิขสิทธิ์ (ไม่เกิน 90 วินาที) ด้วยเสียงคาลิมบาของแอป แสดงชื่อเพลงและศิลปิน (D1, D4, D13)
 
 **Verdict: CONDITIONAL**
 
 **Required to be allowed:**
 - ใช้เพียงท่อนของเพลง (ช่วงไม่เกิน 90 วินาที): มาตรา 33 ยอมให้ "เลียน หรืออ้างอิงงานบางตอนตามสมควร" เมื่อรับรู้ความเป็นเจ้าของ [1]
 - หัวเรื่องและบรรทัดรองบอกชื่อเพลงและศิลปิน (ค่าตั้งต้นจากเพลง) ไม่ลบออก: มาตรา 32 (3) และ 33 [1]
-- เสียงในคลิปเป็นคาลิมบาที่แอปสังเคราะห์เท่านั้นเมื่อ backing ปิด (ค่าตั้งต้น): ไม่มีคำร้องหรือสิ่งบันทึกเสียงของต้นฉบับ [1]
+- เสียงในคลิปเป็นคาลิมบาของแอปเท่านั้น (sample CC0, D18) เมื่อ backing ปิด (ค่าตั้งต้น): ไม่มีคำร้องหรือสิ่งบันทึกเสียงของต้นฉบับ [1]
 - ไม่หารายได้จาก reel จนตรวจใหม่: การ cover เพลงลงโซเชียลเป็นการทำซ้ำหรือดัดแปลงตามมาตรา 27 ที่ต้องขออนุญาต [1][3][4]
 - ยอมรับว่าผู้พิมพ์เพลงอาจ claim คลิปผ่าน Content ID [5][6] และ Meta อาจจำกัด ปิดเสียง หรือลบ [7]; ทำนองตรงกับเพลงจึงมีโอกาสถูกจับคู่มากกว่า reel กลอง
 
@@ -34,9 +34,13 @@ UNVERIFIED — from model knowledge, verify before relying: ยังไม่�
 
 UNVERIFIED — from model knowledge, verify before relying: ไฟล์ MIDI ที่ถอดโน้ตตรงตามต้นฉบับโดยไม่เรียบเรียงใหม่มีลิขสิทธิ์แยกของผู้ทำไฟล์หรือไม่ ยังไม่พบแนวทางของไทย.
 
-## 3. ใช้เสียงคาลิมบาที่แอปสังเคราะห์เองด้วย numpy ในคลิปที่เผยแพร่ (D5)
+## 3. ใช้ sample คาลิมบา VCSL "Kalimba, Tanzania" (CC0 1.0) ในคลิปที่เผยแพร่ (D18, แทน D5)
 
-**Verdict: ALLOWED** [1]
+**Verdict: ALLOWED** [1][8]
+
+- VCSL ที่ commit `c1ea7bc` สละสิทธิ์ทั้งหมดด้วย CC0 1.0 Universal: ใช้ ดัดแปลง (ย้าย pitch กรองเสียง) และเผยแพร่ในคลิปได้ ไม่ต้องให้เครดิต [8]
+- ตามกติกาเดียวกับ sample กลอง (ADR-0042): pin commit, sha256, เปลี่ยนชุด sample ต้องตรวจ license ใหม่ (ADR-0061)
+- เสียงสังเคราะห์เดิม (D5) ไม่ใช้แล้ว; verdict เดิม ALLOWED ไม่เกี่ยวอีก
 
 ## 4. ใส่ backing ใต้คาลิมบาเมื่อผู้ใช้เปิดเอง (D1, D9)
 
@@ -48,9 +52,9 @@ UNVERIFIED — from model knowledge, verify before relying: ไฟล์ MIDI �
 ## Summary
 | # | Item | Verdict | Required to be allowed |
 |---|------|---------|------------------------|
-| 1 | เผยแพร่ reel คาลิมบาของทำนองที่มีลิขสิทธิ์ ≤ 90 วินาที เสียงสังเคราะห์ แสดงชื่อเพลงและศิลปิน | CONDITIONAL (UNVERIFIED ว่าเข้ามาตรา 33) | ใช้แค่ท่อน · แสดงชื่อเพลงและศิลปิน · ไม่มีเสียงต้นฉบับเมื่อ backing ปิด · ไม่หารายได้จนตรวจใหม่ · ยอมรับ claim/จำกัดของแพลตฟอร์ม |
+| 1 | เผยแพร่ reel คาลิมบาของทำนองที่มีลิขสิทธิ์ ≤ 90 วินาที เสียงคาลิมบาของแอป แสดงชื่อเพลงและศิลปิน | CONDITIONAL (UNVERIFIED ว่าเข้ามาตรา 33) | ใช้แค่ท่อน · แสดงชื่อเพลงและศิลปิน · ไม่มีเสียงต้นฉบับเมื่อ backing ปิด · ไม่หารายได้จนตรวจใหม่ · ยอมรับ claim/จำกัดของแพลตฟอร์ม |
 | 2 | ทำ reel จากไฟล์ MIDI ที่ผู้ใช้นำเข้า | CONDITIONAL (UNVERIFIED ลิขสิทธิ์ของไฟล์ที่ถอดตรง) | ทุกข้อของข้อ 1 · ไฟล์ของผู้ใช้หรือมีสิทธิ์หรือหมดอายุคุ้มครอง · คำใบ้ใต้ปุ่มเลือกไฟล์ |
-| 3 | เสียงคาลิมบาสังเคราะห์ในแอป | ALLOWED | — |
+| 3 | sample คาลิมบา VCSL (CC0) ในคลิป | ALLOWED | pin commit + sha256, ตรวจ license ใหม่เมื่อเปลี่ยนชุด (ADR-0042, ADR-0061) |
 | 4 | backing ใต้คาลิมบาเมื่อผู้ใช้เปิด | CONDITIONAL (ตาม drum-cover legal ข้อ 2) | สิทธิ์จากเจ้าของสิ่งบันทึกเสียง · ปิดตั้งต้นพร้อมคำเตือน · ผล render บันทึก `backing` |
 
 ## References
@@ -61,5 +65,6 @@ UNVERIFIED — from model knowledge, verify before relying: ไฟล์ MIDI �
 5. YouTube Help, Monetizing eligible cover videos — https://support.google.com/youtube/answer/3301938?hl=en (accessed 2026-11-15)
 6. YouTube Help, How Content ID works — https://support.google.com/youtube/answer/2797370 (accessed 2026-11-15)
 7. Meta Music Guidelines — https://www.facebook.com/legal/music_guidelines (accessed 2026-11-15)
+8. VCSL LICENSE (CC0 1.0 Universal) ที่ commit c1ea7bc — https://github.com/sgossner/VCSL/blob/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE (accessed 2026-11-17)
 
 *บันทึกด้าน compliance สำหรับวิศวกรรม ไม่ใช่คำแนะนำทางกฎหมาย*
