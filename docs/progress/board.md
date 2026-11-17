@@ -15,3 +15,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [drum-notes](drum-notes/progress.md) | false | done | 🎨 2/2 (ui-prompt.md, D28) | ✅ e782f02 | Blocked 5: เจ้าของฟังเทียบตาราง intro/kalimba ใน `#/songs` | — |
 | [drum-cover](drum-cover/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D14) | ✅ 4d471f8 | ข้อเล็กถ้าทำต่อ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
 | [kalimba-cover](kalimba-cover/progress.md) | false | review | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 1cfd534 | [PR #18](https://github.com/mousemouse094526/framecraft/pull/18) | — |
+| [ui-nav](ui-nav/progress.md) | false | ready | 🎨 0/1 (ui-prompt.md, D7) | 0/2 | — | `/warroom-build ui-nav 01` |
