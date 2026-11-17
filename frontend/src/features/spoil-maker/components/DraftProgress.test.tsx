@@ -204,19 +204,22 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
       ref_lines: [],
       window: null,
     };
-    backend([current.route, get(DRAFT_PATH, { ...EMPTY_DRAFT, sentences: [sentence] }), send("POST", JOBS_PATH, pick, 202)]);
+    // The backend says the pick runs from the moment it answers the POST, not before.
+    const startPick = (): Response => {
+      current.phases.at = 1;
+      return jsonResponse(pick, 202);
+    };
+    backend([current.route, get(DRAFT_PATH, { ...EMPTY_DRAFT, sentences: [sentence] }), { method: "POST", path: JOBS_PATH, reply: startPick }]);
     const user = await openReview();
     expect(await screen.findByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).toBeInTheDocument();
+    // The script can load after the Alert: click once it shows, unlocked (D51).
+    const pickButton = await screen.findByRole("button", { name: "เลือก Shot ใหม่" });
+    await waitFor(() => expect(pickButton).toBeEnabled());
 
-    current.phases.at = 1;
-    // ต้องให้ poll อ่านรอบใหม่ก่อน: ปุ่ม "เลือก Shot ใหม่" มีเฉพาะตอนที่ UI เห็น pick job แล้ว
-    // (shouldAdvanceTime: true ทำให้บางรอบ poll ยังไม่ทันยิง → getByRole ไม่เจอปุ่ม)
-    await nextPoll();
-    await user.click(await screen.findByRole("button", { name: "เลือก Shot ใหม่" }));
+    await user.click(pickButton);
     expect(sent("POST", JOBS_PATH)).toHaveLength(1);
 
     await nextPoll();
-    // poll รอบใหม่ต้องมาถึงก่อน alert จึงหาย (shouldAdvanceTime ทำให้ลำดับ poll ไม่แน่นอน)
     await waitFor(() => expect(screen.queryByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).not.toBeInTheDocument());
   });
 
