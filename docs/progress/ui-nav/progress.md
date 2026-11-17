@@ -1,6 +1,6 @@
 # Progress: ui-nav
 
-**Now:** 01–02 done; [PR #19](https://github.com/mousemouse094526/framecraft/pull/19) เข้า `develop` เปิดแล้ว รอ review/merge
+**Now:** merged ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
 
 **Next:**
 
