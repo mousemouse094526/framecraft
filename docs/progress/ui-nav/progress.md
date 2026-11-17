@@ -1,11 +1,11 @@
 # Progress: ui-nav
 
-**Now:** 01–02 done; feature review then PR
+**Now:** 01–02 done; [PR #19](https://github.com/mousemouse094526/framecraft/pull/19) เข้า `develop` เปิดแล้ว รอ review/merge
 
 **Next:**
 
 ```
-/pr-open
+/warroom next
 ```
 
 ## Tickets
