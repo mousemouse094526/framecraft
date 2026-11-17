@@ -1,6 +1,6 @@
 # Progress: kalimba-cover
 
-**Now:** 01–04 done; Blocked 2, 3, 5 ปิด (04: เสียง sample VCSL); เหลือ Blocked 4 (MusicXML ยังไม่ทำ, เจ้าของตอบแล้วว่ารอ) และ 1 (สร้างโดยไม่รอ Figma, D10). PR เข้า develop.
+**Now:** 01–04 done; Blocked 2, 3, 5 ปิด (04: เสียง sample VCSL); เหลือ Blocked 4 (MusicXML ยังไม่ทำ, เจ้าของตอบแล้วว่ารอ) และ 1 (สร้างโดยไม่รอ Figma, D10). [PR #18](https://github.com/mousemouse094526/framecraft/pull/18) เข้า develop รอเจ้าของ review และ merge.
 
 **Next:**
 
