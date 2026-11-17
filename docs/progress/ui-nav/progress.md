@@ -1,6 +1,6 @@
 # Progress: ui-nav
 
-**Now:** merged ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
+**Now:** change request 2026-11-17 (หมวดและเฉพาะทางที่ได้ reel) — ticket 03 done, PR เข้า develop; 01–02 merged ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
 
 **Next:**
 
@@ -14,8 +14,26 @@
 |---|---|---|
 | 01 | เมนูหลัก 5 หัวข้อ พร้อมขั้นและคลัง | done |
 | 02 | ล่าสุดในเมนู | done |
+| 03 | เมนูเป็น 4 หมวด เฉพาะทางที่ได้ reel | done |
 
 ## Log
+
+### 03: เมนูเป็น 4 หมวด เฉพาะทางที่ได้ reel — done 2026-11-17
+
+**Built:**
+- เมนูหลักแบ่ง 4 หมวดที่มีหัว: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง)
+- ตรวจทุกรายการกับกฎ reel (D13): ไม่มีรายการที่ถูกเอาออก; สอนกลองไม่แน่ใจจึงคงไว้ (Blocked 2); ส่วนบทเรียนในหน้าเพลงอยู่นอกเมนู (Blocked 3)
+- hash ข้อความตำแหน่ง ล่าสุด ปุ่ม ☰ และ leave guard เหมือนเดิม
+
+**Decided:**
+- D12, D13 (change request) และ ADR-0064; Breaker 10 ข้อ (0 blocker) แก้ในเอกสารทั้งหมด: หมวดไม่ current, ตาราง Hash ของติดตั้ง "—", ชื่อหมวดห้ามซ้ำหัวข้อ, ถอยกลับ, ผลของการเอาสอนกลองออก
+
+**For the next ticket:**
+- `NAV_SECTIONS` ใน `lib/nav.ts` เป็นที่เดียวของเมนู; `NAV_TOPICS` ได้จากมัน
+- test แยกหมวดจากหัวข้อด้วยตำแหน่ง (ลูกตรงของ `<nav>`)
+- ตรวจมือ 1440px (`#/spoil/review`) และ 375px drawer (`#/songs`) ด้วย dev server พอร์ต 5174
+
+**Checks:** `uv run pytest` 1555 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 656 passed; `npm --prefix frontend run build` ผ่าน
 
 ### Feature review — 2026-11-17
 
@@ -71,3 +89,5 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 02 | `DraftProgress.test.tsx` › D87 (spoil-maker) ล้มราว 1 ใน 5 รอบเมื่อรันทั้งชุดบน branch นี้ (บน develop 0 ใน 5); ผ่านเสมอเมื่อรันเดี่ยว. การกด "เลือก Shot ใหม่" ไม่ส่ง POST บางรอบ. ลองสลับลำดับ phase และ poll วนแล้ว ทั้งสองแบบแย่ลง จึงถอยคืน; ยังไม่รู้สาเหตุ | `/kiki-debug DraftProgress D87 flaky on feat/ui-nav` | done (`2aef071`, [record](bugs/2026-11-17-draftprogress-d87-flaky.md)) |
+| 2 | 03 | สอนกลอง (`#/drums`) ได้ mp4 แนวตั้งแต่เป็นบทเรียน: นับเป็น reel (เก็บ) หรือบทเรียน (เอาออกจากเมนู)? — spec › Open Questions 4 | เจ้าของตัดสิน แล้ว `/warroom ui-nav` | open |
+| 3 | 03 | ส่วน "สร้างบทเรียน" / "บทเรียนจากเพลงนี้" ในหน้าเพลงเป็นบทเรียนที่ไม่ได้คลิป: ซ่อนหรือลบไหม? อยู่นอกเมนู — spec › Open Questions 5 | เจ้าของตัดสิน แล้ว `/warroom drum-notes` | open |

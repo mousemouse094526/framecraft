@@ -4,15 +4,15 @@
 
 | # | Screen | User stories | Decisions | Now |
 |---|---|---|---|---|
-| 1 | เมนูหลักและหัวหน้า (ทุกหน้า) | 1–6 | D1, D2, D3, D4, D5, D6, D10, D11 | redesign ของแถบ tab (sound-library D3, D16) |
+| 1 | เมนูหลักและหัวหน้า (ทุกหน้า) | 1–7 | D1, D2, D3, D4, D5, D6, D10, D11, D12, D13 | change request: เมนูแบ่ง 4 หมวด (current: เมนูของ PR #19) |
 
 ```text
-Design the app shell of framecraft: a local web app, used by one person on their own computer, that makes short videos (movie recaps, AI-drawn story clips, drum-lesson and song-cover reels). The shell is the header and main menu that every page sits in. Steps, in order: 1 Components, 2 Screens, 3 Preview.
+Design the app shell of framecraft: a local web app, used by one person on their own computer, that makes short vertical videos (reels) only: movie recaps, AI-drawn story clips, song-cover and drum reels. The shell is the header and main menu that every page sits in. Steps, in order: 1 Components, 2 Screens, 3 Preview.
 
 Context
 - Platform: web app in a browser; breakpoints: phone 375, tablet 768, desktop 1440 (the menu changes at 1280).
 - Design system: the project's Tailwind tokens. Page background "muted" #f5f5f4; cards and menus "card" #ffffff with a 1px "border" #e7e5e4; text "foreground" #121110, secondary "mid" #44403c, muted "muted-foreground" #57534e; brand "brand" #26241f; accent "brand-accent" #5a3ee0; links "link" #4a30bd; selected item background "accent-subtle" #f3f1ff. Radius 12px for panels, 8px for items. Fonts: IBM Plex Sans Thai for UI text, Geist for the wordmark, Manrope for buttons. Icons: one existing 16px "menu" (three lines) icon; no other icons.
-- Today's shell (being replaced): wordmark "framecraft" ("craft" in brand-accent) at 26px semibold, then one rounded tab bar of 8 tabs; below 640px a button with the menu icon and the open page's name opens a dropdown of the tabs under two headings.
+- Today's shell (being revised): header with the menu button, wordmark "framecraft" ("craft" in brand-accent) and a location line; a main menu (sidebar from 1280px, drawer below) listing ติดตั้ง, four topic groups and one "คลัง" group, all at one level. This revision sorts it into four sections.
 - Language on screen: Thai. Use the copy below exactly.
 - Accessibility: WCAG 2.2 AA contrast, visible focus ring, touch targets ≥ 44px below 1280px, the open item marked for screen readers.
 
@@ -22,6 +22,7 @@ Step 1 — Components
 - New: "Shell/Header" — MenuButton, the wordmark, a location line "{topic} / {item}" in mid colour (item part in foreground), a flexible gap, then an optional action slot; variants {with action, without action}; phone: MenuButton and wordmark on one row with the action, the location line below.
 - New: "Shell/MenuItem" — a full-width row: optional step number in a 20px circle, a label, an optional second line "ใช้กับ …" in 12px muted-foreground; variants {default, hover, current (accent-subtle background, semibold, brand text, number circle filled brand-accent), focus}; long labels truncate with an ellipsis on one line.
 - New: "Shell/MenuGroup" — a heading in 12px medium mid colour then its items; variants {default, current topic (heading in brand colour)}; an optional small sub-heading "ล่าสุด" before up to three recent items.
+- New: "Shell/MenuSection" — a section heading in 11px semibold muted-foreground (not clickable, never highlighted), then its topic groups or items; sections are separated by a 1px border line, topic groups inside a section are not.
 - New: "Shell/MainMenu" — the full list (content below) in a card; variants {sidebar (256px wide, full height, scrolls on its own), drawer (up to 320px wide, slides from the left over the page, with a dark scrim behind)}.
 
 Step 2 — Screens (one section per screen)
@@ -30,13 +31,15 @@ Frame names: "Shell / {state} / {breakpoint}"; realistic sample data in Thai; in
 Screen 1 — Main menu and header (redesign of the tab bar)
 - Goal: the user reaches any step of a main task, any library, or something they opened recently, in at most two clicks from any page, and always sees where they are.
 - Content of the menu, in order:
-  - Link "ติดตั้ง".
-  - Group "สปอย": "1 เลือกคลิป", "2 ตรวจแก้บท", "3 ผล render".
-  - Group "การ์ตูนเล่า": "ชุดทั้งหมด", "สร้างชุดใหม่", then sub-heading "ล่าสุด" and up to three items, e.g. "รุ่นพี่เล่าว่า…", "รุ่นพี่เล่าว่า… · EP03".
-  - Group "สอนกลอง": "บทเรียนทั้งหมด", then "ล่าสุด" with up to three lesson titles, e.g. "Rock beat พื้นฐาน".
-  - Group "แกะเพลง": "เพลงทั้งหมด", then "ล่าสุด" with up to three song titles, e.g. "Smells Like Teen Spirit".
-  - Group "คลัง": "คลังคลิป" with "ใช้กับ สปอย"; "คลังความรู้" with "ใช้กับ สปอย"; "คลังเสียง" with "ใช้กับ สปอย, การ์ตูนเล่า"; "เสียงที่บันทึก" with "ใช้กับ สปอย, การ์ตูนเล่า".
-  - Groups are separated by a 1px border line; group headings are not clickable.
+  - Section "เล่าเรื่อง":
+    - Group "สปอย": "1 เลือกคลิป", "2 ตรวจแก้บท", "3 ผล render".
+    - Group "การ์ตูนเล่า": "ชุดทั้งหมด", "สร้างชุดใหม่", then sub-heading "ล่าสุด" and up to three items, e.g. "รุ่นพี่เล่าว่า…", "รุ่นพี่เล่าว่า… · EP03".
+  - Section "ดนตรี":
+    - Group "แกะเพลง": "เพลงทั้งหมด", then "ล่าสุด" with up to three song titles, e.g. "Smells Like Teen Spirit".
+    - Group "สอนกลอง": "บทเรียนทั้งหมด", then "ล่าสุด" with up to three lesson titles, e.g. "Rock beat พื้นฐาน".
+  - Section "คลัง": "คลังคลิป" with "ใช้กับ สปอย"; "คลังความรู้" with "ใช้กับ สปอย"; "คลังเสียง" with "ใช้กับ สปอย, การ์ตูนเล่า"; "เสียงที่บันทึก" with "ใช้กับ สปอย, การ์ตูนเล่า".
+  - Section "ตั้งค่า": link "ติดตั้ง".
+  - Section and group headings are not clickable.
 - Header: MenuButton named after the open topic (e.g. "สปอย"), wordmark, location line (e.g. "สปอย / ตรวจแก้บท"), the page's action at the right.
 - Desktop (≥ 1280px): the menu is a sidebar pinned at the left, open by default; the page column (720px, or 1120px for wide pages) is centred in the space to its right. The MenuButton collapses the sidebar (page uses the full width) and opens it again.
 - Below 1280px: the menu is hidden; the MenuButton opens it as a drawer over the page; picking an item, Esc, a click on the scrim, or the button again closes it.
@@ -49,7 +52,8 @@ Step 3 — Preview
 
 Do not include
 - Icons for each topic or an icon-only collapsed rail.
-- Collapsible groups inside the menu.
+- Collapsible groups or sections inside the menu.
+- Lesson-making items (anything that teaches without producing a clip).
 - The pages inside a Series (EPs, characters, settings) as menu items.
 - Search, user accounts, notifications, or settings in the shell.
 - Any field, step, screen, or feature not listed above.
