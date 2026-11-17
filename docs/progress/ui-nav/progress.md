@@ -70,4 +70,4 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 02 | `DraftProgress.test.tsx` › D87 (spoil-maker) ล้มราว 1 ใน 5 รอบเมื่อรันทั้งชุดบน branch นี้ (บน develop 0 ใน 5); ผ่านเสมอเมื่อรันเดี่ยว. การกด "เลือก Shot ใหม่" ไม่ส่ง POST บางรอบ. ลองสลับลำดับ phase และ poll วนแล้ว ทั้งสองแบบแย่ลง จึงถอยคืน; ยังไม่รู้สาเหตุ | `/kiki-debug DraftProgress D87 flaky on feat/ui-nav` | open |
+| 1 | 02 | `DraftProgress.test.tsx` › D87 (spoil-maker) ล้มราว 1 ใน 5 รอบเมื่อรันทั้งชุดบน branch นี้ (บน develop 0 ใน 5); ผ่านเสมอเมื่อรันเดี่ยว. การกด "เลือก Shot ใหม่" ไม่ส่ง POST บางรอบ. ลองสลับลำดับ phase และ poll วนแล้ว ทั้งสองแบบแย่ลง จึงถอยคืน; ยังไม่รู้สาเหตุ | `/kiki-debug DraftProgress D87 flaky on feat/ui-nav` | done (`2aef071`, [record](bugs/2026-11-17-draftprogress-d87-flaky.md)) |

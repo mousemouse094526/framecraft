@@ -15,4 +15,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [drum-notes](drum-notes/progress.md) | false | done | 🎨 2/2 (ui-prompt.md, D28) | ✅ e782f02 | Blocked 5: เจ้าของฟังเทียบตาราง intro/kalimba ใน `#/songs` | — |
 | [drum-cover](drum-cover/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D14) | ✅ 4d471f8 | ข้อเล็กถ้าทำต่อ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
 | [kalimba-cover](kalimba-cover/progress.md) | false | review | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 1cfd534 | [PR #18](https://github.com/mousemouse094526/framecraft/pull/18) | — |
-| [ui-nav](ui-nav/progress.md) | false | review | 🎨 1/1 (ui-prompt.md, D7) | ✅ 6ed32cc | [PR #19](https://github.com/mousemouse094526/framecraft/pull/19); Blocked 1: test D87 ของ spoil-maker ล้มบางรอบบน branch นี้ | `/kiki-debug DraftProgress D87 flaky on feat/ui-nav` |
+| [ui-nav](ui-nav/progress.md) | false | review | 🎨 1/1 (ui-prompt.md, D7) | ✅ 2aef071 | [PR #19](https://github.com/mousemouse094526/framecraft/pull/19) | — |
