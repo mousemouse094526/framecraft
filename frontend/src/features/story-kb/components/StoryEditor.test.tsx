@@ -207,7 +207,7 @@ describe("แก้ Story", () => {
     confirmMock.mockReturnValue(false);
 
     await user.type(title(), " ภาค 2");
-    await user.click(within(screen.getByRole("navigation", { name: "แถบ tab" })).getByRole("link", { name: "สปอย" }));
+    await user.click(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("link", { name: "เลือกคลิป" }));
     await hashSettles();
 
     expect(confirmMock).toHaveBeenCalledTimes(1);

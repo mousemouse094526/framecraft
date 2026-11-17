@@ -168,7 +168,7 @@ describe("รายการเพลง", () => {
   it("the แกะเพลง tab after สอนกลอง opens #/songs, inviting the first song and saying the song is for notes only (e2e)", async () => {
     const user = open("#/setup", [get("/api/setup/status", status)]);
 
-    await user.click(screen.getByRole("link", { name: "แกะเพลง" }));
+    await user.click(screen.getByRole("link", { name: "เพลงทั้งหมด" }));
 
     expect(window.location.hash).toBe("#/songs");
     expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง")).toBeInTheDocument();

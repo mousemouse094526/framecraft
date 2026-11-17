@@ -123,7 +123,7 @@ describe("รายการบทเรียนกลอง", () => {
   it("the สอนกลอง tab after การ์ตูนเล่า opens #/drums, which invites the first lesson when there is none", async () => {
     const user = open("#/setup", [get("/api/setup/status", status)]);
 
-    await user.click(screen.getByRole("link", { name: "สอนกลอง" }));
+    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
 
     expect(window.location.hash).toBe("#/drums");
     expect(await screen.findByText("ยังไม่มีบทเรียนกลอง")).toBeInTheDocument();
@@ -484,7 +484,7 @@ describe("บันทึก", () => {
 
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     confirmMock.mockReturnValue(false);
-    await user.click(screen.getByRole("link", { name: "สอนกลอง" }));
+    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
     await hashSettles();
 
     expect(confirmMock).toHaveBeenCalledWith("ออกโดยไม่บันทึก?");
@@ -498,7 +498,7 @@ describe("บันทึก", () => {
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     await user.click(save());
     await screen.findByText("บันทึกแล้ว");
-    await user.click(screen.getByRole("link", { name: "สอนกลอง" }));
+    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
     await hashSettles();
 
     expect(confirmMock).not.toHaveBeenCalled();

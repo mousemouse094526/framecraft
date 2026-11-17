@@ -1,31 +1,22 @@
 import { useEffect, useState } from "react";
 
-/** The tab groups in order with their names: the narrow screen's menu shows them as headings,
- * the tab bar only as `aria-label` (sound-library D3). */
-export const TAB_GROUPS = [
-  { id: "prep", label: "เตรียมของ" },
-  { id: "make", label: "ทำคลิป" },
-] as const;
+// What each hash opens, by its first part, and its name: the main menu's topics and libraries
+// (ui-nav D1, D2; the menu itself is `lib/nav.ts`). คลิป is named คลังคลิป since the libraries
+// moved into the menu (ui-nav D2).
+const TAB_LABELS = {
+  setup: "ติดตั้ง",
+  clips: "คลังคลิป",
+  stories: "คลังความรู้",
+  sounds: "คลังเสียง",
+  spoil: "สปอย",
+  toon: "การ์ตูนเล่า",
+  drums: "สอนกลอง",
+  songs: "แกะเพลง",
+} as const;
 
-type TabGroupId = (typeof TAB_GROUPS)[number]["id"];
+export type TabId = keyof typeof TAB_LABELS;
 
-// The top tabs and their hashes, in the order the tab bar shows them (spoil-maker D53, story-kb D9,
-// sound-library D2, video-gen D9, drum-notes D2), with the group each sits in; ติดตั้ง is in none (sound-library D3). The bar
-// and the menu draw the tabs in no group first, then each group, so those stay at the top.
-export const TABS = [
-  { id: "setup", label: "ติดตั้ง", hash: "#/setup", group: null },
-  { id: "clips", label: "คลิป", hash: "#/clips", group: "prep" },
-  { id: "stories", label: "คลังความรู้", hash: "#/stories", group: "prep" },
-  { id: "sounds", label: "คลังเสียง", hash: "#/sounds", group: "prep" },
-  { id: "spoil", label: "สปอย", hash: "#/spoil", group: "make" },
-  { id: "toon", label: "การ์ตูนเล่า", hash: "#/toon", group: "make" },
-  { id: "drums", label: "สอนกลอง", hash: "#/drums", group: "make" },
-  { id: "songs", label: "แกะเพลง", hash: "#/songs", group: "make" },
-] as const satisfies readonly { id: string; label: string; hash: string; group: TabGroupId | null }[];
-
-export type TabId = (typeof TABS)[number]["id"];
-
-export const tabLabel = (id: TabId) => TABS.find((tab) => tab.id === id)?.label;
+export const tabLabel = (id: TabId): string => TAB_LABELS[id];
 
 /**
  * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/sounds?…` คลังเสียง
@@ -40,7 +31,8 @@ export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/toon/")) return "toon";
   if (hash.startsWith("#/drums/")) return "drums";
   if (hash.startsWith("#/songs/")) return "songs";
-  return TABS.find((tab) => tab.hash === hash)?.id ?? "setup";
+  const id = hash.slice(2);
+  return hash.startsWith("#/") && Object.hasOwn(TAB_LABELS, id) ? (id as TabId) : "setup";
 }
 
 /** Says whether leaving for `next` (a hash) would lose unsaved work. */

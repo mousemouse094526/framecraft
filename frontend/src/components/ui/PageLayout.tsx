@@ -1,6 +1,8 @@
-import { useCallback, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
+import { LIBRARY_ITEMS, LIBRARY_LABEL, locationOf, NAV_TOPICS, SETUP_ITEM, type NavItem } from "../../lib/nav";
 import { useDismiss } from "../../lib/useDismiss";
-import { TAB_GROUPS, tabLabel, TABS, type TabId } from "../../lib/useHash";
+import { tabLabel, useHash, type TabId } from "../../lib/useHash";
+import { useMediaQuery } from "../../lib/useMediaQuery";
 import menuIcon from "./assets/menu.svg";
 
 type Props = {
@@ -12,28 +14,128 @@ type Props = {
   children: ReactNode;
 };
 
-/** The column every tab sits in: wordmark, tab bar, the tab's action, then its content. */
+// Tailwind's `xl`: from here the menu is a sidebar pinned at the left, below it a drawer. Not `lg`:
+// the pages switch to two columns at a 1024px window, and a 256px sidebar there would leave them
+// 704px (ui-nav D11).
+const PINNED = "(min-width: 1280px)";
+
+const COLLAPSED_KEY = "framecraft.nav.collapsed";
+
+/** Whether the user collapsed the pinned sidebar; anything but "true", or no storage, is open (ui-nav D4, D10). */
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeCollapsed(collapsed: boolean) {
+  try {
+    if (collapsed) window.localStorage.setItem(COLLAPSED_KEY, "true");
+    else window.localStorage.removeItem(COLLAPSED_KEY);
+  } catch {
+    // The sidebar just won't remember it.
+  }
+}
+
+// The menu button of the page that mounted last: after a pick in the drawer the page may be a new
+// one, and the focus goes to its button rather than falling to <body> (ui-nav D10).
+let latestButton: HTMLButtonElement | null = null;
+
+/** The column every page sits in: the main menu, then the header (menu button, wordmark, where the
+ * user is, the page's action) and the page's content (ui-nav D4, D6). */
 export function PageLayout({ tab, action, wide = false, children }: Props) {
+  const hash = useHash();
+  const pinned = useMediaQuery(PINNED);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [drawer, setDrawer] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLElement>(null);
+  const menuId = useId();
+  const { item, text } = locationOf(hash, tab);
+
+  const drawerOpen = drawer && !pinned;
+  const shown = pinned ? !collapsed : drawerOpen;
+
+  const closeDrawer = useCallback(() => setDrawer(false), []);
+  useDismiss(drawerOpen, closeDrawer, button, menu);
+
+  // Crossing into the pinned width closes the drawer; the sidebar then follows its own setting.
+  useEffect(() => {
+    if (pinned) setDrawer(false);
+  }, [pinned]);
+
+  // An opened drawer takes the focus to the open item, or its first one.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const target = menu.current?.querySelector<HTMLElement>('[aria-current="page"]') ?? menu.current?.querySelector<HTMLElement>("a");
+    target?.focus();
+  }, [drawerOpen]);
+
+  const setButton = useCallback((element: HTMLButtonElement | null) => {
+    button.current = element;
+    if (element) latestButton = element;
+    else if (latestButton && !latestButton.isConnected) latestButton = null;
+  }, []);
+
+  const toggle = () => {
+    if (!pinned) return setDrawer((was) => !was);
+    setCollapsed((was) => {
+      writeCollapsed(!was);
+      return !was;
+    });
+  };
+
+  const picked = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (pinned) return;
+    setDrawer(false);
+    if (event.currentTarget.hash === window.location.hash) {
+      button.current?.focus();
+      return;
+    }
+    // The hash moves after this click: once the page (or the declined leave) has drawn, focus its button.
+    window.addEventListener("hashchange", () => setTimeout(() => latestButton?.focus()), { once: true });
+  };
+
   return (
-    <main className={`min-h-screen bg-muted px-4 pt-6 pb-8 sm:px-0 sm:pt-16 sm:pb-20 ${wide ? "lg:px-8" : ""}`}>
-      <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-4 ${wide ? "lg:max-w-[1120px]" : ""}`}>
-        {/* The open tab names the page; the tab bar shows it, so the heading is for screen readers. */}
-        <h1 className="sr-only">{tabLabel(tab)}</h1>
-        {/* 375px frame 13: wordmark and action on one row, the tab menu below; from 640px one row
-            with the tab bar (sound-library D3). */}
-        <header className="flex flex-wrap items-center gap-3 pb-1">
-          <Wordmark />
-          <div className="hidden h-5 w-px bg-border sm:block" />
-          <div className="order-last basis-full sm:order-none sm:basis-auto">
-            <TabBar active={tab} />
-            <TabMenu active={tab} />
+    <div className="flex min-h-screen bg-muted">
+      {drawerOpen && <div aria-hidden="true" className="fixed inset-0 z-20 bg-surface-inverse/40 xl:hidden" />}
+      <MainMenu
+        ref={menu}
+        id={menuId}
+        tab={tab}
+        current={item}
+        onPick={picked}
+        className={`${collapsed ? "xl:hidden" : "xl:flex"} ${drawerOpen ? "max-xl:flex" : "max-xl:hidden"}`}
+      />
+      <main className={`min-w-0 flex-1 px-4 pt-6 pb-8 sm:px-6 sm:pt-12 sm:pb-20 ${wide ? "lg:px-8" : ""}`}>
+        <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-4 ${wide ? "lg:max-w-[1120px]" : ""}`}>
+          {/* The header names the page; the heading is for screen readers. */}
+          <h1 className="sr-only">{tabLabel(tab)}</h1>
+          <header className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-1">
+            <button
+              ref={setButton}
+              type="button"
+              aria-label={`เมนู: ${text}`}
+              aria-expanded={shown}
+              aria-controls={menuId}
+              onClick={toggle}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card hover:bg-muted"
+            >
+              <img src={menuIcon} alt="" width={16} height={16} />
+            </button>
+            <Wordmark />
+            <p className="order-last basis-full truncate text-sm leading-[1.5] font-medium text-mid sm:order-none sm:basis-auto">{text}</p>
+            <div className="flex-1" />
+            {action}
+          </header>
+          <div inert={drawerOpen || undefined} className="flex flex-col gap-4">
+            {children}
           </div>
-          <div className="flex-1" />
-          {action}
-        </header>
-        {children}
-      </div>
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -45,107 +147,83 @@ function Wordmark() {
   );
 }
 
-type Tab = (typeof TABS)[number];
+type MenuProps = {
+  ref: Ref<HTMLElement>;
+  id: string;
+  tab: TabId;
+  current: NavItem | null;
+  onPick: (event: MouseEvent<HTMLAnchorElement>) => void;
+  className: string;
+};
 
-const UNGROUPED = TABS.filter((t) => t.group === null);
-const GROUPED = TAB_GROUPS.map((group) => ({ ...group, tabs: TABS.filter((t) => t.group === group.id) }));
-
-/** From 640px: the tabs in a row, a line between the groups, each group named only for screen
- * readers (sound-library D3). */
-function TabBar({ active }: { active: TabId }) {
+/** The main menu: ติดตั้ง, each topic under its heading with its items, then the libraries
+ * (ui-nav D1–D3). One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
+function MainMenu({ ref, id, tab, current, onPick, className }: MenuProps) {
+  const headingId = useId();
   return (
     <nav
-      aria-label="แถบ tab"
-      className="hidden w-fit items-center gap-0.5 rounded-xl border border-border bg-card p-[3px] sm:flex"
+      ref={ref}
+      id={id}
+      aria-label="เมนูหลัก"
+      className={`flex-col gap-1 overflow-y-auto border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
     >
-      {UNGROUPED.map((t) => (
-        <TabLink key={t.id} tab={t} active={active} />
-      ))}
-      {GROUPED.map((group) => (
-        <div key={group.id} role="group" aria-label={group.label} className="flex items-center gap-0.5">
-          <div className="mx-1 h-5 w-px bg-border" />
-          {group.tabs.map((t) => (
-            <TabLink key={t.id} tab={t} active={active} />
+      <MenuLink item={SETUP_ITEM} current={current === SETUP_ITEM} onPick={onPick} />
+      {NAV_TOPICS.map((topic) => (
+        <MenuGroup key={topic.id} id={`${headingId}-${topic.id}`} label={topic.label} current={tab === topic.id}>
+          {topic.items.map((item) => (
+            <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
           ))}
-        </div>
+        </MenuGroup>
       ))}
+      <MenuGroup id={`${headingId}-library`} label={LIBRARY_LABEL} current={false}>
+        {LIBRARY_ITEMS.map((item) => (
+          <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
+        ))}
+      </MenuGroup>
     </nav>
   );
 }
 
-/** Below 640px: one button naming the open page; it opens every tab under its group's heading.
- * Closed by picking a tab, pressing the button again, `Esc` (focus back on the button) or a
- * click outside (sound-library D3). */
-function TabMenu({ active }: { active: TabId }) {
-  const [open, setOpen] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
-  const menu = useRef<HTMLElement>(null);
-  const menuId = useId();
-  const headingId = useId();
-
-  const close = useCallback(() => setOpen(false), []);
-  useDismiss(open, close, button, menu);
-  const label = tabLabel(active);
-
+/** A topic's heading and its items; the open topic's heading stands out (ui-nav D3, D6). */
+function MenuGroup({ id, label, current, children }: { id: string; label: string; current: boolean; children: ReactNode }) {
   return (
-    <div className="relative sm:hidden">
-      <button
-        ref={button}
-        type="button"
-        aria-label={`เมนู tab: ${label}`}
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((was) => !was)}
-        className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-sm leading-[1.5] font-semibold whitespace-nowrap text-brand"
-      >
-        <img src={menuIcon} alt="" width={16} height={16} />
+    <div role="group" aria-labelledby={id} aria-current={current || undefined} className="mt-1 flex flex-col gap-0.5 border-t border-border pt-2">
+      <p id={id} className={`px-3 pb-0.5 text-xs leading-[1.5] font-semibold ${current ? "text-brand" : "text-mid"}`}>
         {label}
-      </button>
-      {open && (
-        <nav
-          ref={menu}
-          id={menuId}
-          aria-label="เมนู tab"
-          className="absolute top-full left-0 z-20 mt-1 flex w-56 flex-col gap-0.5 rounded-xl border border-border bg-card p-[3px] shadow-sm"
-        >
-          {UNGROUPED.map((t) => (
-            <TabLink key={t.id} tab={t} active={active} onClick={close} />
-          ))}
-          {GROUPED.map((group) => (
-            <div
-              key={group.id}
-              role="group"
-              aria-labelledby={`${headingId}-${group.id}`}
-              className="flex flex-col gap-0.5 border-t border-border pt-1"
-            >
-              <p id={`${headingId}-${group.id}`} className="px-3.5 pt-1 text-xs leading-[1.5] font-medium text-mid">
-                {group.label}
-              </p>
-              {group.tabs.map((t) => (
-                <TabLink key={t.id} tab={t} active={active} onClick={close} />
-              ))}
-            </div>
-          ))}
-        </nav>
-      )}
+      </p>
+      {children}
     </div>
   );
 }
 
-/** One tab: a plain `#/…` link, the open one highlighted (spoil-maker D53). */
-function TabLink({ tab, active, onClick }: { tab: Tab; active: TabId; onClick?: () => void }) {
-  const isActive = tab.id === active;
+/** One item: a plain `#/…` link, so the leave guard and the back button work as before (ui-nav D6). */
+function MenuLink({ item, current, onPick }: { item: NavItem; current: boolean; onPick: MenuProps["onPick"] }) {
+  const usesId = useId();
   return (
     <a
-      href={tab.hash}
-      aria-current={isActive ? "page" : undefined}
-      onClick={onClick}
-      // In the phone menu each item is a 44px touch target.
-      className={`rounded-lg px-3.5 py-1.5 text-sm leading-[1.5] whitespace-nowrap ${onClick ? "flex min-h-11 items-center" : ""} ${
-        isActive ? "bg-accent-subtle font-semibold text-brand" : "font-medium text-mid hover:bg-muted"
+      href={item.hash}
+      aria-current={current ? "page" : undefined}
+      aria-describedby={item.uses ? usesId : undefined}
+      onClick={onPick}
+      // Below 1280px the drawer's items are 44px touch targets.
+      className={`flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-sm leading-[1.5] max-xl:min-h-11 ${
+        current ? "bg-accent-subtle font-semibold text-brand" : "font-medium text-mid hover:bg-muted"
       }`}
     >
-      {tab.label}
+      {item.step !== undefined && (
+        <span
+          aria-hidden="true"
+          className={`flex size-5 shrink-0 items-center justify-center rounded-full font-button text-[11px] font-bold ${
+            current ? "bg-brand-accent text-card" : "border border-border text-muted-foreground"
+          }`}
+        >
+          {item.step}
+        </span>
+      )}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">{item.label}</span>
+        {item.uses && <span id={usesId} aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{item.uses}</span>}
+      </span>
     </a>
   );
 }

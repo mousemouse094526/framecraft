@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { useLeaveGuard } from "./lib/useHash";
+import { stubMatchMedia } from "./testing/fakeMatchMedia";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -15,196 +17,185 @@ beforeEach(() => {
 afterEach(() => {
   fetchMock.mockReset();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  window.localStorage.clear();
   window.location.hash = "";
 });
 
-function tab(name: string) {
-  return within(screen.getByRole("navigation", { name: "แถบ tab" })).getByRole("link", { name });
+// The main menu replaced the 8-tab bar and its narrow menu (ui-nav D1, D4); these tests replaced
+// the ones on "แถบ tab" and "เมนู tab" (ui-nav D8).
+function menu() {
+  return within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
 }
 
-describe("tab bar", () => {
-  it("opens ติดตั้ง, highlighted, when the hash is empty", () => {
+function item(name: string) {
+  return menu().getByRole("link", { name });
+}
+
+function menuButton() {
+  return screen.getByRole("button", { name: /^เมนู:/ });
+}
+
+describe("main menu (ui-nav D1–D3)", () => {
+  it("lists ติดตั้ง, then สปอย, การ์ตูนเล่า, สอนกลอง, แกะเพลง and คลัง with their items, in that order (e2e)", () => {
     render(<App />);
 
-    expect(screen.getByText("กำลังเช็ค…")).toBeInTheDocument();
-    expect(tab("ติดตั้ง")).toHaveAttribute("aria-current", "page");
-    expect(tab("คลิป")).not.toHaveAttribute("aria-current");
-    expect(tab("สปอย")).not.toHaveAttribute("aria-current");
-  });
-
-  it("opens ติดตั้ง when the hash is unknown", () => {
-    window.location.hash = "#/nope";
-    render(<App />);
-
-    expect(tab("ติดตั้ง")).toHaveAttribute("aria-current", "page");
-  });
-
-  it("lists ติดตั้ง, คลิป, คลังความรู้, คลังเสียง, สปอย, การ์ตูนเล่า, สอนกลอง, แกะเพลง in that order (sound-library D2, video-gen D9, drum-notes D2) (e2e)", () => {
-    render(<App />);
-
-    expect(within(screen.getByRole("navigation", { name: "แถบ tab" })).getAllByRole("link").map((link) => link.textContent)).toEqual([
+    expect(menu().getAllByRole("link").map((link) => link.textContent)).toEqual([
       "ติดตั้ง",
-      "คลิป",
-      "คลังความรู้",
-      "คลังเสียง",
+      "1เลือกคลิป",
+      "2ตรวจแก้บท",
+      "3ผล render",
+      "ชุดทั้งหมด",
+      "สร้างชุดใหม่",
+      "บทเรียนทั้งหมด",
+      "เพลงทั้งหมด",
+      "คลังคลิปใช้กับ สปอย",
+      "คลังความรู้ใช้กับ สปอย",
+      "คลังเสียงใช้กับ สปอย, การ์ตูนเล่า",
+      "เสียงที่บันทึกใช้กับ สปอย, การ์ตูนเล่า",
+    ]);
+    expect(menu().getAllByRole("group").map((group) => group.firstElementChild?.textContent)).toEqual([
       "สปอย",
       "การ์ตูนเล่า",
       "สอนกลอง",
       "แกะเพลง",
+      "คลัง",
+    ]);
+    expect(within(menu().getByRole("group", { name: "สปอย" })).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([
+      "#/spoil",
+      "#/spoil/review",
+      "#/spoil/renders",
     ]);
   });
 
-  it("switches to คลิป and writes #/clips to the hash", async () => {
-    const user = userEvent.setup();
+  it("names each library by itself and says what it is used with (D2)", () => {
     render(<App />);
 
-    await user.click(tab("คลิป"));
-
-    expect(window.location.hash).toBe("#/clips");
-    expect(await screen.findByText("กำลังโหลด…")).toBeInTheDocument();
-    expect(tab("คลิป")).toHaveAttribute("aria-current", "page");
+    expect(item("คลังคลิป")).toHaveAttribute("href", "#/clips");
+    expect(item("คลังคลิป")).toHaveAccessibleDescription("ใช้กับ สปอย");
+    expect(item("คลังความรู้")).toHaveAccessibleDescription("ใช้กับ สปอย");
+    expect(item("คลังเสียง")).toHaveAccessibleDescription("ใช้กับ สปอย, การ์ตูนเล่า");
+    expect(item("เสียงที่บันทึก")).toHaveAttribute("href", "#/spoil/voices");
+    expect(item("เสียงที่บันทึก")).toHaveAccessibleDescription("ใช้กับ สปอย, การ์ตูนเล่า");
   });
 
-  it("opens คลิป from the hash, so a refresh stays on that tab", () => {
-    window.location.hash = "#/clips";
-    render(<App />);
-
-    expect(tab("คลิป")).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("กำลังโหลด…")).toBeInTheDocument();
-  });
-
-  it.each(["#/spoil", "#/spoil/review", "#/spoil/renders"])("opens สปอย from %s", (hash) => {
+  // spec › Implementation › Hash: the item open, the topic whose heading stands out, and the header's line (D6, D11).
+  it.each([
+    ["", "ติดตั้ง", null, "ติดตั้ง"],
+    ["#/nope", "ติดตั้ง", null, "ติดตั้ง"],
+    ["#/setup", "ติดตั้ง", null, "ติดตั้ง"],
+    ["#/spoil", "เลือกคลิป", "สปอย", "สปอย / เลือกคลิป"],
+    ["#/spoil/xyz", "เลือกคลิป", "สปอย", "สปอย / เลือกคลิป"],
+    ["#/spoil/review", "ตรวจแก้บท", "สปอย", "สปอย / ตรวจแก้บท"],
+    ["#/spoil/renders", "ผล render", "สปอย", "สปอย / ผล render"],
+    ["#/spoil/voices", "เสียงที่บันทึก", "สปอย", "คลัง / เสียงที่บันทึก"],
+    ["#/toon", "ชุดทั้งหมด", "การ์ตูนเล่า", "การ์ตูนเล่า / ชุดทั้งหมด"],
+    ["#/toon/new", "สร้างชุดใหม่", "การ์ตูนเล่า", "การ์ตูนเล่า / สร้างชุดใหม่"],
+    ["#/toon/series/s_1/cast", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
+    ["#/toon/eps/e_1/render", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
+    ["#/toon/sounds", "คลังเสียง", null, "คลัง / คลังเสียง"],
+    ["#/drums", "บทเรียนทั้งหมด", "สอนกลอง", "สอนกลอง / บทเรียนทั้งหมด"],
+    ["#/drums/a1b2c3d4e5f6", null, "สอนกลอง", "สอนกลอง"],
+    ["#/songs", "เพลงทั้งหมด", "แกะเพลง", "แกะเพลง / เพลงทั้งหมด"],
+    ["#/songs/s_1", null, "แกะเพลง", "แกะเพลง"],
+    ["#/songs/s_1/cover", null, "แกะเพลง", "แกะเพลง"],
+    ["#/clips", "คลังคลิป", null, "คลัง / คลังคลิป"],
+    ["#/stories", "คลังความรู้", null, "คลัง / คลังความรู้"],
+    ["#/stories/new", "คลังความรู้", null, "คลัง / คลังความรู้"],
+    ["#/stories/st_3fa91c07", "คลังความรู้", null, "คลัง / คลังความรู้"],
+    ["#/sounds", "คลังเสียง", null, "คลัง / คลังเสียง"],
+    ["#/sounds?back=#/toon", "คลังเสียง", null, "คลัง / คลังเสียง"],
+  ])("at %j marks %s open, %s's heading, and says %s (e2e)", (hash, open, topic, line) => {
     window.location.hash = hash;
     render(<App />);
 
-    expect(tab("สปอย")).toHaveAttribute("aria-current", "page");
+    expect(menu().queryAllByRole("link", { current: "page" }).length).toBe(open ? 1 : 0);
+    if (open) expect(menu().getByRole("link", { name: open })).toHaveAttribute("aria-current", "page");
+    const current = menu().getAllByRole("group").filter((group) => group.getAttribute("aria-current") === "true");
+    expect(current.map((group) => group.firstElementChild?.textContent)).toEqual(topic ? [topic] : []);
+    expect(menuButton()).toHaveAccessibleName(`เมนู: ${line}`);
+    expect(screen.getByRole("banner")).toHaveTextContent(line);
+  });
+
+  it("still opens each page from its hash (D6)", () => {
+    window.location.hash = "#/spoil/review";
+    render(<App />);
     expect(screen.getByRole("navigation", { name: "ขั้นของสปอย" })).toBeInTheDocument();
   });
 
-  it.each(["#/stories", "#/stories/new", "#/stories/st_3fa91c07"])("opens คลังความรู้ from %s (story-kb D9)", (hash) => {
-    window.location.hash = hash;
-    render(<App />);
-
-    expect(tab("คลังความรู้")).toHaveAttribute("aria-current", "page");
-  });
-
-  it("goes back to the previous tab with the browser back button", async () => {
+  it("writes an item's hash when it is picked, and the back button goes back (e2e)", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(tab("คลิป"));
-    await user.click(tab("ติดตั้ง"));
 
+    await user.click(item("คลังคลิป"));
+    expect(window.location.hash).toBe("#/clips");
+    expect(await screen.findByText("กำลังโหลด…")).toBeInTheDocument();
+    expect(item("คลังคลิป")).toHaveAttribute("aria-current", "page");
+
+    await user.click(item("ติดตั้ง"));
     act(() => {
       window.history.back();
     });
 
-    await waitFor(() => expect(tab("คลิป")).toHaveAttribute("aria-current", "page"));
+    await waitFor(() => expect(item("คลังคลิป")).toHaveAttribute("aria-current", "page"));
     expect(window.location.hash).toBe("#/clips");
   });
 });
 
-describe("tab groups (sound-library D3)", () => {
-  function bar() {
-    return within(screen.getByRole("navigation", { name: "แถบ tab" }));
+describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
+  function content() {
+    return screen.getByText("กำลังเช็ค…").closest("[inert]");
   }
 
-  it("groups คลิป, คลังความรู้, คลังเสียง and สปอย, การ์ตูนเล่า, สอนกลอง, แกะเพลง by aria-label, with no heading text", () => {
-    render(<App />);
-
-    const prep = bar().getByRole("group", { name: "เตรียมของ" });
-    const make = bar().getByRole("group", { name: "ทำคลิป" });
-    expect(within(prep).getAllByRole("link").map((link) => link.textContent)).toEqual(["คลิป", "คลังความรู้", "คลังเสียง"]);
-    expect(within(make).getAllByRole("link").map((link) => link.textContent)).toEqual(["สปอย", "การ์ตูนเล่า", "สอนกลอง", "แกะเพลง"]);
-    expect(prep).toHaveTextContent(/^คลิปคลังความรู้คลังเสียง$/);
-    expect(make).toHaveTextContent(/^สปอยการ์ตูนเล่าสอนกลองแกะเพลง$/);
-    expect(bar().getAllByRole("group")).toHaveLength(2);
-  });
-
-  it("shows the bar from 640px and the menu button below it (jsdom draws no layout: the classes)", () => {
-    render(<App />);
-
-    expect(screen.getByRole("navigation", { name: "แถบ tab" })).toHaveClass("hidden", "sm:flex");
-    expect(screen.getByRole("button", { name: /^เมนู tab:/ }).parentElement).toHaveClass("sm:hidden");
-  });
-});
-
-describe("tab menu on a narrow screen (sound-library D3)", () => {
-  function menuButton() {
-    return screen.getByRole("button", { name: /^เมนู tab:/ });
-  }
-
-  it("names the open page with a menu icon, closed at first", () => {
-    window.location.hash = "#/sounds";
-    render(<App />);
-
-    expect(menuButton()).toHaveAccessibleName("เมนู tab: คลังเสียง");
-    expect(menuButton()).toHaveTextContent(/^คลังเสียง$/);
-    expect(menuButton().querySelector("img")).not.toBeNull();
-    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
-    expect(menuButton()).not.toHaveAttribute("aria-controls");
-    expect(screen.queryByRole("navigation", { name: "เมนู tab" })).toBeNull();
-  });
-
-  it("opens ติดตั้ง first, then the headings เตรียมของ and ทำคลิป with their tabs (e2e)", async () => {
+  it("starts closed; the button opens it, takes the focus to the open item and makes the page inert (e2e)", async () => {
     const user = userEvent.setup();
-    window.location.hash = "#/clips";
     render(<App />);
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveAttribute("aria-controls", screen.getByRole("navigation", { name: "เมนูหลัก" }).id);
+    expect(content()).toBeNull();
 
     await user.click(menuButton());
 
     expect(menuButton()).toHaveAttribute("aria-expanded", "true");
-    const menu = screen.getByRole("navigation", { name: "เมนู tab" });
-    expect(menuButton()).toHaveAttribute("aria-controls", menu.id);
-    expect(menu).toHaveTextContent(/^ติดตั้งเตรียมของคลิปคลังความรู้คลังเสียงทำคลิปสปอยการ์ตูนเล่าสอนกลองแกะเพลง$/);
-    expect(within(within(menu).getByRole("group", { name: "เตรียมของ" })).getAllByRole("link").map((l) => l.textContent)).toEqual([
-      "คลิป",
-      "คลังความรู้",
-      "คลังเสียง",
-    ]);
-    expect(within(within(menu).getByRole("group", { name: "ทำคลิป" })).getAllByRole("link").map((l) => l.textContent)).toEqual([
-      "สปอย",
-      "การ์ตูนเล่า",
-      "สอนกลอง",
-      "แกะเพลง",
-    ]);
-    expect(within(menu).getByRole("link", { name: "คลิป" })).toHaveAttribute("aria-current", "page");
-    expect(within(menu).getByRole("link", { name: "ติดตั้ง" })).not.toHaveAttribute("aria-current");
+    expect(item("ติดตั้ง")).toHaveFocus();
+    expect(content()).not.toBeNull();
   });
 
-  it("opens the tab picked in the menu and closes the menu (e2e)", async () => {
+  it("closes when an item is picked, with the focus back on the menu button (e2e)", async () => {
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(menuButton());
-    await user.click(within(screen.getByRole("navigation", { name: "เมนู tab" })).getByRole("link", { name: "สปอย" }));
+    await user.click(item("ตรวจแก้บท"));
 
-    expect(window.location.hash).toBe("#/spoil");
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู tab: สปอย"));
+    expect(window.location.hash).toBe("#/spoil/review");
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / ตรวจแก้บท"));
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("navigation", { name: "เมนู tab" })).toBeNull();
+    await waitFor(() => expect(menuButton()).toHaveFocus());
   });
 
-  it("closes when the open tab is picked again, though the hash stays the same", async () => {
+  it("closes when the open item is picked again, though the hash stays the same", async () => {
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(menuButton());
-    await user.click(within(screen.getByRole("navigation", { name: "เมนู tab" })).getByRole("link", { name: "ติดตั้ง" }));
+    await user.click(item("ติดตั้ง"));
 
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveFocus();
   });
 
   it("closes on Esc with the focus back on the button (e2e)", async () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(menuButton());
-    within(screen.getByRole("navigation", { name: "เมนู tab" })).getByRole("link", { name: "คลิป" }).focus();
 
     await user.keyboard("{Escape}");
 
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("navigation", { name: "เมนู tab" })).toBeNull();
     expect(menuButton()).toHaveFocus();
+    expect(content()).toBeNull();
   });
 
   it("closes on a click outside the menu, and on pressing the button again (e2e)", async () => {
@@ -217,6 +208,106 @@ describe("tab menu on a narrow screen (sound-library D3)", () => {
 
     await user.click(menuButton());
     await user.click(menuButton());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("closes, keeping the page, when the leave guard is declined (e2e)", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    function Unsaved() {
+      useLeaveGuard(() => true);
+      return null;
+    }
+    render(
+      <>
+        <Unsaved />
+        <App />
+      </>,
+    );
+
+    await user.click(menuButton());
+    await user.click(item("เพลงทั้งหมด"));
+
+    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    expect(window.location.hash).toBe("");
+    expect(screen.getByText("กำลังเช็ค…")).toBeInTheDocument();
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("moves on when the leave guard is accepted", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    function Unsaved() {
+      useLeaveGuard(() => true);
+      return null;
+    }
+    render(
+      <>
+        <Unsaved />
+        <App />
+      </>,
+    );
+
+    await user.click(menuButton());
+    await user.click(item("เพลงทั้งหมด"));
+
+    expect(window.location.hash).toBe("#/songs");
+  });
+});
+
+describe("menu from 1280px: a pinned sidebar (ui-nav D4, D10, D11)", () => {
+  it("starts open; the button collapses it and the setting stays after a reload (e2e)", async () => {
+    stubMatchMedia(true);
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    await user.click(menuButton());
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(window.localStorage.getItem("framecraft.nav.collapsed")).toBe("true");
+    unmount();
+    render(<App />);
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(menuButton());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    expect(window.localStorage.getItem("framecraft.nav.collapsed")).toBeNull();
+  });
+
+  it("is open when the stored setting is anything but true", () => {
+    stubMatchMedia(true);
+    window.localStorage.setItem("framecraft.nav.collapsed", "yes");
+    render(<App />);
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("stays open, and the page not inert, when an item is picked", async () => {
+    stubMatchMedia(true);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(item("คลังคลิป"));
+
+    expect(window.location.hash).toBe("#/clips");
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: คลัง / คลังคลิป"));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("กำลังโหลด…").closest("[inert]")).toBeNull();
+  });
+
+  it("closes an open drawer when the window grows past 1280px, then follows the sidebar's setting", async () => {
+    const media = stubMatchMedia(false);
+    window.localStorage.setItem("framecraft.nav.collapsed", "true");
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(menuButton());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+
+    act(() => media.change(true));
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    act(() => media.change(false));
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
   });
 });
