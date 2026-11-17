@@ -107,7 +107,9 @@ describe("หน้า Saved voice", () => {
     backend([]);
     await openPage();
 
-    expect(screen.getByRole("link", { name: "สปอย" })).toHaveAttribute("aria-current", "page");
+    const menu = within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
+    expect(menu.getByRole("link", { name: "เสียงที่บันทึก" })).toHaveAttribute("aria-current", "page");
+    expect(menu.getByRole("group", { name: "สปอย" })).toHaveAttribute("aria-current", "true");
     expect(screen.queryByRole("navigation", { name: "ขั้นของสปอย" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "เสียงบรรยาย" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "กลับ" })).toHaveAttribute("href", "#/spoil");

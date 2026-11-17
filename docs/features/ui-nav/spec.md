@@ -1,0 +1,210 @@
+# Spec: ui-nav
+
+เมนูหลักเดียวของแอปที่มี 5 หัวข้อใหญ่พร้อมขั้นและหน้าหลักของแต่ละหัวข้อ คลังอยู่ในเมนู และของที่เปิดล่าสุด ให้ผู้ใช้ไปถึงที่ที่ใช้บ่อยได้ใน 2 คลิกจากหน้าใดก็ได้.
+
+**Status:** ready-to-build
+
+## Problem
+
+เจ้าของ: "มันดูแปลกๆ ที่ต้องเข้าไปลึกมาก". แถบ tab วันนี้มี 8 รายการเรียงแถวเดียว (คลังสามอันปนกับงานหลัก) และของที่ใช้จริงอยู่ลึก: EP ของการ์ตูนเล่าต้องกด tab → ชุด → EP, reel ของเพลงต้องกด tab → เพลง → reel, เสียงที่บันทึกไปได้จากปุ่มในขั้น 1 ของสปอยเท่านั้น.
+
+## Solution
+
+- เมนูหลักมี 5 หัวข้อใหญ่: ติดตั้ง · สปอย · การ์ตูนเล่า · สอนกลอง · แกะเพลง (D1)
+- ขั้นและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู กดครั้งเดียวถึง (D3)
+- คลังคลิป คลังความรู้ คลังเสียง และเสียงที่บันทึกอยู่ในส่วน "คลัง" ท้ายเมนู แต่ละอันบอกว่าใช้กับหัวข้อไหน (D2)
+- ของที่เปิดล่าสุด (ชุดหรือ EP, บทเรียนกลอง, เพลง) อยู่ใต้หัวข้อของมัน ไม่เกิน 3 รายการ (D5)
+- จอตั้งแต่ 1280px เมนูเป็น sidebar ตรึงซ้ายที่ยุบได้; จอแคบกว่าเปิดจากปุ่ม ☰ เป็น drawer (D4, D11)
+- hash และ deep link ทุกตัวเหมือนเดิม; หัวของทุกหน้าบอกว่าอยู่ที่ไหน (D6)
+
+## User Stories
+
+**ผู้ทำคลิป**
+1. As a ผู้ทำคลิป, I want เปิดขั้นใดของสปอยหรือหน้าหลักของหัวข้อใดก็ได้จากเมนูในครั้งเดียว, so that ไม่ต้องเข้าหัวข้อก่อนแล้วค่อยหาขั้น (D1, D3)
+2. As a ผู้ทำคลิป, I want เห็นคลังทั้งหมดในเมนูพร้อมบอกว่าใช้กับงานไหน, so that คลังไม่ปนกับงานหลักแต่ยังหาเจอ (D2)
+3. As a ผู้ทำคลิป, I want กลับไปชุด EP บทเรียน หรือเพลงที่เพิ่งทำจากเมนูได้เลย, so that ไม่ต้องกดผ่านรายการทุกครั้ง (D5)
+4. As a ผู้ทำคลิป บนจอกว้าง, I want เห็นเมนูตลอดและยุบได้เมื่ออยากได้ที่, so that ไม่ต้องเปิด hamburger ทุกครั้ง (D4)
+5. As a ผู้ทำคลิป บนจอแคบ, I want เปิดเมนูจากปุ่ม ☰ แล้วเลือก, so that เมนูไม่กินที่ของหน้า (D4)
+6. As a ผู้ทำคลิป, I want ลิงก์และ bookmark เดิม ปุ่ม back และการถามก่อนออกโดยไม่บันทึกทำงานเหมือนเดิม, so that ไม่มีอะไรที่เคยทำได้หายไป (D6)
+
+## Design
+
+แบบหน้าจอทำหลัง plan (setup-status D9) และสร้างตาม [ui-prompt.md](ui-prompt.md) กับ design system เดิม ไม่รอ Figma (D7).
+
+| Screen | User stories | Must show | Source |
+|---|---|---|---|
+| เมนูหลักและหัวหน้า (ทุกหน้า) | 1–6 | หัวของทุกหน้า: ปุ่ม ☰ ชื่อ "เมนู: {ตำแหน่ง}" (`aria-expanded`, `aria-controls`) wordmark ข้อความตำแหน่งตามกฎ D11 และ action ขวาของหน้า (D4, D6, D11); เมนู "เมนูหลัก": ติดตั้ง (ลิงก์) แล้วหัวกลุ่ม สปอย การ์ตูนเล่า สอนกลอง แกะเพลง พร้อมรายการตาม D3 แล้วหัวกลุ่ม "คลัง" กับ 4 รายการ แต่ละรายการมีบรรทัด "ใช้กับ สปอย" หรือ "ใช้กับ สปอย, การ์ตูนเล่า" (D2); ขั้นของสปอยมีเลข 1–3 (D3); ล่าสุด: หัวเล็ก "ล่าสุด" แล้วชื่อของชิ้นไม่เกิน 3 รายการ บรรทัดเดียวตัดด้วย … ไม่มีล่าสุด = ไม่มีหัวเล็กนั้น (D5, D10); รายการที่เปิดอยู่ `aria-current="page"` พื้น `accent-subtle` ตัวหนา และหัวกลุ่มของหัวข้อที่เปิดเป็นสี brand (D6, D11); ≥1280px: sidebar ตรึงซ้าย 256px เลื่อนในตัวเองเมื่อสูงเกินจอ ปุ่ม ☰ ยุบ/ขยาย เนื้อหาหน้าอยู่กลางพื้นที่ที่เหลือ (D4, D11); <1280px: ปิดอยู่ ปุ่ม ☰ เปิด drawer ทับจากซ้ายกว้างไม่เกิน 320px มีพื้นมืดด้านหลัง ปิดเมื่อเลือก `Esc` กดนอก หรือกดปุ่มอีกครั้ง โฟกัสตามกฎ D10 รายการสูง ≥ 44px (D4, D10) | pending |
+
+Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md).
+
+### ความลึกก่อนและหลัง
+
+นับคลิกจากหน้าใดก็ได้ (ไม่นับการพิมพ์ URL); จอแคบนับการเปิดเมนูเป็น 1 คลิก.
+
+| ปลายทาง | วันนี้ (จอกว้าง) | วันนี้ (จอแคบ) | หลัง (จอกว้าง) | หลัง (จอแคบ) |
+|---|---|---|---|---|
+| ขั้น 2–3 ของสปอย | 2 | 3 | 1 | 2 |
+| สร้างชุดใหม่ | 2 | 3 | 1 | 2 |
+| เสียงที่บันทึก | 2–3 | 3–4 | 1 | 2 |
+| ชุดหรือ EP ที่เพิ่งเปิด | 2–3 | 3–4 | 1 | 2 |
+| บทเรียนกลองหรือเพลงที่เพิ่งเปิด | 2 | 3 | 1 | 2 |
+| reel ของเพลงที่เพิ่งเปิด | 3 | 4 | 2 | 3 |
+| ตัวละคร ตั้งค่า หรือ render ของชุดที่เพิ่งเปิด | 3–4 | 4–5 | 2 | 3 |
+| คลังใดก็ได้ | 1 | 2 | 1 | 2 |
+
+"จอกว้าง" หลังคือ ≥1280px ที่ sidebar เปิดอยู่ (D11). แถว "ที่เพิ่งเปิด" นับหลังเปิดชิ้นนั้นครั้งแรกในเบราว์เซอร์นี้; ก่อนนั้นเท่ากับเปิดรายการ (1–2) แล้วกดชิ้น (D5). หน้าย่อยของชุดและ reel เกิน 2 บนจอแคบ: เมนูพาถึงหน้าชิ้นแม่ใน 2 คลิก หน้าย่อยอยู่ในหน้านั้น (D3).
+
+## Expected Outcome
+
+ผู้ใช้เปิดขั้นใดของงานหลัก คลังใด หรือของที่เพิ่งทำ ได้จากเมนูเดียวใน ≤ 2 คลิกจากหน้าใดก็ได้ โดยลิงก์เดิมยังพาไปที่เดิม.
+
+- **จอกว้าง:** เปิด `#/toon/eps/{id}` ตรงจาก bookmark เห็น sidebar ทางซ้าย หัวกลุ่มการ์ตูนเล่าสี brand และ EP นั้นอยู่ใต้ "ล่าสุด" ที่ถูกเน้น
+- **จอแคบ:** อยู่หน้าเพลง กด ☰ แล้วกด "ตรวจแก้บท" ใต้สปอย → อยู่ขั้น 2 ของสปอย drawer ปิดแล้ว
+- **ยุบ:** กด ☰ บนจอกว้าง sidebar หาย เนื้อหาขยายเต็ม; reload แล้วยังยุบอยู่
+- **ยังไม่บันทึก:** แก้ Story แล้วกด "แกะเพลง" ในเมนู → ถาม "ออกโดยไม่บันทึก?" ตอบยกเลิกแล้วยังอยู่ที่ Story พร้อมข้อความที่พิมพ์
+
+**How success is judged:**
+- 5 หัวข้อ ขั้นของสปอย หน้าหลักของแต่ละหัวข้อ และ 4 คลัง อยู่ในเมนูเดียว (test)
+- ตรวจมือบนเบราว์เซอร์จริงที่ 1440px, 1280px, 1024px และ 375px: ตารางความลึกได้ตามคอลัมน์ "หลัง"; sidebar 256px; drawer ≤ 320px มีพื้นมืด; รายการใน drawer สูง ≥ 44px; หน้า wide (สปอย การ์ตูนเล่า ผล render คลังคลิป คลังเสียง reel) ไม่พังที่ 1280px กับ sidebar เปิด
+- hash ทุกตัวในตาราง spec › Implementation › Hash เปิดหน้าเดียวกับวันนี้ (test)
+- `npm --prefix frontend test`, `typecheck`, `build` และ `uv run pytest` ผ่าน
+
+## Implementation
+
+### Modules touched
+
+- **`frontend/src/lib/nav.ts`** (ใหม่)
+  - ต้นไม้เมนู `NAV`: หัวข้อ (`id`, ชื่อ, `TabId`, hash เมื่อหัวข้อเป็นลิงก์) แต่ละหัวข้อมีรายการ (ชื่อ, hash, เลขขั้นเมื่อมี, ล่าสุดหรือไม่) และส่วนคลังที่รายการมี "ใช้กับ" (D1, D2, D3)
+  - `activeItem(hash, items)`: กฎ prefix ที่ยาวที่สุด (D6)
+- **`frontend/src/lib/recent.ts`** (ใหม่)
+  - `rememberRecent(area, hash, label)`, `forgetRecent(hash)`, hook `useRecent()` ที่อ่านและติดตามการเปลี่ยน (event ภายในหน้ากับ `storage`) (D5)
+- **`frontend/src/lib/useHash.ts`**
+  - `TABS` กับ `TAB_GROUPS` ออก; `TabId` และ `tabOf` คงพฤติกรรมเดิม; `tabLabel` อ่านจาก `NAV` (D1, D6)
+- **`frontend/src/lib/useMediaQuery.ts`** (ใหม่)
+  - `useMediaQuery(query)` ที่เมนูใช้กับ `(min-width: 1280px)`; ไม่มี `matchMedia` = `false`; `useIsDesktop` ของ spoil-maker อยู่ที่เดิม (D11)
+- **`frontend/src/components/ui/PageLayout.tsx`**
+  - `TabBar` กับ `TabMenu` ออก; หัวใหม่ (☰ ตำแหน่ง wordmark action) กับ `MainMenu` ตัวเดียวสำหรับสองจอ; เนื้อหาหน้าเป็น `inert` ขณะ drawer เปิด; prop ของ `PageLayout` เหมือนเดิม (D4, D6, D10)
+- **หน้าและ hook ที่เขียนหรือลบล่าสุด** (ticket 02, D11)
+
+| ที่ | ทำอะไร | hash | ชื่อ |
+|---|---|---|---|
+| `EpListPage` โหลดสำเร็จ | เขียน | `#/toon/series/{sid}` | `series.name` |
+| `EpPage` โหลดสำเร็จ (เส้นเรื่องหรือพล็อต) | เขียน พร้อม parent `#/toon/series/{sid}` | `#/toon/eps/{eid}` | `{series.name} · {epLabel(ep.n)}` |
+| `LessonEditor` โหลดสำเร็จ | เขียน | `#/drums/{id}` | `saved.title` |
+| `SongPage` โหลดสำเร็จ | เขียน | `#/songs/{id}` | `song.title` |
+| `useSeriesList` › `remove` | ลบชุดและ EP ที่ parent เป็นชุดนั้น | `#/toon/series/{sid}` | — |
+| `useEpList` › `remove` | ลบ | `#/toon/eps/{eid}` | — |
+| `useLessons` › `remove`, `useLessonEditor` ได้ `not_found` | ลบ | `#/drums/{id}` | — |
+| `useSongs` › `remove`, `useSong` ได้ `not_found` | ลบ | `#/songs/{id}` | — |
+
+- **`CONTEXT.md`**: แอปมี 5 หัวข้อใหญ่ + คลัง; คำว่า "คลังคลิป"; "เมนูหลัก"; "ล่าสุด"
+
+### Data
+
+ล่าสุดใน `localStorage` (D5):
+
+```json
+{
+  "toon": [
+    { "hash": "#/toon/eps/ep_1", "label": "รุ่นพี่เล่าว่า… · EP03", "parent": "#/toon/series/s_1" },
+    { "hash": "#/toon/series/s_1", "label": "รุ่นพี่เล่าว่า…" }
+  ],
+  "drums": [],
+  "songs": [{ "hash": "#/songs/DdYi7i6t2R8", "label": "Smells Like Teen Spirit" }]
+}
+```
+
+- JSON ที่อ่านไม่ได้หรือไม่ใช่ object = ว่างทั้งหมด (D5)
+- แต่ละรายการต้องมี `hash` ที่ตรงรูป route ของหัวข้อมัน และ `label` ที่เป็นข้อความไม่ว่าง; ไม่ตรงทิ้ง; `label` ตัดที่ 80 ตัวอักษร (D10)
+- `parent` มีเฉพาะ EP; ไม่ตรงรูป `#/toon/series/{sid}` = ไม่มี parent (D11)
+- เขียนทุกครั้งอ่านใหม่ก่อน (D10)
+
+ค่ายุบ: `framecraft.nav.collapsed` เป็น `"true"` หรือไม่มี; ค่าอื่น = เปิด (D10).
+
+### Hash
+
+ไม่มี hash ใหม่ ไม่มี hash ที่เปลี่ยน (D6). test ตรวจว่าแต่ละตัวยังเปิดหน้าเดิมและเน้นรายการตามนี้:
+
+| Hash | หน้า | หัวข้อที่เน้น | รายการที่ `aria-current` |
+|---|---|---|---|
+| ว่าง, `#/nope` | ติดตั้ง | ติดตั้ง | ติดตั้ง |
+| `#/setup` | ติดตั้ง | ติดตั้ง | ติดตั้ง |
+| `#/spoil`, `#/spoil/xyz` | สปอย ขั้น 1 | สปอย | เลือกคลิป |
+| `#/spoil/review` | สปอย ขั้น 2 | สปอย | ตรวจแก้บท |
+| `#/spoil/renders` | สปอย ขั้น 3 | สปอย | ผล render |
+| `#/spoil/voices` | เสียงที่บันทึก | สปอย | เสียงที่บันทึก |
+| `#/toon` | รายการชุด | การ์ตูนเล่า | ชุดทั้งหมด |
+| `#/toon/new` | สร้างชุด | การ์ตูนเล่า | สร้างชุดใหม่ |
+| `#/toon/series/{sid}…`, `#/toon/eps/{eid}…` | หน้าของชุดหรือ EP | การ์ตูนเล่า | ล่าสุดที่ตรง หรือไม่มี |
+| `#/toon/sounds` | คลังเสียง (ย้ายแล้ว, sound-library D6) | — | คลังเสียง |
+| `#/drums` | รายการบทเรียน | สอนกลอง | บทเรียนทั้งหมด |
+| `#/drums/{id}…` | บทเรียน, ผล render | สอนกลอง | ล่าสุดที่ตรง หรือไม่มี |
+| `#/songs` | รายการเพลง | แกะเพลง | เพลงทั้งหมด |
+| `#/songs/{id}`, `#/songs/{id}/cover` | เพลง, reel cover (drum-cover D11) | แกะเพลง | ล่าสุดที่ตรง หรือไม่มี |
+| `#/clips` | คลังคลิป | — | คลังคลิป |
+| `#/stories…` | คลังความรู้ | — | คลังความรู้ |
+| `#/sounds`, `#/sounds?back=…` | คลังเสียง | — | คลังเสียง |
+
+หัวข้อที่เน้นของคลังคือ "—": หัวกลุ่ม "คลัง" ไม่ใช่หัวข้อใหญ่ จึงเน้นแค่รายการ. ข้อความตำแหน่งของแต่ละแถวตามกฎ D11 (เช่น "คลัง / คลังเสียง", "การ์ตูนเล่า" บนหน้าตัวละครที่ไม่มีล่าสุด). `#/spoil/voices` อยู่ใต้หัวข้อสปอยใน `tabOf` (spoil-maker) จึงเน้นหัวกลุ่มสปอยด้วย.
+
+### Library assumptions
+
+| Library | Version | The plan needs | Docs |
+|---|---|---|---|
+| Tailwind CSS | 4.3 | `xl` = `min-width: 1280px` และ `max-xl:` variant | [Responsive design](https://tailwindcss.com/docs/responsive-design) |
+| Web Storage | browser | `localStorage` โยนได้เมื่อปิด storage จึงห่อ `try`; event `storage` แจ้งแท็บอื่น | [MDN localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) |
+| `window.matchMedia` | browser | event `change` เมื่อข้ามจุดแบ่ง; jsdom ไม่มี → ถือเป็นจอแคบ (ทางเดียวกับ `useIsDesktop`) | [MDN matchMedia](https://developer.mozilla.org/en-US/docs/Web/API/Window/matchMedia) |
+
+## Seams
+
+สอง seam ใน harness เดียว: `App` หรือหน้าของชิ้นที่ render ด้วย Testing Library ใน jsdom กับ fetch ปลอม (D9). กรณีจอกว้างใช้ `matchMedia` ปลอมตัวใหม่ (คืน `matches` และยิง `change`) และกรณี leave guard ใช้ `window.confirm` ปลอม.
+
+1. **เมนูหลัก** (e2e) `App` ที่ hash ใดก็ได้
+   - hash ว่าง → "เมนูหลัก" มี ติดตั้ง แล้วหัวกลุ่ม สปอย การ์ตูนเล่า สอนกลอง แกะเพลง คลัง ตามลำดับ รายการตาม D3, D2 และบรรทัด "ใช้กับ สปอย" หรือ "ใช้กับ สปอย, การ์ตูนเล่า" ตรงตัว
+   - แต่ละแถวของตาราง Hash → หน้านั้นเปิด รายการนั้น `aria-current="page"` (หรือไม่มีตัวใด) หัวกลุ่มนั้นเน้น และข้อความตำแหน่งตาม D11
+   - กดรายการ → hash เป็นของรายการนั้น และปุ่ม back กลับ hash ก่อน
+   - จอแคบ (jsdom ไม่มี `matchMedia`): ปุ่ม ☰ `aria-expanded="false"` ก่อน; กดแล้ว `true` โฟกัสอยู่ที่รายการที่เปิดอยู่ และเนื้อหาหน้า `inert`; เลือกรายการ `Esc` กดนอก หรือกดปุ่มอีกครั้ง → `false` เนื้อหาไม่ `inert`; เลือกรายการกับ `Esc` คืนโฟกัสที่ปุ่ม (D10)
+   - จอกว้าง (`matchMedia` ปลอมตรง): เปิดอยู่ก่อน; กดปุ่ม → ยุบ และ `framecraft.nav.collapsed` = `"true"`; render ใหม่ยังยุบ; ค่าอื่นใน key นั้น = เปิด; เลือกรายการไม่ยุบ
+   - drawer เปิดอยู่แล้ว `matchMedia` ยิง `change` เป็นจอกว้าง → drawer ปิด ใช้ค่ายุบของจอกว้าง
+   - leave guard: `confirm` ตอบยกเลิก → hash เดิม หน้าเดิม drawer ปิด; ตอบตกลง → hash ใหม่
+2. **ล่าสุด** (e2e) หน้าตามตาราง Modules touched กับเมนูของมัน
+   - แต่ละหน้าที่เขียน โหลดสำเร็จ → `framecraft.nav.recent` มีรายการตามตาราง (hash, ชื่อ, parent) และชื่ออยู่บนสุดใต้ "ล่าสุด" ของหัวข้อนั้น
+   - เปิดชิ้นที่สี่ → เหลือ 3 ตัวล่าสุด; เปิดตัวเก่าซ้ำ → ขึ้นบนสุด ไม่ซ้ำ ชื่อเป็นชื่อปัจจุบัน
+   - หน้าย่อย (`#/toon/series/{sid}/cast`) → ไม่เขียน และล่าสุดของชุดนั้นถูกเน้น
+   - ลบชุด → ชุดกับ EP ของมันหายจากล่าสุด; ลบ EP บทเรียน หรือเพลง หรือ `not_found` ของบทเรียนหรือเพลง → รายการนั้นหาย
+   - `localStorage` โยน มี JSON เสีย hash ผิดรูป หรือชื่อยาว 200 ตัว → ไม่มีรายการเสีย ชื่อตัดที่ 80 และหน้าเปิดปกติ
+   - event `storage` จากแท็บอื่น → เมนูแสดงค่าใหม่
+
+## Testing decisions
+
+- **Copy:** `frontend/src/App.test.tsx` — render `App` ตาม hash, หา `navigation` ด้วยชื่อ, กด `userEvent`, `window.history.back()` ใน `act`
+- **Copy:** `frontend/src/features/story-kb/components/StoryEditor.test.tsx` — leave guard กับ `window.confirm` ปลอม
+- **Copy:** test ของ `EpListPage`, `EpPage`, `LessonEditor`, `SongPage` ใน folder ของแต่ละ feature — fetch ปลอมของหน้านั้น สำหรับ seam 2
+- `matchMedia` ปลอมเป็นของใหม่: project ยังไม่มี test ที่ปลอมมัน; ใส่ใน `frontend/src/testing/` ให้ test อื่นใช้ได้
+- test ที่ผูกกับแถบเดิมเขียนใหม่ตาม D8 และ Log ของ ticket 01 บอกว่าแก้อะไร
+- ขนาด (256px, 320px, 44px) และหน้า wide ที่ 1280px jsdom วัดไม่ได้: ตรวจมือตาม How success is judged
+
+## Out of Scope
+
+- หน้าย่อยของชุดที่เปิดอยู่ (EP, ตัวละคร, ตั้งค่า) ในเมนู (D3)
+- แยก 404 ออกจาก offline ในหน้าการ์ตูนเล่า (D11)
+- sidebar แบบแถบไอคอน (D4)
+- ล่าสุดที่ sync ข้ามเบราว์เซอร์หรือเก็บที่ backend (D5)
+- เปลี่ยน hash, router library หรือหน้าใดนอกจากหัวและการเขียนล่าสุด (D6, D11)
+- feature flag: ถอยกลับด้วย revert ของ ticket (D10)
+- แบบใน Figma (D7)
+
+## Open Questions
+
+1. คลังควรอยู่ใต้หัวข้อที่ใช้มัน (คลังเสียงกับเสียงที่บันทึกซ้ำใต้สปอยและการ์ตูนเล่า) แทนส่วน "คลัง" ท้ายเมนูหรือไม่ — non-blocking: ย้ายได้ในต้นไม้ `NAV` ที่เดียวหลังเจ้าของลองของจริง (D2)
+2. "คลังเพลง" ในข้อความเจ้าของหมายถึงคลังเสียงจริงหรือไม่ — non-blocking: ถ้าหมายถึงแกะเพลง ก็ย้ายเพลงทั้งหมดไปส่วนคลังได้ในต้นไม้ `NAV` ที่เดียว (D2)
+3. เจ้าของขอ hamburger; จอ ≥1280px เป็น sidebar ที่เปิดอยู่ก่อนตาม brief ข้อ 5 เจ้าของโอเคไหมหลังลอง — non-blocking: ปุ่ม ☰ ยุบได้และจำค่า; ค่าเริ่มเป็นยุบแก้ได้บรรทัดเดียว (D4, D11)
+
+## Sources
+
+- [App shell layouts](https://ui-syntax.com/collections/app-shell-layouts) — แยก primary nav จาก action ในหัว, primary 5–7 รายการ (accessed 2026-11-17)
+- [Hamburger menus and hidden navigation hurt UX metrics (NN/g)](https://www.nngroup.com/articles/hamburger-menus/) — hamburger บนเดสก์ท็อปลดการค้นพบ (accessed 2026-11-17)
+- [Sidebar pattern (ux-patterns-for-developers)](https://github.com/thedaviddias/ux-patterns-for-developers/blob/main/apps/web/content/patterns/navigation/sidebar.mdx) — sidebar กับหัวกลุ่มชัด (accessed 2026-11-17)
+- [Tailwind CSS responsive design](https://tailwindcss.com/docs/responsive-design) — `xl` 1280px, `max-xl:` (accessed 2026-11-17)
+- [MDN localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) — โยนเมื่อปิด storage, event `storage` (accessed 2026-11-17)
+- [MDN matchMedia](https://developer.mozilla.org/en-US/docs/Web/API/Window/matchMedia) — event `change` (accessed 2026-11-17)

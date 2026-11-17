@@ -28,7 +28,7 @@
 **Details:**
 - changes story-kb D9 (แถบ 4 tab, การ์ตูนเล่าต่อท้ายตาม toon spec › Frontend) เป็น 6 รายการ
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** superseded by ui-nav D1
 
 ## D3: แถบ tab แบ่งสามกลุ่มบนจอกว้าง และเป็นปุ่มเมนูบนจอแคบ
 
@@ -45,7 +45,7 @@
 - หัวกลุ่มในเมนูจอแคบ: "เตรียมของ" (คลิป, คลังความรู้, คลังเสียง) และ "ทำคลิป" (สปอย, การ์ตูนเล่า); ติดตั้งอยู่บนสุดไม่มีหัวกลุ่ม
 - จอกว้างไม่มีข้อความหัวกลุ่ม มีแต่เส้นคั่น; screen reader อ่านชื่อกลุ่มจาก `aria-label` ของแต่ละกลุ่ม
 
-**From:** interview (auto mode) · **Status:** active
+**From:** interview (auto mode) · **Status:** superseded by ui-nav D1
 
 ## D4: ปุ่ม info ข้างหัวข้อ "คลังเสียง" เปิดคำอธิบายสามข้อ
 
@@ -229,7 +229,7 @@
 
 **Why:** ลิงก์ในรายการเป็นลิงก์ `#/…` ธรรมดา ปุ่ม disclosure ไม่บังคับปุ่มลูกศรแบบ `menu`; ชื่อปุ่มต้องมีข้อความที่เห็นอยู่ด้วยแต่ต้องไม่ชนกับปุ่ม "ติดตั้ง" ของหน้าติดตั้ง; ปุ่มเดียวยาวพอจะดัน Refresh ล้นแถวแรกที่ 375px. auto mode: design ของแถบนำทางยัง pending (Blocked #1) จึงสร้างตามแถบ tab เดิม.
 
-**From:** build ticket 02 · **Status:** active
+**From:** build ticket 02 · **Status:** superseded by ui-nav D4
 
 ## D17: เสียงพื้นของสปอย: ตัวเช็คอ่าน lock ตอนลบ, สำเนา `sound.m4a`, ตัวเลือกในการ์ดตั้งค่าวิดีโอ
 

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
@@ -89,6 +89,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   window.location.hash = "";
+  window.localStorage.clear();
 });
 
 function open(hash: string, routes: Route[]) {
@@ -484,5 +485,22 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
     expect(sent(fetchMock, "POST", `${EP_PATH}/cards/k_01/swap-image`)).toEqual([{}]);
     // The card's picture loads again: it is the one it had before.
     await waitFor(() => expect(screen.getByRole("img", { name: "ภาพการ์ด 1" }).getAttribute("src")).not.toBe(before));
+  });
+});
+
+describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
+  const stored = () => JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
+
+  it("puts a Series first once its EPs load, and an EP with its Series as parent once it loads (e2e)", async () => {
+    open(`#/toon/series/${SERIES_ID}`, [get(`${SERIES_PATH}/eps`, [])]);
+    await waitFor(() => expect(stored()?.toon).toEqual([{ hash: `#/toon/series/${SERIES_ID}`, label: "รุ่นพี่เล่าว่า…" }]));
+    cleanup();
+
+    open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf())]);
+
+    await waitFor(() => expect(stored()?.toon[0]).toEqual({ hash: `#/toon/eps/${EP_ID}`, label: expect.stringMatching(/^รุ่นพี่เล่าว่า… · EP\d+$/), parent: `#/toon/series/${SERIES_ID}` }));
+    const toon = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "การ์ตูนเล่า" }));
+    expect(toon.getAllByRole("link").map((link) => link.textContent)).toEqual(["ชุดทั้งหมด", "สร้างชุดใหม่", stored().toon[0].label, "รุ่นพี่เล่าว่า…"]);
+    expect(toon.getByRole("link", { name: stored().toon[0].label })).toHaveAttribute("aria-current", "page");
   });
 });

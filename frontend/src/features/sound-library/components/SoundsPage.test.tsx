@@ -42,7 +42,7 @@ function open(hash: string, routes: Route[]) {
 }
 
 function tabs() {
-  return within(screen.getByRole("navigation", { name: "แถบ tab" }));
+  return within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
 }
 
 describe("คลังเสียง", () => {
@@ -277,6 +277,6 @@ describe("← กลับ", () => {
 
     await screen.findByRole("listitem", { name: "ฝนตกในป่า" });
     expect(screen.queryByRole("link", { name: "กลับ" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "การ์ตูนเล่า" })).toEqual([tabs().getByRole("link", { name: "การ์ตูนเล่า" })]); // the old "← การ์ตูนเล่า" is gone
+    expect(screen.queryByRole("link", { name: /การ์ตูนเล่า/ })).toBeNull(); // the old "← การ์ตูนเล่า" is gone
   });
 });

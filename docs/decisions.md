@@ -55,15 +55,26 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | แถบ tab บน: สปอย (`#/spoil`), Setup status (`#/setup`), default Setup status, ไม่ใช้ router library | [spoil](features/spoil/decisions.md) | D10 | — | — | changed by spoil-maker D53 |
-| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | story-kb | — | changed by spoil-maker D68; changed by story-kb D9 |
-| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb, windows-launch, sound-library, video-gen, drum-notes, drum-cover | — | active |
-| แถบนำทาง 6 รายการ: ติดตั้ง · คลิป · คลังความรู้ · คลังเสียง (`#/sounds`) · สปอย · การ์ตูนเล่า | [sound-library](features/sound-library/decisions.md) | D2 | video-gen, drum-notes | — | active |
-| แถบ tab แบ่งสามกลุ่มด้วยเส้นคั่นตั้งแต่ 640px; จอแคบเป็นปุ่มเมนูชื่อหน้าปัจจุบัน เปิดรายการตามกลุ่ม "เตรียมของ" กับ "ทำคลิป" | [sound-library](features/sound-library/decisions.md) | D3 | video-gen | — | active |
+| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | story-kb, ui-nav | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by spoil-maker D68; changed by story-kb D9 |
+| ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb, windows-launch, sound-library, video-gen, drum-notes, drum-cover, ui-nav | — | active |
+| แถบนำทาง 6 รายการ: ติดตั้ง · คลิป · คลังความรู้ · คลังเสียง (`#/sounds`) · สปอย · การ์ตูนเล่า | [sound-library](features/sound-library/decisions.md) | D2 | video-gen, drum-notes | — | superseded by ui-nav D1 |
+| แถบ tab แบ่งสามกลุ่มด้วยเส้นคั่นตั้งแต่ 640px; จอแคบเป็นปุ่มเมนูชื่อหน้าปัจจุบัน เปิดรายการตามกลุ่ม "เตรียมของ" กับ "ทำคลิป" | [sound-library](features/sound-library/decisions.md) | D3 | video-gen | — | superseded by ui-nav D1 |
 | แถวที่ไม่ `ok` แสดง `fix` จาก API ค่าเดียวเป็น chip พร้อมปุ่ม copy ไม่แสดงคำสั่งทั้งสอง OS | [setup-status](features/setup-status/decisions.md) | D15 | — | — | active |
 | font มากับ `@fontsource` ใน project ไม่โหลดจาก CDN | [setup-status](features/setup-status/decisions.md) | D19 | — | [0003](adr/0003-everything-inside-project.md) | active |
 | `fix` ไม่มีช่องว่าง = คำสั่ง (chip กับปุ่ม copy), มีช่องว่าง = ข้อความ | [setup-status](features/setup-status/decisions.md) | D20 | spoil | — | changed by setup-status D26 |
 | API ส่ง `fix_kind` (`command`/`hint`) คู่ `fix`; probe รวมเป็น `Probes`; แถว Python บอกสาเหตุให้ตรง | [setup-status](features/setup-status/decisions.md) | D26 | spoil, drum-notes, drum-cover | — | active |
 | รายละเอียดหน้า Setup status: Refresh จาก offline, เวลาเช็คล่าสุด, pill คำเตือน, icon จาก Figma, timeout | [setup-status](features/setup-status/decisions.md) | D21 | spoil | — | active |
+| เมนูหลัก 5 หัวข้อใหญ่ ติดตั้ง · สปอย · การ์ตูนเล่า · สอนกลอง · แกะเพลง แทนแถบ 8 tab; คลังย้ายเข้าเมนู (แทน sound-library D2, D3) | [ui-nav](features/ui-nav/decisions.md) | D1 | — | [0062](adr/0062-main-menu-from-hash-tree.md), [0063](adr/0063-libraries-in-one-menu-section.md) | active |
+| ส่วน "คลัง" ท้ายเมนู: คลังคลิป · คลังความรู้ · คลังเสียง · เสียงที่บันทึก มีที่เดียวพร้อม "ใช้กับ …"; tab "คลิป" เรียก "คลังคลิป" | [ui-nav](features/ui-nav/decisions.md) | D2 | — | [0063](adr/0063-libraries-in-one-menu-section.md) | active |
+| ขั้นของสปอยและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู ทุกส่วนเปิดตลอด หัวข้อที่มีรายการเป็นหัวกลุ่มไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D3 | — | — | active |
+| `<nav>` "เมนูหลัก" ตัวเดียว: ≥1024px sidebar ตรึงซ้ายยุบได้ (จำใน `localStorage`), จอแคบ drawer จากปุ่ม ☰ "เมนู: {หัวข้อ}" (แทน sound-library D16) | [ui-nav](features/ui-nav/decisions.md) | D4 | — | — | changed by ui-nav D11 |
+| "ล่าสุด" ในเมนู: ชุดหรือ EP, บทเรียนกลอง, เพลง ไม่เกิน 3 ต่อหัวข้อ ใน `localStorage`; ลบเมื่อ `not_found` หรือลบชิ้นนั้น | [ui-nav](features/ui-nav/decisions.md) | D5 | — | — | changed by ui-nav D11 |
+| hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11 |
+| เปลือกแอปสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma | [ui-nav](features/ui-nav/decisions.md) | D7 | — | — | active |
+| test ที่ผูกกับแถบ tab เดิม ("แถบ tab", "เมนู tab") เขียนใหม่ให้หา "เมนูหลัก" | [ui-nav](features/ui-nav/decisions.md) | D8 | — | — | active |
+| seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | — | — | active |
+| กฎ red team ของเมนู: โฟกัสและ `inert` ของ drawer, ชื่อล่าสุดตัด 80 ตัวอักษร, hash ล่าสุดตรงรูป route, อ่านก่อนเขียน, ถอยกลับด้วย revert | [ui-nav](features/ui-nav/decisions.md) | D10 | — | — | active |
+| sidebar ตรึงตั้งแต่ 1280px (`xl`) ไม่ใช่ 1024px; หน้าที่เขียนและลบล่าสุด; รายการตรงตัวหรือ prefix; ข้อความตำแหน่งในหัวหน้า | [ui-nav](features/ui-nav/decisions.md) | D11 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
 
 ## ดาวน์โหลดสื่อ
 
@@ -414,7 +425,7 @@ question; the full entry is in the feature's decisions.md.
 
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
-| คลังเสียงพื้นเป็น "คลังเสียง" คลังกลางของทั้งแอป tab `#/sounds` การ์ตูนเล่าและสปอยใช้ร่วม (แทน toon D16) | [sound-library](features/sound-library/decisions.md) | D1 | — | [0037](adr/0037-sound-library-app-wide.md) | active |
+| คลังเสียงพื้นเป็น "คลังเสียง" คลังกลางของทั้งแอป tab `#/sounds` การ์ตูนเล่าและสปอยใช้ร่วม (แทน toon D16) | [sound-library](features/sound-library/decisions.md) | D1 | ui-nav | [0037](adr/0037-sound-library-app-wide.md) | active |
 | หัวข้อหน้าคลังเสียงมีปุ่ม info เปิดคำอธิบายสามข้อ; คำเตือนสิทธิ์ของเสียงยังแสดงตลอด | [sound-library](features/sound-library/decisions.md) | D4 | — | — | active |
 | คลิปสปอยมีเสียงพื้นได้หนึ่งเสียงต่อ Spoil draft พร้อมความดัง (จำใน settings ตั้งต้น 30) วนซ้ำ ตัดที่ท้ายคลิป ร่างใหม่ไม่มีเสียงพื้น | [sound-library](features/sound-library/decisions.md) | D5 | — | — | active |
 | ข้อมูลคลังเสียงอยู่ที่ `media/sounds/` ของ `backend.sounds`, ย้ายจาก `media/toon/sounds/` เองตอน start, API `/api/sounds`, hash `#/toon/sounds` เปิด `#/sounds` | [sound-library](features/sound-library/decisions.md) | D6 | — | [0037](adr/0037-sound-library-app-wide.md), [0039](adr/0039-sound-library-own-m4a.md) | changed by sound-library D10, D11 |
@@ -427,7 +438,7 @@ question; the full entry is in the feature's decisions.md.
 | เสียงที่ draft ชี้หายรู้ตอน render (`400` `sound_not_found` เป็น Alert); ไม่มี `sound_missing` | [sound-library](features/sound-library/decisions.md) | D13 | — | — | active |
 | ย้ายคลังเดิม: เขียน `sounds.json` หลังแต่ละไฟล์, ลบ folder เดิมเมื่อทุก m4a มีสำเนาแล้วเท่านั้น, m4a ชื่อไม่ใช่ id อยู่ที่เดิมไม่นับ `left_behind`; `backend.sounds` ไม่ import toon/spoil_maker แต่ใช้ adapter ของ spoil; `LOCK_ORDER` ตาม tab; `checked_text` ใน `backend.errors`, `new_id` ใน `backend.ids` | [sound-library](features/sound-library/decisions.md) | D14 | — | [0037](adr/0037-sound-library-app-wide.md) | active |
 | หน้าคลังเสียง: "ใช้ร่วมกันทั้งการ์ตูนเล่าและสปอย", คลังว่างบรรทัดเดียว, `back` รับ `#/toon`, `in_use` บรรทัดละ user, icon ที่ใช้ร่วมอยู่ `components/ui/assets/` | [sound-library](features/sound-library/decisions.md) | D15 | — | — | active |
-| ปุ่มเมนูจอแคบเป็น disclosure ชื่อ "เมนู tab: {หน้า}", ปิดเมื่อเลือกรายการใดก็ได้, อยู่แถวใต้ wordmark; กลุ่ม tab อยู่ใน `TABS`/`TAB_GROUPS` | [sound-library](features/sound-library/decisions.md) | D16 | — | — | active |
+| ปุ่มเมนูจอแคบเป็น disclosure ชื่อ "เมนู tab: {หน้า}", ปิดเมื่อเลือกรายการใดก็ได้, อยู่แถวใต้ wordmark; กลุ่ม tab อยู่ใน `TABS`/`TAB_GROUPS` | [sound-library](features/sound-library/decisions.md) | D16 | ui-nav | — | superseded by ui-nav D4 |
 | เสียงพื้นของสปอย: `SoundUser.lock` เป็นฟังก์ชันที่คืน lock, `draft_locked` ก่อน `sound_not_found` ใต้ `draft_lock`, render ก๊อป `.render/sound.m4a` พร้อมชื่อ, ตัวเลือกในการ์ดตั้งค่าวิดีโอ ส่ง volume ตอนปล่อย, "ไม่พบเสียงนี้ในคลังเสียง" | [sound-library](features/sound-library/decisions.md) | D17 | — | [0038](adr/0038-sound-users-register-lock.md) | active |
 | สี่จอของคลังเสียงสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่มีแบบใน Figma; ปุ่มที่เพิ่มเป็นเป้ากด 44px ต่ำกว่า 640px | [sound-library](features/sound-library/decisions.md) | D18 | — | — | active |
 | feature review ของคลังเสียง: คลังอ่านไม่ได้ → "อ่านคลังเสียงไม่ได้" ในตัวเลือก, `SoundUser.playing`, `settings.checked_volume`, `VolumeRange`, `PRIMARY_BUTTON` เป็น flex | [sound-library](features/sound-library/decisions.md) | D19 | — | [0038](adr/0038-sound-users-register-lock.md) | active |

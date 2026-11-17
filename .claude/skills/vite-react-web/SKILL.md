@@ -28,10 +28,10 @@ frontend/src/
 │   ├── components/   ← UI for this feature, *.test.tsx beside each
 │   ├── hooks/        ← data fetching and state (calls lib/api)
 │   └── lib/          ← plain modules the hooks share, no React (spoil D35)
-├── components/ui/    ← shared once a second user exists: PageLayout (wordmark,
-│                        tab bar in groups from `sm`, one menu button below it,
-│                        sound-library D3; action; `wide` = 1120px from lg for two
-│                        columns), OfflinePanel, RefreshButton, ProgressBar,
+├── components/ui/    ← shared once a second user exists: PageLayout (the main menu
+│                        from `lib/nav`: a sidebar from `xl`, a drawer below it behind
+│                        the ☰ button, ui-nav D4, D11; wordmark, where the user is, action;
+│                        `wide` = 1120px from lg for two columns), OfflinePanel, RefreshButton, ProgressBar,
 │                        Alert (the Figma toned box, optional title), Labeled (a field with its label, hint and error), FixCommand (a `fix` command with
 │                        its copy button: spoil's notices, a `not_ready` of สอนกลอง), ModalDialog (overlay, Esc,
 │                        focus kept inside), BackgroundPicker (a clip's colour or picture at a route's
@@ -53,12 +53,15 @@ frontend/src/
     │                   its %, no timeout, spoil D58)
     ├── statusTypes.ts← GET /api/setup/status types; both tabs read them
     ├── useHash.ts    ← the URL hash (`useHash`, a moved page's old hash put back as its new one),
-    │                   which top tab it opens (`tabOf`), the tabs and their groups (`TABS`, `TAB_GROUPS`), and
+    │                   which topic or library it opens (`tabOf`, `tabLabel`), and
     │                   `useLeaveGuard` (asks "ออกโดยไม่บันทึก?" before the hash moves, story-kb D18)
+    ├── nav.ts        ← the main menu (ADR 0062): its topics, items and libraries, and the item a hash
+    │                   opens (`activeItem`, `locationOf`); a new page that belongs in the menu is added here
+    ├── useMediaQuery.ts ← whether the window matches a media query: the menu's `xl`
     ├── setupFixes.ts ← `fixesOf(rows)`: the fix command of each Status check row a `not_ready`
     │                   names, read from `/api/setup/status` (setup-status D26); video-gen and drum-notes
     ├── useDismiss.ts ← closes a disclosure's panel on `Esc` (focus back on its button) or a press
-    │                   outside: the คลังเสียง info box and the narrow tab menu (sound-library D16)
+    │                   outside: the คลังเสียง info box and the menu's drawer (ui-nav D4)
     ├── useMountedState.ts ← useState that drops answers after unmount; every fetching hook
     ├── useReadyState.ts ← a hook's state union with `update`, which changes only a `ready` state (toon D65)
     ├── edit.ts       ← `sendEdit` (one request, its answer as ok, refused with a `Notice`) and `stopJob`
@@ -93,7 +96,7 @@ sound-library D2; `#/sounds?back={hash}` is คลังเสียง with a "
 steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
 `#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59); `#/toon/…` pages are picked by `pageOf` in `features/toon/lib/series.ts` (toon D52, D53, D56: a Series' EPs, its `/cast`, an EP's plot, storyline or `/render`; `#/toon/sounds` became `#/sounds`, sound-library D6); `#/stories/new` and `#/stories/{id}` open แก้ Story (story-kb); `#/drums/{id}` opens หน้าแก้บทเรียนกลอง and any other `#/drums…` hash the lesson list (`drumsViewOf` in `lib/lesson.ts`, shared with the แกะเพลง tab since drum-notes D25); `#/songs/{id}` opens หน้าเพลง and any other `#/songs…` hash the song list (`songsViewOf` in `features/drum-notes/lib/songs.ts`, drum-notes D2);
 the สปอย tab's hashes, the Draft job's shapes, the styles and `sendDraft` (the one `POST` of a whole new draft, step 1 and step 2 both send it) live in `features/spoil-maker/lib/draft.ts`, the voice and render API shapes and `startJob` in `lib/render.ts` — a `lib/` module may call `lib/api` when two hooks send the same request. The tab's steps share one state (`useStepStatus`): `StepsRefreshContext` reads it again, `DraftRunContext` gives the latest Draft job to step 1 (locked while it runs) and step 2 (its progress card). Each page wraps itself in `PageLayout`,
-whose tabs are plain `#/…` links, so clicks and the back button both just
+whose menu items are plain `#/…` links, so clicks and the back button both just
 change the hash.
 
 ## Flow

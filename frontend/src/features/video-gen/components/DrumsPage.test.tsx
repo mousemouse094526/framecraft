@@ -89,6 +89,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   window.location.hash = "";
+  window.localStorage.clear();
 });
 
 function open(hash: string, routes: Route[]) {
@@ -123,7 +124,7 @@ describe("รายการบทเรียนกลอง", () => {
   it("the สอนกลอง tab after การ์ตูนเล่า opens #/drums, which invites the first lesson when there is none", async () => {
     const user = open("#/setup", [get("/api/setup/status", status)]);
 
-    await user.click(screen.getByRole("link", { name: "สอนกลอง" }));
+    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
 
     expect(window.location.hash).toBe("#/drums");
     expect(await screen.findByText("ยังไม่มีบทเรียนกลอง")).toBeInTheDocument();
@@ -484,7 +485,7 @@ describe("บันทึก", () => {
 
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     confirmMock.mockReturnValue(false);
-    await user.click(screen.getByRole("link", { name: "สอนกลอง" }));
+    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
     await hashSettles();
 
     expect(confirmMock).toHaveBeenCalledWith("ออกโดยไม่บันทึก?");
@@ -498,7 +499,7 @@ describe("บันทึก", () => {
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     await user.click(save());
     await screen.findByText("บันทึกแล้ว");
-    await user.click(screen.getByRole("link", { name: "สอนกลอง" }));
+    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
     await hashSettles();
 
     expect(confirmMock).not.toHaveBeenCalled();
@@ -729,5 +730,16 @@ describe("พื้นหลัง", () => {
 
     await waitFor(() => expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1));
     expect(sent(fetchMock, "PUT", PATH)[0]).toMatchObject({ subtitle: "intro fill", background: "image" });
+  });
+});
+
+describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
+  it("puts a lesson first under สอนกลอง once its editor loads, and keeps it open on its renders (e2e)", async () => {
+    await openEditor();
+
+    const recent = JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
+    expect(recent.drums).toEqual([{ hash: `#/drums/${ID}`, label: "ร็อกพื้นฐาน" }]);
+    const drums = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "สอนกลอง" }));
+    expect(drums.getByRole("link", { name: "ร็อกพื้นฐาน" })).toHaveAttribute("aria-current", "page");
   });
 });
