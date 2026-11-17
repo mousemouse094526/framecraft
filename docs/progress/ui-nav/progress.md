@@ -1,11 +1,11 @@
 # Progress: ui-nav
 
-**Now:** 01 done; 02 next
+**Now:** 01–02 done; feature review then PR
 
 **Next:**
 
 ```
-/warroom-build ui-nav 02
+/pr-open
 ```
 
 ## Tickets
@@ -13,9 +13,26 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | เมนูหลัก 5 หัวข้อ พร้อมขั้นและคลัง | done |
-| 02 | ล่าสุดในเมนู | ready |
+| 02 | ล่าสุดในเมนู | done |
 
 ## Log
+
+### 02: ล่าสุดในเมนู — done 2026-11-17
+
+**Built:**
+- ชุดหรือ EP บทเรียนกลอง และเพลงที่เปิดล่าสุดขึ้นใต้หัวข้อของมันในเมนู ไม่เกิน 3 รายการ กดแล้วถึงทันที; หน้าย่อย (`/cast`, `/renders`, `/cover`, …) เน้นชิ้นแม่
+- ลบชุด (พร้อม EP ของมัน) EP บทเรียน หรือเพลง แล้วหายจากล่าสุด; บทเรียนหรือเพลงที่ได้ `not_found` ก็หาย
+- storage เสียหรือถูกแก้มือ = ไม่มีล่าสุด หน้าเปิดปกติ; แท็บอื่นเปลี่ยนแล้วเมนูตาม
+
+**Decided:**
+- ไม่มี D ใหม่: ตาม D5, D10, D11
+
+**For the next ticket:**
+- `useRecentPage(area, hash, page)` ใน `lib/recent.ts` คือทางเดียวที่หน้าเขียนล่าสุด; หน้าใหม่ของชิ้นเดียวเรียกมันตัวเดียว
+- test ลบ EP และลบบทเรียนผ่านหน้าไม่ได้เขียนแยก: ทางเดียวกับลบเพลง (มี test) และ `forgetRecent` มี unit test ของ cascade
+- `DraftProgress.test.tsx` › D87 ล้มบางรอบเมื่อรันทั้งชุด (2 ใน 7 รอบ) ผ่านทุกรอบเมื่อรันเดี่ยว: test ใช้ `shouldAdvanceTime` และคอมเมนต์ในตัวบอกว่าลำดับ poll ไม่แน่นอน (`0da9252` แก้ไปครั้งหนึ่งแล้ว) — ไม่ได้แตะในงานนี้
+
+**Checks:** `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 653 tests (652 passed + D87 flake ข้างบน; รอบอื่นผ่านครบ); `npm --prefix frontend run build` ผ่าน; `uv run pytest` 1555 passed (ticket 01, backend ไม่เปลี่ยน)
 
 ### 01: เมนูหลัก 5 หัวข้อ พร้อมขั้นและคลัง — done 2026-11-17
 

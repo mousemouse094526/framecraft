@@ -4,6 +4,7 @@ import { useMountedState } from "../../../lib/useMountedState";
 import { epPath, seriesEpsPath, type Ep, type ListedEp } from "../lib/episodes";
 import { epHash, seriesPath, startToonJob, type Series } from "../lib/series";
 import { sendEdit } from "../../../lib/edit";
+import { forgetRecent } from "../../../lib/recent";
 import type { Notice } from "../../../lib/notice";
 
 export type EpListState =
@@ -52,6 +53,7 @@ export function useEpList(seriesId: string) {
 
   const remove = async (ep: ListedEp) => {
     const reply = await sendEdit<null>("DELETE", epPath(ep.id), undefined, `ลบ ${ep.title || `EP ${ep.n}`} ไม่ได้`, { ok: [204] });
+    if (reply.kind === "ok") forgetRecent(epHash(ep.id));
     // The list is read again either way: a refused delete may mean it changed.
     await load(reply.kind === "ok" ? null : reply.notice);
   };

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
 import { LIBRARY_ITEMS, LIBRARY_LABEL, locationOf, NAV_TOPICS, SETUP_ITEM, type NavItem } from "../../lib/nav";
 import { useDismiss } from "../../lib/useDismiss";
 import { tabLabel, useHash, type TabId } from "../../lib/useHash";
 import { useMediaQuery } from "../../lib/useMediaQuery";
+import { useRecent } from "../../lib/recent";
 import menuIcon from "./assets/menu.svg";
 
 type Props = {
@@ -53,7 +54,14 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLElement>(null);
   const menuId = useId();
-  const { item, text } = locationOf(hash, tab);
+  const recent = useRecent();
+  // ล่าสุด as menu items under their topic; a page under one (its `/cast`, `/renders`, …) opens it too (ui-nav D5, D11).
+  const recentItems = useMemo(() => {
+    const items: Partial<Record<TabId, NavItem[]>> = {};
+    for (const [area, list] of Object.entries(recent)) items[area as TabId] = list.map(({ hash, label }) => ({ hash, label, prefix: true }));
+    return items;
+  }, [recent]);
+  const { item, text } = locationOf(hash, tab, (topic) => recentItems[topic] ?? []);
 
   const drawerOpen = drawer && !pinned;
   const shown = pinned ? !collapsed : drawerOpen;
@@ -74,9 +82,9 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
   }, [drawerOpen]);
 
   const setButton = useCallback((element: HTMLButtonElement | null) => {
-    button.current = element;
     if (element) latestButton = element;
-    else if (latestButton && !latestButton.isConnected) latestButton = null;
+    else if (latestButton === button.current) latestButton = null;
+    button.current = element;
   }, []);
 
   const toggle = () => {
@@ -106,6 +114,7 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
         id={menuId}
         tab={tab}
         current={item}
+        recent={recentItems}
         onPick={picked}
         className={`${collapsed ? "xl:hidden" : "xl:flex"} ${drawerOpen ? "max-xl:flex" : "max-xl:hidden"}`}
       />
@@ -152,13 +161,14 @@ type MenuProps = {
   id: string;
   tab: TabId;
   current: NavItem | null;
+  recent: Partial<Record<TabId, NavItem[]>>;
   onPick: (event: MouseEvent<HTMLAnchorElement>) => void;
   className: string;
 };
 
 /** The main menu: ติดตั้ง, each topic under its heading with its items, then the libraries
  * (ui-nav D1–D3). One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
-function MainMenu({ ref, id, tab, current, onPick, className }: MenuProps) {
+function MainMenu({ ref, id, tab, current, recent, onPick, className }: MenuProps) {
   const headingId = useId();
   return (
     <nav
@@ -173,6 +183,14 @@ function MainMenu({ ref, id, tab, current, onPick, className }: MenuProps) {
           {topic.items.map((item) => (
             <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
           ))}
+          {!!recent[topic.id]?.length && (
+            <>
+              <p className="px-3 pt-1.5 text-[11px] leading-[1.5] font-medium text-muted-foreground">ล่าสุด</p>
+              {recent[topic.id]!.map((item) => (
+                <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
+              ))}
+            </>
+          )}
         </MenuGroup>
       ))}
       <MenuGroup id={`${headingId}-library`} label={LIBRARY_LABEL} current={false}>

@@ -183,7 +183,7 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     await user.click(item("ติดตั้ง"));
 
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
-    expect(menuButton()).toHaveFocus();
+    await waitFor(() => expect(menuButton()).toHaveFocus());
   });
 
   it("closes on Esc with the focus back on the button (e2e)", async () => {

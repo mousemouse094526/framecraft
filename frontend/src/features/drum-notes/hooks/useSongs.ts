@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getJson, sendFile, sendJson, type FileUpload } from "../../../lib/api";
 import { NOT_NOW, refusedLine, refusedOf, type Refused } from "../../../lib/refused";
+import { forgetRecent } from "../../../lib/recent";
 import type { Refusal } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
@@ -157,7 +158,10 @@ export function useSongs(onKnownSong: (id: string) => void) {
       try {
         const reply = await sendJson("DELETE", songPath(id));
         // Already gone is what was asked for.
-        if (reply.status === 204 || reply.status === 404) await load();
+        if (reply.status === 204 || reply.status === 404) {
+          forgetRecent(songHash(id));
+          await load();
+        }
         else await showNotice(reply.body);
       } catch {
         await showNotice(null);

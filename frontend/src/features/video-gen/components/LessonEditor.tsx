@@ -10,6 +10,7 @@ import { useDrumRender } from "../hooks/useDrumRender";
 import { useLessonEditor, type Editing } from "../hooks/useLessonEditor";
 import { postForBlob } from "../../../lib/api";
 import { useListen } from "../../../lib/useListen";
+import { useRecentPage } from "../../../lib/recent";
 import type { PieceId } from "../../../lib/kit";
 import {
   backgroundPath,
@@ -18,6 +19,7 @@ import {
   BPM_MIN,
   DRUMS_HASH,
   lengthOf,
+  lessonHash,
   lessonPath,
   MAX_SECONDS,
   noteFor,
@@ -41,6 +43,7 @@ import { RenderProgress } from "./RenderProgress";
 /** หน้าแก้บทเรียนกลอง (`#/drums/{id}`). The design is pending, so the app's own parts. */
 export function LessonEditor({ id }: { id: string }) {
   const { state, edit, save, applyBackground } = useLessonEditor(id);
+  useRecentPage("drums", lessonHash(id), state.kind === "ready" ? { label: state.saved.title } : state.kind === "not_found" ? "gone" : null);
 
   return (
     <PageLayout tab="drums" wide>

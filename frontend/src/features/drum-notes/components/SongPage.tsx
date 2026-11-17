@@ -12,6 +12,7 @@ import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
 import { BPM_MAX, BPM_MIN, lessonHash } from "../../../lib/lesson";
+import { useRecentPage } from "../../../lib/recent";
 import { useLessonPreview } from "../hooks/useLessonPreview";
 import { useLessonTitles } from "../hooks/useLessonTitles";
 import { refusedLine, type Refused } from "../../../lib/refused";
@@ -46,6 +47,7 @@ import {
   type PickJob,
   type Range,
   type Song,
+  songHash,
 } from "../lib/songs";
 
 /**
@@ -55,6 +57,7 @@ import {
  */
 export function SongPage({ id, notice }: { id: string; notice: string | null }) {
   const { state, reload, replace } = useSong(id);
+  useRecentPage("songs", songHash(id), state.kind === "ready" ? { label: state.song.title } : state.kind === "not_found" ? "gone" : null);
   const player = useRef<HTMLAudioElement>(null);
   const pick = usePick(replace, (job) => {
     if (job.song_id === id && job.state === "done") void reload();

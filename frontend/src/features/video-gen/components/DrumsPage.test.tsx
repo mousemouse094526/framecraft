@@ -89,6 +89,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   window.location.hash = "";
+  window.localStorage.clear();
 });
 
 function open(hash: string, routes: Route[]) {
@@ -729,5 +730,16 @@ describe("พื้นหลัง", () => {
 
     await waitFor(() => expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1));
     expect(sent(fetchMock, "PUT", PATH)[0]).toMatchObject({ subtitle: "intro fill", background: "image" });
+  });
+});
+
+describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
+  it("puts a lesson first under สอนกลอง once its editor loads, and keeps it open on its renders (e2e)", async () => {
+    await openEditor();
+
+    const recent = JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
+    expect(recent.drums).toEqual([{ hash: `#/drums/${ID}`, label: "ร็อกพื้นฐาน" }]);
+    const drums = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "สอนกลอง" }));
+    expect(drums.getByRole("link", { name: "ร็อกพื้นฐาน" })).toHaveAttribute("aria-current", "page");
   });
 });

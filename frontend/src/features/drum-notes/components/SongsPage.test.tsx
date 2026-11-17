@@ -144,6 +144,7 @@ afterEach(() => {
   fetchMock.mockReset();
   vi.unstubAllGlobals();
   window.location.hash = "";
+  window.localStorage.clear();
 });
 
 function open(hash: string, routes: Route[]) {
@@ -773,5 +774,45 @@ describe("สร้างบทเรียน", () => {
     expect(made).toHaveTextContent("ยังไม่มี");
     expect(screen.queryByRole("region", { name: "สร้างบทเรียน" })).not.toBeInTheDocument();
     expect(sent(fetchMock, "POST", PREVIEW_PATH)).toEqual([]);
+  });
+});
+
+describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
+  const stored = () => JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
+  const songsGroup = () => within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "แกะเพลง" }));
+
+  it("puts a song first under แกะเพลง once its page loads, open there (e2e)", async () => {
+    open(`#/songs/${ID}`, [get(PATH, songOf())]);
+
+    await waitFor(() => expect(stored()?.songs).toEqual([{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }]));
+    expect(songsGroup().getByText("ล่าสุด")).toBeInTheDocument();
+    expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /^เมนู:/ })).toHaveAccessibleName("เมนู: แกะเพลง / Smells Like Teen Spirit");
+  });
+
+  it("keeps the song open in the menu on its reel page, which writes nothing", async () => {
+    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }] }));
+    open(`#/songs/${ID}/cover`, []);
+
+    expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("forgets a song that is deleted (e2e)", async () => {
+    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }] }));
+    const user = open("#/songs", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, []), send("DELETE", PATH, null, 204)]);
+    expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "ลบ Smells Like Teen Spirit" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "ลบ" }));
+
+    await waitFor(() => expect(stored()?.songs).toEqual([]));
+    expect(songsGroup().queryByText("ล่าสุด")).toBeNull();
+  });
+
+  it("forgets a song whose page answers not_found", async () => {
+    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }] }));
+    open(`#/songs/${ID}`, [send("GET", PATH, { code: "not_found", message: "ไม่พบเพลงนี้" }, 404)]);
+
+    await waitFor(() => expect(stored()?.songs).toEqual([]));
   });
 });

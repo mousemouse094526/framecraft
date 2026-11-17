@@ -6,6 +6,7 @@ import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyle
 import { useEp } from "../hooks/useEp";
 import { epLabel } from "../lib/episodes";
 import { epHash, isRunning, plotHash, seriesHash, type ToonJob } from "../lib/series";
+import { useRecentPage } from "../../../lib/recent";
 import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { JobBanner } from "./JobBanner";
 import { PlotView } from "./PlotView";
@@ -45,6 +46,11 @@ function runningText(job: EpJob): { title: string; detail: string } {
  * plot either way (Figma toon / 6, 7). A Plot or Cards job of this EP closes every field. */
 export function EpPage({ epId, plot }: { epId: string; plot: boolean }) {
   const { state, reload, edit, startPlot, startCards, closeLost, cancelJob, ...cardJobs } = useEp(epId);
+  useRecentPage(
+    "toon",
+    epHash(epId),
+    state.kind === "ready" ? { label: `${state.series.name} · ${epLabel(state.ep.n)}`, parent: seriesHash(state.series.id) } : null,
+  );
 
   if (state.kind === "offline") {
     return (
