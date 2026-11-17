@@ -9,6 +9,7 @@ import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
+import { SegmentedChoice } from "../../../components/ui/SegmentedChoice";
 import { Switch } from "../../../components/ui/Switch";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import downloadIcon from "../../../components/ui/assets/download.svg";
@@ -24,14 +25,15 @@ import { useCover } from "../hooks/useCover";
 import { useCoverRender } from "../hooks/useCoverRender";
 import {
   adjustedText,
+  backingLabels,
   BACKING_WARNING,
   coverBackgroundPath,
   coverBackgroundUrl,
   coverListenPath,
   downloadName,
-  drumsLabel,
   fieldsOf,
   hitsIn,
+  INSTRUMENT_NAME,
   isCoverRendering,
   isSilent,
   isStale,
@@ -42,21 +44,31 @@ import {
   NO_ANALYSIS,
   NO_AUDIO,
   NO_HITS,
+  NO_NOTES_LINK,
+  NO_NOTES_TEXT,
+  notesLine,
   RANGE_RULE,
-  SILENT,
+  silentText,
   stretchFault,
   TITLE_HINT,
   TITLE_MAX,
+  transposeWarning,
+  soundLabel,
+  soundOf,
   VOLUME_MAX,
   VOLUME_MIN,
   type Cover,
   type CoverFields,
   type CoverRenderResult,
+  type NoNotes,
+  type Instrument,
+  type Sound,
 } from "../lib/cover";
 
 /**
- * หน้า reel (`#/songs/{id}/cover`): the stretch, the text, the sound, ฟัง and render reel, and the
- * renders made (spec › Design, D6, D7, D11, D12, D18, D19, D24; ui-prompt.md screen 2, D14).
+ * หน้า reel (`#/songs/{id}/cover`): the instrument, the stretch, the text, the sound, ฟัง and render
+ * reel, and the renders made (spec › Design, D6, D7, D11, D12, D18, D19, D24; ui-prompt.md screen 2,
+ * D14; kalimba-cover spec › Design, D9, D10, D14).
  */
 export function CoverPage({ id }: { id: string }) {
   const cover = useCover(id);
@@ -127,7 +139,10 @@ const sameFields = (a: CoverFields, b: CoverFields) =>
   a.drums.on === b.drums.on &&
   a.drums.volume === b.drums.volume &&
   a.backing.on === b.backing.on &&
-  a.backing.volume === b.backing.volume;
+  a.backing.volume === b.backing.volume &&
+  a.instrument === b.instrument &&
+  a.kalimba.on === b.kalimba.on &&
+  a.kalimba.volume === b.kalimba.volume;
 
 function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
   const id = useId();
@@ -144,6 +159,11 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
   const unsaved = dirty || !saved.saved;
   const fault = stretchFault(fields.start_s, fields.end_s, analysis);
   const hits = fault ? saved.hits : hitsIn(song, fields.start_s, fields.end_s);
+  const kalimba = fields.instrument === "kalimba";
+  const name = INSTRUMENT_NAME[fields.instrument];
+  // The backend arranges the notes (D9), so its counts are the saved stretch's: shown while that is the stretch typed (D16).
+  const savedStretch = fields.start_s === saved.start_s && fields.end_s === saved.end_s;
+  const noNotes: NoNotes | null = !saved.notes_picked ? (song.source.kind === "midi" ? "not_imported" : "not_picked") : savedStretch && saved.notes === 0 ? "empty" : null;
   const render = useCoverRender((job) => {
     if (job.song_id !== song.id) return;
     void cover.reloadRenders();
@@ -158,9 +178,10 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((now) => ({ ...now, [key]: value }));
     // A field the backend refused is being fixed: its line goes (`backing` covers `backing.on` and `.volume`;
-    // either sound covers `drums.on`, the silent reel's).
+    // either sound, or the other instrument, covers `drums.on` and `kalimba.on`, the silent reel's).
     const field = key === "start" ? "start_s" : key === "end" ? "end_s" : key;
-    const fixes = (refusedField: string) => refusedField.startsWith(`${field}.`) || (refusedField === "drums.on" && key === "backing");
+    const silentField = (refusedField: string) => refusedField === "drums.on" || refusedField === "kalimba.on";
+    const fixes = (refusedField: string) => refusedField.startsWith(`${field}.`) || (silentField(refusedField) && (key === "backing" || key === "instrument"));
     setRefused((now) => (now?.field === field || (now?.field && fixes(now.field)) ? null : now));
   };
   /** กลองล้วน puts a volume the backend would refuse back to the saved one: hidden, it can't be fixed. */
@@ -192,7 +213,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
   const listen = useListen(async () => ((await saveFirst()) ? postForBlob(coverListenPath(song.id), {}) : null));
   const mixing = listen.state.kind === "mixing";
   const silent = isSilent(fields);
-  const canPlay = hits > 0 && !fault && !silent;
+  const canPlay = !fault && !silent && (kalimba ? noNotes === null : hits > 0);
 
   const fieldError = (name: string) => (refused?.field === name ? refused.text : undefined);
   // The found bars the stretch takes in; the saved stretch's while a box is wrong.
@@ -203,7 +224,33 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
   return (
     <>
       {saved.adjusted && <Alert tone="info">{adjustedText(saved)}</Alert>}
-      {analysis.mode === "melody" && <Alert tone="info">{MELODY_ONLY}</Alert>}
+      <section aria-label="เครื่องดนตรี" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
+        <h3 className="text-base leading-[1.5] font-semibold text-foreground">เครื่องดนตรี</h3>
+        <SegmentedChoice<Instrument>
+          label="เครื่องดนตรี"
+          options={[
+            { value: "drums", label: INSTRUMENT_NAME.drums },
+            { value: "kalimba", label: INSTRUMENT_NAME.kalimba },
+          ]}
+          value={draft.instrument}
+          onChoose={(instrument) => set("instrument", instrument)}
+        />
+        {kalimba && noNotes === null && savedStretch && <p className="text-[13px] leading-[1.5] text-mid">{notesLine(saved)}</p>}
+        {kalimba && noNotes !== null && (
+          <Alert tone="warning">
+            {NO_NOTES_TEXT[noNotes]}
+            {noNotes !== "empty" && (
+              <>
+                {" "}
+                <a href={noNotes === "not_imported" ? SONGS_HASH : songHash(song.id)} className="text-brand underline">
+                  {NO_NOTES_LINK[noNotes]}
+                </a>
+              </>
+            )}
+          </Alert>
+        )}
+      </section>
+      {analysis.mode === "melody" && !kalimba && <Alert tone="info">{MELODY_ONLY}</Alert>}
       <section aria-label="ช่วงของ reel" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h3 className="text-base leading-[1.5] font-semibold text-foreground">ช่วงของ reel</h3>
         <p className="text-[13px] leading-[1.5] text-mid">
@@ -237,7 +284,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
             </li>
           ))}
         </ol>
-        {hits === 0 && !fault && <Alert tone="warning">{NO_HITS}</Alert>}
+        {hits === 0 && !fault && !kalimba && <Alert tone="warning">{NO_HITS}</Alert>}
       </section>
 
       <section aria-label="ข้อความบนจอ" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -263,50 +310,16 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
 
       <section aria-label="เสียง" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h3 className="text-base leading-[1.5] font-semibold text-foreground">เสียง</h3>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <span className="flex-1 text-sm leading-[1.5] font-medium text-foreground">กลอง</span>
-            <span aria-hidden className="text-sm leading-[1.5] text-mid">
-              ปิดเสียงกลอง
-            </span>
-            {/* On = muted: the switch says ปิดเสียงกลอง, the field says whether the drums play. */}
-            <Switch label="ปิดเสียงกลอง" on={!draft.drums.on} onToggle={() => set("drums", { ...draft.drums, on: !draft.drums.on })} />
-          </div>
-          {draft.drums.on && (
-            <Labeled label="ความดังกลอง" htmlFor={`${id}-drums`} error={fieldError("drums.volume")}>
-              <div className="flex items-center gap-3">
-                <input
-                  id={`${id}-drums`}
-                  type="range"
-                  min={VOLUME_MIN}
-                  max={VOLUME_MAX}
-                  value={draft.drums.volume}
-                  onChange={(e) => set("drums", { ...draft.drums, volume: Number(e.target.value) })}
-                  className="h-11 w-full accent-brand-accent"
-                />
-                <span className="w-12 text-right font-mono text-sm text-mid">{draft.drums.volume}%</span>
-              </div>
-            </Labeled>
-          )}
-        </div>
-        <div role="radiogroup" aria-label="เสียงของ reel" className="flex flex-wrap gap-2">
-          {[
-            { on: false, label: "กลองล้วน" },
-            { on: true, label: "กลอง + เพลงต้นฉบับ" },
-          ].map((option) => (
-            <button
-              key={option.label}
-              type="button"
-              role="radio"
-              aria-checked={draft.backing.on === option.on}
-              disabled={option.on && !saved.has_audio}
-              onClick={() => chooseBacking(option.on)}
-              className={`h-11 rounded-lg border px-4 font-button text-sm font-medium sm:h-10 ${draft.backing.on === option.on ? "border-brand-accent bg-accent-subtle text-foreground" : "border-border bg-card text-mid hover:bg-muted"} disabled:opacity-40`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <SoundRow key={fields.instrument} id={`${id}-sound`} name={name} sound={soundOf(draft)} error={fieldError(`${draft.instrument}.volume`)} onChange={(sound) => set(draft.instrument, sound)} />
+        <SegmentedChoice<boolean>
+          label="เสียงของ reel"
+          options={[
+            { value: false, label: backingLabels(name).alone },
+            { value: true, label: backingLabels(name).withSong, disabled: !saved.has_audio },
+          ]}
+          value={draft.backing.on}
+          onChoose={chooseBacking}
+        />
         {!saved.has_audio && <p className="text-xs leading-4 text-muted-foreground">{NO_AUDIO}</p>}
         {draft.backing.on && (
           <>
@@ -322,10 +335,11 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
               />
             </Labeled>
             <Alert tone="warning">{BACKING_WARNING}</Alert>
+            {kalimba && savedStretch && saved.transpose !== 0 && <Alert tone="warning">{transposeWarning(saved.transpose)}</Alert>}
           </>
         )}
         {fieldError("backing.on") && <p className="font-button text-xs leading-4 text-destructive">{fieldError("backing.on")}</p>}
-        {(silent || fieldError("drums.on")) && <p className="font-button text-xs leading-4 text-destructive">{silent ? SILENT : fieldError("drums.on")}</p>}
+        {(silent || fieldError(`${draft.instrument}.on`)) && <p className="font-button text-xs leading-4 text-destructive">{silent ? silentText(draft.instrument) : fieldError(`${draft.instrument}.on`)}</p>}
       </section>
 
       <section aria-label="ทำ reel" className="sticky bottom-0 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-6">
@@ -361,7 +375,8 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
         </div>
         {rendering && !ownRendering && <p className="text-[13px] leading-[1.5] text-mid">กำลัง render {rendering.title} อยู่ รอให้เสร็จก่อน</p>}
         {listen.state.kind === "refused" && <RefusedAlert refused={listen.state} />}
-        {refused && !["start_s", "end_s", "title", "subtitle", "caption", "backing.on", "drums.on", ...(draft.drums.on ? ["drums.volume"] : []), ...(draft.backing.on ? ["backing.volume"] : [])].includes(refused.field ?? "") && <RefusedAlert refused={refused} />}
+        {refused &&
+          !["start_s", "end_s", "title", "subtitle", "caption", "backing.on", `${draft.instrument}.on`, ...(soundOf(draft).on ? [`${draft.instrument}.volume`] : []), ...(draft.backing.on ? ["backing.volume"] : [])].includes(refused.field ?? "") && <RefusedAlert refused={refused} />}
         {render.refused && <RefusedAlert refused={render.refused} />}
         {failed && <Alert tone={failed.state === "failed" ? "error" : "info"}>{failed.state === "failed" ? failed.message : "ยกเลิก render แล้ว"}</Alert>}
       </section>
@@ -382,7 +397,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
                     <span className="flex flex-wrap gap-1.5 text-[13px] text-mid">
                       {formatDuration(Math.round(result.length_s))} · {seconds(result.start_s)}–{seconds(result.end_s)}
                       {result.backing.on && <span className="rounded bg-muted px-1.5 text-xs">มีเพลงต้นฉบับ</span>}
-                      {drumsLabel(result.drums) && <span className="rounded bg-muted px-1.5 text-xs">{drumsLabel(result.drums)}</span>}
+                      <SoundBadge result={result} />
                       {isStale(result, song) && <span className="rounded bg-warning-surface px-1.5 text-xs text-warning">แกะใหม่แล้ว</span>}
                     </span>
                   </button>
@@ -414,6 +429,38 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
         />
       )}
     </>
+  );
+}
+
+type SoundRowProps = { id: string; name: string; sound: Sound; error?: string; onChange: (sound: Sound) => void };
+
+/** A render's instrument and sound, when its row marks them (`soundLabel`). */
+function SoundBadge({ result }: { result: CoverRenderResult }) {
+  const label = soundLabel(result);
+  return label && <span className="rounded bg-muted px-1.5 text-xs">{label}</span>;
+}
+
+/** The chosen instrument's sound: ปิดเสียง{name}, and its volume while it plays (D24, kalimba-cover D9). */
+function SoundRow({ id, name, sound, error, onChange }: SoundRowProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <span className="flex-1 text-sm leading-[1.5] font-medium text-foreground">{name}</span>
+        <span aria-hidden className="text-sm leading-[1.5] text-mid">
+          ปิดเสียง{name}
+        </span>
+        {/* On = muted: the switch says ปิดเสียง{name}, the field says whether the instrument plays. */}
+        <Switch label={`ปิดเสียง${name}`} on={!sound.on} onToggle={() => onChange({ ...sound, on: !sound.on })} />
+      </div>
+      {sound.on && (
+        <Labeled label={`ความดัง${name}`} htmlFor={id} error={error}>
+          <div className="flex items-center gap-3">
+            <input id={id} type="range" min={VOLUME_MIN} max={VOLUME_MAX} value={sound.volume} onChange={(e) => onChange({ ...sound, volume: Number(e.target.value) })} className="h-11 w-full accent-brand-accent" />
+            <span className="w-12 text-right font-mono text-sm text-mid">{sound.volume}%</span>
+          </div>
+        </Labeled>
+      )}
+    </div>
   );
 }
 

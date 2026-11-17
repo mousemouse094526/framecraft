@@ -221,3 +221,32 @@ def test_onsets_on_adjacent_frames_are_one_hit_at_the_first_also_across_two_wind
     hits = score.melody_hits(outputs, samples=2 * HOP, start_s=0.0)
 
     assert [h.t for h in hits] == pytest.approx([5 * 256 / 22_050, 25 * 256 / 22_050, 27 * 256 / 22_050, 141 * 256 / 22_050], abs=0.0005)
+
+
+# --- melody notes (kalimba-cover D2) ---
+
+
+def test_each_key_s_onsets_are_notes_of_its_pitch_two_keys_at_one_frame_two_notes_and_the_snares_stay_as_they_were():
+    [window] = score.basic_pitch_windows(HOP - PAD)
+    onset = onsets([10, 20, 21], note=39)  # key 39 is C4 (21 + 39); frame 10 is cut, 20 and 21 are one onset
+    onset[20, 43] = 1.0  # key 43 is E4, at the same frame
+    outputs = [(window, onset)]
+
+    notes = score.melody_notes(outputs, samples=HOP - PAD, start_s=5.0)
+    hits = score.melody_hits(outputs, samples=HOP - PAD, start_s=5.0)
+
+    at = round(5.0 + 5 * 256 / 22_050, 3)  # frame 20 of the first window is 5 frames into the range
+    assert [(n.t, n.pitch, n.level) for n in notes] == [(at, 60, "normal"), (at, 64, "normal")]
+    assert [(h.t, h.piece) for h in hits] == [(at, "snare")]
+
+
+def test_notes_past_twenty_thousand_are_cut_keeping_the_earliest():
+    windows = score.basic_pitch_windows(4 * HOP)
+    every_key = np.zeros((score.BASIC_PITCH_FRAMES, score.BASIC_PITCH_NOTES), np.float32)
+    every_key[::2] = 1.0  # every second frame on all 88 keys: 71 kept frames × 88 notes a window
+
+    notes = score.melody_notes([(window, every_key) for window in windows], samples=4 * HOP, start_s=0.0)
+
+    assert len(notes) == songs.MAX_NOTES
+    assert [(n.t, n.pitch) for n in notes] == sorted((n.t, n.pitch) for n in notes)
+    assert notes[-1].t < 4 * HOP / 22_050

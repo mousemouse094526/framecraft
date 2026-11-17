@@ -123,7 +123,7 @@ def test_a_pick_goes_preparing_then_picking_with_a_percent_then_done_and_writes_
     runner.release("adtof")
     runner.wait_until("chunk 0")
     job = client.get(PICK).json()
-    assert (job["state"], job["percent"]) == ("picking", 50)  # ADTOF done, one chunk to go
+    assert (job["state"], job["percent"]) == ("picking", 83)  # ADTOF and four Basic Pitch windows done, one chunk to go
     runner.release("chunk 0")
     job = poll_until(client, PICK, lambda job: job["state"] in FINISHED)
 
@@ -139,9 +139,34 @@ def test_a_pick_goes_preparing_then_picking_with_a_percent_then_done_and_writes_
         (6.0, "kick", "normal"), (6.5, "snare", "normal"), (7.0, "kick", "normal"), (7.5, "snare", "normal"),
     ]  # fmt: skip
     assert analysis["picked_at"] >= song["created_at"]
-    assert runner.opened == ["adtof_frame_rnn.onnx", "beat_this.onnx"]
+    # The melody's notes beside the hits (kalimba-cover D2): the fake puts its onsets in column 60, pitch 21 + 60 = 81 (A5), every 0.5 s.
+    assert {(note["pitch"], note["level"]) for note in analysis["notes"]} == {(81, "normal")}
+    assert [note["t"] for note in analysis["notes"]] == pytest.approx([2.0 + 0.5 * n for n in range(12)], abs=0.012)
+    assert runner.opened == ["adtof_frame_rnn.onnx", "basic_pitch_nmp.onnx", "beat_this.onnx"]
     [row] = client.get(SONGS).json()
     assert row["analysis"] == {"mode": "drums", "bars": 2}
+
+
+def test_a_drums_pick_whose_basic_pitch_raises_or_is_missing_ends_done_with_its_hits_and_no_notes(client, project, runner, tmp_path):
+    """Basic Pitch never breaks a drums pick (kalimba-cover D14), nor does its gate ask for its row."""
+    song = import_song_tone(client, tmp_path, seconds=12)
+
+    def broken(first_sample):
+        raise RuntimeError("Non-zero status code returned while running Conv node")
+
+    runner.onset = broken
+    job = pick_until_ended(client, song["id"])
+    assert (job["state"], job["percent"]) == ("done", 100)
+    analysis = song_json(project, song["id"])["analysis"]
+    assert (len(analysis["hits"]), analysis["notes"]) == (24, None)  # a kick and a snare a second over 12 s
+
+    project.marker(BASIC_PITCH).unlink()
+    [pattern] = BASIC_PITCH.allow_patterns
+    (project.snapshot_dir(BASIC_PITCH, BASIC_PITCH.revision) / pattern).unlink()
+    job = pick_until_ended(client, song["id"])
+    assert job["state"] == "done"
+    analysis = song_json(project, song["id"])["analysis"]
+    assert (len(analysis["hits"]), analysis["notes"]) == (24, None)
 
 
 def test_the_song_answers_the_bars_found_marking_one_without_four_beats(client, runner, tmp_path):
@@ -174,15 +199,16 @@ def test_adtof_gets_the_whole_stretch_at_44_1_khz_once_and_beat_this_each_chunk_
 
     assert start_pick(client, song["id"]).status_code == 202
     runner.wait_until("chunk 0")
-    assert client.get(PICK).json()["percent"] == 33  # ADTOF, of three steps
+    assert client.get(PICK).json()["percent"] == 92  # ADTOF and 22 Basic Pitch windows, of 25 steps
     runner.release("chunk 0")
     runner.wait_until("chunk 1")
-    assert client.get(PICK).json()["percent"] == 66
+    assert client.get(PICK).json()["percent"] == 96
     runner.release("chunk 1")
     assert poll_until(client, PICK, lambda job: job["state"] in FINISHED)["state"] == "done"
 
-    adtof, first, second = runner.runs
+    adtof, *windows, first, second = runner.runs
     assert adtof == ("adtof_frame_rnn.onnx", {"waveform": (1, 35 * 44_100)})
+    assert windows == [("basic_pitch_nmp.onnx", {"serving_default_input_2:0": (1, 43_844, 1)})] * 22
     assert first == ("beat_this.onnx", {"waveform": (1, (1494 - 1) * 441 + 1024), "pad_frames": (2,)})
     assert second == ("beat_this.onnx", {"waveform": (1, (1494 - 1) * 441 + 1024), "pad_frames": (2,)})
     assert runner.pad_frames == [[6, 0], [0, 6]]
@@ -239,7 +265,7 @@ def test_a_midi_song_and_a_missing_song_cant_be_picked_and_a_cancel_with_no_job_
     assert client.get(PICK).json() is None
 
 
-def test_a_melody_pick_feeds_basic_pitch_a_window_at_a_time_then_beat_this_and_writes_every_onset_as_a_snare(client, project, runner, tmp_path):
+def test_a_melody_pick_feeds_basic_pitch_a_window_at_a_time_once_then_beat_this_and_writes_every_onset_as_a_snare_and_a_note(client, project, runner, tmp_path):
     song = import_song_tone(client, tmp_path, seconds=12)
     assert set_range(client, song["id"], 2, 8, mode="melody").status_code == 200  # 6 s: 132,300 samples, four windows, one chunk
     runner.pause_at("window 0")
@@ -264,6 +290,7 @@ def test_a_melody_pick_feeds_basic_pitch_a_window_at_a_time_then_beat_this_and_w
     assert analysis["downbeats"] == pytest.approx([2.0, 4.0, 6.0])
     assert {(hit["piece"], hit["level"]) for hit in analysis["hits"]} == {("snare", "normal")}
     assert [hit["t"] for hit in analysis["hits"]] == pytest.approx([2.0 + 0.5 * n for n in range(12)], abs=0.012)  # the fake's onsets every 0.5 s, on a 256-sample frame
+    assert [(note["t"], note["pitch"]) for note in analysis["notes"]] == [(hit["t"], 81) for hit in analysis["hits"]]
     [row] = client.get(SONGS).json()
     assert row["analysis"] == {"mode": "melody", "bars": 2}
 

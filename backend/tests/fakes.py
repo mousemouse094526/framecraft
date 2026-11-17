@@ -27,7 +27,7 @@ from backend import checks, gpu, paths, sounds, spoil_maker
 from backend.app import app
 from backend.checks import FfmpegInfo, GpuInfo, Probes, named_patterns
 from backend.drum_notes import songs
-from backend.drum_notes.songs import Analysis, Head, Hit, Source
+from backend.drum_notes.songs import Analysis, Head, Hit, Note, Source
 from backend.errors import ApiError
 from backend.models import MODELS, ModelSpec
 from backend.paths import EpAddress, ProjectPaths
@@ -109,6 +109,34 @@ def fake_sample() -> bytes:
     buffer = io.BytesIO()
     soundfile.write(buffer, audio, 44100, subtype="PCM_16", format="FLAC")
     return buffer.getvalue()
+
+
+@functools.cache
+def fake_pluck(pitch: float) -> bytes:
+    """A 0.45 s mono 16-bit wav at 48 kHz like a VCSL kalimba file: 50 ms of silence, then a sine at
+    `pitch` (a fractional MIDI number) decaying from full scale, so a test hears which sample was
+    moved where (kalimba-cover D18). Made once per pitch."""
+    rate = 48_000
+    t = np.arange(round(0.4 * rate)) / rate
+    tone = np.exp(-t / 0.1) * np.sin(2 * np.pi * 440 * 2 ** ((pitch - 69) / 12) * t)
+    audio = np.concatenate([np.zeros(round(0.05 * rate)), tone]).astype(np.float32)
+    buffer = io.BytesIO()
+    soundfile.write(buffer, audio, rate, subtype="PCM_16", format="WAV")
+    return buffer.getvalue()
+
+
+def write_kalimba_kit(root: Path) -> None:
+    """Every kalimba sample as `fake_pluck` at its own pitch and the marker setup writes once their
+    sha256 match the pins; nothing is fetched."""
+    from backend import kalimba_kit
+
+    project = ProjectPaths(root)
+    project.kalimba_samples_dir.mkdir(parents=True, exist_ok=True)
+    for sample in kalimba_kit.SAMPLES:
+        kalimba_kit.sample_path(project, sample).write_bytes(fake_pluck(sample.pitch))
+    project.kalimba_kit_marker.parent.mkdir(parents=True, exist_ok=True)
+    pinned = {sample.path: sample.sha256 for sample in kalimba_kit.SAMPLES}
+    project.kalimba_kit_marker.write_text(json.dumps({"files": pinned}), encoding="utf-8")
 
 
 def write_drum_kit(root: Path) -> None:
@@ -1052,6 +1080,15 @@ BEAT = 480  # ticks of a quarter at division 480
 ROCK = [(0, 36, 110), (0, 42, 110), (BEAT, 42, 110), (2 * BEAT, 38, 110), (2 * BEAT, 42, 110), (3 * BEAT, 42, 110)]
 
 
+def drums_and_melody(
+    drums: tuple[tuple[int, int, int], ...] = ((0, 36, 100),), melody: tuple[tuple[int, int, int], ...] = ((0, 72, 100), (3 * BEAT, 74, 100)), bpm: float = 100
+) -> bytes:
+    """A format 1 file of three tracks: tempo and 4/4, the drums on channel 10, the melody on channel 1 (kalimba-cover D3)."""
+    header = b"\x00" + tempo_meta(bpm) + b"\x00" + time_signature()
+    tracks = track(header) + track(notes_track(list(drums), 9)) + track(notes_track(list(melody), 0))
+    return b"MThd" + struct.pack(">IHHH", 6, 1, 3, 480) + tracks
+
+
 # --- toon API tests ---
 
 TOON_VOICE = "v_8f2c01ab"
@@ -1472,12 +1509,14 @@ def written_song(
     song_id: str = "writtensong0",
     title: str = "Teen Spirit",
     audio: bytes | None = None,
+    notes: list[tuple[float, int, str]] | None = None,
 ) -> str:
     """A picked song written as the Pick job leaves it (drum-notes, drum-cover D13): beats every
     0.5 s from `start_s` and, unless `hits` (`(t, piece, level)`) are given, in drums mode a kick on
     every downbeat, in melody mode two snares a beat apart from the second beat of every bar (D14);
     `downbeats` decide the bars found, so one 1.5 s apart makes a 3-beat bar (D20). `audio`: the
-    bytes of its `audio.m4a`; None writes none, as a MIDI song has none."""
+    bytes of its `audio.m4a`; None writes none, as a MIDI song has none. `notes` (`(t, pitch, level)`):
+    the melody's (kalimba-cover D2); None leaves the key out of `analysis`, as a song picked before them."""
     end_s = downbeats[-1]
     if beats is None:
         beats = [start_s + n / 2 for n in range(int((end_s - start_s) * 2) + 1)]
@@ -1487,13 +1526,26 @@ def written_song(
         found = [Hit(t=t + after, piece="snare", level="normal") for t in downbeats[:-1] for after in (0.5, 1.0)]
     else:
         found = [Hit(t=t, piece="kick", level="normal") for t in downbeats[:-1]]
-    analysis = Analysis(mode=mode, start_s=start_s, end_s=end_s, beats=beats, downbeats=list(downbeats), hits=found, picked_at="2026-11-14T00:00:00Z")
+    melody = None if notes is None else [Note(t=t, pitch=pitch, level=level) for t, pitch, level in notes]
+    analysis = Analysis(
+        mode=mode, start_s=start_s, end_s=end_s, beats=beats, downbeats=list(downbeats), hits=found, notes=melody, picked_at="2026-11-14T00:00:00Z"
+    )
     song = songs.new_song(song_id, Head(title, subtitle, Source(kind="file", name="song.mp3", size=1)), end_s + 1, songs.default_range(end_s + 1), analysis)
     with songs.lock:
         written = songs.write_new(project, song).id
+        if notes is None:
+            without_notes(project, written)
         if audio is not None:
             (project.song_dir(written) / songs.AUDIO_FILE).write_bytes(audio)
     return written
+
+
+def without_notes(project: ProjectPaths, song_id: str) -> None:
+    """`song.json` as a pick or import before kalimba-cover left it: no `notes` key in its analysis."""
+    stored = project.song_dir(song_id) / songs.SONG_FILE
+    text = json.loads(stored.read_text(encoding="utf-8"))
+    del text["analysis"]["notes"]
+    stored.write_text(json.dumps(text, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @functools.cache
@@ -1520,3 +1572,79 @@ def timing_of(*hits: tuple[float, str, str | None, str], beats: list[tuple[float
     sounds = [(t, piece, hand, "mid", note) for t, piece, hand, note in hits]
     spans = [timeline.Span(0, timeline.to_sample(END_S))]
     return timeline.assemble(sounds, [timeline.Beat(timeline.to_sample(t), n) for t, n in beats], spans, END_S + timeline.TAIL_S)
+
+
+def kalimba_timing_of(*notes: tuple[float, int, str], beats: list[tuple[float, int]] | None = None) -> "KalimbaTimeline":
+    """A kalimba timeline from `(t, tine, level)`: a 4 s stretch with a beat every 0.5 s, bars of 4, unless given."""
+    from backend.kalimba_cover import arrange
+    from backend.kalimba_cover.timeline import KalimbaNote, KalimbaTimeline
+    from backend.video_gen import timeline
+
+    beats = beats if beats is not None else [(n / 2, n % 4 + 1) for n in range(8)]
+    struck = [KalimbaNote(timeline.to_sample(t), tine, arrange.TINE_PITCHES[tine], level) for t, tine, level in notes]
+    return KalimbaTimeline(
+        notes=tuple(struck),
+        beats=tuple(timeline.Beat(timeline.to_sample(t), number) for t, number in beats),
+        length_s=END_S + timeline.TAIL_S,
+        changes=arrange.Changes(transpose=0, dropped=0, bent=0),
+    )
+
+
+# The fields of `PUT /api/songs/{id}/cover`: a test takes them from the GET and changes a few.
+COVER_KEYS = ("start_s", "end_s", "title", "subtitle", "caption", "background", "drums", "backing", "instrument", "kalimba")
+
+
+def cover_api() -> tuple[Callable, Callable, Callable]:
+    """The `project`, `piped` and `client` fixtures of a reel cover API test file (drum and kalimba
+    alike), kept under those names as pytest finds a fixture by its module-level name:
+    `project, piped, client = cover_api()`. `piped` is the Render job's `run_piped`, a `FakePiped`,
+    with the default font standing in for Kanit (the fake root's Kanit is a name only)."""
+
+    @pytest.fixture(name="project")
+    def project_fixture(fake_root, monkeypatch) -> ProjectPaths:
+        monkeypatch.setattr(paths, "ROOT", fake_root)
+        return ProjectPaths(fake_root)
+
+    @pytest.fixture(name="piped")
+    def piped_fixture(monkeypatch) -> "FakePiped":
+        from PIL import ImageFont
+
+        from backend.drum_cover import render
+        from backend.video_gen import captions
+
+        fake = FakePiped()
+        title_font = lambda _project: ImageFont.load_default(captions.TITLE_SIZE)  # noqa: E731
+        monkeypatch.setattr(render, "render_jobs", render.CoverRenderJobs(run_piped=fake, title_font=title_font))
+        return fake
+
+    @pytest.fixture(name="client")
+    def client_fixture(project, piped) -> TestClient:
+        return TestClient(app, base_url="http://127.0.0.1")
+
+    return project_fixture, piped_fixture, client_fixture
+
+
+class FakePiped:
+    """A reel Render job's `run_piped`: the real one, but frame `pause_at` waits for `released` or the
+    cancel, and `audio` keeps each run's `audio.wav`."""
+
+    def __init__(self):
+        self.pause_at: int | None = None
+        self.reached, self.released = threading.Event(), threading.Event()
+        self.audio: list[bytes] = []
+
+    def __call__(self, command, cwd, cancel, drawn, on_frame) -> None:
+        from backend import ffmpeg
+        from backend.video_gen import render
+
+        self.audio.append((Path(cwd) / render.AUDIO).read_bytes())
+
+        def paused():
+            for n, frame in enumerate(drawn):
+                if n == self.pause_at:
+                    self.reached.set()
+                    while not (self.released.is_set() or cancel.is_set()):
+                        cancel.wait(0.01)
+                yield frame
+
+        ffmpeg.run_piped(command, cwd, cancel, paused(), on_frame)

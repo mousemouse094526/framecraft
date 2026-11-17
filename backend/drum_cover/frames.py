@@ -12,6 +12,7 @@ swings (`stick_tip`). Pillow is imported inside the functions, so the backend st
 
 import functools
 from bisect import bisect_left, bisect_right
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
@@ -167,12 +168,13 @@ class Bar(NamedTuple):
     dots: int
 
 
-def bars_of(timing: Timeline) -> list[Bar]:
-    """The beats cut into bars at every beat numbered 1. A bar a downbeat ends shows as many dots
-    as it has beats (4 at most). The clip's last bar may be cut short, so it shows as many as the
-    bar before it (4 when there is none), or more when it already has more beats than that."""
+def bars_of(beats: Sequence[timeline.Beat]) -> list[Bar]:
+    """A timeline's beats cut into bars at every beat numbered 1; the kalimba's reel counts its
+    bars with this too (kalimba-cover D14). A bar a downbeat ends shows as many dots as it has
+    beats (4 at most). The clip's last bar may be cut short, so it shows as many as the bar before
+    it (4 when there is none), or more when it already has more beats than that."""
     runs: list[list[timeline.Beat]] = []
-    for beat in timing.beats:
+    for beat in beats:
         if beat.number == 1 or not runs:
             runs.append([])
         runs[-1].append(beat)
@@ -193,8 +195,7 @@ class Scene:
         self.timing = timing
         self.background = background
         self.lanes = lanes_of(timing)
-        self.bars = bars_of(timing)
-        self.bar_starts = [bar.start for bar in self.bars]
+        self.bars = bars_of(timing.beats)
         # The lanes show 1.5 bars of 4 at the lesson's BPM, played at full speed, across their width and
         # hold still in the tail. Only the scroll speed assumes 4 beats: bar lines come from the downbeats.
         self.px_per_s = (LANES_RIGHT - LANES_LEFT) / (WINDOW_BARS * timeline.BEATS_PER_BAR * timeline.beat_s(lesson.bpm, FULL_SPEED))
@@ -228,7 +229,7 @@ def frame_at(scene: Scene, t: float) -> bytes:
     for hand, tip in stick_tips(scene.swings, t).items():
         _stick(frame, hand, tip)
     _badges(frame, scene, t)
-    _dots(frame, scene, t)
+    beat_dots(frame, scene.bars, scene.beat_times, scene.timing.beats, t)
     return frame.tobytes()
 
 
@@ -240,7 +241,7 @@ def _still_layer(background: "PilImage.Image", lanes: Lanes) -> "PilImage.Image"
 
     layer = background.copy()
     for drawn in KIT.values():
-        paste(layer, _piece(drawn, 1.0, REST_FILL, _rgb(drawn.color), REST_OUTLINE, False), drawn.center)
+        paste(layer, _piece(drawn, 1.0, REST_FILL, rgb(drawn.color), REST_OUTLINE, False), drawn.center)
     draw = ImageDraw.Draw(layer)
     for piece in lanes.pieces:
         y = lanes.y_of(piece)
@@ -261,7 +262,7 @@ def _piece(drawn: Drawn, grow: float, fill: float, outline: tuple[int, int, int]
     box = round(r * OPEN_RING * 2) + 8 * SCALE
     sprite = Image.new("RGBA", (box, box), (0, 0, 0, 0))
     draw = ImageDraw.Draw(sprite)
-    c, color = box / 2, _rgb(drawn.color)
+    c, color = box / 2, rgb(drawn.color)
     w = width * SCALE
     draw.ellipse(_disc(c, r), fill=(*color, round(255 * fill)), outline=(*outline, 255), width=w)
     if drawn.shape == "cymbal":
@@ -316,7 +317,7 @@ def _note_head(piece: str, note: str, glow: bool, row_h: float) -> "PilImage.Ima
     sprite = Image.new("RGBA", (box, box), (0, 0, 0, 0))
     draw = ImageDraw.Draw(sprite)
     c, r = box / 2, size / 2
-    color = (*_rgb(drawn_of(piece).color), 255)
+    color = (*rgb(drawn_of(piece).color), 255)
     edge = (255, 255, 255, 255) if note == "accent" else None
     edge_w = ACCENT_OUTLINE * SCALE
     if glow:
@@ -399,27 +400,28 @@ def _badges(frame: "PilImage.Image", scene: Scene, t: float) -> None:
     """The hand's coloured badge on a piece a hand hit in the last 0.15 s (its letter is `captions`')."""
     for name, (hit, _at) in _latest_hits(scene, t).items():
         if hit.hand in STICKS:
-            paste(frame, _dot_sprite(BADGE_R, (*_rgb(STICKS[hit.hand].color), 255)), KIT[name].badge_at)
+            paste(frame, dot_sprite(BADGE_R, (*rgb(STICKS[hit.hand].color), 255)), KIT[name].badge_at)
 
 
-def bar_at(scene: Scene, t: float) -> Bar | None:
+def bar_at(bars: list[Bar], t: float) -> Bar | None:
     """The bar playing at `t`; before the clip's first beat, the first bar."""
-    if not scene.bars:
+    if not bars:
         return None
-    return scene.bars[max(0, bisect_right(scene.bar_starts, t) - 1)]
+    return bars[max(0, bisect_right([bar.start for bar in bars], t) - 1)]
 
 
-def _dots(frame: "PilImage.Image", scene: Scene, t: float) -> None:
-    """The bar's beat dots, the one of the beat playing white: past the fourth, the fourth."""
-    bar = bar_at(scene, t)
+def beat_dots(frame: "PilImage.Image", bars: list[Bar], beat_times: list[float], beats: Sequence[timeline.Beat], t: float) -> None:
+    """The bar's beat dots, the one of the beat playing white: past the fourth, the fourth. Reads
+    the bars and beats alone, so the kalimba's reel draws its counter with it (kalimba-cover D14)."""
+    bar = bar_at(bars, t)
     if bar is None:
         return
-    playing = bisect_right(scene.beat_times, t) - 1
-    number = scene.timing.beats[playing].number if playing >= 0 and scene.beat_times[playing] >= bar.start else 0
+    playing = bisect_right(beat_times, t) - 1
+    number = beats[playing].number if playing >= 0 and beat_times[playing] >= bar.start else 0
     for index in range(bar.dots):
         # Beat n lights dot n; a fifth or later beat keeps the last (fourth) dot lit. Beat 0 (before the bar's first) lights none.
         lit = index == min(number, MAX_DOTS) - 1
-        paste(frame, _dot_sprite(DOT_R, (255, 255, 255, 255 if lit else DOT_DIM)), dot_center(index, bar.dots))
+        paste(frame, dot_sprite(DOT_R, (255, 255, 255, 255 if lit else DOT_DIM)), dot_center(index, bar.dots))
 
 
 def dot_center(index: int, dots: int) -> Point:
@@ -427,8 +429,8 @@ def dot_center(index: int, dots: int) -> Point:
 
 
 @functools.lru_cache(maxsize=8)
-def _dot_sprite(r: int, fill: tuple[int, int, int, int]) -> "PilImage.Image":
-    """A filled disc: a hand's badge or a beat dot."""
+def dot_sprite(r: int, fill: tuple[int, int, int, int]) -> "PilImage.Image":
+    """A filled disc: a hand's badge, a beat dot, or a kalimba tine's octave dot."""
     from PIL import Image, ImageDraw
 
     box = (r + 1) * 2 * SCALE
@@ -445,5 +447,5 @@ def _disc(c: float | tuple[float, float], r: float) -> list[float]:
     return [x - r, y - r, x + r, y + r]
 
 
-def _rgb(hex_color: str) -> tuple[int, int, int]:
+def rgb(hex_color: str) -> tuple[int, int, int]:
     return tuple(int(hex_color[i : i + 2], 16) for i in (1, 3, 5))

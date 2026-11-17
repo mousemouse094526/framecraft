@@ -5,3 +5,5 @@
 Source: drum-notes D6, D7 · legal 3, 4
 
 Links: [ADTOF Frame_RNN (ONNX)](https://huggingface.co/thebluescreen/adtof-drums-onnx), [Beat This! (ONNX)](https://huggingface.co/thebluescreen/beat-this-onnx)
+
+**Extended by:** ADR-0056 (kalimba-cover)

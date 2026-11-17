@@ -33,6 +33,9 @@ backend/
 ├── drum_kit.py   ← the drum samples (Big Rusty Drums, CC0, ADR 0042) pinned the same
 │                    way: `SAMPLES` (piece, layer, round-robin, path, sha256), setup's
 │                    `install_drum_kit` (three tries a file), the `drum_kit` row's check
+├── kalimba_kit.py← the kalimba samples (VCSL "Kalimba, Tanzania", CC0, ADR 0061) pinned the
+│                    drum kit's way: `SAMPLES` (path, measured pitch, sha256), `nearest(pitch)`,
+│                    setup's `install_kalimba_kit`, the `kalimba_kit` row's check
 ├── clock.py      ← `hh:mm:ss`, shared by Transcripts and the Draft job's prompts
 ├── files.py      ← write_atomic (through `.tmp`) and the start-up sweep of `.tmp`
 ├── body_types.py ← what a POST/PUT/PATCH body may be: JSON everywhere, a raw
@@ -43,7 +46,7 @@ backend/
 │                    `checked_text` (a trimmed text field within its length)
 ├── gate_rows.py  ← the Status check rows gates share (`FFMPEG`, `DEVICE`,
 │                    `PYTHAINLP`, `LINK_TOOLS`, `qwen_jobs`, `klein`, `voice`, `render`,
-│                    `drum_kit_row`, `drums`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
+│                    `drum_kit_row`, `drums`, `kalimba_kit_row`, `kalimba`, `SONGS_LINK`, `SONGS_FILE`, `pick_drums`, `pick_melody`), named once (ADR 0009)
 ├── jobs.py       ← JobSlot (one job of a kind, ADR 0010: `running`, `update`, `cancel` —
 │                    `cancel_refusal`/`nothing_to_cancel` say how a cancel with no job is refused —
 │                    and `stop_on_shutdown`), ModelJobSlot (a job whose model runs in a child:
@@ -205,19 +208,24 @@ backend/
 │                    `media/songs/{id}/` beside `audio.m4a`, its checks, the tab's one lock;
 │                    the id is `spoil.links`' (ADR 0049) and checked before any path),
 │                    imports (Song import: a link's job in its own slot and a file in one
-│                    request, both on `audio_imports`; a `.mid` goes to midi), midi (the
-│                    app's own Standard MIDI File parser: channel 10 on the GM map as an
-│                    `analysis`, D10), onnx_runner (the only onnxruntime import: `open_session`,
+│                    request, both on `audio_imports`; a `.mid` goes to midi, and the same file
+│                    of a MIDI song with `notes` null fills them, kalimba-cover D14), midi (the
+│                    app's own Standard MIDI File parser: channel 10 on the GM map as the hits,
+│                    every other channel as the melody's notes, D10, kalimba-cover D3), onnx_runner
+│                    (the only onnxruntime import: `open_session`,
 │                    which setup's smoke test and the Pick job share, and the three models' runs
 │                    — ADTOF whole, Beat This! by chunk, Basic Pitch by window — ADR 0044), pick
 │                    (the Pick job in its own `JobSlot`, no GPU, ADR 0043: ffmpeg decodes the
-│                    range, the mode's model — ADTOF once in drums mode, Basic Pitch by window in
+│                    range, the mode's models — ADTOF once then Basic Pitch by window in drums mode
+│                    (its failure leaves `notes` null, kalimba-cover D14), Basic Pitch alone in
 │                    melody mode (D14) — then Beat This! by chunk, then `songs.set_analysis`;
 │                    `PickJobs(open_session=…, run_ffmpeg=…)` for tests; registers itself in
-│                    `songs.song_jobs` for `song_busy`; `HITS_BY_MODE` is the mode's model run),
+│                    `songs.song_jobs` for `song_busy`; `HITS_AND_NOTES_BY_MODE` is the mode's
+│                    model runs),
 │                    score (the signal numbers: the Beat This! chunk plan and `stitch`, ADTOF peak
-│                    picking into hits, the Basic Pitch window plan and its onsets into snare hits,
-│                    beats and downbeats from logits; the bars found are `songs.bars_of`), groove
+│                    picking into hits, the Basic Pitch window plan and its onsets into snare hits
+│                    and melody notes, beats and downbeats from logits; the bars found are
+│                    `songs.bars_of`), groove
 │                    (a lesson's Groove from the bars picked, Score steps 3–8: `preview` — the
 │                    default BPM, quantize, `BASE_GROOVES[mode]` under the hits, trim to two hands,
 │                    sticking), lesson (a lesson from a song, D12, D21, ADR 0047: `preview`/`listen`/`create`
@@ -238,7 +246,20 @@ backend/
 │                    from above, a lane a piece, the bar counter; from video-gen only the frame
 │                    size, `background_image`, `stick_tip`, the sprite helpers `paste`/`shrunk`/
 │                    `lighter` and `captions.stick_letters`);
-│                    imports drum_notes and video_gen, never the other way
+│                    imports drum_notes and video_gen, never the other way; one cover plays
+│                    either instrument (`instrument`, kalimba-cover D9): `render` (the Render job
+│                    and ฟัง, `listen`) picks the drums' mixer or the kalimba's `sound` (`instrument_wav`)
+├── kalimba_cover/← a reel cover on the kalimba (kalimba-cover spec, D8): arrange (melody notes onto
+│                    17 C-major tines, pure numbers; imports only `drum_notes.songs`, so
+│                    `drum_cover.cover` counts with it), timeline (`KalimbaTimeline`: notes at their
+│                    samples on their tines, beats by `drum_cover.timeline.numbered_beats`, ADR 0041),
+│                    sound (`note`: the nearest VCSL sample moved to the tine, buzz filtered; `mix`
+│                    to the mixer's wav), frames
+│                    (falling notes and the lit tine, sketch's `TINES`) and captions (the tines'
+│                    numbers; the title and "ห้อง n" are `drum_cover.captions`' `text_events`,
+│                    `bar_counter_events`); imports drum_cover, which imports it only in `cover`
+│                    (arrange) and `render` (`INSTRUMENTS`: each one's timeline, sound, text,
+│                    picture and gate rows, ADR 0058)
 ├── json_values.py← int and number checks of a JSON value (JSON `true` is an
 │                    int to Python): spoil_maker and toon share it
 ├── llm_reply.py  ← the JSON object in a Qwen reply and Thai text without CJK

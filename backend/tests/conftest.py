@@ -13,6 +13,7 @@ from .fakes import (
     ok_onnxruntime,
     ok_pythainlp,
     write_drum_kit,
+    write_kalimba_kit,
     write_kanit,
     write_marker,
     write_snapshot,
@@ -21,7 +22,7 @@ from .fakes import (
 
 @pytest.fixture
 def fake_root(tmp_path, monkeypatch) -> Path:
-    """A project root with every model, Kanit and the drum samples downloaded, running from its .venv on
+    """A project root with every model, Kanit, the drum and the kalimba samples downloaded, running from its .venv on
     a Mac with mlx-vlm, pythainlp, diffusers, gguf and onnxruntime installed, whatever OS runs the
     tests (ADR 0016)."""
     monkeypatch.setattr(checks, "this_platform", lambda: "darwin")
@@ -38,4 +39,5 @@ def fake_root(tmp_path, monkeypatch) -> Path:
         write_marker(root, model)
     write_kanit(root)
     write_drum_kit(root)
+    write_kalimba_kit(root)
     return root

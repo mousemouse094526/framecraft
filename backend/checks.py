@@ -20,7 +20,7 @@ from typing import Literal, NamedTuple, get_args
 
 from pydantic import BaseModel
 
-from backend import drum_kit, fonts, paths
+from backend import drum_kit, fonts, kalimba_kit, paths
 from backend.models import KLEIN, KLEIN_GGUF, OMNIVOICE, ONNX_MODELS, WHISPER, ModelSpec, qwen_for
 from backend.paths import ProjectPaths
 
@@ -415,7 +415,9 @@ def run_checks(
         _item(fonts.CHECK_ID, fonts.LABEL, lambda: fonts.check_kanit(project), fixes.setup),
         # The สอนกลอง tab's samples follow Kanit (video-gen spec › Status check and Setup).
         _item(drum_kit.CHECK_ID, drum_kit.LABEL, lambda: drum_kit.check_drum_kit(project), fixes.setup),
-        # The แกะเพลง tab's rows follow the drum kit (drum-notes spec › Status check and Setup).
+        # The reel's kalimba follows the drum kit (kalimba-cover D18).
+        _item(kalimba_kit.CHECK_ID, kalimba_kit.LABEL, lambda: kalimba_kit.check_kalimba_kit(project), fixes.setup),
+        # The แกะเพลง tab's rows follow the sample kits (drum-notes spec › Status check and Setup).
         *(_model_item(project, model, fixes.setup, sys_platform) for model in ONNX_MODELS),
         _item("onnxruntime", "onnxruntime", lambda: onnxruntime_check(probes), fixes.setup, ONNXRUNTIME_LICENSE),
         # The การ์ตูนเล่า tab's rows follow Kanit (toon spec › Status check).

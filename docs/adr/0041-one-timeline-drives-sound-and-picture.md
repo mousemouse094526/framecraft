@@ -5,3 +5,5 @@
 ข้อความ "เลือกแทนการนำเข้า MIDI หรือ AI ถอดโน้ต" หมายถึงต้นทางของ `timeline`: tab แกะเพลง (drum-notes) ทำ MIDI และ AI เป็น Groove ที่อยู่เหนือ `timeline` จึงยังตรงกฎนี้ (drum-notes D11, D15).
 
 Source: video-gen D2, D15, D19
+
+**Extended by:** ADR-0057, ADR-0059 (kalimba-cover, superseded), ADR-0061 (kalimba-cover)

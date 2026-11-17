@@ -363,7 +363,7 @@
 
 **Why:** ผู้ใช้แก้ไฟล์ไม่ได้อยู่ดี ข้อความเดียวบอกเงื่อนไขทั้งสองที่ไฟล์ส่วนใหญ่ขาด; D9 บอกว่า MIDI ใช้ velocity แต่ไม่ได้ตั้งเกณฑ์.
 
-**From:** build ticket 01 · **Status:** active
+**From:** build ticket 01 · **Status:** changed by kalimba-cover D3
 
 ## D23: ทางเลือกเล็กของ API และหน้าเว็บจาก ticket 01
 

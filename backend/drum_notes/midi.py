@@ -1,10 +1,11 @@
-"""A Standard MIDI File's drum track as a Song's `analysis` (drum-notes D10, D20): the app's own
-parser, as Drumduino's `importers.ts`, since what it needs is a hundred lines.
+"""A Standard MIDI File's drums and melody as a Song's `analysis` (drum-notes D10, D20; kalimba-cover
+D3): the app's own parser, as Drumduino's `importers.ts`, since what it needs is a hundred lines.
 
 Format 0 and 1 with a ticks-per-quarter division; the first tempo and the first time signature of
-the file set every time; notes of channel 10 (0-based 9) on the GM percussion map are the hits.
-Anything else (SMPTE, no drum track, not 4/4, a tempo or division out of range, too many hits) is
-`415` `unsupported_file`; a file longer than a Song may be is `422` `too_long`.
+the file set every time; notes of channel 10 (0-based 9) on the GM percussion map are the hits,
+notes of every other channel the melody's notes. Anything else (SMPTE, neither hits nor notes, not
+4/4, a tempo or division out of range, too many hits or notes) is `415` `unsupported_file`; a file
+longer than a Song may be is `422` `too_long`.
 """
 
 import struct
@@ -12,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 from backend.checks import now_iso
-from backend.drum_notes.songs import MAX_HITS, MAX_SECONDS, TOO_LONG, Analysis, Hit, Level
+from backend.drum_notes.songs import MAX_HITS, MAX_NOTES, MAX_SECONDS, TOO_LONG, Analysis, Hit, Level, Note
 from backend.errors import ApiError
 
 DRUM_CHANNEL = 9  # channel 10, counted from 1
@@ -24,7 +25,7 @@ BEATS_PER_BAR = 4
 GHOST_MAX_VELOCITY = 50
 ACCENT_MIN_VELOCITY = 100
 
-NOT_DRUMS_4_4 = "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลอง"
+REFUSED_FILE = "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลองหรือโน้ตทำนอง"
 
 # GM percussion: note → the app's piece (D10); notes off the map are dropped.
 GM_PIECES = {
@@ -42,9 +43,10 @@ GM_PIECES = {
 
 
 class NoteOn(NamedTuple):
-    """A note-on of the drum channel, in the file's ticks."""
+    """A note-on of any channel (0-based), in the file's ticks."""
 
     tick: int
+    channel: int
     note: int
     velocity: int
 
@@ -62,7 +64,7 @@ class Parsed:
 
 
 @dataclass(frozen=True)
-class DrumTrack:
+class MidiSong:
     """A MIDI file read into a Song's terms: its title (None: no track name), its length and analysis."""
 
     title: str | None
@@ -71,12 +73,13 @@ class DrumTrack:
 
 
 def unsupported() -> ApiError:
-    return ApiError(415, "unsupported_file", NOT_DRUMS_4_4)
+    return ApiError(415, "unsupported_file", REFUSED_FILE)
 
 
-def read(data: bytes) -> DrumTrack:
-    """The file's drum track as an analysis of the whole file: beats on every quarter and downbeats
-    on every bar up to one bar after the last hit (D10). Raises `ApiError` 415 or 422."""
+def read(data: bytes) -> MidiSong:
+    """The file's drums and melody as an analysis of the whole file: beats on every quarter and
+    downbeats on every bar up to one bar after the last hit or note (D10, kalimba-cover D3). Raises
+    `ApiError` 415 or 422."""
     parsed = _parse(data)
     tempo_us = parsed.tempo_us or DEFAULT_TEMPO_US
     bpm = 60_000_000 / tempo_us
@@ -84,28 +87,31 @@ def read(data: bytes) -> DrumTrack:
         raise unsupported()
     if (parsed.numerator, parsed.denominator) not in ((None, None), (4, 4)):
         raise unsupported()
-    hits = []
+    hits, notes = [], []
     for played in parsed.notes:
-        piece = GM_PIECES.get(played.note)
-        if piece is not None:
-            hits.append(Hit(t=round(played.tick * tempo_us / parsed.division / 1_000_000, 4), piece=piece, level=_level(played.velocity)))
-    if not hits:
+        t = round(played.tick * tempo_us / parsed.division / 1_000_000, 4)
+        if played.channel != DRUM_CHANNEL:
+            notes.append(Note(t=t, pitch=played.note, level=_level(played.velocity)))
+        elif (piece := GM_PIECES.get(played.note)) is not None:
+            hits.append(Hit(t=t, piece=piece, level=_level(played.velocity)))
+    if not hits and not notes:
         raise unsupported()
-    if len(hits) > MAX_HITS:
+    if len(hits) > MAX_HITS or len(notes) > MAX_NOTES:
         raise unsupported()
     hits.sort(key=lambda hit: hit.t)
+    notes.sort(key=lambda note: (note.t, note.pitch))
     beat_s = tempo_us / 1_000_000
     bar_s = beat_s * BEATS_PER_BAR
-    duration_s = hits[-1].t + bar_s  # the last hit, then one bar (spec › Data)
+    duration_s = max(played.t for played in [*hits[-1:], *notes[-1:]]) + bar_s  # the last hit or note, then one bar (spec › Data)
     if duration_s > MAX_SECONDS:
         raise ApiError(422, "too_long", TOO_LONG)
-    # Every quarter up to the end: the bar after the last hit always closes, so each hit is in a bar.
+    # Every quarter up to the end: the bar after the last hit or note always closes, so each is in a bar.
     beats = [round(n * beat_s, 4) for n in range(int(duration_s / beat_s + 1e-9) + 1)]
     downbeats = beats[::BEATS_PER_BAR]
     analysis = Analysis(
-        mode="drums", start_s=0.0, end_s=round(duration_s, 4), beats=beats, downbeats=downbeats, hits=hits, picked_at=now_iso()
+        mode="drums", start_s=0.0, end_s=round(duration_s, 4), beats=beats, downbeats=downbeats, hits=hits, notes=notes, picked_at=now_iso()
     )
-    return DrumTrack(title=parsed.track_name, duration_s=duration_s, analysis=analysis)
+    return MidiSong(title=parsed.track_name, duration_s=duration_s, analysis=analysis)
 
 
 def _level(velocity: int) -> Level:
@@ -177,8 +183,8 @@ def _read_track(track: bytes, parsed: Parsed) -> None:
             raise unsupported()
         first, second = track[at], track[at + 1]
         at += 2
-        if kind == 0x90 and second > 0 and channel == DRUM_CHANNEL:
-            parsed.notes.append(NoteOn(tick, first, second))
+        if kind == 0x90 and second > 0:
+            parsed.notes.append(NoteOn(tick, channel, first, second))
 
 
 def _variable_length(data: bytes, at: int) -> tuple[int, int]:

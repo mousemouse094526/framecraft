@@ -25,18 +25,18 @@ def checks_with_fakes(root, sys_platform=None, **probe_overrides):
     return run_checks(root, fake_probes(**probe_overrides), sys_platform)
 
 
-def test_a_complete_root_on_a_mac_is_ready_with_twenty_four_ok(fake_root):
+def test_a_complete_root_on_a_mac_is_ready_with_twenty_five_ok(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="darwin")
 
     assert result.ready is True
-    assert result.ok_count == 24
-    assert result.total == 24
+    assert result.ok_count == 25
+    assert result.total == 25
 
 
 def test_cpu_only_device_is_a_warning_but_still_ready(fake_root):
     result = checks_with_fakes(fake_root, device=lambda: "cpu")
 
-    assert result.ok_count == 23
+    assert result.ok_count == 24
     assert result.warning_count == 1
     assert item(result, "device").status == "warning"
     assert result.ready is True
@@ -83,7 +83,7 @@ def test_ffmpeg_probe_that_raises_makes_only_ffmpeg_missing(fake_root):
 
     assert item(result, "ffmpeg").status == "missing"
     assert item(result, "ffmpeg").detail == "ffmpeg -version exited with 1"
-    assert len(result.items) == 24
+    assert len(result.items) == 25
 
 
 def test_yt_dlp_and_deno_rows_follow_ffmpeg_with_their_versions(fake_root):
@@ -112,7 +112,7 @@ def test_deno_probe_that_raises_makes_only_deno_missing(fake_root):
 
     assert item(result, "deno").status == "missing"
     assert item(result, "deno").fix == "./setup.sh"
-    assert len(result.items) == 24
+    assert len(result.items) == 25
     assert result.missing_count == 1
 
 
@@ -162,6 +162,7 @@ def test_items_come_in_the_spec_order(fake_root):
         "pythainlp",
         "font_kanit",
         "drum_kit",
+        "kalimba_kit",
         "model_adtof",
         "model_beat_this",
         "model_basic_pitch",
@@ -270,7 +271,7 @@ def test_an_rtx_3060_with_everything_installed_is_ok_on_windows(fake_root):
     for row in ("device", *GPU_ROWS):
         assert item(result, row).status == "ok"
     assert "mlx_vlm" not in ids(result)
-    assert result.ok_count == result.total == 25
+    assert result.ok_count == result.total == 26
 
 
 def test_windows_rows_sit_where_mlx_vlm_was_with_gpu_right_after_device(fake_root):
@@ -413,7 +414,7 @@ def test_a_mac_has_no_gpu_or_bitsandbytes_row_and_never_reads_the_card(fake_root
     result = checks_with_fakes(fake_root, sys_platform="darwin", gpu=must_not_run, bitsandbytes=must_not_run)
 
     assert {"gpu", "bitsandbytes"} & set(ids(result)) == set()
-    assert result.ok_count == result.total == 24
+    assert result.ok_count == result.total == 25
 
 
 def test_the_qwen_row_on_a_mac_still_checks_the_mlx_model(fake_root):
@@ -557,6 +558,27 @@ def test_a_missing_drum_sample_makes_only_the_drum_kit_missing(fake_root):
     assert result.missing_count == 1
 
 
+def test_kalimba_kit_row_follows_the_drum_kit_and_names_the_pinned_commit(fake_root):
+    result = checks_with_fakes(fake_root)
+
+    ids = [i.id for i in result.items]
+    assert ids[ids.index("drum_kit") + 1] == "kalimba_kit"
+    row = item(result, "kalimba_kit")
+    assert (row.status, row.label, row.detail) == ("ok", "Kalimba samples", "VCSL Kalimba, Tanzania · c1ea7bc")
+
+
+def test_a_missing_kalimba_sample_makes_only_the_kalimba_kit_missing_with_the_setup_fix(fake_root):
+    from backend import kalimba_kit
+
+    kalimba_kit.sample_path(ProjectPaths(fake_root), kalimba_kit.SAMPLES[-1]).unlink()
+
+    result = checks_with_fakes(fake_root)
+
+    row = item(result, "kalimba_kit")
+    assert (row.status, row.detail, row.fix) == ("missing", f"ไฟล์หาย: {kalimba_kit.SAMPLES[-1].path}", "./setup.sh")
+    assert result.missing_count == 1
+
+
 def test_klein_rows_are_ok_on_windows_too_and_carry_each_repo_s_license(fake_root):
     result = checks_with_fakes(fake_root, sys_platform="win32")
 
@@ -618,12 +640,12 @@ def test_a_gguf_marker_of_the_q8_0_file_makes_the_gguf_row_missing(fake_root):
 # --- the แกะเพลง tab's rows (drum-notes D7) ---
 
 
-def test_the_onnx_model_rows_follow_drum_kit_and_carry_each_repo_s_license(fake_root):
+def test_the_onnx_model_rows_follow_the_kalimba_kit_and_carry_each_repo_s_license(fake_root):
     result = checks_with_fakes(fake_root)
 
     ids = [i.id for i in result.items]
-    after_drum_kit = ids.index("drum_kit") + 1
-    assert ids[after_drum_kit : after_drum_kit + 4] == ["model_adtof", "model_beat_this", "model_basic_pitch", "onnxruntime"]
+    after_kits = ids.index("kalimba_kit") + 1
+    assert ids[after_kits : after_kits + 4] == ["model_adtof", "model_beat_this", "model_basic_pitch", "onnxruntime"]
     adtof, beat_this, basic_pitch = (item(result, m.check_id) for m in (ADTOF, BEAT_THIS, BASIC_PITCH))
     assert (adtof.status, adtof.label, adtof.detail) == ("ok", "ADTOF drum model", "d0e809b · 0.0 GB")
     assert (adtof.license.name, adtof.license.url) == ("CC BY-NC-SA 4.0", "https://creativecommons.org/licenses/by-nc-sa/4.0/")

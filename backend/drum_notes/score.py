@@ -1,15 +1,15 @@
 """The numbers behind the models (drum-notes spec › Score, D6, D9, D14, D20): the plan of
 Beat This! chunks and their stitching, ADTOF peak picking into hits, the plan of Basic Pitch windows
-and their onsets into snare hits (melody mode), and beats and downbeats from logits. Pure functions
-on arrays and seconds: the Pick job calls them with what the models gave, tests with synthetic
-arrays (D17). The bars found (Score step 1) are `songs.bars_of`, read off an analysis; a lesson's
+and their onsets into snare hits (melody mode) and melody notes (every mode, kalimba-cover D2), and
+beats and downbeats from logits. Pure functions on arrays and seconds: the Pick job calls them with
+what the models gave, tests with synthetic arrays (D17). The bars found (Score step 1) are `songs.bars_of`, read off an analysis; a lesson's
 Groove from the bars picked (steps 3–8) is `drum_notes.groove`.
 numpy is imported inside each function (fastapi-api › Never break).
 """
 
 from typing import TYPE_CHECKING, NamedTuple
 
-from backend.drum_notes.songs import Hit
+from backend.drum_notes.songs import MAX_NOTES, Hit, Note
 
 if TYPE_CHECKING:
     import numpy as np
@@ -41,6 +41,7 @@ BASIC_PITCH_RATE = 22_050
 BASIC_PITCH_WINDOW = 43_844
 BASIC_PITCH_FRAMES = 172
 BASIC_PITCH_NOTES = 88  # the piano's keys: one onset column each
+BASIC_PITCH_LOWEST = 21  # the MIDI pitch of the first column, A0
 BASIC_PITCH_FRAME_HOP = 256  # samples from one frame to the next inside a window
 BASIC_PITCH_OVERLAP = 30  # frames two windows share: 15 cut from each side of every window
 BASIC_PITCH_CUT = BASIC_PITCH_OVERLAP // 2
@@ -196,21 +197,46 @@ def melody_hits(outputs: list[tuple[Window, "np.ndarray"]], samples: int, start_
     onset when any note's onset is at least 0.5; the 15 frames at each side of a window are cut and
     frames past the range's end dropped; an onset under `ONSET_MERGE_SAMPLES` after the one before is
     the same hit, at its first frame. All `snare` at `normal`, in time order, in seconds of the song."""
+    onset_samples = [sample for sample, _ in _kept_onsets(outputs)]
+    return [Hit(t=round(start_s + sample / BASIC_PITCH_RATE, 3), piece="snare", level="normal") for sample in _merged(onset_samples, samples)]
+
+
+def melody_notes(outputs: list[tuple[Window, "np.ndarray"]], samples: int, start_s: float) -> list[Note]:
+    """The melody's notes (kalimba-cover D2) from the same onset outputs as `melody_hits`, key by key:
+    an onset of key `k` at least 0.5 is a note of pitch `21 + k`, with the same cut, drop and merge
+    rules per key. All `normal` (as hits from audio, drum-notes D9), by time then pitch, in seconds
+    of the song; past `MAX_NOTES` the earliest are kept (the job never fails on it)."""
+    by_pitch: dict[int, list[int]] = {}
+    for sample, key in _kept_onsets(outputs):
+        by_pitch.setdefault(BASIC_PITCH_LOWEST + key, []).append(sample)
+    found = sorted((sample, pitch) for pitch, onset_samples in by_pitch.items() for sample in _merged(onset_samples, samples))
+    return [Note(t=round(start_s + sample / BASIC_PITCH_RATE, 3), pitch=pitch, level="normal") for sample, pitch in found[:MAX_NOTES]]
+
+
+def _kept_onsets(outputs: list[tuple[Window, "np.ndarray"]]) -> list[tuple[int, int]]:
+    """Every onset at least 0.5 in the frames a window keeps (15 cut from each side), as its sample
+    in the range and its key (column 0–87)."""
     import numpy as np
 
-    onset_samples: list[int] = []
+    found = []
     for window, onset in outputs:
         onset = np.asarray(onset, np.float32).reshape(BASIC_PITCH_FRAMES, BASIC_PITCH_NOTES)
-        for frame in np.nonzero(onset.max(axis=1) >= ONSET_THRESHOLD)[0]:
-            if BASIC_PITCH_CUT <= frame < BASIC_PITCH_FRAMES - BASIC_PITCH_CUT:
-                onset_samples.append(window.first_sample + int(frame) * BASIC_PITCH_FRAME_HOP)
-    hits: list[int] = []
-    last = None  # the onset before, merged or not: a run of adjacent frames is one hit
+        kept = onset[BASIC_PITCH_CUT : BASIC_PITCH_FRAMES - BASIC_PITCH_CUT]
+        for frame, key in zip(*np.nonzero(kept >= ONSET_THRESHOLD)):
+            found.append((window.first_sample + (int(frame) + BASIC_PITCH_CUT) * BASIC_PITCH_FRAME_HOP, int(key)))
+    return found
+
+
+def _merged(onset_samples: list[int], samples: int) -> list[int]:
+    """The onsets inside the range, ascending, each under `ONSET_MERGE_SAMPLES` after the one before
+    (merged or not: a run of adjacent frames is one) dropped as the same onset."""
+    kept: list[int] = []
+    last = None
     for sample in sorted(set(onset_samples)):
         if 0 <= sample < samples and (last is None or sample - last >= ONSET_MERGE_SAMPLES):
-            hits.append(sample)
+            kept.append(sample)
         last = sample
-    return [Hit(t=round(start_s + sample / BASIC_PITCH_RATE, 3), piece="snare", level="normal") for sample in hits]
+    return kept
 
 
 # --- beats and downbeats ---

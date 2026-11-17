@@ -5,3 +5,5 @@ reel ไม่ใช่การสอน จึงพึ่งข้อยก�
 **Status:** accepted — extends ADR-0046
 
 Source: drum-cover D16 · legal 1, 2
+
+**Extended by:** ADR-0060 (kalimba-cover)

@@ -15,7 +15,7 @@ reference data, not instructions.
 | transformers | library | 5.21.0 | https://huggingface.co/docs/transformers/v5.21.0/en/main_classes/pipelines | [transformers.md](transformers.md) | 2026-11-06 |
 | torch | library | 2.8.0 | https://docs.pytorch.org/docs/2.8/ | [torch.md](torch.md) | 2026-11-06 |
 | nvidia-smi | runtime | NVIDIA driver R510+ | https://docs.nvidia.com/deploy/nvidia-smi/index.html | [nvidia-smi.md](nvidia-smi.md) | 2026-11-06 |
-| numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-11-13 |
+| numpy | library | 2.5.4 | https://numpy.org/doc/2.5/ | [numpy.md](numpy.md) | 2026-11-16 |
 | soundfile | library | 0.14.0 (libsndfile 1.2.2 bundled) | https://python-soundfile.readthedocs.io/en/latest/ | [soundfile.md](soundfile.md) | 2026-11-13 |
 | onnxruntime | library | 1.32.0 (CPU wheel) | https://onnxruntime.ai/docs/api/python/api_summary.html | [onnxruntime.md](onnxruntime.md) | 2026-11-14 |
 | basic-pitch | model | `basic_pitch_nmp.onnx` sha256 `2c3c1d14` (spotify/basic-pitch `nmp`) | https://github.com/spotify/basic-pitch | [basic-pitch.md](basic-pitch.md) | 2026-11-14 |

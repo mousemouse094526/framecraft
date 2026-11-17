@@ -51,10 +51,18 @@ def mix(project: ProjectPaths, timing: Timeline) -> bytes:
         if hit.piece == "hihat_open":
             sound = _choked(sound, hit.at, timing.hits[index + 1 :])
         out[hit.at : hit.at + len(sound)] += sound
+    return to_wav(out)
+
+
+def to_wav(out: "np.ndarray") -> bytes:
+    """A float mono sum as a 16-bit 44.1 kHz stereo wav, its peak brought to −1 dBFS (silence stays
+    silent), rounded by numpy so the same sum always writes the same bytes."""
+    import numpy as np
+    import soundfile
 
     peak = float(np.max(np.abs(out))) if len(out) else 0.0
     if peak > 0:
-        out *= 10 ** (PEAK_DBFS / 20) / peak
+        out = out * (10 ** (PEAK_DBFS / 20) / peak)
     pcm = np.clip(np.rint(out * 32767), -32768, 32767).astype(np.int16)
     buffer = io.BytesIO()
     soundfile.write(buffer, np.column_stack([pcm] * CHANNELS), timeline.RATE, subtype="PCM_16", format="WAV")

@@ -2,7 +2,7 @@
 every gate reads the checklist the same way (ADR 0009, spoil-maker spec › Status check).
 Each check looks its probe and the OS up when it runs, so a test's fakes are the ones it calls."""
 
-from backend import checks, drum_kit, fonts
+from backend import checks, drum_kit, fonts, kalimba_kit
 from backend.errors import Row
 from backend.models import ADTOF, BASIC_PITCH, BEAT_THIS, KLEIN, KLEIN_GGUF, OMNIVOICE, ModelSpec
 from backend.paths import ProjectPaths
@@ -112,3 +112,13 @@ def drum_kit_row(project: ProjectPaths) -> dict[str, Row]:
 def drums(project: ProjectPaths) -> dict[str, Row]:
     """What a drum lesson's Render job needs: the samples, Kanit, ffmpeg and pythainlp (video-gen D11, D22)."""
     return drum_kit_row(project) | _kanit(project) | FFMPEG | PYTHAINLP
+
+
+def kalimba_kit_row(project: ProjectPaths) -> dict[str, Row]:
+    """The kalimba samples, all a kalimba reel's ฟัง needs (kalimba-cover D18)."""
+    return {kalimba_kit.CHECK_ID: (kalimba_kit.LABEL, lambda: kalimba_kit.check_kalimba_kit(project))}
+
+
+def kalimba(project: ProjectPaths) -> dict[str, Row]:
+    """What a kalimba reel's Render job needs: the samples, Kanit, ffmpeg and pythainlp (kalimba-cover D9, D18)."""
+    return kalimba_kit_row(project) | _kanit(project) | FFMPEG | PYTHAINLP

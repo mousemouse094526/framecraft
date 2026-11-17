@@ -3,10 +3,11 @@ import json
 import os
 import shutil
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 
-from backend import drum_kit, fonts
+from backend import drum_kit, fonts, kalimba_kit
 from backend.checks import run_checks
 from backend.models import ADTOF, BASIC_PITCH, BEAT_THIS, KLEIN, KLEIN_GGUF, MODELS, OMNIVOICE, ONNX_MODELS, QWEN_MAC, QWEN_WINDOWS
 from backend.paths import ProjectPaths
@@ -63,8 +64,21 @@ def fake_drum_kit(monkeypatch):
     )
 
 
+KALIMBA_BYTES = {"MBira3_pluck_Main_C#3_k16_50_100_rr2.wav": b"c4 pluck", "MBira3_pluck_Main_E5_k25_50_100_rr2.wav": b"e6 pluck"}
+
+
+@pytest.fixture(autouse=True)
+def fake_kalimba_kit(monkeypatch):
+    """Two pinned kalimba samples standing in for the table, like `fake_drum_kit`."""
+    monkeypatch.setattr(
+        kalimba_kit,
+        "SAMPLES",
+        tuple(kalimba_kit.Sample(path, 60.5, hashlib.sha256(content).hexdigest()) for path, content in KALIMBA_BYTES.items()),  # setup never reads the pitch
+    )
+
+
 class FakeFetch:
-    """Stands in for fetching a Kanit file or a drum sample over HTTPS; `wrong` serves other bytes
+    """Stands in for fetching a Kanit file, a drum or a kalimba sample over HTTPS; `wrong` serves other bytes
     for that file, `fail` raises for it, each up to `times` times (every time by default)."""
 
     def __init__(self, wrong: str | None = None, fail: str | None = None, times: int = 99):
@@ -78,7 +92,8 @@ class FakeFetch:
             if name == self.fail:
                 raise TimeoutError("timed out")
             return b"something else"
-        return KANIT_BYTES.get(name) or next(b for p, b in DRUM_BYTES.items() if p.endswith(name))
+        samples = DRUM_BYTES | {quote(path): content for path, content in KALIMBA_BYTES.items()}
+        return KANIT_BYTES.get(name) or next(b for p, b in samples.items() if p.endswith(name))
 
 
 class FakeDownload:
@@ -406,12 +421,39 @@ def test_setup_fetches_the_drum_samples_after_kanit_and_writes_their_marker(empt
     exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
 
     assert exit_code == 0
-    assert fetch.urls[2:] == [DRUMS_URL + path for path in DRUM_BYTES]
+    assert fetch.urls[2:4] == [DRUMS_URL + path for path in DRUM_BYTES]  # after Kanit's two files
     project = ProjectPaths(empty_root)
     assert (project.drum_samples_dir / "kick_24/kick/kick/k_kick_vl14_rr4.flac").read_bytes() == b"kick"
     marker = json.loads(project.drum_kit_marker.read_text(encoding="utf-8"))
     assert marker["files"] == {s.path: s.sha256 for s in drum_kit.SAMPLES}
     assert item(run_checks(empty_root, fake_probes()), "drum_kit").status == "ok"
+
+
+KALIMBA_URL = "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Plucked%20Idiophones/Kalimba%2C%20Tanzania/"
+
+
+def test_setup_fetches_the_kalimba_samples_after_the_drums_and_writes_their_marker(empty_root):
+    fetch = FakeFetch()
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    assert exit_code == 0
+    assert fetch.urls[4:6] == [KALIMBA_URL + quote(path) for path in KALIMBA_BYTES]  # after Kanit and the drums; `#` sent as %23
+    project = ProjectPaths(empty_root)
+    assert (project.kalimba_samples_dir / "MBira3_pluck_Main_E5_k25_50_100_rr2.wav").read_bytes() == b"e6 pluck"
+    marker = json.loads(project.kalimba_kit_marker.read_text(encoding="utf-8"))
+    assert marker["files"] == {s.path: s.sha256 for s in kalimba_kit.SAMPLES}
+    assert item(run_checks(empty_root, fake_probes()), "kalimba_kit").status == "ok"
+
+
+def test_a_kalimba_sample_that_fails_three_times_ends_setup_naming_it_without_a_marker(empty_root, capsys):
+    fetch = FakeFetch(wrong=quote("MBira3_pluck_Main_E5_k25_50_100_rr2.wav"))  # FakeFetch matches the name as the URL has it
+
+    exit_code = run_with_fakes(empty_root, FakeDownload(empty_root), fetch=fetch)
+
+    assert exit_code == 1
+    assert not ProjectPaths(empty_root).kalimba_kit_marker.exists()
+    assert "MBira3_pluck_Main_E5_k25_50_100_rr2.wav" in capsys.readouterr().out
 
 
 def test_a_drum_sample_that_fails_twice_is_tried_a_third_time(empty_root):

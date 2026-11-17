@@ -5,3 +5,5 @@ reel วาดชุดกลอง ไม้ เลนโน้ต และต
 **Status:** accepted
 
 Source: drum-cover D25, D26
+
+**Extended by:** ADR-0058 (kalimba-cover)

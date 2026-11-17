@@ -18,9 +18,13 @@ export function coverViewOf(hash: string): { id: string } | null {
   return found ? { id: found[1] } : null;
 }
 
-/** One sound of the reel, the drums' or the song's backing: off mutes it and keeps the volume for
- * when it comes back; the volume (`VOLUME_MIN`–`VOLUME_MAX`) turns it down from `FULL_VOLUME` (D24). */
+/** One sound of the reel, the drums', the kalimba's or the song's backing: off mutes it and keeps the
+ * volume for when it comes back; the volume (`VOLUME_MIN`–`VOLUME_MAX`) turns it down from `FULL_VOLUME` (D24). */
 export type Sound = { on: boolean; volume: number };
+
+/** What the reel plays: one cover, either instrument (kalimba-cover D1, D9). */
+export type Instrument = "drums" | "kalimba";
+export const INSTRUMENT_NAME: Record<Instrument, string> = { drums: "กลอง", kalimba: "คาลิมบา" };
 
 /** What `PUT /cover` takes. */
 export type CoverFields = {
@@ -32,6 +36,8 @@ export type CoverFields = {
   background: "color" | "image";
   drums: Sound;
   backing: Sound;
+  instrument: Instrument;
+  kalimba: Sound;
 };
 
 /** What `GET`/`PUT /cover` answer: the fields and what the page says about them (D18). */
@@ -46,6 +52,13 @@ export type Cover = CoverFields & {
   length_s: number;
   suggested_start_s: number;
   updated_at: string | null;
+  /** The kalimba's notes in the stretch once arranged, and how (kalimba-cover D4, D9, D14). */
+  notes: number;
+  /** False for a song picked or imported before its melody was kept. */
+  notes_picked: boolean;
+  transpose: number;
+  dropped: number;
+  bent: number;
 };
 
 export const fieldsOf = (cover: Cover): CoverFields => ({
@@ -57,7 +70,12 @@ export const fieldsOf = (cover: Cover): CoverFields => ({
   background: cover.background,
   drums: cover.drums,
   backing: cover.backing,
+  instrument: cover.instrument,
+  kalimba: cover.kalimba,
 });
+
+/** The chosen instrument's sound. */
+export const soundOf = (fields: Pick<CoverFields, "instrument" | "drums" | "kalimba">) => (fields.instrument === "kalimba" ? fields.kalimba : fields.drums);
 
 export type CoverRenderJob = {
   state: "rendering" | "done" | "failed" | "cancelled";
@@ -81,6 +99,9 @@ export type CoverRenderResult = {
   picked_at: string;
   drums: Sound;
   backing: Sound;
+  /** The instrument it plays and the kalimba's sound; a render made before the kalimba reads as the drums' (kalimba-cover D9). */
+  instrument: Instrument;
+  kalimba: Sound;
   created_at: string;
   size_bytes: number;
 };
@@ -94,13 +115,19 @@ export const TITLE_MAX = 40;
 export const LINE_MAX = 60;
 export const VOLUME_MIN = 10;
 export const VOLUME_MAX = 100;
-/** Neither drums nor backing: a silent reel, which the backend refuses at `drums.on` (D24). */
-export const SILENT = "เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง";
-export const isSilent = (fields: CoverFields) => !fields.drums.on && !fields.backing.on;
+/** Neither the chosen instrument nor backing: a silent reel, which the backend refuses at `{instrument}.on` (D24, kalimba-cover D9). */
+export const silentText = (instrument: Instrument) => `เปิดเสียง${INSTRUMENT_NAME[instrument]}หรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง`;
+export const isSilent = (fields: CoverFields) => !soundOf(fields).on && !fields.backing.on;
 /** The drums' volume at first: as the mixer makes them. */
 export const FULL_VOLUME = 100;
-/** A render's drums as its row marks them: nothing at full volume (D24). */
-export const drumsLabel = (drums: Sound) => (!drums.on ? "ไม่มีเสียงกลอง" : drums.volume !== FULL_VOLUME ? `กลอง ${drums.volume}%` : null);
+/** A render's instrument and its sound as its row marks them: the drums at full volume nothing (D24), the kalimba always its name (kalimba-cover D10). */
+export function soundLabel(result: Pick<CoverRenderResult, "instrument" | "drums" | "kalimba">): string | null {
+  const sound = soundOf(result);
+  const name = INSTRUMENT_NAME[result.instrument];
+  if (!sound.on) return `ไม่มีเสียง${name}`;
+  if (sound.volume !== FULL_VOLUME) return `${name} ${sound.volume}%`;
+  return result.instrument === "kalimba" ? name : null;
+}
 /** The one message of a stretch that breaks a rule, the backend's too. */
 export const RANGE_RULE = `ช่วงต้องยาว ${MIN_S}–${MAX_S} วินาที และอยู่ในช่วงแกะ`;
 
@@ -118,6 +145,31 @@ export const NO_ANALYSIS = "แกะโน้ตก่อน แล้วกล
 export const NO_HITS = "ช่วงนี้ไม่มีการตีกลอง เลื่อนช่วงหรือกด เริ่มที่การตีแรก";
 export const NO_AUDIO = "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ";
 export const MELODY_ONLY = "เพลงนี้แกะโหมดทำนอง reel มีแต่สแนร์";
+/** Why a kalimba has no notes to play (kalimba-cover spec › API, the backend's `no_notes`): picked or
+ * imported before notes were kept, or none in the stretch. */
+export type NoNotes = "not_picked" | "not_imported" | "empty";
+export const NO_NOTES_TEXT: Record<NoNotes, string> = {
+  not_picked: "เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ที่หน้าเพลงเพื่อได้โน้ตทำนอง",
+  not_imported: "เพลงนี้นำเข้าก่อนมีคาลิมบา นำเข้าไฟล์ MIDI เดิมอีกครั้ง",
+  empty: "ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง",
+};
+/** The link after the message, to the page where it is fixed; an empty stretch is fixed on this one. */
+export const NO_NOTES_LINK: Record<Exclude<NoNotes, "empty">, string> = { not_picked: "กลับไปหน้าเพลง", not_imported: "ไปรายการเพลง" };
+const keyMove = (k: number) => (k > 0 ? `+${k}` : String(k));
+/** How the stretch's notes were laid on the kalimba (D4, D14). */
+export const notesLine = (cover: Cover) =>
+  [
+    `${cover.notes} โน้ตทำนองในช่วง`,
+    cover.transpose !== 0 && `ย้ายคีย์ ${keyMove(cover.transpose)}`,
+    cover.dropped > 0 && `ตัด ${cover.dropped} โน้ต`,
+    cover.bent > 0 && `ปรับ ${cover.bent} โน้ตให้เข้าสเกล`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+/** Beside the backing choice when the kalimba plays in another key than the song (D14). */
+export const transposeWarning = (k: number) => `คาลิมบาย้ายคีย์ ${keyMove(k)} เสียงจะไม่ตรงกับเพลงต้นฉบับ`;
+/** The backing choice's two options, named by the instrument. */
+export const backingLabels = (name: string) => ({ alone: `${name}ล้วน`, withSong: `${name} + เพลงต้นฉบับ` });
 export const TITLE_HINT = "ค่าตั้งต้นมาจากชื่อคลิปและช่อง แก้เป็นชื่อเพลงและศิลปิน";
 /** Beside the backing choice (legal 2, D7). */
 export const BACKING_WARNING = "เพลงต้นฉบับมีลิขสิทธิ์ แพลตฟอร์มอาจ claim ปิดเสียง หรือบล็อกคลิป เปิดเมื่อคุณมีสิทธิ์ใช้เสียงนี้";

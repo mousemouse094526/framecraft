@@ -15,7 +15,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from backend import disk, drum_kit, fonts
+from backend import disk, drum_kit, fonts, kalimba_kit
 from backend.checks import (
     Probes,
     StatusResponse,
@@ -108,6 +108,10 @@ def run_setup(
             step = "โหลดเสียงกลอง"
             print("กำลังโหลดเสียงกลอง Big Rusty Drums…")
             drum_kit.install_drum_kit(project, fetch)
+        if kalimba_kit.check_kalimba_kit(project)[0] != "ok":
+            step = "โหลดเสียงคาลิมบา"
+            print("กำลังโหลดเสียงคาลิมบา VCSL…")
+            kalimba_kit.install_kalimba_kit(project, fetch)
         for model in to_download:
             if model not in ONNX_MODELS:
                 continue

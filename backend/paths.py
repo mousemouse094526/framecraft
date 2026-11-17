@@ -159,6 +159,16 @@ class ProjectPaths:
         return self.markers_dir / "drum_kit"
 
     @property
+    def kalimba_samples_dir(self) -> Path:
+        """The kalimba samples, under their file name in the pinned repo (kalimba-cover D18)."""
+        return self.models_dir / "kalimba"
+
+    @property
+    def kalimba_kit_marker(self) -> Path:
+        """Written by setup once every kalimba sample matches its sha256."""
+        return self.markers_dir / "kalimba_kit"
+
+    @property
     def drums_dir(self) -> Path:
         """Everything the สอนกลอง tab keeps (video-gen spec › Data, D10)."""
         return self.root / "media" / "drums"

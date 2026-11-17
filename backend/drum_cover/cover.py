@@ -3,6 +3,10 @@ the Song's folder beside `song.json`, written with `write_atomic` under `songs.l
 No file yet: the defaults, worked out from the song and its analysis. A stored stretch that a new
 pick no longer covers is pulled into the picked range when read, without a write, and marked
 `adjusted`; the next `PUT` saves what the page then shows.
+
+One cover plays either instrument, drums or kalimba (kalimba-cover D1, D9): each has its own
+sound, and the silence rule holds for the one chosen. The kalimba's notes are arranged here only
+to be counted (`kalimba_cover.arrange`, which imports nothing of `drum_cover`, D8).
 """
 
 import json
@@ -19,6 +23,7 @@ from backend.drum_notes import songs
 from backend.drum_notes.songs import Analysis, Song
 from backend.errors import ApiError
 from backend.json_values import is_int, is_number
+from backend.kalimba_cover import arrange
 from backend.paths import ProjectPaths
 
 log = logging.getLogger(__name__)
@@ -37,12 +42,28 @@ NO_ANALYSIS = "แกะโน้ตก่อน แล้วกลับมา�
 RANGE_RULE = f"ช่วงต้องยาว {MIN_S}–{MAX_S} วินาที และอยู่ในช่วงแกะ"
 NO_AUDIO = "เพลงจาก MIDI ไม่มีเสียงต้นฉบับ"
 NO_PICTURE = "ยังไม่มีภาพพื้นหลัง"
-SILENT = "เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง"
+Instrument = Literal["drums", "kalimba"]
+INSTRUMENT_NAME = {"drums": "กลอง", "kalimba": "คาลิมบา"}
+NOT_PICKED = "เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ที่หน้าเพลงเพื่อได้โน้ตทำนอง"
+NOT_IMPORTED = "เพลงนี้นำเข้าก่อนมีคาลิมบา นำเข้าไฟล์ MIDI เดิมอีกครั้ง"  # a MIDI song can't be picked again (D14)
+NO_NOTES = "ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง"
+
+
+def silent(instrument: Instrument) -> str:
+    return f"เปิดเสียง{INSTRUMENT_NAME[instrument]}หรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง"
 
 
 class Drums(BaseModel):
     """The drums' sound, on at full volume unless the user turns it down or off (D24); a
     `cover.json` or render written before this had none, and read as the defaults."""
+
+    on: bool = True
+    volume: int = FULL_VOLUME
+
+
+class Kalimba(BaseModel):
+    """The kalimba's sound, on at full volume at first as the drums' is (kalimba-cover D9); a
+    `cover.json` or render written before it had none, and read as the defaults."""
 
     on: bool = True
     volume: int = FULL_VOLUME
@@ -66,6 +87,12 @@ class CoverFields(BaseModel):
     background: Literal["color", "image"]
     drums: Drums = Field(default_factory=Drums)
     backing: Backing
+    instrument: Instrument = "drums"  # a cover written before the kalimba was the drums'
+    kalimba: Kalimba = Field(default_factory=Kalimba)
+
+    def instrument_sound(self) -> Drums | Kalimba:
+        """The chosen instrument's sound."""
+        return self.kalimba if self.instrument == "kalimba" else self.drums
 
 
 class Cover(CoverFields):
@@ -77,12 +104,18 @@ class Cover(CoverFields):
 
 class CoverView(CoverFields):
     """A cover as the API answers it: whether it is saved, whether its stretch was pulled into
-    the picked range, whether the song has its own audio, and the hits in the stretch (D18)."""
+    the picked range, whether the song has its own audio, the hits in the stretch (D18), and the
+    kalimba's notes there once arranged, with how they were (kalimba-cover D9)."""
 
     saved: bool
     adjusted: bool
     has_audio: bool
     hits: int
+    notes: int
+    notes_picked: bool
+    transpose: int
+    dropped: int
+    bent: int
     length_s: float
     suggested_start_s: float
     updated_at: str | None
@@ -119,8 +152,21 @@ def clamped(fields: CoverFields, analysis: Analysis) -> tuple[CoverFields, bool]
     return fields.model_copy(update={"start_s": start, "end_s": end}), adjusted
 
 
-def hits_in(analysis: Analysis, fields: CoverFields) -> int:
-    return sum(1 for hit in analysis.hits if fields.start_s <= hit.t < fields.end_s)
+def hits_in(analysis: Analysis, start_s: float, end_s: float) -> int:
+    return sum(1 for hit in analysis.hits if start_s <= hit.t < end_s)
+
+
+def require_notes(song: Song, fields: CoverFields) -> None:
+    """A kalimba reel needs notes to play (kalimba-cover spec › Render job step 3). Raises
+    `ApiError` 409 `no_notes`: the song was picked or imported before notes were kept, or the
+    stretch has none."""
+    if fields.instrument != "kalimba":
+        return
+    analysis = require_analysis(song)
+    if analysis.notes is None:
+        raise ApiError(409, "no_notes", NOT_IMPORTED if song.source.kind == "midi" else NOT_PICKED)
+    if not arrange.arranged_in(analysis, fields.start_s, fields.end_s).notes:
+        raise ApiError(409, "no_notes", NO_NOTES)
 
 
 # --- the API ---
@@ -149,22 +195,25 @@ def replace(project: ProjectPaths, song_id: str, body: dict[str, Any]) -> CoverV
 def used(project: ProjectPaths, song: Song, check_sound: bool = True) -> CoverFields:
     """What a render or a listen plays: the stored cover pulled into the range, or the defaults.
     Call with `songs.lock` held. Raises `ApiError` 409 `no_analysis`, or 400 for backing on a
-    song with no audio (D7) or for a hand-edited cover with neither drums nor backing (D24),
-    unless `check_sound` is off (a picture's change keeps the rest as stored)."""
+    song with no audio (D7) or for a hand-edited cover with neither the chosen instrument nor
+    backing (D24, kalimba-cover D9), unless `check_sound` is off (a picture's change keeps the rest
+    as stored)."""
     analysis = require_analysis(song)
     stored = _stored(project, song.id)
     fields = clamped(_fields(stored), analysis)[0] if stored is not None else defaults(song, analysis)
     if check_sound and fields.backing.on and not has_audio(project, song.id):
         raise songs.invalid("backing.on", NO_AUDIO)
-    if check_sound and not (fields.drums.on or fields.backing.on):
-        raise songs.invalid("drums.on", SILENT)
+    if check_sound and not (fields.instrument_sound().on or fields.backing.on):
+        raise songs.invalid(f"{fields.instrument}.on", silent(fields.instrument))
     return fields
 
 
 def defaults(song: Song, analysis: Analysis) -> CoverFields:
     """A cover never saved: the clip's title and channel as the song keeps them (drum-notes D4),
-    which the page asks the user to make the song's and artist's (D18)."""
+    which the page asks the user to make the song's and artist's (D18). The kalimba when the
+    stretch has no hit but notes to play, as a melody-only MIDI song's (kalimba-cover D9)."""
     start, end = default_stretch(analysis)
+    instrument: Instrument = "kalimba" if not hits_in(analysis, start, end) and arrange.arranged_in(analysis, start, end).notes else "drums"
     return CoverFields(
         start_s=start,
         end_s=end,
@@ -174,6 +223,8 @@ def defaults(song: Song, analysis: Analysis) -> CoverFields:
         background="color",
         drums=Drums(),
         backing=Backing(on=False, volume=BACKING_VOLUME),
+        instrument=instrument,
+        kalimba=Kalimba(),
     )
 
 
@@ -215,13 +266,15 @@ def checked(body: dict[str, Any], song: Song, analysis: Analysis, folder: Path) 
         raise songs.invalid("background", "พื้นหลังไม่ถูกต้อง")
     if background == "image" and not (folder / BACKGROUND).is_file():
         raise songs.invalid("background", NO_PICTURE)
+    instrument = body.get("instrument")
+    if instrument not in INSTRUMENT_NAME:
+        raise songs.invalid("instrument", "เครื่องดนตรีไม่ถูกต้อง")
     drums = _sound(body, "drums", "ความดังกลอง", Drums)
+    kalimba = _sound(body, "kalimba", "ความดังคาลิมบา", Kalimba)
     backing = _sound(body, "backing", "ความดังเพลง", Backing)
     if backing.on and not (folder / songs.AUDIO_FILE).is_file():
         raise songs.invalid("backing.on", NO_AUDIO)
-    if not (drums.on or backing.on):
-        raise songs.invalid("drums.on", SILENT)
-    return CoverFields(
+    fields = CoverFields(
         start_s=start_s,
         end_s=end_s,
         title=_text(body, "title", 1, TITLE_MAX, "หัวเรื่อง"),
@@ -230,11 +283,16 @@ def checked(body: dict[str, Any], song: Song, analysis: Analysis, folder: Path) 
         background=background,
         drums=drums,
         backing=backing,
+        instrument=instrument,
+        kalimba=kalimba,
     )
+    if not (fields.instrument_sound().on or backing.on):
+        raise songs.invalid(f"{instrument}.on", silent(instrument))
+    return fields
 
 
-def _sound[S: (Drums, Backing)](body: dict, key: str, name: str, model: type[S]) -> S:
-    """`drums` or `backing`: `{on, volume}`, the volume a whole 10–100 (D7, D24)."""
+def _sound[S: (Drums, Kalimba, Backing)](body: dict, key: str, name: str, model: type[S]) -> S:
+    """`drums`, `kalimba` or `backing`: `{on, volume}`, the volume a whole 10–100 (D7, D24)."""
     sound = body.get(key)
     if not isinstance(sound, dict) or not isinstance(sound.get("on"), bool):
         raise songs.invalid(f"{key}.on", "ตัวเลือกเสียงไม่ถูกต้อง")
@@ -284,12 +342,16 @@ def view(project: ProjectPaths, song: Song, stored: Cover | None) -> CoverView:
         fields, adjusted = clamped(_fields(stored), analysis)
     if fields.background == "image" and not (songs.checked_dir(project, song.id) / BACKGROUND).is_file():
         fields = fields.model_copy(update={"background": "color"})  # its picture went: the page shows, and saves, the app's colours
+    arranged = arrange.arranged_in(analysis, fields.start_s, fields.end_s)
     return CoverView(
         **fields.model_dump(),
         saved=stored is not None,
         adjusted=adjusted,
         has_audio=has_audio(project, song.id),
-        hits=hits_in(analysis, fields),
+        hits=hits_in(analysis, fields.start_s, fields.end_s),
+        notes=len(arranged.notes),
+        notes_picked=analysis.notes is not None,
+        **arranged.changes._asdict(),
         length_s=round(fields.end_s - fields.start_s, 3),
         suggested_start_s=suggested_start(analysis),
         updated_at=stored.updated_at if stored is not None else None,

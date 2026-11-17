@@ -64,7 +64,7 @@ describe("lateStart (drum-cover D9, D19)", () => {
     source: { kind: "file", url: null, name: "a.mp3", size: 1 },
     duration_s,
     range: { start_s: 0, end_s: 30, mode: "drums" },
-    analysis: { mode: "drums", start_s: 0, end_s: 30, beats: [], downbeats: [0, 2, 4], hits: hits.map((t) => ({ t, piece: "snare", level: "normal" })), picked_at: "" },
+    analysis: { mode: "drums", start_s: 0, end_s: 30, beats: [], downbeats: [0, 2, 4], hits: hits.map((t) => ({ t, piece: "snare", level: "normal" })), notes: null, picked_at: "" },
     bars: [
       { n: 1, start_s: 0, end_s: 2, beats: 4, hits: hits.filter((t) => t < 2).length, four_four: true },
       { n: 2, start_s: 2, end_s: 4, beats: 4, hits: hits.filter((t) => t >= 2 && t < 4).length, four_four: true },
