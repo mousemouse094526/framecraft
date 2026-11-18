@@ -69,14 +69,31 @@ question; the full entry is in the feature's decisions.md.
 | ขั้นของสปอยและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู ทุกส่วนเปิดตลอด หัวข้อที่มีรายการเป็นหัวกลุ่มไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D3 | — | — | active |
 | `<nav>` "เมนูหลัก" ตัวเดียว: ≥1024px sidebar ตรึงซ้ายยุบได้ (จำใน `localStorage`), จอแคบ drawer จากปุ่ม ☰ "เมนู: {หัวข้อ}" (แทน sound-library D16) | [ui-nav](features/ui-nav/decisions.md) | D4 | — | — | changed by ui-nav D11 |
 | "ล่าสุด" ในเมนู: ชุดหรือ EP, บทเรียนกลอง, เพลง ไม่เกิน 3 ต่อหัวข้อ ใน `localStorage`; ลบเมื่อ `not_found` หรือลบชิ้นนั้น | [ui-nav](features/ui-nav/decisions.md) | D5 | — | — | changed by ui-nav D11 |
-| hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11 |
+| hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | reels-only | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11 |
 | เปลือกแอปสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma | [ui-nav](features/ui-nav/decisions.md) | D7 | — | — | active |
 | test ที่ผูกกับแถบ tab เดิม ("แถบ tab", "เมนู tab") เขียนใหม่ให้หา "เมนูหลัก" | [ui-nav](features/ui-nav/decisions.md) | D8 | — | — | active |
-| seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | — | — | active |
+| seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | reels-only | — | active |
 | กฎ red team ของเมนู: โฟกัสและ `inert` ของ drawer, ชื่อล่าสุดตัด 80 ตัวอักษร, hash ล่าสุดตรงรูป route, อ่านก่อนเขียน, ถอยกลับด้วย revert | [ui-nav](features/ui-nav/decisions.md) | D10 | — | — | active |
 | sidebar ตรึงตั้งแต่ 1280px (`xl`) ไม่ใช่ 1024px; หน้าที่เขียนและลบล่าสุด; รายการตรงตัวหรือ prefix; ข้อความตำแหน่งในหัวหน้า | [ui-nav](features/ui-nav/decisions.md) | D11 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
-| เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | active |
-| เมนูมีเฉพาะทางที่ได้ reel (ก), ของที่ reel ใช้ (ข) หรือการตั้งค่าเครื่อง (ค); ไม่แน่ใจ = เก็บไว้เป็น Open Question; ไม่ซ่อนหน้าของ feature อื่น | [ui-nav](features/ui-nav/decisions.md) | D13 | — | [0064](adr/0064-main-menu-reels-only.md) | active |
+| เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | changed by reels-only D5 |
+| เมนูมีเฉพาะทางที่ได้ reel (ก), ของที่ reel ใช้ (ข) หรือการตั้งค่าเครื่อง (ค); ไม่แน่ใจ = เก็บไว้เป็น Open Question; ไม่ซ่อนหน้าของ feature อื่น | [ui-nav](features/ui-nav/decisions.md) | D13 | — | [0064](adr/0064-main-menu-reels-only.md) | extended by reels-only D1 |
+
+## ทำ reel อย่างเดียว ไม่มีบทเรียน
+
+| Decision | Feature | D | Used by | ADR | Status |
+|---|---|---|---|---|---|
+| ทุกหน้า ปุ่ม คำบนจอ: มีไว้สร้างคลิป ของที่คลิปใช้ หรือตั้งค่าเครื่อง = เก็บ; มีไว้สอนหรือสร้างบทเรียน = เอาออกจริง | [reels-only](features/reels-only/decisions.md) | D1 | — | [0065](adr/0065-no-lessons-in-the-app.md) | active |
+| สอนกลองเป็น "reel กลอง": หัวเรื่อง บรรทัดรอง คำบรรยาย BPM พื้นหลัง Groove จำนวนรอบ 1–8; ไม่มีท่อนสอน | [reels-only](features/reels-only/decisions.md) | D2 | — | — | active |
+| นับเข้า 1 ห้องตอนต้น reel กลองคงไว้ backend `timeline` ไม่แก้ | [reels-only](features/reels-only/decisions.md) | D3 | — | — | active |
+| `lesson.json` และ API คงเดิม หน้าเว็บส่ง `chapters` ท่อนเดียว; reel แบบเก่ารวมรอบ (≤ 8) เมื่อบันทึก; reel ใหม่ท่อนเดียว 4 รอบ | [reels-only](features/reels-only/decisions.md) | D4 | — | [0066](adr/0066-lesson-names-stay-in-code.md) | active |
+| เมนูเรียก "reel กลอง" / "reel ทั้งหมด" ที่ `#/drums` เดิม ไม่มี `MOVED` | [reels-only](features/reels-only/decisions.md) | D5 | — | — | active |
+| หน้าเพลงไม่มีสร้างบทเรียน บทเรียนจากเพลงนี้ และแถบห้องที่พบ; เหลือช่วงแกะ แกะโน้ต การ์ด Reel cover | [reels-only](features/reels-only/decisions.md) | D6 | — | [0065](adr/0065-no-lessons-in-the-app.md) | active |
+| ลบ `drum_notes.lesson`, route `preview` `listen` `lessons` ของเพลง, `Song.lessons`; `song.json` เก่าอ่านได้ | [reels-only](features/reels-only/decisions.md) | D7 | — | [0065](adr/0065-no-lessons-in-the-app.md) | active |
+| เปลี่ยนแค่คำบนจอ (รวม `message` ของ backend); identifier ที่มี lesson คงไว้เป็น Open Question | [reels-only](features/reels-only/decisions.md) | D8 | — | [0066](adr/0066-lesson-names-stay-in-code.md) | active |
+| ตรวจหน้าอื่นทั้งหมดแล้ว ไม่มีอะไรเกินต้องเอาออก; คำใบ้โหมดทำนองกับ dialog ลบเพลงแก้คำ | [reels-only](features/reels-only/decisions.md) | D9 | — | — | active |
+| หน้าตาใช้ component เดิม ไม่มีจอรอออกแบบ ไม่มี `ui-prompt.md` | [reels-only](features/reels-only/decisions.md) | D10 | — | — | active |
+| seam: `DrumsPage`, `SongsPage`, `App` ใน jsdom และ API เพลง; ไม่มี e2e | [reels-only](features/reels-only/decisions.md) | D11 | — | — | active |
+| reel แบบเก่าเก็บ `lesson.before-reels-only.json` ครั้งเดียวก่อน `PUT` รวมท่อน; ทางถอยคือ revert แล้วเปลี่ยนชื่อกลับ | [reels-only](features/reels-only/decisions.md) | D12 | — | — | active |
 
 ## ดาวน์โหลดสื่อ
 
@@ -383,28 +400,28 @@ question; the full entry is in the feature's decisions.md.
 
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
-| tab ใหม่ทำคลิปสอนกลองแนวตั้งอย่างเดียว; เครื่องดนตรีอื่นเป็น feature ใหม่ | [video-gen](features/video-gen/decisions.md) | D1 | — | — | active |
+| tab ใหม่ทำคลิปสอนกลองแนวตั้งอย่างเดียว; เครื่องดนตรีอื่นเป็น feature ใหม่ | [video-gen](features/video-gen/decisions.md) | D1 | — | — | changed by reels-only D2 |
 | ผู้ใช้กรอกโน้ตบนตารางในแอป แอปผสมเสียงกลองจาก sample; โน้ตชุดเดียวขับเสียงและภาพ | [video-gen](features/video-gen/decisions.md) | D2 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md) | active |
 | Pillow วาดกราฟิกทีละเฟรม (2 เท่าแล้วย่อ) ส่ง RGB ดิบเข้า ffmpeg; ตัวหนังสือทั้งหมดเป็น ASS | [video-gen](features/video-gen/decisions.md) | D3 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md) | changed by D18 |
-| บทเรียนกลอง = Groove 1–4 ห้อง + ท่อนสอน 1–6 ท่อนที่เล่น Groove ซ้ำ มีป้าย คำอธิบาย ชิ้นที่เน้น ความเร็ว | [video-gen](features/video-gen/decisions.md) | D4 | drum-notes | — | active |
+| บทเรียนกลอง = Groove 1–4 ห้อง + ท่อนสอน 1–6 ท่อนที่เล่น Groove ซ้ำ มีป้าย คำอธิบาย ชิ้นที่เน้น ความเร็ว | [video-gen](features/video-gen/decisions.md) | D4 | drum-notes | — | changed by reels-only D2 |
 | 4/4 ห้องละ 16 ช่อง; โน้ตมีชิ้นกลอง ช่อง ไม้ R/L ลักษณะตี (ปกติ เน้น เบา flam) | [video-gen](features/video-gen/decisions.md) | D5 | drum-notes | — | active |
 | พื้นหลังตั้งต้นสีเข้มที่แอปวาด หรือภาพ PNG/JPG ของผู้ใช้ ครอป 9:16 เบลอ ทำมืด | [video-gen](features/video-gen/decisions.md) | D6 | drum-cover | — | active |
 | เสียงกลองล้วน ไม่ใช้คลังเสียงพื้นของ toon; ใช้ซ้ำ `renders`, `ffmpeg`, `subtitles`, `uploads`, `JobSlot` | [video-gen](features/video-gen/decisions.md) | D7 | drum-notes, drum-cover | — | active |
 | ปุ่ม "ฟังจังหวะ" ผสมเสียงอย่างเดียวด้วยตัวผสมของ render; ภาพดูจากผล render | [video-gen](features/video-gen/decisions.md) | D8 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md) | active |
-| tab "สอนกลอง" `#/drums` ต่อท้ายการ์ตูนเล่า; slug คง `video-gen` | [video-gen](features/video-gen/decisions.md) | D9 | — | — | active |
-| บทเรียนกลองเป็นไฟล์ใน `media/drums/` มีรายการ สร้าง ทำซ้ำ ลบ; ผล render เก็บทุกครั้งใต้บทเรียน | [video-gen](features/video-gen/decisions.md) | D10 | — | — | extended by D22 |
+| tab "สอนกลอง" `#/drums` ต่อท้ายการ์ตูนเล่า; slug คง `video-gen` | [video-gen](features/video-gen/decisions.md) | D9 | — | — | changed by reels-only D5 |
+| บทเรียนกลองเป็นไฟล์ใน `media/drums/` มีรายการ สร้าง ทำซ้ำ ลบ; ผล render เก็บทุกครั้งใต้บทเรียน | [video-gen](features/video-gen/decisions.md) | D10 | reels-only | — | extended by D22 |
 | sample Big Rusty Drums (CC0) ไมค์ใกล้ pin commit โหลดทีละไฟล์พร้อม sha256 ลง `models/drums/`; แถว Status check `drum_kit` | [video-gen](features/video-gen/decisions.md) | D11 | kalimba-cover | [0042](adr/0042-drum-samples-pinned-cc0.md) | changed by D19 |
-| ตำแหน่ง สี ขนาดบนจอตายตัวตามคลิปอ้างอิง; ป้ายท่อนสอนขึ้นแทนหัวเรื่อง | [video-gen](features/video-gen/decisions.md) | D12 | drum-cover | — | active |
-| ทางเลือกเล็กจากคลิปอ้างอิง: เลนโน้ต 3 เลน playhead นิ่ง, นับเข้า 1 ห้อง, ไม้ขยับ 0.12 วิ, ชิ้นไม่เน้น 35%, ≤ 90 วิ, ชั้นความแรงของ sample | [video-gen](features/video-gen/decisions.md) | D13 | drum-cover | — | changed by D21 |
-| Render job ของสอนกลองทีละงาน slot ของตัวเอง ไม่จอง GPU; คลิป 30 วิ render ≤ 60 วิ; เสียงกับภาพคลาด ≤ 1 เฟรม | [video-gen](features/video-gen/decisions.md) | D14 | drum-cover | — | active |
+| ตำแหน่ง สี ขนาดบนจอตายตัวตามคลิปอ้างอิง; ป้ายท่อนสอนขึ้นแทนหัวเรื่อง | [video-gen](features/video-gen/decisions.md) | D12 | drum-cover, reels-only | — | active |
+| ทางเลือกเล็กจากคลิปอ้างอิง: เลนโน้ต 3 เลน playhead นิ่ง, นับเข้า 1 ห้อง, ไม้ขยับ 0.12 วิ, ชิ้นไม่เน้น 35%, ≤ 90 วิ, ชั้นความแรงของ sample | [video-gen](features/video-gen/decisions.md) | D13 | drum-cover, reels-only | — | changed by D21 |
+| Render job ของสอนกลองทีละงาน slot ของตัวเอง ไม่จอง GPU; คลิป 30 วิ render ≤ 60 วิ; เสียงกับภาพคลาด ≤ 1 เฟรม | [video-gen](features/video-gen/decisions.md) | D14 | drum-cover, reels-only | — | active |
 | seam: API ด้วย ffmpeg จริง, `frame_at` กับตารางเวลาโน้ต, หน้าเว็บผ่าน `App` | [video-gen](features/video-gen/decisions.md) | D15 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md) | active |
-| `PUT` บันทึกบทเรียนที่ยาวเกินได้; `too_long` เฉพาะฟังจังหวะและ render | [video-gen](features/video-gen/decisions.md) | D16 | — | — | active |
+| `PUT` บันทึกบทเรียนที่ยาวเกินได้; `too_long` เฉพาะฟังจังหวะและ render | [video-gen](features/video-gen/decisions.md) | D16 | reels-only | — | active |
 | ชุดกลองวาดด้วยโค้ดตามตำแหน่งใน kit-sketch ที่วัดจากคลิปอ้างอิง; ไฮแฮทวาดชิ้นเดียว | [video-gen](features/video-gen/decisions.md) | D17 | — | — | active |
 | ของนิ่งวาดครั้งเดียวต่อ render ของที่ขยับวาดชิ้นเล็ก 2 เท่า; เฟรมเกิน 30 ms → เลิก 2 เท่า | [video-gen](features/video-gen/decisions.md) | D18 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md) | active |
 | โหลด sample สามชั้นความแรงตาม `.sfz`, ผสมที่ 44.1 kHz ไม่ resample | [video-gen](features/video-gen/decisions.md) | D19 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md), [0042](adr/0042-drum-samples-pinned-cc0.md) | active |
 | ปฏิเสธโน้ตที่มือเดียวตีไม่ได้ (มือเดียวสองชิ้น, เกินสองมือ, ไฮแฮทเปิดคู่ปิด, flam ที่เท้า); โน้ตใหม่ใช้มือว่าง | [video-gen](features/video-gen/decisions.md) | D20 | drum-notes | — | active |
 | ความยาวคลิปรวมหางเสียง 1.5 วิ ใช้ค่าเดียวกับ mp4 เฟรม % ดิสก์ เพดาน | [video-gen](features/video-gen/decisions.md) | D21 | drum-cover | — | active |
-| ข้อแก้ red team: `ffmpeg.run_piped`, ตัวหนังสือยาว, id ใน path, ลำดับลบ, สถานะ render, บทเรียนใหม่สองท่อน, ฟังจังหวะ, ขอบของโน้ต | [video-gen](features/video-gen/decisions.md) | D22 | drum-notes | — | active |
+| ข้อแก้ red team: `ffmpeg.run_piped`, ตัวหนังสือยาว, id ใน path, ลำดับลบ, สถานะ render, บทเรียนใหม่สองท่อน, ฟังจังหวะ, ขอบของโน้ต | [video-gen](features/video-gen/decisions.md) | D22 | drum-notes, reels-only | — | active; changed by reels-only D4 |
 | ข้อแก้ legal: ป้ายตั้งต้น `ลองเล่นเอง`, คำเตือนข้างปุ่มภาพพื้นหลัง, ไม่มีช่องโลโก้, ตรวจใหม่ก่อนหารายได้ | [video-gen](features/video-gen/decisions.md) | D23 | drum-notes | — | active |
 | คลิปสอนกลองทำตาม ADR-0017 ไม่หารายได้; หารายได้ = change request ตรวจ legal ข้อ 2 ใหม่ | [video-gen](features/video-gen/decisions.md) | D24 | — | — | active |
 | รับความเสี่ยง legal ข้อ 2–4 (UNVERIFIED) ของการเผยแพร่คลิปสอนกลอง (Accepted risk) | [video-gen](features/video-gen/decisions.md) | D25 | — | — | active |
@@ -420,7 +437,7 @@ question; the full entry is in the feature's decisions.md.
 | หน้า render ก่อนมีแบบ: เล่นผลใหม่สุด, ปุ่มกดไม่ได้ระหว่าง render, ลิงก์ผล render | [video-gen](features/video-gen/decisions.md) | D35 | — | — | active |
 | ภาพพื้นหลังบทเรียนกลองส่งแบบ ADR-0028: `background/check` ก่อน แล้ว `PUT ?size=` body ดิบ | [video-gen](features/video-gen/decisions.md) | D36 | drum-cover | [0028](adr/0028-raw-file-upload-per-route.md) | active |
 | ภาพพื้นหลัง: `GET background.jpg?v=`, `PUT`/`DELETE` ตอบบทเรียน, `413`, `.tmp` ใน `drums/.partial`, JPEG 92, ไม่มีแถบ %, ฟอร์มที่ยังไม่บันทึกอยู่ต่อ | [video-gen](features/video-gen/decisions.md) | D37 | drum-cover | — | active |
-| ส่ง feature ด้วยหน้าตาเดิมของแอป ปิด Blocked design โดยอ้าง ui-prompt.md; แบบ Figma เป็น change request ภายหลัง | [video-gen](features/video-gen/decisions.md) | D38 | — | — | active |
+| ส่ง feature ด้วยหน้าตาเดิมของแอป ปิด Blocked design โดยอ้าง ui-prompt.md; แบบ Figma เป็น change request ภายหลัง | [video-gen](features/video-gen/decisions.md) | D38 | reels-only | — | active |
 | merge คลังเสียง: tab สอนกลองท้ายกลุ่ม "ทำคลิป"; ADR สอนกลองเลื่อนเป็น 0040–0042 | [video-gen](features/video-gen/decisions.md) | D39 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md), [0041](adr/0041-one-timeline-drives-sound-and-picture.md), [0042](adr/0042-drum-samples-pinned-cc0.md) | active |
 
 ## คลังเสียง
@@ -450,33 +467,33 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | รับเพลงเข้าสามทาง: เสียงกลองจากเพลง (ลิงก์/ไฟล์), ไฟล์ MIDI, ทำนองจากเสียง; ไม่ทำ text/MusicXML | [drum-notes](features/drum-notes/decisions.md) | D1 | — | — | changed by D20 |
-| tab ใหม่ "แกะเพลง" `#/songs` ต่อท้ายสอนกลอง จบด้วยการสร้างบทเรียนกลอง; package `drum_notes`, prefix `/api/songs` | [drum-notes](features/drum-notes/decisions.md) | D2 | — | [0047](adr/0047-lesson-from-song-one-way-copy.md) | active |
+| tab ใหม่ "แกะเพลง" `#/songs` ต่อท้ายสอนกลอง จบด้วยการสร้างบทเรียนกลอง; package `drum_notes`, prefix `/api/songs` | [drum-notes](features/drum-notes/decisions.md) | D2 | — | [0047](adr/0047-lesson-from-song-one-way-copy.md) | changed by reels-only D6 |
 | Song = `media/songs/{id}/` (`song.json` + `audio.wav`) id ตาม spoil D51 ซ้ำชี้แถวเดิม | [drum-notes](features/drum-notes/decisions.md) | D3 | — | [0049](adr/0049-imported-media-id-from-source.md) | changed by D20 |
 | เอาเพลงเข้า: ลิงก์ `bestaudio` ผ่าน spoil adapter, ไฟล์เสียงทุกชนิดที่ ffmpeg อ่าน ≤ 200 MB และ `.mid` ≤ 5 MB แบบ ADR-0028; แปลงเป็น wav 44.1 kHz; ≤ 10 นาที; Song import slot ของตัวเอง | [drum-notes](features/drum-notes/decisions.md) | D4 | — | [0048](adr/0048-audio-only-imports-converted-to-m4a.md) | changed by D20 |
-| เลือกช่วงแกะ 4–90 วินาทีก่อนแกะ ไม่แกะทั้งเพลง | [drum-notes](features/drum-notes/decisions.md) | D5 | drum-cover | — | active |
+| เลือกช่วงแกะ 4–90 วินาทีก่อนแกะ ไม่แกะทั้งเพลง | [drum-notes](features/drum-notes/decisions.md) | D5 | drum-cover, reels-only | — | active |
 | แกะด้วย ADTOF Frame_RNN (ONNX, 5 ชนิด) + Beat This! (ONNX, จังหวะ/ต้นห้อง) บน onnxruntime CPU; ผลเป็นร่างให้แก้ ไม่รับผิดชอบความแม่น | [drum-notes](features/drum-notes/decisions.md) | D6 | drum-cover | [0044](adr/0044-drum-transcription-adtof-beat-this-onnx.md) | active |
 | ModelSpec สามตัว pin commit บน Hugging Face (`thebluescreen/adtof-drums-onnx`, `thebluescreen/beat-this-onnx`, `Andremi/audioweb-models`); `onnxruntime==1.32.0`; แถว Status check 4 แถว | [drum-notes](features/drum-notes/decisions.md) | D7 | — | [0044](adr/0044-drum-transcription-adtof-beat-this-onnx.md) | active |
 | Pick job รันเป็น thread ไม่จองช่อง GPU ไม่ใช้ process ลูก: แคบ ADR-0012/0015 ให้ครอบเฉพาะโมเดลขึ้นการ์ดหรือกิน memory เป็น GB | [drum-notes](features/drum-notes/decisions.md) | D8 | — | [0043](adr/0043-cpu-onnx-jobs-no-gpu-slot.md) | active |
 | ชนิดของ ADTOF → ชิ้นกลองตายตัว (toms → `tom_mid`, cymbals → `crash`); ความแรงจากเสียงเป็น `normal` ทั้งหมด; MIDI ใช้ velocity | [drum-notes](features/drum-notes/decisions.md) | D9 | kalimba-cover | — | active |
 | parser MIDI ของแอปเอง: ช่อง 10 GM map, tempo ตัวแรก, ต้อง 4/4 ไม่งั้น `unsupported_file` | [drum-notes](features/drum-notes/decisions.md) | D10 | drum-cover, kalimba-cover | — | changed by D20 |
-| ช่วงบทเรียน = ห้องที่พบ 1–4 ห้องติดกัน; BPM = มัธยฐานช่วงจังหวะ; quantize ลง 16 ช่องต่อห้องด้วยต้นห้องจริง | [drum-notes](features/drum-notes/decisions.md) | D11 | — | — | changed by D20 |
-| บทเรียนที่สร้างใช้ค่าตั้งต้น video-gen ยกเว้นหัวเรื่อง บรรทัดรอง BPM Groove; Song จำ id บทเรียน; `lesson.json` ไม่เปลี่ยน | [drum-notes](features/drum-notes/decisions.md) | D12 | — | [0047](adr/0047-lesson-from-song-one-way-copy.md) | extended by D21 |
+| ช่วงบทเรียน = ห้องที่พบ 1–4 ห้องติดกัน; BPM = มัธยฐานช่วงจังหวะ; quantize ลง 16 ช่องต่อห้องด้วยต้นห้องจริง | [drum-notes](features/drum-notes/decisions.md) | D11 | — | — | changed by D20; superseded by reels-only D6 |
+| บทเรียนที่สร้างใช้ค่าตั้งต้น video-gen ยกเว้นหัวเรื่อง บรรทัดรอง BPM Groove; Song จำ id บทเรียน; `lesson.json` ไม่เปลี่ยน | [drum-notes](features/drum-notes/decisions.md) | D12 | — | [0047](adr/0047-lesson-from-song-one-way-copy.md) | extended by D21; superseded by reels-only D6 |
 | มือ L/R อัตโนมัติตามกติกา Drumduino; ตัดโน้ตที่ขัดกฎ video-gen D20 ตามลำดับความสำคัญ และนับที่ตัด | [drum-notes](features/drum-notes/decisions.md) | D13 | drum-cover | — | changed by D20 |
 | โหมดทำนอง: Basic Pitch onset → snare, เติม kick จังหวะ 1 และ 3 กับไฮแฮททุก 8th | [drum-notes](features/drum-notes/decisions.md) | D14 | kalimba-cover | — | active |
 | เสียงเพลงต้นฉบับใช้วิเคราะห์และฟังในแอปเท่านั้น ไม่เข้าคลิปที่ render | [drum-notes](features/drum-notes/decisions.md) | D15 | drum-cover | [0050](adr/0050-original-audio-only-in-opted-reel.md) | changed by drum-cover D7 |
 | รับความเสี่ยง legal: โมเดล NC ใช้ไม่หารายได้ภายใต้ ADR-0017, โหลดเพลงจากเว็บแบบ spoil D53, เผยแพร่คลิปแบบ video-gen D25 (Accepted risk) | [drum-notes](features/drum-notes/decisions.md) | D16 | — | [0046](adr/0046-second-non-commercial-dependency-adtof.md) | active |
 | seam: API ด้วย ffmpeg จริงและ `onnx_runner` ปลอม, `drum_notes.score` ด้วยข้อมูลสังเคราะห์และ round trip กับ video-gen timeline, หน้าเว็บผ่าน `App` | [drum-notes](features/drum-notes/decisions.md) | D17 | — | — | active |
-| ทางเลือกเล็ก: state ของ Pick job, `no_beats`/`model_failed`, `busy`/`song_busy`/`not_applicable`, poll 1 วินาที, ล้าง `.partial/` ตอน start, ลบเพลงไม่ลบบทเรียน | [drum-notes](features/drum-notes/decisions.md) | D18 | drum-cover | [0047](adr/0047-lesson-from-song-one-way-copy.md) | changed by D20 |
+| ทางเลือกเล็ก: state ของ Pick job, `no_beats`/`model_failed`, `busy`/`song_busy`/`not_applicable`, poll 1 วินาที, ล้าง `.partial/` ตอน start, ลบเพลงไม่ลบบทเรียน | [drum-notes](features/drum-notes/decisions.md) | D18 | drum-cover, reels-only | [0047](adr/0047-lesson-from-song-one-way-copy.md) | changed by D20 |
 | ไฟล์ MIDI ที่ไม่รับทุกกรณีตอบ "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลอง"; velocity ≤ 50 ghost ≥ 100 accent; ความยาว = โน้ตสุดท้าย + 1 ห้อง | [drum-notes](features/drum-notes/decisions.md) | D22 | kalimba-cover | — | changed by kalimba-cover D3 |
 | ทางเลือกเล็ก ticket 01: แถวรายการส่ง `source_kind` และ `analysis` `{mode, bars}`, cancel ว่าง `409` `not_running`, `PUT` ซ้ำตอบ Song เดิม, `audio_imports.Limits`/`place`, `setupFixes.ts` ย้ายไป `src/lib/` | [drum-notes](features/drum-notes/decisions.md) | D23 | — | — | active |
 | เป้า: Pick job 90 วินาที ≤ 60 วินาทีบน Mac, import mp3 5 นาที ≤ 30 วินาที, round trip ตรง 100 % แม้เลื่อน ±20 ms, ความแม่นจริงเจ้าของตัดสิน | [drum-notes](features/drum-notes/decisions.md) | D19 | kalimba-cover | — | active |
 | ข้อแก้ red team: กฎห้องของการตี (หน้าต่าง ±ครึ่งช่อง), BPM จากความยาวห้อง, สลับมือเฉพาะ < 2 ช่อง, `audio.m4a` + `backend.audio_imports` ใช้ร่วมกับ toon, ตรวจความยาวจากไฟล์ `too_short`/`too_long`, ลิงก์ซ้ำหลัง `fetch_info`, MIDI ต้องมีช่อง 10 + เพดาน, `dropped` เป็นรายการ, ยกเลิกเมื่อจบ chunk, `score.stitch`, `model_broken` + smoke ใน Setup, `ffmpeg.run_capture`, fake `pause_at`, เกณฑ์เพลงเต็ม, spike Beat This! | [drum-notes](features/drum-notes/decisions.md) | D20 | — | [0048](adr/0048-audio-only-imports-converted-to-m4a.md), [0049](adr/0049-imported-media-id-from-source.md) | active |
-| ปุ่ม "ฟัง" บนหน้าเพลง: `POST /songs/{id}/listen` ผสม Groove ตัวอย่างด้วย `video_gen.mixer` จากบทเรียนชั่วคราว ไม่เขียนไฟล์ | [drum-notes](features/drum-notes/decisions.md) | D21 | drum-cover | [0050](adr/0050-original-audio-only-in-opted-reel.md) | active |
+| ปุ่ม "ฟัง" บนหน้าเพลง: `POST /songs/{id}/listen` ผสม Groove ตัวอย่างด้วย `video_gen.mixer` จากบทเรียนชั่วคราว ไม่เขียนไฟล์ | [drum-notes](features/drum-notes/decisions.md) | D21 | drum-cover | [0050](adr/0050-original-audio-only-in-opted-reel.md) | superseded by reels-only D6 |
 | ทางเลือกเล็ก ticket 02: `SongView` มี `bars` คำนวณตอนอ่าน, ขอบโมเดลที่ `open_session` (fake ระดับ session), แผน chunk Beat This! (ขยับ 1,488 ตัวสุดท้ายเลื่อนให้จบที่ท้าย), จังหวะติดกันรวม, `percent` ต่อ chunk, โหมดทำนอง `400` จน ticket 04, ข้อความ error, `songs.song_jobs` | [drum-notes](features/drum-notes/decisions.md) | D24 | — | — | active — changes D20 || changed by D26 |
 | ทางเลือกเล็ก ticket 03: module `drum_notes.lesson` (preview/listen/create, Score ขั้น 2), `video_gen.lessons.from_song`/`create_from`/`unsaved`, `/listen` `422` `too_long`, ปัดช่อง `floor(x + 0.5)`, หน้าเพลงเปิดมา preview ห้องแรก 1 ห้อง, ตัด "BPM ที่พบ", `kit.ts`/`lesson.ts`/`useListen`/`GrooveGrid` ย้ายเป็นของใช้ร่วม | [drum-notes](features/drum-notes/decisions.md) | D25 | — | [0047](adr/0047-lesson-from-song-one-way-copy.md) | active |
 | ทางเลือกเล็ก ticket 04: I/O จริงของ `basic_pitch_nmp.onnx` (`:2` = onset), หน้าต่าง Basic Pitch ตามโค้ดต้นฉบับ เวลาเฟรมจากต้นหน้าต่าง, onset เฟรมติดกันเป็นการตีเดียว, โหมดทำนองถอดเสียง 22.05 kHz อย่างเดียว `percent` ต่อหน้าต่าง, ขั้น 5 ใน `score.preview(mode)`, หัว "ผลแกะ" บอกโหมด | [drum-notes](features/drum-notes/decisions.md) | D26 | — | [0044](adr/0044-drum-transcription-adtof-beat-this-onnx.md) | active |
 | ผล feature review: แก้ bug ช่วงตั้งต้นจากความยาวก่อนปัด, `busy` บอกชื่อเพลง, ลิงก์ก่อน gate, `RefusedAlert`/`fixesFor` ใช้ร่วม, `Choice`/`FoundHit`; refactor ที่เหลือและเรื่องที่ต้องเจ้าของเป็น Blocked | [drum-notes](features/drum-notes/decisions.md) | D27 | — | — | active |
-| สองจอสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่มีแบบใน Figma; เป้ากด 44px ต่ำกว่า 640px; ชื่อบทเรียนจากรายการ tab สอนกลอง | [drum-notes](features/drum-notes/decisions.md) | D28 | drum-cover | — | active |
+| สองจอสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่มีแบบใน Figma; เป้ากด 44px ต่ำกว่า 640px; ชื่อบทเรียนจากรายการ tab สอนกลอง | [drum-notes](features/drum-notes/decisions.md) | D28 | drum-cover | — | changed by reels-only D6 |
 | คำตอบเจ้าของ: คงผลตรวจ Beat This! ตามจริง (ไม่รวมห้องเป็นคู่), มือของ crash คง D13, `Song.title` 1–60 บังคับตอนอ่าน | [drum-notes](features/drum-notes/decisions.md) | D29 | drum-cover | — | active |
 | refactor จาก review: `JobSlot.cancel` ร่วม (`cancel_refusal`), `score` เลขสัญญาณ / `groove` กฎ Groove, ตารางต่อโหมด (`HITS_BY_MODE`, `BASE_GROOVES`), `lib/refused.ts` รูปเดียว, `kit.PieceId`, `songs.Head`, `start` คืนชนิด | [drum-notes](features/drum-notes/decisions.md) | D30 | video-gen, sound-library | — | active |
 
@@ -492,9 +509,9 @@ question; the full entry is in the feature's decisions.md.
 | ช่วงของ reel ในช่วงแกะ 2–90 วิ; ตั้งต้นเริ่มที่ต้นห้องแรกที่มีการตี จบที่ท้ายช่วงแกะ; ค่าที่เกินช่วงใหม่ถูกดึงเข้าตอนอ่าน | [drum-cover](features/drum-cover/decisions.md) | D6 | — | — | active |
 | เสียง reel กลองล้วนตั้งต้น; เปิด backing เพลงต้นฉบับได้เองต่อ cover (volume 10–100 ตั้งต้น 35) ผสมใน numpy ตาม D17 พร้อมคำเตือน; คลิปสอนไม่มี backing (เปลี่ยน drum-notes D15, แทน ADR-0045 ด้วย ADR-0050) | [drum-cover](features/drum-cover/decisions.md) | D7 | kalimba-cover | [0050](adr/0050-original-audio-only-in-opted-reel.md) | active |
 | พื้นหลัง reel สีของแอปหรือภาพของผู้ใช้ตาม video-gen D6/D36/D37; โค้ดรับและครอปภาพย้ายไป `backend.pictures` ใช้ร่วม; `BackgroundPicker` ไป `components/ui` | [drum-cover](features/drum-cover/decisions.md) | D8 | kalimba-cover | — | active |
-| หลังแกะ หน้าเพลงบอกเมื่อไม่มีการตี หรือห้องแรก ๆ ว่าง (บอกเวลาการตีแรก) และปุ่ม "เริ่มช่วงที่การตีแรก" ตั้งช่วงใหม่แล้วแกะทันที; คำนวณบนหน้าเว็บ | [drum-cover](features/drum-cover/decisions.md) | D9 | — | — | active |
+| หลังแกะ หน้าเพลงบอกเมื่อไม่มีการตี หรือห้องแรก ๆ ว่าง (บอกเวลาการตีแรก) และปุ่ม "เริ่มช่วงที่การตีแรก" ตั้งช่วงใหม่แล้วแกะทันที; คำนวณบนหน้าเว็บ | [drum-cover](features/drum-cover/decisions.md) | D9 | reels-only | — | active |
 | แกะจากเสียง (หรือ MIDI) เท่านั้น ไม่อ่านโน้ตจากภาพของคลิป cover ของคนอื่น | [drum-cover](features/drum-cover/decisions.md) | D10 | — | — | active |
-| หน้าเพลง: ส่วน "Reel cover" เหนือ "สร้างบทเรียน" ปุ่มหลัก; `#/songs/{id}/cover` เป็นหน้าของ drum-cover ที่ `App` เลือกเอง; tab ยังเป็นแกะเพลง | [drum-cover](features/drum-cover/decisions.md) | D11 | — | — | active |
+| หน้าเพลง: ส่วน "Reel cover" เหนือ "สร้างบทเรียน" ปุ่มหลัก; `#/songs/{id}/cover` เป็นหน้าของ drum-cover ที่ `App` เลือกเอง; tab ยังเป็นแกะเพลง | [drum-cover](features/drum-cover/decisions.md) | D11 | reels-only | — | active |
 | ทางเลือกเล็ก: routes `/api/songs/{id}/cover…` + `/api/covers/render`, Render job slot ของตัวเอง gate `drums`, copy เข้า `media/songs/.render/` ก่อน 202, ผลใต้ `renders/` มี `backing` ใน json, `GET /cover` คืนค่าตั้งต้น + `suggested_start_s`, ผล render บนหน้าเดียว | [drum-cover](features/drum-cover/decisions.md) | D12 | kalimba-cover | — | extended by kalimba-cover D9 |
 | seam: API ด้วย ffmpeg จริงและ `analysis` ที่เขียนเอง, `drum_cover.timeline` ด้วยการตีสังเคราะห์ (เสียงตรงภาพ ≤ 1 เฟรม), หน้าเว็บผ่าน `App` | [drum-cover](features/drum-cover/decisions.md) | D13 | kalimba-cover | — | active |
 | สองจอสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma | [drum-cover](features/drum-cover/decisions.md) | D14 | kalimba-cover | — | active |
@@ -504,7 +521,7 @@ question; the full entry is in the feature's decisions.md.
 | เสียงคาลิมบาจาก sample VCSL "Kalimba, Tanzania" (CC0) pin commit โหลดผ่าน Setup แถว `kalimba_kit`; sample ที่ pitch วัดได้ใกล้สุด ย้ายเข้า C major กรองเสียงซ่าและคีย์อื่นที่ดังตาม (แทน D5) | [kalimba-cover](features/kalimba-cover/decisions.md) | D18 | — | [0061](adr/0061-kalimba-sound-vcsl-samples.md) | active |
 | เสียง reel ทางเดียว `reel_wav`: backing ผสมใน numpy peak −1 dBFS ทั้งฟังและ render; `_command` และ `captions` ของ video-gen ไม่แก้; prefactor เฉพาะที่ผลเดิมไม่เปลี่ยน | [drum-cover](features/drum-cover/decisions.md) | D17 | kalimba-cover | [0050](adr/0050-original-audio-only-in-opted-reel.md) | active |
 | หน้า reel บอก: ช่วงไม่มีการตี (ปิดฟัง/render), `adjusted`, `has_audio`, คำใบ้หัวเรื่อง, ลิงก์แกะช่วงใหม่, ผล render "แกะใหม่แล้ว" | [drum-cover](features/drum-cover/decisions.md) | D18 | kalimba-cover | — | active |
-| กรณีขอบ: โหมดทำนองเล่น snare ตามจริง, ช่วงตั้งต้น < 2 วิ, ปุ่มเริ่มช่วงใกล้ท้ายเพลง, Alert ห้องว่างเมื่อการตีแรกหลังห้อง k | [drum-cover](features/drum-cover/decisions.md) | D19 | — | — | active |
+| กรณีขอบ: โหมดทำนองเล่น snare ตามจริง, ช่วงตั้งต้น < 2 วิ, ปุ่มเริ่มช่วงใกล้ท้ายเพลง, Alert ห้องว่างเมื่อการตีแรกหลังห้อง k | [drum-cover](features/drum-cover/decisions.md) | D19 | reels-only | — | active |
 | Render job ของ reel รันพร้อมสอนกลองและ Pick job ได้; เป้าเวลาวัดตอนรันเดี่ยว | [drum-cover](features/drum-cover/decisions.md) | D20 | — | — | active |
 | ทางเลือกเล็ก: ห้องจาก downbeats ทั้งหมด, `pictures.receive(…, place)`, `useBackground`/`BackgroundPicker` ร่วมรับ `paths`, `song_busy` ของ reel, ลำดับ lock | [drum-cover](features/drum-cover/decisions.md) | D21 | — | — | active |
 | ทางเลือกเล็กตอน build 01: ส่วน Reel cover ของ drum-notes รู้ reel ผ่าน HTTP, เรียก `_command` ของ video-gen ตรง, `.srt` cue เดียว, "ยังไม่บันทึก" = แก้แล้วหรือ `adjusted`, `fakes.written_song`/`song_m4a`, 30 วิ render 12.7 วิ | [drum-cover](features/drum-cover/decisions.md) | D22 | — | — | active |

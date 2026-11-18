@@ -89,5 +89,5 @@
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
 | 1 | 02 | `DraftProgress.test.tsx` › D87 (spoil-maker) ล้มราว 1 ใน 5 รอบเมื่อรันทั้งชุดบน branch นี้ (บน develop 0 ใน 5); ผ่านเสมอเมื่อรันเดี่ยว. การกด "เลือก Shot ใหม่" ไม่ส่ง POST บางรอบ. ลองสลับลำดับ phase และ poll วนแล้ว ทั้งสองแบบแย่ลง จึงถอยคืน; ยังไม่รู้สาเหตุ | `/kiki-debug DraftProgress D87 flaky on feat/ui-nav` | done (`2aef071`, [record](bugs/2026-11-17-draftprogress-d87-flaky.md)) |
-| 2 | 03 | สอนกลอง (`#/drums`) ได้ mp4 แนวตั้งแต่เป็นบทเรียน: นับเป็น reel (เก็บ) หรือบทเรียน (เอาออกจากเมนู)? — spec › Open Questions 4 | เจ้าของตัดสิน แล้ว `/warroom ui-nav` | open |
-| 3 | 03 | ส่วน "สร้างบทเรียน" / "บทเรียนจากเพลงนี้" ในหน้าเพลงเป็นบทเรียนที่ไม่ได้คลิป: ซ่อนหรือลบไหม? อยู่นอกเมนู — spec › Open Questions 5 | เจ้าของตัดสิน แล้ว `/warroom drum-notes` | open |
+| 2 | 03 | สอนกลอง (`#/drums`) ได้ mp4 แนวตั้งแต่เป็นบทเรียน: นับเป็น reel (เก็บ) หรือบทเรียน (เอาออกจากเมนู)? — spec › Open Questions 4 | เจ้าของตัดสิน แล้ว `/warroom ui-nav` | done (reels-only D2, D5: เป็น "reel กลอง") |
+| 3 | 03 | ส่วน "สร้างบทเรียน" / "บทเรียนจากเพลงนี้" ในหน้าเพลงเป็นบทเรียนที่ไม่ได้คลิป: ซ่อนหรือลบไหม? อยู่นอกเมนู — spec › Open Questions 5 | เจ้าของตัดสิน แล้ว `/warroom drum-notes` | done (reels-only D6, D7: ลบทั้งหมด) |

@@ -212,7 +212,7 @@
 - ถอยกลับ: revert commit ของ ticket 03 คืนเมนูแบนของ PR #19; ไม่มี storage key หรือ hash ใหม่ จึงไม่มีอะไรต้องย้าย (D10)
 - แกะเพลงอยู่ก่อนสอนกลองในหมวดดนตรี: ทางที่ได้ reel cover ชัดก่อนทางที่ยังรอเจ้าของตัดสิน (D13)
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** changed by reels-only D5
 
 ## D13: เมนูมีเฉพาะทางที่ได้ reel หรือของที่ reel ใช้; ไม่แน่ใจ = เก็บไว้
 
@@ -240,7 +240,7 @@
 - หน้าและ hash ทุกตัวยังเปิดได้ตาม D6 ไม่ว่าอยู่ในเมนูหรือไม่
 - รายการใหม่ในอนาคตตรวจตามข้อ ก–ค ก่อนเข้า `NAV_SECTIONS` (ADR-0064)
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** extended by reels-only D1
 
 ## Sources
 

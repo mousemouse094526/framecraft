@@ -15,4 +15,5 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [drum-notes](drum-notes/progress.md) | false | done | 🎨 2/2 (ui-prompt.md, D28) | ✅ e782f02 | Blocked 5: เจ้าของฟังเทียบตาราง intro/kalimba ใน `#/songs` | — |
 | [drum-cover](drum-cover/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D14) | ✅ 4d471f8 | ข้อเล็กถ้าทำต่อ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
 | [kalimba-cover](kalimba-cover/progress.md) | false | done | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 2dff570 | — | — |
-| [ui-nav](ui-nav/progress.md) | false | done | 🎨 1/1 (ui-prompt.md, D7) | ✅ 6040d74 | Blocked 2: เจ้าของตัดสิน สอนกลองเก็บหรือเอาออกจากเมนู · Blocked 3: ส่วนบทเรียนในหน้าเพลงซ่อนหรือลบ → `/warroom drum-notes` | — |
+| [ui-nav](ui-nav/progress.md) | false | done | 🎨 1/1 (ui-prompt.md, D7) | ✅ 6040d74 | — | — |
+| [reels-only](reels-only/progress.md) | false | ready | 🎨 5/5 (existing components, D10) | 0/2 | — | `/warroom-build reels-only 01` |

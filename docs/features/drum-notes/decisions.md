@@ -29,7 +29,7 @@
 - hash: `#/songs` รายการเพลง, `#/songs/{id}` หน้าเพลง (spec › Design)
 - `App` และ `useHash` รู้จัก tab `songs` ต่อท้าย `drums`
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by reels-only D6
 
 ## D3: Song เป็น folder ใน `media/songs/` id ตามกฎของ Temp clip
 
@@ -190,7 +190,7 @@
 - การตีที่ปัดได้ช่อง 16 ของห้องสุดท้าย (ต้นห้องถัดไป) ทิ้ง
 - ก่อนสร้าง หน้าเพลงแสดงตารางผลแบบอ่านอย่างเดียว (ชิ้น × ช่อง) และจำนวนการตีที่ถูกทิ้งเพราะกฎ D13
 
-**From:** interview · **Status:** changed by D20
+**From:** interview · **Status:** changed by D20; superseded by reels-only D6
 
 ## D12: บทเรียนที่สร้างใช้ค่าตั้งต้นของ video-gen ยกเว้นหัวเรื่อง บรรทัดรอง BPM และ Groove
 
@@ -207,7 +207,7 @@
 - หน้าเพลงแสดงบทเรียนที่สร้างจากเพลงนี้เป็นลิงก์ `#/drums/{id}`
 - สร้างแล้วพาไป `#/drums/{id}` ทันที
 
-**From:** interview · **Status:** extended by D21
+**From:** interview · **Status:** extended by D21; superseded by reels-only D6
 
 ## D13: มือ L/R เลือกอัตโนมัติตามกติกาของ Drumduino และตัดโน้ตที่ขัดกฎ D20
 
@@ -355,7 +355,7 @@
 - error เหมือน `/preview` (`invalid_request`, `no_analysis`)
 - หน้าเว็บเล่นด้วย `playAudio` จาก blob แบบ "ฟังจังหวะ"
 
-**From:** red team · **Status:** active
+**From:** red team · **Status:** superseded by reels-only D6
 
 ## D22: ไฟล์ MIDI ที่ไม่รับทุกกรณีตอบข้อความเดียว; ความแรงจาก velocity สามระดับ
 
@@ -448,7 +448,7 @@
 
 **Why:** เจ้าของสั่ง 2026-11-14 ให้ทำสองจอเองจาก ui-prompt ไม่รอ Figma แบบที่ sound-library ทำเป็น D18 แล้วปิด Blocked 1–2. prompt ขอเป้ากด ≥ 44px; หน้าอื่นใช้ `h-11` บนจอแคบแล้วเล็กลงที่ `sm` อยู่แล้ว.
 
-**From:** เจ้าของ (ปิด Blocked 1–2) · **Status:** active
+**From:** เจ้าของ (ปิด Blocked 1–2) · **Status:** changed by reels-only D6
 
 ## D29: คำตอบเจ้าของสามข้อจาก feature review: คงผลตรวจ Beat This! ตามจริง, มือของ crash คง D13, `Song.title` 1–60 ตอนอ่าน
 
