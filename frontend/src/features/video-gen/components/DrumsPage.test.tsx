@@ -42,13 +42,13 @@ function lessonOf(change: Partial<Lesson> = {}): Lesson {
     },
     chapters: [{ label: "", text: "", focus: [], repeats: 4, speed: 100 }],
     updated_at: "2026-11-13T10:30:00+07:00",
-    length_s: 13.5,
+    length_s: 11.1,
     ...change,
   };
 }
 
 function rowOf(change: Partial<LessonRow> = {}): LessonRow {
-  return { id: ID, title: "ร็อกพื้นฐาน", length_s: 13.5, renders: 0, updated_at: "2026-11-13T10:30:00+07:00", ...change };
+  return { id: ID, title: "ร็อกพื้นฐาน", length_s: 11.1, renders: 0, updated_at: "2026-11-13T10:30:00+07:00", ...change };
 }
 
 /** The `PUT` answer: what was sent, as the backend stores it. */
@@ -136,7 +136,7 @@ describe("รายการ reel กลอง", () => {
 
     const row = await screen.findByRole("listitem");
     expect(within(row).getByRole("link", { name: /ร็อกพื้นฐาน/ })).toHaveAttribute("href", `#/drums/${ID}`);
-    expect(row).toHaveTextContent("0:14");
+    expect(row).toHaveTextContent("0:11");
     expect(row).toHaveTextContent("render 2 ครั้ง");
     expect(row).toHaveTextContent("แก้ล่าสุด 13 พ.ย. 10:30");
   });
@@ -349,8 +349,8 @@ describe("จำนวนรอบ (reels-only D2, D4)", () => {
     expect(screen.queryByText(/ท่อนสอน|ชิ้นที่เน้น|ความเร็ว/)).not.toBeInTheDocument();
     expect(legacyNote()).not.toBeInTheDocument();
     await user.selectOptions(repeatsBox(), "6");
-    // count-in 2.4 + 6 bars of 2.4 + 1.5 tail
-    expect(screen.getByText("ความยาวคลิป 18.3 / 90 วินาที")).toBeInTheDocument();
+    // 6 bars of 2.4 + 1.5 tail, no count-in (reels-only D15)
+    expect(screen.getByText("ความยาวคลิป 15.9 / 90 วินาที")).toBeInTheDocument();
     await user.click(save());
 
     await waitFor(() => expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1));
@@ -406,10 +406,10 @@ describe("จำนวนรอบ (reels-only D2, D4)", () => {
   });
 
   it("an old reel that merges past 90 s says so, and can't be listened to or rendered", async () => {
-    // 40 BPM, 2 bars: 6 count-in + 8 × 2 × 6 + 1.5 tail = 103.5 once 4 + 4 + 4 merge into 8.
+    // 40 BPM, 2 bars: 8 × 2 × 6 + 1.5 tail = 97.5 once 4 + 4 + 4 merge into 8.
     await openEditor([], lessonOf({ bpm: 40, groove: { bars: 2, notes: [] }, chapters: old(4, 4, 4) }));
 
-    expect(screen.getByText("ยาวเกิน 90 วินาทีไป 13.5 วินาที")).toBeInTheDocument();
+    expect(screen.getByText("ยาวเกิน 90 วินาทีไป 7.5 วินาที")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ฟังจังหวะ" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
   });
@@ -452,17 +452,17 @@ describe("ความยาวคลิป", () => {
   it("over 90 s says by how much; บันทึก still works but ฟังจังหวะ can't be pressed", async () => {
     const user = await openEditor([savedReply()]);
 
-    expect(screen.getByText("ความยาวคลิป 13.5 / 90 วินาที")).toBeInTheDocument();
+    expect(screen.getByText("ความยาวคลิป 11.1 / 90 วินาที")).toBeInTheDocument();
     await user.selectOptions(screen.getByRole("combobox", { name: /จำนวนรอบ/ }), "8");
     const bpm = screen.getByRole("spinbutton", { name: "BPM" });
     await user.clear(bpm);
     await user.type(bpm, "40");
 
-    // A bar is 6 s at 40 BPM: 6 count-in + 8 × 6 + 1.5 tail = 55.5 — so two bars of Groove go over.
-    expect(screen.getByText("ความยาวคลิป 55.5 / 90 วินาที")).toBeInTheDocument();
+    // A bar is 6 s at 40 BPM: 8 × 6 + 1.5 tail = 49.5 — so two bars of Groove go over.
+    expect(screen.getByText("ความยาวคลิป 49.5 / 90 วินาที")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "เพิ่มห้อง" }));
-    // 6 count-in + 8 × 2 × 6 + 1.5 tail = 103.5.
-    expect(screen.getByText("ยาวเกิน 90 วินาทีไป 13.5 วินาที")).toBeInTheDocument();
+    // 8 × 2 × 6 + 1.5 tail = 97.5.
+    expect(screen.getByText("ยาวเกิน 90 วินาทีไป 7.5 วินาที")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ฟังจังหวะ" })).toBeDisabled();
     await user.click(save());
     await waitFor(() => expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1));
@@ -605,7 +605,7 @@ function jobOf(change: Partial<DrumRenderJob> = {}): DrumRenderJob {
 }
 
 function resultOf(name: string): RenderResult {
-  return { name, lesson_id: ID, title: "ร็อกพื้นฐาน", length_s: 13.5, created_at: "2026-11-13T11:00:00+07:00", size_bytes: 1_000_000 };
+  return { name, lesson_id: ID, title: "ร็อกพื้นฐาน", length_s: 11.1, created_at: "2026-11-13T11:00:00+07:00", size_bytes: 1_000_000 };
 }
 
 describe("render", () => {

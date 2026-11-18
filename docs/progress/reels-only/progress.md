@@ -14,9 +14,25 @@
 |---|---|---|
 | 01 | หน้า reel กลอง แทนสอนกลอง | done |
 | 02 | หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง | done |
-| 03 | reel กลองไม่มีนับเข้า | ready-for-agent |
+| 03 | reel กลองไม่มีนับเข้า | done |
 
 ## Log
+
+### 03: reel กลองไม่มีนับเข้า — done 2026-11-18
+
+**Built:**
+- reel กลองเริ่มที่ห้องแรกของ Groove: ไม่มีไฮแฮทเบา 4 ครั้ง ตัวนับเริ่ม 1 ที่ 0 วิ, `.srt` ไม่มี cue นับเข้า, ความยาวสั้นลงหนึ่งห้องทั้ง backend `length_s` และหน้าเว็บ `lengthOf`
+- flam ที่ step แรกของต้นคลิปเล่นแค่โน้ตหลัก (D16); ก่อนแก้ ฟังจังหวะของ Groove แบบนี้พังด้วย `ValueError: operands could not be broadcast` (ยืนยันโดยถอดกฎแล้วรัน test)
+- reel cover และ reel คาลิมบาไม่แตะ: test ของมันผ่านโดยไม่แก้ ยกเว้น `test_assemble_gives_a_lesson_the_timeline_build_always_gave_it`
+
+**ของจริง** (render reel ใหม่ "NO COUNT-IN" ผ่าน API ของ worktree นี้ port 8765 ไม่แตะ `media/` ของเจ้าของ):
+- `ffprobe -count_frames`: 333 เฟรม, ความยาว 11.100000 วิ (เดิม 13.5 วิ = 405 เฟรม)
+- `.srt` ทั้งไฟล์: `1` / `00:00:00,000 --> 00:00:11,100` / `NO COUNT-IN` (cue เดียว)
+- เสียงดังสุดของคลิปอยู่ที่ 0.007 วิ (ไฮแฮทกับกระเดื่อง step 0); เฟรม 0: หัวเรื่อง ตัวนับ 1 และ BAR บน playhead
+
+**Decided:**
+- D16 — flam ที่ต้นคลิป (red team, Breaker)
+
 
 ### Feature review — 2026-11-18
 

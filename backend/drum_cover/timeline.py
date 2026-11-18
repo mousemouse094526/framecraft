@@ -42,7 +42,7 @@ def build(analysis: Analysis, cover: CoverFields) -> Timeline:
 
 def lesson(analysis: Analysis, cover: CoverFields) -> Lesson:
     """The unsaved lesson `frames` and `captions` draw from (step 7): the cover's texts and
-    background, one chapter with no label, no focus and no count-in's speed change."""
+    background, one chapter with no label, no focus and full speed."""
     fields = LessonFields(
         title=cover.title,
         subtitle=cover.subtitle,

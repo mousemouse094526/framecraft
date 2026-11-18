@@ -30,18 +30,19 @@ def events(ass: str, style: str) -> list[tuple[str, str, str]]:
     return [(start, end, text) for start, end, text in found]
 
 
-def test_the_count_in_shows_the_title_and_subtitle_and_a_labelled_chapter_its_label_and_text(project, title_font):
+def test_a_plain_chapter_shows_the_title_and_subtitle_and_a_labelled_chapter_its_label_and_text(project, title_font):
     chapters = [chapter(), chapter(label="KICK", text="On 1e and 2a", focus=["kick"])]
     played_lesson = lesson(note("kick", 0, None), chapters=chapters, title="SMELLS", subtitle="Nirvana")
     ass = captions.ass_file(project, played_lesson, timeline.build(played_lesson), title_font)
 
     headings = [text.rsplit("}", 1)[1] for _, _, text in events(ass, "Heading")]
-    assert headings == ["SMELLS", "SMELLS", "KICK"]  # the first chapter's label is empty: the title
+    assert headings == ["SMELLS", "KICK"]  # the first chapter's label is empty: the title; no count-in (reels-only D15)
+    assert events(ass, "Heading")[0][0] == "0:00:00.00"
     kick_box = captions.ass_color(kit.BY_ID["kick"].color)
-    assert f"\\3c{kick_box}" in events(ass, "Heading")[2][2]
+    assert f"\\3c{kick_box}" in events(ass, "Heading")[1][2]
     lines = [text.rsplit("}", 1)[1] for _, _, text in events(ass, "Line")]
-    assert lines == ["Nirvana", "Nirvana", "On 1e and 2a"]
-    assert [text[-1] for _, _, text in events(ass, "Counter")] == list("1234" * 3)
+    assert lines == ["Nirvana", "On 1e and 2a"]
+    assert [text[-1] for _, _, text in events(ass, "Counter")] == list("1234" * 2)
     assert [text.rsplit("}", 1)[1] for _, _, text in events(ass, "Letter")] == ["L", "R"]
     assert [text.rsplit("}", 1)[1] for _, _, text in events(ass, "Foot")] == ["RF", "LF"]
     beats = {text.rsplit("}", 1)[1] for _, _, text in events(ass, "Beat")}
@@ -68,11 +69,20 @@ def test_a_long_thai_subtitle_and_caption_are_cut_into_two_lines_at_most(project
         assert text.count("\\N") == 1, text
 
 
+def test_a_one_chapter_reel_has_one_cue_for_the_whole_clip():
+    played_lesson = lesson(note("snare", 0), bpm=100, chapters=[chapter(repeats=4)], subtitle="Nirvana")
+
+    srt = captions.srt_file(played_lesson, timeline.build(played_lesson))
+    assert srt.startswith("1\n00:00:00,000 --> 00:00:11,100\nFILL\nNirvana")
+    assert srt.count(" --> ") == 1
+
+
 def test_the_srt_has_a_cue_per_section_with_its_heading_line_and_caption():
     chapters = [chapter(), chapter(label="ลองเล่นเอง")]
     played_lesson = lesson(chapters=chapters, subtitle="Nirvana", caption="ช้าๆ ก่อน")
 
     srt = captions.srt_file(played_lesson, timeline.build(played_lesson))
-    assert srt.count(" --> ") == 3
+    assert srt.count(" --> ") == 2
+    assert srt.startswith("1\n00:00:00,000 --> ")  # the first chapter from 0 s, no count-in cue (reels-only D15)
     assert "FILL\nNirvana\nช้าๆ ก่อน" in srt
     assert "ลองเล่นเอง\nช้าๆ ก่อน" in srt

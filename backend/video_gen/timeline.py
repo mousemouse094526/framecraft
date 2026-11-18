@@ -18,17 +18,16 @@ TAIL_S = 1.5  # the last cymbal rings out (D21)
 FLAM_GAP_S = 0.03  # the grace note comes this long before the main one (D13)
 # A note's velocity layer by its hit; a flam's main note is `mid`, its grace note `soft` (D13).
 LAYER_OF_HIT: dict[str, Layer] = {"accent": "hard", "normal": "mid", "ghost": "soft", "flam": "mid"}
-COUNT_IN_PIECE = "hihat_closed"
 OTHER_HAND = {"R": "L", "L": "R"}
-# What a hit is on screen: a count-in tick (no note head, no stick), a flam's grace note, or a note by its hit.
-NoteKind = Literal["count", "grace", "normal", "accent", "ghost", "flam"]
+# What a hit is on screen: a flam's grace note, or a note by its hit.
+NoteKind = Literal["grace", "normal", "accent", "ghost", "flam"]
 # One sound to play: its time in seconds from the clip's start, piece, hand, layer and what it is on screen.
 Sound = tuple[float, str, str | None, Layer, NoteKind]
 
 
 class Hit(NamedTuple):
     """One sample played: where it starts (a sample at RATE), the piece, the hand that plays it
-    (None for a foot and the count-in), its velocity layer and round-robin (1 up), and what it
+    (None for a foot), its velocity layer and round-robin (1 up), and what it
     is on screen."""
 
     at: int
@@ -40,7 +39,8 @@ class Hit(NamedTuple):
 
 
 class Beat(NamedTuple):
-    """A beat starting at sample `at`: the count-in's and every bar's, numbered 1–4 (D13)."""
+    """A beat starting at sample `at`: every bar's, numbered 1–4 (D13); the clip starts on the first
+    bar's 1, with no count-in (reels-only D15)."""
 
     at: int
     number: int
@@ -75,25 +75,20 @@ def beat_s(bpm: int, speed: int) -> float:
 
 
 def length_s(bpm: int, bars: int, chapters: "list[Chapter]") -> float:
-    """Count-in, every chapter, and the tail (spec › Data, D21): what the 90 s cap, the wav,
+    """Every chapter, then the tail (spec › Data, D21, reels-only D15): what the 90 s cap, the wav,
     the frame count and the disk estimate all use."""
-    count_in = BEATS_PER_BAR * beat_s(bpm, chapters[0].speed)
     chapters_s = sum(c.repeats * bars * BEATS_PER_BAR * beat_s(bpm, c.speed) for c in chapters)
-    return count_in + chapters_s + TAIL_S
+    return chapters_s + TAIL_S
 
 
 def build(lesson: "Lesson") -> Timeline:
-    """Every hit, beat and chapter span of the lesson, in time order (spec › Timeline and audio)."""
+    """Every hit, beat and chapter span of the lesson, in time order (spec › Timeline and audio),
+    from the first bar at 0 s (reels-only D15)."""
     sounds: list[Sound] = []
     beats: list[Beat] = []
     spans: list[Span] = []
 
-    count_in_beat = beat_s(lesson.bpm, lesson.chapters[0].speed)
-    for number in range(BEATS_PER_BAR):
-        sounds.append((number * count_in_beat, COUNT_IN_PIECE, None, "soft", "count"))
-        beats.append(Beat(to_sample(number * count_in_beat), number + 1))
-
-    start = BEATS_PER_BAR * count_in_beat
+    start = 0.0
     notes = sorted(lesson.groove.notes, key=lambda n: n.step)
     for chapter in lesson.chapters:
         beat = beat_s(lesson.bpm, chapter.speed)
@@ -105,7 +100,7 @@ def build(lesson: "Lesson") -> Timeline:
                     beats.append(Beat(to_sample(bar_start + number * beat), number + 1))
             for note in notes:
                 at = start + note.step * beat / 4
-                if note.hit == "flam":
+                if note.hit == "flam" and at >= FLAM_GAP_S:  # a grace note before the clip's start isn't played (reels-only D16)
                     sounds.append((at - FLAM_GAP_S, note.piece, OTHER_HAND[note.hand], "soft", "grace"))
                 sounds.append((at, note.piece, note.hand, LAYER_OF_HIT[note.hit], note.hit))
             start += lesson.groove.bars * BEATS_PER_BAR * beat

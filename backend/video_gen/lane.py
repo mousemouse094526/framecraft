@@ -19,13 +19,13 @@ LANE_Y = {"cymbals": 1330, "middle": 1420, "bottom": 1510}
 
 
 class Segment(NamedTuple):
-    """A stretch of the clip whose lanes scroll at one speed: the count-in and each chapter,
-    then the tail, where the lanes hold still at `frozen_at` (D21)."""
+    """A stretch of the clip whose lanes scroll at one speed: each chapter, then the tail, where
+    the lanes hold still at `frozen_at` (D21)."""
 
     start_s: float
     end_s: float
     px_per_s: float
-    chapter_index: int  # the chapter whose kit shows: the first through the count-in, the last through the tail
+    chapter_index: int  # the chapter whose kit shows: the last through the tail
     frozen_at: float | None = None
 
 
@@ -34,8 +34,7 @@ def segments(lesson: "Lesson", timing: Timeline) -> list[Segment]:
         return (RIGHT - LEFT) / (WINDOW_BARS * timeline.BEATS_PER_BAR * timeline.beat_s(lesson.bpm, speed))
 
     spans = [(span.start / timeline.RATE, span.end / timeline.RATE) for span in timing.chapters]
-    found = [Segment(0.0, spans[0][0], px_per_s(lesson.chapters[0].speed), chapter_index=0)]
-    found += [
+    found = [
         Segment(start, end, px_per_s(c.speed), chapter_index=index)
         for index, ((start, end), c) in enumerate(zip(spans, lesson.chapters, strict=True))
     ]

@@ -69,7 +69,7 @@ def client(project, piped) -> TestClient:
 
 
 def short_lesson(client, notes: list[dict] | None = None, **changes) -> dict:
-    """BPM 240, one bar, one chapter: a 1 s count-in, a 1 s bar, the 1.5 s tail."""
+    """BPM 240, one bar, one chapter: a 1 s bar from 0 s (no count-in, reels-only D15), the 1.5 s tail."""
     lesson = client.post(LESSONS, json={"title": "FILL"}).json()
     body = {k: v for k, v in lesson.items() if k not in ("id", "version", "updated_at", "length_s")}
     body |= {
@@ -117,14 +117,15 @@ def test_a_render_is_a_1080x1920_30fps_h264_aac_mp4_as_long_as_the_lesson_with_i
 
 
 def test_the_snare_s_sound_starts_within_a_frame_of_its_red_ring(client, project):
-    lesson = short_lesson(client)  # the snare on the first step after a 1 s count-in
+    lesson = short_lesson(client)  # the snare on the first step, at 0 s
     job = rendered(client, lesson["id"])
     mp4 = renders_dir(project, lesson["id"]) / f"{job['result']}.mp4"
 
     rate = 48_000
     sound = np.frombuffer(ffmpeg_out("-i", str(mp4), "-ac", "1", "-ar", str(rate), "-f", "s16le", "-"), dtype=np.int16)
-    after_count_in = np.abs(sound[int(0.9 * rate) : int(1.3 * rate)].astype(np.int32))
-    sound_at = (int(0.9 * rate) + int(np.argmax(after_count_in > after_count_in.max() // 2))) / rate
+    first_beat = np.abs(sound[: int(0.4 * rate)].astype(np.int32))
+    sound_at = int(np.argmax(first_beat > first_beat.max() // 2)) / rate
+    assert sound_at < 1 / frames.FPS  # the clip opens on the snare
     # Beside the stick's head, whose letter libass draws over the strike point; still in the red flash.
     x, y = SNARE[0] - 16, SNARE[1]
     # 2×2: yuv420p can't crop to one pixel. Each frame is 12 bytes; its first pixel is the strike point.

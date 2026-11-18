@@ -77,8 +77,8 @@ class Scene:
         self.segments = lane.segments(lesson, timing)
         self._background = background_image(background)
         self._still: dict[frozenset[str], PilImage.Image] = {}
-        # Every hit but the count-in's clicks: the lanes' note heads, the rings and the feet.
-        self.shown_hits = [hit for hit in timing.hits if hit.note != "count"]
+        # Every hit: the lanes' note heads, the rings and the feet.
+        self.shown_hits = list(timing.hits)
         self.shown_times = [hit.at / timeline.RATE for hit in self.shown_hits]
         self.swings = stick_swings(timing)
         self.beat_times = [beat.at / timeline.RATE for beat in timing.beats]
