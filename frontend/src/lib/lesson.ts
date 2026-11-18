@@ -94,12 +94,11 @@ export function mergeText({ repeats, total }: MergedRepeats): string {
   return `บันทึกแล้ว ป้าย คำอธิบาย ชิ้นที่เน้น และความเร็วของแต่ละท่อนจะหาย เหลือ Groove ${repeats} รอบที่ BPM เดียว${from} · อยากเก็บแบบเดิม กดทำซ้ำในรายการก่อน`;
 }
 
-/** `length_s` as `backend/video_gen/timeline.py` `length_s` works it out (keep the two alike): a bar of count-in at the first chapter's speed, every chapter, then 1.5 s of tail (D21). */
+/** `length_s` as `backend/video_gen/timeline.py` `length_s` works it out (keep the two alike): every chapter, then 1.5 s of tail (D21); no count-in (reels-only D15). */
 export function lengthOf(fields: LessonFields): number {
   const bar = (speed: number) => (4 * 60) / ((fields.bpm * speed) / 100);
-  const countIn = bar(fields.chapters[0]?.speed ?? 100);
   const chapters = fields.chapters.reduce((sum, c) => sum + c.repeats * fields.groove.bars * bar(c.speed), 0);
-  return countIn + chapters + TAIL_SECONDS;
+  return chapters + TAIL_SECONDS;
 }
 
 /** "2e" for a step's place in its bar: the beat, then e, & or a for the 16ths after it. */

@@ -27,10 +27,11 @@ def is_red(pixel: tuple[int, int, int]) -> bool:
 
 
 def test_the_snare_s_strike_point_is_red_on_its_note_and_not_a_frame_before():
-    # BPM 120: the count-in is 2.0 s, and the snare on step 4 plays at 2.5 s.
+    # BPM 120 with no count-in (reels-only D15): the snare on step 4 plays at 0.5 s.
     scene = scene_of(lesson(note("snare", 4, "L")))
     [snare] = [hit for hit in scene.timing.hits if hit.piece == "snare"]
     at = snare.at / RATE
+    assert at == 0.5
 
     assert is_red(picture(scene, at).getpixel(SNARE))
     assert not is_red(picture(scene, at - 1 / frames.FPS).getpixel(SNARE))
@@ -65,6 +66,6 @@ def test_the_tail_holds_the_last_chapter_with_the_sticks_at_rest():
 
 
 def test_the_clip_has_ceil_length_times_30_frames():
-    scene = scene_of(lesson(bpm=100))  # 2.4 + 2.4 + 1.5 = 6.3 s
+    scene = scene_of(lesson(bpm=100))  # one bar of 2.4 s + the 1.5 s tail = 3.9 s, no count-in
 
-    assert scene.frames() == 189
+    assert scene.frames() == 117

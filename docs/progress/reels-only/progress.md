@@ -1,6 +1,6 @@
 # Progress: reels-only
 
-**Now:** merged ([PR #21](https://github.com/mousemouse094526/framecraft/pull/21), `fc846cc`)
+**Now:** [PR #22](https://github.com/mousemouse094526/framecraft/pull/22) รอ review/merge
 
 **Next:**
 
@@ -14,8 +14,29 @@
 |---|---|---|
 | 01 | หน้า reel กลอง แทนสอนกลอง | done |
 | 02 | หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง | done |
+| 03 | reel กลองไม่มีนับเข้า | done |
 
 ## Log
+
+### Change request D15 + Blocked 1 — 2026-11-18
+
+**Checks:** `uv run pytest` 1547 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 648 passed (ทั้งชุด 24 รอบติด แดง 0); `npm --prefix frontend run build` ผ่าน
+
+### 03: reel กลองไม่มีนับเข้า — done 2026-11-18
+
+**Built:**
+- reel กลองเริ่มที่ห้องแรกของ Groove: ไม่มีไฮแฮทเบา 4 ครั้ง ตัวนับเริ่ม 1 ที่ 0 วิ, `.srt` ไม่มี cue นับเข้า, ความยาวสั้นลงหนึ่งห้องทั้ง backend `length_s` และหน้าเว็บ `lengthOf`
+- flam ที่ step แรกของต้นคลิปเล่นแค่โน้ตหลัก (D16); ก่อนแก้ ฟังจังหวะของ Groove แบบนี้พังด้วย `ValueError: operands could not be broadcast` (ยืนยันโดยถอดกฎแล้วรัน test)
+- reel cover และ reel คาลิมบาไม่แตะ: test ของมันผ่านโดยไม่แก้ ยกเว้น `test_assemble_gives_a_lesson_the_timeline_build_always_gave_it`
+
+**ของจริง** (render reel ใหม่ "NO COUNT-IN" ผ่าน API ของ worktree นี้ port 8765 ไม่แตะ `media/` ของเจ้าของ):
+- `ffprobe -count_frames`: 333 เฟรม, ความยาว 11.100000 วิ (เดิม 13.5 วิ = 405 เฟรม)
+- `.srt` ทั้งไฟล์: `1` / `00:00:00,000 --> 00:00:11,100` / `NO COUNT-IN` (cue เดียว)
+- เสียงดังสุดของคลิปอยู่ที่ 0.007 วิ (ไฮแฮทกับกระเดื่อง step 0); เฟรม 0: หัวเรื่อง ตัวนับ 1 และ BAR บน playhead
+
+**Decided:**
+- D16 — flam ที่ต้นคลิป (red team, Breaker)
+
 
 ### Feature review — 2026-11-18
 
@@ -69,4 +90,4 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01 | test frontend ที่ไม่เกี่ยวกับงานนี้ล้มสุ่ม ~1 ใน 3 รอบของทั้งชุด (ครั้งละตัว: `SpoilMakerPage` polish, `ClipsPage` drop, …) มีตั้งแต่ก่อนเริ่ม feature บน `bf5383c`; รันซ้ำผ่าน | `/kiki-debug frontend suite flaky one test per run` | open |
+| 1 | 01 | test frontend ที่ไม่เกี่ยวกับงานนี้ล้มสุ่ม ~1 ใน 3 รอบของทั้งชุด (ครั้งละตัว: `SpoilMakerPage` polish, `ClipsPage` drop, …) มีตั้งแต่ก่อนเริ่ม feature บน `bf5383c`; รันซ้ำผ่าน | `/kiki-debug frontend suite flaky one test per run` | done (98dfb73) — [record](bugs/2026-11-18-frontend-flaky-one-test.md) |

@@ -56,10 +56,10 @@ class Section(NamedTuple):
 
 
 def sections(lesson: "Lesson", timing: Timeline) -> list[Section]:
-    """The count-in shows the title and subtitle; a chapter its label on the box of its first focused
-    piece, and its text under it (D12). A chapter with no label shows the title, and the subtitle when
-    it has no text either. The last chapter holds through the tail (D21)."""
-    found = [Section(0.0, timing.chapters[0].start / timeline.RATE, lesson.title, WHITE, BLACK, lesson.subtitle)]
+    """A chapter shows its label on the box of its first focused piece, and its text under it (D12),
+    from 0 s for the first (no count-in, reels-only D15). A chapter with no label shows the title, and
+    the subtitle when it has no text either. The last chapter holds through the tail (D21)."""
+    found = []
     for index, (chapter, span) in enumerate(zip(lesson.chapters, timing.chapters, strict=True)):
         end = timing.length_s if index == len(lesson.chapters) - 1 else span.end / timeline.RATE
         found.append(_chapter_section(lesson, chapter, span.start / timeline.RATE, end))

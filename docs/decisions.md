@@ -84,7 +84,7 @@ question; the full entry is in the feature's decisions.md.
 |---|---|---|---|---|---|
 | ทุกหน้า ปุ่ม คำบนจอ: มีไว้สร้างคลิป ของที่คลิปใช้ หรือตั้งค่าเครื่อง = เก็บ; มีไว้สอนหรือสร้างบทเรียน = เอาออกจริง | [reels-only](features/reels-only/decisions.md) | D1 | — | [0065](adr/0065-no-lessons-in-the-app.md) | active |
 | สอนกลองเป็น "reel กลอง": หัวเรื่อง บรรทัดรอง คำบรรยาย BPM พื้นหลัง Groove จำนวนรอบ 1–8; ไม่มีท่อนสอน | [reels-only](features/reels-only/decisions.md) | D2 | — | — | active |
-| นับเข้า 1 ห้องตอนต้น reel กลองคงไว้ backend `timeline` ไม่แก้ | [reels-only](features/reels-only/decisions.md) | D3 | — | — | active |
+| นับเข้า 1 ห้องตอนต้น reel กลองคงไว้ backend `timeline` ไม่แก้ | [reels-only](features/reels-only/decisions.md) | D3 | — | — | superseded by reels-only D15 |
 | `lesson.json` และ API คงเดิม หน้าเว็บส่ง `chapters` ท่อนเดียว; reel แบบเก่ารวมรอบ (≤ 8) เมื่อบันทึก; reel ใหม่ท่อนเดียว 4 รอบ | [reels-only](features/reels-only/decisions.md) | D4 | — | [0066](adr/0066-lesson-names-stay-in-code.md) | active |
 | เมนูเรียก "reel กลอง" / "reel ทั้งหมด" ที่ `#/drums` เดิม ไม่มี `MOVED` | [reels-only](features/reels-only/decisions.md) | D5 | — | — | active |
 | หน้าเพลงไม่มีสร้างบทเรียน บทเรียนจากเพลงนี้ และแถบห้องที่พบ; เหลือช่วงแกะ แกะโน้ต การ์ด Reel cover | [reels-only](features/reels-only/decisions.md) | D6 | — | [0065](adr/0065-no-lessons-in-the-app.md) | active |
@@ -93,6 +93,8 @@ question; the full entry is in the feature's decisions.md.
 | ตรวจหน้าอื่นทั้งหมดแล้ว ไม่มีอะไรเกินต้องเอาออก; คำใบ้โหมดทำนองกับ dialog ลบเพลงแก้คำ | [reels-only](features/reels-only/decisions.md) | D9 | — | — | active |
 | หน้าตาใช้ component เดิม ไม่มีจอรอออกแบบ ไม่มี `ui-prompt.md` | [reels-only](features/reels-only/decisions.md) | D10 | — | — | active |
 | seam: `DrumsPage`, `SongsPage`, `App` ใน jsdom และ API เพลง; ไม่มี e2e | [reels-only](features/reels-only/decisions.md) | D11 | — | — | active |
+| reel กลองไม่มีนับเข้า: เฟรมแรกคือ beat 1 ของห้องแรก; `length_s` = ทุกท่อน + หาง 1.5 วิ ทั้ง backend และ `lengthOf`; reel cover กับ reel คาลิมบาไม่เคยมี ไม่แก้ | [reels-only](features/reels-only/decisions.md) | D15 | — | — | active |
+| flam ที่ step แรกของต้นคลิปเล่นแค่โน้ตหลัก (โน้ตนำจะตกก่อน 0 วิ) | [reels-only](features/reels-only/decisions.md) | D16 | — | — | active |
 | reel แบบเก่าเก็บ `lesson.before-reels-only.json` ครั้งเดียวก่อน `PUT` รวมท่อน; ทางถอยคือ revert แล้วเปลี่ยนชื่อกลับ | [reels-only](features/reels-only/decisions.md) | D12 | — | — | active |
 | ทางเลือกเล็ก ticket 01: `isReelShape`/`inReelShape`/`mergeText` ใน `lib/lesson` คู่ `_is_reel_shape`; ลบไฟล์ซ้ำที่ไม่มีใคร import ใน video-gen; test รอ `hashchange` ก่อน render | [reels-only](features/reels-only/decisions.md) | D13 | — | — | active |
 | ทางเลือกเล็ก ticket 02: `groove` เหลือ `trimmed`/`with_hands` (`trimmed` คืนแค่ที่เก็บ), test กฎมือเรียกตรง, `GrooveGrid` ต้องมี `editing`, `MELODY_HINT` ใหม่ | [reels-only](features/reels-only/decisions.md) | D14 | — | — | active |
@@ -414,7 +416,7 @@ question; the full entry is in the feature's decisions.md.
 | บทเรียนกลองเป็นไฟล์ใน `media/drums/` มีรายการ สร้าง ทำซ้ำ ลบ; ผล render เก็บทุกครั้งใต้บทเรียน | [video-gen](features/video-gen/decisions.md) | D10 | reels-only | — | extended by D22 |
 | sample Big Rusty Drums (CC0) ไมค์ใกล้ pin commit โหลดทีละไฟล์พร้อม sha256 ลง `models/drums/`; แถว Status check `drum_kit` | [video-gen](features/video-gen/decisions.md) | D11 | kalimba-cover | [0042](adr/0042-drum-samples-pinned-cc0.md) | changed by D19 |
 | ตำแหน่ง สี ขนาดบนจอตายตัวตามคลิปอ้างอิง; ป้ายท่อนสอนขึ้นแทนหัวเรื่อง | [video-gen](features/video-gen/decisions.md) | D12 | drum-cover, reels-only | — | active |
-| ทางเลือกเล็กจากคลิปอ้างอิง: เลนโน้ต 3 เลน playhead นิ่ง, นับเข้า 1 ห้อง, ไม้ขยับ 0.12 วิ, ชิ้นไม่เน้น 35%, ≤ 90 วิ, ชั้นความแรงของ sample | [video-gen](features/video-gen/decisions.md) | D13 | drum-cover, reels-only | — | changed by D21 |
+| ทางเลือกเล็กจากคลิปอ้างอิง: เลนโน้ต 3 เลน playhead นิ่ง, นับเข้า 1 ห้อง, ไม้ขยับ 0.12 วิ, ชิ้นไม่เน้น 35%, ≤ 90 วิ, ชั้นความแรงของ sample | [video-gen](features/video-gen/decisions.md) | D13 | drum-cover, reels-only | — | changed by D21, reels-only D15 (นับเข้า) |
 | Render job ของสอนกลองทีละงาน slot ของตัวเอง ไม่จอง GPU; คลิป 30 วิ render ≤ 60 วิ; เสียงกับภาพคลาด ≤ 1 เฟรม | [video-gen](features/video-gen/decisions.md) | D14 | drum-cover, reels-only | — | active |
 | seam: API ด้วย ffmpeg จริง, `frame_at` กับตารางเวลาโน้ต, หน้าเว็บผ่าน `App` | [video-gen](features/video-gen/decisions.md) | D15 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md) | active |
 | `PUT` บันทึกบทเรียนที่ยาวเกินได้; `too_long` เฉพาะฟังจังหวะและ render | [video-gen](features/video-gen/decisions.md) | D16 | reels-only | — | active |
@@ -422,7 +424,7 @@ question; the full entry is in the feature's decisions.md.
 | ของนิ่งวาดครั้งเดียวต่อ render ของที่ขยับวาดชิ้นเล็ก 2 เท่า; เฟรมเกิน 30 ms → เลิก 2 เท่า | [video-gen](features/video-gen/decisions.md) | D18 | — | [0040](adr/0040-drum-frames-pillow-text-ass.md) | active |
 | โหลด sample สามชั้นความแรงตาม `.sfz`, ผสมที่ 44.1 kHz ไม่ resample | [video-gen](features/video-gen/decisions.md) | D19 | — | [0041](adr/0041-one-timeline-drives-sound-and-picture.md), [0042](adr/0042-drum-samples-pinned-cc0.md) | active |
 | ปฏิเสธโน้ตที่มือเดียวตีไม่ได้ (มือเดียวสองชิ้น, เกินสองมือ, ไฮแฮทเปิดคู่ปิด, flam ที่เท้า); โน้ตใหม่ใช้มือว่าง | [video-gen](features/video-gen/decisions.md) | D20 | drum-notes | — | active |
-| ความยาวคลิปรวมหางเสียง 1.5 วิ ใช้ค่าเดียวกับ mp4 เฟรม % ดิสก์ เพดาน | [video-gen](features/video-gen/decisions.md) | D21 | drum-cover | — | active |
+| ความยาวคลิปรวมหางเสียง 1.5 วิ ใช้ค่าเดียวกับ mp4 เฟรม % ดิสก์ เพดาน | [video-gen](features/video-gen/decisions.md) | D21 | drum-cover | — | changed by reels-only D15 (ไม่มีนับเข้าในสูตร) |
 | ข้อแก้ red team: `ffmpeg.run_piped`, ตัวหนังสือยาว, id ใน path, ลำดับลบ, สถานะ render, บทเรียนใหม่สองท่อน, ฟังจังหวะ, ขอบของโน้ต | [video-gen](features/video-gen/decisions.md) | D22 | drum-notes, reels-only | — | active; changed by reels-only D4 |
 | ข้อแก้ legal: ป้ายตั้งต้น `ลองเล่นเอง`, คำเตือนข้างปุ่มภาพพื้นหลัง, ไม่มีช่องโลโก้, ตรวจใหม่ก่อนหารายได้ | [video-gen](features/video-gen/decisions.md) | D23 | drum-notes | — | active |
 | คลิปสอนกลองทำตาม ADR-0017 ไม่หารายได้; หารายได้ = change request ตรวจ legal ข้อ 2 ใหม่ | [video-gen](features/video-gen/decisions.md) | D24 | — | — | active |

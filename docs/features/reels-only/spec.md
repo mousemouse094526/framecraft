@@ -14,7 +14,7 @@
 
 - หน้า `#/drums` ชื่อ "reel กลอง": รายการ reel กลอง สร้าง ทำซ้ำ ลบ เหมือนเดิม (D2, D5)
 - หน้าแก้ reel กลองเหลือ หัวเรื่อง BPM บรรทัดรอง คำบรรยาย พื้นหลัง Groove จำนวนรอบ ฟังจังหวะ render บันทึก (D2)
-- ไม่มีท่อนสอน; นับเข้า 1 ห้องตอนต้นคลิปคงไว้ (D2, D3)
+- ไม่มีท่อนสอน และไม่มีนับเข้า: คลิปเริ่มที่ห้องแรกของ Groove (D2, D15)
 - reel แบบเก่าที่มีหลายท่อนเปิดได้ และถูกรวมเป็น Groove เล่นซ้ำเมื่อบันทึก (D4)
 - หน้าเพลงไม่มีส่วนสร้างบทเรียน บทเรียนจากเพลงนี้ และแถบห้องที่พบ; ทางไป reel cover อยู่ครบ (D6)
 - route และโค้ดที่มีไว้สร้างบทเรียนจากเพลงเท่านั้นถูกลบ (D7)
@@ -24,6 +24,7 @@
 
 **ผู้ทำคลิป**
 1. As a ผู้ทำคลิป, I want สร้าง reel กลองจาก Groove ที่กรอก ตั้ง BPM กับจำนวนรอบ แล้ว render เป็น mp4 กับ .srt, so that ได้คลิปกลองแนวตั้งโดยไม่ต้องตั้งท่อนสอน (D2, D4)
+6. As a ผู้ทำคลิป, I want คลิป reel กลองเริ่มที่ห้องแรกของ Groove ทันที ไม่มีนับเข้า, so that คนดูเห็นจังหวะตั้งแต่วินาทีแรก (D15)
 2. As a ผู้ทำคลิป, I want เปิด reel กลองที่ทำไว้ก่อน (รวมแบบหลายท่อน) แล้วแก้ต่อหรือ render ใหม่ได้, so that งานเก่าไม่หาย (D4)
 3. As a ผู้ทำคลิป, I want หน้าเพลงพาไปทำ reel cover โดยไม่มีส่วนบทเรียนมาเกะกะ, so that รู้ทันทีว่าหน้านี้มีไว้ทำอะไร (D6)
 4. As a ผู้ทำคลิป, I want ไม่เห็นคำว่าบทเรียนหรือสอนที่ไหนในแอป, so that ไม่สับสนว่าแอปทำ reel อย่างเดียว (D1, D8)
@@ -46,6 +47,7 @@
 ผู้ทำคลิปเปิดแอปแล้วเห็นแต่ทางทำ reel คลังของมัน และติดตั้ง ไม่มีที่ไหนพูดถึงบทเรียน.
 
 - **reel กลองใหม่:** กด "reel ใหม่" ใส่หัวเรื่อง แก้ Groove ตั้ง 4 รอบ กด render → ได้ mp4 แนวตั้งกับ .srt ในผล render; คลิปขึ้นหัวเรื่องกับบรรทัดรองทั้งคลิป ทุกชิ้นสว่าง
+- **ไม่มีนับเข้า:** reel ใหม่ (100 BPM 1 ห้อง 4 รอบ) ยาว 11.1 วินาที (เดิม 13.5) = 333 เฟรม; เฟรมแรกตัวนับเป็น 1 ของห้องแรก ไม่มีไฮแฮทเบา 4 ครั้งก่อน Groove; `.srt` มี cue เดียว `00:00:00,000 --> 00:00:11,100` เป็นหัวเรื่อง บรรทัดรอง คำบรรยาย (D15)
 - **reel แบบเก่า:** เปิด reel ที่มี 3 ท่อน (2+2+2 รอบ) → จำนวนรอบเป็น 6 พร้อมบรรทัดบอก; กดบันทึก → `GET` ได้ `chapters` ท่อนเดียว 6 รอบ ความเร็ว 100
 - **หน้าเพลง:** เพลงที่แกะแล้วโชว์ช่วงแกะกับการ์ด Reel cover ต่อกันเลย ไม่มีแถบห้อง
 
@@ -53,7 +55,8 @@
 - `grep` ข้อความ "บทเรียน" และ "สอน" ใน string ที่หน้าเว็บโชว์ (`frontend/src` ยกเว้น comment และ test) และใน `message` ของ backend ได้ 0 ตัว
 - `POST /api/songs/{id}/preview`, `/listen`, `/lessons` ไม่มีแล้ว
 - `uv run pytest`, `npm --prefix frontend run typecheck`, `npm --prefix frontend test`, `npm --prefix frontend run build` ผ่าน
-- render reel กลองกับ reel cover ได้ไฟล์เหมือนก่อน (test render เดิมผ่านโดยไม่แก้ assertion ยกเว้นค่าตั้งต้นของ reel ใหม่)
+- render reel cover และ reel คาลิมบาได้ไฟล์เหมือนก่อน (test ของ `drum_cover` `kalimba_cover` ผ่านโดยไม่แก้ assertion ยกเว้น test ที่เรียก `video_gen.timeline.build` ตรง)
+- render reel กลองจริงหนึ่งตัว: `ffprobe` นับเฟรมได้ `ceil(length_s × 30)` ของสูตรใหม่ และ `.srt` บรรทัดแรกเริ่ม `00:00:00,000` (D15)
 
 ## Implementation
 
@@ -84,10 +87,35 @@
   - `lessons.new` (หรือที่สร้างค่าตั้งต้น) เริ่มท่อนเดียว 4 รอบ ไม่มี `NEW_LABEL` (D4)
   - `PUT` ที่เขียนทับ reel แบบเก่าคัดลอก `lesson.before-reels-only.json` ครั้งเดียวก่อน (D12)
   - `message` ที่หน้าเว็บโชว์: "บทเรียน" → "reel", "ท่อนสอน" → ข้อความเรื่องรอบ (D8)
-  - `render` แก้แค่ `NOT_RUNNING` เป็นคำของ reel; `timeline`, `captions`, `frames`, `mixer` ไม่แตะ (D3, D4, D8)
+  - `render` แก้แค่ `NOT_RUNNING` เป็นคำของ reel (D8)
+  - ตัดนับเข้า (D15): ดู › ตัดนับเข้า
 - **docs**
   - ADR-0065, ADR-0066 เขียนแล้ว; ADR-0047 `superseded by ADR-0065`
   - `CONTEXT.md`: สอนกลอง → reel กลอง, ลบ บทเรียนกลอง ท่อนสอน ช่วงบทเรียน, แก้ แกะเพลง Score นับเข้า Groove ล่าสุด เมนูหลัก หัวข้อใหญ่ สปอย (ประโยค "แอปมี 5 หัวข้อ") Reel cover Backing Cover (D1, D8)
+
+### ตัดนับเข้า
+
+ตาม D15; `mixer` และ `render` ไม่แก้ เพราะอ่านทุกอย่างจาก `timeline` (ADR-0041).
+
+- **`backend/video_gen/timeline.py`**
+  - `length_s` = `sum(repeats × bars × 4 × beat_s(bpm, speed))` + `TAIL_S`
+  - `build` เริ่ม `start = 0`: ไม่มี loop นับเข้า, beats มีแต่ของทุกห้อง เริ่มที่ 1
+  - โน้ตนำของ flam ที่เวลา < 0 ไม่ถูกใส่ (D16)
+  - ลบ `COUNT_IN_PIECE` และ `"count"` ออกจาก `NoteKind`; docstring ของ `Hit` `Beat` และ comment ของ `NoteKind` ไม่พูดถึงนับเข้า
+- **`backend/video_gen/captions.py`** `sections` ไม่มีส่วนหัวของนับเข้า: ส่วนแรกคือท่อนแรกตั้งแต่ 0; docstring ใหม่
+- **`backend/video_gen/lane.py`** `segments` ไม่มี segment นับเข้า; docstring `Segment` และ comment `chapter_index` ใหม่
+- **`backend/video_gen/frames.py`** `shown_hits` เป็นทุก hit (ไม่มี hit นับเข้าให้กรอง); comment ใหม่
+- **`backend/drum_cover/timeline.py`** docstring `lesson` ไม่พูดถึงนับเข้า (พฤติกรรมไม่เปลี่ยน)
+- **`frontend/src/lib/lesson.ts`** `lengthOf` ไม่มีห้องนับเข้า; comment ใหม่ (keep the two alike)
+- **docs** `CONTEXT.md` › นับเข้า: บอกว่าไม่มีในคลิปไหนของแอปแล้ว (D15)
+
+ความยาวที่เปลี่ยน (สูตรเดียวกันสองฝั่ง):
+
+| reel | เดิม | ใหม่ |
+|---|---|---|
+| ใหม่: 100 BPM 1 ห้อง 4 รอบ | 13.5 วิ | 11.1 วิ (333 เฟรม) |
+| 120 BPM 1 ห้อง 1 รอบ | 5.5 วิ | 3.5 วิ (105 เฟรม) |
+| 40 BPM 2 ห้อง 8 รอบ | 103.5 วิ (เกิน) | 97.5 วิ (ยังเกิน 90) |
 
 ### คำบนจอ
 
@@ -162,6 +190,15 @@ test หน้าเว็บที่มีอยู่กับ test API ข�
    - `song.json` ที่มี `lessons: ["x"]` → `GET /api/songs` 200 ไม่มี `lessons`, `DELETE` 204, `PUT …/range` 200 และไฟล์ที่เขียนไม่มี `lessons`
    - `POST /api/drums/lessons` → reel ใหม่มี `chapters` ท่อนเดียว 4 รอบ
    - `PUT` reel 3 ท่อนเป็นท่อนเดียว → มี `lesson.before-reels-only.json` เท่าไฟล์เดิม; `PUT` ครั้งที่สอง → สำเนาไม่เปลี่ยน
+4. **timeline ไม่มีนับเข้า** test ของ `video_gen` ใน backend (D15)
+   - `timeline.build` ของ 120 BPM 1 ห้อง 1 รอบ สแนร์ step 0 → hit แรกที่ sample 0 เป็นสแนร์, ไม่มี hit `count`, beats `[1, 2, 3, 4]` ที่ 0, 0.5, 1.0, 1.5 วิ, `length_s` 3.5
+   - `length_s` สองท่อน (50 %, 100 %) = ทุกท่อน + 1.5 ไม่มีห้องนับเข้า
+   - `captions.sections` ของท่อนเดียวไม่มีป้าย → ส่วนเดียว 0 ถึง `length_s` เป็นหัวเรื่องกับบรรทัดรอง; `srt_file` → cue แรก `00:00:00,000`
+   - `lane.segments` → segment แรกเริ่ม 0 เป็นท่อนแรก ตามด้วยหาง
+   - flam ที่ step 0 สองรอบ → รอบแรกไม่มีโน้ตนำ (ไม่มี hit ที่ sample < 0) รอบสองมีโน้ตนำ 0.03 วิ ก่อน; ฟังจังหวะของ lesson นั้นตอบ 200 (D16)
+   - `frames` สแนร์ step 4 ที่ 120 BPM ตีที่ 0.5 วิ (เดิม 2.5)
+   - API ฟังจังหวะ: wav ยาว `length_s` ใหม่ เสียงแรกที่ 0; render API: mp4 ยาว `length_s` ใหม่
+   - หน้าเว็บ `lengthOf` และบรรทัดความยาวใน `DrumsPage.test.tsx` ตามสูตรใหม่
 
 ## Testing decisions
 
@@ -172,18 +209,26 @@ test หน้าเว็บที่มีอยู่กับ test API ข�
 - `frontend/src/App.test.tsx` แก้ชื่อหัวข้อ
 - `NEW_LABEL` ("ลองเล่นเอง") อยู่ใน `test_video_gen_lessons_api.py`, `test_drum_notes_lesson_api.py` (ลบทั้งไฟล์), fixture ของ `DrumsPage.test.tsx` และ `SongsPage.test.tsx`; `test_video_gen_captions.py` ใส่ป้ายเองจึงคงไว้; `drum_cover.timeline` สร้าง `Lesson` ผ่าน `lessons.unsaved` ไม่เรียกค่าตั้งต้นของ reel ใหม่
 - test render ของ video-gen ที่สร้าง lesson เองด้วยหลายท่อนคงไว้: backend ยังรับหลายท่อน (D4)
+- **Copy (D15):** test ที่ตัวเลขอ้างนับเข้า แก้เป็นค่าของสูตรใหม่ ห้ามแค่หลวม assertion:
+  - `test_video_gen_timeline.py` › half-speed count-in, length, beats after the count-in, round-robin comment
+  - `test_video_gen_captions.py:33` และ `:71` — ส่วนหัวนับเข้าหาย จำนวน cue ลดหนึ่ง
+  - `test_video_gen_frames.py:30` — สแนร์ step 4 ที่ 120 BPM ตีที่ 0.5 วิ
+  - `test_video_gen_render_api.py:72,120-127` — `short_lesson` ยาว 2.5 วิ สแนร์ที่ 0 วิ
+  - `test_video_gen_lessons_api.py:86` (11.1), `:158`, `:601` (ฟังจังหวะเริ่มที่โน้ตแรก)
+  - `backend/tests/test_drum_cover_timeline.py` › `test_assemble_gives_a_lesson_the_timeline_build_always_gave_it` แก้ hit แรกกับจำนวน hit; test อื่นของ `drum_cover` `kalimba_cover` ไม่แก้
+- **ของจริง (D15):** render reel ใหม่ผ่าน API ใน project ชั่วคราว (นอก `media/` ของเจ้าของ) แล้ววัดด้วย `ffprobe -count_frames` และอ่าน `.srt` บรรทัดแรก; ตัวเลขลง progress.md
 
 ## Out of Scope
 
 - เปลี่ยนชื่อ `lesson` ในโค้ด API path และ folder บนดิสก์ (D8)
-- ตัดนับเข้า (D3)
+- reel cover และ reel คาลิมบา: ไม่เคยมีนับเข้า ไม่แก้ (D15)
 - เปลี่ยน schema ของ `lesson.json` (D4)
 - เอาหน้าอื่นออก (D9)
 
 ## Open Questions
 
 1. ชื่อในโค้ดที่ยังใช้คำว่า lesson (`video_gen.lessons`, `Lesson`, `LessonFields`, `Chapter`, `lessons_dir`, `media/drums/lessons/`, `/api/drums/lessons`, `lesson_id` ในงาน render, `LessonEditor`, `LessonList`, `useLessons`, `useLessonEditor`, `lib/lesson`, `drumsViewOf`, test `test_video_gen_lessons_api.py`, `DrumsPage.test.tsx`) จะเปลี่ยนเป็น reel ไหม — non-blocking: ผู้ใช้ไม่เห็น และเป็นงาน rename แยกที่ต้อง migrate ไฟล์บนดิสก์ (D8)
-2. นับเข้า 1 ห้องตอนต้น reel กลอง เจ้าของอยากตัดไหมหลังเห็นคลิปจริง — non-blocking: คงไว้ตาม D3 และตัดได้เป็น change request ของ backend `timeline`
+2. ~~นับเข้า 1 ห้องตอนต้น reel กลอง เจ้าของอยากตัดไหมหลังเห็นคลิปจริง~~ — ตอบแล้ว: ตัด (D15)
 3. นอกจากบทเรียน เจ้าของอยากตัดหน้าไหนอีกไหม (D9 ตรวจแล้วว่าทุกหน้าที่เหลือทำ reel ใช้กับ reel หรือตั้งค่าเครื่อง) — non-blocking: ตัดหน้าเพิ่มเป็น change request ได้ใน `NAV_SECTIONS` และ feature ของหน้านั้น
 
 ## Sources

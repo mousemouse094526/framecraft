@@ -53,11 +53,11 @@ test("the fields' errors are keyed as the backend's, counting letters as code po
   expect(fieldErrors(fields({ title: "😀".repeat(40) }))).toEqual({});
 });
 
-test("the length is a bar of count-in, every chapter and 1.5 s of tail", () => {
+test("the length is every chapter and 1.5 s of tail, with no count-in (reels-only D15)", () => {
   // 120 BPM: a bar is 2 s, 4 s at 50 %; two chapters of 2 repeats × 1 bar.
   const chapters = [chapter({ speed: 50 }), chapter()];
 
-  expect(lengthOf(fields({ chapters }))).toBe(4 + 2 * 4 + 2 * 2 + 1.5);
+  expect(lengthOf(fields({ chapters }))).toBe(2 * 4 + 2 * 2 + 1.5);
 });
 
 test("the hash picks the list, a lesson's editor or its renders", () => {

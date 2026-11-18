@@ -57,7 +57,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     await user.click(cancel);
 
     expect(sent("DELETE", CURRENT_PATH)).toHaveLength(1);
-    expect(screen.getByText("กำลังยกเลิก")).toBeInTheDocument();
+    expect(await screen.findByText("กำลังยกเลิก")).toBeInTheDocument(); // once the DELETE is answered
     expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeDisabled();
     await nextPoll();
     expect(window.location.hash).toBe(REVIEW_HASH); // still cancelling: the job hasn't stopped (D85)

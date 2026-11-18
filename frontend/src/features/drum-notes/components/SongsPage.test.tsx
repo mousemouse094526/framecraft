@@ -125,7 +125,8 @@ describe("รายการเพลง", () => {
     expect(window.location.hash).toBe("#/songs");
     expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง")).toBeInTheDocument();
     expect(screen.getByText("ใช้เพลงเพื่อแกะโน้ตเท่านั้น เสียงเพลงไม่เข้าคลิป")).toBeInTheDocument();
-    expect(linkBox()).toHaveFocus(); // the first song starts here (ui-prompt.md screen 1 state 2, D28)
+    // The list's text commits before the effect that focuses the box runs: wait for the focus itself.
+    await waitFor(() => expect(linkBox()).toHaveFocus()); // the first song starts here (ui-prompt.md screen 1 state 2, D28)
   });
 
   it("shows each song's title, subtitle, where it came from, its length and whether it was picked, and no word of lessons", async () => {
@@ -462,7 +463,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     await user.click(within(running).getByRole("button", { name: "ยกเลิก" }));
 
     expect(sent(fetchMock, "POST", `${PICK_PATH}/cancel`)).toEqual([{}]);
-    expect(within(running).getByRole("button", { name: "ยกเลิก" })).toBeDisabled();
+    await waitFor(() => expect(within(running).getByRole("button", { name: "ยกเลิก" })).toBeDisabled()); // once the cancel is answered
     job.phases.at = 1;
     await act(() => vi.advanceTimersByTimeAsync(1100));
     expect(screen.queryByRole("group", { name: "งานแกะโน้ต" })).not.toBeInTheDocument();

@@ -213,7 +213,8 @@ describe("ตรวจแก้บท", () => {
     await user.click(within(card(1)).getByRole("button", { name: "แทรกใต้" }));
 
     expect(sent("POST", `${DRAFT_PATH}/sentences`)).toEqual([{ after_id: "s_00000001", text: "ประโยคใหม่" }]);
-    expect(await within(card(2)).findByRole("textbox")).toHaveValue("ประโยคใหม่");
+    // Card 2 is the old second sentence until the POST is answered: wait for the new one.
+    await waitFor(() => expect(within(card(2)).getByRole("textbox")).toHaveValue("ประโยคใหม่"));
   });
 
   it("a Shot opens the picker on the Shots in the window, and ดูทั้ง EP shows the whole EP", async () => {
@@ -312,7 +313,7 @@ describe("ตรวจแก้บท", () => {
     await user.click(within(card(1)).getByRole("button", { name: "เลือก Shot ใหม่" }));
 
     expect(sent("POST", JOBS_PATH)).toEqual([{ kind: "pick", sentence_id: "s_00000001" }]);
-    expect(within(card(1)).getByText("AI กำลังเลือก Shot ใหม่")).toBeInTheDocument();
+    expect(await within(card(1)).findByText("AI กำลังเลือก Shot ใหม่")).toBeInTheDocument(); // once the pick is answered
     expect(within(card(2)).getByRole("textbox")).toBeDisabled();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
@@ -332,7 +333,7 @@ describe("ตรวจแก้บท", () => {
     await user.click(screen.getByRole("button", { name: "ยกเลิก" }));
 
     expect(sent("DELETE", CURRENT_PATH)).toHaveLength(1);
-    expect(screen.getByText("กำลังยกเลิก…")).toBeInTheDocument();
+    expect(await screen.findByText("กำลังยกเลิก…")).toBeInTheDocument(); // once the DELETE is answered
   });
 
   it("a locked draft with a pick running disables every field", async () => {
@@ -967,7 +968,7 @@ describe("ตรวจแก้บท: เรียบเรียงใหม�
     await user.click(within(progress).getByRole("button", { name: "ยกเลิก" }));
 
     expect(sent("DELETE", CURRENT_PATH)).toHaveLength(1);
-    expect(within(progress).getByText("กำลังยกเลิก…")).toBeInTheDocument();
+    expect(await within(progress).findByText("กำลังยกเลิก…")).toBeInTheDocument(); // once the DELETE is answered
   });
 
   it.each([

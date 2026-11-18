@@ -1759,8 +1759,8 @@ describe("ตัดช่วง (D36–D41)", () => {
     expect(video()).not.toHaveAttribute("src");
 
     await nextPoll();
+    expect(await within(panel()).findByText("37%")).toBeInTheDocument(); // once the poll is answered
     expect(within(panel()).getByText("กำลังตัดคลิป")).toBeInTheDocument();
-    expect(within(panel()).getByText("37%")).toBeInTheDocument();
     expect(within(panel()).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "37");
 
     await nextPoll();

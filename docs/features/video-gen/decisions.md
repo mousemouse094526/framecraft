@@ -175,7 +175,7 @@
 - **ไฟล์ผล:** mp4 1080×1920 30 fps กับ `.srt` ของป้ายและคำบรรยาย ตามที่ `backend.renders` เก็บ
 - **ความแรง:** เน้น = ชั้นแรงสุดของ sample, ปกติ = ชั้นกลาง, เบาและโน้ตนำของ flam = ชั้นเบาสุด; round-robin วนตามลำดับเพื่อให้ render ซ้ำได้ไฟล์เดิม
 
-**From:** code · **Status:** changed by D21
+**From:** code · **Status:** changed by D21, reels-only D15 (นับเข้า)
 
 ## D14: Render job ทีละงาน ไม่จองช่อง GPU
 
@@ -278,7 +278,7 @@
 **Rejected:**
 - ตัดหางเสียงออกจาก render — ฉาบตัวสุดท้ายถูกตัดกลางเสียง
 
-**From:** red team · **Status:** active
+**From:** red team · **Status:** changed by reels-only D15 (ไม่มีนับเข้าในสูตร)
 
 ## D22: ข้อแก้ red team
 

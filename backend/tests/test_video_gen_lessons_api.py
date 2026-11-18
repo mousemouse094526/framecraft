@@ -83,8 +83,8 @@ def test_a_new_reel_has_the_default_rock_groove_played_four_times(client):
     }
     # One plain chapter: the Groove played 4 times, no label (reels-only D4).
     assert lesson["chapters"] == [{"label": "", "text": "", "focus": [], "repeats": 4, "speed": 100}]
-    # count-in 2.4 + 4 bars at 100 BPM (9.6) + 1.5 tail
-    assert lesson["length_s"] == pytest.approx(13.5)
+    # 4 bars at 100 BPM (9.6) + 1.5 tail, no count-in (reels-only D15)
+    assert lesson["length_s"] == pytest.approx(11.1)
 
 
 def test_the_list_has_the_new_lesson_with_its_length_and_no_renders(client):
@@ -96,7 +96,7 @@ def test_the_list_has_the_new_lesson_with_its_length_and_no_renders(client):
         {
             "id": lesson["id"],
             "title": "SMELLS LIKE TEEN SPIRIT",
-            "length_s": pytest.approx(13.5),
+            "length_s": pytest.approx(11.1),
             "renders": 0,
             "updated_at": lesson["updated_at"],
         }
@@ -155,8 +155,8 @@ def test_put_replaces_the_lesson_and_answers_it_with_its_length(client, project)
     assert response.status_code == 200
     saved = response.json()
     assert {key: saved[key] for key in changes} == changes
-    # count-in 4 × 60 / 90 + 2 × 2 bars × 4 × 60 / 90 + 1.5
-    assert saved["length_s"] == pytest.approx(8 / 3 + 32 / 3 + 1.5)
+    # 2 × 2 bars × 4 × 60 / 90 + 1.5
+    assert saved["length_s"] == pytest.approx(32 / 3 + 1.5)
     stored = json.loads(lesson_file(project, lesson["id"]).read_text(encoding="utf-8"))
     assert (stored["version"], stored["id"], stored["bpm"]) == (1, lesson["id"], 120)
     assert "length_s" not in stored
@@ -595,18 +595,31 @@ def test_listen_answers_a_wav_as_long_as_the_lesson_and_never_cached(client):
     assert response.headers["cache-control"] == "no-store"
     info = soundfile.info(io.BytesIO(response.content))
     assert (info.samplerate, info.channels, info.subtype) == (44100, 2, "PCM_16")
-    assert info.frames == round(13.5 * 44100)
+    assert info.frames == round(11.1 * 44100)
 
 
-def test_listen_starts_with_the_count_in_on_the_beat(client):
+def test_listen_starts_on_the_first_bar_with_no_count_in(client):
     lesson = new_lesson(client)
     put(client, lesson, bpm=120, groove=groove(), chapters=[chapter(speed=50)])
 
     audio, rate = soundfile.read(io.BytesIO(listen(client, lesson).content), dtype="float32")
 
-    loud = np.flatnonzero(np.abs(audio[:, 0]) > 0.5)
-    # four soft hi-hats at 60 BPM, then the empty groove is silent
-    assert list(loud) == [0, 44100, 88200, 132300]
+    # an empty groove at 60 BPM: one silent bar and the tail, no soft hi-hats (reels-only D15)
+    assert len(audio) == round((4 + 1.5) * 44100)
+    assert not np.any(np.abs(audio) > 0.01)
+
+
+def test_listen_plays_a_flam_on_the_clip_s_first_step(client):
+    lesson = new_lesson(client)
+    flam = {"piece": "snare", "step": 0, "hand": "R", "hit": "flam"}
+    put(client, lesson, bpm=120, groove=groove(flam), chapters=[chapter(repeats=2)])
+
+    response = listen(client, lesson)
+
+    # reels-only D16: the first grace note would fall before 0 s; the main note opens the clip
+    assert response.status_code == 200
+    audio, _ = soundfile.read(io.BytesIO(response.content), dtype="float32")
+    assert np.flatnonzero(np.abs(audio[:, 0]) > 0.01)[0] == 0
 
 
 def test_listen_without_the_drum_samples_is_not_ready(client, project):

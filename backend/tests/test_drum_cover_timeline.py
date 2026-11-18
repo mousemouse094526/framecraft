@@ -117,8 +117,8 @@ def test_the_picture_s_lesson_has_the_cover_s_texts_one_bare_chapter_and_the_bea
 def test_assemble_gives_a_lesson_the_timeline_build_always_gave_it():
     lesson = drum_lesson(drum_note("snare", 0), drum_note("kick", 4, None), drum_note("hihat_closed", 2, hit="flam"), chapters=[drum_chapter(repeats=2, speed=75)])
     built = timeline.build(lesson)
-    assert built.hits[0] == timeline.Hit(0, "hihat_closed", None, "soft", 1, "count")
-    assert len(built.hits) == 4 + 2 * 4 and built.length_s == timeline.length_s(lesson.bpm, 1, lesson.chapters)
+    assert built.hits[0] == timeline.Hit(0, "snare", "R", "mid", 1, "normal")  # no count-in (reels-only D15)
+    assert len(built.hits) == 2 * 4 and built.length_s == timeline.length_s(lesson.bpm, 1, lesson.chapters)
 
 
 def test_a_beat_before_a_three_beat_first_bar_counts_back_from_three():
