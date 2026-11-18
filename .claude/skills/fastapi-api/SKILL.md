@@ -160,10 +160,11 @@ backend/
 │                    Render job, its own slot, and an EP's renders), compose (a
 │                    render's timeline, its ffmpeg commands and its ASS file,
 │                    through `subtitles`)
-├── video_gen/    ← the สอนกลอง tab (video-gen spec): kit (the ten pieces: lane, colour,
+├── video_gen/    ← reel กลอง, stored as lessons (video-gen spec, reels-only D8): kit (the ten pieces: lane, colour,
 │                    foot), lessons (`lesson.json` under `media/drums/lessons/{id}/`, its
 │                    checks with D20's rules, the tab's one lock; `require_id` before any
-│                    path; `from_song`/`create_from`/`unsaved` are drum_notes' way in), timeline (every hit, beat and chapter span in samples at
+│                    path; `unsaved` is drum_cover's way in; the first `PUT` over an old-shaped lesson keeps
+│                    `lesson.before-reels-only.json`, reels-only D12), timeline (every hit, beat and chapter span in samples at
 │                    44.1 kHz: the one place a note's time is worked out, ADR 0041), mixer
 │                    (the wav from the samples, ฟังจังหวะ's `listen`; numpy and soundfile
 │                    imported inside); kit also holds the diagram's points (kit-sketch);
@@ -226,12 +227,8 @@ backend/
 │                    picking into hits, the Basic Pitch window plan and its onsets into snare hits
 │                    and melody notes, beats and downbeats from logits; the bars found are
 │                    `songs.bars_of`), groove
-│                    (a lesson's Groove from the bars picked, Score steps 3–8: `preview` — the
-│                    default BPM, quantize, `BASE_GROOVES[mode]` under the hits, trim to two hands,
-│                    sticking), lesson (a lesson from a song, D12, D21, ADR 0047: `preview`/`listen`/`create`
-│                    check the pick and the bars, then `groove.preview`; `listen` mixes an unsaved
-│                    lesson through video_gen's timeline and mixer; `create` writes through
-│                    `video_gen.lessons.from_song`/`create_from`, never holding `songs.lock` meanwhile)
+│                    (the sticking a reel cover plays, Score steps 6–7: `trimmed` to two hands,
+│                    then `with_hands`; no lesson is made from a song, reels-only D7, ADR 0065)
 ├── drum_cover/   ← a song's reel cover (drum-cover spec, ADR 0052): cover (`cover.json` in the
 │                    Song's folder under `songs.lock`, its defaults and the clamp into a new
 │                    pick's range), timeline (an analysis's hits at their real times through

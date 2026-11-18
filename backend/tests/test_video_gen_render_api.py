@@ -1,4 +1,4 @@
-"""The Render job of the สอนกลอง tab under /api/drums/render and its results, with real ffmpeg
+"""The Render job of reel กลอง under /api/drums/render and its results, with real ffmpeg
 and the fake samples (video-gen seam 1 › render to `done`, sound on the picture, `too_long`,
 `busy`, `lesson_busy`, cancel, `ffmpeg_failed`, the results, a picture background)."""
 

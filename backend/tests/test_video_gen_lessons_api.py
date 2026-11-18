@@ -68,7 +68,7 @@ def chapter(**changes) -> dict:
 # --- A new lesson and the list ---
 
 
-def test_a_new_lesson_has_the_default_rock_groove_and_two_chapters(client):
+def test_a_new_reel_has_the_default_rock_groove_played_four_times(client):
     lesson = new_lesson(client)
 
     assert len(lesson["id"]) == 12
@@ -81,11 +81,9 @@ def test_a_new_lesson_has_the_default_rock_groove_and_two_chapters(client):
         ("kick", 0, None, "normal"),
         ("kick", 8, None, "normal"),
     }
-    assert [(c["label"], c["repeats"], c["speed"]) for c in lesson["chapters"]] == [
-        ("", 2, 100),
-        ("ลองเล่นเอง", 2, 100),
-    ]
-    # count-in 2.4 + two chapters of 2 bars at 100 BPM (4.8 each) + 1.5 tail
+    # One plain chapter: the Groove played 4 times, no label (reels-only D4).
+    assert lesson["chapters"] == [{"label": "", "text": "", "focus": [], "repeats": 4, "speed": 100}]
+    # count-in 2.4 + 4 bars at 100 BPM (9.6) + 1.5 tail
     assert lesson["length_s"] == pytest.approx(13.5)
 
 
@@ -162,6 +160,53 @@ def test_put_replaces_the_lesson_and_answers_it_with_its_length(client, project)
     stored = json.loads(lesson_file(project, lesson["id"]).read_text(encoding="utf-8"))
     assert (stored["version"], stored["id"], stored["bpm"]) == (1, lesson["id"], 120)
     assert "length_s" not in stored
+
+
+def backup_file(project: ProjectPaths, lesson_id: str):
+    return project.lessons_dir / lesson_id / lessons.BACKUP_FILE
+
+
+def test_a_put_over_an_old_shaped_reel_keeps_a_copy_of_it_once(client, project):
+    lesson = new_lesson(client)
+    old = put(client, lesson, chapters=[chapter(label="KICK", repeats=2, speed=80), chapter(repeats=2)]).json()
+    before = lesson_file(project, lesson["id"]).read_bytes()
+
+    one = put(client, old, chapters=[chapter(repeats=4)])
+    again = put(client, one.json(), chapters=[chapter(repeats=5)])
+
+    assert (one.status_code, again.status_code) == (200, 200)
+    # The first rewrite keeps the old file as it was; the next ones leave that copy alone (reels-only D12).
+    assert backup_file(project, lesson["id"]).read_bytes() == before
+
+
+def test_two_old_shaped_puts_in_a_row_keep_the_first_copy(client, project):
+    lesson = new_lesson(client)
+    first = put(client, lesson, chapters=[chapter(label="KICK")]).json()
+    before = lesson_file(project, lesson["id"]).read_bytes()
+
+    second = put(client, first, chapters=[chapter(label="SNARE")]).json()
+    put(client, second, chapters=[chapter(label="TOM")])
+
+    # The second rewrite found the copy there and left it: it still holds KICK.
+    assert backup_file(project, lesson["id"]).read_bytes() == before
+
+
+def test_a_put_over_a_one_plain_chapter_reel_keeps_no_copy(client, project):
+    # `chapter()` is plain: no label, text or focus, at 100 %.
+    lesson = new_lesson(client)
+
+    assert put(client, lesson, chapters=[chapter(repeats=6)]).status_code == 200
+    assert not backup_file(project, lesson["id"]).exists()
+
+
+def test_a_reel_is_deleted_with_its_copy(client, project):
+    lesson = new_lesson(client)
+    old = put(client, lesson, chapters=[chapter(speed=80)]).json()
+    put(client, old, chapters=[chapter()])
+    assert backup_file(project, lesson["id"]).is_file()
+
+    assert client.delete(f"{LESSONS}/{lesson['id']}").status_code == 204
+    assert not (project.lessons_dir / lesson["id"]).exists()
 
 
 def test_a_lesson_over_ninety_seconds_is_saved_but_not_listened_to(client):

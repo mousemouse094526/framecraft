@@ -58,7 +58,6 @@ function songOf(change: Partial<Song> = {}): Song {
     range: { start_s: 0, end_s: 30, mode: "drums" },
     analysis,
     bars,
-    lessons: [],
     created_at: "2026-11-15T10:00:00+07:00",
     updated_at: "2026-11-15T10:00:00+07:00",
     ...change,
@@ -162,13 +161,11 @@ function open(hash: string, routes: Route[]) {
 const button = (name: string | RegExp) => screen.getByRole("button", { name });
 
 describe("หน้าเพลง", () => {
-  it("a picked song shows Reel cover above สร้างบทเรียน with its renders counted, and ทำ reel cover opens the reel page (e2e)", async () => {
-    const user = open(`#/songs/${ID}`, [get(RENDERS_PATH, [resultOf(), resultOf({ name: "20261115-104000" })]), send("POST", `${SONG_PATH}/preview`, { groove: { bars: 1, notes: [] }, bpm: 120, dropped: [] }, 200)]);
+  it("a picked song shows Reel cover with its renders counted, and ทำ reel cover opens the reel page (e2e)", async () => {
+    const user = open(`#/songs/${ID}`, [get(RENDERS_PATH, [resultOf(), resultOf({ name: "20261115-104000" })])]);
 
     const reel = await screen.findByRole("region", { name: "Reel cover" });
     await waitFor(() => expect(reel).toHaveTextContent("ช่วงแกะ 0.0–30.0 วินาที · 3 การตี · render แล้ว 2 ครั้ง"));
-    const lesson = screen.getByRole("region", { name: "สร้างบทเรียน" });
-    expect(reel.compareDocumentPosition(lesson) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await user.click(within(reel).getByRole("link", { name: "ทำ reel cover" }));
     expect(window.location.hash).toBe(COVER_HASH);
@@ -177,7 +174,7 @@ describe("หน้าเพลง", () => {
 
   it("a song picked with its melody counts the notes in Reel cover (kalimba-cover D2) (e2e)", async () => {
     const notes = Array.from({ length: 120 }, (_, n) => ({ t: n / 4, pitch: 60 + (n % 12), level: "normal" as const }));
-    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, notes } })), send("POST", `${SONG_PATH}/preview`, { groove: { bars: 1, notes: [] }, bpm: 120, dropped: [] }, 200)]);
+    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, notes } }))]);
 
     const reel = await screen.findByRole("region", { name: "Reel cover" });
     await waitFor(() => expect(reel).toHaveTextContent("ช่วงแกะ 0.0–30.0 วินาที · 3 การตี · 120 โน้ตทำนอง"));
@@ -185,10 +182,8 @@ describe("หน้าเพลง", () => {
 });
 
 describe("หน้าเพลง หลังแกะ", () => {
-  const preview = send("POST", `${SONG_PATH}/preview`, { groove: { bars: 1, notes: [] }, bpm: 120, dropped: [] }, 200);
-
-  it("a pick that found no hit says so above ผลแกะ (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, hits: [] }, bars: bars.map((bar) => ({ ...bar, hits: 0 })) })), preview]);
+  it("a pick that found no hit says so above the reel cover (e2e)", async () => {
+    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, hits: [] }, bars: bars.map((bar) => ({ ...bar, hits: 0 })) }))]);
     expect(await screen.findByText("ไม่พบการตีกลองในช่วง 0.0–30.0 วินาที ลองเลื่อนช่วงไปที่กลองเริ่มเล่น")).toBeInTheDocument();
   });
 
@@ -197,7 +192,6 @@ describe("หน้าเพลง หลังแกะ", () => {
     const lateBars = bars.map((bar) => ({ ...bar, hits: late.filter((hit) => bar.start_s <= hit.t && hit.t < bar.end_s).length }));
     const user = open(`#/songs/${ID}`, [
       get(SONG_PATH, songOf({ analysis: { ...analysis, hits: late }, bars: lateBars })),
-      preview,
       send("PUT", RANGE_PATH, songOf({ range: { start_s: 10, end_s: 40, mode: "drums" } }), 200),
       send("POST", PICK_PATH, { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "2026-11-15T10:00:00+07:00" }, 202),
     ]);
@@ -212,7 +206,6 @@ describe("หน้าเพลง หลังแกะ", () => {
   it("near the song's end the new range is still 4 s: bar 6 (10.0) to the end (13.0) is 3 s, so it starts at 9.0 (e2e)", async () => {
     const user = open(`#/songs/${ID}`, [
       get(SONG_PATH, songOf({ duration_s: 13, analysis: { ...analysis, end_s: 13 }, range: { start_s: 0, end_s: 13, mode: "drums" } })),
-      preview,
       send("PUT", RANGE_PATH, songOf(), 200),
       send("POST", PICK_PATH, { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "" }, 202),
     ]);
@@ -222,7 +215,7 @@ describe("หน้าเพลง หลังแกะ", () => {
 
   it("a hit before the first downbeat means the drums are there: no empty-bars line", async () => {
     const early = [{ t: 0.5, piece: "kick" as const, level: "normal" as const }, ...analysis.hits];
-    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, downbeats: [1, ...analysis.downbeats.slice(1)], hits: early }, bars: [{ ...bars[0], start_s: 1, hits: 0 }, ...bars.slice(1)] })), preview]);
+    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, downbeats: [1, ...analysis.downbeats.slice(1)], hits: early }, bars: [{ ...bars[0], start_s: 1, hits: 0 }, ...bars.slice(1)] }))]);
     expect(await screen.findByRole("region", { name: "Reel cover" })).toBeInTheDocument();
     expect(screen.queryByText(/ไม่มีการตี การตีแรกอยู่ที่/)).not.toBeInTheDocument();
   });

@@ -105,10 +105,12 @@ def test_a_youtube_link_comes_in_as_aac_in_m4a_with_the_clip_s_title_and_channel
     assert song["source"] == {"kind": "link", "url": YOUTUBE, "name": None, "size": None}
     assert song["duration_s"] == pytest.approx(6, abs=0.1)
     assert song["range"] == {"start_s": 0.0, "end_s": pytest.approx(6, abs=0.1), "mode": "drums"}
-    assert (song["analysis"], song["lessons"]) == (None, [])
+    assert song["analysis"] is None
+    assert "lessons" not in song  # no lessons are made from songs (reels-only D7)
     assert partial_files(project) == []
     [row] = client.get(SONGS).json()
-    assert (row["id"], row["source_kind"], row["analysis"], row["lessons"]) == ("dQw4w9WgXcQ", "link", None, 0)
+    assert (row["id"], row["source_kind"], row["analysis"]) == ("dQw4w9WgXcQ", "link", None)
+    assert "lessons" not in row
 
 
 def test_a_long_song_s_range_starts_as_its_first_30_seconds(client, adapter, tmp_path):
@@ -449,6 +451,36 @@ def test_a_song_json_with_no_notes_reads_as_null_and_a_write_keeps_it_readable(c
     assert client.get(f"{SONGS}/{song_id}").json()["analysis"]["notes"] is None
     assert client.put(f"{SONGS}/{song_id}/range", json={"start_s": 0, "end_s": 6, "mode": "drums"}).status_code == 200
     assert client.get(f"{SONGS}/{song_id}").json()["analysis"]["notes"] is None
+
+
+def with_old_lessons(project: ProjectPaths, song_id: str) -> None:
+    """`song.json` as drum-notes wrote it before reels-only: the ids of the lessons made from it."""
+    stored = song_file(project, song_id)
+    text = json.loads(stored.read_text(encoding="utf-8"))
+    stored.write_text(json.dumps(text | {"lessons": ["k3v9x0a1b2c4"]}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def test_a_song_json_with_old_lessons_reads_lists_writes_and_deletes_without_them(client, project):
+    song_id = written_song(project, audio=b"m4a")
+    with_old_lessons(project, song_id)
+
+    one = client.get(f"{SONGS}/{song_id}")
+    [row] = client.get(SONGS).json()
+    assert (one.status_code, "lessons" in one.json(), "lessons" in row) == (200, False, False)
+    assert client.put(f"{SONGS}/{song_id}/range", json={"start_s": 0, "end_s": 6, "mode": "drums"}).status_code == 200
+    # The next write leaves the old key out (reels-only D7).
+    assert "lessons" not in json.loads(song_file(project, song_id).read_text(encoding="utf-8"))
+    with_old_lessons(project, song_id)
+    assert client.delete(f"{SONGS}/{song_id}").status_code == 204
+
+
+@pytest.mark.parametrize("route", ["preview", "listen", "lessons"])
+def test_the_routes_that_made_a_lesson_from_a_song_are_gone(client, project, route):
+    song_id = written_song(project, audio=b"m4a")
+
+    response = client.post(f"{SONGS}/{song_id}/{route}", json={"bar": 0, "bars": 1, "bpm": 120})
+
+    assert response.status_code in (404, 405)
 
 
 def test_the_same_mid_file_again_fills_the_notes_of_a_song_imported_before_them_and_keeps_its_hits(client, project):

@@ -12,7 +12,7 @@
 - สอนดนตรีหลายเครื่องตั้งแต่แรก — งานใหญ่ขึ้นหลายเท่า ต้องมีไดอะแกรมต่อเครื่อง
 - แม่แบบวิดีโอเป็นชั้นทั่วไปไม่ผูกดนตรี — ไม่มีอะไรให้ซิงก์กับเสียงถ้าไม่มีโน้ต
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by reels-only D2
 
 ## D2: โน้ตกรอกในแอป แล้วสร้างเสียงกลองจาก sample
 
@@ -56,7 +56,7 @@
 **Details:**
 - ช่องของท่อนสอนอยู่ใน spec › Data
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by reels-only D2
 
 ## D5: 4/4 ช่องละโน้ตเขบ็ต 2 ชั้น (16 ช่องต่อห้อง)
 
@@ -116,7 +116,7 @@
 **Rejected:**
 - "สร้างวิดีโอ" `#/video` — คำกว้างกว่าที่ tab ทำจริง
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by reels-only D5
 
 ## D10: รายการบทเรียนกลอง แก้แล้ว render ใหม่ได้ เก็บผลทุกครั้ง
 
@@ -294,7 +294,7 @@
 - **ฟังจังหวะ:** ปุ่มเป็น "กำลังผสมเสียง…" และกดไม่ได้ระหว่างรอ; error ใต้ปุ่ม; `not_ready` แสดง `fix` ของแถว (setup-status D26)
 - **ขอบของโน้ต:** ลดห้องแล้วหน้าแก้ลบโน้ตที่เลยห้องสุดท้าย `PUT` ที่มีโน้ตเลยห้องเป็น `400`; Groove ไม่มีโน้ตได้ (นับเข้าแล้วเงียบ); marker ของ sample อยู่ที่ `paths.markers_dir` เขียนโดย Setup script
 
-**From:** red team · **Status:** active
+**From:** red team · **Status:** active — บทเรียนใหม่สองท่อน changed by reels-only D4
 
 ## D23: ข้อแก้จาก legal
 

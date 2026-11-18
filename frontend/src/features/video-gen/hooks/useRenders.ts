@@ -12,7 +12,7 @@ export type RendersState =
   /** `failure`: a delete the API refused (`in_use`), until the next one. */
   | { kind: "ready"; title: string; renders: RenderResult[]; failure: string | null };
 
-/** ผล render ของบทเรียน: the lesson's title and its renders, newest first as the API sorts them, and their delete (D10). */
+/** ผล render ของ reel กลอง: the reel's title and its renders, newest first as the API sorts them, and their delete (D10). */
 export function useRenders(id: string) {
   const [state, , setIfMounted] = useMountedState<RendersState>({ kind: "loading" });
 

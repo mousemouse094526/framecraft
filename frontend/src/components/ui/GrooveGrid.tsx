@@ -2,7 +2,7 @@ import { isFoot, PIECES, type PieceId } from "../../lib/kit";
 import { BARS_MAX, countOf, hitName, noteFor, notePlace, STEPS_PER_BAR, type Note } from "../../lib/lesson";
 import { SECONDARY_BUTTON } from "./buttonStyles";
 
-/** What the lesson editor adds to the grid: a selected note, the notes an `invalid_request` names, and the clicks. */
+/** What the reel กลอง editor gives the grid: a selected note, the notes an `invalid_request` names, and the clicks. */
 export type Editing = {
   selected: Note | null;
   invalid: ReadonlySet<Note>;
@@ -13,14 +13,13 @@ export type Editing = {
 type Props = {
   bars: number;
   notes: Note[];
-  /** Left out, the grid is read-only: the song page's preview of a lesson (drum-notes D11). */
-  editing?: Editing;
+  editing: Editing;
 };
 
 /**
  * ตาราง Groove: a row per piece in note-lane order, 16 steps a bar headed `1 e & a`. A note shows
- * its stick, or ● for a foot. Editing, an empty cell the hands can't take is disabled (video-gen
- * D20) and ลดห้อง/เพิ่มห้อง change the bar count; read-only, the cells are plain.
+ * its stick, or ● for a foot. An empty cell the hands can't take is disabled (video-gen D20) and
+ * ลดห้อง/เพิ่มห้อง change the bar count. The song page's read-only preview went with lessons (reels-only D7).
  */
 export function GrooveGrid({ bars, notes, editing }: Props) {
   const steps = Array.from({ length: bars * STEPS_PER_BAR }, (_, step) => step);
@@ -28,17 +27,15 @@ export function GrooveGrid({ bars, notes, editing }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {editing && (
-        <div className="flex items-center gap-2">
-          <button type="button" disabled={bars <= 1} onClick={() => editing.onBars(bars - 1)} className={`h-9 px-3 ${SECONDARY_BUTTON}`}>
-            ลดห้อง
-          </button>
-          <span className="text-sm leading-5 text-foreground">{bars} ห้อง</span>
-          <button type="button" disabled={bars >= BARS_MAX} onClick={() => editing.onBars(bars + 1)} className={`h-9 px-3 ${SECONDARY_BUTTON}`}>
-            เพิ่มห้อง
-          </button>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <button type="button" disabled={bars <= 1} onClick={() => editing.onBars(bars - 1)} className={`h-9 px-3 ${SECONDARY_BUTTON}`}>
+          ลดห้อง
+        </button>
+        <span className="text-sm leading-5 text-foreground">{bars} ห้อง</span>
+        <button type="button" disabled={bars >= BARS_MAX} onClick={() => editing.onBars(bars + 1)} className={`h-9 px-3 ${SECONDARY_BUTTON}`}>
+          เพิ่มห้อง
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="border-separate border-spacing-0.5 text-xs leading-4">
           <thead>
@@ -67,13 +64,7 @@ export function GrooveGrid({ bars, notes, editing }: Props) {
                   const label = notePlace(piece.id, step);
                   return (
                     <td key={step} className={step % STEPS_PER_BAR === 0 && step > 0 ? "border-l-2 border-border-strong pl-0.5" : ""}>
-                      {editing ? (
-                        <EditableCell note={note} notes={notes} piece={piece.id} step={step} label={label} editing={editing} />
-                      ) : (
-                        <span aria-label={label} title={note && hitName(note)} className={`flex items-center justify-center ${cellClass(note, false, false, step)}`}>
-                          {note && <Mark note={note} />}
-                        </span>
-                      )}
+                      <EditableCell note={note} notes={notes} piece={piece.id} step={step} label={label} editing={editing} />
                     </td>
                   );
                 })}

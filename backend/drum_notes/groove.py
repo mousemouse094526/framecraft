@@ -1,23 +1,18 @@
-"""A lesson's Groove from the bars picked (drum-notes spec › Score steps 3–8; D11, D13, D14, D20):
-the default BPM, the hits quantized onto 16 steps a bar, melody mode's base groove under them, the
-trim to what two hands play, and the sticking. Pure functions on the hits and bars an analysis holds:
-`drum_notes.lesson` calls `preview` with the bars the user chose, tests with hand-made hits (D17).
-The signal numbers before this (chunks, peaks, windows, beats) are `drum_notes.score`.
+"""The sticking of a reel cover's hits (drum-notes spec › Score steps 6–7; D13, D20; drum-cover D4):
+the trim to what two hands play, then which hand plays each note. Pure functions on hits already
+placed on 16 steps a bar: `drum_cover.timeline` places them and calls `trimmed` and `with_hands`.
+The lesson made from picked bars is gone (reels-only D7).
 """
 
-import math
-import statistics
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from typing import Literal, NamedTuple
 
-from backend.drum_notes.songs import FoundBar, Hit, Level, Mode
+from backend.drum_notes.songs import Level
 from backend.video_gen import kit
 from backend.video_gen.kit import PieceId
-from backend.video_gen.lessons import BPM_RANGE, Groove, Note
-from backend.video_gen.timeline import STEPS_PER_BAR
+from backend.video_gen.lessons import Note
 
 
-LEVEL_RANK: dict[Level, int] = {"ghost": 0, "normal": 1, "accent": 2}
 # Step 6: of more than two hand notes in a step, the first two of this order stay (D13): the snare
 # and the crash carry the beat, so they outrank the time-keeping cymbals, which outrank the toms.
 KEEP_ORDER = ("snare", "crash", "hihat_closed", "hihat_open", "ride", "tom_high", "tom_mid", "tom_floor")
@@ -43,91 +38,17 @@ class Placed(NamedTuple):
     level: Level
 
 
-class Dropped(NamedTuple):
-    """A hand note step 6 took out, as a third hand would be needed for it (video-gen D20)."""
-
-    piece: PieceId
-    step: int
-
-
-class Scored(NamedTuple):
-    """What the Score made of the bars picked: the Groove, its BPM, and the notes dropped."""
-
-    groove: Groove
-    bpm: int
-    dropped: list[Dropped]
-
-
-def preview(hits: list[Hit], bars: list[FoundBar], bpm: int | None, mode: Mode) -> Scored:
-    """Score steps 3–8 over `bars`, the consecutive 4/4 bars the user picked: `bpm` is the
-    default of step 3 when None; the hits quantized, put over the mode's base groove (step 5:
-    nothing in drums mode, the app's kick and hi-hat in melody mode), trimmed to what two hands
-    play, and handed."""
-    placed = sorted(quantize(hits, bars) + BASE_GROOVES[mode](len(bars)), key=_kit_order)
-    kept, dropped = trimmed(placed)
-    groove = Groove(bars=len(bars), notes=with_hands(kept))
-    return Scored(groove=groove, bpm=default_bpm(bars) if bpm is None else bpm, dropped=dropped)
-
-
-def default_bpm(bars: list[FoundBar]) -> int:
-    """Step 3: `240 / median(bar length)` rounded half up as the steps are (D25), within 40–240 (D20)."""
-    median = statistics.median(bar.end_s - bar.start_s for bar in bars)
-    return min(BPM_RANGE[1], max(BPM_RANGE[0], math.floor(4 * 60 / median + 0.5)))
-
-
-def quantize(hits: list[Hit], bars: list[FoundBar]) -> list[Placed]:
-    """Step 4: a hit belongs to bar `i` from half a step before its downbeat to half a step
-    before the next, and lands on its nearest step, `16 × i` on; so a hit at the last bar's end,
-    which would round up to one step past it, belongs to no bar and is left out; the same piece
-    twice on a step keeps the loudest (D11, D20). In step order, then kit order."""
-    kept: dict[tuple[str, int], Placed] = {}
-    for index, bar in enumerate(bars):
-        slot = (bar.end_s - bar.start_s) / STEPS_PER_BAR
-        for hit in hits:
-            if not bar.start_s - slot / 2 <= hit.t < bar.end_s - slot / 2:
-                continue
-            step = math.floor((hit.t - bar.start_s) / slot + 0.5) + STEPS_PER_BAR * index
-            before = kept.get((hit.piece, step))
-            if before is None or LEVEL_RANK[hit.level] > LEVEL_RANK[before.level]:
-                kept[(hit.piece, step)] = Placed(kit.BY_ID[hit.piece].id, step, hit.level)  # a known piece: `songs.checked_analysis`
-    return sorted(kept.values(), key=_kit_order)
-
-
-def _kit_order(placed: Placed) -> tuple[int, int]:
-    return placed.step, kit.PIECES.index(kit.BY_ID[placed.piece])
-
-
-# Step 5 (D14): under the melody's snares, a kick on beats 1 and 3 and a closed hi-hat on every 8th.
-BASE_KICK_STEPS = (0, 8)
-BASE_HIHAT_STEPS = tuple(range(0, STEPS_PER_BAR, 2))
-
-
-def base_groove(bars: int) -> list[Placed]:
-    """The notes the app adds in melody mode over `bars` bars, all `normal` (D14)."""
-    base = []
-    for bar in range(bars):
-        base.extend(Placed("kick", step + STEPS_PER_BAR * bar, "normal") for step in BASE_KICK_STEPS)
-        base.extend(Placed("hihat_closed", step + STEPS_PER_BAR * bar, "normal") for step in BASE_HIHAT_STEPS)
-    return base
-
-
-# What each mode puts under the hits found, by the number of bars (D14): the drums mode's hits are the whole groove.
-BASE_GROOVES: dict[Mode, Callable[[int], list[Placed]]] = {"drums": lambda bars: [], "melody": base_groove}
-
-
-def trimmed(placed: list[Placed]) -> tuple[list[Placed], list[Dropped]]:
+def trimmed(placed: list[Placed]) -> list[Placed]:
     """Step 6: on each step, an open hi-hat beside a closed one goes first, then hand notes past
-    two by `KEEP_ORDER`; what went is listed as `dropped` in that order, step by step (D13, D20, D25)."""
+    two by `KEEP_ORDER` (D13, D20, D25). A note left out gets no hand: `drum_cover.timeline` still
+    plays it from its own hits, with no stick (drum-cover D5)."""
     kept: list[Placed] = []
-    dropped: list[Dropped] = []
-    for step, feet, hands in _by_step(placed):
+    for _, feet, hands in _by_step(placed):
         if {"hihat_open", "hihat_closed"} <= {p.piece for p in hands}:
             hands = [p for p in hands if p.piece != "hihat_open"]
-            dropped.append(Dropped("hihat_open", step))
         hands.sort(key=lambda p: KEEP_ORDER.index(p.piece))
-        dropped.extend(Dropped(p.piece, step) for p in hands[2:])
         kept.extend(feet + hands[:2])
-    return kept, dropped
+    return kept
 
 
 def with_hands(placed: list[Placed]) -> list[Note]:

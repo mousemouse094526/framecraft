@@ -1,4 +1,4 @@
-"""Drum lessons of the สอนกลอง tab (video-gen spec › Data, D10, D16, D20, D22).
+"""Drum reels of reel กลอง, stored as lessons (video-gen spec › Data, D10, D16, D20, D22; reels-only D4, D8).
 
 A lesson is `media/drums/lessons/{lesson_id}/lesson.json`, written with `write_atomic`; its
 renders sit in `renders/` beside it. Every read and write of the folder takes `lock`.
@@ -39,16 +39,19 @@ LINE_MAX = 60  # subtitle, caption, a chapter's text
 LABEL_MAX = 16
 BPM_RANGE = (40, 240)
 BARS_RANGE = (1, 4)
+# A reel กลอง page sends one plain chapter, but lessons made before reels-only still hold up to six
+# with labels, focus and speeds: they must still read, list and render (reels-only D4).
 CHAPTERS_RANGE = (1, 6)
 REPEATS_RANGE = (1, 8)
 SPEED_RANGE = (50, 100)
 SPEED_STEP = 5
 COPY_SUFFIX = " (สำเนา)"
-NEW_LABEL = "ลองเล่นเอง"  # the reference clip's "YOUR TURN." may be its page's trademark (D23)
 MAX_LENGTH_S = 90  # listen and render refuse a longer clip; saving doesn't (D16)
 LESSON_FILE = "lesson.json"
+# The old-shaped `lesson.json` as it was before its first one-chapter `PUT` (reels-only D12).
+BACKUP_FILE = "lesson.before-reels-only.json"
 BACKGROUND = "background.jpg"
-LESSON_BUSY = "กำลัง render บทเรียนนี้อยู่"
+LESSON_BUSY = "กำลัง render reel นี้อยู่"
 
 # The lesson an unfinished job works on, or None: `video_gen.render` adds its own as it is imported,
 # which the routes do, so `delete` sees a render before the app answers anything (D22).
@@ -199,12 +202,12 @@ def _clash(note: Note, same_step: list[Note]) -> str | None:
 
 def _checked_chapters(value: object) -> list[Chapter]:
     if not isinstance(value, list) or not CHAPTERS_RANGE[0] <= len(value) <= CHAPTERS_RANGE[1]:
-        raise _invalid("chapters", f"ท่อนสอนมีได้ {CHAPTERS_RANGE[0]}–{CHAPTERS_RANGE[1]} ท่อน")
+        raise _invalid("chapters", f"ท่อนมีได้ {CHAPTERS_RANGE[0]}–{CHAPTERS_RANGE[1]} ท่อน")
     chapters = []
     for index, item in enumerate(value):
         field = f"chapters[{index}]"
         if not isinstance(item, dict):
-            raise _invalid(field, "ท่อนสอนไม่ถูกต้อง")
+            raise _invalid(field, "ท่อนไม่ถูกต้อง")
         label = _text(item, "label", 0, LABEL_MAX, "ป้าย", field=f"{field}.label")
         text = _text(item, "text", 0, LINE_MAX, "คำอธิบาย", field=f"{field}.text")
         focus = item.get("focus")
@@ -284,25 +287,8 @@ def create(project: ProjectPaths, body: dict[str, Any]) -> LessonView:
     return _view(lesson)
 
 
-def from_song(title: str, subtitle: str, bpm: int, groove: Groove) -> LessonFields:
-    """The fields of a lesson made from a song (drum-notes D12, ADR 0047): the song's title cut at
-    40 and its subtitle at 60, the BPM and Groove the Score gave, everything else a new lesson's
-    (two chapters, no caption, a colour background). Checked by the rules of `PUT`: a Groove two
-    hands can't play raises `ApiError` 400 `invalid_request` with its note's field."""
-    body = _new_fields(title[:TITLE_MAX]).model_dump() | {"subtitle": subtitle[:LINE_MAX], "bpm": bpm, "groove": groove.model_dump()}
-    return _checked_fields(body, None)
-
-
-def create_from(project: ProjectPaths, fields: LessonFields) -> LessonView:
-    """A new lesson of checked fields (`from_song`), written under a new id."""
-    with lock:
-        lesson = _write_new(project, fields)
-    log.info("created lesson %s from a song", lesson.id)
-    return _view(lesson)
-
-
 def unsaved(fields: LessonFields) -> Lesson:
-    """A lesson that is nowhere on disk, for `timeline.build` and `mixer.mix` to play (drum-notes D21)."""
+    """A lesson that is nowhere on disk, for `drum_cover.timeline` to build on (drum-cover D4)."""
     return Lesson(version=VERSION, id="", updated_at="", **fields.model_dump())
 
 
@@ -332,13 +318,34 @@ def stored(project: ProjectPaths, lesson_id: str) -> Lesson:
 
 def replace(project: ProjectPaths, lesson_id: str, body: dict[str, Any]) -> LessonView:
     """`PUT`: every field but `id`, `version` and `updated_at`. A lesson over 90 s is saved
-    (D16); a value outside the rules changes nothing."""
+    (D16); a value outside the rules changes nothing. The first `PUT` over an old-shaped lesson
+    keeps a copy of its file (reels-only D12)."""
     with lock:
-        _read_known(project, lesson_id)
+        before = _read_known(project, lesson_id)
         fields = _checked_fields(body, lesson_dir(project, lesson_id))
+        _keep_old_shape(project, before)
         lesson = Lesson(version=VERSION, id=lesson_id, updated_at=now_iso(), **fields.model_dump())
         _write(project, lesson)
     return _view(lesson)
+
+
+def _is_reel_shape(chapters: list[Chapter]) -> bool:
+    """Whether the chapters are the one a reel กลอง page writes: no label, text or focus, at full
+    speed (reels-only D4). `frontend/src/lib/lesson.ts` `isReelShape` is the same rule (keep the two alike)."""
+    if len(chapters) != 1:
+        return False
+    chapter = chapters[0]
+    return chapter.label == "" and chapter.text == "" and not chapter.focus and chapter.speed == 100
+
+
+def _keep_old_shape(project: ProjectPaths, lesson: Lesson) -> None:
+    """A copy of an old-shaped `lesson.json` beside it, once: the page merges its chapters into
+    one, which a revert of the code can't undo (reels-only D12)."""
+    folder = lesson_dir(project, lesson.id)
+    if _is_reel_shape(lesson.chapters) or (folder / BACKUP_FILE).exists():
+        return
+    shutil.copyfile(folder / LESSON_FILE, folder / BACKUP_FILE)
+    log.info("kept the old shape of lesson %s", lesson.id)
 
 
 def delete(project: ProjectPaths, lesson_id: str) -> None:
@@ -396,7 +403,7 @@ def background_file(project: ProjectPaths, lesson_id: str) -> Path:
         _read_known(project, lesson_id)
         path = lesson_dir(project, lesson_id) / BACKGROUND
         if not path.is_file():
-            raise ApiError(404, "not_found", "บทเรียนนี้ไม่มีภาพพื้นหลัง")
+            raise ApiError(404, "not_found", "reel นี้ไม่มีภาพพื้นหลัง")
     return path
 
 
@@ -427,10 +434,8 @@ def _new_fields(title: str) -> LessonFields:
         bpm=100,
         background="color",
         groove=Groove(bars=1, notes=kicks + hihats + snares),
-        chapters=[
-            Chapter(label="", text="", focus=[], repeats=2, speed=100),
-            Chapter(label=NEW_LABEL, text="", focus=[], repeats=2, speed=100),
-        ],
+        # One plain chapter: the Groove played 4 times under the title (reels-only D4).
+        chapters=[Chapter(label="", text="", focus=[], repeats=4, speed=100)],
     )
 
 
@@ -495,4 +500,4 @@ def length_s(lesson: Lesson) -> float:
 
 
 def _not_found() -> ApiError:
-    return ApiError(404, "not_found", "ไม่พบบทเรียนนี้")
+    return ApiError(404, "not_found", "ไม่พบ reel นี้")

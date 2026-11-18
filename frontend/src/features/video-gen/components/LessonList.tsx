@@ -15,10 +15,10 @@ import { useLessons } from "../hooks/useLessons";
 import { lessonHash, TITLE_MAX, type LessonRow } from "../../../lib/lesson";
 import { renderingOf } from "../lib/render";
 
-/** รายการบทเรียนกลอง (`#/drums`): newest edit first; new, copy and delete (D10). The design is pending, so the app's own parts. */
+/** รายการ reel กลอง (`#/drums`): newest edit first; new, copy and delete (video-gen D10, reels-only D2, D5). */
 export function LessonList() {
   const { state, reload, create, copy, remove } = useLessons();
-  // A render that ends may add to its lesson's count.
+  // A render that ends may add to its reel's count.
   const { job } = useDrumRender(() => void reload());
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<LessonRow | null>(null);
@@ -34,22 +34,25 @@ export function LessonList() {
   return (
     <PageLayout tab="drums">
       <div className="flex items-center gap-3">
-        <h2 className="min-w-0 flex-1 text-xl leading-[1.5] font-semibold text-foreground">บทเรียนกลอง</h2>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 className="text-xl leading-[1.5] font-semibold text-foreground">reel กลอง</h2>
+          <p className="text-[13px] leading-[1.5] text-mid">reel จาก Groove ที่กรอกเอง · reel จากเพลงทำในแกะเพลง</p>
+        </div>
         <button type="button" onClick={() => setCreating(true)} className={`flex h-11 items-center gap-2 px-4 sm:h-9 ${PRIMARY_BUTTON}`}>
           <img src={plusWhiteIcon} alt="" width={16} height={16} />
-          บทเรียนใหม่
+          reel ใหม่
         </button>
       </div>
       {state.kind === "result" && state.failure && <Alert tone="error">{state.failure}</Alert>}
-      <section aria-label="บทเรียนทั้งหมด" aria-busy={state.kind === "loading"} className="overflow-hidden rounded-2xl border border-border bg-card">
+      <section aria-label="reel ทั้งหมด" aria-busy={state.kind === "loading"} className="overflow-hidden rounded-2xl border border-border bg-card">
         {state.kind === "loading" ? (
           <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
         ) : state.lessons.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-4 py-12">
-            <p className="text-sm leading-[1.5] text-mid">ยังไม่มีบทเรียนกลอง</p>
+            <p className="text-sm leading-[1.5] text-mid">ยังไม่มี reel กลอง</p>
             <button type="button" onClick={() => setCreating(true)} className={`h-11 px-4 sm:h-9 ${OUTLINE_BUTTON}`}>
               <img src={plusIcon} alt="" width={16} height={16} />
-              สร้างบทเรียนแรก
+              สร้าง reel แรก
             </button>
           </div>
         ) : (
@@ -81,7 +84,7 @@ export function LessonList() {
   );
 }
 
-/** `renderingPercent`: how far the render running on this lesson is, or null (D22). */
+/** `renderingPercent`: how far the render running on this reel is, or null (D22). */
 function Row({ lesson, renderingPercent, onCopy, onDelete }: { lesson: LessonRow; renderingPercent: number | null; onCopy: () => void; onDelete: () => void }) {
   return (
     <li className="flex items-center gap-1 pr-2">
@@ -110,7 +113,7 @@ function Row({ lesson, renderingPercent, onCopy, onDelete }: { lesson: LessonRow
   );
 }
 
-/** Asks the new lesson's title; the API's refusal stays in the dialog. */
+/** Asks the new reel's title; the API's refusal stays in the dialog. */
 function NewLessonDialog({ create, onClose }: { create: (title: string) => Promise<string | null>; onClose: () => void }) {
   const titleId = useId();
   const inputId = useId();
@@ -131,7 +134,7 @@ function NewLessonDialog({ create, onClose }: { create: (title: string) => Promi
   return (
     <ModalDialog titleId={titleId} onClose={onClose} size="gap-4 sm:max-w-[480px]">
       <h3 id={titleId} className="text-lg leading-[1.5] font-semibold text-foreground">
-        บทเรียนใหม่
+        reel ใหม่
       </h3>
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
@@ -164,7 +167,7 @@ function NewLessonDialog({ create, onClose }: { create: (title: string) => Promi
   );
 }
 
-/** Focus starts on ยกเลิก; says how many renders go with the lesson (D10). */
+/** Focus starts on ยกเลิก; says how many renders go with the reel (D10). */
 function DeleteLessonDialog({ lesson, onCancel, onDelete }: { lesson: LessonRow; onCancel: () => void; onDelete: () => void }) {
   const titleId = useId();
   return (

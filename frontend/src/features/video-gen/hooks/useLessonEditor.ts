@@ -3,7 +3,7 @@ import { getReply, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
-import { fieldErrors, fieldsOf, lessonPath, sameFields, type FieldErrors, type Lesson, type LessonFields } from "../../../lib/lesson";
+import { inReelShape, fieldErrors, fieldsOf, isReelShape, lessonPath, repeatsOf, sameFields, type FieldErrors, type MergedRepeats, type Lesson, type LessonFields } from "../../../lib/lesson";
 
 /** The form on screen; saving and "บันทึกแล้ว" are flags of it, so the form stays put through them. */
 export type Editing = {
@@ -11,6 +11,8 @@ export type Editing = {
   id: string;
   /** The lesson as the backend last answered it: the form is unsaved while it differs. */
   saved: LessonFields;
+  /** A lesson made with several ท่อน or a teaching one, before reels-only: how many repeats it merges into, and from how many (D4). */
+  oldShape: MergedRepeats | null;
   /** The saved lesson's `updated_at`: the background picture's URL changes with it. */
   updatedAt: string;
   form: LessonFields;
@@ -25,8 +27,10 @@ export type Editing = {
 export type EditorState = { kind: "loading" } | { kind: "offline" } | { kind: "not_found" } | Editing;
 
 /**
- * หน้าแก้บทเรียนกลอง: loads `#/drums/{id}`, checks the text and number rules before sending, and
- * saves the whole lesson in one `PUT`; leaving unsaved asks first (story-kb D11, D16).
+ * หน้าแก้ reel กลอง: loads `#/drums/{id}`, checks the text and number rules before sending, and
+ * saves the whole lesson in one `PUT`; leaving unsaved asks first (story-kb D11, D16). The form
+ * holds the chapters merged into one plain one, so an old-shaped lesson opens unsaved and its
+ * first save, listen or render writes the reel shape (reels-only D4).
  */
 export function useLessonEditor(id: string) {
   const [state, setState, setIfMounted] = useMountedState<EditorState>({ kind: "loading" });
@@ -39,12 +43,13 @@ export function useLessonEditor(id: string) {
   const ready = useCallback(
     (lesson: Lesson, kept: LessonFields | null, change: Partial<Editing> = {}) => {
       const fields = fieldsOf(lesson);
-      form.current = kept ?? fields;
+      form.current = kept ?? inReelShape(fields);
       saved.current = fields;
       setIfMounted({
         kind: "ready",
         id,
         saved: fields,
+        oldShape: isReelShape(fields.chapters) ? null : repeatsOf(fields.chapters),
         updatedAt: lesson.updated_at,
         form: form.current,
         errors: {},

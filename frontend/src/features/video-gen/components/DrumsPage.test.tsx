@@ -20,7 +20,7 @@ const BACKGROUND_PATH = `${PATH}/background`;
 const fetchMock = vi.fn<typeof fetch>();
 const confirmMock = vi.fn<(message?: string) => boolean>();
 
-/** The lesson a new one starts as: a rock groove of one bar, two chapters (spec › Data). */
+/** The reel a new one starts as: a rock groove of one bar, played 4 times (reels-only D4). */
 function lessonOf(change: Partial<Lesson> = {}): Lesson {
   return {
     version: 1,
@@ -40,10 +40,7 @@ function lessonOf(change: Partial<Lesson> = {}): Lesson {
         { piece: "kick", step: 8, hand: null, hit: "normal" },
       ],
     },
-    chapters: [
-      { label: "", text: "", focus: [], repeats: 2, speed: 100 },
-      { label: "ลองเล่นเอง", text: "", focus: [], repeats: 2, speed: 100 },
-    ],
+    chapters: [{ label: "", text: "", focus: [], repeats: 4, speed: 100 }],
     updated_at: "2026-11-13T10:30:00+07:00",
     length_s: 13.5,
     ...change,
@@ -103,6 +100,10 @@ function open(hash: string, routes: Route[]) {
 }
 
 async function openEditor(routes: Route[] = [], lesson = lessonOf()) {
+  // The hash's own `hashchange` comes first, as a page opened at it never gets one: an old reel
+  // opens unsaved, and its leave guard would answer that late event.
+  window.location.hash = `#/drums/${ID}`;
+  await hashSettles();
   const user = open(`#/drums/${ID}`, [get(PATH, lesson), ...routes]);
   await screen.findByRole("button", { name: "บันทึก" });
   return user;
@@ -110,7 +111,6 @@ async function openEditor(routes: Route[] = [], lesson = lessonOf()) {
 
 const cell = (piece: string, count: string, bar = 1) => screen.getByRole("button", { name: `${piece} ห้อง ${bar} จังหวะ ${count}` });
 const noteBox = () => screen.getByRole("group", { name: "โน้ตที่เลือก" });
-const chapter = (n: number) => screen.getByRole("group", { name: `ท่อน ${n}` });
 const save = () => screen.getByRole("button", { name: "บันทึก" });
 
 async function hashSettles() {
@@ -120,15 +120,15 @@ async function hashSettles() {
   });
 }
 
-describe("รายการบทเรียนกลอง", () => {
-  it("the สอนกลอง tab after การ์ตูนเล่า opens #/drums, which invites the first lesson when there is none", async () => {
+describe("รายการ reel กลอง", () => {
+  it("reel ทั้งหมด in the menu opens #/drums, which invites the first reel when there is none", async () => {
     const user = open("#/setup", [get("/api/setup/status", status)]);
 
-    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
+    await user.click(screen.getByRole("link", { name: "reel ทั้งหมด" }));
 
     expect(window.location.hash).toBe("#/drums");
-    expect(await screen.findByText("ยังไม่มีบทเรียนกลอง")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "สร้างบทเรียนแรก" })).toBeInTheDocument();
+    expect(await screen.findByText("ยังไม่มี reel กลอง")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "สร้าง reel แรก" })).toBeInTheDocument();
   });
 
   it("shows each lesson's title, length, renders and last edit", async () => {
@@ -144,8 +144,8 @@ describe("รายการบทเรียนกลอง", () => {
   it("asks a new lesson's title, POSTs it and opens the new lesson", async () => {
     const user = open("#/drums", [send("POST", LIST_PATH, lessonOf({ title: "Teen Spirit" }), 201), get(PATH, lessonOf({ title: "Teen Spirit" }))]);
 
-    await user.click(await screen.findByRole("button", { name: "บทเรียนใหม่" }));
-    const dialog = screen.getByRole("dialog", { name: "บทเรียนใหม่" });
+    await user.click(await screen.findByRole("button", { name: "reel ใหม่" }));
+    const dialog = screen.getByRole("dialog", { name: "reel ใหม่" });
     await user.type(within(dialog).getByRole("textbox", { name: "หัวเรื่อง" }), "Teen Spirit");
     await user.click(within(dialog).getByRole("button", { name: "สร้าง" }));
 
@@ -159,8 +159,8 @@ describe("รายการบทเรียนกลอง", () => {
       send("POST", LIST_PATH, { code: "invalid_request", message: "หัวเรื่องยาวเกิน 40 ตัวอักษร", field: "title" }, 400),
     ]);
 
-    await user.click(await screen.findByRole("button", { name: "บทเรียนใหม่" }));
-    const dialog = screen.getByRole("dialog", { name: "บทเรียนใหม่" });
+    await user.click(await screen.findByRole("button", { name: "reel ใหม่" }));
+    const dialog = screen.getByRole("dialog", { name: "reel ใหม่" });
     await user.type(within(dialog).getByRole("textbox", { name: "หัวเรื่อง" }), "ยาว");
     await user.click(within(dialog).getByRole("button", { name: "สร้าง" }));
 
@@ -190,7 +190,7 @@ describe("รายการบทเรียนกลอง", () => {
     expect(dialog).toHaveTextContent("ผล render 3 รายการจะหายไปด้วย");
     await user.click(within(dialog).getByRole("button", { name: "ลบ" }));
 
-    expect(await screen.findByText("ยังไม่มีบทเรียนกลอง")).toBeInTheDocument();
+    expect(await screen.findByText("ยังไม่มี reel กลอง")).toBeInTheDocument();
     expect(sent(fetchMock, "DELETE", PATH)).toEqual([null]);
   });
 
@@ -334,31 +334,117 @@ describe("ตาราง Groove", () => {
   });
 });
 
-describe("ท่อนสอน", () => {
-  it("added, moved and deleted chapters are PUT in their new order", async () => {
+describe("จำนวนรอบ (reels-only D2, D4)", () => {
+  const plain = (repeats: number) => [{ label: "", text: "", focus: [], repeats, speed: 100 }];
+  const old = (...repeats: number[]) => repeats.map((n, i) => ({ label: i === 0 ? "" : "KICK", text: "", focus: [], repeats: n, speed: 80 }));
+  const repeatsBox = () => screen.getByRole("combobox", { name: /จำนวนรอบ/ });
+  const legacyNote = () => screen.queryByText(/อยากเก็บแบบเดิม กดทำซ้ำในรายการก่อน/);
+
+  it("a reel shows its repeats and no ท่อน; a new count is PUT as one plain chapter", async () => {
     const user = await openEditor([savedReply()]);
 
-    await user.click(screen.getByRole("button", { name: "เพิ่มท่อน" }));
-    await user.type(within(chapter(3)).getByRole("textbox", { name: "ป้าย" }), "KICK");
-    await user.click(within(chapter(3)).getByRole("checkbox", { name: "กระเดื่อง" }));
-    await user.selectOptions(within(chapter(3)).getByRole("combobox", { name: "ความเร็ว" }), "75");
-    await user.click(screen.getByRole("button", { name: "เลื่อนท่อน 3 ขึ้น" }));
-    await user.click(screen.getByRole("button", { name: "ลบท่อน 1" }));
+    expect(repeatsBox()).toHaveValue("4");
+    expect(within(repeatsBox()).getAllByRole("option").map((option) => option.textContent)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
+    expect(screen.queryByRole("group", { name: /^ท่อน/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/ท่อนสอน|ชิ้นที่เน้น|ความเร็ว/)).not.toBeInTheDocument();
+    expect(legacyNote()).not.toBeInTheDocument();
+    await user.selectOptions(repeatsBox(), "6");
+    // count-in 2.4 + 6 bars of 2.4 + 1.5 tail
+    expect(screen.getByText("ความยาวคลิป 18.3 / 90 วินาที")).toBeInTheDocument();
     await user.click(save());
 
     await waitFor(() => expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1));
-    expect((sent(fetchMock, "PUT", PATH)[0] as Lesson).chapters).toEqual([
-      { label: "KICK", text: "", focus: ["kick"], repeats: 2, speed: 75 },
-      { label: "ลองเล่นเอง", text: "", focus: [], repeats: 2, speed: 100 },
-    ]);
+    expect((sent(fetchMock, "PUT", PATH)[0] as Lesson).chapters).toEqual(plain(6));
   });
 
-  it("the first chapter's label hints that empty shows the title, and the last one can't be deleted", async () => {
-    const user = await openEditor();
+  it("an old reel of three ท่อน opens merged and unsaved, says what saving drops, and PUTs nothing until asked", async () => {
+    const user = await openEditor([savedReply()], lessonOf({ chapters: old(2, 2, 2) }));
 
-    expect(within(chapter(1)).getByText("ว่าง = แสดงหัวเรื่อง")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "ลบท่อน 2" }));
-    expect(screen.getByRole("button", { name: "ลบท่อน 1" })).toBeDisabled();
+    expect(repeatsBox()).toHaveValue("6");
+    expect(legacyNote()).toHaveTextContent("ป้าย คำอธิบาย ชิ้นที่เน้น และความเร็วของแต่ละท่อนจะหาย เหลือ Groove 6 รอบที่ BPM เดียว");
+    expect(save()).toBeEnabled();
+    await user.selectOptions(repeatsBox(), "3");
+    expect(legacyNote()).toHaveTextContent("เหลือ Groove 3 รอบที่ BPM เดียว (จาก 6 รอบ)");
+    await user.selectOptions(repeatsBox(), "6");
+    expect(sent(fetchMock, "PUT", PATH)).toHaveLength(0);
+
+    confirmMock.mockReturnValue(false);
+    window.location.hash = "#/drums";
+    await hashSettles();
+    expect(confirmMock).toHaveBeenCalledWith("ออกโดยไม่บันทึก?");
+    expect(window.location.hash).toBe(`#/drums/${ID}`);
+
+    await user.click(save());
+    await waitFor(() => expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1));
+    expect((sent(fetchMock, "PUT", PATH)[0] as Lesson).chapters).toEqual(plain(6));
+    await waitFor(() => expect(legacyNote()).not.toBeInTheDocument());
+  });
+
+  it("one ท่อน with a label is an old reel too", async () => {
+    await openEditor([], lessonOf({ chapters: [{ label: "KICK", text: "", focus: [], repeats: 3, speed: 100 }] }));
+
+    expect(repeatsBox()).toHaveValue("3");
+    expect(legacyNote()).toBeInTheDocument();
+  });
+
+  it("more than 8 repeats merge into 8 and say from how many", async () => {
+    await openEditor([], lessonOf({ chapters: old(4, 4, 4) }));
+
+    expect(repeatsBox()).toHaveValue("8");
+    expect(legacyNote()).toHaveTextContent("เหลือ Groove 8 รอบที่ BPM เดียว (จาก 12 รอบ)");
+  });
+
+  it("render on an old reel PUTs the merged chapter before it starts", async () => {
+    const user = await openEditor([savedReply(), { method: "POST", path: RENDER_PATH, reply: () => jsonResponse(jobOf(), 202) }], lessonOf({ chapters: old(2, 1) }));
+
+    await user.click(screen.getByRole("button", { name: "render" }));
+
+    await waitFor(() => expect(sent(fetchMock, "POST", RENDER_PATH)).toHaveLength(1));
+    const calls = fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${String(url)}`);
+    expect(calls.indexOf(`PUT ${PATH}`)).toBeLessThan(calls.indexOf(`POST ${RENDER_PATH}`));
+    expect((sent(fetchMock, "PUT", PATH)[0] as Lesson).chapters).toEqual(plain(3));
+  });
+
+  it("an old reel that merges past 90 s says so, and can't be listened to or rendered", async () => {
+    // 40 BPM, 2 bars: 6 count-in + 8 × 2 × 6 + 1.5 tail = 103.5 once 4 + 4 + 4 merge into 8.
+    await openEditor([], lessonOf({ bpm: 40, groove: { bars: 2, notes: [] }, chapters: old(4, 4, 4) }));
+
+    expect(screen.getByText("ยาวเกิน 90 วินาทีไป 13.5 วินาที")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ฟังจังหวะ" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
+  });
+
+  it("ฟังจังหวะ on an old reel PUTs the merged chapter before it mixes", async () => {
+    const wav = new Blob(["RIFF"], { type: "audio/wav" });
+    const user = await openEditor([savedReply(), { method: "POST", path: LISTEN_PATH, reply: () => new Response(wav, { status: 200, headers: { "Content-Type": "audio/wav" } }) }], lessonOf({ chapters: old(1, 1) }));
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+
+    await user.click(screen.getByRole("button", { name: "ฟังจังหวะ" }));
+
+    await waitFor(() => expect(sent(fetchMock, "POST", LISTEN_PATH)).toHaveLength(1));
+    const calls = fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${String(url)}`);
+    expect(calls.indexOf(`PUT ${PATH}`)).toBeLessThan(calls.indexOf(`POST ${LISTEN_PATH}`));
+    expect((sent(fetchMock, "PUT", PATH)[0] as Lesson).chapters).toEqual(plain(2));
+  });
+});
+
+describe("reel กลอง, not lessons (reels-only D1, D5, D8)", () => {
+  it("the list says it is reel กลอง from a typed Groove, with reel ใหม่, and no word of lessons", async () => {
+    open("#/drums", [get(LIST_PATH, [rowOf()])]);
+
+    await screen.findByRole("listitem");
+    const main = screen.getByRole("main");
+    expect(within(main).getByRole("heading", { level: 2, name: "reel กลอง" })).toBeInTheDocument();
+    expect(within(main).getByText("reel จาก Groove ที่กรอกเอง · reel จากเพลงทำในแกะเพลง")).toBeInTheDocument();
+    expect(within(main).getByRole("button", { name: "reel ใหม่" })).toBeInTheDocument();
+    expect(within(main).getByRole("region", { name: "reel ทั้งหมด" })).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/บทเรียน|สอน/);
+  });
+
+  it("the editor of an old reel has no word of lessons either", async () => {
+    await openEditor([], lessonOf({ chapters: [{ label: "KICK", text: "ช้าๆ", focus: ["kick"], repeats: 2, speed: 80 }] }));
+
+    expect(document.body.textContent).not.toMatch(/บทเรียน|สอน/);
   });
 });
 
@@ -367,12 +453,15 @@ describe("ความยาวคลิป", () => {
     const user = await openEditor([savedReply()]);
 
     expect(screen.getByText("ความยาวคลิป 13.5 / 90 วินาที")).toBeInTheDocument();
-    for (const n of [1, 2]) await user.selectOptions(within(chapter(n)).getByRole("combobox", { name: "รอบ" }), "8");
+    await user.selectOptions(screen.getByRole("combobox", { name: /จำนวนรอบ/ }), "8");
     const bpm = screen.getByRole("spinbutton", { name: "BPM" });
     await user.clear(bpm);
     await user.type(bpm, "40");
 
-    // A bar is 6 s at 40 BPM: 6 count-in + 16 × 6 + 1.5 tail = 103.5.
+    // A bar is 6 s at 40 BPM: 6 count-in + 8 × 6 + 1.5 tail = 55.5 — so two bars of Groove go over.
+    expect(screen.getByText("ความยาวคลิป 55.5 / 90 วินาที")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "เพิ่มห้อง" }));
+    // 6 count-in + 8 × 2 × 6 + 1.5 tail = 103.5.
     expect(screen.getByText("ยาวเกิน 90 วินาทีไป 13.5 วินาที")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ฟังจังหวะ" })).toBeDisabled();
     await user.click(save());
@@ -446,15 +535,13 @@ describe("ฟังจังหวะ", () => {
 
 describe("บันทึก", () => {
   it("an invalid_request shows its message at the field it names", async () => {
-    const user = await openEditor([
-      send("PUT", PATH, { code: "invalid_request", message: "ป้ายยาวเกิน 16 ตัวอักษร", field: "chapters[1].label" }, 400),
-    ]);
+    const user = await openEditor([send("PUT", PATH, { code: "invalid_request", message: "คำบรรยายยาวเกิน 60 ตัวอักษร", field: "caption" }, 400)]);
 
-    await user.type(within(chapter(2)).getByRole("textbox", { name: "ป้าย" }), "!");
+    await user.type(screen.getByRole("textbox", { name: "คำบรรยาย" }), "!");
     await user.click(save());
 
-    expect(await within(chapter(2)).findByText("ป้ายยาวเกิน 16 ตัวอักษร")).toBeInTheDocument();
-    expect(within(chapter(2)).getByRole("textbox", { name: "ป้าย" })).toHaveAttribute("aria-invalid", "true");
+    expect(await screen.findByText("คำบรรยายยาวเกิน 60 ตัวอักษร")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "คำบรรยาย" })).toHaveAttribute("aria-invalid", "true");
   });
 
   it("an invalid_request on a field with no input of its own still shows its message", async () => {
@@ -485,7 +572,7 @@ describe("บันทึก", () => {
 
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     confirmMock.mockReturnValue(false);
-    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
+    await user.click(screen.getByRole("link", { name: "reel ทั้งหมด" }));
     await hashSettles();
 
     expect(confirmMock).toHaveBeenCalledWith("ออกโดยไม่บันทึก?");
@@ -499,7 +586,7 @@ describe("บันทึก", () => {
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     await user.click(save());
     await screen.findByText("บันทึกแล้ว");
-    await user.click(screen.getByRole("link", { name: "บทเรียนทั้งหมด" }));
+    await user.click(screen.getByRole("link", { name: "reel ทั้งหมด" }));
     await hashSettles();
 
     expect(confirmMock).not.toHaveBeenCalled();
@@ -509,7 +596,7 @@ describe("บันทึก", () => {
   it("a lesson that isn't there says so", async () => {
     open(`#/drums/${ID}`, [send("GET", PATH, { code: "not_found", message: "ไม่พบ" }, 404)]);
 
-    expect(await screen.findByText("ไม่พบบทเรียนนี้")).toBeInTheDocument();
+    expect(await screen.findByText("ไม่พบ reel นี้")).toBeInTheDocument();
   });
 });
 
@@ -600,7 +687,7 @@ describe("render", () => {
   });
 
   it("a lesson over 90 s can't be rendered", async () => {
-    await openEditor([], lessonOf({ bpm: 40, chapters: [{ label: "", text: "", focus: [], repeats: 8, speed: 50 }] }));
+    await openEditor([], lessonOf({ bpm: 40, groove: { bars: 2, notes: [] }, chapters: [{ label: "", text: "", focus: [], repeats: 8, speed: 100 }] }));
 
     expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
   });
@@ -638,7 +725,7 @@ describe("ผล render", () => {
   it("with none says it was never rendered, and this lesson's render shows its percent on top", async () => {
     open(`#/drums/${ID}/renders`, [get(PATH, lessonOf()), get(RENDERS_PATH, []), get(RENDER_PATH, jobOf({ percent: 55 }))]);
 
-    expect(await screen.findByText("ยังไม่เคย render บทเรียนนี้")).toBeInTheDocument();
+    expect(await screen.findByText("ยังไม่เคย render reel นี้")).toBeInTheDocument();
     expect(await screen.findByRole("progressbar", { name: "กำลัง render" })).toHaveAttribute("aria-valuenow", "55");
   });
 
@@ -734,12 +821,12 @@ describe("พื้นหลัง", () => {
 });
 
 describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
-  it("puts a lesson first under สอนกลอง once its editor loads, and keeps it open on its renders (e2e)", async () => {
+  it("puts a reel first under reel กลอง once its editor loads, and keeps it open on its renders (e2e)", async () => {
     await openEditor();
 
     const recent = JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
     expect(recent.drums).toEqual([{ hash: `#/drums/${ID}`, label: "ร็อกพื้นฐาน" }]);
-    const drums = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "สอนกลอง" }));
+    const drums = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "reel กลอง" }));
     expect(drums.getByRole("link", { name: "ร็อกพื้นฐาน" })).toHaveAttribute("aria-current", "page");
   });
 });

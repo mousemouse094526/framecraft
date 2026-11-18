@@ -2,7 +2,7 @@ import { useCopy } from "../../lib/useCopy";
 import { OUTLINE_BUTTON } from "./buttonStyles";
 import copyIcon from "./assets/copy.svg";
 
-/** A fix to run, as a command line with a copy button (setup-status D20): spoil's notices and a not_ready of สอนกลอง. */
+/** A fix to run, as a command line with a copy button (setup-status D20): spoil's notices and a not_ready of reel กลอง. */
 export function FixCommand({ command }: { command: string }) {
   const { copied, copy } = useCopy(command);
   return (

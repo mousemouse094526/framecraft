@@ -22,9 +22,12 @@ import {
   lessonHash,
   lessonPath,
   MAX_SECONDS,
+  mergeText,
   noteFor,
   noteIndexOf,
   notesPast,
+  plainChapters,
+  REPEATS_MAX,
   rendersHash,
   sameFields,
   STEPS_PER_BAR,
@@ -34,13 +37,12 @@ import {
 } from "../../../lib/lesson";
 import { isRendering, jobOf, renderingOf } from "../lib/render";
 import { BackgroundPicker } from "../../../components/ui/BackgroundPicker";
-import { ChapterList } from "./ChapterList";
 import { GrooveGrid } from "../../../components/ui/GrooveGrid";
 import { Labeled } from "../../../components/ui/Labeled";
 import { NoteBox } from "./NoteBox";
 import { RenderProgress } from "./RenderProgress";
 
-/** หน้าแก้บทเรียนกลอง (`#/drums/{id}`). The design is pending, so the app's own parts. */
+/** หน้าแก้ reel กลอง (`#/drums/{id}`): the app's own parts (reels-only D10). */
 export function LessonEditor({ id }: { id: string }) {
   const { state, edit, save, applyBackground } = useLessonEditor(id);
   useRecentPage("drums", lessonHash(id), state.kind === "ready" ? { label: state.saved.title } : state.kind === "not_found" ? "gone" : null);
@@ -65,9 +67,9 @@ export function LessonEditor({ id }: { id: string }) {
       {state.kind === "offline" && <OfflinePanel />}
       {state.kind === "not_found" && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-4 py-12">
-          <p className="text-base leading-[1.5] font-medium text-foreground">ไม่พบบทเรียนนี้</p>
+          <p className="text-base leading-[1.5] font-medium text-foreground">ไม่พบ reel นี้</p>
           <a href={DRUMS_HASH} className={`h-11 px-4 text-brand sm:h-9 ${GHOST_BUTTON} hover:bg-muted`}>
-            กลับรายการบทเรียน
+            กลับรายการ reel
           </a>
         </div>
       )}
@@ -103,7 +105,7 @@ function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
       .flatMap((index) => (index !== null && notes[index] ? [notes[index]] : [])),
   );
   const grooveErrors = Object.entries(errors).filter(([key]) => key.startsWith("groove"));
-  // A refusal whose `field` has no input of its own (`chapters[0].speed`, `background`) still says why.
+  // A refusal whose `field` has no input of its own (`chapters`, `background`) still says why.
   const otherErrors = Object.entries(errors).filter(([key]) => !SHOWN_AT_INPUT.test(key));
 
   const setText = (key: "title" | "subtitle" | "caption") => (value: string) => edit((fields) => ({ ...fields, [key]: value }), (k) => k === key);
@@ -186,7 +188,21 @@ function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
         )}
       </section>
 
-      <ChapterList chapters={form.chapters} errors={errors} onChange={(chapters) => edit((fields) => ({ ...fields, chapters }), (key) => key.startsWith("chapters"))} />
+      <Labeled label="จำนวนรอบ" htmlFor={`${id}-repeats`} error={errors["chapters[0].repeats"]} hint="Groove เล่นซ้ำกี่รอบ">
+        <select
+          id={`${id}-repeats`}
+          value={form.chapters[0].repeats}
+          onChange={(e) => edit((fields) => ({ ...fields, chapters: plainChapters(Number(e.target.value)) }), (key) => key.startsWith("chapters"))}
+          className={`sm:w-40 ${inputClass(false)}`}
+        >
+          {Array.from({ length: REPEATS_MAX }, (_, i) => i + 1).map((repeats) => (
+            <option key={repeats} value={repeats}>
+              {repeats}
+            </option>
+          ))}
+        </select>
+      </Labeled>
+      {editing.oldShape && <Alert tone="info">{mergeText({ repeats: form.chapters[0].repeats, total: editing.oldShape.total })}</Alert>}
 
       <div className="h-px bg-border" />
 
@@ -216,7 +232,7 @@ function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
 }
 
 /** The `field`s an input or the grid shows beside itself. */
-const SHOWN_AT_INPUT = /^(title|bpm|subtitle|caption|groove.*|chapters\[\d+\]\.(label|text))$/;
+const SHOWN_AT_INPUT = /^(title|bpm|subtitle|caption|groove.*|chapters\[0\]\.repeats)$/;
 
 /** The clip's length against the 90 s cap: over it says by how much (D16, D21). */
 function LengthLine({ fields }: { fields: LessonFields }) {
@@ -253,7 +269,7 @@ function ListenControl({ fields, listen }: { fields: LessonFields; listen: Retur
 
 /**
  * render: saves first, then starts the job; its percent and ยกเลิก while it runs; a failed or
- * cancelled one says so with ลองอีกครั้ง; another lesson's render names that lesson (D14, D22).
+ * cancelled one says so with ลองอีกครั้ง; another reel's render names that reel (D14, D22).
  * Can't be pressed over the cap (D16) or while any render runs.
  */
 function RenderControl({ id, fields, render, save }: { id: string; fields: LessonFields; render: ReturnType<typeof useDrumRender>; save: () => Promise<boolean> }) {

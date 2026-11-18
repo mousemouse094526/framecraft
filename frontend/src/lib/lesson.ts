@@ -1,6 +1,7 @@
 import { isFoot, pieceName, type PieceId } from "./kit";
 
-// A drum lesson as `/api/drums/lessons` answers it, and the rules the editor checks before a `PUT` (spec › Data).
+// A drum reel (reel กลอง) as `/api/drums/lessons` answers it, and the rules the editor checks before a
+// `PUT` (video-gen spec › Data). The data keeps its lesson names; only the screen says reel (reels-only D8).
 
 export type Hand = "R" | "L";
 export type Hit = "normal" | "accent" | "ghost" | "flam";
@@ -43,14 +44,11 @@ export function drumsViewOf(hash: string): DrumsView {
 
 export const STEPS_PER_BAR = 16;
 export const BARS_MAX = 4;
-export const CHAPTERS_MAX = 6;
 export const TITLE_MAX = 40;
-export const LINE_MAX = 60; // subtitle, caption and a chapter's text
-export const LABEL_MAX = 16;
+export const LINE_MAX = 60; // subtitle and caption
 export const BPM_MIN = 40;
 export const BPM_MAX = 240;
 export const REPEATS_MAX = 8;
-export const SPEEDS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
 /** The longest clip ฟังจังหวะ and render take (D16). */
 export const MAX_SECONDS = 90;
 const TAIL_SECONDS = 1.5;
@@ -62,8 +60,39 @@ export const HITS: { id: Hit; name: string }[] = [
   { id: "flam", name: "flam" },
 ];
 
-/** A new chapter at full speed (spec › Data). */
-export const NEW_CHAPTER: Chapter = { label: "", text: "", focus: [], repeats: 2, speed: 100 };
+// --- A reel's chapters: one plain chapter, the Groove played `repeats` times (reels-only D4) ---
+
+/** The chapters a reel กลอง page sends: one, with no label, text or focus, at full speed. */
+export const plainChapters = (repeats: number): Chapter[] => [{ label: "", text: "", focus: [], repeats, speed: 100 }];
+
+/**
+ * Whether the chapters are a reel's: one chapter with no label, text or focus, at full speed. Anything
+ * else was made with ท่อนสอน before reels-only. `backend/video_gen/lessons.py` `_is_reel_shape` is the
+ * same rule (keep the two alike).
+ */
+export function isReelShape(chapters: Chapter[]): boolean {
+  if (chapters.length !== 1) return false;
+  const [{ label, text, focus, speed }] = chapters;
+  return label === "" && text === "" && focus.length === 0 && speed === 100;
+}
+
+/** The repeats an old shape merges into, at most `REPEATS_MAX`, and every chapter's added up before the cap. */
+export type MergedRepeats = { repeats: number; total: number };
+
+export function repeatsOf(chapters: Chapter[]): MergedRepeats {
+  const total = chapters.reduce((sum, chapter) => sum + chapter.repeats, 0);
+  return { repeats: Math.min(REPEATS_MAX, total), total };
+}
+
+/** The fields in a reel's shape, as the reel page edits them: the same object when already so, else the chapters merged into one. */
+export const inReelShape = (fields: LessonFields): LessonFields =>
+  isReelShape(fields.chapters) ? fields : { ...fields, chapters: plainChapters(repeatsOf(fields.chapters).repeats) };
+
+/** What saving an old-shaped lesson drops, and how to keep it (reels-only D4, D12). */
+export function mergeText({ repeats, total }: MergedRepeats): string {
+  const from = total > repeats ? ` (จาก ${total} รอบ)` : "";
+  return `บันทึกแล้ว ป้าย คำอธิบาย ชิ้นที่เน้น และความเร็วของแต่ละท่อนจะหาย เหลือ Groove ${repeats} รอบที่ BPM เดียว${from} · อยากเก็บแบบเดิม กดทำซ้ำในรายการก่อน`;
+}
 
 /** `length_s` as `backend/video_gen/timeline.py` `length_s` works it out (keep the two alike): a bar of count-in at the first chapter's speed, every chapter, then 1.5 s of tail (D21). */
 export function lengthOf(fields: LessonFields): number {
@@ -79,13 +108,11 @@ export function countOf(step: number): string {
   return `${Math.floor(inBar / 4) + 1}${["", "e", "&", "a"][inBar % 4]}`;
 }
 
-/** "ไฮแฮทปิด ห้อง 1 จังหวะ 3": a note's place as the grid's cells and the song page's dropped list name it. */
+/** "ไฮแฮทปิด ห้อง 1 จังหวะ 3": a note's place as the grid's cells name it. */
 export const notePlace = (piece: PieceId, step: number) => `${pieceName(piece)} ห้อง ${Math.floor(step / STEPS_PER_BAR) + 1} จังหวะ ${countOf(step)}`;
 
 /** The Thai name of a note's hit, for a cell's tooltip. */
 export const hitName = (note: Note) => HITS.find((hit) => hit.id === note.hit)?.name;
-
-/** 1–4: the bar counts a lesson may have, as the editor's buttons and the song page's radios list them. */
 
 // --- One hand plays one piece at a time (D20); the same rules as the backend's `PUT` ---
 
@@ -148,10 +175,6 @@ export function fieldErrors(fields: LessonFields): FieldErrors {
   if (!Number.isInteger(fields.bpm) || fields.bpm < BPM_MIN || fields.bpm > BPM_MAX) {
     errors.bpm = `BPM ต้องเป็นจำนวนเต็ม ${BPM_MIN}–${BPM_MAX}`;
   }
-  fields.chapters.forEach((chapter, index) => {
-    if (length(chapter.label) > LABEL_MAX) errors[`chapters[${index}].label`] = `ป้ายยาวเกิน ${LABEL_MAX} ตัวอักษร`;
-    if (length(chapter.text) > LINE_MAX) errors[`chapters[${index}].text`] = `คำอธิบายยาวเกิน ${LINE_MAX} ตัวอักษร`;
-  });
   return errors;
 }
 
