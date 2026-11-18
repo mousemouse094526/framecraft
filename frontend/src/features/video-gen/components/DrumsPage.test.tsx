@@ -824,8 +824,8 @@ describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
   it("puts a reel first under reel กลอง once its editor loads, and keeps it open on its renders (e2e)", async () => {
     await openEditor();
 
-    const recent = JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
-    expect(recent.drums).toEqual([{ hash: `#/drums/${ID}`, label: "ร็อกพื้นฐาน" }]);
+    // The editor's buttons commit before the effect that remembers the reel runs: wait for the write.
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null")?.drums).toEqual([{ hash: `#/drums/${ID}`, label: "ร็อกพื้นฐาน" }]));
     const drums = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "reel กลอง" }));
     expect(drums.getByRole("link", { name: "ร็อกพื้นฐาน" })).toHaveAttribute("aria-current", "page");
   });

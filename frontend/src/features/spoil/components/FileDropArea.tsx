@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import fileVideoIcon from "../assets/file-video.svg";
 import fileVideoOnDarkIcon from "../assets/file-video-on-dark.svg";
 import uploadIcon from "../assets/upload.svg";
@@ -30,8 +30,9 @@ export function FileDropArea({ children, disabled, emphasis, onFiles }: Props) {
   const [depth, setDepth] = useState(0);
   const look = lookOf(disabled, emphasis, depth > 0);
 
-  // A file dropped beside the box would be opened by the browser, leaving the app mid-job.
-  useEffect(() => {
+  // A file dropped beside the box would be opened by the browser, leaving the app mid-job. A layout
+  // effect: the guard is on in the same commit that shows the box, never a moment after it.
+  useLayoutEffect(() => {
     const blockStrayDrop = (event: globalThis.DragEvent) => {
       if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
     };

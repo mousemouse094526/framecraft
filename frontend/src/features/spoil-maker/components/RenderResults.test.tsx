@@ -87,7 +87,7 @@ describe("ผล render", () => {
     expect(within(running).getByText("สร้างเสียง 1/3")).toBeInTheDocument();
     current.phases.at = renders.phases.at = 1;
     await tick();
-    expect(within(running).getByText("render 50%")).toBeInTheDocument();
+    expect(await within(running).findByText("render 50%")).toBeInTheDocument(); // once the poll is answered
     current.phases.at = renders.phases.at = 2;
     await tick();
 

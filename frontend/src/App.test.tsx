@@ -237,7 +237,8 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     });
 
     await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / เลือกคลิป"));
-    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    // The new hash renders first; the effect that closes the drawer runs after it.
+    await waitFor(() => expect(menuButton()).toHaveAttribute("aria-expanded", "false"));
     expect(document.querySelector("[inert]")).toBeNull();
   });
 
