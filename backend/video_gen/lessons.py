@@ -39,6 +39,8 @@ LINE_MAX = 60  # subtitle, caption, a chapter's text
 LABEL_MAX = 16
 BPM_RANGE = (40, 240)
 BARS_RANGE = (1, 4)
+# A reel กลอง page sends one plain chapter, but lessons made before reels-only still hold up to six
+# with labels, focus and speeds: they must still read, list and render (reels-only D4).
 CHAPTERS_RANGE = (1, 6)
 REPEATS_RANGE = (1, 8)
 SPEED_RANGE = (50, 100)

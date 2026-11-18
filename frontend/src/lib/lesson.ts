@@ -76,8 +76,10 @@ export function isReelShape(chapters: Chapter[]): boolean {
   return label === "" && text === "" && focus.length === 0 && speed === 100;
 }
 
-/** The repeats an old shape merges into: every chapter's added up, at most `REPEATS_MAX`, and the sum before the cap. */
-export function repeatsOf(chapters: Chapter[]): { repeats: number; total: number } {
+/** The repeats an old shape merges into, at most `REPEATS_MAX`, and every chapter's added up before the cap. */
+export type MergedRepeats = { repeats: number; total: number };
+
+export function repeatsOf(chapters: Chapter[]): MergedRepeats {
   const total = chapters.reduce((sum, chapter) => sum + chapter.repeats, 0);
   return { repeats: Math.min(REPEATS_MAX, total), total };
 }
@@ -87,7 +89,7 @@ export const inReelShape = (fields: LessonFields): LessonFields =>
   isReelShape(fields.chapters) ? fields : { ...fields, chapters: plainChapters(repeatsOf(fields.chapters).repeats) };
 
 /** What saving an old-shaped lesson drops, and how to keep it (reels-only D4, D12). */
-export function mergeText({ repeats, total }: { repeats: number; total: number }): string {
+export function mergeText({ repeats, total }: MergedRepeats): string {
   const from = total > repeats ? ` (จาก ${total} รอบ)` : "";
   return `บันทึกแล้ว ป้าย คำอธิบาย ชิ้นที่เน้น และความเร็วของแต่ละท่อนจะหาย เหลือ Groove ${repeats} รอบที่ BPM เดียว${from} · อยากเก็บแบบเดิม กดทำซ้ำในรายการก่อน`;
 }

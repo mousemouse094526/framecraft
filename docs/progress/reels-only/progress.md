@@ -1,11 +1,11 @@
 # Progress: reels-only
 
-**Now:** 01–02 done; feature review then PR
+**Now:** 01–02 done; feature review done; PR next
 
 **Next:**
 
 ```
-/warroom-build reels-only --review-feature
+/pr-open
 ```
 
 ## Tickets
@@ -16,6 +16,20 @@
 | 02 | หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง | done |
 
 ## Log
+
+### Feature review — 2026-11-18
+
+**Fixed:**
+- Alert ของ reel แบบเก่าตามจำนวนรอบที่เลือกอยู่ ไม่ค้างที่ค่าตอนเปิด
+- test: `PUT` แบบเก่าสามครั้งติดกันเก็บสำเนาแรกไว้, select มี 1–8, test helper ใช้ `lessons.BACKUP_FILE`
+- ชื่อ: `MergedRepeats`, `oldShape` แทน `legacy`; comment บอกว่าทำไม backend ยังรับหลายท่อน; docstring `trimmed` บอกว่าโน้ตที่ตัดยังดังใน reel cover
+- `CONTEXT.md` Reel cover ไม่มีคำว่าท่อนสอน
+
+**Not changed:**
+- กฎรูปร่าง reel อยู่สองฝั่ง (`isReelShape` คู่ `_is_reel_shape`) แบบ `lengthOf`: มี comment "keep the two alike"
+- ชื่อ lesson ในโค้ด: ADR-0066 (Open Questions 1)
+
+**Checks:** `uv run pytest` 1543 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 648 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 02: หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง — done 2026-11-18
 

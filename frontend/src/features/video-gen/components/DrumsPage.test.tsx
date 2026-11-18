@@ -344,6 +344,7 @@ describe("จำนวนรอบ (reels-only D2, D4)", () => {
     const user = await openEditor([savedReply()]);
 
     expect(repeatsBox()).toHaveValue("4");
+    expect(within(repeatsBox()).getAllByRole("option").map((option) => option.textContent)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
     expect(screen.queryByRole("group", { name: /^ท่อน/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/ท่อนสอน|ชิ้นที่เน้น|ความเร็ว/)).not.toBeInTheDocument();
     expect(legacyNote()).not.toBeInTheDocument();
@@ -362,6 +363,9 @@ describe("จำนวนรอบ (reels-only D2, D4)", () => {
     expect(repeatsBox()).toHaveValue("6");
     expect(legacyNote()).toHaveTextContent("ป้าย คำอธิบาย ชิ้นที่เน้น และความเร็วของแต่ละท่อนจะหาย เหลือ Groove 6 รอบที่ BPM เดียว");
     expect(save()).toBeEnabled();
+    await user.selectOptions(repeatsBox(), "3");
+    expect(legacyNote()).toHaveTextContent("เหลือ Groove 3 รอบที่ BPM เดียว (จาก 6 รอบ)");
+    await user.selectOptions(repeatsBox(), "6");
     expect(sent(fetchMock, "PUT", PATH)).toHaveLength(0);
 
     confirmMock.mockReturnValue(false);

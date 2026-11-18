@@ -40,7 +40,8 @@ class Placed(NamedTuple):
 
 def trimmed(placed: list[Placed]) -> list[Placed]:
     """Step 6: on each step, an open hi-hat beside a closed one goes first, then hand notes past
-    two by `KEEP_ORDER` (D13, D20, D25); what goes still sounds in a reel, with no stick (drum-cover D5)."""
+    two by `KEEP_ORDER` (D13, D20, D25). A note left out gets no hand: `drum_cover.timeline` still
+    plays it from its own hits, with no stick (drum-cover D5)."""
     kept: list[Placed] = []
     for _, feet, hands in _by_step(placed):
         if {"hihat_open", "hihat_closed"} <= {p.piece for p in hands}:

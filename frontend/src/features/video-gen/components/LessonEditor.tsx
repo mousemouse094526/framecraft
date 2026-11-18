@@ -202,7 +202,7 @@ function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
           ))}
         </select>
       </Labeled>
-      {editing.legacy && <Alert tone="info">{mergeText(editing.legacy)}</Alert>}
+      {editing.oldShape && <Alert tone="info">{mergeText({ repeats: form.chapters[0].repeats, total: editing.oldShape.total })}</Alert>}
 
       <div className="h-px bg-border" />
 
@@ -233,7 +233,6 @@ function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
 
 /** The `field`s an input or the grid shows beside itself. */
 const SHOWN_AT_INPUT = /^(title|bpm|subtitle|caption|groove.*|chapters\[0\]\.repeats)$/;
-
 
 /** The clip's length against the 90 s cap: over it says by how much (D16, D21). */
 function LengthLine({ fields }: { fields: LessonFields }) {

@@ -3,7 +3,7 @@ import { getReply, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useMountedState } from "../../../lib/useMountedState";
-import { inReelShape, fieldErrors, fieldsOf, isReelShape, lessonPath, repeatsOf, sameFields, type FieldErrors, type Lesson, type LessonFields } from "../../../lib/lesson";
+import { inReelShape, fieldErrors, fieldsOf, isReelShape, lessonPath, repeatsOf, sameFields, type FieldErrors, type MergedRepeats, type Lesson, type LessonFields } from "../../../lib/lesson";
 
 /** The form on screen; saving and "บันทึกแล้ว" are flags of it, so the form stays put through them. */
 export type Editing = {
@@ -12,7 +12,7 @@ export type Editing = {
   /** The lesson as the backend last answered it: the form is unsaved while it differs. */
   saved: LessonFields;
   /** A lesson made with several ท่อน or a teaching one, before reels-only: how many repeats it merges into, and from how many (D4). */
-  legacy: { repeats: number; total: number } | null;
+  oldShape: MergedRepeats | null;
   /** The saved lesson's `updated_at`: the background picture's URL changes with it. */
   updatedAt: string;
   form: LessonFields;
@@ -49,7 +49,7 @@ export function useLessonEditor(id: string) {
         kind: "ready",
         id,
         saved: fields,
-        legacy: isReelShape(fields.chapters) ? null : repeatsOf(fields.chapters),
+        oldShape: isReelShape(fields.chapters) ? null : repeatsOf(fields.chapters),
         updatedAt: lesson.updated_at,
         form: form.current,
         errors: {},

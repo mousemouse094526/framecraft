@@ -163,7 +163,7 @@ def test_put_replaces_the_lesson_and_answers_it_with_its_length(client, project)
 
 
 def backup_file(project: ProjectPaths, lesson_id: str):
-    return project.lessons_dir / lesson_id / "lesson.before-reels-only.json"
+    return project.lessons_dir / lesson_id / lessons.BACKUP_FILE
 
 
 def test_a_put_over_an_old_shaped_reel_keeps_a_copy_of_it_once(client, project):
@@ -176,6 +176,18 @@ def test_a_put_over_an_old_shaped_reel_keeps_a_copy_of_it_once(client, project):
 
     assert (one.status_code, again.status_code) == (200, 200)
     # The first rewrite keeps the old file as it was; the next ones leave that copy alone (reels-only D12).
+    assert backup_file(project, lesson["id"]).read_bytes() == before
+
+
+def test_two_old_shaped_puts_in_a_row_keep_the_first_copy(client, project):
+    lesson = new_lesson(client)
+    first = put(client, lesson, chapters=[chapter(label="KICK")]).json()
+    before = lesson_file(project, lesson["id"]).read_bytes()
+
+    second = put(client, first, chapters=[chapter(label="SNARE")]).json()
+    put(client, second, chapters=[chapter(label="TOM")])
+
+    # The second rewrite found the copy there and left it: it still holds KICK.
     assert backup_file(project, lesson["id"]).read_bytes() == before
 
 
