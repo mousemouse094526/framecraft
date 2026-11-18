@@ -1,11 +1,11 @@
 # Progress: reels-only
 
-**Now:** change request D15 เสร็จ ticket 01–03 done, Blocked 1 แก้แล้ว — รอเปิด PR
+**Now:** [PR #22](https://github.com/mousemouse094526/framecraft/pull/22) รอ review/merge
 
 **Next:**
 
 ```
-/pr-open
+/warroom next
 ```
 
 ## Tickets

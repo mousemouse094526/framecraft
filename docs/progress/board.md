@@ -16,4 +16,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [drum-cover](drum-cover/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D14) | ✅ 4d471f8 | ข้อเล็กถ้าทำต่อ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
 | [kalimba-cover](kalimba-cover/progress.md) | false | done | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 2dff570 | — | — |
 | [ui-nav](ui-nav/progress.md) | false | done | 🎨 1/1 (ui-prompt.md, D7) | ✅ 6040d74 | — | — |
-| [reels-only](reels-only/progress.md) | false | building | 🎨 5/5 (existing components, D10) | ✅ 98dfb73 | เจ้าของดูคลิป reel กลองที่ไม่มีนับเข้า (D15) | `/pr-open` |
+| [reels-only](reels-only/progress.md) | false | review | 🎨 5/5 (existing components, D10) | ✅ 98dfb73 | [PR #22](https://github.com/mousemouse094526/framecraft/pull/22) · เจ้าของดูคลิป reel กลองที่ไม่มีนับเข้า (D15) | — |
