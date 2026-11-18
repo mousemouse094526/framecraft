@@ -36,36 +36,47 @@ function menuButton() {
   return screen.getByRole("button", { name: /^เมนู:/ });
 }
 
-describe("main menu (ui-nav D1–D3)", () => {
-  it("lists ติดตั้ง, then สปอย, การ์ตูนเล่า, สอนกลอง, แกะเพลง and คลัง with their items, in that order (e2e)", () => {
+describe("main menu (ui-nav D1–D3, D12)", () => {
+  it("lists เล่าเรื่อง, ดนตรี, คลัง and ตั้งค่า with their topics and items, in that order (e2e)", () => {
     render(<App />);
 
     expect(menu().getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "ติดตั้ง",
       "1เลือกคลิป",
       "2ตรวจแก้บท",
       "3ผล render",
       "ชุดทั้งหมด",
       "สร้างชุดใหม่",
-      "บทเรียนทั้งหมด",
       "เพลงทั้งหมด",
+      "บทเรียนทั้งหมด",
       "คลังคลิปใช้กับ สปอย",
       "คลังความรู้ใช้กับ สปอย",
       "คลังเสียงใช้กับ สปอย, การ์ตูนเล่า",
       "เสียงที่บันทึกใช้กับ สปอย, การ์ตูนเล่า",
+      "ติดตั้ง",
     ]);
-    expect(menu().getAllByRole("group").map((group) => group.firstElementChild?.textContent)).toEqual([
-      "สปอย",
-      "การ์ตูนเล่า",
-      "สอนกลอง",
-      "แกะเพลง",
-      "คลัง",
+    const sections = menu().getAllByRole("group").filter((group) => group.parentElement?.tagName === "NAV");
+    const groupsOf = (section: HTMLElement) =>
+      within(section).queryAllByRole("group").map((group) => group.firstElementChild?.textContent);
+    expect(sections.map((section) => [section.firstElementChild?.textContent, groupsOf(section)])).toEqual([
+      ["เล่าเรื่อง", ["สปอย", "การ์ตูนเล่า"]],
+      ["ดนตรี", ["แกะเพลง", "สอนกลอง"]],
+      ["คลัง", []],
+      ["ตั้งค่า", []],
     ]);
+    expect(within(menu().getByRole("group", { name: "ตั้งค่า" })).getByRole("link", { name: "ติดตั้ง" })).toHaveAttribute("href", "#/setup");
     expect(within(menu().getByRole("group", { name: "สปอย" })).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([
       "#/spoil",
       "#/spoil/review",
       "#/spoil/renders",
     ]);
+  });
+
+  it("never marks a section open, only the topic in it (D12)", () => {
+    window.location.hash = "#/spoil/review";
+    render(<App />);
+
+    expect(menu().getByRole("group", { name: "เล่าเรื่อง" })).not.toHaveAttribute("aria-current");
+    expect(menu().getByRole("group", { name: "สปอย" })).toHaveAttribute("aria-current", "true");
   });
 
   it("names each library by itself and says what it is used with (D2)", () => {

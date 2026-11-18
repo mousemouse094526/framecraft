@@ -64,7 +64,7 @@ question; the full entry is in the feature's decisions.md.
 | `fix` ไม่มีช่องว่าง = คำสั่ง (chip กับปุ่ม copy), มีช่องว่าง = ข้อความ | [setup-status](features/setup-status/decisions.md) | D20 | spoil | — | changed by setup-status D26 |
 | API ส่ง `fix_kind` (`command`/`hint`) คู่ `fix`; probe รวมเป็น `Probes`; แถว Python บอกสาเหตุให้ตรง | [setup-status](features/setup-status/decisions.md) | D26 | spoil, drum-notes, drum-cover | — | active |
 | รายละเอียดหน้า Setup status: Refresh จาก offline, เวลาเช็คล่าสุด, pill คำเตือน, icon จาก Figma, timeout | [setup-status](features/setup-status/decisions.md) | D21 | spoil | — | active |
-| เมนูหลัก 5 หัวข้อใหญ่ ติดตั้ง · สปอย · การ์ตูนเล่า · สอนกลอง · แกะเพลง แทนแถบ 8 tab; คลังย้ายเข้าเมนู (แทน sound-library D2, D3) | [ui-nav](features/ui-nav/decisions.md) | D1 | — | [0062](adr/0062-main-menu-from-hash-tree.md), [0063](adr/0063-libraries-in-one-menu-section.md) | active |
+| เมนูหลัก 5 หัวข้อใหญ่ ติดตั้ง · สปอย · การ์ตูนเล่า · สอนกลอง · แกะเพลง แทนแถบ 8 tab; คลังย้ายเข้าเมนู (แทน sound-library D2, D3) | [ui-nav](features/ui-nav/decisions.md) | D1 | — | [0062](adr/0062-main-menu-from-hash-tree.md), [0063](adr/0063-libraries-in-one-menu-section.md) | changed by ui-nav D12 |
 | ส่วน "คลัง" ท้ายเมนู: คลังคลิป · คลังความรู้ · คลังเสียง · เสียงที่บันทึก มีที่เดียวพร้อม "ใช้กับ …"; tab "คลิป" เรียก "คลังคลิป" | [ui-nav](features/ui-nav/decisions.md) | D2 | — | [0063](adr/0063-libraries-in-one-menu-section.md) | active |
 | ขั้นของสปอยและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู ทุกส่วนเปิดตลอด หัวข้อที่มีรายการเป็นหัวกลุ่มไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D3 | — | — | active |
 | `<nav>` "เมนูหลัก" ตัวเดียว: ≥1024px sidebar ตรึงซ้ายยุบได้ (จำใน `localStorage`), จอแคบ drawer จากปุ่ม ☰ "เมนู: {หัวข้อ}" (แทน sound-library D16) | [ui-nav](features/ui-nav/decisions.md) | D4 | — | — | changed by ui-nav D11 |
@@ -75,6 +75,8 @@ question; the full entry is in the feature's decisions.md.
 | seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | — | — | active |
 | กฎ red team ของเมนู: โฟกัสและ `inert` ของ drawer, ชื่อล่าสุดตัด 80 ตัวอักษร, hash ล่าสุดตรงรูป route, อ่านก่อนเขียน, ถอยกลับด้วย revert | [ui-nav](features/ui-nav/decisions.md) | D10 | — | — | active |
 | sidebar ตรึงตั้งแต่ 1280px (`xl`) ไม่ใช่ 1024px; หน้าที่เขียนและลบล่าสุด; รายการตรงตัวหรือ prefix; ข้อความตำแหน่งในหัวหน้า | [ui-nav](features/ui-nav/decisions.md) | D11 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
+| เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | active |
+| เมนูมีเฉพาะทางที่ได้ reel (ก), ของที่ reel ใช้ (ข) หรือการตั้งค่าเครื่อง (ค); ไม่แน่ใจ = เก็บไว้เป็น Open Question; ไม่ซ่อนหน้าของ feature อื่น | [ui-nav](features/ui-nav/decisions.md) | D13 | — | [0064](adr/0064-main-menu-reels-only.md) | active |
 
 ## ดาวน์โหลดสื่อ
 

@@ -1,8 +1,9 @@
 import { tabLabel, type TabId } from "./useHash";
 
-// The main menu (ui-nav D1–D3, ADR 0062): ติดตั้ง, then the four main topics with their steps and
-// pages, then the libraries. A page that belongs in the menu is an item here; pages never tell the
-// menu which item they are, the hash does (D6, D11).
+// The main menu (ui-nav D1–D3, D12, ADR 0062): four sections — เล่าเรื่อง and ดนตรี with the main
+// topics and their steps and pages, คลัง with the libraries, ตั้งค่า with ติดตั้ง. Only ways to a reel,
+// what reels use, or the machine's setup belong here (D13). A page that belongs in the menu is an
+// item here; pages never tell the menu which item they are, the hash does (D6, D11).
 
 export type NavItem = {
   label: string;
@@ -19,7 +20,10 @@ export type NavTopic = { id: TabId; label: string; items: readonly NavItem[] };
 
 export const SETUP_ITEM: NavItem = { label: "ติดตั้ง", hash: "#/setup" };
 
-export const NAV_TOPICS: readonly NavTopic[] = [
+/** A heading that is not a link, over its topics and its own items (D12). */
+export type NavSection = { id: string; label: string; topics: readonly NavTopic[]; items: readonly NavItem[] };
+
+const [SPOIL, TOON, DRUMS, SONGS]: readonly NavTopic[] = [
   {
     id: "spoil",
     label: "สปอย",
@@ -49,6 +53,16 @@ export const LIBRARY_ITEMS: readonly NavItem[] = [
   { label: "คลังเสียง", hash: "#/sounds", prefix: true, uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
   { label: "เสียงที่บันทึก", hash: "#/spoil/voices", uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
 ];
+
+// สอนกลอง makes a vertical clip but is a lesson: kept until the owner decides (D13, spec › Open Questions 4).
+export const NAV_SECTIONS: readonly NavSection[] = [
+  { id: "story", label: "เล่าเรื่อง", topics: [SPOIL, TOON], items: [] },
+  { id: "music", label: "ดนตรี", topics: [SONGS, DRUMS], items: [] },
+  { id: "library", label: LIBRARY_LABEL, topics: [], items: LIBRARY_ITEMS },
+  { id: "settings", label: "ตั้งค่า", topics: [], items: [SETUP_ITEM] },
+];
+
+export const NAV_TOPICS: readonly NavTopic[] = NAV_SECTIONS.flatMap((section) => section.topics);
 
 /** Whether `item` is open at `hash`: the same hash, or for a prefix item one under it (D11). */
 function opens(item: NavItem, hash: string): boolean {

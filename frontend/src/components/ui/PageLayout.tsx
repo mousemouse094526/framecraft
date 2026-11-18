@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
-import { LIBRARY_ITEMS, LIBRARY_LABEL, locationOf, NAV_TOPICS, SETUP_ITEM, type NavItem } from "../../lib/nav";
+import { locationOf, NAV_SECTIONS, type NavItem } from "../../lib/nav";
 import { useDismiss } from "../../lib/useDismiss";
 import { tabLabel, useHash, type TabId } from "../../lib/useHash";
 import { useMediaQuery } from "../../lib/useMediaQuery";
@@ -186,8 +186,8 @@ type MenuProps = {
   className: string;
 };
 
-/** The main menu: ติดตั้ง, each topic under its heading with its items, then the libraries
- * (ui-nav D1–D3). One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
+/** The main menu: each section under its heading, with its topics and their items, or its own items
+ * (ui-nav D1–D3, D12). One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
 function MainMenu({ ref, id, tab, current, recent, onPick, className }: MenuProps) {
   const headingId = useId();
   return (
@@ -197,35 +197,48 @@ function MainMenu({ ref, id, tab, current, recent, onPick, className }: MenuProp
       aria-label="เมนูหลัก"
       className={`flex-col gap-1 overflow-y-auto border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
     >
-      <MenuLink item={SETUP_ITEM} current={current === SETUP_ITEM} onPick={onPick} />
-      {NAV_TOPICS.map((topic) => (
-        <MenuGroup key={topic.id} id={`${headingId}-${topic.id}`} label={topic.label} current={tab === topic.id}>
-          {topic.items.map((item) => (
-            <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
-          ))}
-          {!!recent[topic.id]?.length && (
-            <>
-              <p className="px-3 pt-1.5 text-[11px] leading-[1.5] font-medium text-muted-foreground">ล่าสุด</p>
-              {recent[topic.id]!.map((item) => (
+      {NAV_SECTIONS.map((section) => (
+        <MenuSection key={section.id} id={`${headingId}-${section.id}`} label={section.label}>
+          {section.topics.map((topic) => (
+            <MenuGroup key={topic.id} id={`${headingId}-${topic.id}`} label={topic.label} current={tab === topic.id}>
+              {topic.items.map((item) => (
                 <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
               ))}
-            </>
-          )}
-        </MenuGroup>
+              {!!recent[topic.id]?.length && (
+                <>
+                  <p className="px-3 pt-1.5 text-[11px] leading-[1.5] font-medium text-muted-foreground">ล่าสุด</p>
+                  {recent[topic.id]!.map((item) => (
+                    <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
+                  ))}
+                </>
+              )}
+            </MenuGroup>
+          ))}
+          {section.items.map((item) => (
+            <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
+          ))}
+        </MenuSection>
       ))}
-      <MenuGroup id={`${headingId}-library`} label={LIBRARY_LABEL} current={false}>
-        {LIBRARY_ITEMS.map((item) => (
-          <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
-        ))}
-      </MenuGroup>
     </nav>
+  );
+}
+
+/** A section's heading and what is in it; sections are split by a line, and never stand out (ui-nav D12). */
+function MenuSection({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div role="group" aria-labelledby={id} className="mt-2 flex flex-col gap-0.5 border-t border-border pt-3 first:mt-0 first:border-t-0 first:pt-1">
+      <p id={id} className="px-3 pb-0.5 text-[11px] leading-[1.5] font-semibold tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      {children}
+    </div>
   );
 }
 
 /** A topic's heading and its items; the open topic's heading stands out (ui-nav D3, D6). */
 function MenuGroup({ id, label, current, children }: { id: string; label: string; current: boolean; children: ReactNode }) {
   return (
-    <div role="group" aria-labelledby={id} aria-current={current || undefined} className="mt-1 flex flex-col gap-0.5 border-t border-border pt-2">
+    <div role="group" aria-labelledby={id} aria-current={current || undefined} className="mt-1 flex flex-col gap-0.5">
       <p id={id} className={`px-3 pb-0.5 text-xs leading-[1.5] font-semibold ${current ? "text-brand" : "text-mid"}`}>
         {label}
       </p>
