@@ -1,11 +1,11 @@
 # Progress: reels-only
 
-**Now:** change request D15 (ตัดนับเข้า) — ticket 03 ready
+**Now:** change request D15 เสร็จ ticket 01–03 done, Blocked 1 แก้แล้ว — รอเปิด PR
 
 **Next:**
 
 ```
-/warroom-build reels-only 03
+/pr-open
 ```
 
 ## Tickets
@@ -17,6 +17,10 @@
 | 03 | reel กลองไม่มีนับเข้า | done |
 
 ## Log
+
+### Change request D15 + Blocked 1 — 2026-11-18
+
+**Checks:** `uv run pytest` 1547 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 648 passed (ทั้งชุด 24 รอบติด แดง 0); `npm --prefix frontend run build` ผ่าน
 
 ### 03: reel กลองไม่มีนับเข้า — done 2026-11-18
 
@@ -86,4 +90,4 @@
 
 | # | Ticket | What | Needs | Status |
 |---|---|---|---|---|
-| 1 | 01 | test frontend ที่ไม่เกี่ยวกับงานนี้ล้มสุ่ม ~1 ใน 3 รอบของทั้งชุด (ครั้งละตัว: `SpoilMakerPage` polish, `ClipsPage` drop, …) มีตั้งแต่ก่อนเริ่ม feature บน `bf5383c`; รันซ้ำผ่าน | `/kiki-debug frontend suite flaky one test per run` | open |
+| 1 | 01 | test frontend ที่ไม่เกี่ยวกับงานนี้ล้มสุ่ม ~1 ใน 3 รอบของทั้งชุด (ครั้งละตัว: `SpoilMakerPage` polish, `ClipsPage` drop, …) มีตั้งแต่ก่อนเริ่ม feature บน `bf5383c`; รันซ้ำผ่าน | `/kiki-debug frontend suite flaky one test per run` | done (98dfb73) — [record](bugs/2026-11-18-frontend-flaky-one-test.md) |
