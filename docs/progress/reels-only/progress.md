@@ -1,6 +1,6 @@
 # Progress: reels-only
 
-**Now:** PR [#21](https://github.com/mousemouse094526/framecraft/pull/21) รอ review และ merge
+**Now:** merged ([PR #21](https://github.com/mousemouse094526/framecraft/pull/21), `fc846cc`)
 
 **Next:**
 

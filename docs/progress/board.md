@@ -16,4 +16,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [drum-cover](drum-cover/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D14) | ✅ 4d471f8 | ข้อเล็กถ้าทำต่อ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
 | [kalimba-cover](kalimba-cover/progress.md) | false | done | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 2dff570 | — | — |
 | [ui-nav](ui-nav/progress.md) | false | done | 🎨 1/1 (ui-prompt.md, D7) | ✅ 6040d74 | — | — |
-| [reels-only](reels-only/progress.md) | false | review | 🎨 5/5 (existing components, D10) | ✅ 2/2 | [PR #21](https://github.com/mousemouse094526/framecraft/pull/21) · Blocked 1: test frontend ล้มสุ่ม (มีก่อน feature) | — |
+| [reels-only](reels-only/progress.md) | false | done | 🎨 5/5 (existing components, D10) | ✅ fc846cc | Blocked 1: test frontend ล้มสุ่ม ~1 ใน 3 รอบ (มีก่อน feature) → `/kiki-debug frontend suite flaky one test per run` · Open Q2: ตัดนับเข้า 1 ห้อง (change request) | — |
