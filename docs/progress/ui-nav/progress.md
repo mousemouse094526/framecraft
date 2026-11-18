@@ -1,6 +1,6 @@
 # Progress: ui-nav
 
-**Now:** change request 2026-11-17 (หมวดและเฉพาะทางที่ได้ reel) — ticket 03 done, PR เข้า develop; 01–02 merged ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
+**Now:** merged — change request ([PR #20](https://github.com/mousemouse094526/framecraft/pull/20), `6040d74`); 01–02 ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
 
 **Next:**
 
