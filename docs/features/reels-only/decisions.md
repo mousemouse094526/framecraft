@@ -199,6 +199,19 @@
 
 **From:** build ticket 01 · **Status:** active
 
+## D14: ทางเลือกเล็กของ ticket 02
+
+**Chosen:** ส่วนที่เหลือของ `drum_notes.groove` และของที่ลบตามบทเรียนจากเพลง ตัดสินตอน build.
+
+**Details:**
+- **`groove`:** เหลือ `trimmed` กับ `with_hands` ที่ `drum_cover.timeline` ใช้; `preview`, `default_bpm`, `quantize`, ฐาน groove ของโหมดทำนอง, `Scored` และ `Dropped` ลบ; `trimmed` คืนแค่โน้ตที่เก็บ — reel ไม่ใช้รายการที่ตัด
+- **test กฎมือ:** เดิมทดสอบผ่าน `preview` ย้ายไปเรียก `trimmed`/`with_hands` ตรง ไม่ให้กฎมือของ reel cover หลุด coverage
+- **`GrooveGrid`:** `editing` บังคับใส่ ทางอ่านอย่างเดียวที่หน้าเพลงใช้ลบ
+- **`MELODY_HINT`:** "สำหรับเพลงที่ไม่มีกลอง (piano, kalimba): จังหวะของโน้ตทำนองเป็นสแนร์ใน reel กลอง และโน้ตทำนองเล่นใน reel คาลิมบา" ตามที่ `score.melody_hits` กับ `melody_notes` ให้
+- **ไม่ย้าย `groove` ไป `drum_cover`:** ย้าย module เป็นงานแยก; ตอนนี้ comment บอกว่าใครใช้
+
+**From:** build ticket 02 · **Status:** active
+
 ## Sources
 
 - [Pydantic — Configuration › extra](https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.extra) — key ที่ไม่รู้จักถูกข้ามเป็นค่าตั้งต้น (accessed 2026-11-18)

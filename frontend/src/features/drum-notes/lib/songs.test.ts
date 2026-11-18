@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { lateStart, pickableFrom, pickedText, pickingOf, pickText, rangeFault, type FoundBar, type PickJob, type Song, type SongRow } from "./songs";
+import { lateStart, pickedText, pickingOf, pickText, rangeFault, type PickJob, type Song, type SongRow } from "./songs";
 
 const job = (change: Partial<PickJob> = {}): PickJob => ({ song_id: "a", state: "picking", percent: 40, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "", ...change });
-const row = (change: Partial<SongRow> = {}): SongRow => ({ id: "a", title: "A", subtitle: "", source_kind: "link", duration_s: 60, analysis: null, lessons: 0, updated_at: "", ...change });
-const bar = (start_s: number, end_s: number, four_four = true): FoundBar => ({ n: 1, start_s, end_s, beats: four_four ? 4 : 3, hits: 0, four_four });
+const row = (change: Partial<SongRow> = {}): SongRow => ({ id: "a", title: "A", subtitle: "", source_kind: "link", duration_s: 60, analysis: null, updated_at: "", ...change });
 
 describe("rangeFault", () => {
   it("accepts 4 to 90 seconds inside the song", () => {
@@ -44,17 +43,6 @@ describe("the Pick job", () => {
   });
 });
 
-describe("pickableFrom", () => {
-  it("counts the 4/4 bars in a row from the one picked, up to four", () => {
-    const bars = [bar(0, 2), bar(2, 4), bar(4, 6), bar(6, 8), bar(8, 10), bar(10, 12, false), bar(12, 14)];
-    expect(pickableFrom(bars, 0)).toBe(4);
-    expect(pickableFrom(bars, 2)).toBe(3);
-    expect(pickableFrom(bars, 5)).toBe(0);
-    expect(pickableFrom(bars, 6)).toBe(1);
-    expect(pickableFrom([], 0)).toBe(0);
-  });
-});
-
 describe("lateStart (drum-cover D9, D19)", () => {
   const song = (hits: number[], duration_s = 60): Song => ({
     version: 1,
@@ -69,7 +57,6 @@ describe("lateStart (drum-cover D9, D19)", () => {
       { n: 1, start_s: 0, end_s: 2, beats: 4, hits: hits.filter((t) => t < 2).length, four_four: true },
       { n: 2, start_s: 2, end_s: 4, beats: 4, hits: hits.filter((t) => t >= 2 && t < 4).length, four_four: true },
     ],
-    lessons: [],
     created_at: "",
     updated_at: "",
   });

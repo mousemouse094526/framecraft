@@ -204,7 +204,7 @@ function UploadRow({ upload, onCancel }: { upload: Upload; onCancel: () => void 
   );
 }
 
-/** One song: title, subtitle, where it came from, its length, whether it was or is being picked, its lessons (spec › Design). */
+/** One song: title, subtitle, where it came from, its length, whether it was or is being picked (spec › Design). */
 function Row({ song, pick, onDelete }: { song: SongRow; pick: PickJob | null; onDelete: () => void }) {
   return (
     <li className="flex items-center gap-1 pr-2">
@@ -217,8 +217,6 @@ function Row({ song, pick, onDelete }: { song: SongRow; pick: PickJob | null; on
           <span>{formatDuration(Math.round(song.duration_s))}</span>
           <span className="text-muted-foreground">·</span>
           <span>{pickedText(song, pick)}</span>
-          <span className="text-muted-foreground">·</span>
-          <span>{song.lessons} บทเรียน</span>
         </span>
       </a>
       <button type="button" aria-label={`ลบ ${song.title}`} onClick={onDelete} className={`size-11 sm:size-10 ${GHOST_BUTTON} hover:bg-muted`}>
@@ -228,7 +226,7 @@ function Row({ song, pick, onDelete }: { song: SongRow; pick: PickJob | null; on
   );
 }
 
-/** Focus starts on ยกเลิก; the lessons made from the song stay (D12, D18). */
+/** Focus starts on ยกเลิก (D18). */
 function DeleteSongDialog({ song, onCancel, onDelete }: { song: SongRow; onCancel: () => void; onDelete: () => void }) {
   const titleId = useId();
   return (
@@ -236,7 +234,7 @@ function DeleteSongDialog({ song, onCancel, onDelete }: { song: SongRow; onCance
       <h3 id={titleId} className="text-lg leading-[1.5] font-semibold break-words text-foreground">
         ลบ {song.title}?
       </h3>
-      <p className="text-sm leading-[1.5] text-mid">เสียงเพลงและผลแกะหายไป บทเรียนกลองที่สร้างจากเพลงนี้ยังอยู่</p>
+      <p className="text-sm leading-[1.5] text-mid">เสียงเพลงและผลแกะหายไป</p>
       <div className="flex justify-end gap-2">
         <button type="button" autoFocus onClick={onCancel} className={`h-11 px-6 sm:h-10 ${OUTLINE_BUTTON}`}>
           ยกเลิก

@@ -1,9 +1,7 @@
 import { isUnfinishedIn } from "../../../lib/job";
-import type { PieceId } from "../../../lib/kit";
-import { BARS_MAX, BPM_MAX, BPM_MIN, notePlace, type Note } from "../../../lib/lesson";
 
-// A Song of the แกะเพลง tab as `/api/songs` answers it, its import job, its Pick job, the lesson
-// preview, and the tab's hashes (drum-notes spec › Data, API, Frontend; D2, D3, D5, D11, D18, D20, D21).
+// A Song of the แกะเพลง tab as `/api/songs` answers it, its import job, its Pick job, and the tab's
+// hashes (drum-notes spec › Data, API, Frontend; D2, D3, D5, D18, D20; reels-only D7).
 
 export const SONGS_PATH = "/api/songs";
 export const IMPORT_PATH = `${SONGS_PATH}/import`;
@@ -12,9 +10,6 @@ export const songPath = (id: string) => `${SONGS_PATH}/${id}`;
 export const audioUrl = (id: string) => `${songPath(id)}/audio.m4a`;
 export const rangePath = (id: string) => `${songPath(id)}/range`;
 export const pickPath = (id: string) => `${songPath(id)}/pick`;
-export const previewPath = (id: string) => `${songPath(id)}/preview`;
-export const listenPath = (id: string) => `${songPath(id)}/listen`;
-export const songLessonsPath = (id: string) => `${songPath(id)}/lessons`;
 export const SONGS_HASH = "#/songs";
 export const songHash = (id: string) => `${SONGS_HASH}/${id}`;
 /** A song's reel page, drum-cover's (drum-cover D11): this tab links to it and reads its renders by HTTP alone (ADR 0052). */
@@ -44,12 +39,11 @@ export type Song = {
   analysis: Analysis | null;
   /** The bars of `analysis`, in time order; empty until picked. */
   bars: FoundBar[];
-  lessons: string[];
   created_at: string;
   updated_at: string;
 };
 
-/** One row of `GET /api/songs`: the analysis as its mode and bar count, the lessons as a count. */
+/** One row of `GET /api/songs`: the analysis as its mode and bar count. */
 export type SongRow = {
   id: string;
   title: string;
@@ -57,7 +51,6 @@ export type SongRow = {
   source_kind: SourceKind;
   duration_s: number;
   analysis: { mode: Mode; bars: number } | null;
-  lessons: number;
   updated_at: string;
 };
 
@@ -118,10 +111,8 @@ export function pickedText(row: SongRow, job: PickJob | null): string {
 }
 
 export const MODE_LABELS: Record<Mode, string> = { drums: "กลอง", melody: "ทำนอง" };
-/** Under the mode options while ทำนอง is picked (D14). */
-export const MELODY_HINT = "แกะจังหวะของโน้ตทำนอง (piano, kalimba) เป็น snare บน groove พื้นฐาน";
-/** Under a melody song's preview grid: which notes the app added (spec › Score step 5, D14). */
-export const MELODY_BASE = "สแนร์คือจังหวะทำนอง · กระเดื่องจังหวะ 1 และ 3 กับไฮแฮทปิดทุกครึ่งจังหวะ แอปเติมให้";
+/** Under the mode options while ทำนอง is picked: what a reel cover plays of it (D14, reels-only D9). */
+export const MELODY_HINT = "สำหรับเพลงที่ไม่มีกลอง (piano, kalimba): จังหวะของโน้ตทำนองเป็นสแนร์ใน reel กลอง และโน้ตทำนองเล่นใน reel คาลิมบา";
 export const RANGE_MIN_S = 4;
 export const RANGE_MAX_S = 90;
 /** The one message of a range that breaks a rule, the backend's too (spec › Design). */
@@ -151,40 +142,7 @@ export function songsViewOf(hash: string): SongsView {
   return found ? { kind: "song", id: found[1] } : { kind: "list" };
 }
 
-// --- the lesson from the bars picked (spec › Score, D11, D13, D20, D21) ---
-
-/** A hand note the Score dropped because two hands can't play its step (video-gen D20). */
-export type Dropped = { piece: PieceId; step: number };
-/** What `POST /preview` answers: the Groove as the lesson editor draws it, its BPM, the notes dropped. */
-export type Preview = { groove: { bars: number; notes: Note[] }; bpm: number; dropped: Dropped[] };
-/** What `POST /preview`, `/listen` and `/lessons` take: the first bar (from 0), how many, and the BPM (left out: the Score's default). Named as the backend's `lesson.Choice`: not the Pick job. */
-export type Choice = { bar: number; bars: number; bpm?: number };
-/** 1–4: the bar counts the user may pick (D11). */
-export const BAR_COUNTS = Array.from({ length: BARS_MAX }, (_, index) => index + 1);
-/** What `POST /lessons` answers. */
-export type Created = { lesson_id: string; dropped: number };
-
-/** How many 4/4 bars follow in a row from `bar` (itself included), up to four: the counts the user may pick (D11, D20). */
-export function pickableFrom(bars: FoundBar[], bar: number): number {
-  let count = 0;
-  while (count < BARS_MAX && bars[bar + count]?.four_four) count += 1;
-  return count;
-}
-
-/** The first 4/4 bar, the pick a picked song opens with; -1 with none. */
-export const firstPickable = (bars: FoundBar[]) => bars.findIndex((bar) => bar.four_four);
-
-export const NO_FOUR_FOUR = "ไม่มีห้อง 4/4 ให้เลือก ลองแกะช่วงอื่น";
-/** The one message of a BPM that breaks the rule, the backend's too. */
-export const BPM_RULE = `BPM ต้องเป็นจำนวนเต็ม ${BPM_MIN}–${BPM_MAX}`;
-
-/** Whether a typed BPM is one the backend takes. */
-export const bpmOk = (bpm: number) => Number.isInteger(bpm) && bpm >= BPM_MIN && bpm <= BPM_MAX;
-
-/** "ไฮแฮทปิด ห้อง 1 จังหวะ 3": a dropped note as the list under the grid names it, the way its cell would (D20). */
-export const droppedText = (dropped: Dropped) => notePlace(dropped.piece, dropped.step);
-
-/** "12.5 s", a bar's start as the strip shows it. */
+/** "12.5 s", a length as the range shows it. */
 export const seconds = (t: number) => `${t.toFixed(1)} s`;
 
 // --- where the drums start (drum-cover D9, D19) ---

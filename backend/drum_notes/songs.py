@@ -1,4 +1,4 @@
-"""Songs of the แกะเพลง tab (drum-notes spec › Data, D3, D12, D18, D20).
+"""Songs of the แกะเพลง tab (drum-notes spec › Data, D3, D18, D20; reels-only D7).
 
 A Song is `media/songs/{song_id}/song.json`, written with `write_atomic`, beside its `audio.m4a`
 (none for a MIDI file). Every read and write of the folder takes `lock`. The API answers a Song as
@@ -6,6 +6,8 @@ a `SongView`: the Song and the bars its analysis found, worked out on read (spec
 `spoil.links` gives imported media (ADR 0049): a YouTube id, `{site}-{id}` or `local-{sha1}`,
 `[A-Za-z0-9_-]{1,64}`; every function checks it before it builds a path, so `..` never reaches
 the disk. Start-up removes `.partial/` and any folder without a `song.json`: no json, no Song.
+An old `song.json` may still hold `lessons` (the drum lessons once made from it): pydantic skips
+the key on read and the next write leaves it out (reels-only D7).
 """
 
 import json
@@ -23,7 +25,7 @@ from backend.checks import now_iso
 from backend.errors import ApiError, invalid_request
 from backend.paths import ProjectPaths
 from backend.spoil import links
-from backend.video_gen import kit, lessons
+from backend.video_gen import kit
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +49,7 @@ NOT_APPLICABLE = "เพลงจาก MIDI ไม่มีช่วงแก�
 RANGE_RULE = f"ช่วงต้องยาว {RANGE_MIN_S}–{RANGE_MAX_S} วินาที และอยู่ในเพลง"
 
 # The song an unfinished job works on, or None: `drum_notes.pick` adds its own as it is imported,
-# which the routes do, so `delete` sees a Pick job before the app answers anything (D18; as `lessons.lesson_jobs`).
+# which the routes do, so `delete` sees a Pick job before the app answers anything (D18; as `video_gen.lessons.lesson_jobs`).
 song_jobs: list[Callable[[], str | None]] = []
 
 SourceKind = Literal["link", "file", "midi"]
@@ -120,7 +122,6 @@ class Song(BaseModel):
     duration_s: float
     range: Range | None
     analysis: Analysis | None
-    lessons: list[str]
     created_at: str
     updated_at: str
 
@@ -133,7 +134,7 @@ class AnalysisSummary(BaseModel):
 
 
 class SongRow(BaseModel):
-    """One row of `GET /api/songs`: no `hits`, the lessons as a count (spec › API)."""
+    """One row of `GET /api/songs`: no `hits` (spec › API)."""
 
     id: str
     title: str
@@ -141,7 +142,6 @@ class SongRow(BaseModel):
     source_kind: SourceKind
     duration_s: float
     analysis: AnalysisSummary | None
-    lessons: int
     updated_at: str
 
 
@@ -244,9 +244,9 @@ def list_rows(project: ProjectPaths) -> list[SongRow]:
 
 
 def get(project: ProjectPaths, song_id: str) -> SongView:
-    """`GET`: the whole Song with its bars, its `lessons` without the ones deleted since. Raises `ApiError` 404."""
+    """`GET`: the whole Song with its bars. Raises `ApiError` 404."""
     with lock:
-        return view(_with_live_lessons(project, _read_known(project, song_id)))
+        return view(_read_known(project, song_id))
 
 
 def view(song: Song) -> SongView:
@@ -274,7 +274,7 @@ def set_range(project: ProjectPaths, song_id: str, body: dict) -> SongView:
             raise ApiError(409, "not_applicable", NOT_APPLICABLE)
         song = song.model_copy(update={"range": checked_range(body, song.duration_s), "updated_at": now_iso()})
         _write(project, song)
-        return view(_with_live_lessons(project, song))
+        return view(song)
 
 
 def set_analysis(project: ProjectPaths, song_id: str, analysis: Analysis) -> None:
@@ -282,13 +282,6 @@ def set_analysis(project: ProjectPaths, song_id: str, analysis: Analysis) -> Non
     with lock:
         song = _read_known(project, song_id)
         _write(project, song.model_copy(update={"analysis": checked_analysis(analysis), "updated_at": now_iso()}))
-
-
-def add_lesson(project: ProjectPaths, song_id: str, lesson_id: str) -> None:
-    """A lesson made from the song, remembered in its `lessons` (D12, ADR 0047). Raises `ApiError` 404 when the song went."""
-    with lock:
-        song = _read_known(project, song_id)
-        _write(project, song.model_copy(update={"lessons": [*song.lessons, lesson_id], "updated_at": now_iso()}))
 
 
 def read_under_lock(project: ProjectPaths, song_id: str) -> Song:
@@ -336,7 +329,7 @@ def fill_notes(project: ProjectPaths, song_id: str, notes: list[Note]) -> Song:
 
 def delete(project: ProjectPaths, song_id: str) -> None:
     """`audio.m4a` first (a player may hold it open: `409` `in_use`), `song.json` last, then the
-    folder; the lessons made from the song stay (D12, D18). Raises `ApiError` 404, or 409."""
+    folder (D18). Raises `ApiError` 404, or 409."""
     with lock:
         folder = checked_dir(project, song_id)
         if not (folder / SONG_FILE).is_file():
@@ -393,7 +386,6 @@ def new_song(song_id: str, head: Head, duration_s: float, range_: Range | None, 
         duration_s=round(duration_s, 1),
         range=range_,
         analysis=analysis,
-        lessons=[],
         created_at=now,
         updated_at=now,
     )
@@ -424,13 +416,6 @@ def _read_folder(folder: Path) -> Song | None:
         return None
 
 
-def _with_live_lessons(project: ProjectPaths, song: Song) -> Song:
-    """The Song with only the lessons still on disk (D12): a lesson deleted in the สอนกลอง tab goes
-    from the list on the next read, without a write."""
-    live = [lesson_id for lesson_id in song.lessons if (project.lessons_dir / lesson_id / lessons.LESSON_FILE).is_file()]
-    return song if live == song.lessons else song.model_copy(update={"lessons": live})
-
-
 def _row(project: ProjectPaths, song: Song) -> SongRow:
     summary = None
     if song.analysis is not None:
@@ -442,6 +427,5 @@ def _row(project: ProjectPaths, song: Song) -> SongRow:
         source_kind=song.source.kind,
         duration_s=song.duration_s,
         analysis=summary,
-        lessons=len(_with_live_lessons(project, song).lessons),
         updated_at=song.updated_at,
     )

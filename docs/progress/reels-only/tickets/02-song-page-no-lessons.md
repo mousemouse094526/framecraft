@@ -11,7 +11,7 @@
 - Seams: 2, 3 (ข้อ route ที่ลบ และ `song.json` ที่มี `lessons`)
 - User stories: 3, 4, 5
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

@@ -125,6 +125,6 @@ def _hands(found: list[Hit], downbeats: list[float], start: float) -> list[str |
         (Placed(kit.BY_ID[piece].id, step, found[index].level) for (piece, step), index in first_on_step.items()),
         key=lambda p: (p.step, kit.PIECES.index(kit.BY_ID[p.piece])),
     )
-    kept, _ = groove.trimmed(placed)
+    kept = groove.trimmed(placed)
     hand_of = {(note.piece, note.step): note.hand for note in groove.with_hands(kept)}
     return [hand_of.get(key) if first_on_step[key] == index else None for index, key in enumerate(keys)]

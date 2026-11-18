@@ -106,13 +106,11 @@ export function countOf(step: number): string {
   return `${Math.floor(inBar / 4) + 1}${["", "e", "&", "a"][inBar % 4]}`;
 }
 
-/** "ไฮแฮทปิด ห้อง 1 จังหวะ 3": a note's place as the grid's cells and the song page's dropped list name it. */
+/** "ไฮแฮทปิด ห้อง 1 จังหวะ 3": a note's place as the grid's cells name it. */
 export const notePlace = (piece: PieceId, step: number) => `${pieceName(piece)} ห้อง ${Math.floor(step / STEPS_PER_BAR) + 1} จังหวะ ${countOf(step)}`;
 
 /** The Thai name of a note's hit, for a cell's tooltip. */
 export const hitName = (note: Note) => HITS.find((hit) => hit.id === note.hit)?.name;
-
-/** 1–4: the bar counts a lesson may have, as the editor's buttons and the song page's radios list them. */
 
 // --- One hand plays one piece at a time (D20); the same rules as the backend's `PUT` ---
 

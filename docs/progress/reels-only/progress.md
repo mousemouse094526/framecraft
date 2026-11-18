@@ -1,11 +1,11 @@
 # Progress: reels-only
 
-**Now:** 01 done; 02 next
+**Now:** 01–02 done; feature review then PR
 
 **Next:**
 
 ```
-/warroom-build reels-only 02
+/warroom-build reels-only --review-feature
 ```
 
 ## Tickets
@@ -13,9 +13,25 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | หน้า reel กลอง แทนสอนกลอง | done |
-| 02 | หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง | ready |
+| 02 | หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง | done |
 
 ## Log
+
+### 02: หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง — done 2026-11-18
+
+**Built:**
+- หน้าเพลงเหลือหัวเพลง ช่วงแกะ แกะโน้ต คำเตือนการตีแรก และการ์ด Reel cover (ขึ้นแม้ไม่มีห้อง 4/4); รายการเพลงไม่นับบทเรียน dialog ลบไม่พูดถึงบทเรียน
+- route `preview` `listen` `lessons` ของเพลง, `drum_notes.lesson`, `from_song` `create_from`, `Song.lessons`, hook preview/titles ลบ; `song.json` เก่าที่มี `lessons` อ่าน เขียน ลบได้
+- ไม่มีคำว่าบทเรียนหรือสอนใน string บนจอทั้งแอป
+
+**Decided:**
+- D14 — `groove` เหลือกฎมือ, test กฎมือเรียกตรง, `GrooveGrid` ต้องมี `editing`, `MELODY_HINT`
+
+**For the next ticket:**
+- ห้ามรัน `npx prettier --write`: repo ไม่มี config และไฟล์เขียนบรรทัดยาว; prettier ค่าตั้งต้นพับทุกบรรทัดที่ 80 (เกิดใน ticket นี้ แก้กลับแล้ว)
+- `groove` อยู่ใน `drum_notes` แต่มีแค่ `drum_cover` ใช้ — ย้ายได้เป็นงานแยก
+
+**Checks:** `uv run pytest` 1542 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 648 passed; `npm --prefix frontend run build` ผ่าน
 
 ### 01: หน้า reel กลอง แทนสอนกลอง — done 2026-11-18
 
