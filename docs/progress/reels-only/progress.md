@@ -1,11 +1,11 @@
 # Progress: reels-only
 
-**Now:** merged ([PR #21](https://github.com/mousemouse094526/framecraft/pull/21), `fc846cc`)
+**Now:** change request D15 (ตัดนับเข้า) — ticket 03 ready
 
 **Next:**
 
 ```
-/warroom next
+/warroom-build reels-only 03
 ```
 
 ## Tickets
@@ -14,6 +14,7 @@
 |---|---|---|
 | 01 | หน้า reel กลอง แทนสอนกลอง | done |
 | 02 | หน้าเพลงไม่มีบทเรียน และลบโค้ดสร้างบทเรียนจากเพลง | done |
+| 03 | reel กลองไม่มีนับเข้า | ready-for-agent |
 
 ## Log
 

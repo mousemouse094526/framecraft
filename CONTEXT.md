@@ -178,7 +178,7 @@ _Avoid_: เครื่อง, drum piece, instrument
 _Avoid_: articulation (ในหน้าจอ), ความแรง
 
 **นับเข้า**:
-ห้องแรกของ reel กลองที่มีแค่ไฮแฮทเบานับ 1–4 พร้อมหัวเรื่อง ก่อน Groove เริ่ม (video-gen D13, reels-only D3).
+ห้องที่มีแค่ไฮแฮทเบานับ 1–4 ก่อน Groove เริ่ม ที่ reel กลองเคยมี (video-gen D13). ไม่มีในคลิปไหนของแอปแล้ว: reel กลองเริ่มที่ห้องแรกของ Groove (reels-only D15).
 _Avoid_: count-in (ในหน้าจอ), intro
 
 **แกะเพลง**:
