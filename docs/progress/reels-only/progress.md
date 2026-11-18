@@ -1,6 +1,6 @@
 # Progress: reels-only
 
-**Now:** [PR #22](https://github.com/mousemouse094526/framecraft/pull/22) รอ review/merge
+**Now:** merged ([PR #22](https://github.com/mousemouse094526/framecraft/pull/22), `2073a82`) — ตัดนับเข้า reel กลอง (D15), flam ต้นคลิป (D16), Blocked 1 ปิด (`98dfb73`); 01–02 ([PR #21](https://github.com/mousemouse094526/framecraft/pull/21), `fc846cc`)
 
 **Next:**
 
