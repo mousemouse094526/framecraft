@@ -1,11 +1,11 @@
 # Progress: reels-only
 
-**Now:** 01–02 done; feature review done; PR next
+**Now:** PR [#21](https://github.com/mousemouse094526/framecraft/pull/21) รอ review และ merge
 
 **Next:**
 
 ```
-/pr-open
+/warroom next
 ```
 
 ## Tickets
