@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
-// ล่าสุด: the Series or EPs, drum lessons and songs last opened in this browser, newest first, at
+// ล่าสุด: the Series or EPs, drum reels and songs last opened in this browser, newest first, at
 // most 3 per topic, under their topic in the main menu (ui-nav D5, D10, D11). A convenience of
 // this browser only: no storage, or a broken value, is just no recent items.
 

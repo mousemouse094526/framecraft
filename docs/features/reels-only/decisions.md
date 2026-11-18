@@ -187,6 +187,18 @@
 
 **From:** red team · **Status:** active
 
+## D13: ทางเลือกเล็กของ ticket 01
+
+**Chosen:** ชื่อและที่อยู่ของกฎรูปร่าง reel กับ test ที่ตัดสินตอน build.
+
+**Details:**
+- **ชื่อ:** `isReelShape`, `inReelShape`, `repeatsOf`, `plainChapters`, `mergeText` อยู่ใน `lib/lesson`; backend `_is_reel_shape` — กฎเดียวกันสองฝั่ง มี comment "keep the two alike" แบบ `lengthOf`
+- **ไฟล์ซ้ำของ video-gen:** `lib/lesson`, `lib/kit`, `lib/setupFixes`, `lib/lesson.test`, `components/GrooveGrid`, `components/Labeled`, `hooks/useListen` ไม่มีใคร import นอกจากกันเอง จึงลบ (ของใช้จริงอยู่ใน `lib/` และ `components/ui/`)
+- **test เปิดหน้าแก้:** ตั้ง hash แล้วรอ `hashchange` ก่อน render — reel แบบเก่าเปิดมาเป็นยังไม่บันทึก leave guard จะตอบ `hashchange` ที่มาช้าใน jsdom ซึ่งเบราว์เซอร์ไม่มีตอนเปิดหน้าที่ hash นั้น
+- **ข้อความ error ของ `chapters[0].repeats`** ขึ้นใต้ select จำนวนรอบ; `field` อื่นของ `chapters` ขึ้นเป็น Alert แบบเดิม
+
+**From:** build ticket 01 · **Status:** active
+
 ## Sources
 
 - [Pydantic — Configuration › extra](https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.extra) — key ที่ไม่รู้จักถูกข้ามเป็นค่าตั้งต้น (accessed 2026-11-18)

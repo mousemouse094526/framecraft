@@ -413,7 +413,7 @@ def run_checks(
         *qwen_rows,
         _item("pythainlp", "pythainlp", lambda: check_pinned(probes.pythainlp, PYTHAINLP_VERSION), fixes.setup),
         _item(fonts.CHECK_ID, fonts.LABEL, lambda: fonts.check_kanit(project), fixes.setup),
-        # The สอนกลอง tab's samples follow Kanit (video-gen spec › Status check and Setup).
+        # reel กลอง's samples follow Kanit (video-gen spec › Status check and Setup).
         _item(drum_kit.CHECK_ID, drum_kit.LABEL, lambda: drum_kit.check_drum_kit(project), fixes.setup),
         # The reel's kalimba follows the drum kit (kalimba-cover D18).
         _item(kalimba_kit.CHECK_ID, kalimba_kit.LABEL, lambda: kalimba_kit.check_kalimba_kit(project), fixes.setup),

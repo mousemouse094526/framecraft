@@ -18,7 +18,7 @@ type Props = {
 /**
  * พื้นหลัง: the app's colours, or the user's PNG or JPG that each render blurs and darkens
  * (video-gen D6, drum-cover D8). The one picture a clip takes: no logo or watermark (video-gen D23).
- * The สอนกลอง tab's lesson editor and the reel page share it.
+ * reel กลอง's editor and the reel cover page share it.
  */
 export function BackgroundPicker({ path, background, imageUrl, apply }: Props) {
   const { state, pick, remove } = useBackground(path, apply);

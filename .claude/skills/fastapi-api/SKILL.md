@@ -160,7 +160,7 @@ backend/
 │                    Render job, its own slot, and an EP's renders), compose (a
 │                    render's timeline, its ffmpeg commands and its ASS file,
 │                    through `subtitles`)
-├── video_gen/    ← the สอนกลอง tab (video-gen spec): kit (the ten pieces: lane, colour,
+├── video_gen/    ← reel กลอง, stored as lessons (video-gen spec, reels-only D8): kit (the ten pieces: lane, colour,
 │                    foot), lessons (`lesson.json` under `media/drums/lessons/{id}/`, its
 │                    checks with D20's rules, the tab's one lock; `require_id` before any
 │                    path; `from_song`/`create_from`/`unsaved` are drum_notes' way in), timeline (every hit, beat and chapter span in samples at

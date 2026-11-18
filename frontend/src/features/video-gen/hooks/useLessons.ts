@@ -11,7 +11,7 @@ export type ListState =
   /** `failure`: a copy or delete the API refused, until the next one. */
   | { kind: "result"; lessons: LessonRow[]; failure: string | null };
 
-/** รายการบทเรียนกลอง: the lessons, newest edit first as the API sorts them, and their new, copy and delete (D10). */
+/** รายการ reel กลอง: the reels, newest edit first as the API sorts them, and their new, copy and delete (D10). */
 export function useLessons() {
   const [state, , setIfMounted] = useMountedState<ListState>({ kind: "loading" });
 

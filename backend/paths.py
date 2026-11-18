@@ -170,7 +170,7 @@ class ProjectPaths:
 
     @property
     def drums_dir(self) -> Path:
-        """Everything the สอนกลอง tab keeps (video-gen spec › Data, D10)."""
+        """Everything reel กลอง keeps (video-gen spec › Data, D10)."""
         return self.root / "media" / "drums"
 
     @property

@@ -1,4 +1,4 @@
-"""The Render job of the สอนกลอง tab and its results (video-gen spec › Render job, D14, D21, D22):
+"""The Render job of reel กลอง and its results (video-gen spec › Render job, D14, D21, D22):
 one at a time in its own slot, holding no GPU (no model runs). The lesson is read and copied into
 `.render/` as the job starts, so a `PUT` while it runs reaches the next render only (as ADR 0024).
 Then the drum sound (`mixer`), the text (`captions`) and every frame (`frames`, sent to ffmpeg
@@ -33,7 +33,7 @@ BYTES_PER_SECOND = 2 * 1024 * 1024  # what `disk_full` reserves per second of cl
 AUDIO, TEXT = "audio.wav", "text.ass"
 VIDEO_BITRATE = "8M"  # videotoolbox's own default is far too low for 1080×1920
 AUDIO_RATE, AUDIO_BITRATE = 48_000, "192k"
-NOT_RUNNING = "ไม่มีงาน render บทเรียนกลองที่ยังไม่จบ"
+NOT_RUNNING = "ไม่มีงาน render reel กลองที่ยังไม่จบ"
 
 
 class DrumRenderJob(BaseModel):

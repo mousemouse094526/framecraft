@@ -94,6 +94,7 @@ question; the full entry is in the feature's decisions.md.
 | หน้าตาใช้ component เดิม ไม่มีจอรอออกแบบ ไม่มี `ui-prompt.md` | [reels-only](features/reels-only/decisions.md) | D10 | — | — | active |
 | seam: `DrumsPage`, `SongsPage`, `App` ใน jsdom และ API เพลง; ไม่มี e2e | [reels-only](features/reels-only/decisions.md) | D11 | — | — | active |
 | reel แบบเก่าเก็บ `lesson.before-reels-only.json` ครั้งเดียวก่อน `PUT` รวมท่อน; ทางถอยคือ revert แล้วเปลี่ยนชื่อกลับ | [reels-only](features/reels-only/decisions.md) | D12 | — | — | active |
+| ทางเลือกเล็ก ticket 01: `isReelShape`/`inReelShape`/`mergeText` ใน `lib/lesson` คู่ `_is_reel_shape`; ลบไฟล์ซ้ำที่ไม่มีใคร import ใน video-gen; test รอ `hashchange` ก่อน render | [reels-only](features/reels-only/decisions.md) | D13 | — | — | active |
 
 ## ดาวน์โหลดสื่อ
 

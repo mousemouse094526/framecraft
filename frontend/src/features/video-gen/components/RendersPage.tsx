@@ -16,7 +16,7 @@ import { downloadName, renderFile, renderingOf, type RenderResult } from "../lib
 import { RenderProgress } from "./RenderProgress";
 
 /**
- * ผล render ของบทเรียน (`#/drums/{id}/renders`): newest first, the newest playing in a 9:16
+ * ผล render ของ reel กลอง (`#/drums/{id}/renders`): newest first, the newest playing in a 9:16
  * player; download the mp4 and `.srt`, delete after asking (D10). This lesson's render shows its
  * percent on top. The design is pending, so the app's own parts.
  */
@@ -33,7 +33,7 @@ export function RendersPage({ id }: { id: string }) {
       <div className="flex items-center gap-2">
         <a href={lessonHash(id)} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
-          กลับไปแก้บทเรียน
+          กลับไปแก้ reel
         </a>
         {state.kind === "ready" && (
           <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">{state.title} — ผล render</h2>
@@ -49,9 +49,9 @@ export function RendersPage({ id }: { id: string }) {
       {state.kind === "offline" && <OfflinePanel />}
       {state.kind === "not_found" && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-4 py-12">
-          <p className="text-base leading-[1.5] font-medium text-foreground">ไม่พบบทเรียนนี้</p>
+          <p className="text-base leading-[1.5] font-medium text-foreground">ไม่พบ reel นี้</p>
           <a href={DRUMS_HASH} className={`h-11 px-4 text-brand sm:h-9 ${GHOST_BUTTON} hover:bg-muted`}>
-            กลับรายการบทเรียน
+            กลับรายการ reel
           </a>
         </div>
       )}
@@ -59,8 +59,8 @@ export function RendersPage({ id }: { id: string }) {
       {state.kind === "ready" &&
         (state.renders.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card px-4 py-12 text-center leading-[1.5]">
-            <p className="text-base font-medium text-foreground">ยังไม่เคย render บทเรียนนี้</p>
-            <p className="text-[13px] text-muted-foreground">กด render ในหน้าแก้บทเรียน แล้วผลจะขึ้นที่นี่</p>
+            <p className="text-base font-medium text-foreground">ยังไม่เคย render reel นี้</p>
+            <p className="text-[13px] text-muted-foreground">กด render ในหน้าแก้ reel แล้วผลจะขึ้นที่นี่</p>
           </div>
         ) : (
           <Results

@@ -10,7 +10,7 @@ const TAB_LABELS = {
   sounds: "คลังเสียง",
   spoil: "สปอย",
   toon: "การ์ตูนเล่า",
-  drums: "สอนกลอง",
+  drums: "reel กลอง",
   songs: "แกะเพลง",
 } as const;
 
@@ -21,7 +21,7 @@ export const tabLabel = (id: TabId): string => TAB_LABELS[id];
 /**
  * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/sounds?…` คลังเสียง
  * with the page it came from (sound-library D11), `#/toon/…` a page of การ์ตูนเล่า,
- * `#/drums/…` a page of สอนกลอง and `#/songs/…` a song of แกะเพลง; an empty or
+ * `#/drums/…` a page of reel กลอง and `#/songs/…` a song of แกะเพลง; an empty or
  * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9, drum-notes D2).
  */
 export function tabOf(hash: string): TabId {

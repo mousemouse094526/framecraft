@@ -20,7 +20,7 @@ frontend/src/
 ├── features/[feature]/   ← spoil (คลิป tab), story-kb (คลังความรู้ tab), sound-library
 │                           (คลังเสียง tab: its `lib/sounds` is what toon and spoil-maker read
 │                           of the library; it imports neither, sound-library D11),
-│                           spoil-maker (สปอย tab), toon (การ์ตูนเล่า tab), video-gen (สอนกลอง tab),
+│                           spoil-maker (สปอย tab), toon (การ์ตูนเล่า tab), video-gen (reel กลอง),
 │                           drum-notes (แกะเพลง tab), drum-cover (a song's reel page,
 │                           `#/songs/{id}/cover`: App picks it by `coverViewOf` before the
 │                           tabs; it reads `drum-notes/lib/songs` for the Song's shape and paths, while drum-notes
@@ -33,12 +33,12 @@ frontend/src/
 │                        the ☰ button, ui-nav D4, D11; wordmark, where the user is, action;
 │                        `wide` = 1120px from lg for two columns), OfflinePanel, RefreshButton, ProgressBar,
 │                        Alert (the Figma toned box, optional title), Labeled (a field with its label, hint and error), FixCommand (a `fix` command with
-│                        its copy button: spoil's notices, a `not_ready` of สอนกลอง), ModalDialog (overlay, Esc,
+│                        its copy button: spoil's notices, a `not_ready` of reel กลอง), ModalDialog (overlay, Esc,
 │                        focus kept inside), BackgroundPicker (a clip's colour or picture at a route's
 │                        `…/background`, with `lib/useBackground`: a lesson's and a reel's, drum-cover D21), GrooveGrid (the Groove table: editing with `editing`
 │                        for the lesson editor, read-only without it for the song page's preview),
 │                        buttonStyles, NoticeLine (a `Notice` as an Alert), RefusedAlert (a
-│                        `Refused` as an Alert with its fix commands: the สอนกลอง and แกะเพลง tabs),
+│                        `Refused` as an Alert with its fix commands: reel กลอง and แกะเพลง),
 │                        CommitField (a field that sends on blur or Enter), Switch (an on/off
 │                        toggle with its label: spoil's video settings, a reel's ปิดเสียงกลอง, drum-cover D28),
 │                        SegmentedChoice (a radiogroup of pill buttons: a reel's instrument and its sound,
@@ -71,10 +71,10 @@ frontend/src/
     ├── job.ts        ← `isUnfinishedIn`, `onlyWhen`, `cancelCurrent` for every job hook
     ├── audio.ts      ← `playAudio`: the ฟัง buttons of the สปอย and การ์ตูนเล่า tabs
     ├── useListen.ts  ← a ฟัง button that plays a wav the backend mixes from a blob URL, stopping the
-    │                   one before (`request()` fetches it, null plays nothing): ฟังจังหวะ of สอนกลอง
+    │                   one before (`request()` fetches it, null plays nothing): ฟังจังหวะ of reel กลอง
     │                   and ฟัง of หน้าเพลง (drum-notes D21)
-    ├── kit.ts        ← the ten drum pieces with their Thai names, `isFoot`: สอนกลอง and แกะเพลง
-    ├── lesson.ts     ← a drum lesson as `/api/drums/lessons` answers it, its hashes (`drumsViewOf`,
+    ├── kit.ts        ← the ten drum pieces with their Thai names, `isFoot`: reel กลอง and แกะเพลง
+    ├── lesson.ts     ← a drum reel (stored as a lesson, reels-only D8) as `/api/drums/lessons` answers it, its hashes (`drumsViewOf`,
     │                   `lessonHash`), the D20 hand rules the Groove grid shares with the backend's
     │                   `PUT`, `countOf`; the song page reads its Groove and opens its editor
     ├── refusal.ts    ← the API's `{code, message}` refusal, and `refusalLine`
@@ -94,7 +94,7 @@ No router library and no `routes/`: `App` picks the page from the hash
 (`#/setup`, `#/clips`, `#/stories`, `#/sounds`, `#/spoil`, spoil D10, spoil-maker D53, story-kb D9,
 sound-library D2; `#/sounds?back={hash}` is คลังเสียง with a "← กลับ" link, sound-library D11); a page with
 steps reads its step from `useHash()` (`#/spoil/review`), so a step is a link too;
-`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59); `#/toon/…` pages are picked by `pageOf` in `features/toon/lib/series.ts` (toon D52, D53, D56: a Series' EPs, its `/cast`, an EP's plot, storyline or `/render`; `#/toon/sounds` became `#/sounds`, sound-library D6); `#/stories/new` and `#/stories/{id}` open แก้ Story (story-kb); `#/drums/{id}` opens หน้าแก้บทเรียนกลอง and any other `#/drums…` hash the lesson list (`drumsViewOf` in `lib/lesson.ts`, shared with the แกะเพลง tab since drum-notes D25); `#/songs/{id}` opens หน้าเพลง and any other `#/songs…` hash the song list (`songsViewOf` in `features/drum-notes/lib/songs.ts`, drum-notes D2);
+`#/spoil/voices` is a page of the สปอย tab without the steps (spoil-maker D59); `#/toon/…` pages are picked by `pageOf` in `features/toon/lib/series.ts` (toon D52, D53, D56: a Series' EPs, its `/cast`, an EP's plot, storyline or `/render`; `#/toon/sounds` became `#/sounds`, sound-library D6); `#/stories/new` and `#/stories/{id}` open แก้ Story (story-kb); `#/drums/{id}` opens หน้าแก้ reel กลอง and any other `#/drums…` hash the reel list (`drumsViewOf` in `lib/lesson.ts`, shared with the แกะเพลง tab since drum-notes D25); `#/songs/{id}` opens หน้าเพลง and any other `#/songs…` hash the song list (`songsViewOf` in `features/drum-notes/lib/songs.ts`, drum-notes D2);
 the สปอย tab's hashes, the Draft job's shapes, the styles and `sendDraft` (the one `POST` of a whole new draft, step 1 and step 2 both send it) live in `features/spoil-maker/lib/draft.ts`, the voice and render API shapes and `startJob` in `lib/render.ts` — a `lib/` module may call `lib/api` when two hooks send the same request. The tab's steps share one state (`useStepStatus`): `StepsRefreshContext` reads it again, `DraftRunContext` gives the latest Draft job to step 1 (locked while it runs) and step 2 (its progress card). Each page wraps itself in `PageLayout`,
 whose menu items are plain `#/…` links, so clicks and the back button both just
 change the hash.

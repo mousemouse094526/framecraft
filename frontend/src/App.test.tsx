@@ -47,7 +47,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
       "ชุดทั้งหมด",
       "สร้างชุดใหม่",
       "เพลงทั้งหมด",
-      "บทเรียนทั้งหมด",
+      "reel ทั้งหมด",
       "คลังคลิปใช้กับ สปอย",
       "คลังความรู้ใช้กับ สปอย",
       "คลังเสียงใช้กับ สปอย, การ์ตูนเล่า",
@@ -59,7 +59,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
       within(section).queryAllByRole("group").map((group) => group.firstElementChild?.textContent);
     expect(sections.map((section) => [section.firstElementChild?.textContent, groupsOf(section)])).toEqual([
       ["เล่าเรื่อง", ["สปอย", "การ์ตูนเล่า"]],
-      ["ดนตรี", ["แกะเพลง", "สอนกลอง"]],
+      ["ดนตรี", ["แกะเพลง", "reel กลอง"]],
       ["คลัง", []],
       ["ตั้งค่า", []],
     ]);
@@ -105,8 +105,8 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     ["#/toon/series/s_1/cast", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
     ["#/toon/eps/e_1/render", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
     ["#/toon/sounds", "คลังเสียง", null, "คลัง / คลังเสียง"],
-    ["#/drums", "บทเรียนทั้งหมด", "สอนกลอง", "สอนกลอง / บทเรียนทั้งหมด"],
-    ["#/drums/a1b2c3d4e5f6", null, "สอนกลอง", "สอนกลอง"],
+    ["#/drums", "reel ทั้งหมด", "reel กลอง", "reel กลอง / reel ทั้งหมด"],
+    ["#/drums/a1b2c3d4e5f6", null, "reel กลอง", "reel กลอง"],
     ["#/songs", "เพลงทั้งหมด", "แกะเพลง", "แกะเพลง / เพลงทั้งหมด"],
     ["#/songs/s_1", null, "แกะเพลง", "แกะเพลง"],
     ["#/songs/s_1/cover", null, "แกะเพลง", "แกะเพลง"],

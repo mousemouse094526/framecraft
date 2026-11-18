@@ -41,7 +41,7 @@ const [SPOIL, TOON, DRUMS, SONGS]: readonly NavTopic[] = [
       { label: "สร้างชุดใหม่", hash: "#/toon/new" },
     ],
   },
-  { id: "drums", label: "สอนกลอง", items: [{ label: "บทเรียนทั้งหมด", hash: "#/drums" }] },
+  { id: "drums", label: "reel กลอง", items: [{ label: "reel ทั้งหมด", hash: "#/drums" }] },
   { id: "songs", label: "แกะเพลง", items: [{ label: "เพลงทั้งหมด", hash: "#/songs" }] },
 ];
 
@@ -54,7 +54,6 @@ export const LIBRARY_ITEMS: readonly NavItem[] = [
   { label: "เสียงที่บันทึก", hash: "#/spoil/voices", uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
 ];
 
-// สอนกลอง makes a vertical clip but is a lesson: kept until the owner decides (D13, spec › Open Questions 4).
 export const NAV_SECTIONS: readonly NavSection[] = [
   { id: "story", label: "เล่าเรื่อง", topics: [SPOIL, TOON], items: [] },
   { id: "music", label: "ดนตรี", topics: [SONGS, DRUMS], items: [] },

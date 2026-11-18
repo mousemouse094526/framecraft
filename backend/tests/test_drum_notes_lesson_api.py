@@ -192,7 +192,7 @@ def test_creating_a_lesson_writes_it_through_video_gen_with_the_song_s_title_and
     assert len(lesson["title"]) == 40
     assert (lesson["subtitle"], lesson["caption"], lesson["background"], lesson["bpm"]) == ("", "", "color", 110)
     assert lesson["groove"] == preview(client, song["id"], bar=0, bars=2, bpm=110).json()["groove"]
-    assert [(c["label"], c["repeats"], c["speed"]) for c in lesson["chapters"]] == [("", 2, 100), ("ลองเล่นเอง", 2, 100)]
+    assert [(c["label"], c["repeats"], c["speed"]) for c in lesson["chapters"]] == [("", 4, 100)]
     on_disk = json.loads((lessons.lesson_dir(project, lesson_id) / "lesson.json").read_text(encoding="utf-8"))
     assert set(on_disk) == {"version", "id", "updated_at", "title", "subtitle", "caption", "bpm", "background", "groove", "chapters"}  # no new field (ADR 0047)
     assert client.get(f"{SONGS}/{song['id']}").json()["lessons"] == [lesson_id]

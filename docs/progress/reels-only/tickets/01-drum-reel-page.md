@@ -11,7 +11,7 @@
 - Seams: 1, 3 (ข้อ reel ใหม่ และสำเนา `lesson.before-reels-only.json`)
 - User stories: 1, 2, 4, 5
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

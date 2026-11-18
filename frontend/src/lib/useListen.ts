@@ -14,7 +14,7 @@ export type ListenState =
  * A ฟัง button that plays a wav the backend mixes: `request` asks for it (ฟังจังหวะ saves the lesson
  * first and answers null when that failed, which plays nothing; the song page's ฟัง posts the bars
  * picked, drum-notes D21). The wav plays from a blob URL; pressing again stops the one playing
- * before anything else (video-gen D8). The สอนกลอง and แกะเพลง tabs share it.
+ * before anything else (video-gen D8). reel กลอง and the reel cover page share it.
  */
 export function useListen(request: () => Promise<BlobReply | null>) {
   const [state, , setIfMounted] = useMountedState<ListenState>({ kind: "idle" });
