@@ -37,6 +37,11 @@
 - 1440px: `docs/progress/ui-nav/shots/1440-spoil-review.png`
 - ก่อนแก้ (ภาพเจ้าของ): `~/.hermes/cache/scratch/framecraft-header-before.jpg`
 
+### Feature review 04 — 2026-11-19
+
+**Fixed:** `refocus` ถูกใช้หมดแม้ไม่มี ☰ (sidebar ตรึง) จึงไม่ค้างไปขโมยโฟกัสภายหลัง; เมนูมี `scroll-pt-14` ให้รายการที่ได้โฟกัสไม่ซ่อนใต้หัว sticky; ปุ่มปิดใช้ `close.svg` ใหม่ (เส้น 1.5 สีเทาแบบ ☰) แทน `x.svg`
+**Dismissed:** เปลี่ยน sticky เป็น `top-0` — ลองบนจอจริงแล้วรายการโผล่เหนือหัว (padding ของ nav) จึงคง `-top-3`; ย้ายโฟกัสจาก `<body>` ตอนข้าม 1280px — ตาม D14
+
 **Checks:** `uv run pytest` 1547 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 652 passed (3 ใน 4 รอบ; รอบแรกล้ม 1 ตัวตอนรันต่อจาก pytest — ดู bug D87 flaky เดิม); `npm --prefix frontend run build` ผ่าน
 
 ### 03: เมนูเป็น 4 หมวด เฉพาะทางที่ได้ reel — done 2026-11-17

@@ -6,7 +6,7 @@ import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useRecent } from "../../lib/recent";
 import menuIcon from "./assets/menu.svg";
 import sidebarIcon from "./assets/sidebar.svg";
-import closeIcon from "./assets/x.svg";
+import closeIcon from "./assets/close.svg";
 
 type Props = {
   tab: TabId;
@@ -49,9 +49,10 @@ let latestButton: HTMLButtonElement | null = null;
 let refocus = false;
 
 function takeRefocus(button: HTMLButtonElement | null) {
-  if (!refocus || !button) return;
+  if (!refocus) return;
+  // Spent even with no button (a pinned sidebar has none), so a later hash change can't take it.
   refocus = false;
-  button.focus();
+  button?.focus();
 }
 
 /** The column every page sits in: the main menu (its head holds the wordmark and the button that
@@ -286,7 +287,7 @@ function MainMenu({ ref, id, tab, current, recent, onPick, head, className }: Me
       ref={ref}
       id={id}
       aria-label="เมนูหลัก"
-      className={`flex-col gap-1 overflow-y-auto border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
+      className={`flex-col gap-1 overflow-y-auto scroll-pt-14 border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
     >
       {head}
       {NAV_SECTIONS.map((section) => (
