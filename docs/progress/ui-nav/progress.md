@@ -37,11 +37,11 @@
 - 1440px: `docs/progress/ui-nav/shots/1440-spoil-review.png`
 - ก่อนแก้ (ภาพเจ้าของ): `~/.hermes/cache/scratch/framecraft-header-before.jpg`
 
-### เพิ่มใน PR #23: "เสียงที่บันทึก" → "เสียงพากย์" (D15) — 2026-11-19
+### "เสียงที่บันทึก" → "เสียงพากย์" (D15) — 2026-11-19
 
-**Built:** คำบนจอเปลี่ยนที่ `nav.ts` (เมนูและหัวหน้า), แผงใน `SavedVoicePage`, ข้อความ `voice_not_found` ของ toon 3 ที่ (`voicing.py`, `plot.py`, `series.py`), `CONTEXT.md`, test ที่ยึดชื่อเดิม; hash `#/spoil/voices` และชื่อในโค้ดไม่แตะ
-**ต่อ:** "เสียงบรรยาย" → "เสียงพากย์" ที่ `<h2>` ของ `SavedVoicePage` และ `SetupSettings` (ป้ายช่อง, "ยังไม่มี…", "สร้าง…"); test `SavedVoicePage.test.tsx`, `SpoilerSetup.test.tsx`
-**Open:** Q9 — "Saved voice" ภาษาอังกฤษยังอยู่บนจอใน `SeriesForm`/`SeriesList`
+**Built:** คำบนจอเปลี่ยนที่ `nav.ts` (เมนูและหัวหน้า), หัวหน้าและแผงใน `SavedVoicePage`, `SetupSettings` (ป้ายช่อง, "ยังไม่มี…", "สร้าง…"), `SeriesForm`/`SeriesList` ของการ์ตูนเล่า (รวมลิงก์ที่เคยเขียนว่า "tab สปอย" → "สปอย"), ข้อความ `voice_not_found` ของ toon 3 ที่ (`voicing.py`, `plot.py`, `series.py`), `CONTEXT.md`, test ที่ยึดชื่อเดิม; hash `#/spoil/voices` และชื่อในโค้ดไม่แตะ
+**Where:** เข้า develop ทาง [PR #24](https://github.com/mousemouse094526/framecraft/pull/24) — commit ชุดนี้ขึ้น branch หลัง PR #23 ถูก merge ไปแล้ว จึงไม่ได้ไปกับ #23 (ต้อง merge develop เข้ามาแก้ conflict ที่ docs 4 ไฟล์)
+**Checks:** `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 652 passed (29 ไฟล์)
 
 ### Feature review 04 — 2026-11-19
 
