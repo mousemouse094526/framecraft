@@ -3,7 +3,7 @@ import { getJson, getReply, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { OFFLINE, refusedOf, type Refused } from "../../../lib/refused";
 import { refusalOf } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
-import { reelRendersPath, songPath, type Song } from "../../drum-notes/lib/songs";
+import { reelRendersPath, type Song } from "../../drum-notes/lib/songs";
 import { coverPath, coverRenderFile, type Cover, type CoverFields, type CoverRenderResult } from "../lib/cover";
 
 export type CoverState =
@@ -17,23 +17,27 @@ export type CoverState =
 
 export type Saved = { kind: "saved"; cover: Cover } | ({ kind: "refused" } & Refused);
 
-/** หน้า reel: the song, its cover and the cover's renders, newest first; the save and a render's delete (spec › Frontend, D12). */
-export function useCover(id: string) {
+/**
+ * ส่วน reel of a song: its cover and the cover's renders, newest first; the save and a render's delete
+ * (spec › Frontend, D12). The song is the page's, read once there (nav-ia D14): a new pick gives a new
+ * song, and the section starts over.
+ */
+export function useCover(song: Song) {
+  const id = song.id;
   const [state, setState, setIfMounted] = useMountedState<CoverState>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
-      const song = await getReply<Song>(songPath(id));
-      if (song.status === 404) return setIfMounted({ kind: "not_found" });
-      if (song.status !== 200 || !song.body) return setIfMounted({ kind: "offline" });
       const cover = await getReply<Cover>(coverPath(id));
-      if (cover.status === 409) return setIfMounted({ kind: "no_analysis", song: song.body });
+      if (cover.status === 404) return setIfMounted({ kind: "not_found" });
+      if (cover.status === 409) return setIfMounted({ kind: "no_analysis", song });
       if (cover.status !== 200 || !cover.body) return setIfMounted({ kind: "offline" });
       const renders = await getJson<CoverRenderResult[]>(reelRendersPath(id));
-      setIfMounted({ kind: "ready", song: song.body, cover: cover.body, renders, failure: null });
+      setIfMounted({ kind: "ready", song, cover: cover.body, renders, failure: null });
     } catch {
       setIfMounted({ kind: "offline" });
     }
+    // Read once per song, not on every new copy of it: the section is keyed by its pick (nav-ia D14).
   }, [id, setIfMounted]);
 
   useEffect(() => {

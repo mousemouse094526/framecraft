@@ -547,16 +547,13 @@ describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
     expect(screen.getByRole("button", { name: /^เมนู:/ })).toHaveAccessibleName("เมนู: reel cover / Smells Like Teen Spirit");
   });
 
-  it("keeps the song open in the menu on its reel page, which writes nothing", async () => {
-    const seeded = JSON.stringify({ covers: [{ hash: `#/covers/${ID}`, label: "ชื่อเก่า" }] });
-    window.localStorage.setItem("framecraft.nav.recent", seeded);
-    open(`#/covers/${ID}/cover`, [get(PATH, songOf())]);
+  it("an old reel page's hash opens the song's one page, open in the menu under its new name (nav-ia D6, D9)", async () => {
+    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ covers: [{ hash: `#/covers/${ID}`, label: "ชื่อเก่า" }] }));
+    open(`#/songs/${ID}/cover`, [get(PATH, songOf())]);
 
-    expect(songsGroup().getByRole("link", { name: "ชื่อเก่า" })).toHaveAttribute("aria-current", "page");
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
-    expect(window.localStorage.getItem("framecraft.nav.recent")).toBe(seeded);
+    expect(window.location.hash).toBe(`#/covers/${ID}`);
+    await waitFor(() => expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page"));
+    expect(stored()?.covers).toEqual([{ hash: `#/covers/${ID}`, label: "Smells Like Teen Spirit" }]);
   });
 
   it("forgets a song that is deleted (e2e)", async () => {

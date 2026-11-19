@@ -1,11 +1,11 @@
 # Progress: nav-ia
 
-**Now:** 01–02 done; 03 next
+**Now:** 01–03 done; 04 next
 
 **Next:**
 
 ```
-/warroom-build nav-ia 03
+/warroom-build nav-ia 04
 ```
 
 ## Tickets
@@ -14,10 +14,27 @@
 |---|---|---|
 | 01 | เมนูและที่อยู่ใหม่ พร้อม redirect | done |
 | 02 | สปอยเป็นพื้นที่ทำงานเดียว | done |
-| 03 | เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว | ready |
+| 03 | เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว | done |
 | 04 | EP การ์ตูนเล่าเป็นหน้าเดียว | ready |
 
 ## Log
+
+### 03: เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว — done 2026-11-19
+
+**Built:**
+- หน้าเพลง `#/covers/{id}`: ช่วงแกะ → ผลแกะ → ส่วน Reel cover (บรรทัดสรุปเดิมของการ์ด, ฟอร์ม reel, ฟัง, render, ผล render) ในหน้าเดียว; ปุ่ม "ไปที่ reel" ในแถวหัว; แกะใหม่ขณะ reel ยังไม่บันทึกถาม "ออกโดยไม่บันทึก?"
+- หน้า reel กลอง `#/drums/{id}`: ผล render ใต้ฟอร์ม, render ที่เริ่มที่นี่เสร็จ → อ่านผลใหม่ เล่นอันใหม่ เลื่อนไปที่ผล; ปุ่ม "ไปที่ผล render"
+- `#/songs/{id}/cover`, `#/covers/{id}/cover`, `#/drums/{id}/renders` เก่าพามาหน้าเดียวของมัน
+
+**Decided:**
+- `ReelSection` (drum-cover) รับ `song` จากหน้าเพลง ไม่อ่านเพลงเอง: `App` ใส่ผ่านช่อง `reel` keyed ด้วย `picked_at` (D14)
+- ช่องช่วงของ reel ชื่อ "เริ่ม reel (วินาที)" / "จบ reel (วินาที)" เพราะอยู่หน้าเดียวกับ "เริ่ม (วินาที)" ของช่วงแกะ
+- `mayLeave()` ใน `useHash` ถาม leave guard เดียวกันเมื่อหน้าจะทิ้งงานโดยไม่เปลี่ยน hash; `scrollIntoView` stub ใน `test-setup`
+
+**For the next ticket:**
+- หน้า EP: ทำแบบเดียวกัน — job hook ตัวเดียวต่อหน้า, view เป็น state, ใช้ `MOVED` ที่รับ `{id}`
+
+**Checks:** typecheck · `npm test` 668 passed · build — green (backend ไม่แตะ)
 
 ### 02: สปอยเป็นพื้นที่ทำงานเดียว — done 2026-11-19
 

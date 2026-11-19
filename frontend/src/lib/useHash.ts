@@ -51,6 +51,14 @@ window.addEventListener("hashchange", (event) => {
 });
 
 /**
+ * Whether what is on screen may go without the hash moving (a new pick under a reel being edited):
+ * nothing unsaved, or the user said yes to "ออกโดยไม่บันทึก?" (nav-ia D14).
+ */
+export function mayLeave(): boolean {
+  return !guard?.(window.location.hash) || window.confirm(LEAVE_QUESTION);
+}
+
+/**
  * Asks "ออกโดยไม่บันทึก?" before the hash moves on while `unsaved(next)` is true, and lets the
  * browser ask before the tab closes. `unsaved` is read at the moment of leaving, so a page
  * that has just saved can navigate at once. One page holds the guard at a time: the last to mount.
@@ -97,7 +105,8 @@ const MOVED: readonly [RegExp, string][] = [
   [/^#\/spoil\/(review|renders)$/, "#/spoil"],
   [/^#\/songs$/, "#/covers"],
   [new RegExp(`^#/songs/(${ID})$`), "#/covers/$1"],
-  [new RegExp(`^#/songs/(${ID})/cover$`), "#/covers/$1/cover"],
+  [new RegExp(`^#/(?:songs|covers)/(${ID})/cover$`), "#/covers/$1"],
+  [/^#\/drums\/([a-z0-9]{12})\/renders$/, "#/drums/$1"],
 ];
 
 /** The hash a moved page has now, or null when `hash` is not one that moved. */

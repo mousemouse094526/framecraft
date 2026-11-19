@@ -31,15 +31,13 @@ export const backgroundPath = (id: string) => `${lessonPath(id)}/background`;
 export const backgroundUrl = (id: string, updatedAt: string) => `${lessonPath(id)}/background.jpg?v=${encodeURIComponent(updatedAt)}`;
 export const DRUMS_HASH = "#/drums";
 export const lessonHash = (id: string) => `${DRUMS_HASH}/${id}`;
-export const rendersHash = (id: string) => `${lessonHash(id)}/renders`;
 
-export type DrumsView = { kind: "list" } | { kind: "edit"; id: string } | { kind: "renders"; id: string };
+export type DrumsView = { kind: "list" } | { kind: "edit"; id: string };
 
-/** `#/drums/{id}` edits a lesson, `#/drums/{id}/renders` shows its renders; any other hash under `#/drums` is the list (spec › Frontend). */
+/** `#/drums/{id}` is a lesson's page, its renders under the form (nav-ia D7); any other hash under `#/drums` is the list (spec › Frontend). */
 export function drumsViewOf(hash: string): DrumsView {
-  const found = /^#\/drums\/([a-z0-9]{12})(\/renders)?$/.exec(hash);
-  if (!found) return { kind: "list" };
-  return found[2] ? { kind: "renders", id: found[1] } : { kind: "edit", id: found[1] };
+  const found = /^#\/drums\/([a-z0-9]{12})$/.exec(hash);
+  return found ? { kind: "edit", id: found[1] } : { kind: "list" };
 }
 
 export const STEPS_PER_BAR = 16;

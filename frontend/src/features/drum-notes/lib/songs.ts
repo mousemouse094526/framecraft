@@ -13,7 +13,8 @@ export const pickPath = (id: string) => `${songPath(id)}/pick`;
 export const SONGS_HASH = "#/covers"; // reel cover (nav-ia D6)
 export const songHash = (id: string) => `${SONGS_HASH}/${id}`;
 /** A song's reel page, drum-cover's (drum-cover D11): this tab links to it and reads its renders by HTTP alone (ADR 0052). */
-export const reelHash = (id: string) => `${songHash(id)}/cover`;
+/** ช่วงแกะ on a song's page: the reel below scrolls back up to it (nav-ia D6). */
+export const PICK_SECTION_ID = "song-pick";
 export const reelRendersPath = (id: string) => `${songPath(id)}/cover/renders`;
 
 export type SourceKind = "link" | "file" | "midi";

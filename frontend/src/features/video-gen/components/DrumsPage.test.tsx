@@ -93,6 +93,7 @@ function open(hash: string, routes: Route[]) {
   serve(fetchMock, routes, [
     [LIST_PATH, []],
     [RENDER_PATH, null],
+    [RENDERS_PATH, []],
   ]);
   window.location.hash = hash;
   render(<App />);
@@ -630,10 +631,15 @@ describe("render", () => {
     expect(await screen.findByText("40%")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeInTheDocument();
 
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
     job.phases.at = 2;
     await act(() => vi.advanceTimersByTimeAsync(1100));
-    await waitFor(() => expect(window.location.hash).toBe(`#/drums/${ID}/renders`));
+    // The results are under the form on the same page: it reads them again and goes there (nav-ia D7).
     expect(await screen.findByLabelText("ผล render 20261113-110500")).toBeInTheDocument();
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    expect(scroll.mock.contexts[0]).toHaveTextContent("ผล render");
+    expect(window.location.hash).toBe(`#/drums/${ID}`);
   });
 
   it("ยกเลิก POSTs the cancel; a cancelled render says so with ลองอีกครั้ง", async () => {
@@ -700,9 +706,9 @@ describe("render", () => {
   });
 });
 
-describe("ผล render", () => {
+describe("ผล render, under the form (nav-ia D7)", () => {
   it("plays the newest in a 9:16 player, links the mp4 and .srt, and deletes after asking", async () => {
-    const user = open(`#/drums/${ID}/renders`, [
+    const user = open(`#/drums/${ID}`, [
       get(PATH, lessonOf()),
       get(RENDERS_PATH, [resultOf("20261113-110500"), resultOf("20261113-100000")]),
       send("DELETE", `${RENDERS_PATH}/20261113-100000`, null, 204),
@@ -723,14 +729,14 @@ describe("ผล render", () => {
   });
 
   it("with none says it was never rendered, and this lesson's render shows its percent on top", async () => {
-    open(`#/drums/${ID}/renders`, [get(PATH, lessonOf()), get(RENDERS_PATH, []), get(RENDER_PATH, jobOf({ percent: 55 }))]);
+    open(`#/drums/${ID}`, [get(PATH, lessonOf()), get(RENDERS_PATH, []), get(RENDER_PATH, jobOf({ percent: 55 }))]);
 
     expect(await screen.findByText("ยังไม่เคย render reel นี้")).toBeInTheDocument();
     expect(await screen.findByRole("progressbar", { name: "กำลัง render" })).toHaveAttribute("aria-valuenow", "55");
   });
 
   it("a render held open says in_use", async () => {
-    const user = open(`#/drums/${ID}/renders`, [
+    const user = open(`#/drums/${ID}`, [
       get(PATH, lessonOf()),
       get(RENDERS_PATH, [resultOf("20261113-110500")]),
       send("DELETE", `${RENDERS_PATH}/20261113-110500`, { code: "in_use", message: "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่ ปิด player แล้วลองอีกครั้ง" }, 409),

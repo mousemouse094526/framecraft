@@ -156,7 +156,9 @@ describe("pages that moved (nav-ia D9)", () => {
     ["#/spoil/voices", "#/voices"],
     ["#/songs", "#/covers"],
     ["#/songs/s_1", "#/covers/s_1"],
-    ["#/songs/s_1/cover", "#/covers/s_1/cover"],
+    ["#/songs/s_1/cover", "#/covers/s_1"],
+    ["#/covers/s_1/cover", "#/covers/s_1"],
+    ["#/drums/a1b2c3d4e5f6/renders", "#/drums/a1b2c3d4e5f6"],
     ["#/spoil/review", "#/spoil"],
     ["#/spoil/renders", "#/spoil"],
   ])("opens %s as %s", (old, now) => {

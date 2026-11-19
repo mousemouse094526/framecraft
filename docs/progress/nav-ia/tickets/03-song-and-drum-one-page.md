@@ -11,7 +11,7 @@
 - User stories: 4, 5
 - Legal: ข้อความเงื่อนไขการใช้ของ reel cover และ reel คาลิมบาย้ายมาครบ
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

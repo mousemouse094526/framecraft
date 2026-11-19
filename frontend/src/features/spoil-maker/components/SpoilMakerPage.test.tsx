@@ -402,7 +402,7 @@ describe("Spoil steps (spoil-maker D53, D68, nav-ia D5)", () => {
 
   it("a phone names only the open step, but every running step keeps its spinner", async () => {
     backend({ [RENDER_JOB]: renderJob({}) });
-    open();
+    open("เลือกคลิป");
 
     await waitFor(() => expect(spinners(step("ผล render"))).toHaveLength(1));
     // jsdom has no CSS: the phone's view is the classes that hide the name below `sm`.

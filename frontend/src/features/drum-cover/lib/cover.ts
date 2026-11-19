@@ -12,12 +12,6 @@ export const coverRenderFile = (id: string, name: string, suffix: ".mp4" | ".srt
 export const COVER_RENDER_PATH = "/api/covers/render";
 export const COVER_CANCEL_PATH = `${COVER_RENDER_PATH}/cancel`;
 
-/** `#/covers/{id}/cover` is a song's reel page; App picks it before the reel cover topic sees the hash (D11). */
-export function coverViewOf(hash: string): { id: string } | null {
-  const found = /^#\/covers\/([A-Za-z0-9_-]{1,64})\/cover$/.exec(hash);
-  return found ? { id: found[1] } : null;
-}
-
 /** One sound of the reel, the drums', the kalimba's or the song's backing: off mutes it and keeps the
  * volume for when it comes back; the volume (`VOLUME_MIN`–`VOLUME_MAX`) turns it down from `FULL_VOLUME` (D24). */
 export type Sound = { on: boolean; volume: number };
@@ -149,12 +143,12 @@ export const MELODY_ONLY = "เพลงนี้แกะโหมดทำน�
  * imported before notes were kept, or none in the stretch. */
 export type NoNotes = "not_picked" | "not_imported" | "empty";
 export const NO_NOTES_TEXT: Record<NoNotes, string> = {
-  not_picked: "เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ที่หน้าเพลงเพื่อได้โน้ตทำนอง",
+  not_picked: "เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ด้านบนเพื่อได้โน้ตทำนอง",
   not_imported: "เพลงนี้นำเข้าก่อนมีคาลิมบา นำเข้าไฟล์ MIDI เดิมอีกครั้ง",
   empty: "ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง",
 };
 /** The link after the message, to the page where it is fixed; an empty stretch is fixed on this one. */
-export const NO_NOTES_LINK: Record<Exclude<NoNotes, "empty">, string> = { not_picked: "กลับไปหน้าเพลง", not_imported: "ไปรายการเพลง" };
+export const NO_NOTES_LINK: Record<Exclude<NoNotes, "empty">, string> = { not_picked: "ไปที่ช่วงแกะ", not_imported: "ไปรายการเพลง" };
 const keyMove = (k: number) => (k > 0 ? `+${k}` : String(k));
 /** How the stretch's notes were laid on the kalimba (D4, D14). */
 export const notesLine = (cover: Cover) =>

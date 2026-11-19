@@ -1,4 +1,4 @@
-import { useCallback, useId, useState, type FormEvent } from "react";
+import { useCallback, useId, useRef, useState, type FormEvent } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
@@ -28,23 +28,36 @@ import {
   notesPast,
   plainChapters,
   REPEATS_MAX,
-  rendersHash,
   sameFields,
   STEPS_PER_BAR,
   type Lesson,
   type LessonFields,
   type Note,
 } from "../../../lib/lesson";
-import { isRendering, jobOf, renderingOf } from "../lib/render";
+import { isRendering, jobOf, renderingOf, type DrumRenderJob } from "../lib/render";
 import { BackgroundPicker } from "../../../components/ui/BackgroundPicker";
 import { GrooveGrid } from "../../../components/ui/GrooveGrid";
 import { Labeled } from "../../../components/ui/Labeled";
 import { NoteBox } from "./NoteBox";
 import { RenderProgress } from "./RenderProgress";
+import { DrumRenders } from "./DrumRenders";
 
-/** หน้าแก้ reel กลอง (`#/drums/{id}`): the app's own parts (reels-only D10). */
+/** หน้า reel กลอง (`#/drums/{id}`): the form, then its renders, one page (reels-only D10, nav-ia D7). */
 export function LessonEditor({ id }: { id: string }) {
   const { state, edit, save, applyBackground } = useLessonEditor(id);
+  const results = useRef<HTMLDivElement>(null);
+  // Counts the renders that ended while this page watched, so the results read again; `made` is the
+  // one a render started here made, which the results then play (nav-ia D7, D14).
+  const [ended, setEnded] = useState(0);
+  const [made, setMade] = useState<string | null>(null);
+  const toResults = () => results.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const onRenderEnded = useCallback((job: DrumRenderJob, startedHere: boolean) => {
+    setEnded((n) => n + 1);
+    if (!startedHere || job.state !== "done" || job.lesson_id !== id) return;
+    setMade(job.result);
+    // After the new results are drawn.
+    setTimeout(() => results.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [id]);
   useRecentPage("drums", lessonHash(id), state.kind === "ready" ? { label: state.saved.title } : state.kind === "not_found" ? "gone" : null);
 
   return (
@@ -57,9 +70,9 @@ export function LessonEditor({ id }: { id: string }) {
         {state.kind === "ready" && (
           <>
             <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">{state.saved.title}</h2>
-            <a href={rendersHash(id)} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
-              ผล render
-            </a>
+            <button type="button" onClick={toResults} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
+              ไปที่ผล render
+            </button>
           </>
         )}
       </div>
@@ -73,7 +86,14 @@ export function LessonEditor({ id }: { id: string }) {
           </a>
         </div>
       )}
-      {state.kind === "ready" && <LessonForm editing={state} edit={edit} save={save} applyBackground={applyBackground} />}
+      {state.kind === "ready" && (
+        <>
+          <LessonForm editing={state} edit={edit} save={save} applyBackground={applyBackground} onRenderEnded={onRenderEnded} />
+          <div ref={results} className="scroll-mt-4">
+            <DrumRenders id={id} ended={ended} made={made} />
+          </div>
+        </>
+      )}
     </PageLayout>
   );
 }
@@ -83,17 +103,17 @@ type FormProps = {
   edit: ReturnType<typeof useLessonEditor>["edit"];
   save: () => Promise<boolean>;
   applyBackground: ReturnType<typeof useLessonEditor>["applyBackground"];
+  /** The page's one Render job ended (nav-ia D14). */
+  onRenderEnded: (job: DrumRenderJob, startedHere: boolean) => void;
 };
 
-function LessonForm({ editing, edit, save, applyBackground }: FormProps) {
+function LessonForm({ editing, edit, save, applyBackground, onRenderEnded }: FormProps) {
   const { form, errors } = editing;
   const id = useId();
   // ฟังจังหวะ saves first; a save that failed says why under บันทึก, and nothing plays.
   const listen = useListen(useCallback(async () => ((await save()) ? postForBlob(`${lessonPath(editing.id)}/listen`, {}) : null), [editing.id, save]));
-  // Only this page moves on to the results, and only for the render it started (D22).
-  const render = useDrumRender((job, startedHere) => {
-    if (startedHere && job.state === "done") window.location.hash = rendersHash(job.lesson_id);
-  });
+  // The results under the form read again; only a render started here takes the page to them (D22, nav-ia D7).
+  const render = useDrumRender(onRenderEnded);
   /** The selected note's place, `piece:step`: its object changes with every edit. */
   const [selectedAt, setSelectedAt] = useState<string | null>(null);
   const unsaved = !sameFields(form, editing.saved);

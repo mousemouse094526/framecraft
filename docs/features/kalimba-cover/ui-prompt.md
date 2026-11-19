@@ -12,9 +12,9 @@ Design the kalimba additions to the "Reel cover" screens of framecraft: a local 
 
 Context
 - Platform: web app in a desktop browser; breakpoints: desktop 1440 (primary), narrow 1024. Touch targets ≥ 44px below 640px. No mobile.
-- Design system: the project's existing Tailwind tokens and components; dark neutral page, white text, one accent for primary actions, Thai-friendly sans for UI. Match the existing "แกะเพลง / หน้า reel", "แกะเพลง / หน้าเพลง" and "แกะเพลง / รายการเพลง" screens exactly; this is an addition, not a redesign.
+- Design system: the project's existing Tailwind tokens and components; dark neutral page, white text, one accent for primary actions, Thai-friendly sans for UI. Match the existing "reel cover / หน้าเพลง" (its ส่วน Reel cover under ผลแกะ) and "reel cover / เพลงทั้งหมด" screens exactly; this is an addition, not a redesign.
 - Figma file: the project's framecraft file; components on "Components", tokens on "Tokens", preview on "Preview". If these pages do not exist, create them.
-- Existing screens this feature connects to: "แกะเพลง / หน้า reel" (Screen 1 adds to it), "แกะเพลง / หน้าเพลง" and "แกะเพลง / รายการเพลง" (Screen 2 adds lines to them).
+- Existing screens this feature connects to: "reel cover / หน้าเพลง" `#/covers/{id}`, one page whose ส่วน Reel cover Screen 1 adds to (nav-ia D6), and "reel cover / เพลงทั้งหมด" (Screen 2 adds lines to it).
 - Language on screen: Thai. Use the copy below exactly. Code-like tokens (mp4, MIDI, .mid) stay Latin.
 - Accessibility: WCAG 2.2 AA contrast, visible focus, a label on every input, click targets ≥ 44px.
 
@@ -30,7 +30,7 @@ Step 2 — Screens (one section per screen)
 Frame names: "{screen} / {state} / {breakpoint}"; realistic sample data in Thai (song "Yellow (kalimba)", channel "DRUMMATE"); instances only.
 
 Screen 1 — หน้า reel, additions (new parts on the existing reel page)
-- Goal: the clip maker wants a kalimba reel of the same stretch. Comes from "แกะเพลง / หน้าเพลง" via "ทำ reel cover"; stays on this page to listen and render.
+- Goal: the clip maker wants a kalimba reel of the same stretch. Scrolls down the song's page (or presses "ไปที่ reel") to its ส่วน Reel cover; stays on this page to listen and render.
 - Content:
   - InstrumentCard is the FIRST card, above "ช่วงของ reel". Default selected: "กลอง". A melody-only MIDI song opens with "คาลิมบา" selected.
   - Switching the instrument marks the form "ยังไม่บันทึก" (existing dot on ActionBar "บันทึก").
@@ -42,14 +42,14 @@ Screen 1 — หน้า reel, additions (new parts on the existing reel page)
 Screen 2 — หน้าเพลงและรายการเพลง, additions (new lines on existing pages)
 - Goal: the clip maker brings in a melody MIDI file and sees that a song has melody notes.
 - Content:
-  - "แกะเพลง / รายการเพลง", hint under "เลือกไฟล์ในเครื่อง": keep the existing hint and add "MIDI: ช่อง 10 เป็นกลอง ช่องอื่นเป็นทำนองสำหรับคาลิมบา" and "ใช้ไฟล์ MIDI ที่ทำเองหรือมีสิทธิ์ใช้".
+  - "reel cover / เพลงทั้งหมด", hint under "เลือกไฟล์ในเครื่อง": keep the existing hint and add "MIDI: ช่อง 10 เป็นกลอง ช่องอื่นเป็นทำนองสำหรับคาลิมบา" and "ใช้ไฟล์ MIDI ที่ทำเองหรือมีสิทธิ์ใช้".
   - Refused MIDI file message: "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลองหรือโน้ตทำนอง".
-  - "แกะเพลง / หน้าเพลง", "Reel cover" section line: existing "ช่วงแกะ {start}–{end} วินาที · {n} การตี · render แล้ว {m} ครั้ง" plus " · {m} โน้ตทำนอง" when the song has melody notes.
+  - "reel cover / หน้าเพลง", the line under the "Reel cover" heading: existing "ช่วงแกะ {start}–{end} วินาที · {n} การตี · render แล้ว {m} ครั้ง" plus " · {m} โน้ตทำนอง" when the song has melody notes.
 - States: 1 Default with the new hint. 2 Error: the refused MIDI message. 3 Song with notes: "… · 120 โน้ตทำนอง". 4 Song picked before this feature: the line without the notes part.
 
 Step 3 — Preview
 - On the existing preview page "Preview", add each screen's default frame next to the screen it extends, its state frames under it, at each breakpoint.
-- Prototype links: "แกะเพลง / หน้าเพลง" "ทำ reel cover" → Screen 1 default; Screen 1 "คาลิมบา" → state 2; state 3 link → "แกะเพลง / หน้าเพลง"; Screen 1 "render reel" → state 6 → state 8; "แกะเพลง / รายการเพลง" file choice → Screen 2 state 1 → the new song's page.
+- Prototype links: "reel cover / หน้าเพลง" "ไปที่ reel" → Screen 1 default (the same page); Screen 1 "คาลิมบา" → state 2; state 3 "ไปที่ช่วงแกะ" → ช่วงแกะ above on the same page; Screen 1 "render reel" → state 6 → state 8; "reel cover / เพลงทั้งหมด" file choice → Screen 2 state 1 → the new song's page.
 - Every action named in step 2 leads to a frame. The system's existing start frame stays the start.
 
 Do not include

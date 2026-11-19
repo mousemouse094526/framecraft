@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useHash } from "../../../lib/useHash";
-import { ALREADY_IN, songHash, songsViewOf } from "../lib/songs";
+import { ALREADY_IN, songHash, songsViewOf, type Song } from "../lib/songs";
 import { SongList } from "./SongList";
 import { SongPage } from "./SongPage";
 
@@ -8,7 +8,7 @@ import { SongPage } from "./SongPage";
  * reel cover: `#/covers/{id}` opens a song, any other `#/covers…` hash the list (spec › Frontend, D2, nav-ia D6).
  * A link or file that is a song already sends the page to that song with a word about it (D3, D20).
  */
-export function SongsPage() {
+export function SongsPage({ reel }: { reel?: (song: Song) => ReactNode }) {
   const view = songsViewOf(useHash());
   const [arrival, setArrival] = useState<{ id: string; text: string } | null>(null);
 
@@ -23,6 +23,6 @@ export function SongsPage() {
   }, [view.kind]);
 
   // Keyed, so another song's hash starts a fresh page.
-  if (view.kind === "song") return <SongPage key={view.id} id={view.id} notice={arrival?.id === view.id ? arrival.text : null} />;
+  if (view.kind === "song") return <SongPage key={view.id} id={view.id} notice={arrival?.id === view.id ? arrival.text : null} reel={reel} />;
   return <SongList onKnownSong={openKnown} />;
 }
