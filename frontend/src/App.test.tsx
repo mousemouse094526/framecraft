@@ -51,7 +51,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
       "คลังคลิปใช้กับ สปอย",
       "คลังความรู้ใช้กับ สปอย",
       "คลังเสียงใช้กับ สปอย, การ์ตูนเล่า",
-      "เสียงที่บันทึกใช้กับ สปอย, การ์ตูนเล่า",
+      "เสียงพากย์ใช้กับ สปอย, การ์ตูนเล่า",
       "ติดตั้ง",
     ]);
     const sections = menu().getAllByRole("group").filter((group) => group.parentElement?.tagName === "NAV");
@@ -86,8 +86,8 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     expect(item("คลังคลิป")).toHaveAccessibleDescription("ใช้กับ สปอย");
     expect(item("คลังความรู้")).toHaveAccessibleDescription("ใช้กับ สปอย");
     expect(item("คลังเสียง")).toHaveAccessibleDescription("ใช้กับ สปอย, การ์ตูนเล่า");
-    expect(item("เสียงที่บันทึก")).toHaveAttribute("href", "#/spoil/voices");
-    expect(item("เสียงที่บันทึก")).toHaveAccessibleDescription("ใช้กับ สปอย, การ์ตูนเล่า");
+    expect(item("เสียงพากย์")).toHaveAttribute("href", "#/spoil/voices");
+    expect(item("เสียงพากย์")).toHaveAccessibleDescription("ใช้กับ สปอย, การ์ตูนเล่า");
   });
 
   // spec › Implementation › Hash: the item open, the topic whose heading stands out, and the header's line (D6, D11).
@@ -99,7 +99,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     ["#/spoil/xyz", "เลือกคลิป", "สปอย", "สปอย / เลือกคลิป"],
     ["#/spoil/review", "ตรวจแก้บท", "สปอย", "สปอย / ตรวจแก้บท"],
     ["#/spoil/renders", "ผล render", "สปอย", "สปอย / ผล render"],
-    ["#/spoil/voices", "เสียงที่บันทึก", "สปอย", "คลัง / เสียงที่บันทึก"],
+    ["#/spoil/voices", "เสียงพากย์", "สปอย", "คลัง / เสียงพากย์"],
     ["#/toon", "ชุดทั้งหมด", "การ์ตูนเล่า", "การ์ตูนเล่า / ชุดทั้งหมด"],
     ["#/toon/new", "สร้างชุดใหม่", "การ์ตูนเล่า", "การ์ตูนเล่า / สร้างชุดใหม่"],
     ["#/toon/series/s_1/cast", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],

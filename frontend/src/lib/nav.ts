@@ -51,7 +51,7 @@ export const LIBRARY_ITEMS: readonly NavItem[] = [
   { label: "คลังคลิป", hash: "#/clips", uses: "ใช้กับ สปอย" },
   { label: "คลังความรู้", hash: "#/stories", prefix: true, uses: "ใช้กับ สปอย" },
   { label: "คลังเสียง", hash: "#/sounds", prefix: true, uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
-  { label: "เสียงที่บันทึก", hash: "#/spoil/voices", uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
+  { label: "เสียงพากย์", hash: "#/spoil/voices", uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
 ];
 
 export const NAV_SECTIONS: readonly NavSection[] = [
@@ -81,7 +81,7 @@ export function activeItem<T extends NavItem>(hash: string, items: readonly T[])
 export function locationOf(hash: string, tab: TabId, extra: (topic: TabId) => readonly NavItem[] = () => []) {
   const topic = NAV_TOPICS.find((t) => t.id === tab);
   const topicItems = topic ? [...topic.items, ...extra(topic.id)] : [];
-  // One longest match over both, so `#/spoil/voices` is เสียงที่บันทึก, not เลือกคลิป under `#/spoil`.
+  // One longest match over both, so `#/spoil/voices` is เสียงพากย์, not เลือกคลิป under `#/spoil`.
   const found = activeItem(hash, [...topicItems, ...LIBRARY_ITEMS]);
   const item = found ?? (tab === "setup" ? SETUP_ITEM : null);
   const text = !found

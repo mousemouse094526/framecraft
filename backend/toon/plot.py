@@ -46,7 +46,7 @@ def writable(project: ProjectPaths, ep_id: object) -> WritePlan:
         raise ApiError(400, "invalid_request", f"ไอเดียต้องยาว 1–{episodes.IDEA_MAX} ตัวอักษร")
     chars_per_s = voices.chars_per_s(project, ep.voice_id)
     if chars_per_s is None:
-        raise ApiError(400, "voice_not_found", "ไม่พบเสียงเล่าของ EP นี้: เลือกเสียงที่บันทึกไว้")
+        raise ApiError(400, "voice_not_found", "ไม่พบเสียงเล่าของ EP นี้: เลือกเสียงพากย์")
     return WritePlan(series=series_now, ep=ep, chars_per_s=chars_per_s)
 
 

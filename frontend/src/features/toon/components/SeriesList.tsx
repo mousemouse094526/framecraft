@@ -56,7 +56,7 @@ export function SeriesList() {
       {confirming && (
         <ToonDialog
           title={`ลบชุด ${confirming.name}?`}
-          message={`ลบชุดนี้และ EP ทั้งหมด ${confirming.ep_count} ตอน? กู้คืนไม่ได้ Saved voice และคลังเสียงยังอยู่`}
+          message={`ลบชุดนี้และ EP ทั้งหมด ${confirming.ep_count} ตอน? กู้คืนไม่ได้ เสียงพากย์และคลังเสียงยังอยู่`}
           confirmLabel="ลบชุด"
           destructive
           onClose={() => setConfirming(null)}

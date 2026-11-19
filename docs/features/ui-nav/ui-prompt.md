@@ -38,7 +38,7 @@ Screen 1 — Main menu and header (redesign of the tab bar)
   - Section "ดนตรี":
     - Group "แกะเพลง": "เพลงทั้งหมด", then "ล่าสุด" with up to three song titles, e.g. "Smells Like Teen Spirit".
     - Group "สอนกลอง": "บทเรียนทั้งหมด", then "ล่าสุด" with up to three lesson titles, e.g. "Rock beat พื้นฐาน".
-  - Section "คลัง": "คลังคลิป" with "ใช้กับ สปอย"; "คลังความรู้" with "ใช้กับ สปอย"; "คลังเสียง" with "ใช้กับ สปอย, การ์ตูนเล่า"; "เสียงที่บันทึก" with "ใช้กับ สปอย, การ์ตูนเล่า".
+  - Section "คลัง": "คลังคลิป" with "ใช้กับ สปอย"; "คลังความรู้" with "ใช้กับ สปอย"; "คลังเสียง" with "ใช้กับ สปอย, การ์ตูนเล่า"; "เสียงพากย์" with "ใช้กับ สปอย, การ์ตูนเล่า".
   - Section "ตั้งค่า": link "ติดตั้ง".
   - Section and group headings are not clickable.
 - Header: page title (e.g. "สปอย / ตรวจแก้บท") with the page's action at the right; the MenuButton before the title only while the menu is hidden. The menu starts with MenuHead.
