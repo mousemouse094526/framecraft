@@ -82,7 +82,7 @@ describe("รายการ Series", () => {
     expect(row).toHaveTextContent("ช่อง เล่าก่อนนอน");
     expect(row).toHaveTextContent("12 EP");
     expect(row).toHaveTextContent("กรอบดำ");
-    expect(screen.getByRole("link", { name: "ชุดทั้งหมด", current: "page" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "การ์ตูนเล่า", current: "page" })).toBeInTheDocument();
   });
 
   it("asks to create the first Series when there is none", async () => {

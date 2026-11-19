@@ -10,7 +10,7 @@
 - Seams: 1 (ข้อหัวหน้าและล่าสุด), 4
 - User stories: 8
 
-**Status:** ready
+**Status:** done
 
 ## Acceptance criteria
 

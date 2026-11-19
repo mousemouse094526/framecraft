@@ -1,66 +1,80 @@
+import type { Recent, RecentArea } from "./recent";
 import { tabLabel, type TabId } from "./useHash";
 
-// The main menu (ui-nav D1–D3, D12, ADR 0062): four sections — เล่าเรื่อง and ดนตรี with the main
-// topics and their pages, คลัง with the libraries, ตั้งค่า with ติดตั้ง. Only ways to a reel, what
-// reels use, or the machine's setup belong here (D13). What one topic works on before it is a reel
-// is an item of that topic; คลัง holds what is shared or written once and picked (nav-ia D2, ADR 0068).
-// A page that belongs in the menu is an item here; pages never tell the menu which item they are,
-// the hash does (D6, D11), and every page's hash is under its item's (nav-ia D1, ADR 0067).
+// The main menu (ui-nav D1, D2, ADR 0062, ADR 0070): sections, then links, two levels only (nav-ia
+// D16) — เล่าเรื่อง and ดนตรี with the topics' links, ล่าสุด while there is something recent, คลัง
+// with the libraries, ตั้งค่า with ติดตั้ง. Only ways to a reel, what reels use, or the machine's
+// setup belong here (D13); คลัง holds what is shared or written once and picked (nav-ia D2, ADR 0068).
+// A page that belongs in the menu is a link here; pages never tell the menu which link they are,
+// the hash does (D6, D11), and every page's hash is under its link's (nav-ia D1, ADR 0067).
 
 export type NavItem = {
   label: string;
   hash: string;
+  /** The topic or library whose pages open it (`tabOf`): only the open one's links can be open (nav-ia D19). */
+  tab: TabId;
   /** Also open on a deeper hash: `{hash}/…` or `{hash}?…` (D11). */
   prefix?: boolean;
-  /** The topics a library is used with, the line under its name (D2). */
-  uses?: string;
+  /** The small line under its name: what a library is used with (D2), or the link a recent item is from (nav-ia D18). */
+  detail?: string;
 };
 
-export type NavTopic = { id: TabId; label: string; items: readonly NavItem[] };
+/** A heading that is not a link, over its links: two levels, never a group inside (nav-ia D16, ADR 0070). */
+export type NavSection = { id: string; label: string; items: readonly NavItem[] };
 
-export const SETUP_ITEM: NavItem = { label: "ติดตั้ง", hash: "#/setup" };
+export const SETUP_ITEM: NavItem = { label: "ติดตั้ง", hash: "#/setup", tab: "setup" };
 
-/** A heading that is not a link, over its topics and its own items (D12). */
-export type NavSection = { id: string; label: string; topics: readonly NavTopic[]; items: readonly NavItem[] };
+// The topics with pages under their link, and the source line of their recent items (nav-ia D16, D18).
+const TOON: NavItem = { label: "การ์ตูนเล่า", hash: "#/toon", tab: "toon", prefix: true };
+const COVERS: NavItem = { label: "reel cover", hash: "#/covers", tab: "covers", prefix: true };
+const DRUMS: NavItem = { label: "reel กลอง", hash: "#/drums", tab: "drums", prefix: true };
 
-const [SPOIL, TOON, DRUMS, COVERS]: readonly NavTopic[] = [
+const MUSIC: NavSection = { id: "music", label: "ดนตรี", items: [COVERS, DRUMS] };
+
+const LIBRARY_ITEMS: readonly NavItem[] = [
+  { label: "คลังความรู้", hash: "#/stories", tab: "stories", prefix: true, detail: "ใช้กับ สปอย" },
+  { label: "คลังเสียง", hash: "#/sounds", tab: "sounds", prefix: true, detail: "ใช้กับ สปอย, การ์ตูนเล่า" },
+  { label: "เสียงพากย์", hash: "#/voices", tab: "voices", detail: "ใช้กับ สปอย, การ์ตูนเล่า" },
+];
+
+// What goes in the menu is a place to go, never an action ("สร้าง…", a button on the page) or a
+// second line to a page another link opens (nav-ia D17).
+export const NAV_SECTIONS: readonly NavSection[] = [
   {
-    id: "spoil",
-    label: "สปอย",
+    id: "story",
+    label: "เล่าเรื่อง",
     items: [
       // One page for the one Spoil draft: its steps are the page's, not the menu's (nav-ia D5).
-      { label: "ทำสปอย", hash: "#/spoil", prefix: true },
-      { label: "คลิปทั้งหมด", hash: "#/spoil/clips" },
+      { label: "ทำสปอย", hash: "#/spoil", tab: "spoil", prefix: true },
+      { label: "คลิปทั้งหมด", hash: "#/spoil/clips", tab: "spoil" },
+      TOON,
     ],
   },
-  {
-    id: "toon",
-    label: "การ์ตูนเล่า",
-    items: [
-      { label: "ชุดทั้งหมด", hash: "#/toon" },
-      { label: "สร้างชุดใหม่", hash: "#/toon/new" },
-    ],
-  },
-  { id: "drums", label: "reel กลอง", items: [{ label: "reel ทั้งหมด", hash: "#/drums" }] },
-  { id: "covers", label: "reel cover", items: [{ label: "เพลงทั้งหมด", hash: "#/covers" }] },
+  MUSIC,
+  { id: "library", label: "คลัง", items: LIBRARY_ITEMS },
+  { id: "settings", label: "ตั้งค่า", items: [SETUP_ITEM] },
 ];
 
-export const LIBRARY_LABEL = "คลัง";
-
-export const LIBRARY_ITEMS: readonly NavItem[] = [
-  { label: "คลังความรู้", hash: "#/stories", prefix: true, uses: "ใช้กับ สปอย" },
-  { label: "คลังเสียง", hash: "#/sounds", prefix: true, uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
-  { label: "เสียงพากย์", hash: "#/voices", uses: "ใช้กับ สปอย, การ์ตูนเล่า" },
+// ล่าสุด's order is the menu's, by source, not the storage's (nav-ia D18).
+const RECENT_SOURCES: readonly [RecentArea, NavItem][] = [
+  ["toon", TOON],
+  ["covers", COVERS],
+  ["drums", DRUMS],
 ];
 
-export const NAV_SECTIONS: readonly NavSection[] = [
-  { id: "story", label: "เล่าเรื่อง", topics: [SPOIL, TOON], items: [] },
-  { id: "music", label: "ดนตรี", topics: [COVERS, DRUMS], items: [] },
-  { id: "library", label: LIBRARY_LABEL, topics: [], items: LIBRARY_ITEMS },
-  { id: "settings", label: "ตั้งค่า", topics: [], items: [SETUP_ITEM] },
-];
+/** The stored recent items as menu links, each saying the link it is from; a page under one (its `/cast`, …) opens it too (ui-nav D5, D11). */
+export function recentLinks(recent: Recent): NavItem[] {
+  return RECENT_SOURCES.flatMap(([area, source]) =>
+    recent[area].map(({ hash, label }) => ({ label, hash, tab: source.tab, prefix: true, detail: source.label })),
+  );
+}
 
-export const NAV_TOPICS: readonly NavTopic[] = NAV_SECTIONS.flatMap((section) => section.topics);
+/** The menu's sections, with ล่าสุด between ดนตรี and คลัง while it has something (nav-ia D18). */
+export function menuSections(recent: readonly NavItem[]): readonly NavSection[] {
+  if (!recent.length) return NAV_SECTIONS;
+  const at = NAV_SECTIONS.indexOf(MUSIC) + 1;
+  return [...NAV_SECTIONS.slice(0, at), { id: "recent", label: "ล่าสุด", items: recent }, ...NAV_SECTIONS.slice(at)];
+}
 
 /** Whether `item` is open at `hash`: the same hash, or for a prefix item one under it (D11). */
 function opens(item: NavItem, hash: string): boolean {
@@ -75,18 +89,15 @@ export function activeItem<T extends NavItem>(hash: string, items: readonly T[])
   return best;
 }
 
-/** Where the user is: the item open, and the header's line for it (D11). `extra` holds the items
- * a topic shows beyond its fixed ones, such as its recent ones. */
-export function locationOf(hash: string, tab: TabId, extra: (topic: TabId) => readonly NavItem[] = () => []) {
-  const topic = NAV_TOPICS.find((t) => t.id === tab);
-  const topicItems = topic ? [...topic.items, ...extra(topic.id)] : [];
-  // One longest match over both, so `#/spoil/clips` is คลิปทั้งหมด, not ทำสปอย under `#/spoil`.
-  const found = activeItem(hash, [...topicItems, ...LIBRARY_ITEMS]);
+/** Where the user is: the link open, among the open tab's only (so `#/toon?x`, which opens ติดตั้ง,
+ * opens no การ์ตูนเล่า link), and the header's line: the menu's own link open there, never a recent
+ * one, so it stays when a page puts itself in ล่าสุด after it loads (D11, nav-ia D19, D20). */
+export function locationOf(hash: string, tab: TabId, recent: readonly NavItem[]) {
+  const fixed = NAV_SECTIONS.flatMap((section) => section.items).filter((item) => item.tab === tab);
+  const own = activeItem(hash, fixed);
+  // The longer hash wins, so a recent song is open rather than reel cover, and `#/spoil/clips` is
+  // คลิปทั้งหมด rather than ทำสปอย.
+  const found = activeItem(hash, [...fixed, ...recent.filter((item) => item.tab === tab)]);
   const item = found ?? (tab === "setup" ? SETUP_ITEM : null);
-  const text = !found
-    ? (tabLabel(tab) ?? "")
-    : LIBRARY_ITEMS.includes(found)
-      ? `${LIBRARY_LABEL} / ${found.label}`
-      : `${topic!.label} / ${found.label}`;
-  return { item, text };
+  return { item, text: own?.label ?? tabLabel(tab) };
 }

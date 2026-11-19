@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
 // ล่าสุด: the Series or EPs, drum reels and songs last opened in this browser, newest first, at
-// most 3 per topic, under their topic in the main menu (ui-nav D5, D10, D11). A convenience of
+// most 3 per topic, in the main menu's ล่าสุด section (ui-nav D5, D10, D11, nav-ia D18). A convenience of
 // this browser only: no storage, or a broken value, is just no recent items.
 
 export type RecentArea = "toon" | "drums" | "covers";

@@ -99,6 +99,7 @@ question; the full entry is in the feature's decisions.md.
 | "ล่าสุด" เป็นหมวดของตัวเองระหว่างดนตรีกับคลัง บรรทัดรองบอกแหล่ง (changes ui-nav D5) | [nav-ia](features/nav-ia/decisions.md) | D18 | — | — | active |
 | หัวหน้าคือชื่อลิงก์ที่เปิด; จากล่าสุด "{ลิงก์ต้นทาง} / {ชื่อ}" (changes ui-nav D11) | [nav-ia](features/nav-ia/decisions.md) | D19 | — | — | changed by nav-ia D20 |
 | หน้าลึกกว่าของการ์ตูนเล่า reel cover reel กลอง: หัวหน้าเป็นชื่อลิงก์แหล่งเสมอ ลิงก์ล่าสุดที่ตรงยังเป็น current (changes D19) | [nav-ia](features/nav-ia/decisions.md) | D20 | — | — | active |
+| `NavItem.tab` แทน `NavTopic`: ลิงก์ที่เปิดหาในลิงก์ของ tab ที่เปิด; `recentLinks` และ `menuSections` ใน `lib/nav` | [nav-ia](features/nav-ia/decisions.md) | D21 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
 
 ## ทำ reel อย่างเดียว ไม่มีบทเรียน
 

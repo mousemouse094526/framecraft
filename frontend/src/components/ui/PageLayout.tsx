@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
-import { locationOf, NAV_SECTIONS, type NavItem } from "../../lib/nav";
+import { locationOf, menuSections, recentLinks, type NavItem } from "../../lib/nav";
 import { useDismiss } from "../../lib/useDismiss";
 import { useHash, type TabId } from "../../lib/useHash";
 import { useMediaQuery } from "../../lib/useMediaQuery";
@@ -70,14 +70,10 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
   const focusNext = useRef<"button" | "hider" | null>(null);
   const menu = useRef<HTMLElement>(null);
   const menuId = useId();
-  const recent = useRecent();
-  // ล่าสุด as menu items under their topic; a page under one (its `/cast`, `/renders`, …) opens it too (ui-nav D5, D11).
-  const recentItems = useMemo(() => {
-    const items: Partial<Record<TabId, NavItem[]>> = {};
-    for (const [area, list] of Object.entries(recent)) items[area as TabId] = list.map(({ hash, label }) => ({ hash, label, prefix: true }));
-    return items;
-  }, [recent]);
-  const { item, text } = locationOf(hash, tab, (topic) => recentItems[topic] ?? []);
+  const stored = useRecent();
+  // Made once, so the menu and where-the-user-is read the same links (nav-ia D18, D20).
+  const recent = useMemo(() => recentLinks(stored), [stored]);
+  const { item, text } = locationOf(hash, tab, recent);
 
   const drawerOpen = drawer && !pinned;
   const shown = pinned ? !collapsed : drawerOpen;
@@ -167,9 +163,8 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
       <MainMenu
         ref={menu}
         id={menuId}
-        tab={tab}
         current={item}
-        recent={recentItems}
+        recent={recent}
         onPick={picked}
         head={
           <MenuHead
@@ -214,21 +209,9 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
   );
 }
 
-/** Where the user is, as the page's heading: the topic muted, then the item (ui-nav D11, D14). */
+/** Where the user is, as the page's heading: the open link's name (ui-nav D14, nav-ia D19, D20). */
 function PageTitle({ text }: { text: string }) {
-  const cut = text.indexOf(" / ");
-  return (
-    <h1 className="min-w-0 flex-1 truncate text-lg leading-[1.5] font-semibold text-foreground">
-      {cut < 0 ? (
-        text
-      ) : (
-        <>
-          <span className="font-medium text-muted-foreground">{text.slice(0, cut)} / </span>
-          {text.slice(cut + 3)}
-        </>
-      )}
-    </h1>
-  );
+  return <h1 className="min-w-0 flex-1 truncate text-lg leading-[1.5] font-semibold text-foreground">{text}</h1>;
 }
 
 function Wordmark() {
@@ -270,17 +253,16 @@ function MenuHead({ ref, label, icon, onClick, className }: HeadProps) {
 type MenuProps = {
   ref: Ref<HTMLElement>;
   id: string;
-  tab: TabId;
   current: NavItem | null;
-  recent: Partial<Record<TabId, NavItem[]>>;
+  recent: readonly NavItem[];
   onPick: (event: MouseEvent<HTMLAnchorElement>) => void;
   head: ReactNode;
   className: string;
 };
 
-/** The main menu: each section under its heading, with its topics and their items, or its own items
- * (ui-nav D1–D3, D12). One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
-function MainMenu({ ref, id, tab, current, recent, onPick, head, className }: MenuProps) {
+/** The main menu: each section under its heading, with its links (ui-nav D1, D2, nav-ia D16, D18).
+ * One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
+function MainMenu({ ref, id, current, recent, onPick, head, className }: MenuProps) {
   const headingId = useId();
   return (
     <nav
@@ -290,25 +272,12 @@ function MainMenu({ ref, id, tab, current, recent, onPick, head, className }: Me
       className={`flex-col gap-1 overflow-y-auto scroll-pt-14 border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
     >
       {head}
-      {NAV_SECTIONS.map((section) => (
+      {menuSections(recent).map((section) => (
         <MenuSection key={section.id} id={`${headingId}-${section.id}`} label={section.label}>
-          {section.topics.map((topic) => (
-            <MenuGroup key={topic.id} id={`${headingId}-${topic.id}`} label={topic.label} current={tab === topic.id}>
-              {topic.items.map((item) => (
-                <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
-              ))}
-              {!!recent[topic.id]?.length && (
-                <>
-                  <p className="px-3 pt-1.5 text-[11px] leading-[1.5] font-medium text-muted-foreground">ล่าสุด</p>
-                  {recent[topic.id]!.map((item) => (
-                    <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
-                  ))}
-                </>
-              )}
-            </MenuGroup>
-          ))}
           {section.items.map((item) => (
-            <MenuLink key={item.hash} item={item} current={current === item} onPick={onPick} />
+            // By hash, not the object: the open link is found in a list made apart from this one. A
+            // recent hash is always deeper than a menu link's (`lib/recent` SHAPES), so only one matches.
+            <MenuLink key={item.hash} item={item} current={current?.hash === item.hash} onPick={onPick} />
           ))}
         </MenuSection>
       ))}
@@ -328,26 +297,14 @@ function MenuSection({ id, label, children }: { id: string; label: string; child
   );
 }
 
-/** A topic's heading and its items; the open topic's heading stands out (ui-nav D3, D6). */
-function MenuGroup({ id, label, current, children }: { id: string; label: string; current: boolean; children: ReactNode }) {
-  return (
-    <div role="group" aria-labelledby={id} aria-current={current || undefined} className="mt-1 flex flex-col gap-0.5">
-      <p id={id} className={`px-3 pb-0.5 text-xs leading-[1.5] font-semibold ${current ? "text-brand" : "text-mid"}`}>
-        {label}
-      </p>
-      {children}
-    </div>
-  );
-}
-
 /** One item: a plain `#/…` link, so the leave guard and the back button work as before (ui-nav D6). */
 function MenuLink({ item, current, onPick }: { item: NavItem; current: boolean; onPick: MenuProps["onPick"] }) {
-  const usesId = useId();
+  const detailId = useId();
   return (
     <a
       href={item.hash}
       aria-current={current ? "page" : undefined}
-      aria-describedby={item.uses ? usesId : undefined}
+      aria-describedby={item.detail ? detailId : undefined}
       onClick={onPick}
       // Below 1280px the drawer's items are 44px touch targets.
       className={`flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-sm leading-[1.5] max-xl:min-h-11 ${
@@ -356,7 +313,7 @@ function MenuLink({ item, current, onPick }: { item: NavItem; current: boolean; 
     >
       <span className="flex min-w-0 flex-col">
         <span className="truncate">{item.label}</span>
-        {item.uses && <span id={usesId} aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{item.uses}</span>}
+        {item.detail && <span id={detailId} aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{item.detail}</span>}
       </span>
     </a>
   );

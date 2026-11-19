@@ -1,11 +1,11 @@
 # Progress: nav-ia
 
-**Now:** change request เมนู 2 ชั้น (D16–D20) ตัดเป็น ticket 05
+**Now:** ทุก ticket done (01–05) รอ feature review
 
 **Next:**
 
 ```
-/warroom-build nav-ia 05
+/warroom-build nav-ia --review-feature
 ```
 
 ## Tickets
@@ -16,9 +16,26 @@
 | 02 | สปอยเป็นพื้นที่ทำงานเดียว | done |
 | 03 | เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว | done |
 | 04 | EP การ์ตูนเล่าเป็นหน้าเดียว | done |
-| 05 | เมนู 2 ชั้น | ready |
+| 05 | เมนู 2 ชั้น | done |
 
 ## Log
+
+### 05: เมนู 2 ชั้น — done 2026-11-19
+
+**Built:**
+- เมนู: หมวด → ลิงก์ ไม่มีหัวกลุ่มซ้อน; ทำสปอย · คลิปทั้งหมด · การ์ตูนเล่า · reel cover · reel กลอง · คลังความรู้ · คลังเสียง · เสียงพากย์ · ติดตั้ง; ไม่มี สร้างชุดใหม่ ชุดทั้งหมด เพลงทั้งหมด reel ทั้งหมด
+- หมวด "ล่าสุด" ระหว่างดนตรีกับคลัง เรียง การ์ตูนเล่า → reel cover → reel กลอง บรรทัดรองบอกแหล่ง; ไม่มีของล่าสุด = ไม่มีหมวด
+- `<h1>` = ชื่อลิงก์ที่เปิด; หน้าลึกกว่าของการ์ตูนเล่า reel cover reel กลอง = ชื่อลิงก์แหล่ง ไม่เปลี่ยนเมื่อหน้าเพิ่มตัวเองเข้าล่าสุด; `#/toon?x` → ติดตั้งเปิด
+- ภาพแคปจากของจริง (ล่าสุดเต็มสามแหล่ง, `#/covers`): [375px drawer เปิด](screens/05-menu-375.png) · [1280px](screens/05-menu-1280.png)
+
+**Decided:**
+- D21 — `NavItem.tab` แทน `NavTopic`; `recentLinks` / `menuSections` ใน `lib/nav`
+- review: หัวหน้าอ่านจากลิงก์ของเมนูที่เปิด (ไม่ใช่ `tabLabel`); `uses` → `detail`; test เมนูหาด้วย role/ชื่อ ไม่เดิน DOM; test `#/toon/new` ใช้ `testBackend`; SKILL.md อธิบาย `nav.ts` ใหม่
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** typecheck · `npm test` 686 passed · build · `uv run pytest` 1547 passed — all green
 
 ### feature review — done 2026-11-19
 

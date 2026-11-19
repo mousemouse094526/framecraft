@@ -117,10 +117,10 @@ const linkBox = () => screen.getByRole("textbox", { name: "ลิงก์เพ
 const bringIn = () => screen.getByRole("button", { name: "เอาเพลงเข้า" });
 
 describe("รายการเพลง", () => {
-  it("เพลงทั้งหมด in the menu opens #/covers, inviting the first song and saying the song is for notes only (e2e)", async () => {
+  it("reel cover in the menu opens #/covers, inviting the first song and saying the song is for notes only (e2e)", async () => {
     const user = open("#/setup", [get("/api/setup/status", status)]);
 
-    await user.click(screen.getByRole("link", { name: "เพลงทั้งหมด" }));
+    await user.click(screen.getByRole("link", { name: "reel cover" }));
 
     expect(window.location.hash).toBe("#/covers");
     expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง")).toBeInTheDocument();
@@ -534,17 +534,20 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   });
 });
 
-describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
+describe("ล่าสุด in the main menu (ui-nav D5, nav-ia D18, D20)", () => {
   const stored = () => JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
-  const songsGroup = () => within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "reel cover" }));
+  const menu = () => within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
+  const recentGroup = () => within(menu().getByRole("group", { name: "ล่าสุด" }));
 
-  it("puts a song first under reel cover once its page loads, open there (e2e)", async () => {
+  it("puts a song first in ล่าสุด once its page loads, open there, the header still reel cover (e2e)", async () => {
     open(`#/covers/${ID}`, [get(PATH, songOf())]);
 
     await waitFor(() => expect(stored()?.covers).toEqual([{ hash: `#/covers/${ID}`, label: "Smells Like Teen Spirit" }]));
-    expect(songsGroup().getByText("ล่าสุด")).toBeInTheDocument();
-    expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: /^เมนู:/ })).toHaveAccessibleName("เมนู: reel cover / Smells Like Teen Spirit");
+    const link = recentGroup().getByRole("link", { name: "Smells Like Teen Spirit" });
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveAccessibleDescription("reel cover");
+    expect(screen.getByRole("button", { name: /^เมนู:/ })).toHaveAccessibleName("เมนู: reel cover");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("reel cover");
   });
 
   it("an old reel page's hash opens the song's one page, open in the menu under its new name (nav-ia D6, D9)", async () => {
@@ -552,20 +555,20 @@ describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
     open(`#/songs/${ID}/cover`, [get(PATH, songOf())]);
 
     expect(window.location.hash).toBe(`#/covers/${ID}`);
-    await waitFor(() => expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page"));
+    await waitFor(() => expect(recentGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page"));
     expect(stored()?.covers).toEqual([{ hash: `#/covers/${ID}`, label: "Smells Like Teen Spirit" }]);
   });
 
   it("forgets a song that is deleted (e2e)", async () => {
     window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ covers: [{ hash: `#/covers/${ID}`, label: "Smells Like Teen Spirit" }] }));
     const user = open("#/covers", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, []), send("DELETE", PATH, null, 204)]);
-    expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toBeInTheDocument();
+    expect(recentGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: "ลบ Smells Like Teen Spirit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "ลบ" }));
 
     await waitFor(() => expect(stored()?.covers).toEqual([]));
-    expect(songsGroup().queryByText("ล่าสุด")).toBeNull();
+    expect(menu().queryByRole("group", { name: "ล่าสุด" })).toBeNull();
   });
 
   it("forgets a song whose page answers not_found", async () => {

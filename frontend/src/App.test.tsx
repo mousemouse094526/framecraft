@@ -3,8 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { rememberRecent } from "./lib/recent";
 import { useLeaveGuard } from "./lib/useHash";
 import { stubMatchMedia } from "./testing/fakeMatchMedia";
+import { get, serve } from "./testing/testBackend";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -36,44 +38,61 @@ function menuButton() {
   return screen.getByRole("button", { name: /^เมนู:/ });
 }
 
-describe("main menu (ui-nav D1–D3, D12)", () => {
-  it("lists เล่าเรื่อง, ดนตรี, คลัง and ตั้งค่า with their topics and items, in that order (e2e)", () => {
+function heading() {
+  return within(screen.getByRole("banner")).getByRole("heading", { level: 1 });
+}
+
+/** Every group in the menu is one of these sections, in this order: a group inside one would be extra (D16). */
+function expectSections(names: string[]) {
+  expect(menu().getAllByRole("group")).toEqual(names.map((name) => menu().getByRole("group", { name })));
+}
+
+function recentGroup() {
+  return within(menu().getByRole("group", { name: "ล่าสุด" }));
+}
+
+const RECENT_KEY = "framecraft.nav.recent";
+
+describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D20)", () => {
+  it("lists เล่าเรื่อง, ดนตรี, คลัง and ตั้งค่า with only links under them, in that order (e2e)", () => {
     render(<App />);
 
     expect(menu().getAllByRole("link").map((link) => link.textContent)).toEqual([
       "ทำสปอย",
       "คลิปทั้งหมด",
-      "ชุดทั้งหมด",
-      "สร้างชุดใหม่",
-      "เพลงทั้งหมด",
-      "reel ทั้งหมด",
+      "การ์ตูนเล่า",
+      "reel cover",
+      "reel กลอง",
       "คลังความรู้ใช้กับ สปอย",
       "คลังเสียงใช้กับ สปอย, การ์ตูนเล่า",
       "เสียงพากย์ใช้กับ สปอย, การ์ตูนเล่า",
       "ติดตั้ง",
     ]);
-    const sections = menu().getAllByRole("group").filter((group) => group.parentElement?.tagName === "NAV");
-    const groupsOf = (section: HTMLElement) =>
-      within(section).queryAllByRole("group").map((group) => group.firstElementChild?.textContent);
-    expect(sections.map((section) => [section.firstElementChild?.textContent, groupsOf(section)])).toEqual([
-      ["เล่าเรื่อง", ["สปอย", "การ์ตูนเล่า"]],
-      ["ดนตรี", ["reel cover", "reel กลอง"]],
-      ["คลัง", []],
-      ["ตั้งค่า", []],
-    ]);
+    expectSections(["เล่าเรื่อง", "ดนตรี", "คลัง", "ตั้งค่า"]);
     expect(within(menu().getByRole("group", { name: "ตั้งค่า" })).getByRole("link", { name: "ติดตั้ง" })).toHaveAttribute("href", "#/setup");
-    expect(within(menu().getByRole("group", { name: "สปอย" })).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([
+    expect(within(menu().getByRole("group", { name: "เล่าเรื่อง" })).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([
       "#/spoil",
       "#/spoil/clips",
+      "#/toon",
+    ]);
+    expect(within(menu().getByRole("group", { name: "ดนตรี" })).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([
+      "#/covers",
+      "#/drums",
     ]);
   });
 
-  it("never marks a section open, only the topic in it (D12)", () => {
+  it("has no line that is an action or the same page as another (D17)", () => {
+    render(<App />);
+
+    for (const name of ["สร้างชุดใหม่", "ชุดทั้งหมด", "เพลงทั้งหมด", "reel ทั้งหมด"]) expect(menu().queryByRole("link", { name })).toBeNull();
+  });
+
+  it("never marks a section open, only the link (D16)", () => {
     window.location.hash = "#/spoil/clips";
     render(<App />);
 
-    expect(menu().getByRole("group", { name: "เล่าเรื่อง" })).not.toHaveAttribute("aria-current");
-    expect(menu().getByRole("group", { name: "สปอย" })).toHaveAttribute("aria-current", "true");
+    expect(menu().getAllByRole("group").filter((group) => group.hasAttribute("aria-current"))).toEqual([]);
+    expect(menu().getByRole("link", { current: "page" })).toHaveTextContent("คลิปทั้งหมด");
   });
 
   it("names each library by itself and says what it is used with (D2, nav-ia D2–D4)", () => {
@@ -86,41 +105,117 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     expect(within(menu().getByRole("group", { name: "คลัง" })).getAllByRole("link")).toHaveLength(3);
   });
 
-  // spec › Implementation › Hash: the item open, the topic whose heading stands out, and the header's line (D6, D11).
+  // spec › Design › หัวหน้าและลิงก์ที่เปิด: the link open and the header's line, with nothing in ล่าสุด (D19, D20).
   it.each([
-    ["", "ติดตั้ง", null, "ติดตั้ง"],
-    ["#/nope", "ติดตั้ง", null, "ติดตั้ง"],
-    ["#/setup", "ติดตั้ง", null, "ติดตั้ง"],
-    ["#/spoil", "ทำสปอย", "สปอย", "สปอย / ทำสปอย"],
-    ["#/spoil/xyz", "ทำสปอย", "สปอย", "สปอย / ทำสปอย"],
-    ["#/spoil/clips", "คลิปทั้งหมด", "สปอย", "สปอย / คลิปทั้งหมด"],
-    ["#/voices", "เสียงพากย์", null, "คลัง / เสียงพากย์"],
-    ["#/toon", "ชุดทั้งหมด", "การ์ตูนเล่า", "การ์ตูนเล่า / ชุดทั้งหมด"],
-    ["#/toon/new", "สร้างชุดใหม่", "การ์ตูนเล่า", "การ์ตูนเล่า / สร้างชุดใหม่"],
-    ["#/toon/series/s_1/cast", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
-    ["#/toon/eps/e_1", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
-    ["#/toon/sounds", "คลังเสียง", null, "คลัง / คลังเสียง"],
-    ["#/drums", "reel ทั้งหมด", "reel กลอง", "reel กลอง / reel ทั้งหมด"],
-    ["#/drums/a1b2c3d4e5f6", null, "reel กลอง", "reel กลอง"],
-    ["#/covers", "เพลงทั้งหมด", "reel cover", "reel cover / เพลงทั้งหมด"],
-    ["#/covers/s_1", null, "reel cover", "reel cover"],
-    ["#/covers/s_1/cover", null, "reel cover", "reel cover"],
-    ["#/stories", "คลังความรู้", null, "คลัง / คลังความรู้"],
-    ["#/stories/new", "คลังความรู้", null, "คลัง / คลังความรู้"],
-    ["#/stories/st_3fa91c07", "คลังความรู้", null, "คลัง / คลังความรู้"],
-    ["#/sounds", "คลังเสียง", null, "คลัง / คลังเสียง"],
-    ["#/sounds?back=#/toon", "คลังเสียง", null, "คลัง / คลังเสียง"],
-  ])("at %j marks %s open, %s's heading, and says %s (e2e)", (hash, open, topic, line) => {
+    ["", "ติดตั้ง", "ติดตั้ง"],
+    ["#/nope", "ติดตั้ง", "ติดตั้ง"],
+    ["#/setup", "ติดตั้ง", "ติดตั้ง"],
+    // Not a page of การ์ตูนเล่า (`tabOf`): it opens ติดตั้ง, and the การ์ตูนเล่า link stays closed.
+    ["#/toon?x", "ติดตั้ง", "ติดตั้ง"],
+    ["#/spoil", "ทำสปอย", "ทำสปอย"],
+    ["#/spoil/xyz", "ทำสปอย", "ทำสปอย"],
+    ["#/spoil/clips", "คลิปทั้งหมด", "คลิปทั้งหมด"],
+    ["#/voices", "เสียงพากย์", "เสียงพากย์"],
+    ["#/toon", "การ์ตูนเล่า", "การ์ตูนเล่า"],
+    ["#/toon/new", "การ์ตูนเล่า", "การ์ตูนเล่า"],
+    ["#/toon/series/s_1/cast", "การ์ตูนเล่า", "การ์ตูนเล่า"],
+    ["#/toon/eps/e_1", "การ์ตูนเล่า", "การ์ตูนเล่า"],
+    ["#/toon/sounds", "คลังเสียง", "คลังเสียง"],
+    ["#/drums", "reel กลอง", "reel กลอง"],
+    ["#/drums/a1b2c3d4e5f6", "reel กลอง", "reel กลอง"],
+    ["#/covers", "reel cover", "reel cover"],
+    ["#/covers/s_1", "reel cover", "reel cover"],
+    ["#/covers/s_1/cover", "reel cover", "reel cover"],
+    ["#/stories", "คลังความรู้", "คลังความรู้"],
+    ["#/stories/new", "คลังความรู้", "คลังความรู้"],
+    ["#/stories/st_3fa91c07", "คลังความรู้", "คลังความรู้"],
+    ["#/sounds", "คลังเสียง", "คลังเสียง"],
+    ["#/sounds?back=#/toon", "คลังเสียง", "คลังเสียง"],
+  ])("at %j marks %s open and says %s (e2e)", (hash, open, line) => {
     window.location.hash = hash;
     render(<App />);
 
-    expect(menu().queryAllByRole("link", { current: "page" }).length).toBe(open ? 1 : 0);
-    if (open) expect(menu().getByRole("link", { name: open })).toHaveAttribute("aria-current", "page");
-    const current = menu().getAllByRole("group").filter((group) => group.getAttribute("aria-current") === "true");
-    expect(current.map((group) => group.firstElementChild?.textContent)).toEqual(topic ? [topic] : []);
+    expect(menu().getAllByRole("link", { current: "page" })).toEqual([item(open)]);
     expect(menuButton()).toHaveAccessibleName(`เมนู: ${line}`);
-    expect(screen.getByRole("banner")).toHaveTextContent(line);
-    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(line);
+    expect(heading().textContent).toBe(line);
+  });
+
+  // The pages that open from ล่าสุด: the recent link is open, the header names its source (D20).
+  it.each([
+    ["#/toon/series/s_1", "toon", "รุ่นพี่เล่าว่า…", "การ์ตูนเล่า"],
+    ["#/toon/series/s_1/cast", "toon", "รุ่นพี่เล่าว่า…", "การ์ตูนเล่า"],
+    ["#/toon/eps/e_1", "toon", "รุ่นพี่เล่าว่า… · EP1", "การ์ตูนเล่า"],
+    ["#/covers/s_1", "covers", "Smells Like Teen Spirit", "reel cover"],
+    ["#/drums/a1b2c3d4e5f6", "drums", "ร็อกพื้นฐาน", "reel กลอง"],
+  ])("at %j in ล่าสุด (%s) marks %j open, not its source, and says %s (e2e)", (hash, area, label, line) => {
+    // ล่าสุด keeps the Series, not its cast page; the cast page opens the Series' link (prefix).
+    const page = hash.replace(/\/cast$/, "");
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify({ [area]: [{ hash: page, label }] }));
+    window.location.hash = hash;
+    render(<App />);
+
+    expect(recentGroup().getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
+    expect(menu().getAllByRole("link", { current: "page" })).toHaveLength(1);
+    expect(heading().textContent).toBe(line);
+    expect(menuButton()).toHaveAccessibleName(`เมนู: ${line}`);
+  });
+
+  it("has a ล่าสุด section between ดนตรี and คลัง: การ์ตูนเล่า, reel cover, reel กลอง, each saying its source (D18)", () => {
+    // Stored in another order than the menu's: the menu's order is its own.
+    window.localStorage.setItem(
+      RECENT_KEY,
+      JSON.stringify({
+        toon: [{ hash: "#/toon/eps/e_1", label: "EP 3: ไปทะเล" }],
+        drums: [{ hash: "#/drums/a1b2c3d4e5f6", label: "ร็อกพื้นฐาน" }],
+        covers: [{ hash: "#/covers/s_1", label: "Smells Like Teen Spirit" }],
+      }),
+    );
+    render(<App />);
+
+    expectSections(["เล่าเรื่อง", "ดนตรี", "ล่าสุด", "คลัง", "ตั้งค่า"]);
+    const links = recentGroup().getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["#/toon/eps/e_1", "#/covers/s_1", "#/drums/a1b2c3d4e5f6"]);
+    expect(links[0]).toHaveAccessibleName("EP 3: ไปทะเล");
+    expect(links[1]).toHaveAccessibleName("Smells Like Teen Spirit");
+    expect(links[2]).toHaveAccessibleName("ร็อกพื้นฐาน");
+    expect(links[0]).toHaveAccessibleDescription("การ์ตูนเล่า");
+    expect(links[1]).toHaveAccessibleDescription("reel cover");
+    expect(links[2]).toHaveAccessibleDescription("reel กลอง");
+  });
+
+  it("reads a song kept under the old songs key as a reel cover link in ล่าสุด (nav-ia D9)", () => {
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify({ songs: [{ hash: "#/songs/x", label: "เพลงเก่า" }] }));
+    render(<App />);
+
+    const link = recentGroup().getByRole("link", { name: "เพลงเก่า" });
+    expect(link).toHaveAttribute("href", "#/covers/x");
+    expect(link).toHaveAccessibleDescription("reel cover");
+  });
+
+  it("keeps the header when a page puts itself in ล่าสุด after it loads; the open link moves there (D20)", () => {
+    window.location.hash = "#/covers/s_1";
+    render(<App />);
+    expect(item("reel cover")).toHaveAttribute("aria-current", "page");
+
+    act(() => rememberRecent("covers", "#/covers/s_1", "Smells Like Teen Spirit"));
+
+    expect(recentGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page");
+    expect(item("reel cover")).not.toHaveAttribute("aria-current");
+    expect(heading().textContent).toBe("reel cover");
+  });
+
+  it("opens การ์ตูนเล่า on #/toon/new, and สร้าง Series at #/toon still leads there (D17)", async () => {
+    const user = userEvent.setup();
+    serve(fetchMock, [get("/api/toon/series", [])]);
+    window.location.hash = "#/toon";
+    render(<App />);
+
+    await user.click((await screen.findAllByRole("link", { name: "สร้าง Series" }))[0]);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "สร้าง Series" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/toon/new");
+    await waitFor(() => expect(item("การ์ตูนเล่า")).toHaveAttribute("aria-current", "page"));
+    expect(heading().textContent).toBe("การ์ตูนเล่า");
   });
 
   it("still opens each page from its hash (D6)", () => {
@@ -213,7 +308,7 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     await user.click(item("คลิปทั้งหมด"));
 
     expect(window.location.hash).toBe("#/spoil/clips");
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / คลิปทั้งหมด"));
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: คลิปทั้งหมด"));
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
     await waitFor(() => expect(menuButton()).toHaveFocus());
   });
@@ -276,14 +371,14 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     window.location.hash = "#/spoil";
     render(<App />);
     await user.click(item("คลิปทั้งหมด"));
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / คลิปทั้งหมด"));
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: คลิปทั้งหมด"));
     await user.click(menuButton());
 
     act(() => {
       window.history.back();
     });
 
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / ทำสปอย"));
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: ทำสปอย"));
     // The new hash renders first; the effect that closes the drawer runs after it.
     await waitFor(() => expect(menuButton()).toHaveAttribute("aria-expanded", "false"));
     expect(document.querySelector("[inert]")).toBeNull();
@@ -318,7 +413,7 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     );
 
     await user.click(menuButton());
-    await user.click(item("เพลงทั้งหมด"));
+    await user.click(item("reel cover"));
 
     await waitFor(() => expect(window.confirm).toHaveBeenCalled());
     expect(window.location.hash).toBe("");
@@ -345,7 +440,7 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     );
 
     await user.click(menuButton());
-    await user.click(item("เพลงทั้งหมด"));
+    await user.click(item("reel cover"));
 
     expect(window.location.hash).toBe("#/covers");
   });
@@ -402,7 +497,7 @@ describe("menu from 1280px: a pinned sidebar (ui-nav D4, D10, D11, D14)", () => 
     await user.click(item("คลิปทั้งหมด"));
 
     expect(window.location.hash).toBe("#/spoil/clips");
-    await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("สปอย / คลิปทั้งหมด"));
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^คลิปทั้งหมด$/));
     expect(screen.queryByRole("button", { name: /^เมนู:/ })).toBeNull();
     expect(screen.getByText("กำลังโหลด…").closest("[inert]")).toBeNull();
   });

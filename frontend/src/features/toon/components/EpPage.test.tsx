@@ -489,7 +489,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
   });
 });
 
-describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
+describe("ล่าสุด in the main menu (ui-nav D5, nav-ia D18, D20)", () => {
   const stored = () => JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
 
   it("puts a Series first once its EPs load, and an EP with its Series as parent once it loads (e2e)", async () => {
@@ -500,9 +500,11 @@ describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
     open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf())]);
 
     await waitFor(() => expect(stored()?.toon[0]).toEqual({ hash: `#/toon/eps/${EP_ID}`, label: expect.stringMatching(/^รุ่นพี่เล่าว่า… · EP\d+$/), parent: `#/toon/series/${SERIES_ID}` }));
-    const toon = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "การ์ตูนเล่า" }));
-    expect(toon.getAllByRole("link").map((link) => link.textContent)).toEqual(["ชุดทั้งหมด", "สร้างชุดใหม่", stored().toon[0].label, "รุ่นพี่เล่าว่า…"]);
-    expect(toon.getByRole("link", { name: stored().toon[0].label })).toHaveAttribute("aria-current", "page");
+    const recent = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "ล่าสุด" }));
+    expect(recent.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([`#/toon/eps/${EP_ID}`, `#/toon/series/${SERIES_ID}`]);
+    expect(recent.getByRole("link", { name: stored().toon[0].label })).toHaveAttribute("aria-current", "page");
+    expect(recent.getByRole("link", { name: "รุ่นพี่เล่าว่า…" })).toHaveAccessibleDescription("การ์ตูนเล่า");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("การ์ตูนเล่า");
   });
 });
 
