@@ -1,6 +1,6 @@
 # Progress: ui-nav
 
-**Now:** change request 2 (D14) built — ticket 04 done, PR เข้า develop; change request ([PR #20](https://github.com/mousemouse094526/framecraft/pull/20), `6040d74`); 01–02 ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
+**Now:** change request 2 (D14) built — ticket 04 done, [PR #23](https://github.com/mousemouse094526/framecraft/pull/23) รอ merge; change request ([PR #20](https://github.com/mousemouse094526/framecraft/pull/20), `6040d74`); 01–02 ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
 
 **Next:**
 
