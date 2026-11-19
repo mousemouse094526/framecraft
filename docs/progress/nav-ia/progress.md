@@ -1,11 +1,11 @@
 # Progress: nav-ia
 
-**Now:** merged ([PR #25](https://github.com/mousemouse094526/framecraft/pull/25), `bdcb467`) — เมนูตรงกับที่อยู่ งานหนึ่งชิ้นเป็นหน้าเดียว
+**Now:** change request เมนู 2 ชั้น (D16–D20) ตัดเป็น ticket 05
 
 **Next:**
 
 ```
-/warroom next
+/warroom-build nav-ia 05
 ```
 
 ## Tickets
@@ -16,6 +16,7 @@
 | 02 | สปอยเป็นพื้นที่ทำงานเดียว | done |
 | 03 | เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว | done |
 | 04 | EP การ์ตูนเล่าเป็นหน้าเดียว | done |
+| 05 | เมนู 2 ชั้น | ready |
 
 ## Log
 
