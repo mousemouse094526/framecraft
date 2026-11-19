@@ -122,10 +122,10 @@ async function hashSettles() {
 }
 
 describe("รายการ reel กลอง", () => {
-  it("reel ทั้งหมด in the menu opens #/drums, which invites the first reel when there is none", async () => {
+  it("reel กลอง in the menu opens #/drums, which invites the first reel when there is none", async () => {
     const user = open("#/setup", [get("/api/setup/status", status)]);
 
-    await user.click(screen.getByRole("link", { name: "reel ทั้งหมด" }));
+    await user.click(screen.getByRole("link", { name: "reel กลอง" }));
 
     expect(window.location.hash).toBe("#/drums");
     expect(await screen.findByText("ยังไม่มี reel กลอง")).toBeInTheDocument();
@@ -573,7 +573,7 @@ describe("บันทึก", () => {
 
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     confirmMock.mockReturnValue(false);
-    await user.click(screen.getByRole("link", { name: "reel ทั้งหมด" }));
+    await user.click(screen.getByRole("link", { name: "reel กลอง" }));
     await hashSettles();
 
     expect(confirmMock).toHaveBeenCalledWith("ออกโดยไม่บันทึก?");
@@ -587,7 +587,7 @@ describe("บันทึก", () => {
     await user.type(screen.getByRole("textbox", { name: "หัวเรื่อง" }), "!");
     await user.click(save());
     await screen.findByText("บันทึกแล้ว");
-    await user.click(screen.getByRole("link", { name: "reel ทั้งหมด" }));
+    await user.click(screen.getByRole("link", { name: "reel กลอง" }));
     await hashSettles();
 
     expect(confirmMock).not.toHaveBeenCalled();
@@ -826,13 +826,16 @@ describe("พื้นหลัง", () => {
   });
 });
 
-describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
-  it("puts a reel first under reel กลอง once its editor loads, and keeps it open on its renders (e2e)", async () => {
+describe("ล่าสุด in the main menu (ui-nav D5, nav-ia D18, D20)", () => {
+  it("puts a reel first in ล่าสุด once its editor loads, open there, the header still reel กลอง (e2e)", async () => {
     await openEditor();
 
     // The editor's buttons commit before the effect that remembers the reel runs: wait for the write.
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null")?.drums).toEqual([{ hash: `#/drums/${ID}`, label: "ร็อกพื้นฐาน" }]));
-    const drums = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "reel กลอง" }));
-    expect(drums.getByRole("link", { name: "ร็อกพื้นฐาน" })).toHaveAttribute("aria-current", "page");
+    const recent = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "ล่าสุด" }));
+    const link = recent.getByRole("link", { name: "ร็อกพื้นฐาน" });
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveAccessibleDescription("reel กลอง");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("reel กลอง");
   });
 });

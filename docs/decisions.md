@@ -68,14 +68,14 @@ question; the full entry is in the feature's decisions.md.
 | ส่วน "คลัง" ท้ายเมนู: คลังคลิป · คลังความรู้ · คลังเสียง · เสียงที่บันทึก มีที่เดียวพร้อม "ใช้กับ …"; tab "คลิป" เรียก "คลังคลิป" | [ui-nav](features/ui-nav/decisions.md) | D2 | — | [0063](adr/0063-libraries-in-one-menu-section.md) | changed by nav-ia D2 |
 | ขั้นของสปอยและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู ทุกส่วนเปิดตลอด หัวข้อที่มีรายการเป็นหัวกลุ่มไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D3 | — | — | superseded by nav-ia D5 |
 | `<nav>` "เมนูหลัก" ตัวเดียว: ≥1024px sidebar ตรึงซ้ายยุบได้ (จำใน `localStorage`), จอแคบ drawer จากปุ่ม ☰ "เมนู: {หัวข้อ}" (แทน sound-library D16) | [ui-nav](features/ui-nav/decisions.md) | D4 | — | — | changed by ui-nav D11, D14 |
-| "ล่าสุด" ในเมนู: ชุดหรือ EP, บทเรียนกลอง, เพลง ไม่เกิน 3 ต่อหัวข้อ ใน `localStorage`; ลบเมื่อ `not_found` หรือลบชิ้นนั้น | [ui-nav](features/ui-nav/decisions.md) | D5 | nav-ia | — | changed by ui-nav D11 |
-| hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | reels-only | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11; changed by nav-ia D1, D9 |
+| "ล่าสุด" ในเมนู: ชุดหรือ EP, บทเรียนกลอง, เพลง ไม่เกิน 3 ต่อหัวข้อ ใน `localStorage`; ลบเมื่อ `not_found` หรือลบชิ้นนั้น | [ui-nav](features/ui-nav/decisions.md) | D5 | nav-ia | — | changed by ui-nav D11; changed by nav-ia D18 |
+| hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | reels-only | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11; changed by nav-ia D1, D9, D16 |
 | เปลือกแอปสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma | [ui-nav](features/ui-nav/decisions.md) | D7 | — | — | active |
 | test ที่ผูกกับแถบ tab เดิม ("แถบ tab", "เมนู tab") เขียนใหม่ให้หา "เมนูหลัก" | [ui-nav](features/ui-nav/decisions.md) | D8 | — | — | active |
 | seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | reels-only, nav-ia | — | active |
 | กฎ red team ของเมนู: โฟกัสและ `inert` ของ drawer, ชื่อล่าสุดตัด 80 ตัวอักษร, hash ล่าสุดตรงรูป route, อ่านก่อนเขียน, ถอยกลับด้วย revert | [ui-nav](features/ui-nav/decisions.md) | D10 | — | — | changed by ui-nav D14 |
-| sidebar ตรึงตั้งแต่ 1280px (`xl`) ไม่ใช่ 1024px; หน้าที่เขียนและลบล่าสุด; รายการตรงตัวหรือ prefix; ข้อความตำแหน่งในหัวหน้า | [ui-nav](features/ui-nav/decisions.md) | D11 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
-| เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | changed by reels-only D5 |
+| sidebar ตรึงตั้งแต่ 1280px (`xl`) ไม่ใช่ 1024px; หน้าที่เขียนและลบล่าสุด; รายการตรงตัวหรือ prefix; ข้อความตำแหน่งในหัวหน้า | [ui-nav](features/ui-nav/decisions.md) | D11 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by nav-ia D19 |
+| เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | changed by reels-only D5; changed by nav-ia D16 |
 | เมนูมีเฉพาะทางที่ได้ reel (ก), ของที่ reel ใช้ (ข) หรือการตั้งค่าเครื่อง (ค); ไม่แน่ใจ = เก็บไว้เป็น Open Question; ไม่ซ่อนหน้าของ feature อื่น | [ui-nav](features/ui-nav/decisions.md) | D13 | — | [0064](adr/0064-main-menu-reels-only.md) | extended by reels-only D1 |
 | หัวเมนู (sidebar และ drawer) มี wordmark กับปุ่ม "ยุบเมนู"/"ปิดเมนู"; หัวหน้าเหลือ ☰ เมื่อเมนูซ่อน `<h1>` ข้อความตำแหน่ง และ action | [ui-nav](features/ui-nav/decisions.md) | D14 | — | — | active |
 | คำบนจอของ Saved voice เป็น "เสียงพากย์" (เมนู หัวหน้า แผง error ของการ์ตูนเล่า); hash เดิมและชื่อในโค้ดคงเดิม | [ui-nav](features/ui-nav/decisions.md) | D15 | — | — | active |
@@ -89,11 +89,17 @@ question; the full entry is in the feature's decisions.md.
 | EP การ์ตูนเล่าหน้าเดียว `#/toon/eps/{id}`: พล็อต · เส้นเรื่อง · render เป็นสถานะในหน้า; ชุด → EP คงเป็นหน้า | [nav-ia](features/nav-ia/decisions.md) | D8 | — | — | active |
 | `MOVED` เป็นรายการ pattern → hash ใหม่ (รองรับ `{id}`); ล่าสุดกุญแจ `songs` อ่านเป็น `covers` | [nav-ia](features/nav-ia/decisions.md) | D9 | — | — | active |
 | นับคลิกที่ sidebar ตรึง จอแคบบวก ☰; เป้า ≤2 ของที่ใช้บ่อย; ผล render สปอยรอบก่อน 2 คลิก (accepted risk) | [nav-ia](features/nav-ia/decisions.md) | D10 | — | — | active |
-| หน้าที่รวมกันใช้ component เดิม ไม่มี `ui-prompt.md` | [nav-ia](features/nav-ia/decisions.md) | D11 | — | — | changed by nav-ia D15 |
+| หน้าที่รวมกันใช้ component เดิม ไม่มี `ui-prompt.md` | [nav-ia](features/nav-ia/decisions.md) | D11 | — | — | changed by nav-ia D15, D16 |
 | seam: `App` และหน้าใน jsdom ไม่มี e2e | [nav-ia](features/nav-ia/decisions.md) | D12 | — | — | active |
 | ไม่แตะ backend; ชื่อ API ไม่เปลี่ยนตาม route ใหม่ | [nav-ia](features/nav-ia/decisions.md) | D13 | — | — | active |
 | ข้อแก้ red team: `App` ประกอบหน้าเพลงด้วยช่อง `reel`; แกะใหม่ถาม leave guard; ปุ่ม "ไปที่ reel"; job hook ตัวเดียวต่อหน้า; ขั้นที่ผู้ใช้เลือกชนะ; เปลี่ยนขั้นอัตโนมัติเฉพาะจากขั้นต้นทาง; ลบค่าคงที่ route เก่า | [nav-ia](features/nav-ia/decisions.md) | D14 | — | — | active |
 | ปุ่มสลับ view ของ EP คือปุ่มเดิม (แก้พล็อต/ไปเส้นเรื่อง, ไปที่ render, เส้นเรื่อง) ไม่ใช่ `SegmentedChoice` | [nav-ia](features/nav-ia/decisions.md) | D15 | — | — | active |
+| เมนู 2 ชั้น หมวด → ลิงก์ ไม่มีชั้นหัวข้อ; การ์ตูนเล่า reel cover reel กลอง เป็นลิงก์ prefix (changes ui-nav D6, D12) | [nav-ia](features/nav-ia/decisions.md) | D16 | — | [0070](adr/0070-main-menu-two-tiers.md) | active |
+| ตัดการกระทำ (สร้างชุดใหม่) และบรรทัดที่ซ้ำหน้า (ชุดทั้งหมด เพลงทั้งหมด reel ทั้งหมด) ออกจากเมนู | [nav-ia](features/nav-ia/decisions.md) | D17 | — | [0070](adr/0070-main-menu-two-tiers.md) | active |
+| "ล่าสุด" เป็นหมวดของตัวเองระหว่างดนตรีกับคลัง บรรทัดรองบอกแหล่ง (changes ui-nav D5) | [nav-ia](features/nav-ia/decisions.md) | D18 | — | — | active |
+| หัวหน้าคือชื่อลิงก์ที่เปิด; จากล่าสุด "{ลิงก์ต้นทาง} / {ชื่อ}" (changes ui-nav D11) | [nav-ia](features/nav-ia/decisions.md) | D19 | — | — | changed by nav-ia D20 |
+| หน้าลึกกว่าของการ์ตูนเล่า reel cover reel กลอง: หัวหน้าเป็นชื่อลิงก์แหล่งเสมอ ลิงก์ล่าสุดที่ตรงยังเป็น current (changes D19) | [nav-ia](features/nav-ia/decisions.md) | D20 | — | — | active |
+| `NavItem.tab` แทน `NavTopic`: ลิงก์ที่เปิดหาในลิงก์ของ tab ที่เปิด; `recentLinks` และ `menuSections` ใน `lib/nav` | [nav-ia](features/nav-ia/decisions.md) | D21 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
 
 ## ทำ reel อย่างเดียว ไม่มีบทเรียน
 

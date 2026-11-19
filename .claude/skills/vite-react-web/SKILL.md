@@ -55,8 +55,9 @@ frontend/src/
     ├── useHash.ts    ← the URL hash (`useHash`, a moved page's old hash put back as its new one),
     │                   which topic or library it opens (`tabOf`, `tabLabel`), and
     │                   `useLeaveGuard` (asks "ออกโดยไม่บันทึก?" before the hash moves, story-kb D18)
-    ├── nav.ts        ← the main menu (ADR 0062): its topics, items and libraries, and the item a hash
-    │                   opens (`activeItem`, `locationOf`); a new page that belongs in the menu is added here
+    ├── nav.ts        ← the main menu (ADR 0062, 0070): sections of links only, ล่าสุด as links
+    │                   (`recentLinks`, `menuSections`), and the link a hash opens with the header's line
+    │                   (`activeItem`, `locationOf`); a new page that belongs in the menu is added here
     ├── useMediaQuery.ts ← whether the window matches a media query: the menu's `xl`
     ├── setupFixes.ts ← `fixesOf(rows)`: the fix command of each Status check row a `not_ready`
     │                   names, read from `/api/setup/status` (setup-status D26); video-gen and drum-notes

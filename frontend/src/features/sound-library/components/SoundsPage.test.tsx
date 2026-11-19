@@ -277,6 +277,7 @@ describe("← กลับ", () => {
 
     await screen.findByRole("listitem", { name: "ฝนตกในป่า" });
     expect(screen.queryByRole("link", { name: "กลับ" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /การ์ตูนเล่า/ })).toBeNull(); // the old "← การ์ตูนเล่า" is gone
+    // The old "← การ์ตูนเล่า" is gone; the menu's การ์ตูนเล่า link is not it.
+    expect(within(screen.getByRole("main")).queryByRole("link", { name: /การ์ตูนเล่า/ })).toBeNull();
   });
 });
