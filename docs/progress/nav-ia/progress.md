@@ -1,6 +1,6 @@
 # Progress: nav-ia
 
-**Now:** 01–04 done; PR #25 open, waiting for review and merge
+**Now:** merged ([PR #25](https://github.com/mousemouse094526/framecraft/pull/25), `bdcb467`) — เมนูตรงกับที่อยู่ งานหนึ่งชิ้นเป็นหน้าเดียว
 
 **Next:**
 

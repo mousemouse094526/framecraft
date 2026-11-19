@@ -15,6 +15,6 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [drum-notes](drum-notes/progress.md) | false | done | 🎨 2/2 (ui-prompt.md, D28) | ✅ e782f02 | Blocked 5: เจ้าของฟังเทียบตาราง intro/kalimba ในหน้าเพลง `#/covers/{id}` (reel cover) | — |
 | [drum-cover](drum-cover/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D14) | ✅ 4d471f8 | ข้อเล็กถ้าทำต่อ: ป้าย PEDAL เล็ก, แฟลชชมพูใกล้ไม้ R | — |
 | [kalimba-cover](kalimba-cover/progress.md) | false | done | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 2dff570 | — | — |
-| [ui-nav](ui-nav/progress.md) | false | review | 🎨 1/1 (ui-prompt.md, D7) | ✅ 2818bad | [PR #24](https://github.com/mousemouse094526/framecraft/pull/24) รอ merge (ชื่อเสียงบนจอ = "เสียงพากย์", D15) · Open Q7: จอแคบ/ตอนยุบไม่มี wordmark บนจอ | — |
+| [ui-nav](ui-nav/progress.md) | false | done | 🎨 1/1 (ui-prompt.md, D7) | ✅ 580d21c | Open Q7: จอแคบ/ตอนยุบไม่มี wordmark บนจอ (เจ้าของตัดสิน) | — |
 | [reels-only](reels-only/progress.md) | false | done | 🎨 5/5 (existing components, D10) | ✅ 2073a82 | เจ้าของดูคลิป reel กลองที่ไม่มีนับเข้า (D15) · Open Q1: ยังมีคำว่า lesson ในโค้ด (งาน rename แยก) | — |
-| [nav-ia](nav-ia/progress.md) | false | review | — (existing components, D11) | 4/4 | [PR #25](https://github.com/mousemouse094526/framecraft/pull/25) รอเจ้าของดูและ merge | — |
+| [nav-ia](nav-ia/progress.md) | false | done | — (existing components, D11) | ✅ bdcb467 | เจ้าของดูเมนูและหน้าที่รวมใหม่บนจอจริง (sidebar ≥1280px และ drawer) | — |
