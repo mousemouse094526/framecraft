@@ -29,7 +29,7 @@
 - hash: `#/songs` รายการเพลง, `#/songs/{id}` หน้าเพลง (spec › Design)
 - `App` และ `useHash` รู้จัก tab `songs` ต่อท้าย `drums`
 
-**From:** interview · **Status:** changed by reels-only D6
+**From:** interview · **Status:** changed by reels-only D6; changed by nav-ia D6
 
 ## D3: Song เป็น folder ใน `media/songs/` id ตามกฎของ Temp clip
 
