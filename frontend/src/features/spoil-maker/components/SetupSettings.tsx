@@ -112,7 +112,7 @@ export function SetupSettings(props: Props) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <label htmlFor={voices.length > 0 ? voiceId : undefined} className={`${LABEL} flex-1`}>
-            เสียงบรรยาย
+            เสียงพากย์
           </label>
           {voices.length > 0 && (
             <a href={VOICES_HASH} className="font-button text-sm leading-5 font-medium text-link hover:underline">
@@ -122,9 +122,9 @@ export function SetupSettings(props: Props) {
         </div>
         {voices.length === 0 ? (
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm leading-5">
-            <span className="text-mid">ยังไม่มีเสียงบรรยาย</span>
+            <span className="text-mid">ยังไม่มีเสียงพากย์</span>
             <a href={VOICES_HASH} className="flex h-11 items-center font-button font-medium text-brand hover:underline">
-              สร้างเสียงบรรยาย
+              สร้างเสียงพากย์
             </a>
           </p>
         ) : (

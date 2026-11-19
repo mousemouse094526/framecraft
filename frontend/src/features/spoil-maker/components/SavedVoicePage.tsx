@@ -29,7 +29,7 @@ export function SavedVoicePage() {
         >
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
         </a>
-        <h2 className="text-xl leading-7 font-semibold text-foreground">เสียงบรรยาย</h2>
+        <h2 className="text-xl leading-7 font-semibold text-foreground">เสียงพากย์</h2>
       </div>
       {state.kind === "loading" ? (
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>

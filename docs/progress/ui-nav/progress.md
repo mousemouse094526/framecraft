@@ -40,6 +40,7 @@
 ### เพิ่มใน PR #23: "เสียงที่บันทึก" → "เสียงพากย์" (D15) — 2026-11-19
 
 **Built:** คำบนจอเปลี่ยนที่ `nav.ts` (เมนูและหัวหน้า), แผงใน `SavedVoicePage`, ข้อความ `voice_not_found` ของ toon 3 ที่ (`voicing.py`, `plot.py`, `series.py`), `CONTEXT.md`, test ที่ยึดชื่อเดิม; hash `#/spoil/voices` และชื่อในโค้ดไม่แตะ
+**ต่อ:** "เสียงบรรยาย" → "เสียงพากย์" ที่ `<h2>` ของ `SavedVoicePage` และ `SetupSettings` (ป้ายช่อง, "ยังไม่มี…", "สร้าง…"); test `SavedVoicePage.test.tsx`, `SpoilerSetup.test.tsx`
 **Open:** Q9 — "Saved voice" ภาษาอังกฤษยังอยู่บนจอใน `SeriesForm`/`SeriesList`
 
 ### Feature review 04 — 2026-11-19
