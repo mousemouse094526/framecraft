@@ -1,11 +1,11 @@
 # Progress: nav-ia
 
-**Now:** 01–04 done; feature review then PR
+**Now:** 01–04 done; PR #25 open, waiting for review and merge
 
 **Next:**
 
 ```
-/pr-open
+/warroom next
 ```
 
 ## Tickets
