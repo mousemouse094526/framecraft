@@ -73,7 +73,7 @@ function row(name: string): HTMLElement {
 }
 
 async function openPage() {
-  window.location.hash = "#/spoil/voices";
+  window.location.hash = "#/voices";
   render(<App />);
   await screen.findByRole("region", { name: "ออกแบบเสียง" });
   return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -103,16 +103,16 @@ afterEach(() => {
 });
 
 describe("หน้า Saved voice", () => {
-  it("opens under the สปอย tab from #/spoil/voices, without the steps, with a link back", async () => {
+  it("opens as เสียงพากย์ of คลัง from #/voices, without the steps and with no topic open (nav-ia D4)", async () => {
     backend([]);
     await openPage();
 
     const menu = within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
     expect(menu.getByRole("link", { name: "เสียงพากย์" })).toHaveAttribute("aria-current", "page");
-    expect(menu.getByRole("group", { name: "สปอย" })).toHaveAttribute("aria-current", "true");
+    expect(menu.getByRole("group", { name: "สปอย" })).not.toHaveAttribute("aria-current");
     expect(screen.queryByRole("navigation", { name: "ขั้นของสปอย" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "เสียงพากย์" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับ" })).toHaveAttribute("href", "#/spoil");
+    expect(screen.queryByRole("link", { name: "กลับ" })).not.toBeInTheDocument();
   });
 
   it("says how to start when no voice is saved", async () => {
@@ -345,7 +345,7 @@ describe("หน้า Saved voice", () => {
 
   it("shows the offline panel when the backend doesn't answer", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-    window.location.hash = "#/spoil/voices";
+    window.location.hash = "#/voices";
     render(<App />);
 
     expect(await screen.findByText("Backend offline")).toBeInTheDocument();

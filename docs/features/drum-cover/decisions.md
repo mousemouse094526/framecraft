@@ -198,7 +198,7 @@
 - hash อื่นใต้ `#/songs/{id}/cover…` = หน้าเพลง
 - จอแคบ: ปุ่มเป้ากด 44px ต่ำกว่า 640px ตาม drum-notes D28
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** superseded by nav-ia D6
 
 ## D12: ทางเลือกเล็กของ API และ Render job
 

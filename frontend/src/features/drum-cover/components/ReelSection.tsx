@@ -6,12 +6,10 @@ import { inputClass } from "../../../components/ui/inputStyles";
 import { Labeled } from "../../../components/ui/Labeled";
 import { ModalDialog } from "../../../components/ui/ModalDialog";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
-import { PageLayout } from "../../../components/ui/PageLayout";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { SegmentedChoice } from "../../../components/ui/SegmentedChoice";
 import { Switch } from "../../../components/ui/Switch";
-import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import downloadIcon from "../../../components/ui/assets/download.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
@@ -20,7 +18,7 @@ import { editedAt, formatDuration } from "../../../lib/format";
 import { refusedLine, type Refused } from "../../../lib/refused";
 import { useLeaveGuard } from "../../../lib/useHash";
 import { useListen } from "../../../lib/useListen";
-import { seconds, SONGS_HASH, songHash, type Song } from "../../drum-notes/lib/songs";
+import { PICK_SECTION_ID, seconds, SONGS_HASH, type Song } from "../../drum-notes/lib/songs";
 import { useCover } from "../hooks/useCover";
 import { useCoverRender } from "../hooks/useCoverRender";
 import {
@@ -66,47 +64,45 @@ import {
 } from "../lib/cover";
 
 /**
- * หน้า reel (`#/songs/{id}/cover`): the instrument, the stretch, the text, the sound, ฟัง and render
- * reel, and the renders made (spec › Design, D6, D7, D11, D12, D18, D19, D24; ui-prompt.md screen 2,
- * D14; kalimba-cover spec › Design, D9, D10, D14).
+ * ส่วน reel of a song's page (`#/covers/{id}`), under ผลแกะ once the song is picked: the instrument,
+ * the stretch, the text, the sound, ฟัง and render reel, and the renders made (spec › Design, D6, D7,
+ * D12, D18, D19, D24; ui-prompt.md screen 2, D14; kalimba-cover spec › Design, D9, D10, D14). It was a
+ * page of its own; it is one section of the song's one page now, which `App` puts it in (nav-ia D6, D14).
  */
-export function CoverPage({ id }: { id: string }) {
-  const cover = useCover(id);
+export function ReelSection({ song }: { song: Song }) {
+  const id = song.id;
+  const cover = useCover(song);
   const { state } = cover;
+  const analysis = song.analysis;
   return (
-    <PageLayout tab="songs" wide>
-      <div className="flex items-center gap-2">
-        <a href={state.kind === "not_found" ? SONGS_HASH : songHash(id)} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
-          <img src={arrowLeftIcon} alt="" width={16} height={16} />
-          {state.kind === "ready" || state.kind === "no_analysis" ? state.song.title : "รายการเพลง"}
-        </a>
-        <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">Reel cover</h2>
+    <section aria-labelledby={`${id}-reel`} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1 pt-2">
+        <h2 id={`${id}-reel`} className="text-xl leading-[1.5] font-semibold text-foreground">
+          Reel cover
+        </h2>
+        {/* What the pick gives the reel, as the song page's Reel cover card said it (drum-cover D11, kalimba-cover D2). */}
+        {analysis && (
+          <p className="text-[13px] leading-[1.5] text-mid">
+            ช่วงแกะ {analysis.start_s.toFixed(1)}–{analysis.end_s.toFixed(1)} วินาที · {analysis.hits.length} การตี
+            {analysis.notes !== null && ` · ${analysis.notes.length} โน้ตทำนอง`}
+            {state.kind === "ready" && state.renders.length > 0 && ` · render แล้ว ${state.renders.length} ครั้ง`}
+          </p>
+        )}
       </div>
       {state.kind === "loading" && <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>}
       {state.kind === "offline" && <OfflinePanel />}
-      {state.kind === "not_found" && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-4 py-12">
-          <p className="text-base leading-[1.5] font-medium text-foreground">ไม่พบเพลงนี้</p>
-          <a href={SONGS_HASH} className={`h-11 px-4 sm:h-9 ${GHOST_BUTTON}`}>
-            กลับไปรายการเพลง
-          </a>
-        </div>
-      )}
-      {state.kind === "no_analysis" && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-4 py-12">
-          <p className="text-base leading-[1.5] font-medium text-foreground">{NO_ANALYSIS}</p>
-          <a href={songHash(id)} className={`h-11 px-4 sm:h-9 ${GHOST_BUTTON}`}>
-            กลับไปหน้าเพลง
-          </a>
-        </div>
-      )}
+      {state.kind === "not_found" && <p className="text-sm leading-[1.5] text-mid">ไม่พบเพลงนี้</p>}
+      {state.kind === "no_analysis" && <p className="text-sm leading-[1.5] text-mid">{NO_ANALYSIS}</p>}
       {state.kind === "ready" && (
         // Keyed by the pick, so a new analysis starts the form over from the cover it pulled in.
-        <CoverForm key={state.song.analysis?.picked_at} song={state.song} saved={state.cover} renders={state.renders} failure={state.failure} cover={cover} />
+        <CoverForm key={song.analysis?.picked_at} song={song} saved={state.cover} renders={state.renders} failure={state.failure} cover={cover} />
       )}
-    </PageLayout>
+    </section>
   );
 }
+
+/** Takes the page up to ช่วงแกะ, above the reel on the same page (nav-ia D6). */
+const toPick = () => document.getElementById(PICK_SECTION_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
 type FormProps = {
   song: Song;
@@ -242,9 +238,15 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
             {noNotes !== "empty" && (
               <>
                 {" "}
-                <a href={noNotes === "not_imported" ? SONGS_HASH : songHash(song.id)} className="text-brand underline">
-                  {NO_NOTES_LINK[noNotes]}
-                </a>
+                {noNotes === "not_imported" ? (
+                  <a href={SONGS_HASH} className="text-brand underline">
+                    {NO_NOTES_LINK[noNotes]}
+                  </a>
+                ) : (
+                  <button type="button" onClick={toPick} className="text-brand underline">
+                    {NO_NOTES_LINK[noNotes]}
+                  </button>
+                )}
               </>
             )}
           </Alert>
@@ -254,16 +256,22 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
       <section aria-label="ช่วงของ reel" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h3 className="text-base leading-[1.5] font-semibold text-foreground">ช่วงของ reel</h3>
         <p className="text-[13px] leading-[1.5] text-mid">
-          ภายในช่วงแกะ {seconds(analysis.start_s)}–{seconds(analysis.end_s)} ·{" "}
-          <a href={songHash(song.id)} className="text-brand underline">
-            อยากได้ท่อนอื่น? แกะช่วงใหม่ที่หน้าเพลง
-          </a>
+          ภายในช่วงแกะ {seconds(analysis.start_s)}–{seconds(analysis.end_s)}
+          {/* A MIDI song has no ช่วงแกะ to go back to (drum-notes D18). */}
+          {song.source.kind !== "midi" && song.range && (
+            <>
+              {" "}·{" "}
+              <button type="button" onClick={toPick} className="text-brand underline">
+                อยากได้ท่อนอื่น? แกะช่วงใหม่ด้านบน
+              </button>
+            </>
+          )}
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Labeled label="เริ่ม (วินาที)" htmlFor={`${id}-start`} error={fault === "start_s" ? RANGE_RULE : fieldError("start_s")}>
+          <Labeled label="เริ่ม reel (วินาที)" htmlFor={`${id}-start`} error={fault === "start_s" ? RANGE_RULE : fieldError("start_s")}>
             <input id={`${id}-start`} type="number" step={0.1} value={draft.start} onChange={(e) => set("start", e.target.value)} className={inputClass(fault === "start_s")} />
           </Labeled>
-          <Labeled label="จบ (วินาที)" htmlFor={`${id}-end`} error={fault === "end_s" ? RANGE_RULE : fieldError("end_s")}>
+          <Labeled label="จบ reel (วินาที)" htmlFor={`${id}-end`} error={fault === "end_s" ? RANGE_RULE : fieldError("end_s")}>
             <input id={`${id}-end`} type="number" step={0.1} value={draft.end} onChange={(e) => set("end", e.target.value)} className={inputClass(fault === "end_s")} />
           </Labeled>
         </div>

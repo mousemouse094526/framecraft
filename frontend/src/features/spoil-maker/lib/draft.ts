@@ -151,9 +151,8 @@ export const DRAFT_JOB_PATH = "/api/spoil-maker/draft-jobs/current";
 export const SETTINGS_PATH = "/api/spoil-maker/settings";
 
 // The สปอย tab's hashes: its steps and the Saved voice page (spoil-maker D53, D59).
-export const SETUP_HASH = "#/spoil";
-export const REVIEW_HASH = "#/spoil/review";
-export const RENDERS_HASH = "#/spoil/renders";
+/** ทำสปอย: one page, its steps a state of the page (nav-ia D5). */
+export const SPOIL_HASH = "#/spoil";
 
 
 /** A model or a child that stopped says the same thing (spec › Frontend); the rest say the API's message. */

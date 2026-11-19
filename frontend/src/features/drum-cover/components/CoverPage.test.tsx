@@ -15,7 +15,8 @@ const START_PATH = `${COVER_PATH}/render`;
 const RENDERS_PATH = `${COVER_PATH}/renders`;
 const RENDER_PATH = "/api/covers/render";
 const CANCEL_PATH = `${RENDER_PATH}/cancel`;
-const COVER_HASH = `#/songs/${ID}/cover`;
+/** The song's one page, its reel under ผลแกะ (nav-ia D6). */
+const COVER_HASH = `#/covers/${ID}`;
 const BACKGROUND_PATH = `${COVER_PATH}/background`;
 const RANGE_PATH = `${SONG_PATH}/range`;
 const PICK_PATH = `${SONG_PATH}/pick`;
@@ -161,20 +162,60 @@ function open(hash: string, routes: Route[]) {
 const button = (name: string | RegExp) => screen.getByRole("button", { name });
 
 describe("หน้าเพลง", () => {
-  it("a picked song shows Reel cover with its renders counted, and ทำ reel cover opens the reel page (e2e)", async () => {
-    const user = open(`#/songs/${ID}`, [get(RENDERS_PATH, [resultOf(), resultOf({ name: "20261115-104000" })])]);
+  it("a picked song has its Reel cover on the same page, its renders counted, and ไปที่ reel takes the page there (e2e)", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    const user = open(`#/covers/${ID}`, [get(RENDERS_PATH, [resultOf(), resultOf({ name: "20261115-104000" })])]);
 
     const reel = await screen.findByRole("region", { name: "Reel cover" });
     await waitFor(() => expect(reel).toHaveTextContent("ช่วงแกะ 0.0–30.0 วินาที · 3 การตี · render แล้ว 2 ครั้ง"));
+    expect(within(reel).getByRole("spinbutton", { name: "เริ่ม reel (วินาที)" })).toHaveValue(10);
 
-    await user.click(within(reel).getByRole("link", { name: "ทำ reel cover" }));
-    expect(window.location.hash).toBe(COVER_HASH);
-    expect(await screen.findByRole("heading", { name: "Reel cover" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "ไปที่ reel" }));
+    expect(scroll.mock.contexts[0]).toBe(reel.parentElement);
+    expect(window.location.hash).toBe(`#/covers/${ID}`);
+  });
+
+  it("แกะโน้ต under a reel not saved asks ออกโดยไม่บันทึก? first; no keeps the reel and picks nothing (nav-ia D14)", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = open(`#/covers/${ID}`, []);
+    const title = await screen.findByRole("textbox", { name: "หัวเรื่อง" });
+    await user.type(title, " live");
+
+    await user.click(button("แกะโน้ต"));
+
+    expect(confirm).toHaveBeenCalledWith("ออกโดยไม่บันทึก?");
+    expect(sent(fetchMock, "PUT", RANGE_PATH)).toEqual([]);
+    expect(sent(fetchMock, "POST", PICK_PATH)).toEqual([]);
+    expect(title).toHaveValue("Yellow - Coldplay (Drum Cover) live");
+  });
+
+  it("a MIDI song's reel has no way back to a ช่วงแกะ it doesn't have", async () => {
+    open(`#/covers/${ID}`, [get(SONG_PATH, songOf({ source: { kind: "midi", url: null, name: "rock.mid", size: 300 }, range: null }))]);
+
+    expect(await screen.findByRole("textbox", { name: "หัวเรื่อง" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "ช่วงแกะ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /แกะช่วงใหม่/ })).not.toBeInTheDocument();
+  });
+
+  it("a song gone since its page loaded says so in the reel, not to pick notes", async () => {
+    open(`#/covers/${ID}`, [send("GET", COVER_PATH, { code: "not_found", message: "ไม่พบเพลงนี้" }, 404)]);
+
+    expect(await screen.findByText("ไม่พบเพลงนี้")).toBeInTheDocument();
+    expect(screen.queryByText("แกะโน้ตก่อน แล้วกลับมาทำ reel")).not.toBeInTheDocument();
+  });
+
+  it("an old reel page's hash opens the song's one page (nav-ia D9)", async () => {
+    open(`#/songs/${ID}/cover`, []);
+
+    expect(window.location.hash).toBe(`#/covers/${ID}`);
+    expect(await screen.findByRole("region", { name: "ช่วงแกะ" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Reel cover" })).toBeInTheDocument();
   });
 
   it("a song picked with its melody counts the notes in Reel cover (kalimba-cover D2) (e2e)", async () => {
     const notes = Array.from({ length: 120 }, (_, n) => ({ t: n / 4, pitch: 60 + (n % 12), level: "normal" as const }));
-    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, notes } }))]);
+    open(`#/covers/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, notes } }))]);
 
     const reel = await screen.findByRole("region", { name: "Reel cover" });
     await waitFor(() => expect(reel).toHaveTextContent("ช่วงแกะ 0.0–30.0 วินาที · 3 การตี · 120 โน้ตทำนอง"));
@@ -183,14 +224,14 @@ describe("หน้าเพลง", () => {
 
 describe("หน้าเพลง หลังแกะ", () => {
   it("a pick that found no hit says so above the reel cover (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, hits: [] }, bars: bars.map((bar) => ({ ...bar, hits: 0 })) }))]);
+    open(`#/covers/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, hits: [] }, bars: bars.map((bar) => ({ ...bar, hits: 0 })) }))]);
     expect(await screen.findByText("ไม่พบการตีกลองในช่วง 0.0–30.0 วินาที ลองเลื่อนช่วงไปที่กลองเริ่มเล่น")).toBeInTheDocument();
   });
 
   it("empty first bars say where the first hit is, and เริ่มช่วงที่การตีแรก saves the range from there and picks again (e2e)", async () => {
     const late = analysis.hits.map((hit) => ({ ...hit, t: hit.t - 1 })); // the first at 10.5, inside bar 6 (from 10.0): the range starts at the bar (D9)
     const lateBars = bars.map((bar) => ({ ...bar, hits: late.filter((hit) => bar.start_s <= hit.t && hit.t < bar.end_s).length }));
-    const user = open(`#/songs/${ID}`, [
+    const user = open(`#/covers/${ID}`, [
       get(SONG_PATH, songOf({ analysis: { ...analysis, hits: late }, bars: lateBars })),
       send("PUT", RANGE_PATH, songOf({ range: { start_s: 10, end_s: 40, mode: "drums" } }), 200),
       send("POST", PICK_PATH, { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "2026-11-15T10:00:00+07:00" }, 202),
@@ -204,7 +245,7 @@ describe("หน้าเพลง หลังแกะ", () => {
   });
 
   it("near the song's end the new range is still 4 s: bar 6 (10.0) to the end (13.0) is 3 s, so it starts at 9.0 (e2e)", async () => {
-    const user = open(`#/songs/${ID}`, [
+    const user = open(`#/covers/${ID}`, [
       get(SONG_PATH, songOf({ duration_s: 13, analysis: { ...analysis, end_s: 13 }, range: { start_s: 0, end_s: 13, mode: "drums" } })),
       send("PUT", RANGE_PATH, songOf(), 200),
       send("POST", PICK_PATH, { song_id: ID, state: "preparing", percent: 0, error: null, message: null, rows: null, fix: null, cancel_requested: false, started_at: "" }, 202),
@@ -215,7 +256,7 @@ describe("หน้าเพลง หลังแกะ", () => {
 
   it("a hit before the first downbeat means the drums are there: no empty-bars line", async () => {
     const early = [{ t: 0.5, piece: "kick" as const, level: "normal" as const }, ...analysis.hits];
-    open(`#/songs/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, downbeats: [1, ...analysis.downbeats.slice(1)], hits: early }, bars: [{ ...bars[0], start_s: 1, hits: 0 }, ...bars.slice(1)] }))]);
+    open(`#/covers/${ID}`, [get(SONG_PATH, songOf({ analysis: { ...analysis, downbeats: [1, ...analysis.downbeats.slice(1)], hits: early }, bars: [{ ...bars[0], start_s: 1, hits: 0 }, ...bars.slice(1)] }))]);
     expect(await screen.findByRole("region", { name: "Reel cover" })).toBeInTheDocument();
     expect(screen.queryByText(/ไม่มีการตี การตีแรกอยู่ที่/)).not.toBeInTheDocument();
   });
@@ -225,20 +266,24 @@ describe("หน้า reel", () => {
   it("opens with the saved cover, its hint and the way back to pick another stretch (e2e)", async () => {
     open(COVER_HASH, []);
 
-    expect(await screen.findByRole("spinbutton", { name: "เริ่ม (วินาที)" })).toHaveValue(10);
-    expect(screen.getByRole("spinbutton", { name: "จบ (วินาที)" })).toHaveValue(30);
+    expect(await screen.findByRole("spinbutton", { name: "เริ่ม reel (วินาที)" })).toHaveValue(10);
+    expect(screen.getByRole("spinbutton", { name: "จบ reel (วินาที)" })).toHaveValue(30);
     expect(screen.getByRole("textbox", { name: "หัวเรื่อง" })).toHaveValue("Yellow - Coldplay (Drum Cover)");
     expect(screen.getByText("ค่าตั้งต้นมาจากชื่อคลิปและช่อง แก้เป็นชื่อเพลงและศิลปิน")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "อยากได้ท่อนอื่น? แกะช่วงใหม่ที่หน้าเพลง" })).toHaveAttribute("href", `#/songs/${ID}`);
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    fireEvent.click(screen.getByRole("button", { name: "อยากได้ท่อนอื่น? แกะช่วงใหม่ด้านบน" }));
+    expect(scroll.mock.contexts[0]).toBe(screen.getByRole("region", { name: "ช่วงแกะ" }));
     expect(screen.getByText("ยังไม่เคย render reel นี้")).toBeInTheDocument();
   });
 
-  it("a song not picked yet asks to pick first (e2e)", async () => {
-    open(COVER_HASH, [get(SONG_PATH, songOf({ analysis: null, bars: [] })), send("GET", COVER_PATH, { code: "no_analysis", message: "แกะโน้ตก่อน แล้วกลับมาทำ reel" }, 409)]);
+  it("a song not picked yet has no reel, only the way to pick (e2e)", async () => {
+    open(COVER_HASH, [get(SONG_PATH, songOf({ analysis: null, bars: [] }))]);
 
-    expect(await screen.findByText("แกะโน้ตก่อน แล้วกลับมาทำ reel")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปหน้าเพลง" })).toHaveAttribute("href", `#/songs/${ID}`);
+    expect(await screen.findByText("ตั้งช่วงแล้วกด แกะโน้ต")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Reel cover" })).not.toBeInTheDocument();
   });
+
 
   it("บันทึก PUTs the edited cover, เริ่มที่การตีแรก sets the start, and ฟัง saves first then plays the mix (e2e)", async () => {
     const saved = coverOf({ start_s: 10.5 });
@@ -254,7 +299,7 @@ describe("หน้า reel", () => {
     await user.type(title, "Yellow");
     expect(screen.getByText("· ยังไม่บันทึก")).toBeInTheDocument();
     await user.click(button("เริ่มที่การตีแรก"));
-    expect(screen.getByRole("spinbutton", { name: "เริ่ม (วินาที)" })).toHaveValue(10.5);
+    expect(screen.getByRole("spinbutton", { name: "เริ่ม reel (วินาที)" })).toHaveValue(10.5);
     await user.click(button(/บันทึก/));
 
     expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { title: "Yellow", start_s: 10.5 })]);
@@ -379,8 +424,8 @@ describe("หน้า reel", () => {
     expect(await screen.findByText("ยังไม่เคย render reel นี้")).toBeInTheDocument();
 
     await user.type(screen.getByRole("textbox", { name: "คำบรรยายล่าง" }), "x");
-    window.location.hash = `#/songs/${ID}`;
-    window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL: `http://localhost/${COVER_HASH}`, newURL: `http://localhost/#/songs/${ID}` }));
+    window.location.hash = `#/covers/${ID}`;
+    window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL: `http://localhost/${COVER_HASH}`, newURL: `http://localhost/#/covers/${ID}` }));
     expect(confirm).toHaveBeenCalledWith("ออกโดยไม่บันทึก?");
   });
 
@@ -394,7 +439,7 @@ describe("หน้า reel", () => {
 
   it("an empty start box is no number: its rule shows and nothing is saved", async () => {
     const user = open(COVER_HASH, []);
-    await user.clear(await screen.findByRole("spinbutton", { name: "เริ่ม (วินาที)" }));
+    await user.clear(await screen.findByRole("spinbutton", { name: "เริ่ม reel (วินาที)" }));
     await user.click(button(/บันทึก/));
     expect(screen.getAllByText("ช่วงต้องยาว 2–90 วินาที และอยู่ในช่วงแกะ").length).toBeGreaterThan(0);
     expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([]);
@@ -481,8 +526,8 @@ describe("หน้า reel คาลิมบา", () => {
   it("a song picked before notes were kept, or a stretch with none, says so and can't be heard or rendered (e2e)", async () => {
     open(COVER_HASH, [get(COVER_PATH, coverOf({ instrument: "kalimba" }))]);
 
-    expect(await screen.findByText("เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ที่หน้าเพลงเพื่อได้โน้ตทำนอง")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปหน้าเพลง" })).toHaveAttribute("href", `#/songs/${ID}`);
+    expect(await screen.findByText("เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ด้านบนเพื่อได้โน้ตทำนอง")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ไปที่ช่วงแกะ" })).toBeInTheDocument();
     expect(button("ฟัง")).toBeDisabled();
     expect(button("render reel")).toBeDisabled();
   });
@@ -499,7 +544,7 @@ describe("หน้า reel คาลิมบา", () => {
     open(COVER_HASH, [get(SONG_PATH, songOf({ source: { kind: "midi", url: null, name: "yellow.mid", size: 1 } })), get(COVER_PATH, coverOf({ instrument: "kalimba", has_audio: false }))]);
 
     expect(await screen.findByText("เพลงนี้นำเข้าก่อนมีคาลิมบา นำเข้าไฟล์ MIDI เดิมอีกครั้ง")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปรายการเพลง" })).toHaveAttribute("href", "#/songs");
+    expect(screen.getByRole("link", { name: "ไปรายการเพลง" })).toHaveAttribute("href", "#/covers");
   });
 
   it("ความดังคาลิมบา at 60 is saved; ปิดเสียงคาลิมบา with คาลิมบาล้วน would be silent (e2e)", async () => {

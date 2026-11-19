@@ -3,11 +3,12 @@ import { getJson } from "../../../lib/api";
 import type { Refusal } from "../../../lib/refusal";
 import { epPath, readEpAndSeries, type Ep, type LostCards } from "../lib/episodes";
 import { fetchSounds, type Sound } from "../../sound-library/lib/sounds";
-import { epHash, JOB_PATH, startToonJob, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
+import { JOB_PATH, startToonJob, type ImageScope, type MissingRef, type Series, type ToonJob } from "../lib/series";
 import { sendEdit } from "../../../lib/edit";
 import { NOT_NOW, type Notice } from "../../../lib/notice";
 import { cancelToonJob, useToonJobPoll } from "./useToonJobPoll";
 import { useReadyState } from "../../../lib/useReadyState";
+import { useEpView } from "./useEpView";
 
 export type EpState =
   | { kind: "loading" }
@@ -36,6 +37,7 @@ export type EpState =
  * the page closes every field; a job that ends reads the EP again, and so does each picture drawn.
  */
 export function useEp(epId: string) {
+  const show = useEpView();
   const [state, setState, update] = useReadyState<EpState>({ kind: "loading" });
 
   const load = useCallback(async () => {
@@ -76,8 +78,8 @@ export function useEp(epId: string) {
       if (drew) void load();
     },
     (next) => {
-      // A Cards job of this EP that is done opens the storyline (the plot page may be open).
-      if (next?.kind === "cards" && next.ep_id === epId && next.state === "done") window.location.hash = epHash(epId);
+      // A Cards job of this EP that is done opens the storyline (the plot view may be open, nav-ia D8).
+      if (next?.kind === "cards" && next.ep_id === epId && next.state === "done") show("ep");
       void load();
     },
     () => setState({ kind: "offline" }),

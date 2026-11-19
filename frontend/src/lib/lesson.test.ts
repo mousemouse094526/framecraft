@@ -60,10 +60,9 @@ test("the length is every chapter and 1.5 s of tail, with no count-in (reels-onl
   expect(lengthOf(fields({ chapters }))).toBe(2 * 4 + 2 * 2 + 1.5);
 });
 
-test("the hash picks the list, a lesson's editor or its renders", () => {
+test("the hash picks the list or a lesson's one page, its renders under the form (nav-ia D7)", () => {
   expect(drumsViewOf("#/drums")).toEqual({ kind: "list" });
   expect(drumsViewOf("#/drums/abcdef123456")).toEqual({ kind: "edit", id: "abcdef123456" });
-  expect(drumsViewOf("#/drums/abcdef123456/renders")).toEqual({ kind: "renders", id: "abcdef123456" });
   expect(drumsViewOf("#/drums/../x")).toEqual({ kind: "list" });
 });
 

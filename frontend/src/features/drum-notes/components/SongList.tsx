@@ -13,14 +13,14 @@ import { formatDuration } from "../../../lib/format";
 import { useSongs, type Upload } from "../hooks/useSongs";
 import { FILE_ACCEPT, FILE_HINT, importText, isImporting, NOTES_ONLY, pickedText, songHash, SOURCE_LABELS, type PickJob, type SongImport, type SongRow } from "../lib/songs";
 
-/** รายการเพลง (`#/songs`): the link box and file box, the running import, the songs newest first, delete (spec › Design, ui-prompt.md screen 1, D28). */
+/** รายการเพลง (`#/covers`): the link box and file box, the running import, the songs newest first, delete (spec › Design, ui-prompt.md screen 1, D28). */
 export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void }) {
   const { state, pick, reload, startLink, importFile, cancelUpload, cancelImport, remove } = useSongs(onKnownSong);
   const [deleting, setDeleting] = useState<SongRow | null>(null);
 
   if (state.kind === "offline") {
     return (
-      <PageLayout tab="songs" action={<RefreshButton onClick={() => void reload()} />}>
+      <PageLayout tab="covers" action={<RefreshButton onClick={() => void reload()} />}>
         <OfflinePanel />
       </PageLayout>
     );
@@ -31,9 +31,9 @@ export function SongList({ onKnownSong }: { onKnownSong: (id: string) => void })
   const busy = running !== null || ready?.upload !== null;
 
   return (
-    <PageLayout tab="songs">
+    <PageLayout tab="covers">
       <div className="flex flex-col gap-1">
-        <h2 className="text-xl leading-[1.5] font-semibold text-foreground">แกะเพลง</h2>
+        <h2 className="text-xl leading-[1.5] font-semibold text-foreground">เพลงทั้งหมด</h2>
         <p className="text-[13px] leading-[1.5] text-mid">{NOTES_ONLY}</p>
       </div>
       <section aria-label="เอาเพลงเข้า" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">

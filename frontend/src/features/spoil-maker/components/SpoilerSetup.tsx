@@ -2,10 +2,10 @@ import { useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import type { Refusal, RefusalLine } from "../../../lib/refusal";
-import { draftLabel, REVIEW_HASH, runningDraft, wholeDraft, type DraftAsk, type DraftOrder, type WholeDraftJob } from "../lib/draft";
+import { draftLabel, runningDraft, wholeDraft, type DraftAsk, type DraftOrder, type WholeDraftJob } from "../lib/draft";
 import { useEpisodes, type Episode, type Episodes } from "../hooks/useEpisodes";
 import { useSpoilerSetup, type Banner, type SetupState } from "../hooks/useSpoilerSetup";
-import { useDraftRun } from "../hooks/useStepStatus";
+import { useDraftRun, useGoToStep } from "../hooks/useStepStatus";
 import type { Voice } from "../hooks/useVoices";
 import { ClipPicker, isReady } from "./ClipPicker";
 import { EpisodePicker } from "./EpisodePicker";
@@ -106,6 +106,7 @@ function orderEp(cut: Episodes, order: DraftOrder): Episode | null {
 }
 
 function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
+  const goToStep = useGoToStep();
   const order = orderOf(job);
   const locked = runningDraft(job) !== null;
   // While it runs, every field shows its order, even one started in another tab (D82).
@@ -178,9 +179,9 @@ function SetupForm({ state, job, onDraft, onAskReplace }: FormProps) {
         <Alert
           tone="info"
           action={
-            <a href={REVIEW_HASH} className="flex h-11 items-center font-button text-sm leading-5 font-medium text-brand sm:h-9 sm:px-4">
+            <button type="button" onClick={() => goToStep(1)} className="flex h-11 items-center font-button text-sm leading-5 font-medium text-brand sm:h-9 sm:px-4">
               ไปที่ตรวจแก้บท
-            </a>
+            </button>
           }
         >
           กำลังร่างบท {draftLabel(order)}: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้

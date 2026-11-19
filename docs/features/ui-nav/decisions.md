@@ -33,7 +33,7 @@
 - ชื่อ tab "คลิป" เปลี่ยนเป็น "คลังคลิป" ในเมนู ส่วนหน้า `#/clips` เหมือนเดิม
 - "คลังเพลง" ในข้อความเจ้าของอ่านเป็นคลังเสียง: glossary ห้ามใช้ "คลังเพลง" แทนคลังเสียง (`CONTEXT.md` › คลังเสียง) และแกะเพลงยังเป็นหัวข้อใหญ่ (D1)
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by nav-ia D2
 
 ## D3: ขั้นและหน้าหลักของแต่ละหัวข้ออยู่ในเมนูเลย ทุกส่วนเปิดตลอด
 
@@ -58,7 +58,7 @@
 - หัวข้อที่ไม่ใช่ลิงก์เป็นหัวของกลุ่ม (`role="group"` กับ `aria-labelledby`) แบบเมนูจอแคบเดิม (sound-library D16)
 - ตัวบอกขั้นในหน้าสปอยคงอยู่ตามเดิม เพราะบอกสถานะงานของแต่ละขั้น (spoil-maker D68)
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** superseded by nav-ia D5
 
 ## D4: เมนูเดียว: จอ ≥1024px เป็น sidebar ตรึงซ้ายยุบได้ จอแคบเป็น drawer จากปุ่ม ☰
 
@@ -117,7 +117,7 @@
 - หัวของทุกหน้าแสดงตำแหน่ง: "{หัวข้อ}" ตามด้วย " / {รายการ}" เมื่อมีรายการที่ตรง; `<h1>` ที่ซ่อนยังเป็นชื่อหัวข้อตามเดิม
 - leave guard (`useLeaveGuard`) ทำงานเหมือนเดิมเพราะทุกรายการเป็นลิงก์ `#/…` ธรรมดา
 
-**From:** interview · **Status:** changed by D11
+**From:** interview · **Status:** changed by D11; changed by nav-ia D1, D9
 
 ## D7: สร้างตาม ui-prompt.md กับ design system เดิม ไม่รอ Figma
 

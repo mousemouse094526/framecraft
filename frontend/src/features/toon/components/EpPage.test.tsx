@@ -235,11 +235,12 @@ describe("พล็อต", () => {
       message: "การ์ดที่แก้เอง ภาพ หรือเสียงขององก์ที่แตกใหม่จะหาย",
       acts: [{ id: "a_02", name: "ปม", edited: 2, images: 7, audio: 7 }],
     };
-    const user = open(`#/toon/eps/${EP_ID}/plot`, [
+    const user = open(`#/toon/eps/${EP_ID}`, [
       get(EP_PATH, changed),
       send("POST", JOBS_PATH, lost, 409),
       send("POST", JOBS_PATH, cardsJob(), 202),
     ]);
+    await user.click(await screen.findByRole("button", { name: "แก้พล็อต" }));
 
     expect(await screen.findByText("• องก์ 2 ปม")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "แตกการ์ดใหม่" }));
@@ -503,4 +504,44 @@ describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
     expect(toon.getAllByRole("link").map((link) => link.textContent)).toEqual(["ชุดทั้งหมด", "สร้างชุดใหม่", stored().toon[0].label, "รุ่นพี่เล่าว่า…"]);
     expect(toon.getByRole("link", { name: stored().toon[0].label })).toHaveAttribute("aria-current", "page");
   });
+});
+
+describe("EP หน้าเดียว (nav-ia D8)", () => {
+  it("the plot, the storyline and the render are views of the EP's page: the hash stays", async () => {
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf()), get("/api/toon/render/current", null), get(`${EP_PATH}/renders`, [])]);
+
+    expect(await screen.findByRole("heading", { name: "EP04 — เส้นเรื่อง" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "แก้พล็อต" }));
+    expect(await screen.findByRole("heading", { name: "EP04 — พล็อต" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "ไปเส้นเรื่อง" }));
+    await user.click(await screen.findByRole("button", { name: "ไปที่ render" }));
+    expect(await screen.findByRole("heading", { name: /— render$/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "เส้นเรื่อง" }));
+
+    expect(await screen.findByRole("heading", { name: "EP04 — เส้นเรื่อง" })).toBeInTheDocument();
+    expect(window.location.hash).toBe(`#/toon/eps/${EP_ID}`);
+  });
+
+  it("an EP still a plot opens on it, with no render", async () => {
+    open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf({ stage: "plot", acts: epOf().acts.map((act) => ({ ...act, cards_from: null, segments: [] })) }))]);
+
+    expect(await screen.findByRole("heading", { name: "EP04 — พล็อต" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ไปที่ render" })).not.toBeInTheDocument();
+  });
+
+  it("a Cards job done while the plot view is open opens the storyline", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const job = phased(JOB_PATH, cardsJob(), cardsJob({ state: "done", done: 1 }));
+    const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf()), job.route]);
+    await user.click(await screen.findByRole("button", { name: "แก้พล็อต" }));
+    await screen.findByRole("heading", { name: "EP04 — พล็อต" });
+
+    job.phases.at = 1;
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+
+    expect(await screen.findByRole("heading", { name: "EP04 — เส้นเรื่อง" })).toBeInTheDocument();
+    expect(window.location.hash).toBe(`#/toon/eps/${EP_ID}`);
+    vi.useRealTimers();
+  });
+
 });

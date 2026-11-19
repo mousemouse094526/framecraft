@@ -146,11 +146,11 @@ describe("ตั้งค่า Series", () => {
     ]);
   });
 
-  it("without a Saved voice it links to the สปอย tab's Saved voice page (e2e)", async () => {
+  it("without a Saved voice it links to เสียงพากย์ in คลัง (e2e)", async () => {
     open("#/toon/new", [get(VOICES_PATH, [])]);
 
     expect(await screen.findByText("ยังไม่มีเสียงพากย์")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปสร้างเสียงที่ สปอย" })).toHaveAttribute("href", "#/spoil/voices");
+    expect(screen.getByRole("link", { name: "ไปที่เสียงพากย์" })).toHaveAttribute("href", "#/voices");
     expect(screen.getByRole("button", { name: "บันทึก" })).toBeDisabled();
   });
 

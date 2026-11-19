@@ -2,9 +2,10 @@ import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import checkWhiteIcon from "../assets/check-white.svg";
-import { draftLabel, SETUP_HASH, STYLES, type WholeDraftJob } from "../lib/draft";
+import { draftLabel, STYLES, type WholeDraftJob } from "../lib/draft";
 import type { DraftProgressView, RetryStep } from "../hooks/useDraftProgress";
 import { ReplaceConfirm } from "./ReplaceConfirm";
+import { useGoToStep } from "../hooks/useStepStatus";
 
 type Phase = "done" | "running" | "waiting";
 
@@ -94,6 +95,7 @@ type NoticeProps = {
 
 /** Above the script: a failed draft with ลองอีกครั้ง and กลับไปแก้ตั้งค่า, a lost job, or a cancel too late (D83, D85–D87). */
 export function DraftNotice({ view, retryStep, onRetry, onReplace, onKeep }: NoticeProps) {
+  const goToStep = useGoToStep();
   if (view.kind === "cancelledTooLate") return <Alert tone="info">ยกเลิกไม่ทัน บทร่างเสร็จแล้ว</Alert>;
   const canRetry = view.kind === "failed" && view.canRetry;
   return (
@@ -110,9 +112,9 @@ export function DraftNotice({ view, retryStep, onRetry, onReplace, onKeep }: Not
             ลองอีกครั้ง
           </button>
         )}
-        <a href={SETUP_HASH} className={`flex h-11 flex-1 items-center justify-center px-6 sm:h-10 sm:flex-none ${canRetry ? GHOST_BUTTON : OUTLINE_BUTTON}`}>
+        <button type="button" onClick={() => goToStep(0)} className={`flex h-11 flex-1 items-center justify-center px-6 sm:h-10 sm:flex-none ${canRetry ? GHOST_BUTTON : OUTLINE_BUTTON}`}>
           กลับไปแก้ตั้งค่า
-        </a>
+        </button>
       </div>
       {retryStep === "confirming" && <ReplaceConfirm onReplace={onReplace} onKeep={onKeep} />}
     </div>

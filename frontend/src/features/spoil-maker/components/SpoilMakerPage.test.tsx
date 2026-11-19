@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
@@ -134,14 +134,17 @@ function backend(change: Record<string, unknown> = {}, posts: Record<string, () 
 
 const reads = (path: string) => fetchMock.mock.calls.filter(([input, init]) => String(input) === path && !init?.method).length;
 
-function open(hash: string) {
-  window.location.hash = hash;
+const nav = () => screen.getByRole("navigation", { name: "ขั้นของสปอย" });
+const step = (name: string) => within(nav()).getByRole("button", { name: new RegExp(name) });
+const openStep = () => within(nav()).queryByRole("button", { current: "step" });
+
+/** Opens ทำสปอย, on `on` when given: a step picked before the first read wins (nav-ia D14). */
+function open(on?: "เลือกคลิป" | "ตรวจแก้บท" | "ผล render") {
+  window.location.hash = "#/spoil";
   render(<App />);
+  if (on) fireEvent.click(step(on));
   return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 }
-
-const nav = () => screen.getByRole("navigation", { name: "ขั้นของสปอย" });
-const step = (name: string) => within(nav()).getByRole("link", { name: new RegExp(name) });
 const spinners = (element: HTMLElement) => within(element).queryAllByRole("img", { name: "กำลังทำงาน" });
 
 const tick = () =>
@@ -162,49 +165,79 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("Spoil steps (spoil-maker D53, D68)", () => {
+describe("Spoil steps (spoil-maker D53, D68, nav-ia D5)", () => {
+  it("opens เลือกคลิป once the steps know there is no Spoil draft; none is open before", async () => {
+    backend();
+    open();
+
+    expect(openStep()).toBeNull();
+    expect(screen.getByText("กำลังโหลด…")).toBeInTheDocument();
+    await waitFor(() => expect(openStep()).toHaveTextContent("1เลือกคลิป"));
+    expect(window.location.hash).toBe("#/spoil");
+  });
+
   it.each([
-    ["#/spoil", "1", "เลือกคลิป"],
-    ["#/spoil/review", "2", "ตรวจแก้บท"],
-    ["#/spoil/renders", "3", "ผล render"],
-  ])("%s highlights step %s %s", (hash, number, name) => {
-    backend();
-    open(hash);
+    ["a Spoil draft", { [DRAFT]: DRAFT_EP2 }],
+    ["a draft being written", { [DRAFT_JOB]: draftJob({}) }],
+  ])("opens ตรวจแก้บท with %s", async (_, change) => {
+    backend(change);
+    open();
 
-    const current = within(nav()).getByRole("link", { current: "step" });
-    expect(current).toHaveTextContent(`${number}${name}`);
+    await waitFor(() => expect(openStep()).toHaveTextContent("2ตรวจแก้บท"));
   });
 
-  it("opens step 1 on a #/spoil/ hash it doesn't know", () => {
-    backend();
-    open("#/spoil/nope");
+  it("opens เลือกคลิป when the steps can't be read", async () => {
+    fetchMock.mockRejectedValue(new TypeError("offline"));
+    open();
 
-    expect(within(nav()).getByRole("link", { current: "step" })).toHaveTextContent("เลือกคลิป");
+    await waitFor(() => expect(openStep()).toHaveTextContent("เลือกคลิป"));
   });
 
-  it("every step is a numbered link, with no check for the steps before", () => {
-    backend();
-    open("#/spoil/renders");
+  it("keeps a step picked before the first read, and doesn't move on a later read (D14)", async () => {
+    backend({ [DRAFT]: DRAFT_EP2 });
+    open("ผล render");
 
-    const links = within(nav()).getAllByRole("link");
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["#/spoil", "#/spoil/review", "#/spoil/renders"]);
-    expect(links.map((link) => link.textContent?.[0])).toEqual(["1", "2", "3"]);
+    expect(openStep()).toHaveTextContent("3ผล render");
+    await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("ประโยค"));
+    expect(openStep()).toHaveTextContent("3ผล render");
+  });
+
+  it.each([
+    ["#/spoil/review"],
+    ["#/spoil/renders"],
+  ])("opens an old step hash %s as #/spoil (nav-ia D9)", async (hash) => {
+    backend({ [DRAFT]: DRAFT_EP2 });
+    window.location.hash = hash;
+    render(<App />);
+
+    expect(window.location.hash).toBe("#/spoil");
+    await waitFor(() => expect(openStep()).toHaveTextContent("ตรวจแก้บท"));
+  });
+
+  it("every step is a numbered button, with no check for the steps before", () => {
+    backend();
+    open();
+
+    const buttons = within(nav()).getAllByRole("button");
+    expect(buttons.map((button) => button.textContent?.[0])).toEqual(["1", "2", "3"]);
+    expect(within(nav()).queryAllByRole("link")).toHaveLength(0);
     expect(within(nav()).queryAllByRole("img")).toHaveLength(0);
   });
 
-  it("moves to a step by its link, which changes the hash", async () => {
+  it("moves to a step by its button, and the hash stays", async () => {
     backend();
-    const user = open("#/spoil");
+    const user = open();
+    await waitFor(() => expect(openStep()).toHaveTextContent("เลือกคลิป"));
 
-    await user.click(step("ตรวจแก้บท"));
+    await user.click(step("ผล render"));
 
-    expect(window.location.hash).toBe("#/spoil/review");
-    await waitFor(() => expect(within(nav()).getByRole("link", { current: "step" })).toHaveTextContent("ตรวจแก้บท"));
+    expect(openStep()).toHaveTextContent("ผล render");
+    expect(window.location.hash).toBe("#/spoil");
   });
 
   it("says the draft's clip and EP, its sentences and the renders", async () => {
     backend({ [DRAFT]: DRAFT_EP2, [RENDERS]: resultsOf(3) });
-    open("#/spoil/renders");
+    open("ผล render");
 
     await waitFor(() => expect(step("เลือกคลิป")).toHaveTextContent("Night of the Living Dead · EP 2"));
     expect(step("ตรวจแก้บท")).toHaveTextContent("6 ประโยค");
@@ -213,7 +246,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("with nothing yet says so on every step", async () => {
     backend();
-    open("#/spoil/renders");
+    open("ผล render");
 
     await waitFor(() => expect(step("เลือกคลิป")).toHaveTextContent("ยังไม่เลือก"));
     expect(step("ตรวจแก้บท")).toHaveTextContent("ยังไม่มีบท");
@@ -223,7 +256,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("a render running while step 1 is open shows its percent and a spinner on step 3, then the new count", async () => {
     backend({ [RENDER_JOB]: renderJob({}), [RENDERS]: resultsOf(1) });
-    open("#/spoil");
+    open();
 
     await waitFor(() => expect(step("ผล render")).toHaveTextContent("render 45%"));
     expect(spinners(step("ผล render"))).toHaveLength(1);
@@ -244,7 +277,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
     [renderJob({ state: "voicing", percent: null, done: 1, total: 3 }), "render: สร้างเสียง 1/3"],
   ])("a render job %# says %s", async (job, line) => {
     backend({ [RENDER_JOB]: job });
-    open("#/spoil");
+    open();
 
     await waitFor(() => expect(step("ผล render")).toHaveTextContent(line));
   });
@@ -255,7 +288,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
       { [DRAFT]: DRAFT_EP2, [RENDER_JOB]: renderJob({ state: "failed", error: FAILED }), [RENDERS]: resultsOf(1) },
       { [`POST ${RENDERS}`]: () => jsonResponse(started, 202) },
     );
-    const user = open("#/spoil/review");
+    const user = open("ตรวจแก้บท");
 
     await waitFor(() => expect(step("ผล render")).toHaveTextContent("render ไม่สำเร็จ"));
     expect(spinners(nav())).toHaveLength(0);
@@ -267,7 +300,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("cancel tells the steps, which then show the job ending", async () => {
     backend({ [RENDER_JOB]: renderJob({}) }, { [`DELETE ${RENDER_JOB}`]: () => jsonResponse(renderJob({ cancel_requested: true }), 202) });
-    const user = open("#/spoil/renders");
+    const user = open("ผล render");
     await waitFor(() => expect(step("ผล render")).toHaveTextContent("render 45%"));
 
     answers[RENDER_JOB] = renderJob({ state: "cancelled" });
@@ -281,7 +314,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("a Draft job that ends reads the draft again for step 2's count", async () => {
     backend({ [DRAFT_JOB]: draftJob({ state: "matching", done: 14, total: 15 }) });
-    open("#/spoil/renders");
+    open("ผล render");
     await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("กำลังเลือกภาพ 14/15"));
 
     answers[DRAFT_JOB] = draftJob({ state: "done", done: 15, total: 15 });
@@ -297,7 +330,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
     ["a polish", draftJob({ kind: "polish", state: "polishing" })],
   ])("%s says กำลังเรียบเรียง with a spinner on step 2", async (_, job) => {
     backend({ [DRAFT]: DRAFT_EP2, [DRAFT_JOB]: job });
-    open("#/spoil");
+    open();
 
     await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("กำลังเรียบเรียง"));
     expect(spinners(step("ตรวจแก้บท"))).toHaveLength(1);
@@ -306,7 +339,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
   it("a polish that failed says เรียบเรียงไม่สำเร็จ on step 2, not ร่างบทไม่สำเร็จ", async () => {
     const failed = { code: "polish_failed", message: "AI เรียบเรียงไม่สำเร็จ บทเดิมไม่เปลี่ยน" };
     backend({ [DRAFT]: DRAFT_EP2, [DRAFT_JOB]: draftJob({ kind: "polish", state: "failed", error: failed }) });
-    open("#/spoil");
+    open();
 
     await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("เรียบเรียงไม่สำเร็จ"));
     expect(step("ตรวจแก้บท")).not.toHaveTextContent("ร่างบทไม่สำเร็จ");
@@ -314,7 +347,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("a poll that failed lets the next refresh follow the job again", async () => {
     backend({ [DRAFT]: DRAFT_EP2, [RENDER_JOB]: renderJob({}) }, { [`POST ${RENDERS}`]: () => jsonResponse(renderJob({ percent: 0 }), 202) });
-    const user = open("#/spoil");
+    const user = open("เลือกคลิป");
     await waitFor(() => expect(step("ผล render")).toHaveTextContent("render 45%"));
 
     delete answers[RENDER_JOB]; // the next poll fails
@@ -343,7 +376,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
     [{ [DRAFT_JOB]: draftJob({ state: "failed", error: FAILED }), [VOICE_JOB]: voiceJob({ started_at: AT(5) }) }, "สร้างเสียง 2/5", true],
   ])("step 2 with %o says %s", async (jobs, line, busy) => {
     backend({ [DRAFT]: DRAFT_EP2, ...jobs });
-    open("#/spoil/renders");
+    open("ผล render");
 
     await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent(line));
     expect(spinners(step("ตรวจแก้บท"))).toHaveLength(busy ? 1 : 0);
@@ -351,7 +384,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("a Voice job of the Saved voice page isn't step 2's", async () => {
     backend({ [DRAFT]: DRAFT_EP2, [VOICE_JOB]: { kind: "design_preview", state: "voicing", started_at: AT(1) } });
-    open("#/spoil/renders");
+    open("ผล render");
 
     await waitFor(() => expect(step("ตรวจแก้บท")).toHaveTextContent("6 ประโยค"));
     expect(spinners(nav())).toHaveLength(0);
@@ -359,7 +392,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("the spinner turns only without prefers-reduced-motion; the line stays", async () => {
     backend({ [RENDER_JOB]: renderJob({}) });
-    open("#/spoil");
+    open();
 
     await waitFor(() => expect(step("ผล render")).toHaveTextContent("render 45%"));
     const [spinner] = spinners(step("ผล render"));
@@ -369,7 +402,7 @@ describe("Spoil steps (spoil-maker D53, D68)", () => {
 
   it("a phone names only the open step, but every running step keeps its spinner", async () => {
     backend({ [RENDER_JOB]: renderJob({}) });
-    open("#/spoil");
+    open("เลือกคลิป");
 
     await waitFor(() => expect(spinners(step("ผล render"))).toHaveLength(1));
     // jsdom has no CSS: the phone's view is the classes that hide the name below `sm`.

@@ -1,9 +1,9 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
 import { get, jsonResponse, phased, type Route, send, sent as sentTo, serve } from "../../../testing/testBackend";
-import { CURRENT_PATH, DRAFT_PATH, EMPTY_DRAFT, FILM, jobOf, JOBS_PATH, ORDER, REVIEW_HASH, setupDefaults } from "./setupFixtures";
+import { CURRENT_PATH, DRAFT_PATH, EMPTY_DRAFT, FILM, jobOf, JOBS_PATH, ORDER, setupDefaults } from "./setupFixtures";
 
 // ตรวจแก้บท while a whole new draft runs and after it ends (spoil-maker seam 2, D81, D83, D85–D88).
 
@@ -20,11 +20,23 @@ async function nextPoll() {
   });
 }
 
-async function openSetup() {
+const stepBar = () => screen.getByRole("navigation", { name: "ขั้นของสปอย" });
+/** The step the page has open; the steps are the page's state, not hashes (nav-ia D5). */
+const openStep = () => within(stepBar()).getByRole("button", { current: "step" });
+
+/** Opens ทำสปอย on `step`, whatever the page would open first: a step picked wins (nav-ia D14). */
+async function openOn(step: RegExp) {
   window.location.hash = "#/spoil";
   render(<App />);
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(within(stepBar()).getByRole("button", { name: step }));
+  return user;
+}
+
+async function openSetup() {
+  const user = await openOn(/เลือกคลิป/);
   await screen.findByRole("region", { name: "เลือกคลิป" });
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  return user;
 }
 
 beforeEach(() => {
@@ -41,11 +53,7 @@ afterEach(() => {
 });
 
 describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83, D85–D87)", () => {
-  async function openReview() {
-    window.location.hash = REVIEW_HASH;
-    render(<App />);
-    return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-  }
+  const openReview = () => openOn(/ตรวจแก้บท/);
 
   it("ยกเลิก says กำลังยกเลิก until the job stops, then opens step 1 with the order picked", async () => {
     const current = phased(CURRENT_PATH, jobOf({}), jobOf({ cancel_requested: true }), jobOf({ state: "cancelled", cancel_requested: true }));
@@ -60,10 +68,11 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     expect(await screen.findByText("กำลังยกเลิก")).toBeInTheDocument(); // once the DELETE is answered
     expect(screen.getByRole("button", { name: "ยกเลิก" })).toBeDisabled();
     await nextPoll();
-    expect(window.location.hash).toBe(REVIEW_HASH); // still cancelling: the job hasn't stopped (D85)
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท"); // still cancelling: the job hasn't stopped (D85)
     current.phases.at = 2;
     await nextPoll();
     expect(await screen.findByRole("region", { name: "เลือกคลิป" })).toBeInTheDocument();
+    expect(openStep()).toHaveTextContent("เลือกคลิป");
     expect(window.location.hash).toBe("#/spoil");
     expect(await screen.findByRole("radio", { name: "เลือก EP 1" })).toBeChecked();
   });
@@ -78,7 +87,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     await nextPoll();
 
     expect(await screen.findByText("ยกเลิกไม่ทัน บทร่างเสร็จแล้ว")).toBeInTheDocument();
-    expect(window.location.hash).toBe(REVIEW_HASH);
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท");
   });
 
   it("a failed draft says why; ลองอีกครั้ง asks before replacing the draft there, then sends the order again", async () => {
@@ -88,7 +97,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     const user = await openReview();
 
     expect(await screen.findByText("AI ร่างบทไม่สำเร็จ 3 ครั้ง")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toHaveAttribute("href", "#/spoil");
+    expect(screen.getByRole("button", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "ลองอีกครั้ง" }));
     expect(screen.getByText("มี Spoil draft อยู่แล้ว: ร่างใหม่จะทับของเดิม")).toBeInTheDocument();
     expect(sent("POST", JOBS_PATH)).toEqual([]);
@@ -110,7 +119,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
 
     expect(await screen.findByText("การตัด EP เปลี่ยนไป ตรวจช่วงแล้วกดร่างอีกครั้ง")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
   });
 
   it("ลองอีกครั้ง refused as story_not_found says so and offers only กลับไปแก้ตั้งค่า (story-kb spec › Frontend)", async () => {
@@ -123,7 +132,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
 
     expect(await screen.findByText("ไม่พบเรื่องนี้ในคลังความรู้แล้ว")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "กลับไปแก้ตั้งค่า" })).toBeInTheDocument();
   });
 
   it("กลับไปแก้ตั้งค่า after a failure opens step 1 with the order picked", async () => {
@@ -131,7 +140,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
     backend([get(CURRENT_PATH, failed)]);
     const user = await openReview();
 
-    await user.click(await screen.findByRole("link", { name: "กลับไปแก้ตั้งค่า" }));
+    await user.click(await screen.findByRole("button", { name: "กลับไปแก้ตั้งค่า" }));
 
     expect(await screen.findByRole("radio", { name: "เลือก EP 2" })).toBeChecked();
   });
@@ -239,8 +248,7 @@ describe("ร่างบทที่ขั้นตรวจแก้ (D81, D83
       jobOf({ state: "failed", order: { ...ORDER, target_s: 120 }, error: { code: "draft_failed", message: "x" } }),
     );
     backend([current.route]);
-    window.location.hash = "#/spoil";
-    render(<App />);
+    await openSetup();
     expect(await screen.findByRole("slider", { name: "ความยาว" })).toBeDisabled();
 
     current.phases.at = 1;

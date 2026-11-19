@@ -1,66 +1,50 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { DESTRUCTIVE_BUTTON, GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import { ModalDialog } from "../../../components/ui/ModalDialog";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
-import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
-import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import downloadIcon from "../../../components/ui/assets/download.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import { editedAt, formatDuration } from "../../../lib/format";
-import { useDrumRender } from "../hooks/useDrumRender";
 import { useRenders } from "../hooks/useRenders";
-import { DRUMS_HASH, lessonHash } from "../../../lib/lesson";
-import { downloadName, renderFile, renderingOf, type RenderResult } from "../lib/render";
-import { RenderProgress } from "./RenderProgress";
+import { downloadName, renderFile, type RenderResult } from "../lib/render";
 
 /**
- * ผล render ของ reel กลอง (`#/drums/{id}/renders`): newest first, the newest playing in a 9:16
- * player; download the mp4 and `.srt`, delete after asking (D10). This lesson's render shows its
- * percent on top. The design is pending, so the app's own parts.
+ * ผล render ของ reel กลอง, under the form on the reel's page (`#/drums/{id}`): newest first, the newest
+ * playing in a 9:16 player; download the mp4 and `.srt`, delete after asking (D10). It was a page of
+ * its own (nav-ia D7). The page holds the one Render job: `ended` changes when a render ends, and the
+ * results are read again then; `chosen` is the one a render just made (D35, nav-ia D14).
  */
-export function RendersPage({ id }: { id: string }) {
+export function DrumRenders({ id, ended, made }: { id: string; ended: number; made: string | null }) {
   const { state, reload, remove } = useRenders(id);
-  // A render that ends adds its result.
-  const { job } = useDrumRender(() => void reload());
   const [chosen, setChosen] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<RenderResult | null>(null);
-  const rendering = renderingOf(job, id);
+  const titleId = useId();
+
+  useEffect(() => {
+    if (ended > 0) void reload();
+  }, [ended, reload]);
+  useEffect(() => {
+    if (made) setChosen(made);
+  }, [made]);
 
   return (
-    <PageLayout tab="drums" wide action={state.kind === "offline" ? <RefreshButton onClick={() => void reload()} /> : undefined}>
+    <section aria-labelledby={titleId} className="flex scroll-mt-4 flex-col gap-4">
       <div className="flex items-center gap-2">
-        <a href={lessonHash(id)} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
-          <img src={arrowLeftIcon} alt="" width={16} height={16} />
-          กลับไปแก้ reel
-        </a>
-        {state.kind === "ready" && (
-          <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">{state.title} — ผล render</h2>
-        )}
+        <h2 id={titleId} className="min-w-0 flex-1 pt-2 text-xl leading-[1.5] font-semibold text-foreground">
+          ผล render
+        </h2>
+        {state.kind === "offline" && <RefreshButton onClick={() => void reload()} />}
       </div>
-      {rendering && (
-        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-          <span className="text-sm leading-[1.5] font-medium text-foreground">กำลัง render</span>
-          <RenderProgress percent={rendering.percent} />
-        </div>
-      )}
       {state.kind === "loading" && <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>}
       {state.kind === "offline" && <OfflinePanel />}
-      {state.kind === "not_found" && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-4 py-12">
-          <p className="text-base leading-[1.5] font-medium text-foreground">ไม่พบ reel นี้</p>
-          <a href={DRUMS_HASH} className={`h-11 px-4 text-brand sm:h-9 ${GHOST_BUTTON} hover:bg-muted`}>
-            กลับรายการ reel
-          </a>
-        </div>
-      )}
       {state.kind === "ready" && state.failure && <Alert tone="error">{state.failure}</Alert>}
       {state.kind === "ready" &&
         (state.renders.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card px-4 py-12 text-center leading-[1.5]">
             <p className="text-base font-medium text-foreground">ยังไม่เคย render reel นี้</p>
-            <p className="text-[13px] text-muted-foreground">กด render ในหน้าแก้ reel แล้วผลจะขึ้นที่นี่</p>
+            <p className="text-[13px] text-muted-foreground">กด render ด้านบน แล้วผลจะขึ้นที่นี่</p>
           </div>
         ) : (
           <Results
@@ -82,7 +66,7 @@ export function RendersPage({ id }: { id: string }) {
           }}
         />
       )}
-    </PageLayout>
+    </section>
   );
 }
 

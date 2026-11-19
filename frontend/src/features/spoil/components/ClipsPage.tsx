@@ -69,7 +69,7 @@ export function ClipsPage() {
 
   if (fileImport.state.kind === "offline" || othersOffline) {
     return (
-      <PageLayout tab="clips" action={<RefreshButton onClick={refresh} />}>
+      <PageLayout tab="spoil" action={<RefreshButton onClick={refresh} />}>
         <OfflinePanel />
       </PageLayout>
     );
@@ -77,7 +77,7 @@ export function ClipsPage() {
 
   if (!allSettled(states)) {
     return (
-      <PageLayout tab="clips">
+      <PageLayout tab="spoil">
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
       </PageLayout>
     );
@@ -132,7 +132,7 @@ export function ClipsPage() {
   };
 
   return (
-    <PageLayout tab="clips" wide>
+    <PageLayout tab="spoil" wide>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-col gap-4 lg:w-[520px] lg:shrink-0">
           {state.kind === "notReady" && <NotReady missing={state.missing} />}

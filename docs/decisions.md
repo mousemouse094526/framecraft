@@ -55,7 +55,7 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | แถบ tab บน: สปอย (`#/spoil`), Setup status (`#/setup`), default Setup status, ไม่ใช้ router library | [spoil](features/spoil/decisions.md) | D10 | — | — | changed by spoil-maker D53 |
-| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | story-kb, ui-nav | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by spoil-maker D68; changed by story-kb D9 |
+| แถบ tab บน 3 tab: ติดตั้ง (`#/setup`) · คลิป (`#/clips`) · สปอย (`#/spoil`) default ติดตั้ง; tab สปอยเป็น 3 ขั้น `#/spoil` → `#/spoil/review` → `#/spoil/renders`; แต่ละ tab gate เฉพาะแถว Status check ที่ใช้ | [spoil-maker](features/spoil-maker/decisions.md) | D53 | story-kb, ui-nav | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by spoil-maker D68; changed by story-kb D9; changed by nav-ia D5 |
 | ออกแบบหน้าจอใน Figma หลัง plan | [setup-status](features/setup-status/decisions.md) | D9 | spoil, story-kb, windows-launch, sound-library, video-gen, drum-notes, drum-cover, ui-nav | — | active |
 | แถบนำทาง 6 รายการ: ติดตั้ง · คลิป · คลังความรู้ · คลังเสียง (`#/sounds`) · สปอย · การ์ตูนเล่า | [sound-library](features/sound-library/decisions.md) | D2 | video-gen, drum-notes | — | superseded by ui-nav D1 |
 | แถบ tab แบ่งสามกลุ่มด้วยเส้นคั่นตั้งแต่ 640px; จอแคบเป็นปุ่มเมนูชื่อหน้าปัจจุบัน เปิดรายการตามกลุ่ม "เตรียมของ" กับ "ทำคลิป" | [sound-library](features/sound-library/decisions.md) | D3 | video-gen | — | superseded by ui-nav D1 |
@@ -65,20 +65,35 @@ question; the full entry is in the feature's decisions.md.
 | API ส่ง `fix_kind` (`command`/`hint`) คู่ `fix`; probe รวมเป็น `Probes`; แถว Python บอกสาเหตุให้ตรง | [setup-status](features/setup-status/decisions.md) | D26 | spoil, drum-notes, drum-cover | — | active |
 | รายละเอียดหน้า Setup status: Refresh จาก offline, เวลาเช็คล่าสุด, pill คำเตือน, icon จาก Figma, timeout | [setup-status](features/setup-status/decisions.md) | D21 | spoil | — | active |
 | เมนูหลัก 5 หัวข้อใหญ่ ติดตั้ง · สปอย · การ์ตูนเล่า · สอนกลอง · แกะเพลง แทนแถบ 8 tab; คลังย้ายเข้าเมนู (แทน sound-library D2, D3) | [ui-nav](features/ui-nav/decisions.md) | D1 | — | [0062](adr/0062-main-menu-from-hash-tree.md), [0063](adr/0063-libraries-in-one-menu-section.md) | changed by ui-nav D12 |
-| ส่วน "คลัง" ท้ายเมนู: คลังคลิป · คลังความรู้ · คลังเสียง · เสียงที่บันทึก มีที่เดียวพร้อม "ใช้กับ …"; tab "คลิป" เรียก "คลังคลิป" | [ui-nav](features/ui-nav/decisions.md) | D2 | — | [0063](adr/0063-libraries-in-one-menu-section.md) | active |
-| ขั้นของสปอยและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู ทุกส่วนเปิดตลอด หัวข้อที่มีรายการเป็นหัวกลุ่มไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D3 | — | — | active |
+| ส่วน "คลัง" ท้ายเมนู: คลังคลิป · คลังความรู้ · คลังเสียง · เสียงที่บันทึก มีที่เดียวพร้อม "ใช้กับ …"; tab "คลิป" เรียก "คลังคลิป" | [ui-nav](features/ui-nav/decisions.md) | D2 | — | [0063](adr/0063-libraries-in-one-menu-section.md) | changed by nav-ia D2 |
+| ขั้นของสปอยและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู ทุกส่วนเปิดตลอด หัวข้อที่มีรายการเป็นหัวกลุ่มไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D3 | — | — | superseded by nav-ia D5 |
 | `<nav>` "เมนูหลัก" ตัวเดียว: ≥1024px sidebar ตรึงซ้ายยุบได้ (จำใน `localStorage`), จอแคบ drawer จากปุ่ม ☰ "เมนู: {หัวข้อ}" (แทน sound-library D16) | [ui-nav](features/ui-nav/decisions.md) | D4 | — | — | changed by ui-nav D11, D14 |
-| "ล่าสุด" ในเมนู: ชุดหรือ EP, บทเรียนกลอง, เพลง ไม่เกิน 3 ต่อหัวข้อ ใน `localStorage`; ลบเมื่อ `not_found` หรือลบชิ้นนั้น | [ui-nav](features/ui-nav/decisions.md) | D5 | — | — | changed by ui-nav D11 |
-| hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | reels-only | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11 |
+| "ล่าสุด" ในเมนู: ชุดหรือ EP, บทเรียนกลอง, เพลง ไม่เกิน 3 ต่อหัวข้อ ใน `localStorage`; ลบเมื่อ `not_found` หรือลบชิ้นนั้น | [ui-nav](features/ui-nav/decisions.md) | D5 | nav-ia | — | changed by ui-nav D11 |
+| hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | reels-only | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11; changed by nav-ia D1, D9 |
 | เปลือกแอปสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma | [ui-nav](features/ui-nav/decisions.md) | D7 | — | — | active |
 | test ที่ผูกกับแถบ tab เดิม ("แถบ tab", "เมนู tab") เขียนใหม่ให้หา "เมนูหลัก" | [ui-nav](features/ui-nav/decisions.md) | D8 | — | — | active |
-| seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | reels-only | — | active |
+| seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | reels-only, nav-ia | — | active |
 | กฎ red team ของเมนู: โฟกัสและ `inert` ของ drawer, ชื่อล่าสุดตัด 80 ตัวอักษร, hash ล่าสุดตรงรูป route, อ่านก่อนเขียน, ถอยกลับด้วย revert | [ui-nav](features/ui-nav/decisions.md) | D10 | — | — | changed by ui-nav D14 |
 | sidebar ตรึงตั้งแต่ 1280px (`xl`) ไม่ใช่ 1024px; หน้าที่เขียนและลบล่าสุด; รายการตรงตัวหรือ prefix; ข้อความตำแหน่งในหัวหน้า | [ui-nav](features/ui-nav/decisions.md) | D11 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
 | เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | changed by reels-only D5 |
 | เมนูมีเฉพาะทางที่ได้ reel (ก), ของที่ reel ใช้ (ข) หรือการตั้งค่าเครื่อง (ค); ไม่แน่ใจ = เก็บไว้เป็น Open Question; ไม่ซ่อนหน้าของ feature อื่น | [ui-nav](features/ui-nav/decisions.md) | D13 | — | [0064](adr/0064-main-menu-reels-only.md) | extended by reels-only D1 |
 | หัวเมนู (sidebar และ drawer) มี wordmark กับปุ่ม "ยุบเมนู"/"ปิดเมนู"; หัวหน้าเหลือ ☰ เมื่อเมนูซ่อน `<h1>` ข้อความตำแหน่ง และ action | [ui-nav](features/ui-nav/decisions.md) | D14 | — | — | active |
-| คำบนจอของ Saved voice เป็น "เสียงพากย์" (เมนู หัวหน้า แผง error ของการ์ตูนเล่า); hash `#/spoil/voices` และชื่อในโค้ดคงเดิม | [ui-nav](features/ui-nav/decisions.md) | D15 | — | — | active |
+| คำบนจอของ Saved voice เป็น "เสียงพากย์" (เมนู หัวหน้า แผง error ของการ์ตูนเล่า); hash เดิมและชื่อในโค้ดคงเดิม | [ui-nav](features/ui-nav/decisions.md) | D15 | — | — | active |
+| ทุก route อยู่ใต้ hash ของรายการเมนูที่มันเป็นของ; ย้ายของในเมนูต้องย้าย route ด้วย (changes ui-nav D6) | [nav-ia](features/nav-ia/decisions.md) | D1 | — | [0067](adr/0067-route-follows-menu-place.md) | active |
+| วัตถุดิบที่หัวข้อเดียวใช้ทำงานต่ออยู่ใต้หัวข้อนั้น: คลังคลิปเป็น สปอย › คลิปทั้งหมด `#/spoil/clips`; คลังเหลือของอ้างอิง (changes ui-nav D2) | [nav-ia](features/nav-ia/decisions.md) | D2 | — | [0068](adr/0068-materials-under-their-topic.md) | active |
+| คลังความรู้คงในหมวดคลัง "ใช้กับ สปอย" (มีแต่สปอยที่อ่าน Story) | [nav-ia](features/nav-ia/decisions.md) | D3 | — | — | active |
+| เสียงพากย์ (Saved voice) ที่ `#/voices` หัวข้อ `voices` ในหมวดคลัง ไม่มีปุ่มกลับไปสปอย | [nav-ia](features/nav-ia/decisions.md) | D4 | — | — | active |
+| สปอยเป็นพื้นที่ทำงานเดียว `#/spoil`: ขั้น เลือกคลิป · ตรวจแก้บท · ผล render เป็นสถานะในหน้า เปิดที่ตรวจแก้บทเมื่อมีบท; เมนูสปอย: ทำสปอย · คลิปทั้งหมด | [nav-ia](features/nav-ia/decisions.md) | D5 | — | [0069](adr/0069-one-job-one-page.md) | active |
+| หัวข้อ "แกะเพลง" เป็น "reel cover" `#/covers`; `#/covers/{id}` หน้าเดียวมีแกะโน้ตและส่วน reel (แทนหน้า `#/songs/{id}/cover`) | [nav-ia](features/nav-ia/decisions.md) | D6 | — | — | active |
+| reel กลองหน้าเดียว `#/drums/{id}` มีผล render ใต้ฟอร์ม; render เสร็จเลื่อนไปที่ผล ไม่เปลี่ยน hash | [nav-ia](features/nav-ia/decisions.md) | D7 | — | — | active |
+| EP การ์ตูนเล่าหน้าเดียว `#/toon/eps/{id}`: พล็อต · เส้นเรื่อง · render เป็นสถานะในหน้า; ชุด → EP คงเป็นหน้า | [nav-ia](features/nav-ia/decisions.md) | D8 | — | — | active |
+| `MOVED` เป็นรายการ pattern → hash ใหม่ (รองรับ `{id}`); ล่าสุดกุญแจ `songs` อ่านเป็น `covers` | [nav-ia](features/nav-ia/decisions.md) | D9 | — | — | active |
+| นับคลิกที่ sidebar ตรึง จอแคบบวก ☰; เป้า ≤2 ของที่ใช้บ่อย; ผล render สปอยรอบก่อน 2 คลิก (accepted risk) | [nav-ia](features/nav-ia/decisions.md) | D10 | — | — | active |
+| หน้าที่รวมกันใช้ component เดิม ไม่มี `ui-prompt.md` | [nav-ia](features/nav-ia/decisions.md) | D11 | — | — | changed by nav-ia D15 |
+| seam: `App` และหน้าใน jsdom ไม่มี e2e | [nav-ia](features/nav-ia/decisions.md) | D12 | — | — | active |
+| ไม่แตะ backend; ชื่อ API ไม่เปลี่ยนตาม route ใหม่ | [nav-ia](features/nav-ia/decisions.md) | D13 | — | — | active |
+| ข้อแก้ red team: `App` ประกอบหน้าเพลงด้วยช่อง `reel`; แกะใหม่ถาม leave guard; ปุ่ม "ไปที่ reel"; job hook ตัวเดียวต่อหน้า; ขั้นที่ผู้ใช้เลือกชนะ; เปลี่ยนขั้นอัตโนมัติเฉพาะจากขั้นต้นทาง; ลบค่าคงที่ route เก่า | [nav-ia](features/nav-ia/decisions.md) | D14 | — | — | active |
+| ปุ่มสลับ view ของ EP คือปุ่มเดิม (แก้พล็อต/ไปเส้นเรื่อง, ไปที่ render, เส้นเรื่อง) ไม่ใช่ `SegmentedChoice` | [nav-ia](features/nav-ia/decisions.md) | D15 | — | — | active |
 
 ## ทำ reel อย่างเดียว ไม่มีบทเรียน
 
@@ -93,8 +108,8 @@ question; the full entry is in the feature's decisions.md.
 | ลบ `drum_notes.lesson`, route `preview` `listen` `lessons` ของเพลง, `Song.lessons`; `song.json` เก่าอ่านได้ | [reels-only](features/reels-only/decisions.md) | D7 | — | [0065](adr/0065-no-lessons-in-the-app.md) | active |
 | เปลี่ยนแค่คำบนจอ (รวม `message` ของ backend); identifier ที่มี lesson คงไว้เป็น Open Question | [reels-only](features/reels-only/decisions.md) | D8 | — | [0066](adr/0066-lesson-names-stay-in-code.md) | active |
 | ตรวจหน้าอื่นทั้งหมดแล้ว ไม่มีอะไรเกินต้องเอาออก; คำใบ้โหมดทำนองกับ dialog ลบเพลงแก้คำ | [reels-only](features/reels-only/decisions.md) | D9 | — | — | active |
-| หน้าตาใช้ component เดิม ไม่มีจอรอออกแบบ ไม่มี `ui-prompt.md` | [reels-only](features/reels-only/decisions.md) | D10 | — | — | active |
-| seam: `DrumsPage`, `SongsPage`, `App` ใน jsdom และ API เพลง; ไม่มี e2e | [reels-only](features/reels-only/decisions.md) | D11 | — | — | active |
+| หน้าตาใช้ component เดิม ไม่มีจอรอออกแบบ ไม่มี `ui-prompt.md` | [reels-only](features/reels-only/decisions.md) | D10 | nav-ia | — | active |
+| seam: `DrumsPage`, `SongsPage`, `App` ใน jsdom และ API เพลง; ไม่มี e2e | [reels-only](features/reels-only/decisions.md) | D11 | nav-ia | — | active |
 | reel กลองไม่มีนับเข้า: เฟรมแรกคือ beat 1 ของห้องแรก; `length_s` = ทุกท่อน + หาง 1.5 วิ ทั้ง backend และ `lengthOf`; reel cover กับ reel คาลิมบาไม่เคยมี ไม่แก้ | [reels-only](features/reels-only/decisions.md) | D15 | — | — | active |
 | flam ที่ step แรกของต้นคลิปเล่นแค่โน้ตหลัก (โน้ตนำจะตกก่อน 0 วิ) | [reels-only](features/reels-only/decisions.md) | D16 | — | — | active |
 | reel แบบเก่าเก็บ `lesson.before-reels-only.json` ครั้งเดียวก่อน `PUT` รวมท่อน; ทางถอยคือ revert แล้วเปลี่ยนชื่อกลับ | [reels-only](features/reels-only/decisions.md) | D12 | — | — | active |
@@ -367,7 +382,7 @@ question; the full entry is in the feature's decisions.md.
 | Status check: pattern ใน `allow_patterns` ที่ระบุไฟล์หรือ folder ต้องตรงไฟล์ใน marker; pattern ชนิดไฟล์ไม่เทียบ | [toon](features/toon/decisions.md) | D50 | — | — | active |
 | klein transformer เป็น GGUF Q4_K_M (Q8_0 13.08 GB, Q6_K 12.88 GB เกิน; Q4_K_M 11.83 GB) + ภาพอ้างอิง ≤ 512 + `empty_cache` ทุกภาพ | [toon](features/toon/decisions.md) | D51 | — | [0036](adr/0036-klein-within-whole-mac.md) | active |
 | หน้า tab การ์ตูนเล่า: hash `#/toon`, `/new`, `/series/{sid}`, `/settings`, `/{kind}/{id}/pick`; `POST /series` รับ style/tone/acts; ล้มหรือหยุด Ref job ไม่มีภาพให้เลือก | [toon](features/toon/decisions.md) | D52 | — | — | changed by toon D53 |
-| EP พล็อต เส้นเรื่อง: `/series/{sid}` เป็นรายการ EP ตัวละครย้ายไป `/cast`; EP ใหม่เริ่ม Plot job ทันที; `PATCH` องก์; Cards job เขียน Series กับ EP ตอนจบ; ขีดจำกัดข้อความ | [toon](features/toon/decisions.md) | D53 | — | — | active |
+| EP พล็อต เส้นเรื่อง: `/series/{sid}` เป็นรายการ EP ตัวละครย้ายไป `/cast`; EP ใหม่เริ่ม Plot job ทันที; `PATCH` องก์; Cards job เขียน Series กับ EP ตอนจบ; ขีดจำกัดข้อความ | [toon](features/toon/decisions.md) | D53 | — | — | changed by nav-ia D8 |
 | พล็อตที่ยืนยันแล้วไม่รับตัวละครหรือฉากหลังใหม่ (`invalid_request`); id ของ EP ไม่ซ้ำทั้ง tab; ชื่อองก์แก้ที่หัวองก์ | [toon](features/toon/decisions.md) | D54 | — | — | active |
 | ภาพการ์ดและเสียงเล่า: Toon job มี `card_ids` `scope`; ขอบเขตตามภาพ ข้าม `no_ref`; `silent_card`; klein ล้มหนึ่งภาพแล้วรอภาพถัดไป; `has_image`; ลูปเสียงกลาง `speaking.Speaker` | [toon](features/toon/decisions.md) | D55 | — | — | active |
 | คลังเสียงพื้นและ render: ไฟล์เสียง request เดียว ลิงก์เป็นงาน, `DownloadOptions`, `in_use` ของเสียง, วนเสียงด้วย `-stream_loop`, ไฟกะพริบสอง sine, ขนาดตัวหนังสือจาก layout A, `#/toon/sounds` และ `/render` | [toon](features/toon/decisions.md) | D56 | — | [0028](adr/0028-raw-file-upload-per-route.md), [0029](adr/0029-media-links-dedicated-extractors-only.md) | changed by sound-library D6 |
@@ -473,7 +488,7 @@ question; the full entry is in the feature's decisions.md.
 | Decision | Feature | D | Used by | ADR | Status |
 |---|---|---|---|---|---|
 | รับเพลงเข้าสามทาง: เสียงกลองจากเพลง (ลิงก์/ไฟล์), ไฟล์ MIDI, ทำนองจากเสียง; ไม่ทำ text/MusicXML | [drum-notes](features/drum-notes/decisions.md) | D1 | — | — | changed by D20 |
-| tab ใหม่ "แกะเพลง" `#/songs` ต่อท้ายสอนกลอง จบด้วยการสร้างบทเรียนกลอง; package `drum_notes`, prefix `/api/songs` | [drum-notes](features/drum-notes/decisions.md) | D2 | — | [0047](adr/0047-lesson-from-song-one-way-copy.md) | changed by reels-only D6 |
+| tab ใหม่ "แกะเพลง" `#/songs` ต่อท้ายสอนกลอง จบด้วยการสร้างบทเรียนกลอง; package `drum_notes`, prefix `/api/songs` | [drum-notes](features/drum-notes/decisions.md) | D2 | — | [0047](adr/0047-lesson-from-song-one-way-copy.md) | changed by reels-only D6; changed by nav-ia D6 |
 | Song = `media/songs/{id}/` (`song.json` + `audio.wav`) id ตาม spoil D51 ซ้ำชี้แถวเดิม | [drum-notes](features/drum-notes/decisions.md) | D3 | — | [0049](adr/0049-imported-media-id-from-source.md) | changed by D20 |
 | เอาเพลงเข้า: ลิงก์ `bestaudio` ผ่าน spoil adapter, ไฟล์เสียงทุกชนิดที่ ffmpeg อ่าน ≤ 200 MB และ `.mid` ≤ 5 MB แบบ ADR-0028; แปลงเป็น wav 44.1 kHz; ≤ 10 นาที; Song import slot ของตัวเอง | [drum-notes](features/drum-notes/decisions.md) | D4 | — | [0048](adr/0048-audio-only-imports-converted-to-m4a.md) | changed by D20 |
 | เลือกช่วงแกะ 4–90 วินาทีก่อนแกะ ไม่แกะทั้งเพลง | [drum-notes](features/drum-notes/decisions.md) | D5 | drum-cover, reels-only | — | active |
@@ -517,7 +532,7 @@ question; the full entry is in the feature's decisions.md.
 | พื้นหลัง reel สีของแอปหรือภาพของผู้ใช้ตาม video-gen D6/D36/D37; โค้ดรับและครอปภาพย้ายไป `backend.pictures` ใช้ร่วม; `BackgroundPicker` ไป `components/ui` | [drum-cover](features/drum-cover/decisions.md) | D8 | kalimba-cover | — | active |
 | หลังแกะ หน้าเพลงบอกเมื่อไม่มีการตี หรือห้องแรก ๆ ว่าง (บอกเวลาการตีแรก) และปุ่ม "เริ่มช่วงที่การตีแรก" ตั้งช่วงใหม่แล้วแกะทันที; คำนวณบนหน้าเว็บ | [drum-cover](features/drum-cover/decisions.md) | D9 | reels-only | — | active |
 | แกะจากเสียง (หรือ MIDI) เท่านั้น ไม่อ่านโน้ตจากภาพของคลิป cover ของคนอื่น | [drum-cover](features/drum-cover/decisions.md) | D10 | — | — | active |
-| หน้าเพลง: ส่วน "Reel cover" เหนือ "สร้างบทเรียน" ปุ่มหลัก; `#/songs/{id}/cover` เป็นหน้าของ drum-cover ที่ `App` เลือกเอง; tab ยังเป็นแกะเพลง | [drum-cover](features/drum-cover/decisions.md) | D11 | reels-only | — | active |
+| หน้าเพลง: ส่วน "Reel cover" เหนือ "สร้างบทเรียน" ปุ่มหลัก; `#/songs/{id}/cover` เป็นหน้าของ drum-cover ที่ `App` เลือกเอง; tab ยังเป็นแกะเพลง | [drum-cover](features/drum-cover/decisions.md) | D11 | reels-only | — | superseded by nav-ia D6 |
 | ทางเลือกเล็ก: routes `/api/songs/{id}/cover…` + `/api/covers/render`, Render job slot ของตัวเอง gate `drums`, copy เข้า `media/songs/.render/` ก่อน 202, ผลใต้ `renders/` มี `backing` ใน json, `GET /cover` คืนค่าตั้งต้น + `suggested_start_s`, ผล render บนหน้าเดียว | [drum-cover](features/drum-cover/decisions.md) | D12 | kalimba-cover | — | extended by kalimba-cover D9 |
 | seam: API ด้วย ffmpeg จริงและ `analysis` ที่เขียนเอง, `drum_cover.timeline` ด้วยการตีสังเคราะห์ (เสียงตรงภาพ ≤ 1 เฟรม), หน้าเว็บผ่าน `App` | [drum-cover](features/drum-cover/decisions.md) | D13 | kalimba-cover | — | active |
 | สองจอสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma | [drum-cover](features/drum-cover/decisions.md) | D14 | kalimba-cover | — | active |

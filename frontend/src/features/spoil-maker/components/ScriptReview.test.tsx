@@ -81,6 +81,8 @@ function backend(routes: Route[]) {
     [`/api/spoil-maker/clips/${EP1}/shots`, { clip_id: EP1, shots: shotsOf(60) }],
     [VOICE_CURRENT, null],
     [RENDER_CURRENT, null],
+    // The steps read the renders too: the page opens where the work stands (nav-ia D5).
+    ["/api/spoil-maker/renders", []],
     [SETTINGS_PATH, { watermarks: [], original_volume: 20, last_voice_id: null }],
     [STORIES_PATH, []],
     [STORY_CLIPS_PATH, {}],
@@ -89,11 +91,18 @@ function backend(routes: Route[]) {
   serve(fetchMock, routes, defaults);
 }
 
+const stepBar = () => screen.getByRole("navigation", { name: "ขั้นของสปอย" });
+/** The step the page has open; the steps are the page's state, not hashes (nav-ia D5). */
+const openStep = () => within(stepBar()).getByRole("button", { current: "step" });
+
+/** Opens ทำสปอย on ตรวจแก้บท: a step picked wins over the one the page would open (nav-ia D14). */
 async function openReview() {
-  window.location.hash = "#/spoil/review";
+  window.location.hash = "#/spoil";
   render(<App />);
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(within(stepBar()).getByRole("button", { name: /ตรวจแก้บท/ }));
   await screen.findByRole("region", { name: "ภาพรวมบท" });
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  return user;
 }
 
 const card = (number: number) => screen.getByRole("listitem", { name: `ประโยค ${number}` });
@@ -118,13 +127,16 @@ afterEach(() => {
 });
 
 describe("ตรวจแก้บท", () => {
-  it("without a Spoil draft links to ตั้งค่าคลิปสปอย", async () => {
+  it("without a Spoil draft has a way to ตั้งค่าคลิปสปอย", async () => {
     backend([get(DRAFT_PATH, null)]);
-    window.location.hash = "#/spoil/review";
+    window.location.hash = "#/spoil";
     render(<App />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(within(stepBar()).getByRole("button", { name: /ตรวจแก้บท/ }));
 
-    expect(await screen.findByText("ยังไม่มีบท")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปที่ตั้งค่าคลิปสปอย" })).toHaveAttribute("href", "#/spoil");
+    await user.click(await screen.findByRole("button", { name: "ไปที่ตั้งค่าคลิปสปอย" }));
+    expect(openStep()).toHaveTextContent("เลือกคลิป");
+    expect(window.location.hash).toBe("#/spoil");
   });
 
   it("shows the hook, the length, and each sentence with its Shots, status and cited line", async () => {
@@ -457,7 +469,7 @@ describe("ตรวจแก้บท: เสียง ลายน้ำ แล
     await user.click(await screen.findByRole("button", { name: "เพิ่มลายน้ำ" }));
     await user.click(await screen.findByRole("button", { name: "เพิ่มลายน้ำ" }));
     expect(await screen.findByRole("group", { name: "ลายน้ำ 2" })).toBeInTheDocument();
-    cleanupAndReopen();
+    await cleanupAndReopen();
     await screen.findByRole("region", { name: "ภาพรวมบท" });
 
     expect(await screen.findByRole("group", { name: "ลายน้ำ 2" })).toBeInTheDocument();
@@ -521,18 +533,22 @@ describe("ตรวจแก้บท: เสียง ลายน้ำ แล
       await vi.advanceTimersByTimeAsync(1000);
     });
 
-    await waitFor(() => expect(window.location.hash).toBe("#/spoil/renders"));
+    await waitFor(() => expect(openStep()).toHaveTextContent("ผล render"));
+    expect(window.location.hash).toBe("#/spoil");
   });
 
   it("a render that failed in ffmpeg says render ไม่สำเร็จ with ลองอีกครั้ง", async () => {
     const failed = { ...RENDER, state: "failed", error: { code: "ffmpeg_failed", message: "render ไม่สำเร็จ: x" } };
-    backend([get(RENDER_CURRENT, { ...RENDER, state: "rendering", percent: 10 }), get(RENDER_CURRENT, failed)]);
+    // The steps read the job first, then the open step: both see it running (nav-ia D5).
+    const rendering = { ...RENDER, state: "rendering", percent: 10 };
+    backend([get(RENDER_CURRENT, rendering), get(RENDER_CURRENT, rendering), get(RENDER_CURRENT, failed)]);
     await openReview();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
 
-    expect(await screen.findByText("render ไม่สำเร็จ")).toBeInTheDocument();
+    // Said in the banner, and on step 3's line.
+    expect(await screen.findAllByText("render ไม่สำเร็จ")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "ลองอีกครั้ง" })).toBeInTheDocument();
   });
 
@@ -606,7 +622,7 @@ describe("ตรวจแก้บท › เสียงพื้น", () => {
 
     expect(await screen.findByText("ยังไม่มีเสียงในคลัง")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "เสียงพื้น" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปคลังเสียง" })).toHaveAttribute("href", "#/sounds?back=#/spoil/review");
+    expect(screen.getByRole("link", { name: "ไปคลังเสียง" })).toHaveAttribute("href", "#/sounds?back=#/spoil");
   });
 
   it("ไปคลังเสียง opens the library with ← กลับ, which comes back and reads the sounds again", async () => {
@@ -621,11 +637,12 @@ describe("ตรวจแก้บท › เสียงพื้น", () => {
     await waitFor(() => expect(options()).toEqual(["ไม่มีเสียงพื้น", "ฝนตก"]));
 
     await user.click(screen.getByRole("link", { name: "ไปคลังเสียง" }));
-    expect(window.location.hash).toBe("#/sounds?back=#/spoil/review");
+    expect(window.location.hash).toBe("#/sounds?back=#/spoil");
     await user.click(await screen.findByRole("link", { name: "กลับ" })); // "←" is its icon
 
     await screen.findByRole("region", { name: "ภาพรวมบท" });
-    expect(window.location.hash).toBe("#/spoil/review");
+    expect(window.location.hash).toBe("#/spoil");
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท");
     await waitFor(() => expect(options()).toEqual(["ไม่มีเสียงพื้น", "ฝนตก", "จิ้งหรีด"]));
   });
 
@@ -695,9 +712,11 @@ describe("ตรวจแก้บท › เสียงพื้น", () => {
 });
 
 /** Unmounts the page and opens it again, as a reload does. */
-function cleanupAndReopen() {
+/** Opens the page again on ตรวจแก้บท, as a reload would. */
+async function cleanupAndReopen() {
   cleanup();
   render(<App />);
+  await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(within(stepBar()).getByRole("button", { name: /ตรวจแก้บท/ }));
 }
 
 describe("ตรวจแก้บท: ลายน้ำเปิดปิด และคำเตือนลายน้ำทับ (D64)", () => {
@@ -725,7 +744,7 @@ describe("ตรวจแก้บท: ลายน้ำเปิดปิด �
 
     await user.click(within(row).getByRole("switch", { name: "แสดงลายน้ำ 1" }));
     expect(sent("PATCH", SETTINGS_PATH)).toEqual([{ watermarks: [{ ...ON_TOP, position: "bottom_right", enabled: false }] }]);
-    cleanupAndReopen();
+    await cleanupAndReopen();
     await screen.findByRole("region", { name: "ภาพรวมบท" });
 
     const reloaded = await screen.findByRole("group", { name: "ลายน้ำ 1" });

@@ -11,7 +11,7 @@ import { useLibrarySounds } from "../hooks/useLibrarySounds";
 import { useReviewJobs } from "../hooks/useReviewJobs";
 import { useScriptReview } from "../hooks/useScriptReview";
 import { useVideoSettings } from "../hooks/useVideoSettings";
-import { epLabel, reviewJobText, SETUP_HASH, TOP_TEXT_LABELS, type Draft } from "../lib/draft";
+import { epLabel, reviewJobText, TOP_TEXT_LABELS, type Draft } from "../lib/draft";
 import { markNumbersOverTopText, type Watermark } from "../lib/render";
 import type { RefusalLine } from "../../../lib/refusal";
 import { BackgroundSound } from "./BackgroundSound";
@@ -22,6 +22,7 @@ import { ReviewFooter } from "./ReviewFooter";
 import { ReviewJobProgress, SentenceCard } from "./SentenceCard";
 import { ShotPicker } from "./ShotPicker";
 import { VideoSettings } from "./VideoSettings";
+import { useGoToStep } from "../hooks/useStepStatus";
 
 const TOP_TEXT_MAX = 40;
 const TOLERANCE = 0.25; // an estimate further off the target than this warns (D18)
@@ -289,15 +290,16 @@ function TopCard({ draft, watermarks, locked, onSave, onPolish }: TopCardProps) 
 
 /** Figma `Script review / No draft`. */
 function NoDraft() {
+  const goToStep = useGoToStep();
   return (
     <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-6 py-14 text-center">
       <img src={fileTextIcon} alt="" width={36} height={36} />
       <p className="text-base font-semibold text-foreground">ยังไม่มีบท</p>
       <p className="text-sm text-mid">ร่างบทจากหน้าตั้งค่าคลิปสปอยก่อน แล้วกลับมาตรวจที่นี่</p>
-      <a href={SETUP_HASH} className={`h-11 px-6 ${PRIMARY_BUTTON}`}>
+      <button type="button" onClick={() => goToStep(0)} className={`h-11 px-6 ${PRIMARY_BUTTON}`}>
         <img src={arrowRightIcon} alt="" width={16} height={16} />
         ไปที่ตั้งค่าคลิปสปอย
-      </a>
+      </button>
     </div>
   );
 }

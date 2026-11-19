@@ -842,7 +842,7 @@
 
 **Changes:** spoil D10 (2 tab "สปอย" และ "Setup status"); D1 ส่วนที่ว่า Describe อยู่ใน tab สปอย — ปุ่มดูภาพย้ายไป tab คลิป.
 
-**From:** design review · **Status:** changed by story-kb D9
+**From:** design review · **Status:** changed by story-kb D9; changed by nav-ia D5
 
 ## D54: แก้ข้อความ Transcript ทีละบรรทัดใน tab คลิป
 

@@ -109,8 +109,6 @@ export const castHash = (seriesId: string) => `#/toon/series/${seriesId}/cast`;
 export const settingsHash = (seriesId: string) => `#/toon/series/${seriesId}/settings`;
 export const pickHash = ({ seriesId, itemKind, itemId }: ItemRef) => `#/toon/series/${seriesId}/${itemKind}/${itemId}/pick`;
 export const epHash = (epId: string) => `#/toon/eps/${epId}`;
-export const plotHash = (epId: string) => `#/toon/eps/${epId}/plot`;
-export const renderHash = (epId: string) => `#/toon/eps/${epId}/render`;
 
 export type Page =
   | { kind: "list" }
@@ -119,17 +117,14 @@ export type Page =
   | { kind: "cast"; seriesId: string }
   | { kind: "settings"; seriesId: string }
   | { kind: "pick"; itemRef: ItemRef }
-  | { kind: "ep"; epId: string; plot: boolean }
-  | { kind: "render"; epId: string };
+  | { kind: "ep"; epId: string };
 
 /** The page a `#/toon…` hash opens; anything else under the tab is the Series list. */
 export function pageOf(hash: string): Page {
   if (hash === NEW_HASH) return { kind: "new" };
   const parts = hash.split("/").slice(2); // after "#", "toon"
-  if (parts[0] === "eps" && parts[1] && parts.length === 3 && parts[2] === "render") return { kind: "render", epId: parts[1] };
-  if (parts[0] === "eps" && parts[1] && (parts.length === 2 || (parts.length === 3 && parts[2] === "plot"))) {
-    return { kind: "ep", epId: parts[1], plot: parts.length === 3 };
-  }
+  // The plot and the render are views of the EP's one page, not hashes (nav-ia D8).
+  if (parts[0] === "eps" && parts[1] && parts.length === 2) return { kind: "ep", epId: parts[1] };
   if (parts[0] !== "series" || !parts[1]) return { kind: "list" };
   const seriesId = parts[1];
   if (parts.length === 2) return { kind: "eps", seriesId };

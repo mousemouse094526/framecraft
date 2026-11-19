@@ -354,16 +354,6 @@ function MenuLink({ item, current, onPick }: { item: NavItem; current: boolean; 
         current ? "bg-accent-subtle font-semibold text-brand" : "font-medium text-mid hover:bg-muted"
       }`}
     >
-      {item.step !== undefined && (
-        <span
-          aria-hidden="true"
-          className={`flex size-5 shrink-0 items-center justify-center rounded-full font-button text-[11px] font-bold ${
-            current ? "bg-brand-accent text-card" : "border border-border text-muted-foreground"
-          }`}
-        >
-          {item.step}
-        </span>
-      )}
       <span className="flex min-w-0 flex-col">
         <span className="truncate">{item.label}</span>
         {item.uses && <span id={usesId} aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{item.uses}</span>}

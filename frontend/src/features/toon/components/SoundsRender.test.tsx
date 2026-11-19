@@ -118,6 +118,13 @@ afterEach(() => {
   window.location.hash = "";
 });
 
+/** Opens the EP's page on its render view, which has no hash of its own (nav-ia D8). */
+async function openRender(routes: Route[]) {
+  const user = open(`#/toon/eps/${EP_ID}`, routes);
+  await user.click(await screen.findByRole("button", { name: "ไปที่ render" }));
+  return user;
+}
+
 function open(hash: string, routes: Route[]) {
   serve(fetchMock, routes, [
     ["/api/toon/jobs/current", null],
@@ -158,7 +165,7 @@ describe("เสียงพื้นของช่วง", () => {
     const select = await screen.findByRole("combobox", { name: "เสียงพื้นของช่วง 1" });
     expect(select).toHaveValue("m_01");
     expect(screen.getByRole("slider", { name: "ความดังของช่วง 1" })).toHaveValue("30");
-    expect(screen.getByRole("link", { name: "ไปหน้า render" })).toHaveAttribute("href", `#/toon/eps/${EP_ID}/render`);
+    expect(screen.getByRole("button", { name: "ไปที่ render" })).toBeInTheDocument();
     expect(libraryLinks()).toEqual([`#/sounds?back=#/toon/eps/${EP_ID}`]);
 
     await user.selectOptions(select, "ไม่มีเสียงพื้น");
@@ -177,7 +184,7 @@ describe("render และผล", () => {
       renderJob({ state: "rendering", percent: 64, done: null, total: null }),
       renderJob({ state: "done", percent: 100, name: clip.name }),
     );
-    const user = open(`#/toon/eps/${EP_ID}/render`, [
+    const user = await openRender([
       get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01"), cardOf("k_02", { audio_status: "ready" })])),
       get(RENDER_JOB, null),
       get(RENDERS, []),
@@ -205,17 +212,20 @@ describe("render และผล", () => {
   });
 
   it("cards with no picture keep render off and link to them", async () => {
-    open(`#/toon/eps/${EP_ID}/render`, [
+    await openRender([
       get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01"), cardOf("k_02", { image_status: "no_image", has_image: false })])),
     ]);
 
     expect(await screen.findByText("การ์ด 1 ใบยังไม่มีภาพ")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
-    expect(screen.getByRole("link", { name: "ไปที่การ์ด 2" })).toHaveAttribute("href", `#/toon/eps/${EP_ID}`);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "ไปที่การ์ด 2" }));
+    expect(await screen.findByRole("button", { name: "ไปที่ render" })).toBeInTheDocument();
+    expect(window.location.hash).toBe(`#/toon/eps/${EP_ID}`);
   });
 
   it("a clip is deleted from the list", async () => {
-    const user = open(`#/toon/eps/${EP_ID}/render`, [
+    const user = await openRender([
       get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])),
       get(RENDERS, [clip]),
       send("DELETE", `${RENDERS}/${clip.name}`, null, 204),
@@ -228,7 +238,7 @@ describe("render และผล", () => {
 
   it("a refused clip delete says why and the clip stays", async () => {
     const refused = { code: "busy", message: "กำลัง render อยู่" };
-    const user = open(`#/toon/eps/${EP_ID}/render`, [
+    const user = await openRender([
       get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])),
       get(RENDERS, [clip]),
       send("DELETE", `${RENDERS}/${clip.name}`, refused, 409),
@@ -244,7 +254,7 @@ describe("render และผล", () => {
   });
 
   it("หยุด with no backend says the render didn't stop", async () => {
-    const user = open(`#/toon/eps/${EP_ID}/render`, [
+    const user = await openRender([
       get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])),
       get(RENDER_JOB, renderJob({ total: 1 })),
       { method: "DELETE", path: RENDER_JOB, reply: () => Promise.reject(new TypeError("Failed to fetch")) },
@@ -258,7 +268,7 @@ describe("render และผล", () => {
 
   it("a render refused as not now says why as a warning", async () => {
     const busy = { code: "busy", message: "มีงานอื่นทำอยู่" };
-    const user = open(`#/toon/eps/${EP_ID}/render`, [get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])), send("POST", RENDER, busy, 409)]);
+    const user = await openRender([get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01")])), send("POST", RENDER, busy, 409)]);
 
     await user.click(await screen.findByRole("button", { name: "render" }));
 

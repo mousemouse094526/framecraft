@@ -6,6 +6,7 @@ import radioSelectedIcon from "../../../components/ui/assets/radio-selected.svg"
 import radioIcon from "../assets/radio.svg";
 import fileTextIcon from "../../../components/ui/assets/file-text-24.svg";
 import playIcon from "../../../components/ui/assets/play.svg";
+import { CLIPS_HASH } from "../../../lib/clips";
 
 type Props = {
   clips: TempClip[];
@@ -33,7 +34,7 @@ export function ClipPicker({ clips, picked, disabled, onChange }: Props) {
         <div className="flex flex-col items-center gap-2 border-t border-border px-4 py-12">
           <img src={fileTextIcon} alt="" width={24} height={24} />
           <p className="text-center text-sm leading-[21px] text-mid">ยังไม่มีคลิปที่ถอดและบรรยายฉากแล้ว</p>
-          <a href="#/clips" className="flex h-11 items-center rounded-lg px-4 font-button text-sm leading-5 font-medium text-brand hover:bg-muted">
+          <a href={CLIPS_HASH} className="flex h-11 items-center rounded-lg px-4 font-button text-sm leading-5 font-medium text-brand hover:bg-muted">
             ไปที่รายการคลิป
           </a>
         </div>
@@ -85,7 +86,7 @@ function PickRow({ clip, picked, disabled, onPick }: RowProps) {
           {reason && (
             <span className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
               <span className="text-[13px] leading-5 whitespace-nowrap text-mid">{reason}</span>
-              <a href="#/clips" className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
+              <a href={CLIPS_HASH} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
                 {clip.transcribed ? "ไปบรรยายฉาก" : "ไปถอด"}
               </a>
             </span>

@@ -265,7 +265,7 @@ describe("คลังเสียง", () => {
 });
 
 describe("← กลับ", () => {
-  it.each(["#/toon/eps/e_01", "#/spoil/review", "#/toon"])("goes back to %s, the page that opened the library (e2e)", async (back) => {
+  it.each(["#/toon/eps/e_01", "#/spoil", "#/toon"])("goes back to %s, the page that opened the library (e2e)", async (back) => {
     open(`#/sounds?back=${back}`, []);
 
     expect(await screen.findByRole("link", { name: "กลับ" })).toHaveAttribute("href", back);

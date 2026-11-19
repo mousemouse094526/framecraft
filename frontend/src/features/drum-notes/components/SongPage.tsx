@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type RefObject } from "react";
+import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
@@ -12,8 +12,8 @@ import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
 import { useRecentPage } from "../../../lib/recent";
 import { refusedLine, type Refused } from "../../../lib/refused";
+import { mayLeave } from "../../../lib/useHash";
 import { usePick } from "../hooks/usePick";
-import { useReelRenders } from "../hooks/useReelRenders";
 import { useSong } from "../hooks/useSong";
 import {
   audioUrl,
@@ -23,12 +23,12 @@ import {
   MELODY_HINT,
   MODE_LABELS,
   noHitsText,
+  PICK_SECTION_ID,
   pickingOf,
   pickText,
   RANGE_MAX_S,
   RANGE_RULE,
   rangeFault,
-  reelHash,
   seconds,
   SONGS_HASH,
   SOURCE_LABELS,
@@ -40,26 +40,37 @@ import {
 } from "../lib/songs";
 
 /**
- * หน้าเพลง (`#/songs/{id}`): the song's head and player, the range and mode, the Pick job, and the
- * way on to its reel cover (spec › Design, D5, D6, D18; ui-prompt.md screen 2, D28). Nothing on it
- * makes a lesson (reels-only D6).
+ * หน้าเพลง (`#/covers/{id}`): the song's head and player, the range and mode, the Pick job, and once
+ * picked its reel, all one page (spec › Design, D5, D6, D18; ui-prompt.md screen 2, D28; nav-ia D6).
+ * `reel` is drum-cover's part, put in by `App`, so this feature doesn't depend on that one (ADR 0052,
+ * nav-ia D14). Nothing on it makes a lesson (reels-only D6).
  */
-export function SongPage({ id, notice }: { id: string; notice: string | null }) {
+export function SongPage({ id, notice, reel }: { id: string; notice: string | null; reel?: (song: Song) => ReactNode }) {
   const { state, reload, replace } = useSong(id);
-  useRecentPage("songs", songHash(id), state.kind === "ready" ? { label: state.song.title } : state.kind === "not_found" ? "gone" : null);
+  useRecentPage("covers", songHash(id), state.kind === "ready" ? { label: state.song.title } : state.kind === "not_found" ? "gone" : null);
   const player = useRef<HTMLAudioElement>(null);
+  const reelPart = useRef<HTMLDivElement>(null);
+  // A new pick starts the reel over: an unsaved reel asks first, as leaving would (nav-ia D14).
+  const startPick = (range: Range) => {
+    if (mayLeave()) void pick.start(id, range);
+  };
   const pick = usePick(replace, (job) => {
     if (job.song_id === id && job.state === "done") void reload();
   });
 
   return (
-    <PageLayout tab="songs">
+    <PageLayout tab="covers" wide>
       <div className="flex items-center gap-2">
         <a href={SONGS_HASH} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
           รายการเพลง
         </a>
         {state.kind === "ready" && <h2 className="min-w-0 flex-1 truncate text-xl leading-[1.5] font-semibold text-foreground">{state.song.title}</h2>}
+        {state.kind === "ready" && state.song.analysis && reel && (
+          <button type="button" onClick={() => reelPart.current?.scrollIntoView({ behavior: "smooth", block: "start" })} className={`h-11 shrink-0 px-3 sm:h-8 ${GHOST_BUTTON}`}>
+            ไปที่ reel
+          </button>
+        )}
       </div>
       {notice && <Alert tone="info">{notice}</Alert>}
       {state.kind === "loading" && <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>}
@@ -84,12 +95,12 @@ export function SongPage({ id, notice }: { id: string; notice: string | null }) 
               job={pick.job}
               refused={pick.refused}
               player={player}
-              onStart={(range) => void pick.start(id, range)}
+              onStart={startPick}
               onCancel={() => void pick.cancel()}
             />
           )}
-          {state.song.analysis && <DrumsStart song={state.song} picking={pick.job !== null && isPicking(pick.job)} onRepick={(range) => void pick.start(id, range)} />}
-          {state.song.analysis ? <ReelCover song={state.song} /> : <EmptyNote text="ตั้งช่วงแล้วกด แกะโน้ต" />}
+          {state.song.analysis && <DrumsStart song={state.song} picking={pick.job !== null && isPicking(pick.job)} onRepick={startPick} />}
+          {state.song.analysis ? reel && <div ref={reelPart} className="flex flex-col gap-4">{reel(state.song)}</div> : <EmptyNote text="ตั้งช่วงแล้วกด แกะโน้ต" />}
         </>
       )}
     </PageLayout>
@@ -157,7 +168,7 @@ function PickSection({ song, range, job, refused, player, onStart, onCancel }: P
 
   const length = end_s - start_s;
   return (
-    <section aria-label="ช่วงแกะ" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
+    <section id={PICK_SECTION_ID} aria-label="ช่วงแกะ" className="flex scroll-mt-4 flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
       <h3 className="text-base leading-[1.5] font-semibold text-foreground">ช่วงแกะ</h3>
       <div className="grid gap-4 sm:grid-cols-2">
         <RangeField id={`${id}-start`} label="เริ่ม (วินาที)" value={start} error={field === "start_s" ? RANGE_RULE : undefined} disabled={running} onChange={(v) => (setStart(v), setTouched(true))} onUseCurrent={useCurrent(setStart)} />
@@ -227,31 +238,6 @@ function RangeField({ id, label, value, error, disabled, onChange, onUseCurrent 
 /** A card that says why a section has nothing to show. */
 function EmptyNote({ text }: { text: string }) {
   return <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-sm leading-[1.5] text-mid">{text}</p>;
-}
-
-/**
- * Reel cover, under the range once picked: the picked range, its hits, its melody notes (once picked
- * with them, kalimba-cover D2) and how many reels were rendered, and ทำ reel cover as the page's main
- * button (drum-cover D11). A song with no 4/4 bar still has it: a reel plays the hits' own times (ADR 0051). It knows the reel by HTTP alone (ADR 0052): the count is `GET …/cover/renders`'s length.
- */
-function ReelCover({ song }: { song: Song }) {
-  const rendered = useReelRenders(song.id);
-  const analysis = song.analysis!;
-  return (
-    <section aria-label="Reel cover" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:p-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h3 className="text-base leading-[1.5] font-semibold text-foreground">Reel cover</h3>
-        <p className="text-[13px] leading-[1.5] text-mid">
-          ช่วงแกะ {analysis.start_s.toFixed(1)}–{analysis.end_s.toFixed(1)} วินาที · {analysis.hits.length} การตี
-          {analysis.notes !== null && ` · ${analysis.notes.length} โน้ตทำนอง`}
-          {rendered !== null && ` · render แล้ว ${rendered} ครั้ง`}
-        </p>
-      </div>
-      <a href={reelHash(song.id)} className={`h-11 px-6 sm:h-10 ${PRIMARY_BUTTON}`}>
-        ทำ reel cover
-      </a>
-    </section>
-  );
 }
 
 /**
