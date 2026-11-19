@@ -4,22 +4,23 @@
 
 | # | Screen | User stories | Decisions | Now |
 |---|---|---|---|---|
-| 1 | เมนูหลักและหัวหน้า (ทุกหน้า) | 1–7 | D1, D2, D3, D4, D5, D6, D10, D11, D12, D13 | change request: เมนูแบ่ง 4 หมวด (current: เมนูของ PR #19) |
+| 1 | เมนูหลักและหัวหน้า (ทุกหน้า) | 1–7 | D1, D2, D3, D4, D5, D6, D10, D11, D12, D13, D14 | change request: แบรนด์ย้ายไปหัวเมนู หัวหน้าเป็นหัวข้อหน้า (current: หัวของ PR #20) |
 
 ```text
 Design the app shell of framecraft: a local web app, used by one person on their own computer, that makes short vertical videos (reels) only: movie recaps, AI-drawn story clips, song-cover and drum reels. The shell is the header and main menu that every page sits in. Steps, in order: 1 Components, 2 Screens, 3 Preview.
 
 Context
 - Platform: web app in a browser; breakpoints: phone 375, tablet 768, desktop 1440 (the menu changes at 1280).
-- Design system: the project's Tailwind tokens. Page background "muted" #f5f5f4; cards and menus "card" #ffffff with a 1px "border" #e7e5e4; text "foreground" #121110, secondary "mid" #44403c, muted "muted-foreground" #57534e; brand "brand" #26241f; accent "brand-accent" #5a3ee0; links "link" #4a30bd; selected item background "accent-subtle" #f3f1ff. Radius 12px for panels, 8px for items. Fonts: IBM Plex Sans Thai for UI text, Geist for the wordmark, Manrope for buttons. Icons: one existing 16px "menu" (three lines) icon; no other icons.
-- Today's shell (being revised): header with the menu button, wordmark "framecraft" ("craft" in brand-accent) and a location line; a main menu (sidebar from 1280px, drawer below) listing ติดตั้ง, four topic groups and one "คลัง" group, all at one level. This revision sorts it into four sections.
+- Design system: the project's Tailwind tokens. Page background "muted" #f5f5f4; cards and menus "card" #ffffff with a 1px "border" #e7e5e4; text "foreground" #121110, secondary "mid" #44403c, muted "muted-foreground" #57534e; brand "brand" #26241f; accent "brand-accent" #5a3ee0; links "link" #4a30bd; selected item background "accent-subtle" #f3f1ff. Radius 12px for panels, 8px for items. Fonts: IBM Plex Sans Thai for UI text, Geist for the wordmark, Manrope for buttons. Icons: the existing 16px "menu" (three lines) and "x" icons, plus one new 16px "sidebar" (panel-left) icon in the same 1.5px stroke; no other icons.
+- Today's shell (being revised): a bordered 44px menu button sits next to a 26px wordmark and a small grey location line in the page header, so the button, the brand and the page read as unrelated pieces, and on desktop the button that collapses the sidebar floats far from it. This revision moves the brand and the collapse/close control into the menu's own head and turns the page header into the page's title.
 - Language on screen: Thai. Use the copy below exactly.
 - Accessibility: WCAG 2.2 AA contrast, visible focus ring, touch targets ≥ 44px below 1280px, the open item marked for screen readers.
 
 Step 1 — Components
 - Reuse: the "menu" icon; the existing Refresh button (a page's header action) as is.
-- New: "Shell/MenuButton" — a square-ish 44px button with the menu icon followed by the open topic's name; variants {closed, open (pressed look), focus}.
-- New: "Shell/Header" — MenuButton, the wordmark, a location line "{topic} / {item}" in mid colour (item part in foreground), a flexible gap, then an optional action slot; variants {with action, without action}; phone: MenuButton and wordmark on one row with the action, the location line below.
+- New: "Shell/MenuButton" — a 44px borderless icon button (menu icon), hover fill "card"; shown only while the menu is hidden; variants {default, hover, focus}.
+- New: "Shell/Header" — [MenuButton when the menu is hidden] the page title "{topic} / {item}" as one 18px line (topic part muted-foreground medium, item part foreground semibold, truncates), a flexible gap, then an optional action slot; one row at every width; the menu icon sits flush with the content edge so button and title read as one unit.
+- New: "Shell/MenuHead" — the first row of the menu, 44px tall: wordmark "framecraft" at 22px Geist semibold ("craft" in brand-accent) on the left, a ghost icon button on the right: "ยุบเมนู" (sidebar icon, 36px) on the sidebar, "ปิดเมนู" (x icon, 44px) on the drawer.
 - New: "Shell/MenuItem" — a full-width row: optional step number in a 20px circle, a label, an optional second line "ใช้กับ …" in 12px muted-foreground; variants {default, hover, current (accent-subtle background, semibold, brand text, number circle filled brand-accent), focus}; long labels truncate with an ellipsis on one line.
 - New: "Shell/MenuGroup" — a heading in 12px medium mid colour then its items; variants {default, current topic (heading in brand colour)}; an optional small sub-heading "ล่าสุด" before up to three recent items.
 - New: "Shell/MenuSection" — a section heading in 11px semibold muted-foreground (not clickable, never highlighted), then its topic groups or items; sections are separated by a 1px border line, topic groups inside a section are not.
@@ -40,9 +41,9 @@ Screen 1 — Main menu and header (redesign of the tab bar)
   - Section "คลัง": "คลังคลิป" with "ใช้กับ สปอย"; "คลังความรู้" with "ใช้กับ สปอย"; "คลังเสียง" with "ใช้กับ สปอย, การ์ตูนเล่า"; "เสียงที่บันทึก" with "ใช้กับ สปอย, การ์ตูนเล่า".
   - Section "ตั้งค่า": link "ติดตั้ง".
   - Section and group headings are not clickable.
-- Header: MenuButton named after the open topic (e.g. "สปอย"), wordmark, location line (e.g. "สปอย / ตรวจแก้บท"), the page's action at the right.
-- Desktop (≥ 1280px): the menu is a sidebar pinned at the left, open by default; the page column (720px, or 1120px for wide pages) is centred in the space to its right. The MenuButton collapses the sidebar (page uses the full width) and opens it again.
-- Below 1280px: the menu is hidden; the MenuButton opens it as a drawer over the page; picking an item, Esc, a click on the scrim, or the button again closes it.
+- Header: page title (e.g. "สปอย / ตรวจแก้บท") with the page's action at the right; the MenuButton before the title only while the menu is hidden. The menu starts with MenuHead.
+- Desktop (≥ 1280px): the menu is a sidebar pinned at the left, open by default; the page column (720px, or 1120px for wide pages) is centred in the space to its right. "ยุบเมนู" in MenuHead collapses the sidebar (page uses the full width, the MenuButton appears before the title); the MenuButton opens it again.
+- Below 1280px: the menu is hidden; the MenuButton opens it as a drawer over the page; picking an item, Esc, a click on the scrim, or "ปิดเมนู" closes it.
 - States: 1 Desktop, sidebar open, on "สปอย / ตรวจแก้บท" (current item highlighted, group heading in brand). 2 Desktop, sidebar collapsed. 3 Desktop on a recent EP page (the recent item highlighted). 4 Desktop with no recent items (no "ล่าสุด" sub-heading anywhere). 5 Phone 375, closed, on "แกะเพลง / เพลงทั้งหมด". 6 Phone 375, drawer open. 7 Tablet 768 and laptop 1024, drawer open. 8 Keyboard focus on a menu item.
 
 Step 3 — Preview

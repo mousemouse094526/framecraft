@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
 import { locationOf, NAV_SECTIONS, type NavItem } from "../../lib/nav";
 import { useDismiss } from "../../lib/useDismiss";
-import { tabLabel, useHash, type TabId } from "../../lib/useHash";
+import { useHash, type TabId } from "../../lib/useHash";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useRecent } from "../../lib/recent";
 import menuIcon from "./assets/menu.svg";
+import sidebarIcon from "./assets/sidebar.svg";
+import closeIcon from "./assets/x.svg";
 
 type Props = {
   tab: TabId;
@@ -52,14 +54,19 @@ function takeRefocus(button: HTMLButtonElement | null) {
   button.focus();
 }
 
-/** The column every page sits in: the main menu, then the header (menu button, wordmark, where the
- * user is, the page's action) and the page's content (ui-nav D4, D6). */
+/** The column every page sits in: the main menu (its head holds the wordmark and the button that
+ * hides it), then the header (the menu button while the menu is hidden, the page's title, the
+ * page's action) and the page's content (ui-nav D4, D6, D14). */
 export function PageLayout({ tab, action, wide = false, children }: Props) {
   const hash = useHash();
   const pinned = useMediaQuery(PINNED);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const hider = useRef<HTMLButtonElement>(null);
+  // The button a collapse or expand of the sidebar owes the focus, once it is drawn: the one pressed
+  // is gone (D14).
+  const focusNext = useRef<"button" | "hider" | null>(null);
   const menu = useRef<HTMLElement>(null);
   const menuId = useId();
   const recent = useRecent();
@@ -73,6 +80,8 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
 
   const drawerOpen = drawer && !pinned;
   const shown = pinned ? !collapsed : drawerOpen;
+  // The header's menu button is there only while the menu can be hidden from view (D14).
+  const opener = !pinned || collapsed;
 
   const closeDrawer = useCallback(() => setDrawer(false), []);
   useDismiss(drawerOpen, closeDrawer, button, menu);
@@ -89,6 +98,17 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
     if (pinned) setDrawer(false);
   }, [pinned]);
 
+  // A crossing either way can take away the control that had the focus, or hide the menu it was in:
+  // the control that shows or hides the menu now takes it (D14). Not on the first render.
+  const crossed = useRef(pinned);
+  useEffect(() => {
+    if (crossed.current === pinned) return;
+    crossed.current = pinned;
+    const active = document.activeElement;
+    if (active !== document.body && !(menu.current?.contains(active) && !shown)) return;
+    (shown ? hider : button).current?.focus();
+  }, [pinned, shown]);
+
   // An opened drawer takes the focus to the open item, or its first one.
   useEffect(() => {
     if (!drawerOpen) return;
@@ -96,18 +116,35 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
     target?.focus();
   }, [drawerOpen]);
 
+  useEffect(() => {
+    const target = focusNext.current === "button" ? button.current : focusNext.current === "hider" ? hider.current : null;
+    focusNext.current = null;
+    target?.focus();
+  }, [collapsed]);
+
   const setButton = useCallback((element: HTMLButtonElement | null) => {
     if (element) latestButton = element;
     else if (latestButton === button.current) latestButton = null;
     button.current = element;
   }, []);
 
+  const setSidebar = (collapse: boolean) => {
+    writeCollapsed(collapse);
+    focusNext.current = collapse ? "button" : "hider";
+    setCollapsed(collapse);
+  };
+
   const toggle = () => {
     if (!pinned) return setDrawer((was) => !was);
-    setCollapsed((was) => {
-      writeCollapsed(!was);
-      return !was;
-    });
+    setSidebar(!collapsed);
+  };
+
+  // The menu's own button: collapses the sidebar, or closes the drawer with the focus back on the
+  // header's button, as Esc does (D10, D14).
+  const hide = () => {
+    if (pinned) return setSidebar(true);
+    setDrawer(false);
+    button.current?.focus();
   };
 
   const picked = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -133,29 +170,37 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
         current={item}
         recent={recentItems}
         onPick={picked}
+        head={
+          <MenuHead
+            ref={hider}
+            label={pinned ? "ยุบเมนู" : "ปิดเมนู"}
+            icon={pinned ? sidebarIcon : closeIcon}
+            onClick={hide}
+            className={pinned ? "size-9" : "size-11"}
+          />
+        }
         className={`${collapsed ? "xl:hidden" : "xl:flex"} ${drawerOpen ? "max-xl:flex" : "max-xl:hidden"}`}
       />
       <main className={`min-w-0 flex-1 px-4 pt-6 pb-8 sm:px-6 sm:pt-12 sm:pb-20 ${wide ? "lg:px-8" : ""}`}>
         <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-4 ${wide ? "lg:max-w-[1120px]" : ""}`}>
-          {/* The header names the page; the heading is for screen readers. */}
-          <h1 className="sr-only">{tabLabel(tab)}</h1>
-          <header className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-1">
-            <button
-              ref={setButton}
-              type="button"
-              aria-label={`เมนู: ${text}`}
-              aria-expanded={shown}
-              aria-controls={menuId}
-              onClick={toggle}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card hover:bg-muted"
-            >
-              <img src={menuIcon} alt="" width={16} height={16} />
-            </button>
-            <Wordmark />
-            <p className="order-last basis-full truncate text-sm leading-[1.5] font-medium text-mid sm:order-none sm:basis-auto">{text}</p>
-            <div className="flex-1" />
+          <header className="flex min-h-11 items-center gap-1 pb-1">
+            {opener && (
+              <button
+                ref={setButton}
+                type="button"
+                aria-label={`เมนู: ${text}`}
+                aria-expanded={shown}
+                aria-controls={menuId}
+                onClick={toggle}
+                // The icon lines up with the content's edge, so the button and the title read as one (D14).
+                className="-ml-3 flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-card"
+              >
+                <img src={menuIcon} alt="" width={16} height={16} />
+              </button>
+            )}
+            <PageTitle text={text} />
             {/* Behind an open drawer only the menu button stays live (D10). */}
-            <div inert={drawerOpen || undefined} className="contents">
+            <div inert={drawerOpen || undefined} className="ml-3 flex shrink-0 items-center empty:hidden">
               {action}
             </div>
           </header>
@@ -168,11 +213,56 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
   );
 }
 
+/** Where the user is, as the page's heading: the topic muted, then the item (ui-nav D11, D14). */
+function PageTitle({ text }: { text: string }) {
+  const cut = text.indexOf(" / ");
+  return (
+    <h1 className="min-w-0 flex-1 truncate text-lg leading-[1.5] font-semibold text-foreground">
+      {cut < 0 ? (
+        text
+      ) : (
+        <>
+          <span className="font-medium text-muted-foreground">{text.slice(0, cut)} / </span>
+          {text.slice(cut + 3)}
+        </>
+      )}
+    </h1>
+  );
+}
+
 function Wordmark() {
   return (
-    <p className="font-brand text-[26px] font-semibold tracking-[-0.78px] whitespace-nowrap text-brand">
+    <p className="font-brand text-[22px] font-semibold tracking-[-0.66px] whitespace-nowrap text-brand">
       frame<span className="text-brand-accent">craft</span>
     </p>
+  );
+}
+
+type HeadProps = {
+  ref: Ref<HTMLButtonElement>;
+  label: string;
+  icon: string;
+  onClick: () => void;
+  className: string;
+};
+
+/** The menu's first row: the wordmark, and the button that hides the menu. A plain button: the
+ * header's menu button carries the disclosure state, and this one leaves with the menu (ui-nav D14). */
+function MenuHead({ ref, label, icon, onClick, className }: HeadProps) {
+  return (
+    // Stays at the top while the menu scrolls, so the button that hides it is always in reach.
+    <div className="sticky -top-3 z-10 -mx-3 -mt-3 mb-1 flex min-h-14 shrink-0 items-center justify-between gap-2 bg-card pt-3 pr-3 pl-6">
+      <Wordmark />
+      <button
+        ref={ref}
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={`flex shrink-0 items-center justify-center rounded-lg hover:bg-muted ${className}`}
+      >
+        <img src={icon} alt="" width={16} height={16} />
+      </button>
+    </div>
   );
 }
 
@@ -183,12 +273,13 @@ type MenuProps = {
   current: NavItem | null;
   recent: Partial<Record<TabId, NavItem[]>>;
   onPick: (event: MouseEvent<HTMLAnchorElement>) => void;
+  head: ReactNode;
   className: string;
 };
 
 /** The main menu: each section under its heading, with its topics and their items, or its own items
  * (ui-nav D1–D3, D12). One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
-function MainMenu({ ref, id, tab, current, recent, onPick, className }: MenuProps) {
+function MainMenu({ ref, id, tab, current, recent, onPick, head, className }: MenuProps) {
   const headingId = useId();
   return (
     <nav
@@ -197,6 +288,7 @@ function MainMenu({ ref, id, tab, current, recent, onPick, className }: MenuProp
       aria-label="เมนูหลัก"
       className={`flex-col gap-1 overflow-y-auto border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
     >
+      {head}
       {NAV_SECTIONS.map((section) => (
         <MenuSection key={section.id} id={`${headingId}-${section.id}`} label={section.label}>
           {section.topics.map((topic) => (

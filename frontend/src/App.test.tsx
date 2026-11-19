@@ -126,6 +126,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     expect(current.map((group) => group.firstElementChild?.textContent)).toEqual(topic ? [topic] : []);
     expect(menuButton()).toHaveAccessibleName(`เมนู: ${line}`);
     expect(screen.getByRole("banner")).toHaveTextContent(line);
+    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(line);
   });
 
   it("still opens each page from its hash (D6)", () => {
@@ -197,6 +198,21 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     expect(window.location.hash).toBe("#/setup");
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
     expect(menuButton()).toHaveFocus();
+  });
+
+  it("has the wordmark and ปิดเมนู in its head; ปิดเมนู closes it with the focus back on the button (e2e)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(menuButton());
+
+    expect(menu().getByText("craft")).toBeInTheDocument();
+    const close = menu().getByRole("button", { name: "ปิดเมนู" });
+    expect(close.closest("[inert]")).toBeNull();
+    await user.click(close);
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveFocus();
+    expect(content()).toBeNull();
   });
 
   it("closes on Esc with the focus back on the button (e2e)", async () => {
@@ -304,23 +320,37 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
   });
 });
 
-describe("menu from 1280px: a pinned sidebar (ui-nav D4, D10, D11)", () => {
-  it("starts open; the button collapses it and the setting stays after a reload (e2e)", async () => {
+describe("menu from 1280px: a pinned sidebar (ui-nav D4, D10, D11, D14)", () => {
+  function collapseButton() {
+    return menu().getByRole("button", { name: "ยุบเมนู" });
+  }
+
+  it("starts open with the wordmark and ยุบเมนู in its head, and no menu button in the header (e2e)", () => {
+    stubMatchMedia(true);
+    render(<App />);
+
+    expect(menu().getByText("craft")).toBeInTheDocument();
+    expect(collapseButton()).not.toHaveAttribute("aria-expanded");
+    expect(screen.queryByRole("button", { name: /^เมนู:/ })).toBeNull();
+  });
+
+  it("collapses from its head, moving the focus to the header's button, and the setting stays after a reload (e2e)", async () => {
     stubMatchMedia(true);
     const user = userEvent.setup();
     const { unmount } = render(<App />);
 
-    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
-    await user.click(menuButton());
+    await user.click(collapseButton());
 
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveFocus();
     expect(window.localStorage.getItem("framecraft.nav.collapsed")).toBe("true");
     unmount();
     render(<App />);
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
 
     await user.click(menuButton());
-    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: /^เมนู:/ })).toBeNull();
+    expect(collapseButton()).toHaveFocus();
     expect(window.localStorage.getItem("framecraft.nav.collapsed")).toBeNull();
   });
 
@@ -329,7 +359,8 @@ describe("menu from 1280px: a pinned sidebar (ui-nav D4, D10, D11)", () => {
     window.localStorage.setItem("framecraft.nav.collapsed", "yes");
     render(<App />);
 
-    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: /^เมนู:/ })).toBeNull();
+    expect(collapseButton()).toBeInTheDocument();
   });
 
   it("stays open, and the page not inert, when an item is picked", async () => {
@@ -340,8 +371,8 @@ describe("menu from 1280px: a pinned sidebar (ui-nav D4, D10, D11)", () => {
     await user.click(item("คลังคลิป"));
 
     expect(window.location.hash).toBe("#/clips");
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: คลัง / คลังคลิป"));
-    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("คลัง / คลังคลิป"));
+    expect(screen.queryByRole("button", { name: /^เมนู:/ })).toBeNull();
     expect(screen.getByText("กำลังโหลด…").closest("[inert]")).toBeNull();
   });
 
@@ -358,5 +389,31 @@ describe("menu from 1280px: a pinned sidebar (ui-nav D4, D10, D11)", () => {
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
     act(() => media.change(false));
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows the header's button once the window narrows below 1280px with the sidebar open", () => {
+    const media = stubMatchMedia(true);
+    render(<App />);
+    expect(screen.queryByRole("button", { name: /^เมนู:/ })).toBeNull();
+
+    act(() => media.change(false));
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menu().getByRole("button", { name: "ปิดเมนู" })).toBeInTheDocument();
+  });
+
+  it("hands the focus to the control that now shows or hides the menu when the window crosses 1280px", async () => {
+    const media = stubMatchMedia(false);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(menuButton());
+    await user.click(menuButton());
+    expect(menuButton()).toHaveFocus();
+
+    act(() => media.change(true));
+    expect(collapseButton()).toHaveFocus();
+
+    act(() => media.change(false));
+    expect(menuButton()).toHaveFocus();
   });
 });
