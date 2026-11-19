@@ -190,6 +190,21 @@ describe("หน้าเพลง", () => {
     expect(title).toHaveValue("Yellow - Coldplay (Drum Cover) live");
   });
 
+  it("a MIDI song's reel has no way back to a ช่วงแกะ it doesn't have", async () => {
+    open(`#/covers/${ID}`, [get(SONG_PATH, songOf({ source: { kind: "midi", url: null, name: "rock.mid", size: 300 }, range: null }))]);
+
+    expect(await screen.findByRole("textbox", { name: "หัวเรื่อง" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "ช่วงแกะ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /แกะช่วงใหม่/ })).not.toBeInTheDocument();
+  });
+
+  it("a song gone since its page loaded says so in the reel, not to pick notes", async () => {
+    open(`#/covers/${ID}`, [send("GET", COVER_PATH, { code: "not_found", message: "ไม่พบเพลงนี้" }, 404)]);
+
+    expect(await screen.findByText("ไม่พบเพลงนี้")).toBeInTheDocument();
+    expect(screen.queryByText("แกะโน้ตก่อน แล้วกลับมาทำ reel")).not.toBeInTheDocument();
+  });
+
   it("an old reel page's hash opens the song's one page (nav-ia D9)", async () => {
     open(`#/songs/${ID}/cover`, []);
 

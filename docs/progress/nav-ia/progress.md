@@ -19,6 +19,20 @@
 
 ## Log
 
+### feature review — done 2026-11-19
+
+**Built:**
+- เพลง MIDI: ส่วน reel ไม่มีปุ่ม "แกะช่วงใหม่ด้านบน" (ไม่มีช่วงแกะให้กลับไป)
+- เพลงที่ถูกลบระหว่างเปิดหน้า: ส่วน reel บอก "ไม่พบเพลงนี้" ไม่ใช่ให้แกะโน้ต
+
+**Decided:**
+- ไม่มี D ใหม่
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** typecheck · `npm test` 675 passed · build — green; `uv run pytest` 1547 passed ก่อนหน้า (backend ไม่แตะ)
+
 ### 04: EP การ์ตูนเล่าเป็นหน้าเดียว — done 2026-11-19
 
 **Built:**

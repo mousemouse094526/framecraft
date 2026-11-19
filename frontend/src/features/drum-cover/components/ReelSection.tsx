@@ -91,7 +91,8 @@ export function ReelSection({ song }: { song: Song }) {
       </div>
       {state.kind === "loading" && <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>}
       {state.kind === "offline" && <OfflinePanel />}
-      {(state.kind === "not_found" || state.kind === "no_analysis") && <p className="text-sm leading-[1.5] text-mid">{NO_ANALYSIS}</p>}
+      {state.kind === "not_found" && <p className="text-sm leading-[1.5] text-mid">ไม่พบเพลงนี้</p>}
+      {state.kind === "no_analysis" && <p className="text-sm leading-[1.5] text-mid">{NO_ANALYSIS}</p>}
       {state.kind === "ready" && (
         // Keyed by the pick, so a new analysis starts the form over from the cover it pulled in.
         <CoverForm key={song.analysis?.picked_at} song={song} saved={state.cover} renders={state.renders} failure={state.failure} cover={cover} />
@@ -255,10 +256,16 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
       <section aria-label="ช่วงของ reel" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h3 className="text-base leading-[1.5] font-semibold text-foreground">ช่วงของ reel</h3>
         <p className="text-[13px] leading-[1.5] text-mid">
-          ภายในช่วงแกะ {seconds(analysis.start_s)}–{seconds(analysis.end_s)} ·{" "}
-          <button type="button" onClick={toPick} className="text-brand underline">
-            อยากได้ท่อนอื่น? แกะช่วงใหม่ด้านบน
-          </button>
+          ภายในช่วงแกะ {seconds(analysis.start_s)}–{seconds(analysis.end_s)}
+          {/* A MIDI song has no ช่วงแกะ to go back to (drum-notes D18). */}
+          {song.source.kind !== "midi" && song.range && (
+            <>
+              {" "}·{" "}
+              <button type="button" onClick={toPick} className="text-brand underline">
+                อยากได้ท่อนอื่น? แกะช่วงใหม่ด้านบน
+              </button>
+            </>
+          )}
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Labeled label="เริ่ม reel (วินาที)" htmlFor={`${id}-start`} error={fault === "start_s" ? RANGE_RULE : fieldError("start_s")}>
