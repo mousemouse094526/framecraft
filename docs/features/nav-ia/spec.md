@@ -151,7 +151,7 @@
 
 ### Modules touched
 - **`frontend/src/lib`**
-  - `nav`: `NAV_SECTIONS` ตาม Design › ชั้นของเมนู (D2–D5, D16, D17): สปอยมี ทำสปอย (`#/spoil`, prefix) กับ คลิปทั้งหมด (`#/spoil/clips`); การ์ตูนเล่ามีลิงก์เดียว การ์ตูนเล่า (`#/toon`, prefix); `covers` มี reel cover (`#/covers`, prefix); `drums` มี reel กลอง (`#/drums`, prefix); ไม่มี `step` ในรายการ; `LIBRARY_ITEMS` 3 รายการ. `NavTopic` และ `TabId` คงอยู่ในโค้ดเป็นที่มาของล่าสุดและ `tabOf` แต่ไม่วาดเป็นชั้นในเมนู
+  - `nav`: `NAV_SECTIONS` ตาม Design › ชั้นของเมนู (D2–D5, D16, D17): สปอยมี ทำสปอย (`#/spoil`, prefix) กับ คลิปทั้งหมด (`#/spoil/clips`); การ์ตูนเล่ามีลิงก์เดียว การ์ตูนเล่า (`#/toon`, prefix); `covers` มี reel cover (`#/covers`, prefix); `drums` มี reel กลอง (`#/drums`, prefix); ไม่มี `step` ในรายการ; `LIBRARY_ITEMS` 3 รายการ. ไม่มี `NavTopic`: ลิงก์แต่ละลิงก์มี `tab` (`TabId` ของ `tabOf`); ลิงก์ล่าสุดมาจาก `recentLinks`, หมวดล่าสุดจาก `menuSections` (D21)
   - `nav` `locationOf`: หาลิงก์ที่เปิดเฉพาะในลิงก์ของ tab ที่เปิดอยู่ตาม Design › หัวหน้าและลิงก์ที่เปิด; ข้อความหัวหน้าคือชื่อลิงก์ที่เปิด หรือชื่อลิงก์แหล่งเมื่อลิงก์ที่เปิดเป็นของล่าสุด; ไม่มีลิงก์ที่เปิด → `tabLabel` เดิม (D19, D20)
   - `useHash`: `TAB_LABELS` เป็น `setup stories sounds voices spoil toon drums covers` ("covers" ชื่อ "reel cover", "voices" ชื่อ "เสียงพากย์", ไม่มี `clips` `songs`); `tabOf` ตาม prefix ใหม่; `MOVED` เป็นรายการ pattern (D9)
   - `recent`: area `songs` เป็น `covers` รูป `#/covers/{id}`; กุญแจเก่า `songs` ที่อ่านได้แปลงเป็น `covers` (D9)

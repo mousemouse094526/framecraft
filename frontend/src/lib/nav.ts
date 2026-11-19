@@ -11,7 +11,7 @@ import { tabLabel, type TabId } from "./useHash";
 export type NavItem = {
   label: string;
   hash: string;
-  /** The topic or library whose pages open it (`tabOf`): only the open one's links can be open (nav-ia D19). */
+  /** The tab (`tabOf`) of the pages under this link: a link is open only while its tab is (nav-ia D19). */
   tab: TabId;
   /** Also open on a deeper hash: `{hash}/…` or `{hash}?…` (D11). */
   prefix?: boolean;
@@ -22,7 +22,7 @@ export type NavItem = {
 /** A heading that is not a link, over its links: two levels, never a group inside (nav-ia D16, ADR 0070). */
 export type NavSection = { id: string; label: string; items: readonly NavItem[] };
 
-export const SETUP_ITEM: NavItem = { label: "ติดตั้ง", hash: "#/setup", tab: "setup" };
+const SETUP_ITEM: NavItem = { label: "ติดตั้ง", hash: "#/setup", tab: "setup" };
 
 // The topics with pages under their link, and the source line of their recent items (nav-ia D16, D18).
 const TOON: NavItem = { label: "การ์ตูนเล่า", hash: "#/toon", tab: "toon", prefix: true };
@@ -39,7 +39,7 @@ const LIBRARY_ITEMS: readonly NavItem[] = [
 
 // What goes in the menu is a place to go, never an action ("สร้าง…", a button on the page) or a
 // second line to a page another link opens (nav-ia D17).
-export const NAV_SECTIONS: readonly NavSection[] = [
+const NAV_SECTIONS: readonly NavSection[] = [
   {
     id: "story",
     label: "เล่าเรื่อง",
@@ -83,8 +83,8 @@ function opens(item: NavItem, hash: string): boolean {
 }
 
 /** The item open at `hash` among `items`: the one with the longest hash, else none (D6, D11). */
-export function activeItem<T extends NavItem>(hash: string, items: readonly T[]): T | null {
-  let best: T | null = null;
+function activeItem(hash: string, items: readonly NavItem[]): NavItem | null {
+  let best: NavItem | null = null;
   for (const item of items) if (opens(item, hash) && (!best || item.hash.length > best.hash.length)) best = item;
   return best;
 }

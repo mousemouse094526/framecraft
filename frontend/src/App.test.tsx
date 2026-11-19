@@ -105,39 +105,39 @@ describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D20)", (
     expect(within(menu().getByRole("group", { name: "คลัง" })).getAllByRole("link")).toHaveLength(3);
   });
 
-  // spec › Design › หัวหน้าและลิงก์ที่เปิด: the link open and the header's line, with nothing in ล่าสุด (D19, D20).
+  // spec › Design › หัวหน้าและลิงก์ที่เปิด: the link open is the header's line, with nothing in ล่าสุด (D19, D20).
   it.each([
-    ["", "ติดตั้ง", "ติดตั้ง"],
-    ["#/nope", "ติดตั้ง", "ติดตั้ง"],
-    ["#/setup", "ติดตั้ง", "ติดตั้ง"],
+    ["", "ติดตั้ง"],
+    ["#/nope", "ติดตั้ง"],
+    ["#/setup", "ติดตั้ง"],
     // Not a page of การ์ตูนเล่า (`tabOf`): it opens ติดตั้ง, and the การ์ตูนเล่า link stays closed.
-    ["#/toon?x", "ติดตั้ง", "ติดตั้ง"],
-    ["#/spoil", "ทำสปอย", "ทำสปอย"],
-    ["#/spoil/xyz", "ทำสปอย", "ทำสปอย"],
-    ["#/spoil/clips", "คลิปทั้งหมด", "คลิปทั้งหมด"],
-    ["#/voices", "เสียงพากย์", "เสียงพากย์"],
-    ["#/toon", "การ์ตูนเล่า", "การ์ตูนเล่า"],
-    ["#/toon/new", "การ์ตูนเล่า", "การ์ตูนเล่า"],
-    ["#/toon/series/s_1/cast", "การ์ตูนเล่า", "การ์ตูนเล่า"],
-    ["#/toon/eps/e_1", "การ์ตูนเล่า", "การ์ตูนเล่า"],
-    ["#/toon/sounds", "คลังเสียง", "คลังเสียง"],
-    ["#/drums", "reel กลอง", "reel กลอง"],
-    ["#/drums/a1b2c3d4e5f6", "reel กลอง", "reel กลอง"],
-    ["#/covers", "reel cover", "reel cover"],
-    ["#/covers/s_1", "reel cover", "reel cover"],
-    ["#/covers/s_1/cover", "reel cover", "reel cover"],
-    ["#/stories", "คลังความรู้", "คลังความรู้"],
-    ["#/stories/new", "คลังความรู้", "คลังความรู้"],
-    ["#/stories/st_3fa91c07", "คลังความรู้", "คลังความรู้"],
-    ["#/sounds", "คลังเสียง", "คลังเสียง"],
-    ["#/sounds?back=#/toon", "คลังเสียง", "คลังเสียง"],
-  ])("at %j marks %s open and says %s (e2e)", (hash, open, line) => {
+    ["#/toon?x", "ติดตั้ง"],
+    ["#/spoil", "ทำสปอย"],
+    ["#/spoil/xyz", "ทำสปอย"],
+    ["#/spoil/clips", "คลิปทั้งหมด"],
+    ["#/voices", "เสียงพากย์"],
+    ["#/toon", "การ์ตูนเล่า"],
+    ["#/toon/new", "การ์ตูนเล่า"],
+    ["#/toon/series/s_1/cast", "การ์ตูนเล่า"],
+    ["#/toon/eps/e_1", "การ์ตูนเล่า"],
+    ["#/toon/sounds", "คลังเสียง"],
+    ["#/drums", "reel กลอง"],
+    ["#/drums/a1b2c3d4e5f6", "reel กลอง"],
+    ["#/covers", "reel cover"],
+    ["#/covers/s_1", "reel cover"],
+    ["#/covers/s_1/cover", "reel cover"],
+    ["#/stories", "คลังความรู้"],
+    ["#/stories/new", "คลังความรู้"],
+    ["#/stories/st_3fa91c07", "คลังความรู้"],
+    ["#/sounds", "คลังเสียง"],
+    ["#/sounds?back=#/toon", "คลังเสียง"],
+  ])("at %j marks %s open and says it (e2e)", (hash, open) => {
     window.location.hash = hash;
     render(<App />);
 
     expect(menu().getAllByRole("link", { current: "page" })).toEqual([item(open)]);
-    expect(menuButton()).toHaveAccessibleName(`เมนู: ${line}`);
-    expect(heading().textContent).toBe(line);
+    expect(menuButton()).toHaveAccessibleName(`เมนู: ${open}`);
+    expect(heading().textContent).toBe(open);
   });
 
   // The pages that open from ล่าสุด: the recent link is open, the header names its source (D20).
@@ -192,14 +192,14 @@ describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D20)", (
     expect(link).toHaveAccessibleDescription("reel cover");
   });
 
-  it("keeps the header when a page puts itself in ล่าสุด after it loads; the open link moves there (D20)", () => {
+  it("keeps the header when a page puts itself in ล่าสุด after it loads; the open link moves there (D20)", async () => {
     window.location.hash = "#/covers/s_1";
     render(<App />);
     expect(item("reel cover")).toHaveAttribute("aria-current", "page");
 
     act(() => rememberRecent("covers", "#/covers/s_1", "Smells Like Teen Spirit"));
 
-    expect(recentGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page");
+    await waitFor(() => expect(recentGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page"));
     expect(item("reel cover")).not.toHaveAttribute("aria-current");
     expect(heading().textContent).toBe("reel cover");
   });
@@ -210,6 +210,7 @@ describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D20)", (
     window.location.hash = "#/toon";
     render(<App />);
 
+    // The list offers it twice: in its header and in its empty state.
     await user.click((await screen.findAllByRole("link", { name: "สร้าง Series" }))[0]);
 
     expect(await screen.findByRole("heading", { level: 2, name: "สร้าง Series" })).toBeInTheDocument();

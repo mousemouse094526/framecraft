@@ -5,7 +5,7 @@
 **Blocked by:** None (can start immediately)
 
 **Covers:**
-- Decisions: D16, D17, D18, D19, D20
+- Decisions: D16, D17, D18, D19, D20, D21
 - ADR: 0062, 0070
 - Seams: 1 (ข้อหัวหน้าและล่าสุด), 4
 - User stories: 8
