@@ -1,6 +1,6 @@
 # Progress: ui-nav
 
-**Now:** merged — change request ([PR #20](https://github.com/mousemouse094526/framecraft/pull/20), `6040d74`); 01–02 ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
+**Now:** change request 2 (D14) built — ticket 04 done, [PR #23](https://github.com/mousemouse094526/framecraft/pull/23) รอ merge; change request ([PR #20](https://github.com/mousemouse094526/framecraft/pull/20), `6040d74`); 01–02 ([PR #19](https://github.com/mousemouse094526/framecraft/pull/19), `50b04c4`)
 
 **Next:**
 
@@ -15,8 +15,34 @@
 | 01 | เมนูหลัก 5 หัวข้อ พร้อมขั้นและคลัง | done |
 | 02 | ล่าสุดในเมนู | done |
 | 03 | เมนูเป็น 4 หมวด เฉพาะทางที่ได้ reel | done |
+| 04 | แบรนด์อยู่หัวเมนู หัวหน้าเป็นหัวข้อของหน้า | done |
 
 ## Log
+
+### 04: แบรนด์อยู่หัวเมนู หัวหน้าเป็นหัวข้อของหน้า — done 2026-11-19
+
+**Built:**
+- หัวของเมนู (sidebar และ drawer) มี wordmark 22px กับปุ่ม "ยุบเมนู" (sidebar, ไอคอนแผงซ้าย `sidebar.svg` ใหม่) หรือ "ปิดเมนู" (drawer, ×); หัวติดบนสุดขณะเมนูเลื่อน
+- หัวหน้าเหลือ ☰ ไม่มีขอบ (จอ <1280px ทุกเวลา, ≥1280px เฉพาะตอนยุบ) ชิด `<h1>` ข้อความตำแหน่ง 18px (ส่วนหัวข้อสีเทา ส่วนรายการตัวหนา) และ action ขวา แถวเดียวทุกจอ
+- โฟกัส: ยุบ → ☰, ขยาย → "ยุบเมนู", ปิดเมนู → ☰, ข้าม 1280px → ตัวที่คุมเมนูตอนนี้
+
+**Decided:**
+- D14 (change request) changes D4, D10; Breaker 12 ข้อ (2 blocker ในเอกสาร แก้แล้ว, 5 concern แก้: กฎโฟกัสข้าม 1280px, ปุ่มหัวเมนูไม่มี `aria-expanded`, รายการ test ที่เขียนใหม่, 5 nit แก้หรือยอมรับใน D14); ไม่มี ADR: กฎใช้ที่ `PageLayout` ที่เดียว
+
+**Screenshots (ของจริง, dev server พอร์ต 5174):**
+- 375px drawer ปิด: `docs/progress/ui-nav/shots/375-drawer-closed.png`
+- 375px drawer เปิด: `docs/progress/ui-nav/shots/375-drawer-open.png`
+- 1280px sidebar ตรึง: `docs/progress/ui-nav/shots/1280-sidebar-open.png`
+- 1280px sidebar ยุบ: `docs/progress/ui-nav/shots/1280-sidebar-collapsed.png`
+- 1440px: `docs/progress/ui-nav/shots/1440-spoil-review.png`
+- ก่อนแก้ (ภาพเจ้าของ): `~/.hermes/cache/scratch/framecraft-header-before.jpg`
+
+### Feature review 04 — 2026-11-19
+
+**Fixed:** `refocus` ถูกใช้หมดแม้ไม่มี ☰ (sidebar ตรึง) จึงไม่ค้างไปขโมยโฟกัสภายหลัง; เมนูมี `scroll-pt-14` ให้รายการที่ได้โฟกัสไม่ซ่อนใต้หัว sticky; ปุ่มปิดใช้ `close.svg` ใหม่ (เส้น 1.5 สีเทาแบบ ☰) แทน `x.svg`
+**Dismissed:** เปลี่ยน sticky เป็น `top-0` — ลองบนจอจริงแล้วรายการโผล่เหนือหัว (padding ของ nav) จึงคง `-top-3`; ย้ายโฟกัสจาก `<body>` ตอนข้าม 1280px — ตาม D14
+
+**Checks:** `uv run pytest` 1547 passed; `npm --prefix frontend run typecheck` ผ่าน; `npm --prefix frontend test` 652 passed (3 ใน 4 รอบ; รอบแรกล้ม 1 ตัวตอนรันต่อจาก pytest — ดู bug D87 flaky เดิม); `npm --prefix frontend run build` ผ่าน
 
 ### 03: เมนูเป็น 4 หมวด เฉพาะทางที่ได้ reel — done 2026-11-17
 

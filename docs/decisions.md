@@ -67,16 +67,17 @@ question; the full entry is in the feature's decisions.md.
 | เมนูหลัก 5 หัวข้อใหญ่ ติดตั้ง · สปอย · การ์ตูนเล่า · สอนกลอง · แกะเพลง แทนแถบ 8 tab; คลังย้ายเข้าเมนู (แทน sound-library D2, D3) | [ui-nav](features/ui-nav/decisions.md) | D1 | — | [0062](adr/0062-main-menu-from-hash-tree.md), [0063](adr/0063-libraries-in-one-menu-section.md) | changed by ui-nav D12 |
 | ส่วน "คลัง" ท้ายเมนู: คลังคลิป · คลังความรู้ · คลังเสียง · เสียงที่บันทึก มีที่เดียวพร้อม "ใช้กับ …"; tab "คลิป" เรียก "คลังคลิป" | [ui-nav](features/ui-nav/decisions.md) | D2 | — | [0063](adr/0063-libraries-in-one-menu-section.md) | active |
 | ขั้นของสปอยและหน้าหลักของแต่ละหัวข้ออยู่ในเมนู ทุกส่วนเปิดตลอด หัวข้อที่มีรายการเป็นหัวกลุ่มไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D3 | — | — | active |
-| `<nav>` "เมนูหลัก" ตัวเดียว: ≥1024px sidebar ตรึงซ้ายยุบได้ (จำใน `localStorage`), จอแคบ drawer จากปุ่ม ☰ "เมนู: {หัวข้อ}" (แทน sound-library D16) | [ui-nav](features/ui-nav/decisions.md) | D4 | — | — | changed by ui-nav D11 |
+| `<nav>` "เมนูหลัก" ตัวเดียว: ≥1024px sidebar ตรึงซ้ายยุบได้ (จำใน `localStorage`), จอแคบ drawer จากปุ่ม ☰ "เมนู: {หัวข้อ}" (แทน sound-library D16) | [ui-nav](features/ui-nav/decisions.md) | D4 | — | — | changed by ui-nav D11, D14 |
 | "ล่าสุด" ในเมนู: ชุดหรือ EP, บทเรียนกลอง, เพลง ไม่เกิน 3 ต่อหัวข้อ ใน `localStorage`; ลบเมื่อ `not_found` หรือลบชิ้นนั้น | [ui-nav](features/ui-nav/decisions.md) | D5 | — | — | changed by ui-nav D11 |
 | hash ทุกตัวเหมือนเดิม; รายการที่เปิดอยู่หาจาก hash ด้วย prefix ที่ยาวที่สุด; หัวหน้าบอกตำแหน่ง "{หัวข้อ} / {รายการ}" | [ui-nav](features/ui-nav/decisions.md) | D6 | reels-only | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by ui-nav D11 |
 | เปลือกแอปสร้างตาม `ui-prompt.md` กับ design system เดิม ไม่รอ Figma | [ui-nav](features/ui-nav/decisions.md) | D7 | — | — | active |
 | test ที่ผูกกับแถบ tab เดิม ("แถบ tab", "เมนู tab") เขียนใหม่ให้หา "เมนูหลัก" | [ui-nav](features/ui-nav/decisions.md) | D8 | — | — | active |
 | seam เดียวของเมนูคือ `App` ใน jsdom | [ui-nav](features/ui-nav/decisions.md) | D9 | reels-only | — | active |
-| กฎ red team ของเมนู: โฟกัสและ `inert` ของ drawer, ชื่อล่าสุดตัด 80 ตัวอักษร, hash ล่าสุดตรงรูป route, อ่านก่อนเขียน, ถอยกลับด้วย revert | [ui-nav](features/ui-nav/decisions.md) | D10 | — | — | active |
+| กฎ red team ของเมนู: โฟกัสและ `inert` ของ drawer, ชื่อล่าสุดตัด 80 ตัวอักษร, hash ล่าสุดตรงรูป route, อ่านก่อนเขียน, ถอยกลับด้วย revert | [ui-nav](features/ui-nav/decisions.md) | D10 | — | — | changed by ui-nav D14 |
 | sidebar ตรึงตั้งแต่ 1280px (`xl`) ไม่ใช่ 1024px; หน้าที่เขียนและลบล่าสุด; รายการตรงตัวหรือ prefix; ข้อความตำแหน่งในหัวหน้า | [ui-nav](features/ui-nav/decisions.md) | D11 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | active |
 | เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | changed by reels-only D5 |
 | เมนูมีเฉพาะทางที่ได้ reel (ก), ของที่ reel ใช้ (ข) หรือการตั้งค่าเครื่อง (ค); ไม่แน่ใจ = เก็บไว้เป็น Open Question; ไม่ซ่อนหน้าของ feature อื่น | [ui-nav](features/ui-nav/decisions.md) | D13 | — | [0064](adr/0064-main-menu-reels-only.md) | extended by reels-only D1 |
+| หัวเมนู (sidebar และ drawer) มี wordmark กับปุ่ม "ยุบเมนู"/"ปิดเมนู"; หัวหน้าเหลือ ☰ เมื่อเมนูซ่อน `<h1>` ข้อความตำแหน่ง และ action | [ui-nav](features/ui-nav/decisions.md) | D14 | — | — | active |
 
 ## ทำ reel อย่างเดียว ไม่มีบทเรียน
 
