@@ -1,12 +1,8 @@
 # Progress: nav-ia
 
-**Now:** ready to merge — ทุก ticket done (01–05), feature review หลัง 05 ผ่าน
+**Now:** PR #26 รอ review และ merge — ทุก ticket done (01–05), feature review หลัง 05 ผ่าน
 
-**Next:**
-
-```
-/pr-open
-```
+**Next:** —
 
 ## Tickets
 
