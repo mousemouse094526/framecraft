@@ -1,6 +1,6 @@
 # Progress: nav-ia
 
-**Now:** PR #26 รอ review และ merge — ทุก ticket done (01–05), feature review หลัง 05 ผ่าน
+**Now:** merged ([PR #26](https://github.com/mousemouse094526/framecraft/pull/26), `c38bdaf`) — เมนู 2 ชั้น (หมวด → ลิงก์), "ล่าสุด" เป็นหมวดของตัวเอง; ทุก ticket done (01–05) และ feature review ผ่าน
 
 **Next:** —
 
