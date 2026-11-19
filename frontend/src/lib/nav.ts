@@ -12,8 +12,6 @@ export type NavItem = {
   hash: string;
   /** Also open on a deeper hash: `{hash}/…` or `{hash}?…` (D11). */
   prefix?: boolean;
-  /** The step number of สปอย's steps (D3). */
-  step?: number;
   /** The topics a library is used with, the line under its name (D2). */
   uses?: string;
 };
@@ -30,9 +28,8 @@ const [SPOIL, TOON, DRUMS, COVERS]: readonly NavTopic[] = [
     id: "spoil",
     label: "สปอย",
     items: [
-      { label: "เลือกคลิป", hash: "#/spoil", prefix: true, step: 1 },
-      { label: "ตรวจแก้บท", hash: "#/spoil/review", step: 2 },
-      { label: "ผล render", hash: "#/spoil/renders", step: 3 },
+      // One page for the one Spoil draft: its steps are the page's, not the menu's (nav-ia D5).
+      { label: "ทำสปอย", hash: "#/spoil", prefix: true },
       { label: "คลิปทั้งหมด", hash: "#/spoil/clips" },
     ],
   },
@@ -83,7 +80,7 @@ export function activeItem<T extends NavItem>(hash: string, items: readonly T[])
 export function locationOf(hash: string, tab: TabId, extra: (topic: TabId) => readonly NavItem[] = () => []) {
   const topic = NAV_TOPICS.find((t) => t.id === tab);
   const topicItems = topic ? [...topic.items, ...extra(topic.id)] : [];
-  // One longest match over both, so `#/spoil/clips` is คลิปทั้งหมด, not เลือกคลิป under `#/spoil`.
+  // One longest match over both, so `#/spoil/clips` is คลิปทั้งหมด, not ทำสปอย under `#/spoil`.
   const found = activeItem(hash, [...topicItems, ...LIBRARY_ITEMS]);
   const item = found ?? (tab === "setup" ? SETUP_ITEM : null);
   const text = !found

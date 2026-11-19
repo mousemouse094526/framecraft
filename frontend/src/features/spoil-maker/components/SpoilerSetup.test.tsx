@@ -16,7 +16,6 @@ import {
   JOBS_PATH,
   ORDER,
   OTHER,
-  REVIEW_HASH,
   SETTINGS_PATH,
   ALIEN,
   CONAN,
@@ -43,11 +42,18 @@ async function nextPoll() {
   });
 }
 
+const stepBar = () => screen.getByRole("navigation", { name: "ขั้นของสปอย" });
+/** The step the page has open; the steps are the page's state, not hashes (nav-ia D5). */
+const openStep = () => within(stepBar()).getByRole("button", { current: "step" });
+
+/** Opens ทำสปอย on step 1, whatever the page would open first: a step picked wins (nav-ia D14). */
 async function openSetup() {
   window.location.hash = "#/spoil";
   render(<App />);
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(within(stepBar()).getByRole("button", { name: /เลือกคลิป/ }));
   await screen.findByRole("region", { name: "เลือกคลิป" });
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  return user;
 }
 
 /** Opens the setup and picks FILM; resolves once its EPs are listed. */
@@ -78,12 +84,13 @@ afterEach(() => {
 });
 
 describe("ตั้งค่าคลิปสปอย", () => {
-  it("#/spoil opens the สปอย tab on step 1 with the setup", async () => {
+  it("#/spoil with no Spoil draft opens step 1 with the setup (nav-ia D5)", async () => {
     backend([]);
-    await openSetup();
+    window.location.hash = "#/spoil";
+    render(<App />);
 
-    const steps = screen.getByRole("navigation", { name: "ขั้นของสปอย" });
-    expect(within(steps).getByText("เลือกคลิป").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    await screen.findByRole("region", { name: "เลือกคลิป" });
+    expect(openStep()).toHaveTextContent("เลือกคลิป");
     expect(screen.getByRole("region", { name: "ตั้งค่า" })).toBeInTheDocument();
   });
 
@@ -185,7 +192,8 @@ describe("ตั้งค่าคลิปสปอย", () => {
     await act(async () => answer(jsonResponse(moved)));
 
     await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
-    expect(window.location.hash).toBe(REVIEW_HASH);
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท");
+    expect(window.location.hash).toBe("#/spoil");
     expect(sent("POST", JOBS_PATH)).toEqual([
       {
         kind: "draft",
@@ -293,9 +301,10 @@ describe("ตั้งค่าคลิปสปอย", () => {
     current.phases.at = 1;
     await user.click(draftButton());
 
-    expect(window.location.hash).toBe(REVIEW_HASH);
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท");
+    expect(window.location.hash).toBe("#/spoil");
     const card = await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
-    expect(screen.queryByRole("link", { name: "ไปที่ตั้งค่าคลิปสปอย" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ไปที่ตั้งค่าคลิปสปอย" })).not.toBeInTheDocument();
     expect(within(card).getByText(`${FILM.title} · EP 1`)).toBeInTheDocument();
     expect(within(card).getByText("เล่าละครหักมุม · 60 วินาที")).toBeInTheDocument();
     expect(within(card).getByRole("listitem", { current: "step" })).toHaveTextContent("เขียนบท");
@@ -308,7 +317,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     const draftReads = reads(DRAFT_PATH);
     current.phases.at = 4;
     await nextPoll();
-    expect(await screen.findByRole("link", { name: "ไปที่ตั้งค่าคลิปสปอย" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "ไปที่ตั้งค่าคลิปสปอย" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "ความคืบหน้าการร่างบท" })).not.toBeInTheDocument();
     expect(reads(DRAFT_PATH)).toBeGreaterThan(draftReads);
   });
@@ -325,16 +334,19 @@ describe("ตั้งค่าคลิปสปอย", () => {
     current.phases.at = 1;
     await user.click(screen.getByRole("button", { name: "ร่างทับ" }));
     await screen.findByRole("region", { name: "ความคืบหน้าการร่างบท" });
-    expect(window.location.hash).toBe(REVIEW_HASH);
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท");
+    expect(window.location.hash).toBe("#/spoil");
     expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ replace: true })]);
   });
 
   it("while a draft runs, step 1 shows its order, every field locked and no ร่างบท (D82)", async () => {
     backend([get(CURRENT_PATH, jobOf({ order: { ...ORDER, style: "fast", layout: "A", target_s: 90 } }))]);
-    await openSetup();
+    const user = await openSetup();
 
     expect(await screen.findByText(`กำลังร่างบท ${FILM.title} · EP 1: ยกเลิกการร่างก่อนจึงเลือกใหม่ได้`)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปที่ตรวจแก้บท" })).toHaveAttribute("href", REVIEW_HASH);
+    await user.click(screen.getByRole("button", { name: "ไปที่ตรวจแก้บท" }));
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท");
+    await user.click(within(stepBar()).getByRole("button", { name: /เลือกคลิป/ }));
     expect(screen.getByRole("radio", { name: `เลือก ${FILM.title}` })).toBeChecked();
     expect(screen.getByRole("radio", { name: `เลือก ${FILM.title}` })).toBeDisabled();
     expect(await screen.findByRole("radio", { name: "เลือก EP 1" })).toBeDisabled();
@@ -478,11 +490,10 @@ describe("ช่อง Story ของขั้น 1 (story-kb)", () => {
     await user.selectOptions(storyField(), ALIEN.title);
     current.phases.at = 1;
     await user.click(draftButton());
-    expect(window.location.hash).toBe(REVIEW_HASH);
+    expect(openStep()).toHaveTextContent("ตรวจแก้บท");
+    expect(window.location.hash).toBe("#/spoil");
 
-    await act(async () => {
-      window.location.hash = "#/spoil";
-    });
+    await user.click(within(stepBar()).getByRole("button", { name: /เลือกคลิป/ }));
     await user.click(await screen.findByRole("radio", { name: `เลือก ${FILM.title}` }));
 
     expect(sent("POST", JOBS_PATH)).toEqual([expect.objectContaining({ story_id: ALIEN.id })]);

@@ -35,10 +35,13 @@ function backend(routes: Route[]) {
   serve(fetchMock, routes);
 }
 
+/** Opens ทำสปอย on ผล render: a step picked wins over the one the page would open (nav-ia D14). */
 async function openRenders() {
-  window.location.hash = "#/spoil/renders";
+  window.location.hash = "#/spoil";
   render(<App />);
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(within(screen.getByRole("navigation", { name: "ขั้นของสปอย" })).getByRole("button", { name: /ผล render/ }));
+  return user;
 }
 
 const tick = () =>
@@ -132,7 +135,9 @@ describe("ผล render", () => {
 
   it("a render that failed in ffmpeg says render ไม่สำเร็จ", async () => {
     const failed = { ...VOICING, state: "failed", error: { code: "ffmpeg_failed", message: "render ไม่สำเร็จ: x" } };
-    backend([get(RENDERS, [RESULT]), get(CURRENT, { ...VOICING, state: "rendering", percent: 20 }), get(CURRENT, failed)]);
+    // The steps read the job first, then the open step: both see it running (nav-ia D5).
+    const rendering = { ...VOICING, state: "rendering", percent: 20 };
+    backend([get(RENDERS, [RESULT]), get(CURRENT, rendering), get(CURRENT, rendering), get(CURRENT, failed)]);
     await openRenders();
     await screen.findByText("render 20%");
     await tick();

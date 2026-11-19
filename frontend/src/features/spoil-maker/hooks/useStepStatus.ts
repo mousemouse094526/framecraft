@@ -32,6 +32,17 @@ export const StepsRefreshContext = createContext<() => void>(() => {});
 
 export const useStepsRefresh = () => useContext(StepsRefreshContext);
 
+/** The steps of สปอย: เลือกคลิป, ตรวจแก้บท, ผล render; a state of the page, not a hash (nav-ia D5). */
+export type Step = 0 | 1 | 2;
+
+/**
+ * Opens another step of the page; what used to move the hash moves the step (nav-ia D5, D14).
+ * Alone (no page, as in a step's own test) it does nothing.
+ */
+export const StepGoContext = createContext<(step: Step) => void>(() => {});
+
+export const useGoToStep = () => useContext(StepGoContext);
+
 /** The latest Draft job as the steps hold it, for the steps that start, follow or show it (spoil-maker D81–D87). */
 export type DraftRun = {
   /** False until the steps' first read answered or failed (a failed one leaves `job` null): step 1 starts from its order (D87). */

@@ -17,4 +17,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [kalimba-cover](kalimba-cover/progress.md) | false | done | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 2dff570 | — | — |
 | [ui-nav](ui-nav/progress.md) | false | review | 🎨 1/1 (ui-prompt.md, D7) | 4/4 | [PR #23](https://github.com/mousemouse094526/framecraft/pull/23) รอเจ้าของดูภาพและ merge | — |
 | [reels-only](reels-only/progress.md) | false | done | 🎨 5/5 (existing components, D10) | ✅ 2073a82 | เจ้าของดูคลิป reel กลองที่ไม่มีนับเข้า (D15) · Open Q1: ยังมีคำว่า lesson ในโค้ด (งาน rename แยก) | — |
-| [nav-ia](nav-ia/progress.md) | false | building | — (existing components, D11) | 1/4 | — | `/warroom-build nav-ia 02` |
+| [nav-ia](nav-ia/progress.md) | false | building | — (existing components, D11) | 2/4 | — | `/warroom-build nav-ia 03` |

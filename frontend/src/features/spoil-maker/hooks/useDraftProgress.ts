@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { askOf, BUSY_TEXT, DRAFT_JOB_PATH, jobFailureText, runningDraft, sendDraft, SETUP_HASH, wholeDraft, type DraftJob, type WholeDraftJob } from "../lib/draft";
-import { useDraftRun, useJobCalls } from "./useStepStatus";
+import { askOf, BUSY_TEXT, DRAFT_JOB_PATH, jobFailureText, runningDraft, sendDraft, wholeDraft, type DraftJob, type WholeDraftJob } from "../lib/draft";
+import { useDraftRun, useGoToStep, useJobCalls } from "./useStepStatus";
 
 /**
  * Refusals of ลองอีกครั้ง that need the setup changed: they offer กลับไปแก้ตั้งค่า only, as
@@ -40,6 +40,7 @@ export type RetryStep = "idle" | "confirming" | "sending";
 export function useDraftProgress() {
   const run = useDraftRun();
   const { refreshSteps, cancelCurrent } = useJobCalls();
+  const goToStep = useGoToStep();
   const job = wholeDraft(run.job);
   const running = runningDraft(run.job);
   const [cancelledFor, setCancelledFor] = useState<string | null>(null);
@@ -67,9 +68,9 @@ export function useDraftProgress() {
   useEffect(() => {
     if (job?.state === "cancelled" && cancelledFor === job.started_at && openedSetupFor.current !== job.started_at) {
       openedSetupFor.current = job.started_at;
-      window.location.hash = SETUP_HASH;
+      goToStep(0);
     }
-  }, [job, cancelledFor]);
+  }, [job, cancelledFor, goToStep]);
 
   const cancel = useCallback(async () => {
     if (!job) return;

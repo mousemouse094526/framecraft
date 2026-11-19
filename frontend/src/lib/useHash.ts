@@ -94,6 +94,7 @@ const MOVED: readonly [RegExp, string][] = [
   [/^#\/toon\/sounds$/, "#/sounds"],
   [/^#\/clips$/, "#/spoil/clips"],
   [/^#\/spoil\/voices$/, "#/voices"],
+  [/^#\/spoil\/(review|renders)$/, "#/spoil"],
   [/^#\/songs$/, "#/covers"],
   [new RegExp(`^#/songs/(${ID})$`), "#/covers/$1"],
   [new RegExp(`^#/songs/(${ID})/cover$`), "#/covers/$1/cover"],

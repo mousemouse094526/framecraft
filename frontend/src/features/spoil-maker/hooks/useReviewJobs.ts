@@ -4,7 +4,6 @@ import { isRunning } from "../../../lib/job";
 import type { RefusalLine } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { usePollWhile } from "../../../lib/usePollWhile";
-import { RENDERS_HASH } from "../lib/draft";
 import {
   failureOf,
   RENDER_JOB_PATH,
@@ -16,7 +15,7 @@ import {
   type SentencesJob,
   type StartReply,
 } from "../lib/render";
-import { useJobCalls } from "./useStepStatus";
+import { useJobCalls, useGoToStep } from "./useStepStatus";
 
 type Kind = "voice" | "render";
 
@@ -44,6 +43,8 @@ const CURRENT: Record<Kind, string> = { voice: VOICE_JOB_PATH, render: RENDER_JO
 export function useReviewJobs(onChange: () => void, onOffline: () => void) {
   const [state, , setIfMounted] = useMountedState<JobsState>(START);
   const { startJob, cancelCurrent } = useJobCalls();
+  // Mounted only while ตรวจแก้บท is open: a render done here opens ผล render (nav-ia D14).
+  const goToStep = useGoToStep();
 
   useEffect(() => {
     void (async () => {
@@ -74,7 +75,7 @@ export function useReviewJobs(onChange: () => void, onOffline: () => void) {
     }
     setIfMounted((s) => ({ ...s, [kind]: null, banner: job?.state === "failed" ? { ...failureOf(job), kind } : null }));
     onChange();
-    if (kind === "render" && job?.state === "done") window.location.hash = RENDERS_HASH;
+    if (kind === "render" && job?.state === "done") goToStep(2);
   };
 
   usePollWhile<SentencesJob | null>(state.voice !== null, VOICE_JOB_PATH, (job) => follow("voice", job), onOffline);

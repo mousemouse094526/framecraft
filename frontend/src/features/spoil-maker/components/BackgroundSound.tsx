@@ -6,7 +6,7 @@ import playIcon from "../../../components/ui/assets/play-16.svg";
 import { playAudio } from "../../../lib/audio";
 import { soundFilePath, soundsHash, type PlayedSound, type Sound } from "../../sound-library/lib/sounds";
 import type { ChangeResult } from "../hooks/useScriptReview";
-import { REVIEW_HASH, type SoundChoice } from "../lib/draft";
+import { SPOIL_HASH, type SoundChoice } from "../lib/draft";
 import { VolumeRange } from "./VolumeRange";
 
 /** An option for a sound the draft keeps but the library lost (sound-library D8, D13). */
@@ -50,7 +50,7 @@ export function BackgroundSound({ sound, sounds, unreadable, locked, onChange, o
         <label htmlFor={id} className="flex-1 font-medium text-foreground">
           เสียงพื้น
         </label>
-        <a href={soundsHash(REVIEW_HASH)} className="flex min-h-11 items-center font-medium text-link underline sm:min-h-0">
+        <a href={soundsHash(SPOIL_HASH)} className="flex min-h-11 items-center font-medium text-link underline sm:min-h-0">
           ไปคลังเสียง
         </a>
       </div>

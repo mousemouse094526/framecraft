@@ -6,9 +6,9 @@ import { refusalLine, type Refusal } from "../../../lib/refusal";
 import { useMountedState } from "../../../lib/useMountedState";
 import { type ClipStories, readStoryLinks, type StoryRow } from "../../../lib/stories";
 import { VOICES_PATH } from "../../../lib/voices";
-import { BUSY_TEXT, DRAFT_PATH, REVIEW_HASH, sendDraft, SETTINGS_PATH, type Draft, type DraftAsk } from "../lib/draft";
+import { BUSY_TEXT, DRAFT_PATH, sendDraft, SETTINGS_PATH, type Draft, type DraftAsk } from "../lib/draft";
 import type { Voice } from "./useVoices";
-import { useDraftRun, useJobCalls } from "./useStepStatus";
+import { useDraftRun, useGoToStep, useJobCalls } from "./useStepStatus";
 
 /**
  * A page-level message (Figma `Setup banner`): the GPU held by another job, an install
@@ -70,6 +70,7 @@ export function useSpoilerSetup() {
   const [state, setState, setIfMounted] = useMountedState<SetupState>({ kind: "loading" });
   const { refreshSteps } = useJobCalls();
   const run = useDraftRun();
+  const goToStep = useGoToStep();
 
   const load = useCallback(async () => {
     try {
@@ -128,10 +129,10 @@ export function useSpoilerSetup() {
       setIfMounted(whenLoaded((s) => ({ ...s, banner: null, confirmingReplace: false })));
       const reply = await sendDraft(order, replace);
       if (reply.kind === "started") {
-        // In the steps' state before the hash changes: ตรวจแก้บท opens on the job, not on no draft (D87).
+        // In the steps' state before the step changes: ตรวจแก้บท opens on the job, not on no draft (D87).
         run.putJob(reply.job);
         refreshSteps();
-        window.location.hash = REVIEW_HASH;
+        goToStep(1);
         return null;
       }
       if (reply.kind === "refused") {
@@ -161,7 +162,7 @@ export function useSpoilerSetup() {
       setIfMounted({ kind: "offline" });
       return null;
     },
-    [refreshSteps, reloadStories, run, setIfMounted],
+    [refreshSteps, reloadStories, run, setIfMounted, goToStep],
   );
 
   /** ร่างบท with a Spoil draft there asks first (Figma Draft action › replace confirm). */

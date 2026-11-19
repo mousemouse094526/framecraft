@@ -41,9 +41,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     render(<App />);
 
     expect(menu().getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "1เลือกคลิป",
-      "2ตรวจแก้บท",
-      "3ผล render",
+      "ทำสปอย",
       "คลิปทั้งหมด",
       "ชุดทั้งหมด",
       "สร้างชุดใหม่",
@@ -66,14 +64,12 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     expect(within(menu().getByRole("group", { name: "ตั้งค่า" })).getByRole("link", { name: "ติดตั้ง" })).toHaveAttribute("href", "#/setup");
     expect(within(menu().getByRole("group", { name: "สปอย" })).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([
       "#/spoil",
-      "#/spoil/review",
-      "#/spoil/renders",
       "#/spoil/clips",
     ]);
   });
 
   it("never marks a section open, only the topic in it (D12)", () => {
-    window.location.hash = "#/spoil/review";
+    window.location.hash = "#/spoil/clips";
     render(<App />);
 
     expect(menu().getByRole("group", { name: "เล่าเรื่อง" })).not.toHaveAttribute("aria-current");
@@ -95,10 +91,8 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     ["", "ติดตั้ง", null, "ติดตั้ง"],
     ["#/nope", "ติดตั้ง", null, "ติดตั้ง"],
     ["#/setup", "ติดตั้ง", null, "ติดตั้ง"],
-    ["#/spoil", "เลือกคลิป", "สปอย", "สปอย / เลือกคลิป"],
-    ["#/spoil/xyz", "เลือกคลิป", "สปอย", "สปอย / เลือกคลิป"],
-    ["#/spoil/review", "ตรวจแก้บท", "สปอย", "สปอย / ตรวจแก้บท"],
-    ["#/spoil/renders", "ผล render", "สปอย", "สปอย / ผล render"],
+    ["#/spoil", "ทำสปอย", "สปอย", "สปอย / ทำสปอย"],
+    ["#/spoil/xyz", "ทำสปอย", "สปอย", "สปอย / ทำสปอย"],
     ["#/spoil/clips", "คลิปทั้งหมด", "สปอย", "สปอย / คลิปทั้งหมด"],
     ["#/voices", "เสียงพากย์", null, "คลัง / เสียงพากย์"],
     ["#/toon", "ชุดทั้งหมด", "การ์ตูนเล่า", "การ์ตูนเล่า / ชุดทั้งหมด"],
@@ -130,7 +124,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
   });
 
   it("still opens each page from its hash (D6)", () => {
-    window.location.hash = "#/spoil/review";
+    window.location.hash = "#/spoil";
     render(<App />);
     expect(screen.getByRole("navigation", { name: "ขั้นของสปอย" })).toBeInTheDocument();
   });
@@ -163,6 +157,8 @@ describe("pages that moved (nav-ia D9)", () => {
     ["#/songs", "#/covers"],
     ["#/songs/s_1", "#/covers/s_1"],
     ["#/songs/s_1/cover", "#/covers/s_1/cover"],
+    ["#/spoil/review", "#/spoil"],
+    ["#/spoil/renders", "#/spoil"],
   ])("opens %s as %s", (old, now) => {
     window.location.hash = old;
     render(<App />);
@@ -210,10 +206,10 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     render(<App />);
 
     await user.click(menuButton());
-    await user.click(item("ตรวจแก้บท"));
+    await user.click(item("คลิปทั้งหมด"));
 
-    expect(window.location.hash).toBe("#/spoil/review");
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / ตรวจแก้บท"));
+    expect(window.location.hash).toBe("#/spoil/clips");
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / คลิปทั้งหมด"));
     expect(menuButton()).toHaveAttribute("aria-expanded", "false");
     await waitFor(() => expect(menuButton()).toHaveFocus());
   });
@@ -275,15 +271,15 @@ describe("menu below 1280px: a drawer (ui-nav D4, D10)", () => {
     const user = userEvent.setup();
     window.location.hash = "#/spoil";
     render(<App />);
-    await user.click(item("ตรวจแก้บท"));
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / ตรวจแก้บท"));
+    await user.click(item("คลิปทั้งหมด"));
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / คลิปทั้งหมด"));
     await user.click(menuButton());
 
     act(() => {
       window.history.back();
     });
 
-    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / เลือกคลิป"));
+    await waitFor(() => expect(menuButton()).toHaveAccessibleName("เมนู: สปอย / ทำสปอย"));
     // The new hash renders first; the effect that closes the drawer runs after it.
     await waitFor(() => expect(menuButton()).toHaveAttribute("aria-expanded", "false"));
     expect(document.querySelector("[inert]")).toBeNull();
