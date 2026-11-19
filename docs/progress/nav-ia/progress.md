@@ -1,11 +1,11 @@
 # Progress: nav-ia
 
-**Now:** 01–03 done; 04 next
+**Now:** 01–04 done; feature review then PR
 
 **Next:**
 
 ```
-/warroom-build nav-ia 04
+/pr-open
 ```
 
 ## Tickets
@@ -15,9 +15,23 @@
 | 01 | เมนูและที่อยู่ใหม่ พร้อม redirect | done |
 | 02 | สปอยเป็นพื้นที่ทำงานเดียว | done |
 | 03 | เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว | done |
-| 04 | EP การ์ตูนเล่าเป็นหน้าเดียว | ready |
+| 04 | EP การ์ตูนเล่าเป็นหน้าเดียว | done |
 
 ## Log
+
+### 04: EP การ์ตูนเล่าเป็นหน้าเดียว — done 2026-11-19
+
+**Built:**
+- หน้า EP `#/toon/eps/{id}` สลับ พล็อต · เส้นเรื่อง · render ในหน้า hash ไม่เปลี่ยน; เปิดที่พล็อตเมื่อยังไม่มีการ์ด เส้นเรื่องเมื่อมีแล้ว; แตกการ์ดเสร็จขณะดูพล็อต → เส้นเรื่อง
+- `#/toon/eps/{id}/plot` และ `/render` เก่าพามาหน้า EP
+
+**Decided:**
+- D15 — ปุ่มสลับ view คือปุ่มเดิม ("ไปหน้า render" เป็น "ไปที่ render") ไม่ใช่ `SegmentedChoice`
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** typecheck · `npm test` 673 passed · build — green
 
 ### 03: เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว — done 2026-11-19
 

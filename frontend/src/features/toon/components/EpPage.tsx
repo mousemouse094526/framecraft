@@ -5,7 +5,8 @@ import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import { useEp } from "../hooks/useEp";
 import { epLabel } from "../lib/episodes";
-import { epHash, isRunning, plotHash, seriesHash, type ToonJob } from "../lib/series";
+import { epHash, isRunning, seriesHash, type ToonJob } from "../lib/series";
+import { useEpView } from "../hooks/useEpView";
 import { useRecentPage } from "../../../lib/recent";
 import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { JobBanner } from "./JobBanner";
@@ -42,10 +43,11 @@ function runningText(job: EpJob): { title: string; detail: string } {
   };
 }
 
-/** `#/toon/eps/{epId}`: the plot until it is confirmed, then the storyline; `/plot` opens the
- * plot either way (Figma toon / 6, 7). A Plot or Cards job of this EP closes every field. */
+/** `#/toon/eps/{epId}`: the plot until it is confirmed, then the storyline; the page's plot view opens
+ * the plot either way (Figma toon / 6, 7, nav-ia D8). A Plot or Cards job of this EP closes every field. */
 export function EpPage({ epId, plot }: { epId: string; plot: boolean }) {
   const { state, reload, edit, startPlot, startCards, closeLost, cancelJob, ...cardJobs } = useEp(epId);
+  const show = useEpView();
   useRecentPage(
     "toon",
     epHash(epId),
@@ -94,9 +96,9 @@ export function EpPage({ epId, plot }: { epId: string; plot: boolean }) {
           {epLabel(ep.n)} — {showPlot ? "พล็อต" : "เส้นเรื่อง"}
         </h2>
         {ep.stage === "cards" && (
-          <a href={showPlot ? epHash(epId) : plotHash(epId)} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
+          <button type="button" onClick={() => show(showPlot ? "ep" : "plot")} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
             {showPlot ? "ไปเส้นเรื่อง" : "แก้พล็อต"}
-          </a>
+          </button>
         )}
       </div>
       {notice && <NoticeLine notice={notice} />}

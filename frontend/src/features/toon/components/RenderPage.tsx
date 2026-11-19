@@ -14,15 +14,17 @@ import playIcon from "../../../components/ui/assets/play-16.svg";
 import { useRender } from "../hooks/useRender";
 import { isRendering, renderFilePath, type RenderJob, type RenderResult } from "../lib/render";
 import { cannotRender, cardsOf, epLabel, madeAt, type Ep } from "../lib/episodes";
-import { epHash, LAYOUT_LABELS, type Series } from "../lib/series";
+import { LAYOUT_LABELS, type Series } from "../lib/series";
+import { useEpView } from "../hooks/useEpView";
 import { JobBanner } from "./JobBanner";
 import { NoticeLine } from "../../../components/ui/NoticeLine";
 
 const FAILED_TITLE = "render ไม่สำเร็จ";
 
-/** `#/toon/eps/{epId}/render`: render the EP and its clips (Figma toon / 9, D38, D45). */
+/** The render view of an EP's page (`#/toon/eps/{epId}`): render the EP and its clips (Figma toon / 9, D38, D45, nav-ia D8). */
 export function RenderPage({ epId }: { epId: string }) {
   const { state, reload, start, cancel, remove } = useRender(epId);
+  const show = useEpView();
 
   if (state.kind === "offline") {
     return (
@@ -51,10 +53,10 @@ export function RenderPage({ epId }: { epId: string }) {
   return (
     <PageLayout tab="toon" wide>
       <div className="flex flex-wrap items-center gap-2">
-        <a href={epHash(epId)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+        <button type="button" onClick={() => show("ep")} className={`h-8 px-3 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />
           เส้นเรื่อง
-        </a>
+        </button>
         <h2 className="min-w-0 text-xl leading-[1.5] font-semibold text-foreground">
           {epLabel(ep.n)} {ep.title} — render
         </h2>
@@ -96,10 +98,10 @@ export function RenderPage({ epId }: { epId: string }) {
               {numbered
                 .filter(({ card }) => missing.includes(card.id))
                 .map(({ card, number }) => (
-                  <a key={card.id} href={epHash(epId)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+                  <button key={card.id} type="button" onClick={() => show("ep")} className={`h-8 px-3 ${GHOST_BUTTON}`}>
                     <img src={chevronRightIcon} alt="" width={16} height={16} />
                     ไปที่การ์ด {number}
-                  </a>
+                  </button>
                 ))}
             </div>
           </>

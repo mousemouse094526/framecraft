@@ -107,6 +107,7 @@ const MOVED: readonly [RegExp, string][] = [
   [new RegExp(`^#/songs/(${ID})$`), "#/covers/$1"],
   [new RegExp(`^#/(?:songs|covers)/(${ID})/cover$`), "#/covers/$1"],
   [/^#\/drums\/([a-z0-9]{12})\/renders$/, "#/drums/$1"],
+  [new RegExp(`^#/toon/eps/(${ID})/(?:plot|render)$`), "#/toon/eps/$1"],
 ];
 
 /** The hash a moved page has now, or null when `hash` is not one that moved. */

@@ -155,7 +155,7 @@
 **Rejected:**
 - ออกแบบใน Figma ก่อน — ไม่มีจอใหม่ มีแต่การย้ายส่วนเดิม
 
-**From:** interview · **Status:** active
+**From:** interview · **Status:** changed by D15
 
 ## D12: seam คือ `App` ใน jsdom และหน้าที่รวมกัน ไม่มี e2e
 
@@ -194,3 +194,17 @@
 - **ลบให้หมด:** ค่าคงที่ `REVIEW_HASH`, `RENDERS_HASH`, `rendersHash`, `reelHash`, `coverViewOf`, `RendersPage`/`RenderPage` ที่เป็นหน้าแยกถูกเอาออก ไม่พึ่ง redirect ภายในแอป; ลิงก์ใน `ClipPicker` ชี้ `#/spoil/clips` ตรง
 
 **From:** red team · **Status:** active
+
+## D15: ปุ่มสลับ view ของ EP คือปุ่มเดิมในที่เดิม ไม่ใช่ `SegmentedChoice`
+
+**Chosen:** หน้า EP สลับ view ด้วยปุ่มที่มีอยู่แล้ว: "แก้พล็อต" / "ไปเส้นเรื่อง" ในแถวหัว, "ไปที่ render" ในเส้นเรื่อง (เดิม "ไปหน้า render"), "เส้นเรื่อง" และ "ไปที่การ์ด n" ใน view render; เป็นปุ่มเปลี่ยน view แทนลิงก์ hash.
+
+**Why:** ปุ่มพวกนี้อยู่ตรงจุดที่ผู้ใช้ต้องการไปต่ออยู่แล้ว และ render ใช้ได้เมื่อมีการ์ดเท่านั้น (D8) แถบสามตัวเลือกจะต้องปิดตัวหนึ่งไว้ครึ่งเวลา; ไม่มีจอใหม่ (D11).
+
+**Rejected:**
+- `SegmentedChoice` พล็อต · เส้นเรื่อง · render ตามที่ D11 เขียน — เพิ่มตัวควบคุมใหม่ซ้ำกับปุ่มเดิม
+
+**Details:**
+- changes D11 (ปุ่มสลับของ EP)
+
+**From:** build ticket 04 · **Status:** active

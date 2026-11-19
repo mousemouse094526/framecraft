@@ -88,10 +88,11 @@ question; the full entry is in the feature's decisions.md.
 | EP การ์ตูนเล่าหน้าเดียว `#/toon/eps/{id}`: พล็อต · เส้นเรื่อง · render เป็นสถานะในหน้า; ชุด → EP คงเป็นหน้า | [nav-ia](features/nav-ia/decisions.md) | D8 | — | — | active |
 | `MOVED` เป็นรายการ pattern → hash ใหม่ (รองรับ `{id}`); ล่าสุดกุญแจ `songs` อ่านเป็น `covers` | [nav-ia](features/nav-ia/decisions.md) | D9 | — | — | active |
 | นับคลิกที่ sidebar ตรึง จอแคบบวก ☰; เป้า ≤2 ของที่ใช้บ่อย; ผล render สปอยรอบก่อน 2 คลิก (accepted risk) | [nav-ia](features/nav-ia/decisions.md) | D10 | — | — | active |
-| หน้าที่รวมกันใช้ component เดิม ไม่มี `ui-prompt.md` | [nav-ia](features/nav-ia/decisions.md) | D11 | — | — | active |
+| หน้าที่รวมกันใช้ component เดิม ไม่มี `ui-prompt.md` | [nav-ia](features/nav-ia/decisions.md) | D11 | — | — | changed by nav-ia D15 |
 | seam: `App` และหน้าใน jsdom ไม่มี e2e | [nav-ia](features/nav-ia/decisions.md) | D12 | — | — | active |
 | ไม่แตะ backend; ชื่อ API ไม่เปลี่ยนตาม route ใหม่ | [nav-ia](features/nav-ia/decisions.md) | D13 | — | — | active |
 | ข้อแก้ red team: `App` ประกอบหน้าเพลงด้วยช่อง `reel`; แกะใหม่ถาม leave guard; ปุ่ม "ไปที่ reel"; job hook ตัวเดียวต่อหน้า; ขั้นที่ผู้ใช้เลือกชนะ; เปลี่ยนขั้นอัตโนมัติเฉพาะจากขั้นต้นทาง; ลบค่าคงที่ route เก่า | [nav-ia](features/nav-ia/decisions.md) | D14 | — | — | active |
+| ปุ่มสลับ view ของ EP คือปุ่มเดิม (แก้พล็อต/ไปเส้นเรื่อง, ไปที่ render, เส้นเรื่อง) ไม่ใช่ `SegmentedChoice` | [nav-ia](features/nav-ia/decisions.md) | D15 | — | — | active |
 
 ## ทำ reel อย่างเดียว ไม่มีบทเรียน
 

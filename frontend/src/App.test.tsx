@@ -98,7 +98,7 @@ describe("main menu (ui-nav D1–D3, D12)", () => {
     ["#/toon", "ชุดทั้งหมด", "การ์ตูนเล่า", "การ์ตูนเล่า / ชุดทั้งหมด"],
     ["#/toon/new", "สร้างชุดใหม่", "การ์ตูนเล่า", "การ์ตูนเล่า / สร้างชุดใหม่"],
     ["#/toon/series/s_1/cast", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
-    ["#/toon/eps/e_1/render", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
+    ["#/toon/eps/e_1", null, "การ์ตูนเล่า", "การ์ตูนเล่า"],
     ["#/toon/sounds", "คลังเสียง", null, "คลัง / คลังเสียง"],
     ["#/drums", "reel ทั้งหมด", "reel กลอง", "reel กลอง / reel ทั้งหมด"],
     ["#/drums/a1b2c3d4e5f6", null, "reel กลอง", "reel กลอง"],
@@ -159,6 +159,8 @@ describe("pages that moved (nav-ia D9)", () => {
     ["#/songs/s_1/cover", "#/covers/s_1"],
     ["#/covers/s_1/cover", "#/covers/s_1"],
     ["#/drums/a1b2c3d4e5f6/renders", "#/drums/a1b2c3d4e5f6"],
+    ["#/toon/eps/e_1/plot", "#/toon/eps/e_1"],
+    ["#/toon/eps/e_1/render", "#/toon/eps/e_1"],
     ["#/spoil/review", "#/spoil"],
     ["#/spoil/renders", "#/spoil"],
   ])("opens %s as %s", (old, now) => {

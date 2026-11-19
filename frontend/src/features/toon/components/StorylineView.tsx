@@ -17,7 +17,6 @@ import {
   castHash,
   epHash,
   isRunning,
-  renderHash,
   type ImageScope,
   type MissingRef,
   type Series,
@@ -28,6 +27,7 @@ import { soundsHash, type Sound } from "../../sound-library/lib/sounds";
 import { CardEditor, type CardWork } from "./CardEditor";
 import { CommitField } from "../../../components/ui/CommitField";
 import { LengthMeter } from "./LengthMeter";
+import { useEpView } from "../hooks/useEpView";
 
 type Edit = (method: string, path: string, body: unknown) => Promise<boolean>;
 
@@ -64,6 +64,7 @@ const NEW_ACT_NAME = "องก์ใหม่"; // D53: renamed in its header
  * against its target, and the Image jobs of the whole EP (D9, D10, D14, D21, D33, D44). Closed
  * while a job locks the EP. */
 export function StorylineView({ ep, series, sounds, locked, edit, job, busy, missing, skipped, version, jobs }: Props) {
+  const show = useEpView();
   const cards = cardsOf(ep);
   const stale = cards.some((card) => card.image_status === "stale_ref");
   const working = cardWork(job);
@@ -96,10 +97,10 @@ export function StorylineView({ ep, series, sounds, locked, edit, job, busy, mis
             <img src={musicIcon} alt="" width={16} height={16} />
             คลังเสียง
           </a>
-          <a href={renderHash(ep.id)} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
+          <button type="button" onClick={() => show("render")} className={`h-8 px-3 ${OUTLINE_BUTTON}`}>
             <img src={arrowRightIcon} alt="" width={16} height={16} />
-            ไปหน้า render
-          </a>
+            ไปที่ render
+          </button>
         </div>
       </div>
       {missing && missing.length > 0 && (
