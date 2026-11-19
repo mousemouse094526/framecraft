@@ -1,11 +1,11 @@
 # Progress: nav-ia
 
-**Now:** ทุก ticket done (01–05) รอ feature review
+**Now:** ready to merge — ทุก ticket done (01–05), feature review หลัง 05 ผ่าน
 
 **Next:**
 
 ```
-/warroom-build nav-ia --review-feature
+/pr-open
 ```
 
 ## Tickets
@@ -19,6 +19,21 @@
 | 05 | เมนู 2 ชั้น | done |
 
 ## Log
+
+### feature review (หลัง 05) — done 2026-11-19
+
+**Built:**
+- `lib/nav`: เลิก export `NAV_SECTIONS` `SETUP_ITEM` `activeItem` ที่ไม่มีใครใช้นอกไฟล์; `NavItem.tab` อธิบายใหม่
+- `App.test`: ตารางหัวหน้าและลิงก์ที่เปิดเหลือคอลัมน์เดียว (ชื่อลิงก์ = หัวหน้าเสมอ); test D20 รอด้วย `waitFor` หลัง `rememberRecent`; บอกว่าทำไม "สร้าง Series" มีสองลิงก์
+- docs: spec › Modules touched ตรงกับ D21 (ไม่มี `NavTopic`); ADR 0070 มี Status; legal D16–D20; D21 `detail`; ticket 05 Covers D21
+
+**Decided:**
+- ไม่มี D ใหม่; ไม่แก้: `detail` ชื่อเดิม (D21), key `framecraft.nav.recent` ใน test ตามแบบเดิมของ test อื่น, `RECENT_SOURCES` เป็นรายการเพราะลำดับคือ D18
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** typecheck · `npm test` 686 passed · build · `uv run pytest` 1547 passed — all green
 
 ### 05: เมนู 2 ชั้น — done 2026-11-19
 
