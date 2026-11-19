@@ -4,7 +4,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 // most 3 per topic, under their topic in the main menu (ui-nav D5, D10, D11). A convenience of
 // this browser only: no storage, or a broken value, is just no recent items.
 
-export type RecentArea = "toon" | "drums" | "songs";
+export type RecentArea = "toon" | "drums" | "covers";
 
 export type RecentItem = {
   hash: string;
@@ -25,13 +25,13 @@ const ID = "[A-Za-z0-9_-]{1,64}";
 const SHAPES: Record<RecentArea, RegExp> = {
   toon: new RegExp(`^#/toon/(series|eps)/${ID}$`),
   drums: /^#\/drums\/[a-z0-9]{12}$/,
-  songs: new RegExp(`^#/songs/${ID}$`),
+  covers: new RegExp(`^#/covers/${ID}$`),
 };
 const SERIES_SHAPE = new RegExp(`^#/toon/series/${ID}$`);
 
 const AREAS = Object.keys(SHAPES) as RecentArea[];
 
-const empty = (): Recent => ({ toon: [], drums: [], songs: [] });
+const empty = (): Recent => ({ toon: [], drums: [], covers: [] });
 
 function readRaw(): string {
   try {
@@ -52,8 +52,7 @@ function parse(raw: string): Recent {
   }
   if (!stored || typeof stored !== "object") return recent;
   for (const area of AREAS) {
-    const items = (stored as Record<string, unknown>)[area];
-    if (!Array.isArray(items)) continue;
+    const items = itemsOf(stored as Record<string, unknown>, area);
     for (const entry of items) {
       const item = itemOf(area, entry);
       if (item && !recent[area].some((known) => known.hash === item.hash)) recent[area].push(item);
@@ -61,6 +60,21 @@ function parse(raw: string): Recent {
     recent[area] = recent[area].slice(0, MAX);
   }
   return recent;
+}
+
+// แกะเพลง's songs were stored under `songs` as `#/songs/{id}` before the topic became reel cover (nav-ia D9).
+const LEGACY_SONG = new RegExp(`^#/songs/(${ID})$`);
+
+/** The stored entries of `area`; a song kept under the old key, after the new one's, with its hash moved. */
+function itemsOf(stored: Record<string, unknown>, area: RecentArea): unknown[] {
+  const items = Array.isArray(stored[area]) ? (stored[area] as unknown[]) : [];
+  if (area !== "covers" || !Array.isArray(stored.songs)) return items;
+  const moved = (stored.songs as unknown[]).map((entry) => {
+    if (!entry || typeof entry !== "object") return entry;
+    const { hash } = entry as { hash?: unknown };
+    return typeof hash === "string" ? { ...entry, hash: hash.replace(LEGACY_SONG, "#/covers/$1") } : entry;
+  });
+  return [...items, ...moved];
 }
 
 function itemOf(area: RecentArea, entry: unknown): RecentItem | null {

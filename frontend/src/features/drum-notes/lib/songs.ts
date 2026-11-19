@@ -1,6 +1,6 @@
 import { isUnfinishedIn } from "../../../lib/job";
 
-// A Song of the แกะเพลง tab as `/api/songs` answers it, its import job, its Pick job, and the tab's
+// A Song of reel cover (once แกะเพลง) as `/api/songs` answers it, its import job, its Pick job, and the tab's
 // hashes (drum-notes spec › Data, API, Frontend; D2, D3, D5, D18, D20; reels-only D7).
 
 export const SONGS_PATH = "/api/songs";
@@ -10,7 +10,7 @@ export const songPath = (id: string) => `${SONGS_PATH}/${id}`;
 export const audioUrl = (id: string) => `${songPath(id)}/audio.m4a`;
 export const rangePath = (id: string) => `${songPath(id)}/range`;
 export const pickPath = (id: string) => `${songPath(id)}/pick`;
-export const SONGS_HASH = "#/songs";
+export const SONGS_HASH = "#/covers"; // reel cover (nav-ia D6)
 export const songHash = (id: string) => `${SONGS_HASH}/${id}`;
 /** A song's reel page, drum-cover's (drum-cover D11): this tab links to it and reads its renders by HTTP alone (ADR 0052). */
 export const reelHash = (id: string) => `${songHash(id)}/cover`;
@@ -136,9 +136,9 @@ export const FILE_ACCEPT = "audio/*,video/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.opus
 
 export type SongsView = { kind: "list" } | { kind: "song"; id: string };
 
-/** `#/songs/{id}` opens a song; any other hash under `#/songs` is the list (spec › Frontend). */
+/** `#/covers/{id}` opens a song; any other hash under `#/covers` is the list (spec › Frontend, nav-ia D6). */
 export function songsViewOf(hash: string): SongsView {
-  const found = /^#\/songs\/([A-Za-z0-9_-]{1,64})$/.exec(hash);
+  const found = /^#\/covers\/([A-Za-z0-9_-]{1,64})$/.exec(hash);
   return found ? { kind: "song", id: found[1] } : { kind: "list" };
 }
 

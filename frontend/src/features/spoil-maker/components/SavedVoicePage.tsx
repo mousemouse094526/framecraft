@@ -1,34 +1,27 @@
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
-import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import userIcon from "../assets/user.svg";
 import { useVoices } from "../hooks/useVoices";
 import { VoiceDesigner } from "./VoiceDesigner";
 import { VoiceRow } from "./VoiceRow";
 
-/** `#/spoil/voices`: design a voice, hear it, save it; rename and delete saved ones (spoil-maker D32, D43). */
+/** `#/voices`: design a voice, hear it, save it; rename and delete saved ones (spoil-maker D32, D43). A library
+ * of คลัง: no way back to one topic, the menu is there (nav-ia D4). */
 export function SavedVoicePage() {
   const { state, design, save, rename, remove, reload } = useVoices();
 
   if (state.kind === "offline") {
     return (
-      <PageLayout tab="spoil" wide action={<RefreshButton onClick={reload} />}>
+      <PageLayout tab="voices" wide action={<RefreshButton onClick={reload} />}>
         <OfflinePanel />
       </PageLayout>
     );
   }
 
   return (
-    <PageLayout tab="spoil" wide>
+    <PageLayout tab="voices" wide>
       <div className="flex items-center gap-2">
-        <a
-          href="#/spoil"
-          aria-label="กลับ"
-          className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-card sm:size-9"
-        >
-          <img src={arrowLeftIcon} alt="" width={16} height={16} />
-        </a>
         <h2 className="text-xl leading-7 font-semibold text-foreground">เสียงบรรยาย</h2>
       </div>
       {state.kind === "loading" ? (

@@ -35,6 +35,8 @@ export type TempClip = {
 };
 
 export const CLIPS_PATH = "/api/spoil/clips";
+/** คลิปทั้งหมด: Temp clips are what สปอย works on, so the page is under สปอย (nav-ia D2). */
+export const CLIPS_HASH = "#/spoil/clips";
 
 /** `site` of a YouTube clip, and of every clip from before other sites (D52). */
 export const YOUTUBE_SITE = "Youtube";

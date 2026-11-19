@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 
 // What each hash opens, by its first part, and its name: the main menu's topics and libraries
-// (ui-nav D1, D2; the menu itself is `lib/nav.ts`). คลิป is named คลังคลิป since the libraries
-// moved into the menu (ui-nav D2).
+// (ui-nav D1, D2; the menu itself is `lib/nav.ts`). Every page sits under the hash of the menu item
+// it belongs to (nav-ia D1): คลิปทั้งหมด is `#/spoil/clips`, a page of สปอย (nav-ia D2).
 const TAB_LABELS = {
   setup: "ติดตั้ง",
-  clips: "คลังคลิป",
   stories: "คลังความรู้",
   sounds: "คลังเสียง",
+  voices: "เสียงพากย์",
   spoil: "สปอย",
   toon: "การ์ตูนเล่า",
   drums: "reel กลอง",
-  songs: "แกะเพลง",
+  covers: "reel cover",
 } as const;
 
 export type TabId = keyof typeof TAB_LABELS;
@@ -19,10 +19,10 @@ export type TabId = keyof typeof TAB_LABELS;
 export const tabLabel = (id: TabId): string => TAB_LABELS[id];
 
 /**
- * `#/spoil/…` is a step of สปอย, `#/stories/…` a Story of คลังความรู้, `#/sounds?…` คลังเสียง
+ * `#/spoil/…` is a page of สปอย, `#/stories/…` a Story of คลังความรู้, `#/sounds?…` คลังเสียง
  * with the page it came from (sound-library D11), `#/toon/…` a page of การ์ตูนเล่า,
- * `#/drums/…` a page of reel กลอง and `#/songs/…` a song of แกะเพลง; an empty or
- * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9, drum-notes D2).
+ * `#/drums/…` a page of reel กลอง and `#/covers/…` a song of reel cover; an empty or
+ * unknown hash opens ติดตั้ง (spoil D10, spoil-maker D53, story-kb D9, drum-notes D2, nav-ia D1).
  */
 export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/spoil/")) return "spoil";
@@ -30,7 +30,7 @@ export function tabOf(hash: string): TabId {
   if (hash.startsWith("#/stories/")) return "stories";
   if (hash.startsWith("#/toon/")) return "toon";
   if (hash.startsWith("#/drums/")) return "drums";
-  if (hash.startsWith("#/songs/")) return "songs";
+  if (hash.startsWith("#/covers/")) return "covers";
   const id = hash.slice(2);
   return hash.startsWith("#/") && Object.hasOwn(TAB_LABELS, id) ? (id as TabId) : "setup";
 }
@@ -86,13 +86,29 @@ export function useHash(): string {
   return hash;
 }
 
+const ID = "[A-Za-z0-9_-]{1,64}";
+
+// Pages that moved, old hash → new one; the first that matches wins, `$1` is the id (nav-ia D9).
 // The sound library was a page of การ์ตูนเล่า before it had its own tab (sound-library D6, D11).
-const MOVED: Record<string, string> = { "#/toon/sounds": "#/sounds" };
+const MOVED: readonly [RegExp, string][] = [
+  [/^#\/toon\/sounds$/, "#/sounds"],
+  [/^#\/clips$/, "#/spoil/clips"],
+  [/^#\/spoil\/voices$/, "#/voices"],
+  [/^#\/songs$/, "#/covers"],
+  [new RegExp(`^#/songs/(${ID})$`), "#/covers/$1"],
+  [new RegExp(`^#/songs/(${ID})/cover$`), "#/covers/$1/cover"],
+];
+
+/** The hash a moved page has now, or null when `hash` is not one that moved. */
+export function movedTo(hash: string): string | null {
+  for (const [old, now] of MOVED) if (old.test(hash)) return hash.replace(old, now);
+  return null;
+}
 
 /** The hash, with one of a page that moved put back as its new one: `replaceState` fires no
  * `hashchange`, so the caller reads the new hash straight from the answer. */
 function movedHash(): string {
-  const moved = MOVED[window.location.hash];
+  const moved = movedTo(window.location.hash);
   if (moved) history.replaceState(history.state, "", moved);
   return window.location.hash;
 }

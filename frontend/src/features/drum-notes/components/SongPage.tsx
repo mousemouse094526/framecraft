@@ -40,20 +40,20 @@ import {
 } from "../lib/songs";
 
 /**
- * หน้าเพลง (`#/songs/{id}`): the song's head and player, the range and mode, the Pick job, and the
+ * หน้าเพลง (`#/covers/{id}`): the song's head and player, the range and mode, the Pick job, and the
  * way on to its reel cover (spec › Design, D5, D6, D18; ui-prompt.md screen 2, D28). Nothing on it
  * makes a lesson (reels-only D6).
  */
 export function SongPage({ id, notice }: { id: string; notice: string | null }) {
   const { state, reload, replace } = useSong(id);
-  useRecentPage("songs", songHash(id), state.kind === "ready" ? { label: state.song.title } : state.kind === "not_found" ? "gone" : null);
+  useRecentPage("covers", songHash(id), state.kind === "ready" ? { label: state.song.title } : state.kind === "not_found" ? "gone" : null);
   const player = useRef<HTMLAudioElement>(null);
   const pick = usePick(replace, (job) => {
     if (job.song_id === id && job.state === "done") void reload();
   });
 
   return (
-    <PageLayout tab="songs">
+    <PageLayout tab="covers">
       <div className="flex items-center gap-2">
         <a href={SONGS_HASH} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />

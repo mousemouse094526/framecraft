@@ -12,9 +12,9 @@ export const coverRenderFile = (id: string, name: string, suffix: ".mp4" | ".srt
 export const COVER_RENDER_PATH = "/api/covers/render";
 export const COVER_CANCEL_PATH = `${COVER_RENDER_PATH}/cancel`;
 
-/** `#/songs/{id}/cover` is a song's reel page; App picks it before the แกะเพลง tab sees the hash (D11). */
+/** `#/covers/{id}/cover` is a song's reel page; App picks it before the reel cover topic sees the hash (D11). */
 export function coverViewOf(hash: string): { id: string } | null {
-  const found = /^#\/songs\/([A-Za-z0-9_-]{1,64})\/cover$/.exec(hash);
+  const found = /^#\/covers\/([A-Za-z0-9_-]{1,64})\/cover$/.exec(hash);
   return found ? { id: found[1] } : null;
 }
 

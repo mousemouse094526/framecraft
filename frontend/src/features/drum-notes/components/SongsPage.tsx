@@ -5,7 +5,7 @@ import { SongList } from "./SongList";
 import { SongPage } from "./SongPage";
 
 /**
- * The แกะเพลง tab: `#/songs/{id}` opens a song, any other `#/songs…` hash the list (spec › Frontend, D2).
+ * reel cover: `#/covers/{id}` opens a song, any other `#/covers…` hash the list (spec › Frontend, D2, nav-ia D6).
  * A link or file that is a song already sends the page to that song with a word about it (D3, D20).
  */
 export function SongsPage() {

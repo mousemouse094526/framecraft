@@ -10,7 +10,7 @@
 - Seams: 1
 - User stories: 1, 2, 7
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

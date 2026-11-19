@@ -18,7 +18,7 @@ export const soundsHash = (back: string) => `${WITH_BACK}${back}`;
 /** Where "← กลับ" goes: the `back` of `#/sounds?back=…` when it is a page of สปอย or การ์ตูนเล่า, else nowhere (D11, D15). */
 export function backOf(hash: string): string | null {
   const back = hash.startsWith(WITH_BACK) ? hash.slice(WITH_BACK.length) : "";
-  return back.startsWith("#/spoil/") || back.startsWith("#/toon/") || back === "#/toon" ? back : null;
+  return back.startsWith("#/spoil/") || back === "#/spoil" || back.startsWith("#/toon/") || back === "#/toon" ? back : null;
 }
 
 /** A tab's thing that plays a sound, as `in_use` names it (D7). */

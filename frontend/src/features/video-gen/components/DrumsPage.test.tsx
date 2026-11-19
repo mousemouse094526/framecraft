@@ -435,7 +435,7 @@ describe("reel กลอง, not lessons (reels-only D1, D5, D8)", () => {
     await screen.findByRole("listitem");
     const main = screen.getByRole("main");
     expect(within(main).getByRole("heading", { level: 2, name: "reel กลอง" })).toBeInTheDocument();
-    expect(within(main).getByText("reel จาก Groove ที่กรอกเอง · reel จากเพลงทำในแกะเพลง")).toBeInTheDocument();
+    expect(within(main).getByText("reel จาก Groove ที่กรอกเอง · reel จากเพลงทำใน reel cover")).toBeInTheDocument();
     expect(within(main).getByRole("button", { name: "reel ใหม่" })).toBeInTheDocument();
     expect(within(main).getByRole("region", { name: "reel ทั้งหมด" })).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/บทเรียน|สอน/);

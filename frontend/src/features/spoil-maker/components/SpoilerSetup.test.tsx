@@ -233,7 +233,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     const undescribed = screen.getByRole("listitem", { name: "ไททัน ตอนที่ 3" });
     expect(within(undescribed).getByRole("radio")).toBeDisabled();
     expect(within(undescribed).getByText("ยังไม่บรรยายฉาก")).toBeInTheDocument();
-    expect(within(undescribed).getByRole("link", { name: "ไปบรรยายฉาก" })).toHaveAttribute("href", "#/clips");
+    expect(within(undescribed).getByRole("link", { name: "ไปบรรยายฉาก" })).toHaveAttribute("href", "#/spoil/clips");
     expect(within(screen.getByRole("listitem", { name: "นางนาก" })).getByText("ยังไม่ถอด")).toBeInTheDocument();
   });
 
@@ -242,7 +242,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     await openSetup();
 
     expect(screen.getByText("ยังไม่มีคลิปที่ถอดและบรรยายฉากแล้ว")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปที่รายการคลิป" })).toHaveAttribute("href", "#/clips");
+    expect(screen.getByRole("link", { name: "ไปที่รายการคลิป" })).toHaveAttribute("href", "#/spoil/clips");
     expect(draftButton()).toBeDisabled();
   });
 
@@ -263,7 +263,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     backend([get(VOICES_PATH, [])]);
     await pickFilm();
 
-    expect(screen.getByRole("link", { name: "สร้างเสียงบรรยาย" })).toHaveAttribute("href", "#/spoil/voices");
+    expect(screen.getByRole("link", { name: "สร้างเสียงบรรยาย" })).toHaveAttribute("href", "#/voices");
     expect(draftButton()).toBeDisabled();
   });
 

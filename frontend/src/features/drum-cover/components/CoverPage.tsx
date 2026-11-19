@@ -66,7 +66,7 @@ import {
 } from "../lib/cover";
 
 /**
- * หน้า reel (`#/songs/{id}/cover`): the instrument, the stretch, the text, the sound, ฟัง and render
+ * หน้า reel (`#/covers/{id}/cover`): the instrument, the stretch, the text, the sound, ฟัง and render
  * reel, and the renders made (spec › Design, D6, D7, D11, D12, D18, D19, D24; ui-prompt.md screen 2,
  * D14; kalimba-cover spec › Design, D9, D10, D14).
  */
@@ -74,7 +74,7 @@ export function CoverPage({ id }: { id: string }) {
   const cover = useCover(id);
   const { state } = cover;
   return (
-    <PageLayout tab="songs" wide>
+    <PageLayout tab="covers" wide>
       <div className="flex items-center gap-2">
         <a href={state.kind === "not_found" ? SONGS_HASH : songHash(id)} className={`h-11 px-3 sm:h-8 ${GHOST_BUTTON}`}>
           <img src={arrowLeftIcon} alt="" width={16} height={16} />

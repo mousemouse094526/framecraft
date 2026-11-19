@@ -36,7 +36,7 @@ export function LessonList() {
       <div className="flex items-center gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 className="text-xl leading-[1.5] font-semibold text-foreground">reel กลอง</h2>
-          <p className="text-[13px] leading-[1.5] text-mid">reel จาก Groove ที่กรอกเอง · reel จากเพลงทำในแกะเพลง</p>
+          <p className="text-[13px] leading-[1.5] text-mid">reel จาก Groove ที่กรอกเอง · reel จากเพลงทำใน reel cover</p>
         </div>
         <button type="button" onClick={() => setCreating(true)} className={`flex h-11 items-center gap-2 px-4 sm:h-9 ${PRIMARY_BUTTON}`}>
           <img src={plusWhiteIcon} alt="" width={16} height={16} />

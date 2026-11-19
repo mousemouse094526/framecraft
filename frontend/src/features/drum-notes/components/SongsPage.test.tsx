@@ -117,12 +117,12 @@ const linkBox = () => screen.getByRole("textbox", { name: "ลิงก์เพ
 const bringIn = () => screen.getByRole("button", { name: "เอาเพลงเข้า" });
 
 describe("รายการเพลง", () => {
-  it("เพลงทั้งหมด in the menu opens #/songs, inviting the first song and saying the song is for notes only (e2e)", async () => {
+  it("เพลงทั้งหมด in the menu opens #/covers, inviting the first song and saying the song is for notes only (e2e)", async () => {
     const user = open("#/setup", [get("/api/setup/status", status)]);
 
     await user.click(screen.getByRole("link", { name: "เพลงทั้งหมด" }));
 
-    expect(window.location.hash).toBe("#/songs");
+    expect(window.location.hash).toBe("#/covers");
     expect(await screen.findByText("ยังไม่มีเพลง วางลิงก์เพลงแรกหรือเลือกไฟล์ในเครื่อง")).toBeInTheDocument();
     expect(screen.getByText("ใช้เพลงเพื่อแกะโน้ตเท่านั้น เสียงเพลงไม่เข้าคลิป")).toBeInTheDocument();
     // The list's text commits before the effect that focuses the box runs: wait for the focus itself.
@@ -130,10 +130,10 @@ describe("รายการเพลง", () => {
   });
 
   it("shows each song's title, subtitle, where it came from, its length and whether it was picked, and no word of lessons", async () => {
-    open("#/songs", [get(LIST_PATH, [rowOf({ analysis: { mode: "drums", bars: 12 } }), rowOf({ id: "local-0123456789ab", title: "demo", subtitle: "", source_kind: "midi", duration_s: 4.8 })])]);
+    open("#/covers", [get(LIST_PATH, [rowOf({ analysis: { mode: "drums", bars: 12 } }), rowOf({ id: "local-0123456789ab", title: "demo", subtitle: "", source_kind: "midi", duration_s: 4.8 })])]);
 
     const [first, second] = await screen.findAllByRole("listitem");
-    expect(within(first).getByRole("link", { name: /Smells Like Teen Spirit/ })).toHaveAttribute("href", `#/songs/${ID}`);
+    expect(within(first).getByRole("link", { name: /Smells Like Teen Spirit/ })).toHaveAttribute("href", `#/covers/${ID}`);
     expect(first).toHaveTextContent("Nirvana");
     expect(first).toHaveTextContent("ลิงก์");
     expect(first).toHaveTextContent("5:01");
@@ -146,7 +146,7 @@ describe("รายการเพลง", () => {
   it("a pasted link POSTs it, shows the job's percent, and the song joins the list when it is done (e2e)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const job = phased(IMPORT_PATH, null, jobOf({ state: "downloading", title: "Smells Like Teen Spirit", percent: 40 }), jobOf({ state: "done", percent: 100, song_id: ID }));
-    const user = open("#/songs", [
+    const user = open("#/covers", [
       get(LIST_PATH, []),
       get(LIST_PATH, [rowOf()]),
       job.route,
@@ -173,20 +173,20 @@ describe("รายการเพลง", () => {
   });
 
   it("a link that is a song already says so and opens that song (e2e)", async () => {
-    const user = open("#/songs", [send("POST", LINK_PATH, { song_id: ID }, 200), get(PATH, songOf())]);
+    const user = open("#/covers", [send("POST", LINK_PATH, { song_id: ID }, 200), get(PATH, songOf())]);
 
     await user.type(await screen.findByRole("textbox", { name: "ลิงก์เพลง" }), YOUTUBE);
     await user.click(bringIn());
 
     expect(await findStatusWith("เพลงนี้มีอยู่แล้ว")).toBeInTheDocument();
-    expect(window.location.hash).toBe(`#/songs/${ID}`);
+    expect(window.location.hash).toBe(`#/covers/${ID}`);
     expect(await screen.findByRole("heading", { name: "Smells Like Teen Spirit" })).toBeInTheDocument();
   });
 
   it("a job that fails too_long says the song is over ten minutes (e2e)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const job = phased(IMPORT_PATH, null, jobOf({ state: "failed", error: { code: "too_long", message: "เพลงยาวเกิน 10 นาที" } }));
-    const user = open("#/songs", [job.route, { method: "POST", path: LINK_PATH, reply: () => ((job.phases.at = 1), jsonResponse(jobOf(), 202)) }]);
+    const user = open("#/covers", [job.route, { method: "POST", path: LINK_PATH, reply: () => ((job.phases.at = 1), jsonResponse(jobOf(), 202)) }]);
 
     await user.type(await screen.findByRole("textbox", { name: "ลิงก์เพลง" }), YOUTUBE);
     await user.click(bringIn());
@@ -197,7 +197,7 @@ describe("รายการเพลง", () => {
   });
 
   it("not_ready shows the fix of the row it names (e2e)", async () => {
-    const user = open("#/songs", [
+    const user = open("#/covers", [
       send("POST", LINK_PATH, { code: "not_ready", message: "ยังติดตั้งไม่ครบ: yt-dlp", rows: ["yt_dlp"] }, 503),
       get("/api/setup/status", status),
     ]);
@@ -210,7 +210,7 @@ describe("รายการเพลง", () => {
   });
 
   it("a picked file is checked, PUT as the raw body with its percent, then converts, then its song opens (e2e)", async () => {
-    const user = open("#/songs", [send("POST", CHECK_PATH, { size: 3 }, 200), get(PATH, songOf({ source: { kind: "file", url: null, name: "song.mp3", size: 3 }, subtitle: "" }))]);
+    const user = open("#/covers", [send("POST", CHECK_PATH, { size: 3 }, 200), get(PATH, songOf({ source: { kind: "file", url: null, name: "song.mp3", size: 3 }, subtitle: "" }))]);
     await screen.findByRole("textbox", { name: "ลิงก์เพลง" });
 
     await user.upload(screen.getByLabelText("ไฟล์เพลง"), new File([new Uint8Array([1, 2, 3])], "song.mp3", { type: "audio/mpeg" }));
@@ -227,12 +227,12 @@ describe("รายการเพลง", () => {
 
     await xhr.respond(201, songOf({ source: { kind: "file", url: null, name: "song.mp3", size: 3 } }));
 
-    await waitFor(() => expect(window.location.hash).toBe(`#/songs/${ID}`));
+    await waitFor(() => expect(window.location.hash).toBe(`#/covers/${ID}`));
     expect(await screen.findByRole("heading", { name: "Smells Like Teen Spirit" })).toBeInTheDocument();
   });
 
   it("a file dropped on the box goes in the same way (e2e)", async () => {
-    open("#/songs", [send("POST", CHECK_PATH, { size: 3 }, 200)]);
+    open("#/covers", [send("POST", CHECK_PATH, { size: 3 }, 200)]);
     const box = await screen.findByRole("button", { name: /เลือกไฟล์ในเครื่อง/ });
     const file = new File([new Uint8Array(3)], "drop.mp3", { type: "audio/mpeg" });
 
@@ -244,7 +244,7 @@ describe("รายการเพลง", () => {
   });
 
   it("a file that is a song already opens that song; a refused file says why (e2e)", async () => {
-    const user = open("#/songs", [
+    const user = open("#/covers", [
       send("POST", CHECK_PATH, { code: "file_too_large", message: "ไฟล์ใหญ่เกิน 200 MB" }, 413),
       send("POST", CHECK_PATH, { song_id: ID }, 200),
       get(PATH, songOf()),
@@ -257,11 +257,11 @@ describe("รายการเพลง", () => {
 
     await user.upload(screen.getByLabelText("ไฟล์เพลง"), new File([new Uint8Array(3)], "song.mp3"));
     expect(await findStatusWith("เพลงนี้มีอยู่แล้ว")).toBeInTheDocument();
-    expect(window.location.hash).toBe(`#/songs/${ID}`);
+    expect(window.location.hash).toBe(`#/covers/${ID}`);
   });
 
   it("the file box says how a MIDI file's channels are read and to use one you made or may use (e2e)", async () => {
-    open("#/songs", []);
+    open("#/covers", []);
 
     const box = await screen.findByRole("button", { name: /เลือกไฟล์ในเครื่อง/ });
     expect(box).toHaveTextContent("MIDI: ช่อง 10 เป็นกลอง ช่องอื่นเป็นทำนองสำหรับคาลิมบา");
@@ -270,7 +270,7 @@ describe("รายการเพลง", () => {
 
   it("a MIDI file the backend refuses shows its message (e2e)", async () => {
     const message = "ไฟล์ MIDI ต้องเป็น 4/4 และมีแทร็กกลองหรือโน้ตทำนอง";
-    const user = open("#/songs", [send("POST", CHECK_PATH, { size: 3 }, 200)]);
+    const user = open("#/covers", [send("POST", CHECK_PATH, { size: 3 }, 200)]);
     await screen.findByRole("textbox", { name: "ลิงก์เพลง" });
 
     await user.upload(screen.getByLabelText("ไฟล์เพลง"), new File([new Uint8Array(3)], "waltz.mid"));
@@ -278,11 +278,11 @@ describe("รายการเพลง", () => {
     await FakeXhr.sent[0].respond(415, { code: "unsupported_file", message });
 
     expect(await findStatusWith(message)).toBeInTheDocument();
-    expect(window.location.hash).toBe("#/songs");
+    expect(window.location.hash).toBe("#/covers");
   });
 
   it("ลบ asks first, saying the audio and the result go, then DELETEs (e2e)", async () => {
-    const user = open("#/songs", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, []), send("DELETE", PATH, null, 204)]);
+    const user = open("#/covers", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, []), send("DELETE", PATH, null, 204)]);
 
     await user.click(await screen.findByRole("button", { name: "ลบ Smells Like Teen Spirit" }));
     const dialog = screen.getByRole("dialog", { name: "ลบ Smells Like Teen Spirit?" });
@@ -295,7 +295,7 @@ describe("รายการเพลง", () => {
   });
 
   it("a refused delete shows the API's message", async () => {
-    const user = open("#/songs", [get(LIST_PATH, [rowOf()]), send("DELETE", PATH, { code: "in_use", message: "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่" }, 409)]);
+    const user = open("#/covers", [get(LIST_PATH, [rowOf()]), send("DELETE", PATH, { code: "in_use", message: "ลบไม่ได้เพราะไฟล์ยังเปิดอยู่" }, 409)]);
 
     await user.click(await screen.findByRole("button", { name: "ลบ Smells Like Teen Spirit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "ลบ" }));
@@ -306,7 +306,7 @@ describe("รายการเพลง", () => {
 
 describe("หน้าเพลง", () => {
   it("a song with audio has one player of its audio.m4a and, unpicked, says to set the range (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(PATH, songOf())]);
+    open(`#/covers/${ID}`, [get(PATH, songOf())]);
 
     const head = await screen.findByRole("region", { name: "เพลง" });
     expect(head).toHaveTextContent("Nirvana");
@@ -320,7 +320,7 @@ describe("หน้าเพลง", () => {
   });
 
   it("a MIDI song has no player and goes straight on to its reel cover (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(PATH, songOf({ source: { kind: "midi", url: null, name: "rock.mid", size: 300 }, subtitle: "", range: null, duration_s: 4.8, ...picked }))]);
+    open(`#/covers/${ID}`, [get(PATH, songOf({ source: { kind: "midi", url: null, name: "rock.mid", size: 300 }, subtitle: "", range: null, duration_s: 4.8, ...picked }))]);
 
     const head = await screen.findByRole("region", { name: "เพลง" });
     expect(head).toHaveTextContent("MIDI");
@@ -331,7 +331,7 @@ describe("หน้าเพลง", () => {
   });
 
   it("a picked song shows the range and its reel cover, and nothing that makes a lesson (reels-only D6)", async () => {
-    open(`#/songs/${ID}`, [get(PATH, songOf(picked))]);
+    open(`#/covers/${ID}`, [get(PATH, songOf(picked))]);
 
     expect(await screen.findByRole("region", { name: "Reel cover" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "ช่วงแกะ" })).toBeInTheDocument();
@@ -341,17 +341,17 @@ describe("หน้าเพลง", () => {
 
   it("a picked song with no 4/4 bar still goes on to its reel cover", async () => {
     const bars: FoundBar[] = midiBars.map((bar) => ({ ...bar, beats: 3, four_four: false }));
-    open(`#/songs/${ID}`, [get(PATH, songOf({ analysis: midiAnalysis, bars }))]);
+    open(`#/covers/${ID}`, [get(PATH, songOf({ analysis: midiAnalysis, bars }))]);
 
     expect(await screen.findByRole("region", { name: "Reel cover" })).toBeInTheDocument();
     expect(screen.queryByText(/ไม่มีห้อง 4\/4/)).not.toBeInTheDocument();
   });
 
   it("a song that isn't there says so with a way back", async () => {
-    open(`#/songs/${ID}`, [send("GET", PATH, { code: "not_found", message: "ไม่พบเพลงนี้" }, 404)]);
+    open(`#/covers/${ID}`, [send("GET", PATH, { code: "not_found", message: "ไม่พบเพลงนี้" }, 404)]);
 
     expect(await screen.findByText("ไม่พบเพลงนี้")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "กลับไปรายการเพลง" })).toHaveAttribute("href", "#/songs");
+    expect(screen.getByRole("link", { name: "กลับไปรายการเพลง" })).toHaveAttribute("href", "#/covers");
   });
 });
 
@@ -361,7 +361,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   const pickButton = () => screen.getByRole("button", { name: "แกะโน้ต" });
 
   it("the fields start from the saved range, say the length against the cap of 90, and take the player's time (e2e)", async () => {
-    const user = open(`#/songs/${ID}`, [get(PATH, songOf({ range: { start_s: 10, end_s: 40, mode: "drums" } }))]);
+    const user = open(`#/covers/${ID}`, [get(PATH, songOf({ range: { start_s: 10, end_s: 40, mode: "drums" } }))]);
 
     const section = await screen.findByRole("region", { name: "ช่วงแกะ" });
     expect(startBox()).toHaveValue(10);
@@ -380,7 +380,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   });
 
   it("a range that breaks a rule shows the message at its field and asks the backend nothing (e2e)", async () => {
-    const user = open(`#/songs/${ID}`, [get(PATH, songOf())]);
+    const user = open(`#/covers/${ID}`, [get(PATH, songOf())]);
     await screen.findByRole("region", { name: "ช่วงแกะ" });
 
     await user.clear(endBox());
@@ -398,7 +398,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   it("แกะโน้ต saves the range, starts the job, shows its bar and ยกเลิก, then the bars found (e2e)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const job = phased(PICK_PATH, null, pickOf({ state: "picking", percent: 50 }), pickOf({ state: "done", percent: 100 }));
-    const user = open(`#/songs/${ID}`, [
+    const user = open(`#/covers/${ID}`, [
       get(PATH, songOf()),
       get(PATH, songOf({ range: { start_s: 5, end_s: 35, mode: "drums" }, ...picked })),
       send("PUT", RANGE_PATH, songOf({ range: { start_s: 5, end_s: 35, mode: "drums" } }), 200),
@@ -434,7 +434,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
     // The MIDI one's beats serve with melody hits: the page reads the analysis's hits and range.
     const melody: Analysis = { ...midiAnalysis, mode: "melody", hits: [{ t: 0.6, piece: "snare", level: "normal" }, { t: 1.2, piece: "snare", level: "normal" }] };
     const job = phased(PICK_PATH, null, pickOf({ state: "done", percent: 100 }));
-    const user = open(`#/songs/${ID}`, [
+    const user = open(`#/covers/${ID}`, [
       get(PATH, songOf()),
       get(PATH, songOf({ range: { start_s: 0, end_s: 30, mode: "melody" }, analysis: melody, bars: midiBars })),
       send("PUT", RANGE_PATH, songOf({ range: { start_s: 0, end_s: 30, mode: "melody" } }), 200),
@@ -457,7 +457,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   it("ยกเลิก POSTs the cancel and the job ends cancelled with the old result kept (e2e)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const job = phased(PICK_PATH, pickOf({ state: "picking", percent: 20 }), pickOf({ state: "cancelled", percent: 20, cancel_requested: true }));
-    const user = open(`#/songs/${ID}`, [get(PATH, songOf(picked)), job.route, send("POST", `${PICK_PATH}/cancel`, pickOf({ state: "picking", percent: 20, cancel_requested: true }), 200)]);
+    const user = open(`#/covers/${ID}`, [get(PATH, songOf(picked)), job.route, send("POST", `${PICK_PATH}/cancel`, pickOf({ state: "picking", percent: 20, cancel_requested: true }), 200)]);
 
     const running = await screen.findByRole("group", { name: "งานแกะโน้ต" });
     await user.click(within(running).getByRole("button", { name: "ยกเลิก" }));
@@ -471,7 +471,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   });
 
   it("not_ready shows the fix of the row it names; busy says which song (e2e)", async () => {
-    const user = open(`#/songs/${ID}`, [
+    const user = open(`#/covers/${ID}`, [
       get(PATH, songOf()),
       send("PUT", RANGE_PATH, songOf(), 200),
       send("POST", SONG_PICK_PATH, { code: "not_ready", message: "ยังติดตั้งไม่ครบ: ADTOF drum model", rows: ["model_adtof"] }, 503),
@@ -489,20 +489,20 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   });
 
   it("a job that failed no_beats says to try another range, and the song stays unpicked (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(PATH, songOf()), get(PICK_PATH, pickOf({ state: "failed", error: "no_beats", message: "หาจังหวะในช่วงนี้ไม่ได้ ลองช่วงอื่น" }))]);
+    open(`#/covers/${ID}`, [get(PATH, songOf()), get(PICK_PATH, pickOf({ state: "failed", error: "no_beats", message: "หาจังหวะในช่วงนี้ไม่ได้ ลองช่วงอื่น" }))]);
 
     expect(await findStatusWith("หาจังหวะในช่วงนี้ไม่ได้ ลองช่วงอื่น")).toBeInTheDocument();
     expect(screen.getByText("ตั้งช่วงแล้วกด แกะโน้ต")).toBeInTheDocument();
   });
 
   it("a job that failed model_failed shows the model's first line (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(PATH, songOf()), get(PICK_PATH, pickOf({ state: "failed", error: "model_failed", message: "โมเดลทำงานผิดพลาด: Non-zero status code" }))]);
+    open(`#/covers/${ID}`, [get(PATH, songOf()), get(PICK_PATH, pickOf({ state: "failed", error: "model_failed", message: "โมเดลทำงานผิดพลาด: Non-zero status code" }))]);
 
     expect(await findStatusWith("โมเดลทำงานผิดพลาด: Non-zero status code")).toBeInTheDocument();
   });
 
   it("a job that failed model_broken shows the Setup script to run (e2e)", async () => {
-    open(`#/songs/${ID}`, [
+    open(`#/covers/${ID}`, [
       get(PATH, songOf()),
       get(PICK_PATH, pickOf({ state: "failed", error: "model_broken", message: "ไฟล์โมเดลเสีย รัน Setup script ใหม่ (ADTOF drum model)", rows: ["model_adtof"], fix: "./setup.sh" })),
     ]);
@@ -512,7 +512,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   });
 
   it("another song's failure is not shown here, and its running job only disables แกะโน้ต", async () => {
-    open(`#/songs/${ID}`, [get(PATH, songOf()), get(PICK_PATH, pickOf({ song_id: "other", state: "picking", percent: 30 }))]);
+    open(`#/covers/${ID}`, [get(PATH, songOf()), get(PICK_PATH, pickOf({ song_id: "other", state: "picking", percent: 30 }))]);
 
     await screen.findByRole("region", { name: "ช่วงแกะ" });
     await waitFor(() => expect(pickButton()).toBeDisabled());
@@ -523,7 +523,7 @@ describe("ช่วงแกะและแกะโน้ต", () => {
   it("the list says กำลังแกะ with the percent while a song is picked and แกะแล้ว with its bars after (e2e)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const job = phased(PICK_PATH, pickOf({ state: "picking", percent: 35 }), pickOf({ state: "done", percent: 100 }));
-    open("#/songs", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, [rowOf({ analysis: { mode: "drums", bars: 12 } })]), job.route]);
+    open("#/covers", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, [rowOf({ analysis: { mode: "drums", bars: 12 } })]), job.route]);
 
     const row = await screen.findByRole("listitem");
     expect(row).toHaveTextContent("กำลังแกะ 35%");
@@ -536,21 +536,21 @@ describe("ช่วงแกะและแกะโน้ต", () => {
 
 describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
   const stored = () => JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
-  const songsGroup = () => within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "แกะเพลง" }));
+  const songsGroup = () => within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "reel cover" }));
 
-  it("puts a song first under แกะเพลง once its page loads, open there (e2e)", async () => {
-    open(`#/songs/${ID}`, [get(PATH, songOf())]);
+  it("puts a song first under reel cover once its page loads, open there (e2e)", async () => {
+    open(`#/covers/${ID}`, [get(PATH, songOf())]);
 
-    await waitFor(() => expect(stored()?.songs).toEqual([{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }]));
+    await waitFor(() => expect(stored()?.covers).toEqual([{ hash: `#/covers/${ID}`, label: "Smells Like Teen Spirit" }]));
     expect(songsGroup().getByText("ล่าสุด")).toBeInTheDocument();
     expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: /^เมนู:/ })).toHaveAccessibleName("เมนู: แกะเพลง / Smells Like Teen Spirit");
+    expect(screen.getByRole("button", { name: /^เมนู:/ })).toHaveAccessibleName("เมนู: reel cover / Smells Like Teen Spirit");
   });
 
   it("keeps the song open in the menu on its reel page, which writes nothing", async () => {
-    const seeded = JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "ชื่อเก่า" }] });
+    const seeded = JSON.stringify({ covers: [{ hash: `#/covers/${ID}`, label: "ชื่อเก่า" }] });
     window.localStorage.setItem("framecraft.nav.recent", seeded);
-    open(`#/songs/${ID}/cover`, [get(PATH, songOf())]);
+    open(`#/covers/${ID}/cover`, [get(PATH, songOf())]);
 
     expect(songsGroup().getByRole("link", { name: "ชื่อเก่า" })).toHaveAttribute("aria-current", "page");
     await act(async () => {
@@ -560,21 +560,21 @@ describe("ล่าสุด in the main menu (ui-nav D5, D11)", () => {
   });
 
   it("forgets a song that is deleted (e2e)", async () => {
-    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }] }));
-    const user = open("#/songs", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, []), send("DELETE", PATH, null, 204)]);
+    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ covers: [{ hash: `#/covers/${ID}`, label: "Smells Like Teen Spirit" }] }));
+    const user = open("#/covers", [get(LIST_PATH, [rowOf()]), get(LIST_PATH, []), send("DELETE", PATH, null, 204)]);
     expect(songsGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: "ลบ Smells Like Teen Spirit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "ลบ" }));
 
-    await waitFor(() => expect(stored()?.songs).toEqual([]));
+    await waitFor(() => expect(stored()?.covers).toEqual([]));
     expect(songsGroup().queryByText("ล่าสุด")).toBeNull();
   });
 
   it("forgets a song whose page answers not_found", async () => {
-    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ songs: [{ hash: `#/songs/${ID}`, label: "Smells Like Teen Spirit" }] }));
-    open(`#/songs/${ID}`, [send("GET", PATH, { code: "not_found", message: "ไม่พบเพลงนี้" }, 404)]);
+    window.localStorage.setItem("framecraft.nav.recent", JSON.stringify({ covers: [{ hash: `#/covers/${ID}`, label: "Smells Like Teen Spirit" }] }));
+    open(`#/covers/${ID}`, [send("GET", PATH, { code: "not_found", message: "ไม่พบเพลงนี้" }, 404)]);
 
-    await waitFor(() => expect(stored()?.songs).toEqual([]));
+    await waitFor(() => expect(stored()?.covers).toEqual([]));
   });
 });

@@ -166,10 +166,10 @@ function Form({ creating, initial, voices, saving, notice, back, onSave }: FormP
         {voices.length === 0 ? (
           <>
             <Alert tone="warning" title="ยังไม่มี Saved voice">
-              สร้างเสียงที่ tab สปอยก่อน แล้วกลับมาเลือกที่นี่
+              สร้างเสียงที่ คลัง / เสียงพากย์ ก่อน แล้วกลับมาเลือกที่นี่
             </Alert>
             <a href={VOICES_HASH} className={`h-8 w-fit px-3 ${OUTLINE_BUTTON}`}>
-              ไปสร้างเสียงที่ tab สปอย
+              ไปที่เสียงพากย์
             </a>
           </>
         ) : (
