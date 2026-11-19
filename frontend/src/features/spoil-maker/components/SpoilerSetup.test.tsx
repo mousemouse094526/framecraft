@@ -271,7 +271,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     backend([get(VOICES_PATH, [])]);
     await pickFilm();
 
-    expect(screen.getByRole("link", { name: "สร้างเสียงบรรยาย" })).toHaveAttribute("href", "#/voices");
+    expect(screen.getByRole("link", { name: "สร้างเสียงพากย์" })).toHaveAttribute("href", "#/voices");
     expect(draftButton()).toBeDisabled();
   });
 
@@ -283,7 +283,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     ]);
     await openSetup();
 
-    expect(screen.getByRole("combobox", { name: "เสียงบรรยาย" })).toHaveValue(sister.id);
+    expect(screen.getByRole("combobox", { name: "เสียงพากย์" })).toHaveValue(sister.id);
   });
 
   it("ร่างบท opens ตรวจแก้บท on the draft's progress card, then reads the draft once it is done (D81)", async () => {
@@ -364,7 +364,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     // Once in the form, once in the step bar's line for step 1 (D87).
     expect(await screen.findAllByText("คลิปที่ลบแล้ว · EP 1")).toHaveLength(2);
     expect(screen.queryByRole("region", { name: "เลือก EP" })).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "เสียงบรรยาย" })).toHaveDisplayValue("เสียงถูกลบแล้ว");
+    expect(screen.getByRole("combobox", { name: "เสียงพากย์" })).toHaveDisplayValue("เสียงถูกลบแล้ว");
   });
 
   it("after a cancelled draft, its order is picked again and the fields can change (D87)", async () => {
@@ -388,7 +388,7 @@ describe("ตั้งค่าคลิปสปอย", () => {
     backend([get(CURRENT_PATH, jobOf({ state: "cancelled", order: { ...ORDER, voice_id: "v_0000dead" } }))]);
     await openSetup();
 
-    expect(await screen.findByRole("combobox", { name: "เสียงบรรยาย" })).toHaveDisplayValue(UNCLE.name);
+    expect(await screen.findByRole("combobox", { name: "เสียงพากย์" })).toHaveDisplayValue(UNCLE.name);
   });
 
   it("busy from ร่างบท says มีงานร่างบทอยู่แล้ว and reads the steps again (D87)", async () => {

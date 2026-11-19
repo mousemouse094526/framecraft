@@ -48,7 +48,7 @@ def ep_voice(project: ProjectPaths, ep: store.Ep) -> voices.SavedVoice:
     """The EP's Saved voice. Raises `voice_not_found`. Call with the draft's lock held (D25)."""
     voice = voices.saved_voice(project, ep.voice_id)
     if voice is None:
-        raise ApiError(400, "voice_not_found", "ไม่พบเสียงเล่าของ EP นี้: เลือกเสียงที่บันทึกไว้")
+        raise ApiError(400, "voice_not_found", "ไม่พบเสียงเล่าของ EP นี้: เลือกเสียงพากย์")
     return voice
 
 

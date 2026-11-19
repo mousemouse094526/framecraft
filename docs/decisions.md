@@ -78,6 +78,7 @@ question; the full entry is in the feature's decisions.md.
 | เมนูแบ่ง 4 หมวด: เล่าเรื่อง (สปอย, การ์ตูนเล่า) · ดนตรี (แกะเพลง, สอนกลอง) · คลัง · ตั้งค่า (ติดตั้ง); หมวดเป็นหัวไม่ใช่ลิงก์ | [ui-nav](features/ui-nav/decisions.md) | D12 | — | [0064](adr/0064-main-menu-reels-only.md) | changed by reels-only D5 |
 | เมนูมีเฉพาะทางที่ได้ reel (ก), ของที่ reel ใช้ (ข) หรือการตั้งค่าเครื่อง (ค); ไม่แน่ใจ = เก็บไว้เป็น Open Question; ไม่ซ่อนหน้าของ feature อื่น | [ui-nav](features/ui-nav/decisions.md) | D13 | — | [0064](adr/0064-main-menu-reels-only.md) | extended by reels-only D1 |
 | หัวเมนู (sidebar และ drawer) มี wordmark กับปุ่ม "ยุบเมนู"/"ปิดเมนู"; หัวหน้าเหลือ ☰ เมื่อเมนูซ่อน `<h1>` ข้อความตำแหน่ง และ action | [ui-nav](features/ui-nav/decisions.md) | D14 | — | — | active |
+| คำบนจอของ Saved voice เป็น "เสียงพากย์" (เมนู หัวหน้า แผง error ของการ์ตูนเล่า); hash เดิมและชื่อในโค้ดคงเดิม | [ui-nav](features/ui-nav/decisions.md) | D15 | — | — | active |
 | ทุก route อยู่ใต้ hash ของรายการเมนูที่มันเป็นของ; ย้ายของในเมนูต้องย้าย route ด้วย (changes ui-nav D6) | [nav-ia](features/nav-ia/decisions.md) | D1 | — | [0067](adr/0067-route-follows-menu-place.md) | active |
 | วัตถุดิบที่หัวข้อเดียวใช้ทำงานต่ออยู่ใต้หัวข้อนั้น: คลังคลิปเป็น สปอย › คลิปทั้งหมด `#/spoil/clips`; คลังเหลือของอ้างอิง (changes ui-nav D2) | [nav-ia](features/nav-ia/decisions.md) | D2 | — | [0068](adr/0068-materials-under-their-topic.md) | active |
 | คลังความรู้คงในหมวดคลัง "ใช้กับ สปอย" (มีแต่สปอยที่อ่าน Story) | [nav-ia](features/nav-ia/decisions.md) | D3 | — | — | active |

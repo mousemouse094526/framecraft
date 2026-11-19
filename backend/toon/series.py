@@ -519,7 +519,7 @@ def _item_fields(body: dict, item_kind: ItemKind, partial: bool) -> dict:
 def existing_voice(project: ProjectPaths, voice_id: object) -> str:
     """A Saved voice that exists. Raises `ApiError` 400 `voice_not_found`."""
     if not isinstance(voice_id, str) or voices.chars_per_s(project, voice_id) is None:
-        raise ApiError(400, "voice_not_found", "ไม่พบเสียงนี้: เลือกเสียงที่บันทึกไว้")
+        raise ApiError(400, "voice_not_found", "ไม่พบเสียงนี้: เลือกเสียงพากย์")
     return voice_id
 
 

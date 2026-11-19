@@ -111,7 +111,7 @@ describe("หน้า Saved voice", () => {
     expect(menu.getByRole("link", { name: "เสียงพากย์" })).toHaveAttribute("aria-current", "page");
     expect(menu.getByRole("group", { name: "สปอย" })).not.toHaveAttribute("aria-current");
     expect(screen.queryByRole("navigation", { name: "ขั้นของสปอย" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "เสียงบรรยาย" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "เสียงพากย์" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "กลับ" })).not.toBeInTheDocument();
   });
 

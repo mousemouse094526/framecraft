@@ -22,7 +22,7 @@ export function SavedVoicePage() {
   return (
     <PageLayout tab="voices" wide>
       <div className="flex items-center gap-2">
-        <h2 className="text-xl leading-7 font-semibold text-foreground">เสียงบรรยาย</h2>
+        <h2 className="text-xl leading-7 font-semibold text-foreground">เสียงพากย์</h2>
       </div>
       {state.kind === "loading" ? (
         <p className="flex justify-center py-6 text-sm text-muted-foreground">กำลังโหลด…</p>
@@ -37,11 +37,11 @@ export function SavedVoicePage() {
             onSave={save}
           />
           <section
-            aria-label="เสียงที่บันทึกไว้"
+            aria-label="เสียงพากย์ที่บันทึกไว้"
             className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card lg:min-w-0 lg:flex-1"
           >
             <div className="flex items-center gap-2 px-4 py-3 leading-[1.5]">
-              <h3 className="text-sm font-medium text-foreground">เสียงที่บันทึกไว้</h3>
+              <h3 className="text-sm font-medium text-foreground">เสียงพากย์ที่บันทึกไว้</h3>
               <span className="font-mono text-[13px] text-muted-foreground">{state.voices.length}</span>
             </div>
             <div className="h-px bg-border" />

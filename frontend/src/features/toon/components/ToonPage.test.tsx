@@ -98,7 +98,7 @@ describe("รายการ Series", () => {
     await user.click(await screen.findByRole("button", { name: "ลบชุด รุ่นพี่เล่าว่า…" }));
     const dialog = screen.getByRole("dialog", { name: "ลบชุด รุ่นพี่เล่าว่า…?" });
     expect(dialog).toHaveTextContent("EP ทั้งหมด 12 ตอน");
-    expect(dialog).toHaveTextContent("Saved voice และคลังเสียงยังอยู่"); // sound-library spec › Design
+    expect(dialog).toHaveTextContent("เสียงพากย์และคลังเสียงยังอยู่"); // sound-library spec › Design
     await user.click(within(dialog).getByRole("button", { name: "ลบชุด" }));
 
     expect(await screen.findByText("ยังไม่มีชุด สร้างชุดแรกเพื่อเริ่มทำการ์ตูนเล่า")).toBeInTheDocument();
@@ -149,7 +149,7 @@ describe("ตั้งค่า Series", () => {
   it("without a Saved voice it links to เสียงพากย์ in คลัง (e2e)", async () => {
     open("#/toon/new", [get(VOICES_PATH, [])]);
 
-    expect(await screen.findByText("ยังไม่มี Saved voice")).toBeInTheDocument();
+    expect(await screen.findByText("ยังไม่มีเสียงพากย์")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "ไปที่เสียงพากย์" })).toHaveAttribute("href", "#/voices");
     expect(screen.getByRole("button", { name: "บันทึก" })).toBeDisabled();
   });

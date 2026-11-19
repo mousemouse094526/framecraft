@@ -165,7 +165,7 @@ function Form({ creating, initial, voices, saving, notice, back, onSave }: FormP
       <Group label="เสียงเล่าหลัก">
         {voices.length === 0 ? (
           <>
-            <Alert tone="warning" title="ยังไม่มี Saved voice">
+            <Alert tone="warning" title="ยังไม่มีเสียงพากย์">
               สร้างเสียงที่ คลัง / เสียงพากย์ ก่อน แล้วกลับมาเลือกที่นี่
             </Alert>
             <a href={VOICES_HASH} className={`h-8 w-fit px-3 ${OUTLINE_BUTTON}`}>
@@ -365,7 +365,7 @@ function VoiceSelect({ voices, value, onChange }: { voices: SavedVoice[]; value:
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="font-button text-sm leading-5 font-medium text-foreground">
-        Saved voice
+        เสียงพากย์
       </label>
       <div className="relative">
         <select
