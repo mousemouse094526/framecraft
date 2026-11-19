@@ -271,6 +271,23 @@
 
 **From:** change request · **Status:** active
 
+## D15: รายการเมนู "เสียงที่บันทึก" เรียก "เสียงพากย์" บนจอทั้งแอป
+
+**Chosen:** คำบนจอของ Saved voice เป็น "เสียงพากย์" ทุกที่: รายการในเมนูหลัก (หมวดคลัง) ข้อความตำแหน่งในหัวหน้า ("คลัง / เสียงพากย์") แผงในหน้า Saved voice และข้อความ error `voice_not_found` ของการ์ตูนเล่า 3 ที่ ("… เลือกเสียงพากย์"). hash `#/spoil/voices` ชื่อในโค้ด (`SavedVoicePage`, Saved voice) และรหัส error ไม่เปลี่ยน.
+
+**Why:** เจ้าของ (2026-11-19): "เปลี่ยนชื่อรายการเมนู เสียงที่บันทึก เป็น เสียงพากย์ ให้ตรงกันทั้งแอป … เปลี่ยนแค่คำบนจอ ห้ามแตะ hash #/spoil/voices และชื่อในโค้ด".
+
+**Rejected:**
+- เปลี่ยน hash เป็น `#/voices` หรือ rename ในโค้ด — เจ้าของห้าม; bookmark เดิมต้องเปิดได้ (D6)
+
+**Details:**
+- changes D2 และ D12: ชื่อรายการที่สี่ของหมวดคลังเป็น "เสียงพากย์"; ตำแหน่ง "ใช้กับ สปอย, การ์ตูนเล่า" และกฎของ ADR-0063 เหมือนเดิม
+- ที่อื่นที่ยังเขียน "Saved voice" บนจอ (ฟอร์มชุดของการ์ตูนเล่า, กล่องยืนยันลบชุด) ไม่อยู่ในคำสั่งนี้ — Open Question 9
+- glossary: `CONTEXT.md` › Saved voice บอกคำบนจอ และเลี่ยง "เสียงที่บันทึก"
+- ถอยกลับ: revert commit นี้; ไม่มี storage หรือ hash ใหม่
+
+**From:** change request · **Status:** active
+
 ## Sources
 
 - [App shell layouts](https://ui-syntax.com/collections/app-shell-layouts) — primary nav 5–7 รายการ แยกจาก action ในหัว (accessed 2026-11-17)

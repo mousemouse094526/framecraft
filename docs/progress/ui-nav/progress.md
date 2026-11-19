@@ -37,6 +37,11 @@
 - 1440px: `docs/progress/ui-nav/shots/1440-spoil-review.png`
 - ก่อนแก้ (ภาพเจ้าของ): `~/.hermes/cache/scratch/framecraft-header-before.jpg`
 
+### เพิ่มใน PR #23: "เสียงที่บันทึก" → "เสียงพากย์" (D15) — 2026-11-19
+
+**Built:** คำบนจอเปลี่ยนที่ `nav.ts` (เมนูและหัวหน้า), แผงใน `SavedVoicePage`, ข้อความ `voice_not_found` ของ toon 3 ที่ (`voicing.py`, `plot.py`, `series.py`), `CONTEXT.md`, test ที่ยึดชื่อเดิม; hash `#/spoil/voices` และชื่อในโค้ดไม่แตะ
+**Open:** Q9 — "Saved voice" ภาษาอังกฤษยังอยู่บนจอใน `SeriesForm`/`SeriesList`
+
 ### Feature review 04 — 2026-11-19
 
 **Fixed:** `refocus` ถูกใช้หมดแม้ไม่มี ☰ (sidebar ตรึง) จึงไม่ค้างไปขโมยโฟกัสภายหลัง; เมนูมี `scroll-pt-14` ให้รายการที่ได้โฟกัสไม่ซ่อนใต้หัว sticky; ปุ่มปิดใช้ `close.svg` ใหม่ (เส้น 1.5 สีเทาแบบ ☰) แทน `x.svg`
