@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { SoundButton } from "../components/ui/PlayButton";
@@ -139,4 +139,84 @@ test("the button is named by what a press does, with a visible word when it has 
   expect(screen.getByRole("button", { name: "ฟังจังหวะ" })).toHaveTextContent("ฟังจังหวะ");
   await user.click(screen.getByRole("button", { name: "ฟังจังหวะ" }));
   expect(screen.getByRole("button", { name: "หยุดชั่วคราว ฟังจังหวะ" })).not.toHaveAttribute("aria-pressed");
+});
+
+function stubDuration(element: HTMLMediaElement, seconds: number) {
+  Object.defineProperty(element, "duration", { configurable: true, value: seconds });
+}
+
+test("the button shows the time played and the length; the length waits until it is known", async () => {
+  const { play } = stubAudio();
+  const user = userEvent.setup();
+  render(<SoundButton src="/a.wav" label="A" className="" />);
+  expect(screen.getByRole("button", { name: "ฟัง A" })).toHaveTextContent(/^$/);
+
+  await user.click(screen.getByRole("button", { name: "ฟัง A" }));
+  const element = play.mock.contexts[0] as HTMLAudioElement;
+  element.currentTime = 3.7;
+  act(() => void element.dispatchEvent(new Event("timeupdate")));
+  expect(screen.getByRole("button", { name: "หยุดชั่วคราว A" })).toHaveTextContent("0:03");
+  expect(screen.getByRole("button", { name: "หยุดชั่วคราว A" })).not.toHaveTextContent("/");
+
+  stubDuration(element, 12);
+  act(() => void element.dispatchEvent(new Event("durationchange")));
+  expect(screen.getByRole("button", { name: "หยุดชั่วคราว A" })).toHaveTextContent("0:03 / 0:12");
+
+  await user.click(screen.getByRole("button", { name: "หยุดชั่วคราว A" }));
+  expect(screen.getByRole("button", { name: "ฟัง A" })).toHaveTextContent("0:03 / 0:12");
+});
+
+test("a stream with no length (Infinity) shows the time played alone", async () => {
+  const { play } = stubAudio();
+  const user = userEvent.setup();
+  render(<SoundButton src="/a.wav" label="A" className="" />);
+
+  await user.click(screen.getByRole("button", { name: "ฟัง A" }));
+  const element = play.mock.contexts[0] as HTMLAudioElement;
+  stubDuration(element, Infinity);
+  element.currentTime = 65;
+  act(() => void element.dispatchEvent(new Event("timeupdate")));
+
+  expect(screen.getByRole("button", { name: "หยุดชั่วคราว A" })).toHaveTextContent(/^1:05$/);
+});
+
+test("a video in the page that starts with sound pauses the player; a muted one doesn't", async () => {
+  stubAudio();
+  const user = userEvent.setup();
+  const { container } = render(
+    <>
+      <SoundButton src="/a.wav" label="A" className="" />
+      <video data-testid="muted" muted />
+      <video data-testid="loud" />
+    </>,
+  );
+  const [muted, loud] = container.querySelectorAll("video");
+
+  await user.click(screen.getByRole("button", { name: "ฟัง A" }));
+  act(() => void muted.dispatchEvent(new Event("play")));
+  expect(screen.getByRole("button", { name: "หยุดชั่วคราว A" })).toBeInTheDocument();
+
+  act(() => void loud.dispatchEvent(new Event("play")));
+  expect(screen.getByRole("button", { name: "ฟัง A" })).toBeInTheDocument();
+});
+
+test("the player starting pauses a video playing with sound; one video starting pauses another", async () => {
+  const { calls } = stubAudio();
+  const user = userEvent.setup();
+  const { container } = render(
+    <>
+      <SoundButton src="/a.wav" label="A" className="" />
+      <video src="/one.mp4" />
+      <video src="/two.mp4" />
+    </>,
+  );
+  const [one, two] = container.querySelectorAll("video");
+  Object.defineProperty(one, "paused", { configurable: true, value: false });
+
+  await user.click(screen.getByRole("button", { name: "ฟัง A" }));
+  expect(calls).toEqual(["pause /one.mp4", "play /a.wav"]);
+
+  Object.defineProperty(two, "paused", { configurable: true, value: false });
+  act(() => void one.dispatchEvent(new Event("play")));
+  expect(calls.slice(2)).toEqual(["pause /two.mp4", "pause /a.wav"]);
 });

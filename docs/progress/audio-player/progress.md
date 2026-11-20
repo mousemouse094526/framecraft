@@ -1,11 +1,11 @@
 # Progress: audio-player
 
-**Now:** 01 done; 02 next
+**Now:** 01 และ 02 done; feature review แล้วเปิด PR
 
 **Next:**
 
 ```
-/warroom-build audio-player 02
+/pr-open
 ```
 
 ## Tickets
@@ -13,9 +13,24 @@
 | # | Title | Status |
 |---|---|---|
 | 01 | play/pause ทุกจุด เล่นได้ทีละเสียง | done |
-| 02 | เวลาบนปุ่ม และ media อื่นเล่นทีละตัว | ready |
+| 02 | เวลาบนปุ่ม และ media อื่นเล่นทีละตัว | done |
 
 ## Log
+
+### 02: เวลาบนปุ่ม และ media อื่นเล่นทีละตัว — done 2026-11-20
+
+**Built:**
+- ปุ่มเล่นแสดง `0:03 / 0:12` ขณะเล่นและหยุดชั่วคราว; ยังไม่รู้ความยาวแสดง `0:03`
+- วิดีโอหรือเสียงเพลงที่ไม่ `muted` เริ่มเล่น = เสียงของปุ่มและ media อื่นหยุดชั่วคราว; ปุ่มเริ่ม = media อื่นหยุด
+- ปุ่มไอคอนของคลังเสียงและเสียงพื้นกว้างตามเวลา (สูง 44px ต่ำกว่า 640px คงเดิม)
+
+**Decided:**
+- ไม่มี D ใหม่; `clockOf` ใน `lib/format` (ปัดลงทั้งวินาที) ตาม D13
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** `npm --prefix frontend run typecheck` ok · `npm --prefix frontend test` 700 passed · `npm --prefix frontend run build` ok · `uv run pytest` 1547 passed (ticket 01, backend ไม่เปลี่ยน)
 
 ### 01: play/pause ทุกจุด เล่นได้ทีละเสียง — done 2026-11-20
 

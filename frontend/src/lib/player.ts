@@ -56,7 +56,33 @@ function element(): HTMLAudioElement {
   return made;
 }
 
+/** Every other `<audio>`/`<video>` in the page that plays with sound pauses (D8, ADR 0072). */
+function pausePageMedia(except: EventTarget | null) {
+  for (const media of document.querySelectorAll<HTMLMediaElement>("audio, video")) {
+    if (media !== except && !media.muted && !media.paused) media.pause();
+  }
+}
+
+// `play` doesn't bubble but is seen on the way down: any media in the page that starts with sound
+// pauses the others and the player's sound, so the video players need no wiring (D8, D13).
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "play",
+    (event) => {
+      const media = event.target;
+      if (!(media instanceof HTMLMediaElement) || media === audio || media.muted) return;
+      pausePageMedia(media);
+      if (current?.status !== "playing") return;
+      round++;
+      audio?.pause();
+      set({ ...current, status: "paused" });
+    },
+    true,
+  );
+}
+
 function start(el: HTMLAudioElement, next: Sound) {
+  pausePageMedia(el);
   const mine = ++round;
   set(next);
   const failed = (error: unknown) => {

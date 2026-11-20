@@ -254,7 +254,7 @@ function SoundRow({ sound, onRename, onDelete }: { sound: Sound; onRename: (name
       <SoundButton
         src={soundFilePath(sound.id)}
         label={sound.name}
-        className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted sm:size-9"
+        className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 hover:bg-muted sm:h-9 sm:min-w-9"
       />
       <button
         type="button"

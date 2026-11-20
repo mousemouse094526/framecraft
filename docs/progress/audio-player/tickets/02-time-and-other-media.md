@@ -11,7 +11,7 @@
 - Seams: 1 (ข้อเวลาและ media อื่น)
 - User stories: 4, 6
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

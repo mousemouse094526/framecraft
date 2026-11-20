@@ -80,7 +80,7 @@ export function BackgroundSound({ sound, sounds, unreadable, locked, onChange, o
             <SoundButton
               src={soundFilePath(chosen.id)}
               label={chosen.name}
-              className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted sm:size-10"
+              className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 hover:bg-muted sm:h-10 sm:min-w-10"
             />
           )}
         </div>

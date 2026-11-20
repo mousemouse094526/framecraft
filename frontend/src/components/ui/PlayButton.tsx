@@ -1,3 +1,4 @@
+import { clockOf } from "../../lib/format";
 import { useSound, type PlayStatus } from "../../lib/player";
 import loaderIcon from "./assets/loader.svg";
 import pauseIcon from "./assets/pause-16.svg";
@@ -9,6 +10,10 @@ type Props = {
   /** A word shown beside the icon, which then is its name: "ฟังจังหวะ" (D3). */
   text?: string;
   status: PlayStatus;
+  /** Seconds played, shown while playing or paused (D5). */
+  position?: number;
+  /** Seconds in all, or null until the file says: then the time played alone. */
+  duration?: number | null;
   onPress: () => void;
   disabled?: boolean;
   title?: string;
@@ -18,9 +23,10 @@ type Props = {
 
 /**
  * The one play/pause button of every sound in the app (audio-player D3, D4, ADR 0073): play when
- * ready or paused, pause while playing; a mixed preview says กำลังผสมเสียง… until its wav plays (D7).
+ * ready or paused, pause while playing, with the time played "0:03 / 0:12" (D5); a mixed preview
+ * says กำลังผสมเสียง… until its wav plays (D7).
  */
-export function PlayButton({ label, text, status, onPress, disabled = false, title, className }: Props) {
+export function PlayButton({ label, text, status, position = 0, duration = null, onPress, disabled = false, title, className }: Props) {
   const mixing = status === "mixing";
   const playing = status === "playing";
   const name = mixing ? "กำลังผสมเสียง…" : playing ? `หยุดชั่วคราว ${text ?? label}` : (text ?? `ฟัง ${label}`);
@@ -42,6 +48,13 @@ export function PlayButton({ label, text, status, onPress, disabled = false, tit
         <>
           <img src={playing ? pauseIcon : playIcon} alt="" width={16} height={16} />
           {text}
+          {/* The name says what a press does; the time changes every second, so it isn't read out. */}
+          {(playing || status === "paused") && (
+            <span aria-hidden className="font-mono text-xs leading-4 font-medium text-mid tabular-nums">
+              {clockOf(position)}
+              {duration !== null && ` / ${clockOf(duration)}`}
+            </span>
+          )}
         </>
       )}
     </button>
@@ -52,5 +65,5 @@ export function PlayButton({ label, text, status, onPress, disabled = false, tit
  * `src` null: nothing to play yet. */
 export function SoundButton({ src, ...props }: Omit<Props, "status" | "onPress"> & { src: string | null }) {
   const sound = useSound(src, props.disabled);
-  return <PlayButton {...props} status={sound.status} onPress={sound.toggle} />;
+  return <PlayButton {...props} status={sound.status} position={sound.position} duration={sound.duration} onPress={sound.toggle} />;
 }

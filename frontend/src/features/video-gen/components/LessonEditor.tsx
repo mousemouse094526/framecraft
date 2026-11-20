@@ -283,6 +283,8 @@ function ListenControl({ fields, listen }: { fields: LessonFields; listen: Retur
         label="จังหวะ"
         text="ฟังจังหวะ"
         status={listen.status}
+        position={listen.position}
+        duration={listen.duration}
         disabled={!Number.isFinite(seconds) || seconds > MAX_SECONDS}
         onPress={() => void listen.press()}
         className={`h-11 w-fit px-4 sm:h-10 ${SECONDARY_BUTTON}`}
