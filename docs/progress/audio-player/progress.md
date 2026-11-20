@@ -1,6 +1,6 @@
 # Progress: audio-player
 
-**Now:** 01 และ 02 done; feature review แล้วเปิด PR
+**Now:** 01 และ 02 done; feature review ผ่าน; PR เข้า develop
 
 **Next:**
 
@@ -16,6 +16,21 @@
 | 02 | เวลาบนปุ่ม และ media อื่นเล่นทีละตัว | done |
 
 ## Log
+
+### feature review (หลัง 02) — done 2026-11-20
+
+**Built:**
+- wav ที่ผสมเสร็จหลังแก้ฟอร์มไม่เล่น; เสียงอื่นที่เริ่มระหว่างผสมไม่ถูกตัด; กดซ้ำระหว่างผสมไม่ส่งซ้ำ
+- `ended`/`error` ของไฟล์เก่าไม่ล้างเสียงใหม่
+- ระหว่างผสม โฟกัสคีย์บอร์ดอยู่ที่ปุ่มเดิม (`aria-disabled`)
+
+**Decided:**
+- D15 — ข้อแก้ห้าข้อจาก feature review
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** `npm --prefix frontend run typecheck` ok · `npm --prefix frontend test` 701 passed · `npm --prefix frontend run build` ok
 
 ### 02: เวลาบนปุ่ม และ media อื่นเล่นทีละตัว — done 2026-11-20
 

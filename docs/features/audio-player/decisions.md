@@ -198,6 +198,19 @@
 
 **From:** build ticket 01 · **Status:** active
 
+## D15: ข้อแก้จาก feature review
+
+**Chosen:** ข้อแก้ห้าข้อที่ feature review ชี้ใน `lib/player`, `lib/useListen` และ `PlayButton`.
+
+**Details:**
+- **แก้ฟอร์มระหว่างผสม:** wav ที่กลับมาไม่เล่นและไม่เก็บ — มันเป็นของฟอร์มก่อนแก้ (D14).
+- **เสียงอื่นเริ่มระหว่างผสม:** wav เก็บไว้แต่ไม่เล่น กดครั้งต่อไปเล่นทันทีโดยไม่ผสมใหม่ — เสียงที่ผู้ใช้กดทีหลังคือสิ่งที่ต้องการ (กลับมาใช้กฎที่ D13 ตัดไป ด้วยตัวนับเสียงที่เริ่มใน `lib/player`).
+- **กดซ้ำระหว่างผสม:** ไม่ส่งอะไร ไม่มี blob URL รั่ว.
+- **`ended`/`error`:** ล้างสถานะเฉพาะเมื่อ `src` ของ element ยังเป็นของเสียงปัจจุบัน.
+- **ระหว่างผสม:** ปุ่มเป็น `aria-disabled` แทน `disabled` โฟกัสอยู่ที่ปุ่มเดิม และกดไม่มีผล (WCAG 2.4.3); ปุ่มของ reel cover ไม่ปิดตอน `saving` อีก เพราะการบันทึกอยู่ในช่วงผสมแล้ว.
+
+**From:** build ticket 02 · **Status:** active
+
 ## Sources
 
 - [WAI-ARIA APG Button pattern](https://www.w3.org/WAI/ARIA/apg/patterns/button/) — ชื่อ toggle button ต้องไม่เปลี่ยนเมื่อใช้ `aria-pressed` (accessed 2026-11-20)

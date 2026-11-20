@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef } from "react";
 import type { BlobReply } from "./api";
-import { release, toggle, usePlayer, type PlayStatus } from "./player";
+import { release, startCount, toggle, usePlayer, type PlayStatus } from "./player";
 import { OFFLINE, refusedOf, type Refused } from "./refused";
 import { useMountedState } from "./useMountedState";
 
@@ -51,19 +51,28 @@ export function useListen(request: () => Promise<BlobReply | null>, { unsaved, d
     };
   }, [drop]);
 
+  const mixing = useRef(false);
+  /** An edit came while the mix ran: what comes back is the old form's (D15). */
+  const editedWhileMixing = useRef(false);
+
   // An edit or a button that can't be pressed: the wav is no longer this reel's.
   useEffect(() => {
+    if (unsaved && mixing.current) editedWhileMixing.current = true;
     if (unsaved || disabled) drop();
   }, [unsaved, disabled, drop]);
 
   const press = useCallback(async () => {
+    if (mixing.current) return;
     const wav = mixed.current;
     if (wav && !latestUnsaved.current) {
       toggle(owner, wav);
       return;
     }
     drop();
+    mixing.current = true;
+    editedWhileMixing.current = false;
     setIfMounted({ kind: "mixing" });
+    const started = startCount();
     try {
       const reply = await request();
       if (reply === null) {
@@ -73,15 +82,20 @@ export function useListen(request: () => Promise<BlobReply | null>, { unsaved, d
       }
       if (reply.status === 200 && reply.blob) {
         setIfMounted({ kind: "idle" });
-        if (!alive.current) return;
+        // Gone, or edited while it mixed: the wav isn't the form's any more (D14, D15).
+        if (!alive.current || editedWhileMixing.current) return;
         const url = URL.createObjectURL(reply.blob);
         mixed.current = url;
-        toggle(owner, url);
+        // Another sound began while it mixed: that one is what the user wants now; this wav waits
+        // for the next press (D15).
+        if (startCount() === started) toggle(owner, url);
         return;
       }
       setIfMounted({ kind: "refused", ...(await refusedOf(reply.body)) });
     } catch {
       setIfMounted({ kind: "refused", ...OFFLINE });
+    } finally {
+      mixing.current = false;
     }
   }, [owner, request, drop, setIfMounted]);
 

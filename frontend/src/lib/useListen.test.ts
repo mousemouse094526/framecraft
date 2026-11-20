@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { OFFLINE_TEXT, type BlobReply } from "./api";
+import { toggle } from "./player";
 import { useListen } from "./useListen";
 
 const WAV = new Blob([new Uint8Array(4)], { type: "audio/wav" });
@@ -24,6 +25,7 @@ function hookOf(reply: () => Promise<BlobReply | null>, inputs = { unsaved: fals
     state: () => hook.result.current.state,
     status: () => hook.result.current.status,
     listen: () => act(() => hook.result.current.press()),
+    press: () => hook.result.current.press(),
     rerender: hook.rerender,
     unmount: hook.unmount,
   };
@@ -130,4 +132,29 @@ test("a reply with no refusal in it, or a request that throws, reads as offline"
   const thrown = hookOf(() => Promise.reject(new Error("network")));
   await thrown.listen();
   expect(thrown.state()).toEqual({ kind: "refused", tone: "error", text: OFFLINE_TEXT, fixes: [], field: null });
+});
+
+test("a mix that comes back after an edit, or after another sound began, doesn't play; a second press while mixing sends nothing", async () => {
+  const { play } = stubAudio();
+  let answer: (reply: BlobReply) => void = () => {};
+  const edited = hookOf(() => new Promise((resolve) => (answer = resolve)));
+
+  let first: Promise<void> = Promise.resolve();
+  act(() => void (first = edited.press()));
+  act(() => void edited.press());
+  edited.rerender({ unsaved: true });
+  await act(async () => answer({ status: 200, blob: WAV, body: null }));
+  await act(() => first);
+  expect(edited.request).toHaveBeenCalledTimes(1);
+  expect(play).not.toHaveBeenCalled();
+  expect(edited.status()).toBe("ready");
+
+  const other = hookOf(() => new Promise((resolve) => (answer = resolve)));
+  let pressed: Promise<void> = Promise.resolve();
+  act(() => void (pressed = other.press()));
+  act(() => toggle("someone-else", "/rain.mp3"));
+  await act(async () => answer({ status: 200, blob: WAV, body: null }));
+  await act(() => pressed);
+  expect(play.mock.contexts.map((element) => (element as HTMLAudioElement).getAttribute("src"))).toEqual(["/rain.mp3"]);
+  expect(other.status()).toBe("ready");
 });

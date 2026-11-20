@@ -363,7 +363,7 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
             status={listen.status}
             position={listen.position}
             duration={listen.duration}
-            disabled={!canPlay || saving}
+            disabled={!canPlay}
             onPress={() => void listen.press()}
             className={`h-11 px-5 sm:h-10 ${SECONDARY_BUTTON}`}
           />

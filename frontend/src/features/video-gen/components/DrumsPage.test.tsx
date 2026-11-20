@@ -492,7 +492,8 @@ describe("ฟังจังหวะ", () => {
     await user.click(screen.getByRole("button", { name: "ฟังจังหวะ" }));
 
     const mixing = await screen.findByRole("button", { name: "กำลังผสมเสียง…" });
-    expect(mixing).toBeDisabled();
+    expect(mixing).toHaveAttribute("aria-disabled", "true");
+    expect(mixing).toHaveFocus();
     expect(sent(fetchMock, "PUT", PATH)).toHaveLength(1);
     expect(sent(fetchMock, "POST", LISTEN_PATH)).toEqual([{}]);
     const order = fetchMock.mock.calls.map(([input, init]) => `${init?.method ?? "GET"} ${String(input)}`);

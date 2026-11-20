@@ -34,9 +34,11 @@ export function PlayButton({ label, text, status, position = 0, duration = null,
     <button
       type="button"
       aria-label={name}
-      disabled={disabled || mixing}
+      // Mixing keeps the focus on the button just pressed: it says so, and a press does nothing (D15).
+      disabled={disabled}
+      aria-disabled={mixing || undefined}
       title={title}
-      onClick={onPress}
+      onClick={mixing ? undefined : onPress}
       className={`${className} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent`}
     >
       {mixing ? (
