@@ -1,8 +1,8 @@
 # Progress: nav-ia
 
-**Now:** change request "ไม่มีล่าสุด" (D22, D23) — ticket 06 done, [PR #28](https://github.com/mousemouse094526/framecraft/pull/28) รอ review; การสำรวจ route ทั้งแอปเหลือ 5 Open Questions (spec) ที่ไม่บล็อก
+**Now:** merged — ไม่มีล่าสุด ([PR #28](https://github.com/mousemouse094526/framecraft/pull/28), `efc29ee`); เมนู 2 ชั้น ([PR #26](https://github.com/mousemouse094526/framecraft/pull/26), `c38bdaf`); ก่อนหน้า ([PR #25](https://github.com/mousemouse094526/framecraft/pull/25), `bdcb467`). สำรวจ route ทั้งแอปแล้ว เหลือ 5 Open Questions (spec) รอเจ้าของเลือก
 
-**Next:** เจ้าของ review และ merge PR #28
+**Next:** Open Questions 1–5 ใน `spec.md` ให้เจ้าของเลือกเป็นข้อ ๆ (ยังไม่มีงานค้างที่ทำต่อเองได้)
 
 ## Tickets
 
