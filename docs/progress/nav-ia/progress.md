@@ -17,6 +17,19 @@
 
 ## Log
 
+### feature review (หลัง 06) — done 2026-11-20
+
+**Built:**
+- Breaker + review: ไม่มี BLOCKER; D23 เพิ่ม Accepted risk ของ revert (ลิงก์ตายของชิ้นที่ลบระหว่างนี้); spec › Testing decisions บอกว่าประโยคล่าสุดเป็นของก่อน D22; test EP/ชุดแยก route ต่อกรณี
+
+**Decided:**
+- ไม่มี D ใหม่
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** typecheck · `npm test` 686 passed · build — green; backend ไม่ได้แตะ (`uv run pytest` 1547 passed ที่ e4eb5a0)
+
 ### change request: ไม่มีล่าสุด (06) — done 2026-11-20
 
 **Built:**
@@ -26,7 +39,7 @@
 - ภาพแคป (`#/covers`, กุญแจเก่ามีของสามแหล่ง): [ก่อน 1280px](screens/06-menu-before-1280.png) · [หลัง 1280px](screens/06-menu-after-1280.png) · [หลัง 375px drawer](screens/06-menu-after-375.png)
 
 **Decided:**
-- D22 — ไม่มีล่าสุด (supersedes ui-nav D5, D18); EP 3 คลิกเป็น Accepted risk
+- D22 — ไม่มีล่าสุด (supersedes ui-nav D5, nav-ia D18); EP 3 คลิกเป็น Accepted risk
 - D23 — กุญแจเก่าปล่อยไว้ ไม่มีโค้ดลบ
 - ADR-0075
 

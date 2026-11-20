@@ -493,10 +493,10 @@ describe("a Series' and an EP's page in the main menu (nav-ia D20, D22)", () => 
   const menu = () => within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
 
   it.each([
-    ["a Series", `#/toon/series/${SERIES_ID}`],
-    ["an EP", `#/toon/eps/${EP_ID}`],
-  ])("%s opens การ์ตูนเล่า, says it in the header, and keeps nothing for a ล่าสุด (e2e)", async (_, hash) => {
-    open(hash, [get(`${SERIES_PATH}/eps`, []), get(EP_PATH, epOf()), get("/api/toon/render/current", null), get(`${EP_PATH}/renders`, [])]);
+    ["a Series", `#/toon/series/${SERIES_ID}`, () => [get(`${SERIES_PATH}/eps`, [])]],
+    ["an EP", `#/toon/eps/${EP_ID}`, () => [get(EP_PATH, epOf()), get("/api/toon/render/current", null), get(`${EP_PATH}/renders`, [])]],
+  ])("%s opens การ์ตูนเล่า, says it in the header, and keeps nothing for a ล่าสุด (e2e)", async (_, hash, routes) => {
+    open(hash, routes());
 
     expect(await screen.findByText(/รุ่นพี่เล่าว่า…/)).toBeInTheDocument();
     expect(menu().getAllByRole("link", { current: "page" }).map((link) => link.textContent)).toEqual(["การ์ตูนเล่า"]);
