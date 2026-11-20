@@ -10,12 +10,11 @@ import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import infoIcon from "../../../components/ui/assets/info.svg";
 import loaderIcon from "../../../components/ui/assets/loader.svg";
 import musicIcon from "../../../components/ui/assets/music.svg";
-import playIcon from "../../../components/ui/assets/play-16.svg";
+import { SoundButton } from "../../../components/ui/PlayButton";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import uploadIcon from "../../../components/ui/assets/upload.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
-import { playAudio } from "../../../lib/audio";
 import { useDismiss } from "../../../lib/useDismiss";
 import { useHash } from "../../../lib/useHash";
 import downloadWhiteIcon from "../assets/download-white.svg";
@@ -238,7 +237,7 @@ function Thumb({ icon, spin = false }: { icon: string; spin?: boolean }) {
   );
 }
 
-/** Figma `Toon/SoundRow`: the name (edited in place), its length, ฟัง and ลบ. */
+/** Figma `Toon/SoundRow`: the name (edited in place), its length, its play button and ลบ. */
 function SoundRow({ sound, onRename, onDelete }: { sound: Sound; onRename: (name: string) => Promise<boolean>; onDelete: () => void }) {
   return (
     <li aria-label={sound.name} className="flex h-[60px] items-center gap-3 rounded-xl px-4 py-2.5">
@@ -252,14 +251,11 @@ function SoundRow({ sound, onRename, onDelete }: { sound: Sound; onRename: (name
         className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
       />
       <p className="font-mono text-xs font-medium text-mid">{soundLength(sound.duration_s)}</p>
-      <button
-        type="button"
-        aria-label={`ฟัง ${sound.name}`}
-        onClick={() => playAudio(soundFilePath(sound.id))}
-        className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted sm:size-9"
-      >
-        <img src={playIcon} alt="" width={16} height={16} />
-      </button>
+      <SoundButton
+        src={soundFilePath(sound.id)}
+        label={sound.name}
+        className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 hover:bg-muted sm:h-9 sm:min-w-9"
+      />
       <button
         type="button"
         aria-label={`ลบ ${sound.name}`}

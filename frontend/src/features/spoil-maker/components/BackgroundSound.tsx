@@ -2,9 +2,8 @@ import { useId, useRef, useState } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import chevronDownIcon from "../../../components/ui/assets/chevron-down.svg";
 import musicIcon from "../../../components/ui/assets/music.svg";
-import playIcon from "../../../components/ui/assets/play-16.svg";
-import { playAudio } from "../../../lib/audio";
 import { soundFilePath, soundsHash, type PlayedSound, type Sound } from "../../sound-library/lib/sounds";
+import { SoundButton } from "../../../components/ui/PlayButton";
 import type { ChangeResult } from "../hooks/useScriptReview";
 import { SPOIL_HASH, type SoundChoice } from "../lib/draft";
 import { VolumeRange } from "./VolumeRange";
@@ -78,14 +77,11 @@ export function BackgroundSound({ sound, sounds, unreadable, locked, onChange, o
             <img src={chevronDownIcon} alt="" width={16} height={16} className="pointer-events-none -ml-6" />
           </span>
           {chosen && (
-            <button
-              type="button"
-              aria-label={`ฟัง ${chosen.name}`}
-              onClick={() => playAudio(soundFilePath(chosen.id))}
-              className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted sm:size-10"
-            >
-              <img src={playIcon} alt="" width={16} height={16} />
-            </button>
+            <SoundButton
+              src={soundFilePath(chosen.id)}
+              label={chosen.name}
+              className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 hover:bg-muted sm:h-10 sm:min-w-10"
+            />
           )}
         </div>
       )}

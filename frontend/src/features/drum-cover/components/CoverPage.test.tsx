@@ -127,13 +127,8 @@ beforeEach(() => {
   vi.stubGlobal("XMLHttpRequest", FakeXhr);
   FakeXhr.sent = [];
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:wav", revokeObjectURL: () => {} }));
-  vi.stubGlobal(
-    "Audio",
-    class {
-      play = () => Promise.resolve();
-      pause = () => {};
-    },
-  );
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -306,7 +301,7 @@ describe("หน้า reel", () => {
     await waitFor(() => expect(screen.queryByText("· ยังไม่บันทึก")).not.toBeInTheDocument());
 
     await user.type(screen.getByRole("textbox", { name: "คำบรรยายล่าง" }), "x");
-    await user.click(button("ฟัง"));
+    await user.click(button("ฟัง reel"));
     await waitFor(() => expect(sent(fetchMock, "POST", LISTEN_PATH)).toEqual([{}]));
     expect(sent(fetchMock, "PUT", COVER_PATH)).toHaveLength(2);
   });
@@ -339,12 +334,12 @@ describe("หน้า reel", () => {
 
     expect(screen.queryByRole("slider", { name: "ความดังกลอง" })).not.toBeInTheDocument();
     expect(screen.getByText("เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง")).toBeInTheDocument();
-    expect(button("ฟัง")).toBeDisabled();
+    expect(button("ฟัง reel")).toBeDisabled();
     expect(button("render reel")).toBeDisabled();
 
     await user.click(screen.getByRole("radio", { name: "กลอง + เพลงต้นฉบับ" }));
     expect(screen.queryByText("เปิดเสียงกลองหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง")).not.toBeInTheDocument();
-    expect(button("ฟัง")).toBeEnabled();
+    expect(button("ฟัง reel")).toBeEnabled();
     expect(button("render reel")).toBeEnabled();
     await user.click(button(/บันทึก/));
     expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { drums: { on: false, volume: 100 }, backing: { on: true, volume: 35 } })]);
@@ -406,7 +401,7 @@ describe("หน้า reel", () => {
     open(COVER_HASH, [get(COVER_PATH, coverOf({ start_s: 0, end_s: 10, hits: 0, adjusted: true })), get(RENDERS_PATH, [resultOf({ picked_at: "2026-11-14T00:00:00Z" })])]);
 
     expect(await screen.findByText("ช่วงนี้ไม่มีการตีกลอง เลื่อนช่วงหรือกด เริ่มที่การตีแรก")).toBeInTheDocument();
-    expect(button("ฟัง")).toBeDisabled();
+    expect(button("ฟัง reel")).toBeDisabled();
     expect(button("render reel")).toBeDisabled();
     expect(screen.getByText("ช่วงแกะเปลี่ยน ช่วงของ reel ถูกปรับเป็น 0.0–10.0 วินาที")).toBeInTheDocument();
     expect(screen.getByText("· ยังไม่บันทึก")).toBeInTheDocument();
@@ -517,7 +512,7 @@ describe("หน้า reel คาลิมบา", () => {
     expect(screen.getByRole("switch", { name: "ปิดเสียงคาลิมบา" })).toBeInTheDocument();
     expect(screen.queryByText(/ช่วงนี้ไม่มีการตีกลอง/)).not.toBeInTheDocument();
     expect(screen.queryByText("เพลงนี้แกะโหมดทำนอง reel มีแต่สแนร์")).not.toBeInTheDocument();
-    expect(button("ฟัง")).toBeEnabled();
+    expect(button("ฟัง reel")).toBeEnabled();
 
     await user.click(screen.getByRole("radio", { name: "คาลิมบา + เพลงต้นฉบับ" }));
     expect(screen.getByText("คาลิมบาย้ายคีย์ +2 เสียงจะไม่ตรงกับเพลงต้นฉบับ")).toBeInTheDocument();
@@ -528,7 +523,7 @@ describe("หน้า reel คาลิมบา", () => {
 
     expect(await screen.findByText("เพลงนี้แกะก่อนมีคาลิมบา แกะใหม่ด้านบนเพื่อได้โน้ตทำนอง")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ไปที่ช่วงแกะ" })).toBeInTheDocument();
-    expect(button("ฟัง")).toBeDisabled();
+    expect(button("ฟัง reel")).toBeDisabled();
     expect(button("render reel")).toBeDisabled();
   });
 
@@ -536,7 +531,7 @@ describe("หน้า reel คาลิมบา", () => {
     open(COVER_HASH, [get(COVER_PATH, coverOf({ ...arranged, notes: 0, transpose: 0, instrument: "kalimba" }))]);
 
     expect(await screen.findByText("ช่วงนี้ไม่มีโน้ตทำนอง เลื่อนช่วงหรือเลือกกลอง")).toBeInTheDocument();
-    expect(button("ฟัง")).toBeDisabled();
+    expect(button("ฟัง reel")).toBeDisabled();
     expect(button("render reel")).toBeDisabled();
   });
 
@@ -557,7 +552,7 @@ describe("หน้า reel คาลิมบา", () => {
     await user.click(screen.getByRole("switch", { name: "ปิดเสียงคาลิมบา" }));
     expect(screen.queryByRole("slider", { name: "ความดังคาลิมบา" })).not.toBeInTheDocument();
     expect(screen.getByText("เปิดเสียงคาลิมบาหรือเพลงต้นฉบับอย่างน้อยหนึ่งอย่าง")).toBeInTheDocument();
-    expect(button("ฟัง")).toBeDisabled();
+    expect(button("ฟัง reel")).toBeDisabled();
     expect(button("render reel")).toBeDisabled();
   });
 
@@ -569,11 +564,11 @@ describe("หน้า reel คาลิมบา", () => {
     ]);
 
     await user.click(await within(await screen.findByRole("radiogroup", { name: "เครื่องดนตรี" })).findByRole("radio", { name: "คาลิมบา" }));
-    await user.click(button("ฟัง"));
+    await user.click(button("ฟัง reel"));
 
     await waitFor(() => expect(sent(fetchMock, "POST", LISTEN_PATH)).toEqual([{}]));
     expect(sent(fetchMock, "PUT", COVER_PATH)).toEqual([bodyOf(coverOf(), { instrument: "kalimba" })]);
-    expect(await screen.findByRole("button", { name: "ฟัง" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "หยุดชั่วคราว ฟัง reel" })).toBeEnabled();
   });
   it("render reel on คาลิมบา saves first, shows its percent, and the new render is chosen with its คาลิมบา badge (e2e)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });

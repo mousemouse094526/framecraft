@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
+import { SoundButton } from "../../../components/ui/PlayButton";
 import circleAlertIcon from "../../../components/ui/assets/circle-alert.svg";
 import { sampleUrl, type RefusalText, type Voice } from "../hooks/useVoices";
-import { playAudio } from "../../../lib/audio";
 import { NameForm } from "./NameForm";
 
 type Props = {
@@ -77,13 +77,7 @@ export function VoiceRow({ voice, onRename, onDelete }: Props) {
             {voice.name}
           </p>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => playAudio(sampleUrl(voice.id))}
-              className={`${ROW_BUTTON} ${OUTLINE_BUTTON}`}
-            >
-              ฟัง
-            </button>
+            <SoundButton src={sampleUrl(voice.id)} label={voice.name} className={`${ROW_BUTTON} ${OUTLINE_BUTTON}`} />
             <button
               type="button"
               onClick={() => {

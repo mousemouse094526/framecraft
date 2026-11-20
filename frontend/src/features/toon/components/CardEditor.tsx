@@ -3,14 +3,13 @@ import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyle
 import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
-import { playAudio } from "../../../lib/audio";
 import flameIcon from "../assets/flame.svg";
 import imageIcon from "../assets/image.svg";
 import loaderIcon from "../../../components/ui/assets/loader.svg";
 import micDarkIcon from "../assets/mic-dark.svg";
 import micIcon from "../assets/mic.svg";
 import minusIcon from "../assets/minus.svg";
-import playIcon from "../../../components/ui/assets/play-16.svg";
+import { SoundButton } from "../../../components/ui/PlayButton";
 import undoIcon from "../assets/undo.svg";
 import {
   cardAudioPath,
@@ -217,6 +216,7 @@ export function CardEditor(props: Props) {
         {card.audio_status !== "silent" && (
           <Narration
             card={card}
+            number={number}
             src={cardAudioPath(epId, card.id, version)}
             disabled={busy || locked}
             voicing={work === "voicing"}
@@ -251,9 +251,9 @@ function CardPicture({ card, number, src, drawing, full }: { card: Card; number:
   return <img src={src} alt={`ภาพการ์ด ${number}`} className={`rounded-lg bg-muted object-cover ${size}`} />;
 }
 
-/** Figma `Narration voice`: สร้างเสียง until the card has narration, then ฟัง and สร้างใหม่ with
+/** Figma `Narration voice`: สร้างเสียง until the card has narration, then its play button and สร้างใหม่ with
  * its length; a changed text or EP voice says the narration is old (D8, D21). */
-function Narration({ card, src, disabled, voicing, onVoice }: { card: Card; src: string; disabled: boolean; voicing: boolean; onVoice: () => void }) {
+function Narration({ card, number, src, disabled, voicing, onVoice }: { card: Card; number: number; src: string; disabled: boolean; voicing: boolean; onVoice: () => void }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <img src={micIcon} alt="" width={16} height={16} />
@@ -270,10 +270,7 @@ function Narration({ card, src, disabled, voicing, onVoice }: { card: Card; src:
         </button>
       ) : (
         <>
-          <button type="button" onClick={() => playAudio(src)} className={`${ACTION} ${GHOST_BUTTON}`}>
-            <img src={playIcon} alt="" width={16} height={16} />
-            ฟัง
-          </button>
+          <SoundButton src={src} label={`เสียงเล่าการ์ด ${number}`} className={`${ACTION} ${GHOST_BUTTON}`} />
           <button type="button" disabled={disabled} onClick={onVoice} className={`${ACTION} ${GHOST_BUTTON}`}>
             <img src={refreshIcon} alt="" width={16} height={16} />
             สร้างใหม่

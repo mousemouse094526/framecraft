@@ -447,7 +447,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
     const first = await screen.findByRole("article", { name: "การ์ด 1" });
     job.phases.at = 1;
     const second = screen.getByRole("article", { name: "การ์ด 2" });
-    expect(within(second).getByRole("button", { name: "ฟัง" })).toBeInTheDocument();
+    expect(within(second).getByRole("button", { name: "ฟัง เสียงเล่าการ์ด 2" })).toBeInTheDocument();
     expect(within(second).getByRole("button", { name: "สร้างใหม่" })).toBeInTheDocument();
     await user.click(within(first).getByRole("button", { name: "สร้างเสียง" }));
 
@@ -469,7 +469,7 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
     const user = open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, voiced)]);
 
     const second = await screen.findByRole("article", { name: "การ์ด 2" });
-    await user.click(within(second).getByRole("button", { name: "ฟัง" }));
+    await user.click(within(second).getByRole("button", { name: "ฟัง เสียงเล่าการ์ด 2" }));
 
     expect(play).toHaveBeenCalledOnce();
     expect((play.mock.contexts[0] as HTMLAudioElement).src).toContain(`/api/toon/eps/${EP_ID}/cards/k_02/audio?v=`);

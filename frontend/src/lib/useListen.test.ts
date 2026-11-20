@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { OFFLINE_TEXT, type BlobReply } from "./api";
+import { toggle } from "./player";
 import { useListen } from "./useListen";
 
 const WAV = new Blob([new Uint8Array(4)], { type: "audio/wav" });
@@ -15,10 +17,18 @@ function stubAudio() {
   return { play, pause, revokeObjectURL };
 }
 
-function hookOf(reply: () => Promise<BlobReply | null>) {
+function hookOf(reply: () => Promise<BlobReply | null>, inputs = { unsaved: false }, strict = false) {
   const request = vi.fn(reply);
-  const hook = renderHook(() => useListen(request));
-  return { request, state: () => hook.result.current.state, listen: () => act(() => hook.result.current.listen()), unmount: hook.unmount };
+  const hook = renderHook((props: { unsaved: boolean }) => useListen(request, props), { initialProps: inputs, wrapper: strict ? StrictMode : undefined });
+  return {
+    request,
+    state: () => hook.result.current.state,
+    status: () => hook.result.current.status,
+    listen: () => act(() => hook.result.current.press()),
+    press: () => hook.result.current.press(),
+    rerender: hook.rerender,
+    unmount: hook.unmount,
+  };
 }
 
 afterEach(() => {
@@ -26,32 +36,68 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("a wav plays from a blob URL and the state is idle again", async () => {
+test("a wav plays from a blob URL through the one player and the state is idle again", async () => {
   const { play } = stubAudio();
   const { state, listen } = hookOf(() => Promise.resolve({ status: 200, blob: WAV, body: null }));
 
   await listen();
 
   await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
-  expect((play.mock.contexts[0] as HTMLAudioElement).src).toBe("blob:wav-1");
+  expect((play.mock.contexts[0] as HTMLAudioElement).getAttribute("src")).toBe("blob:wav-1");
   expect(state()).toEqual({ kind: "idle" });
 });
 
-test("pressing again stops the wav playing and frees its URL before the next request; unmounting stops it too", async () => {
-  const { play, pause, revokeObjectURL } = stubAudio();
-  const { request, listen, unmount } = hookOf(() => Promise.resolve({ status: 200, blob: WAV, body: null }));
+test("pressing again with nothing changed pauses, then plays on: one mix", async () => {
+  const { play, pause } = stubAudio();
+  const { request, status, listen } = hookOf(() => Promise.resolve({ status: 200, blob: WAV, body: null }));
 
   await listen();
+  expect(status()).toBe("playing");
+  await listen();
+  expect(status()).toBe("paused");
+  expect(pause).toHaveBeenCalled();
   await listen();
 
-  expect(pause).toHaveBeenCalledTimes(1);
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(play).toHaveBeenCalledTimes(2);
+  expect(status()).toBe("playing");
+});
+
+test("an edit while it plays stops it; once saved, the next press mixes again and frees the old URL", async () => {
+  const { play, revokeObjectURL } = stubAudio();
+  const { request, status, listen, rerender } = hookOf(() => Promise.resolve({ status: 200, blob: WAV, body: null }));
+
+  await listen();
+  rerender({ unsaved: true });
+  expect(status()).toBe("ready");
   expect(revokeObjectURL).toHaveBeenCalledWith("blob:wav-1");
-  expect(request).toHaveBeenCalledTimes(2);
-  expect((play.mock.contexts[1] as HTMLAudioElement).src).toBe("blob:wav-2");
 
+  rerender({ unsaved: false });
+  await listen();
+  expect(request).toHaveBeenCalledTimes(2);
+  expect((play.mock.contexts[1] as HTMLAudioElement).getAttribute("src")).toBe("blob:wav-2");
+});
+
+test("unmounting stops the wav and frees its URL", async () => {
+  const { pause, revokeObjectURL } = stubAudio();
+  const { listen, unmount } = hookOf(() => Promise.resolve({ status: 200, blob: WAV, body: null }));
+
+  await listen();
+  const pauses = pause.mock.calls.length;
   unmount();
-  expect(pause).toHaveBeenCalledTimes(2);
-  expect(revokeObjectURL).toHaveBeenCalledWith("blob:wav-2");
+
+  expect(pause.mock.calls.length).toBe(pauses + 1);
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:wav-1");
+});
+
+test("under StrictMode's second mount the wav still plays", async () => {
+  const { play } = stubAudio();
+  const { status, listen } = hookOf(() => Promise.resolve({ status: 200, blob: WAV, body: null }), undefined, true);
+
+  await listen();
+
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(status()).toBe("playing");
 });
 
 test("a request that answers null plays nothing and leaves the state idle: the caller says why", async () => {
@@ -86,4 +132,29 @@ test("a reply with no refusal in it, or a request that throws, reads as offline"
   const thrown = hookOf(() => Promise.reject(new Error("network")));
   await thrown.listen();
   expect(thrown.state()).toEqual({ kind: "refused", tone: "error", text: OFFLINE_TEXT, fixes: [], field: null });
+});
+
+test("a mix that comes back after an edit, or after another sound began, doesn't play; a second press while mixing sends nothing", async () => {
+  const { play } = stubAudio();
+  let answer: (reply: BlobReply) => void = () => {};
+  const edited = hookOf(() => new Promise((resolve) => (answer = resolve)));
+
+  let first: Promise<void> = Promise.resolve();
+  act(() => void (first = edited.press()));
+  act(() => void edited.press());
+  edited.rerender({ unsaved: true });
+  await act(async () => answer({ status: 200, blob: WAV, body: null }));
+  await act(() => first);
+  expect(edited.request).toHaveBeenCalledTimes(1);
+  expect(play).not.toHaveBeenCalled();
+  expect(edited.status()).toBe("ready");
+
+  const other = hookOf(() => new Promise((resolve) => (answer = resolve)));
+  let pressed: Promise<void> = Promise.resolve();
+  act(() => void (pressed = other.press()));
+  act(() => toggle("someone-else", "/rain.mp3"));
+  await act(async () => answer({ status: 200, blob: WAV, body: null }));
+  await act(() => pressed);
+  expect(play.mock.contexts.map((element) => (element as HTMLAudioElement).getAttribute("src"))).toEqual(["/rain.mp3"]);
+  expect(other.status()).toBe("ready");
 });

@@ -2,6 +2,7 @@ import { useCallback, useId, useRef, useState, type FormEvent } from "react";
 import { Alert } from "../../../components/ui/Alert";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { GHOST_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../../components/ui/buttonStyles";
+import { PlayButton } from "../../../components/ui/PlayButton";
 import { inputClass } from "../../../components/ui/inputStyles";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
 import { PageLayout } from "../../../components/ui/PageLayout";
@@ -111,12 +112,17 @@ function LessonForm({ editing, edit, save, applyBackground, onRenderEnded }: For
   const { form, errors } = editing;
   const id = useId();
   // ฟังจังหวะ saves first; a save that failed says why under บันทึก, and nothing plays.
-  const listen = useListen(useCallback(async () => ((await save()) ? postForBlob(`${lessonPath(editing.id)}/listen`, {}) : null), [editing.id, save]));
   // The results under the form read again; only a render started here takes the page to them (D22, nav-ia D7).
   const render = useDrumRender(onRenderEnded);
   /** The selected note's place, `piece:step`: its object changes with every edit. */
   const [selectedAt, setSelectedAt] = useState<string | null>(null);
   const unsaved = !sameFields(form, editing.saved);
+  const seconds = lengthOf(form);
+  // A wav mixed from the saved lesson plays and pauses until the lesson is edited (audio-player D7, D14).
+  const listen = useListen(
+    useCallback(async () => ((await save()) ? postForBlob(`${lessonPath(editing.id)}/listen`, {}) : null), [editing.id, save]),
+    { unsaved, disabled: !Number.isFinite(seconds) || seconds > MAX_SECONDS },
+  );
   const notes = form.groove.notes;
   const selected = notes.find((note) => `${note.piece}:${note.step}` === selectedAt) ?? null;
   const invalid = new Set(
@@ -268,20 +274,21 @@ function LengthLine({ fields }: { fields: LessonFields }) {
   );
 }
 
-/** ฟังจังหวะ with its error under it; can't be pressed while the clip is over the cap (D16). */
+/** ฟังจังหวะ with its error under it; can't be pressed while the clip is over the cap (D16, audio-player D3). */
 function ListenControl({ fields, listen }: { fields: LessonFields; listen: ReturnType<typeof useListen> }) {
   const seconds = lengthOf(fields);
-  const mixing = listen.state.kind === "mixing";
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <button
-        type="button"
-        disabled={mixing || !Number.isFinite(seconds) || seconds > MAX_SECONDS}
-        onClick={() => void listen.listen()}
+      <PlayButton
+        label="จังหวะ"
+        text="ฟังจังหวะ"
+        status={listen.status}
+        position={listen.position}
+        duration={listen.duration}
+        disabled={!Number.isFinite(seconds) || seconds > MAX_SECONDS}
+        onPress={() => void listen.press()}
         className={`h-11 w-fit px-4 sm:h-10 ${SECONDARY_BUTTON}`}
-      >
-        {mixing ? "กำลังผสมเสียง…" : "ฟังจังหวะ"}
-      </button>
+      />
       {listen.state.kind === "refused" && <RefusedAlert refused={listen.state} />}
     </div>
   );

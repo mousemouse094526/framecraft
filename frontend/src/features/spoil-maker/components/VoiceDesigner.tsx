@@ -1,13 +1,13 @@
 import { useId, useState } from "react";
 import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
+import { SoundButton } from "../../../components/ui/PlayButton";
 import { gpuBusyText } from "../../../lib/gpu";
 import type { RefusalLine } from "../../../lib/refusal";
 import chevronDownIcon from "../../../components/ui/assets/chevron-down.svg";
 import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
 import refreshWhiteIcon from "../assets/refresh-cw-white.svg";
 import { previewUrl, type Choices, type GpuHolder, type RefusalText } from "../hooks/useVoices";
-import { playAudio } from "../../../lib/audio";
 import { NameForm } from "./NameForm";
 
 // OmniVoice's `instruct` values with the words the page shows (spoil-maker spec › Saved voice step 1).
@@ -75,13 +75,11 @@ export function VoiceDesigner({ generating, previewVersion, gpu, error, onDesign
           </div>
         )}
         {ready && (
-          <button
-            type="button"
-            onClick={() => playAudio(previewUrl(previewVersion))}
+          <SoundButton
+            src={previewUrl(previewVersion)}
+            label="เสียงตัวอย่าง"
             className={`h-11 min-w-0 flex-1 px-6 sm:h-10 sm:flex-none ${OUTLINE_BUTTON}`}
-          >
-            ฟัง
-          </button>
+          />
         )}
         <button
           type="button"

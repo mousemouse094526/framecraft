@@ -6,6 +6,7 @@ import { inputClass } from "../../../components/ui/inputStyles";
 import { Labeled } from "../../../components/ui/Labeled";
 import { ModalDialog } from "../../../components/ui/ModalDialog";
 import { OfflinePanel } from "../../../components/ui/OfflinePanel";
+import { PlayButton } from "../../../components/ui/PlayButton";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { RefusedAlert } from "../../../components/ui/RefusedAlert";
 import { SegmentedChoice } from "../../../components/ui/SegmentedChoice";
@@ -206,10 +207,10 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
     return true;
   };
 
-  const listen = useListen(async () => ((await saveFirst()) ? postForBlob(coverListenPath(song.id), {}) : null));
-  const mixing = listen.state.kind === "mixing";
   const silent = isSilent(fields);
   const canPlay = !fault && !silent && (kalimba ? noNotes === null : hits > 0);
+  // A wav mixed from the saved cover plays and pauses until the cover is edited; a re-pick opens a new form (audio-player D7, D14).
+  const listen = useListen(async () => ((await saveFirst()) ? postForBlob(coverListenPath(song.id), {}) : null), { unsaved, disabled: !canPlay });
 
   const fieldError = (name: string) => (refused?.field === name ? refused.text : undefined);
   // The found bars the stretch takes in; the saved stretch's while a box is wrong.
@@ -356,9 +357,16 @@ function CoverForm({ song, saved, renders, failure, cover }: FormProps) {
             บันทึก
             {dirty && <span className="text-xs text-warning">· ยังไม่บันทึก</span>}
           </button>
-          <button type="button" disabled={!canPlay || mixing || saving} onClick={() => void listen.listen()} className={`h-11 px-5 sm:h-10 ${SECONDARY_BUTTON}`}>
-            {mixing ? "กำลังผสมเสียง…" : "ฟัง"}
-          </button>
+          <PlayButton
+            label="reel"
+            text="ฟัง reel"
+            status={listen.status}
+            position={listen.position}
+            duration={listen.duration}
+            disabled={!canPlay}
+            onPress={() => void listen.press()}
+            className={`h-11 px-5 sm:h-10 ${SECONDARY_BUTTON}`}
+          />
           {ownRendering ? (
             <div role="group" aria-label="งาน render" className="flex min-w-0 flex-1 items-center gap-3">
               <ProgressBar percent={ownRendering.percent} label="กำลัง render" />

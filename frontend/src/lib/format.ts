@@ -27,3 +27,9 @@ export function editedAt(iso: string): string {
   if (!month) return iso;
   return `${Number(day)} ${THAI_MONTHS[Number(month) - 1]} ${hour}:${minute}`;
 }
+
+/** `m:ss` of a play button's time, whole seconds rounded down: 3.7 → "0:03" (audio-player D5). */
+export function clockOf(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
