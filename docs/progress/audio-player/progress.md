@@ -1,12 +1,10 @@
 # Progress: audio-player
 
-**Now:** 01 และ 02 done; feature review ผ่าน; PR เข้า develop
+**Now:** 01 และ 02 done; feature review ผ่าน; [PR #27](https://github.com/mousemouse094526/framecraft/pull/27) รอเจ้าของ merge
 
 **Next:**
 
-```
-/pr-open
-```
+—
 
 ## Tickets
 
