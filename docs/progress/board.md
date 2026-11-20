@@ -9,7 +9,7 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [spoil-maker](spoil-maker/progress.md) | false | done | 🎨 8/8 | ✅ 83821a9 | — | — |
 | [story-kb](story-kb/progress.md) | false | done | 🎨 4/4 | ✅ d75f574 | — | — |
 | [windows-launch](windows-launch/progress.md) | **true** | blocked | 🎨 1/1 | 2/3 | **งาน Windows ทั้งหมด** — รวม windows-check 01–02 (setup-status, spoil) + 03 ลอง Qwen บน RTX 30xx · รอเครื่อง | `/warroom-build windows-launch 03` (บนเครื่อง Windows) |
-| [toon](toon/progress.md) | false | building | 🎨 9/9 | 18/18 (`feat/toon-2`, PR รอ merge) | #33 (ค้างครั้งแรก), #37 (MPS pool EP ยาว) รอเกิดซ้ำ · change request จาก nav-ia Open Questions 1–5 (D87–D90) | เจ้าของ merge PR แล้ว `/warroom next` |
+| [toon](toon/progress.md) | false | review | 🎨 9/9 | 18/18 (`feat/toon-2`) | [PR #29](https://github.com/mousemouse094526/framecraft/pull/29) · #33, #37 รอเกิดซ้ำ | — |
 | [sound-library](sound-library/progress.md) | false | done | 🎨 4/4 (ui-prompt.md, D18) | ✅ f89b1e9 | — | — |
 | [video-gen](video-gen/progress.md) | false | done | 🎨 3/3 (ui-prompt.md, D38) | ✅ 2b883ca | เจ้าของเช็ค render/เสียงจริง | — |
 | [drum-notes](drum-notes/progress.md) | false | done | 🎨 2/2 (ui-prompt.md, D28) | ✅ 4be8885 | Blocked 5: เจ้าของฟังเทียบตาราง intro/kalimba ในหน้าเพลง `#/covers/{id}` (reel cover) | — |
