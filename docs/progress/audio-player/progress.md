@@ -1,6 +1,6 @@
 # Progress: audio-player
 
-**Now:** 01 และ 02 done; feature review ผ่าน; [PR #27](https://github.com/mousemouse094526/framecraft/pull/27) รอเจ้าของ merge
+**Now:** merged ([PR #27](https://github.com/mousemouse094526/framecraft/pull/27), `16af62e`) — ปุ่มฟังทั้งแอปเป็น play/pause เล่นทีละเสียง; 01–02 done และ feature review ผ่าน
 
 **Next:**
 
