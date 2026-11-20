@@ -828,16 +828,14 @@ describe("พื้นหลัง", () => {
   });
 });
 
-describe("ล่าสุด in the main menu (ui-nav D5, nav-ia D18, D20)", () => {
-  it("puts a reel first in ล่าสุด once its editor loads, open there, the header still reel กลอง (e2e)", async () => {
+describe("a reel's page in the main menu (nav-ia D7, D22)", () => {
+  it("opens reel กลอง, says it in the header, and keeps nothing for a ล่าสุด (e2e)", async () => {
     await openEditor();
 
-    // The editor's buttons commit before the effect that remembers the reel runs: wait for the write.
-    await waitFor(() => expect(JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null")?.drums).toEqual([{ hash: `#/drums/${ID}`, label: "ร็อกพื้นฐาน" }]));
-    const recent = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "ล่าสุด" }));
-    const link = recent.getByRole("link", { name: "ร็อกพื้นฐาน" });
-    expect(link).toHaveAttribute("aria-current", "page");
-    expect(link).toHaveAccessibleDescription("reel กลอง");
+    const menu = within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
+    expect(menu.getAllByRole("link", { current: "page" }).map((link) => link.textContent)).toEqual(["reel กลอง"]);
+    expect(menu.queryByRole("group", { name: "ล่าสุด" })).toBeNull();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("reel กลอง");
+    expect(window.localStorage.getItem("framecraft.nav.recent")).toBeNull();
   });
 });

@@ -1,8 +1,8 @@
 # Progress: nav-ia
 
-**Now:** merged ([PR #26](https://github.com/mousemouse094526/framecraft/pull/26), `c38bdaf`) — เมนู 2 ชั้น (หมวด → ลิงก์), "ล่าสุด" เป็นหมวดของตัวเอง; ทุก ticket done (01–05) และ feature review ผ่าน
+**Now:** change request "ไม่มีล่าสุด" (D22, D23) — ticket 06 done, [PR #28](https://github.com/mousemouse094526/framecraft/pull/28) รอ review; การสำรวจ route ทั้งแอปเหลือ 5 Open Questions (spec) ที่ไม่บล็อก
 
-**Next:** —
+**Next:** เจ้าของ review และ merge PR #28
 
 ## Tickets
 
@@ -13,8 +13,65 @@
 | 03 | เพลงกับ reel cover และ reel กลองกับผล render เป็นหน้าเดียว | done |
 | 04 | EP การ์ตูนเล่าเป็นหน้าเดียว | done |
 | 05 | เมนู 2 ชั้น | done |
+| 06 | เมนูไม่มี "ล่าสุด" | done |
 
 ## Log
+
+### feature review (หลัง 06) — done 2026-11-20
+
+**Built:**
+- Breaker + review: ไม่มี BLOCKER; D23 เพิ่ม Accepted risk ของ revert (ลิงก์ตายของชิ้นที่ลบระหว่างนี้); spec › Testing decisions บอกว่าประโยคล่าสุดเป็นของก่อน D22; test EP/ชุดแยก route ต่อกรณี
+
+**Decided:**
+- ไม่มี D ใหม่
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** typecheck · `npm test` 686 passed · build — green; backend ไม่ได้แตะ (`uv run pytest` 1547 passed ที่ e4eb5a0)
+
+### change request: ไม่มีล่าสุด (06) — done 2026-11-20
+
+**Built:**
+- เมนูไม่มีหมวด "ล่าสุด": ลบ `lib/recent.ts` + test, `recentLinks` `menuSections`, `useRecentPage` ใน 4 หน้า, `forgetRecent` ใน 4 hook; `NAV_SECTIONS` export ให้ `PageLayout` วางตรง ๆ; `locationOf(hash, tab)`
+- comment ที่ผิดชัด: `CastPage` (hash `/cast`), `useHash` (ขั้นของสปอยไม่ใช่ลิงก์แล้ว)
+- test: `App.test` ยืนยันไม่มีหมวดแม้มีกุญแจเก่า; หน้าเพลง reel กลอง ชุด EP ยืนยันลิงก์หัวข้อเปิดและไม่เขียนกุญแจ
+- ภาพแคป (`#/covers`, กุญแจเก่ามีของสามแหล่ง): [ก่อน 1280px](screens/06-menu-before-1280.png) · [หลัง 1280px](screens/06-menu-after-1280.png) · [หลัง 375px drawer](screens/06-menu-after-375.png)
+
+**Decided:**
+- D22 — ไม่มีล่าสุด (supersedes ui-nav D5, nav-ia D18); EP 3 คลิกเป็น Accepted risk
+- D23 — กุญแจเก่าปล่อยไว้ ไม่มีโค้ดลบ
+- ADR-0075
+
+**สำรวจ route และ flow ทั้งแอป** (นับ sidebar ตรึง / drawer, ไม่มีล่าสุด):
+
+| Route | งานที่ทำได้ | คลิก | ลิงก์เมนู |
+|---|---|---|---|
+| `#/setup`, hash ว่างหรือไม่รู้จัก | Setup status | 1 / 2 | ติดตั้ง |
+| `#/spoil` | สปอย 3 ขั้นเป็น state ในหน้า: เลือกคลิป · ตรวจแก้บท · ผล render | 1 / 2 (ผลรอบก่อน 2 / 3) | ทำสปอย |
+| `#/spoil/clips` | โหลด ตัด ถอด บรรยายคลิป | 1 / 2 | คลิปทั้งหมด |
+| `#/toon` | รายการชุด ลบ สร้าง | 1 / 2 | การ์ตูนเล่า |
+| `#/toon/new` | สร้างชุด | 2 / 3 | การ์ตูนเล่า |
+| `#/toon/series/{id}` | EP ของชุด, EP ใหม่ | 2 / 3 | การ์ตูนเล่า |
+| `#/toon/series/{id}/cast` | ตัวละครและฉากหลัง | 3 / 4 | การ์ตูนเล่า |
+| `#/toon/series/{id}/settings` | ตั้งค่าชุด | 3 / 4 | การ์ตูนเล่า |
+| `#/toon/series/{id}/{characters\|backgrounds}/{id}/pick` | เลือกภาพอ้างอิง | 4 / 5 | การ์ตูนเล่า |
+| `#/toon/eps/{id}` | พล็อต · เส้นเรื่อง · render เป็น view ในหน้า | EP 3 / 4, render 4 / 5 | การ์ตูนเล่า |
+| `#/covers` | เพิ่มเพลง (ลิงก์ ไฟล์ MIDI) ลบ | 1 / 2 | reel cover |
+| `#/covers/{id}` | แกะโน้ต แล้ว reel render ผล ในหน้าเดียว | 2 / 3 | reel cover |
+| `#/drums` | reel ใหม่ คัดลอก ลบ | 1 / 2 | reel กลอง |
+| `#/drums/{id}` | ฟอร์ม และผล render ใต้ฟอร์ม | 2 / 3 | reel กลอง |
+| `#/stories`, `#/stories/new`, `#/stories/{id}` | รายการ เขียน แก้ ลบ Story | 1 / 2, 2 / 3 | คลังความรู้ |
+| `#/sounds`, `#/sounds?back=…` | เพิ่ม ฟัง เปลี่ยนชื่อ ลบเสียง | 1 / 2 | คลังเสียง |
+| `#/voices` | ออกแบบ บันทึก ลบเสียงพากย์ | 1 / 2 | เสียงพากย์ |
+
+- ผ่าน: ทุก hash อยู่ใต้ลิงก์ของมัน (ADR-0067); ไม่มีโค้ดใช้ hash เก่า (มีแค่ใน `MOVED`); ไม่มี route ตาย; ขั้นสปอยไม่มี hash; `#/drums/{id}` หน้าเดียว `/renders` เหลือแค่ redirect; "ใช้กับ สปอย" ของคลังความรู้ถูก (มีแค่สปอยใช้ Story); query ใน hash มีแค่ `?back=` ไม่มี `?from=` `?step=`; ทุกหน้าย่อยมีลิงก์กลับ (เสียงพากย์ใช้เมนู ตาม D4)
+- ไม่แน่ใจ → spec › Open Questions 1–5 พร้อมข้อเสนอ: `?back=` ของคลังเสียง, EP 3 คลิก, ปลายทางกลับของตั้งค่าชุด, "ไปที่การ์ด n" ไม่เลื่อนไปการ์ด, `prefix` ของคลังเสียง
+
+**For the next ticket:**
+- Nothing
+
+**Checks:** typecheck · `npm test` 686 passed · build · `uv run pytest` 1547 passed — all green
 
 ### feature review (หลัง 05) — done 2026-11-19
 

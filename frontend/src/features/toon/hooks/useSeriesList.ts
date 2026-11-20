@@ -1,8 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getJson } from "../../../lib/api";
 import { useMountedState } from "../../../lib/useMountedState";
-import { SERIES_PATH, seriesHash, seriesPath, type ListedSeries } from "../lib/series";
-import { forgetRecent } from "../../../lib/recent";
+import { SERIES_PATH, seriesPath, type ListedSeries } from "../lib/series";
 import { sendEdit } from "../../../lib/edit";
 import type { Notice } from "../../../lib/notice";
 
@@ -37,7 +36,6 @@ export function useSeriesList() {
       const reply = await sendEdit<null>("DELETE", seriesPath(series.id), { confirm_eps: series.ep_count }, `ลบ ${series.name} ไม่ได้`, {
         ok: [204],
       });
-      if (reply.kind === "ok") forgetRecent(seriesHash(series.id));
       // The list is read again either way: a refused delete may mean it changed (a new EP, `confirm_needed`).
       await load(reply.kind === "ok" ? null : reply.notice);
     },

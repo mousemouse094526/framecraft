@@ -34,7 +34,7 @@ import { ToonDialog } from "./ToonDialog";
 
 const SECONDS_PER_PICTURE = 90; // a Ref job's picture on an M1, ~4.5 min for three (D31)
 
-/** `#/toon/series/{seriesId}`: ตัวละครและฉากหลัง of a Series (Figma toon / 3). */
+/** `#/toon/series/{seriesId}/cast`: ตัวละครและฉากหลัง of a Series (Figma toon / 3). */
 export function CastPage({ seriesId }: { seriesId: string }) {
   const { state, add, remove, startRef, cancelJob, upload, reload } = useCast(seriesId);
 

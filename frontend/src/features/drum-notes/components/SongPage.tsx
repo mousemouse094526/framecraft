@@ -10,7 +10,6 @@ import { ProgressBar } from "../../../components/ui/ProgressBar";
 import arrowLeftIcon from "../../../components/ui/assets/arrow-left.svg";
 import xIcon from "../../../components/ui/assets/x.svg";
 import { formatDuration } from "../../../lib/format";
-import { useRecentPage } from "../../../lib/recent";
 import { refusedLine, type Refused } from "../../../lib/refused";
 import { mayLeave } from "../../../lib/useHash";
 import { usePick } from "../hooks/usePick";
@@ -36,7 +35,6 @@ import {
   type PickJob,
   type Range,
   type Song,
-  songHash,
 } from "../lib/songs";
 
 /**
@@ -47,7 +45,6 @@ import {
  */
 export function SongPage({ id, notice, reel }: { id: string; notice: string | null; reel?: (song: Song) => ReactNode }) {
   const { state, reload, replace } = useSong(id);
-  useRecentPage("covers", songHash(id), state.kind === "ready" ? { label: state.song.title } : state.kind === "not_found" ? "gone" : null);
   const player = useRef<HTMLAudioElement>(null);
   const reelPart = useRef<HTMLDivElement>(null);
   // A new pick starts the reel over: an unsaved reel asks first, as leaving would (nav-ia D14).

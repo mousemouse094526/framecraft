@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { getJson, OFFLINE_TEXT, sendJson } from "../../../lib/api";
 import { refusalOf } from "../../../lib/refusal";
-import { forgetRecent } from "../../../lib/recent";
 import { useMountedState } from "../../../lib/useMountedState";
 import { lessonHash, lessonPath, LESSONS_PATH, type Lesson, type LessonRow } from "../../../lib/lesson";
 
@@ -64,10 +63,7 @@ export function useLessons() {
       try {
         const reply = await sendJson("DELETE", lessonPath(id));
         // Already gone is what was asked for.
-        if (reply.status === 204 || reply.status === 404) {
-          forgetRecent(lessonHash(id));
-          await reload();
-        }
+        if (reply.status === 204 || reply.status === 404) await reload();
         // `in_use` may come after some renders went (spec › API): the list shows what is left.
         else await reload(refusalOf(reply.body)?.message ?? OFFLINE_TEXT);
       } catch {
