@@ -18,3 +18,4 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [ui-nav](ui-nav/progress.md) | false | done | 🎨 1/1 (ui-prompt.md, D7) | ✅ 580d21c | Open Q7: จอแคบ/ตอนยุบไม่มี wordmark บนจอ (เจ้าของตัดสิน) | — |
 | [reels-only](reels-only/progress.md) | false | done | 🎨 5/5 (existing components, D10) | ✅ 2073a82 | เจ้าของดูคลิป reel กลองที่ไม่มีนับเข้า (D15) · Open Q1: ยังมีคำว่า lesson ในโค้ด (งาน rename แยก) | — |
 | [nav-ia](nav-ia/progress.md) | false | done | — (existing components, D11) | ✅ c38bdaf | เจ้าของดูเมนู 2 ชั้นบนจอจริง (sidebar ≥1280px และ drawer) | — |
+| [audio-player](audio-player/progress.md) | false | ready | ⏳ 0/9 (ui-prompt.md, D10) | 0/2 | — | `/warroom-build audio-player 01` |
