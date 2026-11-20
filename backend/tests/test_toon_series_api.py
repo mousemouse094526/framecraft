@@ -123,13 +123,25 @@ def test_an_edit_makes_its_ep_the_latest(client, project):
     series = new_series(client)
     write_ep(project, series["id"], "e_00000001", 1, "หนึ่ง")
     write_ep(project, series["id"], "e_00000002", 2, "สอง")
-    edited(project, series["id"], "e_00000001", "2026-11-19T10:00:00+07:00")
-    edited(project, series["id"], "e_00000002", "2026-11-20T10:00:00+07:00")
+    # Both in the past: the PATCH writes `ep.json` now.
+    edited(project, series["id"], "e_00000001", "2026-01-01T10:00:00+07:00")
+    edited(project, series["id"], "e_00000002", "2026-01-02T10:00:00+07:00")
 
     assert client.patch("/api/toon/eps/e_00000001", json={"title": "หนึ่งใหม่"}).status_code == 200
 
     latest = client.get(TOON_SERIES).json()[0]["latest_ep"]
     assert (latest["id"], latest["title"]) == ("e_00000001", "หนึ่งใหม่")
+
+
+def test_an_ep_whose_id_is_not_its_folders_is_counted_but_not_picked(client, project):
+    series = new_series(client)
+    write_ep(project, series["id"], "e_00000001", 1, "หนึ่ง")
+    folder = project.series_dir(series["id"]) / "eps"
+    (folder / "e_00000001").rename(folder / "e_0000000f")
+
+    listed = client.get(TOON_SERIES).json()[0]
+
+    assert (listed["ep_count"], listed["latest_ep"]) == (1, None)
 
 
 def test_deleting_a_series_without_confirm_eps_is_confirm_needed_with_its_eps(client, project):

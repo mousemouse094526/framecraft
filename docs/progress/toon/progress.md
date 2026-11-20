@@ -39,7 +39,9 @@
 - "ไปที่การ์ด n" → `show("ep", cardId)`; `CardEditor` เลื่อนไปกลางจอและรับโฟกัส มีกรอบสีเน้น; ไปถึงแล้วล้างเป้า (D89, [ภาพ](shots/18-go-to-card.png))
 - ข้อ 3, 5 ของ nav-ia คงเดิม (D90)
 
-**Checks:** `uv run pytest` 1549 passed · typecheck ผ่าน · vitest 688 passed · build ผ่าน
+**Feature review:** แก้ test ที่ขึ้นกับนาฬิกา (`test_an_edit_makes_its_ep_the_latest`), เพิ่ม test ของ `ep.json` ที่ id ไม่ตรง folder, `vi.spyOn` แทนเขียนทับ `scrollIntoView`, ลำดับ import, รูป parameter ของ `EpPage`. ไม่แก้: EP สองตัวที่เขียนในวินาทีเดียวกันเสมอกัน (การแก้ของคนห่างกันเกินวินาที), `ep.json` ที่ id ชี้ไป folder ของ EP อื่น (copy ด้วยมือเท่านั้น)
+
+**Checks:** `uv run pytest` 1550 passed · typecheck ผ่าน · vitest 688 passed · build ผ่าน
 
 
 ### Feature review (รอบเก้า) — done 2026-11-11

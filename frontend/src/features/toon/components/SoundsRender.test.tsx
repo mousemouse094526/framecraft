@@ -219,8 +219,7 @@ describe("render และผล", () => {
 
     expect(await screen.findByText("การ์ด 1 ใบยังไม่มีภาพ")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
-    const scroll = vi.fn();
-    Element.prototype.scrollIntoView = scroll;
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "ไปที่การ์ด 2" }));
 
@@ -235,6 +234,7 @@ describe("render และผล", () => {
     await user.click(await screen.findByRole("button", { name: "ไปเส้นเรื่อง" }));
     expect(await screen.findByRole("article", { name: "การ์ด 2" })).not.toHaveFocus();
     expect(scroll).toHaveBeenCalledTimes(1);
+    scroll.mockRestore();
   });
 
   it("a clip is deleted from the list", async () => {
