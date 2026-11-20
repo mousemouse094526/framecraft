@@ -1,8 +1,8 @@
 # Progress: nav-ia
 
-**Now:** change request "ไม่มีล่าสุด" (D22, D23) — ticket 06 done, รอ review ใน PR; การสำรวจ route ทั้งแอปเหลือ 5 Open Questions (spec) ที่ไม่บล็อก
+**Now:** change request "ไม่มีล่าสุด" (D22, D23) — ticket 06 done, [PR #28](https://github.com/mousemouse094526/framecraft/pull/28) รอ review; การสำรวจ route ทั้งแอปเหลือ 5 Open Questions (spec) ที่ไม่บล็อก
 
-**Next:** เจ้าของ review และ merge PR ของ `feat/nav-ia-3`
+**Next:** เจ้าของ review และ merge PR #28
 
 ## Tickets
 

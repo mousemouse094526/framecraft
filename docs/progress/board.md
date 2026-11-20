@@ -17,5 +17,5 @@ Where every feature stands. Detail per feature in `progress/{slug}/`.
 | [kalimba-cover](kalimba-cover/progress.md) | false | done | ⏳ 0/2 (ui-prompt.md, D10) | ✅ 2dff570 | — | — |
 | [ui-nav](ui-nav/progress.md) | false | done | 🎨 1/1 (ui-prompt.md, D7) | ✅ 580d21c | Open Q7: จอแคบ/ตอนยุบไม่มี wordmark บนจอ (เจ้าของตัดสิน) | — |
 | [reels-only](reels-only/progress.md) | false | done | 🎨 5/5 (existing components, D10) | ✅ 2073a82 | เจ้าของดูคลิป reel กลองที่ไม่มีนับเข้า (D15) · Open Q1: ยังมีคำว่า lesson ในโค้ด (งาน rename แยก) | — |
-| [nav-ia](nav-ia/progress.md) | false | done | — (existing components, D11) | ✅ c38bdaf | เจ้าของดูเมนู 2 ชั้นบนจอจริง (sidebar ≥1280px และ drawer) | — |
+| [nav-ia](nav-ia/progress.md) | false | review | — (existing components, D11) | ✅ 0287306 (06 ไม่มีล่าสุด) | [PR #28](https://github.com/mousemouse094526/framecraft/pull/28); Open Questions 1–5 ใน spec (สำรวจ route, ไม่บล็อก) | — |
 | [audio-player](audio-player/progress.md) | false | done | ⏳ 0/9 (ui-prompt.md, D10) | ✅ 16af62e | เจ้าของลองกด play/pause ทุกจุดบนจอจริง (เล่นทีละเสียง ไม่ทับกัน) | — |
