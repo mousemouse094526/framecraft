@@ -16,7 +16,7 @@ const VOICES_PATH = "/api/spoil-maker/voices";
 
 const fetchMock = vi.fn<typeof fetch>();
 
-const listed: ListedSeries = { id: SERIES_ID, name: "รุ่นพี่เล่าว่า…", channel_name: "ช่อง เล่าก่อนนอน", layout: "frame", genre: "horror", ep_count: 12 };
+const listed: ListedSeries = { id: SERIES_ID, name: "รุ่นพี่เล่าว่า…", channel_name: "ช่อง เล่าก่อนนอน", layout: "frame", genre: "horror", ep_count: 12, latest_ep: null };
 
 const peak: Item = { id: "c_01", name: "พีค", tag: "สายแฟ", description: "ผู้ชายผมสั้น เสื้อฮาวาย", ref_rev: 0, pending: 0 };
 const camp: Item = { id: "b_01", name: "กองไฟในป่า", description: "ลานโล่งกลางป่า", ref_rev: 1, pending: 0 };
@@ -73,6 +73,34 @@ function open(hash: string, routes: Route[]) {
 }
 
 describe("รายการ Series", () => {
+  it("EP ที่แก้ล่าสุด is the EP edited last in any Series, above the list, one link to it (D88)", async () => {
+    const older = { ...listed, latest_ep: { id: "e_00000001", n: 3, title: "คืนที่ไฟดับ", edited_at: "2026-11-20T09:00:00+07:00" } };
+    // 02:30Z is 09:30 in Bangkok: later than 09:00+07:00 though its text sorts first.
+    const newer: ListedSeries = {
+      ...listed,
+      id: "s_9a9b9c9d",
+      name: "ตลกออฟฟิศ",
+      latest_ep: { id: "e_00000002", n: 1, title: "วันแรก", edited_at: "2026-11-20T02:30:00+00:00" },
+    };
+    open("#/toon", [get(SERIES_PATH, [older, newer, { ...listed, id: "s_00000000", name: "ว่าง", ep_count: 0 }])]);
+
+    const latest = await screen.findByRole("region", { name: "EP ที่แก้ล่าสุด" });
+    const link = within(latest).getByRole("link");
+    expect(link).toHaveAttribute("href", "#/toon/eps/e_00000002");
+    expect(link).toHaveTextContent("EP01 วันแรก");
+    expect(link).toHaveTextContent("ตลกออฟฟิศ · แก้");
+    const list = screen.getByRole("region", { name: "ชุดการ์ตูน" });
+    expect(latest.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("with no EP in any Series there is no EP ที่แก้ล่าสุด", async () => {
+    open("#/toon", [get(SERIES_PATH, [listed])]);
+
+    expect(await screen.findByRole("region", { name: "ชุดการ์ตูน" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "EP ที่แก้ล่าสุด" })).not.toBeInTheDocument();
+    expect(screen.queryByText("EP ที่แก้ล่าสุด")).not.toBeInTheDocument();
+  });
+
   it("#/toon opens the การ์ตูนเล่า tab with each Series' name, channel, EP count and layout", async () => {
     open("#/toon", [get(SERIES_PATH, [listed])]);
 

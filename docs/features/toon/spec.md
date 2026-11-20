@@ -41,7 +41,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 
 | Screen | User stories | Must show | Source |
 |---|---|---|---|
-| รายการ Series (หน้าแรกของ tab) | 1, 12 | รายการ Series: ชื่อ ชื่อช่อง แบบจอ จำนวน EP; ปุ่มสร้าง Series; ว่าง: คำชวนสร้าง Series แรก; ลบ Series ยืนยันพร้อมจำนวน EP (D26) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8121-65674) |
+| รายการ Series (หน้าแรกของ tab) | 1, 12 | "EP ที่แก้ล่าสุด" เหนือรายการ: ลิงก์เดียวไป EP ที่แก้ใหม่สุดของทุกชุด บอกชื่อชุด, EP n ชื่อตอน, เวลาที่แก้; ไม่มี EP: ไม่มีส่วนนี้ (D88); รายการ Series: ชื่อ ชื่อช่อง แบบจอ จำนวน EP; ปุ่มสร้าง Series; ไม่มีปุ่มคลังเสียง (เมนูมีแล้ว, D87); ว่าง: คำชวนสร้าง Series แรก; ลบ Series ยืนยันพร้อมจำนวน EP (D26) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8121-65674) |
 | ตั้งค่า Series | 1 | ชื่อ (1–60), ชื่อช่อง (0–60), แบบจอ กรอบดำ/เต็มจอ แก้ไม่ได้หลังสร้าง (D7), แบบหลอน/ตลก ตอนสร้างเท่านั้น (D10, D11), สไตล์ภาพ อังกฤษ (D28), น้ำเสียงเล่า (D41), โครงองก์ เพิ่ม ลบ เปลี่ยนชื่อ พร้อมคำบอกว่ามีผลกับ EP ใหม่เท่านั้น (D11), เสียงเล่าหลักจาก Saved voice (D8), สวิตช์ป้ายชื่อตัวละคร (D19); ไม่มี Saved voice: ลิงก์ไปหน้า Saved voice ของ tab สปอย | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8122-66685) |
 | ตัวละครและฉากหลัง | 2, 3, 12 | สองรายการ: ภาพอ้างอิงหรือป้าย "ยังไม่มีภาพ" (D13), ชื่อ, คำสั้น (ตัวละคร, D23), คำอธิบาย; ปุ่มสร้าง 3 แบบและเอาไฟล์เข้า; ป้าย "3 แบบรอเลือก" ที่เปิดหน้าเลือกภาพอีกครั้ง; คำเตือนก่อนเลือกไฟล์ (legal ข้อ 2); ลบไม่ได้เมื่อมีการ์ดใช้: บอก EP ที่ใช้ (D25) | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8123-68692) |
 | เลือกภาพอ้างอิง | 2 | ความคืบหน้าของงาน 3 แบบ (ราว 4.5 นาทีบน M1, D31), ภาพ 3 แบบให้เลือกหนึ่ง, ยกเลิก, คำบอกว่าภาพที่ยังไม่เลือกหายเมื่อปิดแอป; error: `gpu_busy` บอกงานที่รันอยู่ | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8124-70163) |
@@ -49,7 +49,7 @@ tab "การ์ตูนเล่า" ให้ผู้ใช้ตั้ง 
 | พล็อต | 4, 7 | ชื่อตอน (D24), สรุปต่อองก์ แก้ได้, ตัวละครและฉากหลัง: ป้าย "ใหม่" หรือ "ใน Series" พร้อมตัวเลือกสลับเป็นของเดิม (D13); ปุ่มยืนยันพล็อต / แตกใหม่ (D15) พร้อมรายชื่อองก์ที่จะแตกใหม่ และคำยืนยันที่บอกต่อองก์ว่าจะเสียการ์ดแก้เอง ภาพ และเสียงกี่รายการ (D43); กำลังร่าง: สถานะงาน | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8127-72204) |
 | เส้นเรื่อง (การ์ด) | 5, 6, 8, 9, 10 | องก์ → ช่วง (ฉากหลัง, เสียงพื้น + ความดัง) → การ์ดตาม card-sketch (D21): ข้อความเล่า, ตัวละคร 0–2 (D30), คำบรรยายภาพ (D20), การขยับ, ไฟกะพริบ, ค้างเพิ่ม, ปุ่มเสียง สร้าง/ฟัง, ภาพการ์ดพร้อมสร้างใหม่และสลับภาพก่อนหน้า (D33); ป้าย "แก้เอง" (D15), "ภาพอ้างอิงเปลี่ยน" (D32), "ยังไม่มีภาพอ้างอิง" (D13); ความยาวรวมเทียบ 60–120 วินาที (D14); ปุ่ม "สร้างภาพที่ขาดทั้งหมด" พร้อมจำนวนที่ข้ามและความคืบหน้า หยุดได้ (D33); ปุ่ม "สร้างภาพใหม่การ์ดที่ภาพอ้างอิงเปลี่ยน" (D44); รายการตัวละครและฉากหลังที่ต้องสร้างภาพอ้างอิงก่อน พร้อมลิงก์ไปสร้าง (D13); ระหว่างงานที่ล็อก EP: ช่องแก้ปิด | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8128-76737) |
 | คลังเสียงพื้น | 10 | รายการเสียง: ชื่อแก้ได้, ความยาว, ปุ่มฟัง, ลบ (ใช้อยู่ลบไม่ได้); คำเตือนเรื่องสิทธิ์ของเสียง (legal ข้อ 4); เอาไฟล์เข้าพร้อม % upload; วางลิงก์พร้อม % โหลด; error ของไฟล์และลิงก์ | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8129-80163) |
-| render และผล | 11 | ปุ่ม render, สถานะ `voicing` / `rendering` พร้อม %, การ์ดที่ยังไม่มีภาพ (`cards_not_ready`), รายการคลิปที่ render แล้ว: เล่น ดาวน์โหลด ลบ | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8130-81152) |
+| render และผล | 11 | ปุ่ม render, สถานะ `voicing` / `rendering` พร้อม %, การ์ดที่ยังไม่มีภาพ (`cards_not_ready`) พร้อมปุ่ม "ไปที่การ์ด n" ที่เลื่อนไปและโฟกัสการ์ดนั้นในเส้นเรื่อง (D89), รายการคลิปที่ render แล้ว: เล่น ดาวน์โหลด ลบ | [Figma](https://www.figma.com/design/pmdBVIP9xggk1wHCjdlKDZ/framecraft?node-id=8130-81152) |
 
 ## Expected Outcome
 
@@ -466,7 +466,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 
 | Method | Path | ทำอะไร |
 |---|---|---|
-| GET | `/series` | รายการ Series พร้อมจำนวน EP |
+| GET | `/series` | รายการ Series พร้อมจำนวน EP และ `latest_ep` (D88) |
 | POST | `/series` | สร้าง Series |
 | GET, PATCH | `/series/{sid}` | อ่านหรือแก้ Series (รวมตัวละครและฉากหลัง) |
 | DELETE | `/series/{sid}` | ลบ Series `{"confirm_eps": n}` |
@@ -497,6 +497,7 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 - ช่วงต้องมี `background_id` ที่มีใน Series: เพิ่มช่วงโดยไม่ส่ง → `400` `invalid_request`
 - องก์ที่เพิ่มหลังยืนยันพล็อตมี `cards_from` `null` จึงนับเป็นองก์ที่พล็อตเปลี่ยน (D15)
 - error ทุกตัวใช้รูป `ApiError`
+- `GET /series` แต่ละแถวมี `latest_ep: {id, n, title, edited_at} | null`: EP ของชุดที่ `ep.json` เขียนล่าสุด, `edited_at` = mtime ของ `ep.json` ISO เวลาท้องถิ่น ระดับวินาที; EP ที่อ่านไม่ได้ไม่นับ (D88)
 
 ### Frontend
 
@@ -505,6 +506,8 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 - `gpu_busy` แสดงชื่องานจาก `RUNNING_NAMES`; `not_ready` ลิงก์ไป tab ติดตั้ง แบบ spoil-maker
 - ระหว่าง Image job ของ EP ที่เปิดอยู่ หน้าเส้นเรื่องอ่านภาพใหม่ทุกครั้งที่ `done` เพิ่ม
 - `useLeaveGuard` ระหว่าง upload
+- `#/toon` เลือก `latest_ep` ที่ `edited_at` ใหม่สุดของทุกชุดเป็นส่วน "EP ที่แก้ล่าสุด" (D88); ลิงก์คลังเสียงมีจากเส้นเรื่องของ EP เท่านั้น `#/sounds?back=#/toon/eps/{id}` (D87)
+- view ของ EP (`EpViewContext`) รับการ์ดเป้า: `show("ep", cardId)` แล้ว `CardEditor` ของการ์ดนั้น `scrollIntoView` และรับโฟกัส; สลับ view อื่นล้างเป้า (D89)
 - คำเตือนตาม [legal.md](legal.md) แสดงก่อนเลือกไฟล์ทุกครั้ง ไม่ต้องกดยอมรับ:
   - เอาไฟล์ภาพอ้างอิงตัวละครเข้า: "ใช้ภาพหรือตัวละครที่คุณวาดเองหรือได้รับอนุญาต และอย่าใช้ภาพคนจริงในเรื่องที่ทำให้เขาเสียชื่อเสียง" (legal ข้อ 2)
   - เอาเสียงเข้าคลัง (ไฟล์และลิงก์): "ใช้เสียงของคุณเอง หรือเสียงที่ license ให้ใช้ในวิดีโอที่เผยแพร่ได้ และใส่เครดิตตามที่ license กำหนด" (legal ข้อ 4)
@@ -564,6 +567,8 @@ Render slot ของตัวเอง (D45): `POST /api/toon/render {"ep_id": 
 - **Copy:** `frontend/src/features/story-kb/components/StoryEditor.test.tsx` — seam 3 แบบ story-kb D18: `App` จริงกับ `testing/testBackend.ts`
 - **Copy:** `frontend/src/features/spoil-maker/components/SavedVoicePage.test.tsx` — หน้าที่ poll งาน (seam 3 ข้อภาพขึ้นระหว่างงาน)
 - klein ปลอมเป็น subclass ของ `FakeModel` ใน `backend/tests/fakes.py` ที่คืน PNG ขนาดตามคำขอ
+- **Copy:** `frontend/src/features/video-gen/components/DrumsPage.test.tsx` (ราวบรรทัด 636) — แทน `Element.prototype.scrollIntoView` ด้วย `vi.fn()` แล้วเช็ค `mock.contexts[0]` ว่าเลื่อนไปที่ไหน (D89)
+- `latest_ep.edited_at` ใน test backend: ตั้ง mtime ของ `ep.json` ด้วย `os.utime` แทนการรอ (D88)
 - klein จริงไม่อยู่ใน test; ticket 01 ลองด้วยมือบน Mac ตาม Open Question 1 และจดผลใน `progress.md`; ticket 15 วัดทั้งเครื่องตาม D74 แบบเดียวกัน
 
 ## Out of Scope

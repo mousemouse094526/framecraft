@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import threading
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
@@ -212,6 +213,13 @@ def locate_ep(project: ProjectPaths, ep_id: str) -> EpAddress | None:
         if (ep_address.dir / "ep.json").is_file():
             return ep_address
     return None
+
+
+def edited_at(ep_address: EpAddress) -> str:
+    """When `ep.json` was last written, as `checks.now_iso` says a moment: every change of an EP
+    goes through `write_ep`, whose write replaces the file (toon D88)."""
+    moment = datetime.fromtimestamp((ep_address.dir / "ep.json").stat().st_mtime)
+    return moment.astimezone().isoformat(timespec="seconds")
 
 
 def write_ep(ep_address: EpAddress, ep: Ep) -> None:

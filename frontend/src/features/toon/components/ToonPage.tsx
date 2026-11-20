@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useHash } from "../../../lib/useHash";
 import { EpViewContext, type EpView } from "../hooks/useEpView";
 import { pageOf, pickHash } from "../lib/series";
@@ -27,10 +27,17 @@ export function ToonPage() {
  * the render, as the page's view (nav-ia D8). One view at a time, so one hook follows the Toon job (D14).
  */
 function EpWorkspace({ epId }: { epId: string }) {
-  const [view, setView] = useState<EpView>("ep");
+  // The card to go to is gone to once: when it shows, and on any other switch (D89).
+  const [shown, setShown] = useState<{ view: EpView; cardId: string | null }>({ view: "ep", cardId: null });
+  const show = useCallback((view: EpView, cardId?: string) => setShown({ view, cardId: cardId ?? null }), []);
+  const arrived = useCallback(() => setShown((s) => ({ ...s, cardId: null })), []);
   return (
-    <EpViewContext value={setView}>
-      {view === "render" ? <RenderPage epId={epId} /> : <EpPage epId={epId} plot={view === "plot"} />}
+    <EpViewContext value={show}>
+      {shown.view === "render" ? (
+        <RenderPage epId={epId} />
+      ) : (
+        <EpPage epId={epId} plot={shown.view === "plot"} goToCard={shown.cardId} onCardShown={arrived} />
+      )}
     </EpViewContext>
   );
 }

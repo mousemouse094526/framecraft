@@ -4,18 +4,17 @@ import { PageLayout } from "../../../components/ui/PageLayout";
 import { RefreshButton } from "../../../components/ui/RefreshButton";
 import plusWhiteIcon from "../../../components/ui/assets/plus-white.svg";
 import trashIcon from "../../../components/ui/assets/trash.svg";
-import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
-import musicIcon from "../../../components/ui/assets/music.svg";
+import { PRIMARY_BUTTON } from "../../../components/ui/buttonStyles";
 import chevronRightIcon from "../assets/chevron-right.svg";
 import film24Icon from "../assets/film-24.svg";
 import filmIcon from "../assets/film.svg";
 import { useSeriesList } from "../hooks/useSeriesList";
-import { soundsHash } from "../../sound-library/lib/sounds";
-import { LAYOUT_LABELS, LIST_HASH, NEW_HASH, seriesHash, type ListedSeries } from "../lib/series";
+import { epLabel, madeAt } from "../lib/episodes";
+import { epHash, LAYOUT_LABELS, latestEp, NEW_HASH, seriesHash, type ListedSeries } from "../lib/series";
 import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { ToonDialog } from "./ToonDialog";
 
-/** `#/toon`: the Series, each a link to its page, with delete behind a confirm (Figma toon / 1). */
+/** `#/toon`: the EP edited last (D88), then the Series, each a link to its page, with delete behind a confirm (Figma toon / 1). */
 export function SeriesList() {
   const { state, remove, reload } = useSeriesList();
   const [confirming, setConfirming] = useState<ListedSeries | null>(null);
@@ -32,10 +31,6 @@ export function SeriesList() {
     <PageLayout tab="toon" wide>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="min-w-0 flex-1 text-xl leading-[1.5] font-semibold text-foreground">การ์ตูนเล่า</h2>
-        <a href={soundsHash(LIST_HASH)} className={`h-9 px-4 ${OUTLINE_BUTTON}`}>
-          <img src={musicIcon} alt="" width={16} height={16} />
-          คลังเสียง
-        </a>
         <NewSeriesLink />
       </div>
       {state.kind === "result" && state.notice && <NoticeLine notice={state.notice} />}
@@ -44,14 +39,17 @@ export function SeriesList() {
       ) : state.series.length === 0 ? (
         <Empty />
       ) : (
-        <section aria-label="ชุดการ์ตูน" className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-2">
-          <p className="px-4 py-2 text-[13px] leading-[1.5] text-mid">ชุดการ์ตูน {state.series.length} ชุด</p>
-          <ul className="flex flex-col gap-1">
-            {state.series.map((series) => (
-              <SeriesRow key={series.id} series={series} onDelete={() => setConfirming(series)} />
-            ))}
-          </ul>
-        </section>
+        <>
+          <LatestEpLink series={state.series} />
+          <section aria-label="ชุดการ์ตูน" className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-2">
+            <p className="px-4 py-2 text-[13px] leading-[1.5] text-mid">ชุดการ์ตูน {state.series.length} ชุด</p>
+            <ul className="flex flex-col gap-1">
+              {state.series.map((series) => (
+                <SeriesRow key={series.id} series={series} onDelete={() => setConfirming(series)} />
+              ))}
+            </ul>
+          </section>
+        </>
       )}
       {confirming && (
         <ToonDialog
@@ -67,6 +65,31 @@ export function SeriesList() {
         />
       )}
     </PageLayout>
+  );
+}
+
+/** "EP ที่แก้ล่าสุด": the EP edited last in any Series, one click from the menu (D88); no EP: nothing. */
+function LatestEpLink({ series }: { series: ListedSeries[] }) {
+  const ep = latestEp(series);
+  if (ep === null) return null;
+  return (
+    <section aria-label="EP ที่แก้ล่าสุด" className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-2">
+      <p className="px-4 py-2 text-[13px] leading-[1.5] text-mid">EP ที่แก้ล่าสุด</p>
+      <a href={epHash(ep.id)} className="flex h-16 items-center gap-3 rounded-xl px-4 py-3 hover:bg-muted">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-subtle">
+          <img src={filmIcon} alt="" width={20} height={20} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-[1.5]">
+          <span className="truncate text-sm font-medium text-foreground">
+            {epLabel(ep.n)} {ep.title}
+          </span>
+          <span className="truncate text-[13px] text-mid">
+            {ep.seriesName} · แก้ {madeAt(ep.edited_at)}
+          </span>
+        </span>
+        <img src={chevronRightIcon} alt="" width={20} height={20} className="shrink-0" />
+      </a>
+    </section>
   );
 }
 

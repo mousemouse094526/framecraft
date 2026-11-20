@@ -5,8 +5,9 @@ export type EpView = "ep" | "plot" | "render";
 
 /**
  * Shows another view of the EP's page; what used to move the hash to `/plot` or `/render` moves the
- * view (nav-ia D8). Alone (no page, as in a part's own test) it does nothing.
+ * view (nav-ia D8). `cardId` with the storyline: the page goes to that card (D89). Alone (no page, as in
+ * a part's own test) it does nothing.
  */
-export const EpViewContext = createContext<(view: EpView) => void>(() => {});
+export const EpViewContext = createContext<(view: EpView, cardId?: string) => void>(() => {});
 
 export const useEpView = () => useContext(EpViewContext);

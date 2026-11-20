@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import plusIcon from "../../../components/ui/assets/plus.svg";
 import { GHOST_BUTTON, OUTLINE_BUTTON } from "../../../components/ui/buttonStyles";
 import refreshIcon from "../../../components/ui/assets/refresh-cw.svg";
@@ -41,6 +42,10 @@ type Props = {
   /** What a running job does to this card now; null: nothing. */
   work: CardWork | null;
   jobs: CardJobs;
+  /** Scroll to the card and focus it as it shows: "ไปที่การ์ด n" of the render asked for it (D89). */
+  goTo?: boolean;
+  /** The card was gone to: the page drops the ask, so nothing later scrolls back here. */
+  onShown?: () => void;
   onChange: (body: Partial<Card>) => void;
   onDelete: () => void;
 };
@@ -55,13 +60,27 @@ const ACTION = "h-8 px-3";
 /** Figma `Toon/Card`: the fields of one card (card-sketch, D20, D21, D30), its picture with
  * สร้างภาพใหม่ and สลับภาพก่อนหน้า (D27, D33), and its narration's buttons (D21). */
 export function CardEditor(props: Props) {
-  const { card, number, series, epId, version, locked, busy, work, jobs, onChange, onDelete } = props;
+  const { card, number, series, epId, version, locked, busy, work, jobs, goTo = false, onShown, onChange, onDelete } = props;
+  const self = useRef<HTMLElement>(null);
   const named = (id: string) => series.characters.find((c) => c.id === id)?.name ?? id;
   const addable = series.characters.filter((c) => !card.character_ids.includes(c.id));
   const full = card.character_ids.length >= CARD_CHARACTERS_MAX;
 
+  useEffect(() => {
+    if (!goTo) return;
+    self.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // `focus:` not `focus-visible:`: a focus moved by a mouse click shows its outline too.
+    self.current?.focus({ preventScroll: true });
+    onShown?.();
+  }, [goTo, onShown]);
+
   return (
-    <article aria-label={`การ์ด ${number}`} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:flex-row">
+    <article
+      ref={self}
+      aria-label={`การ์ด ${number}`}
+      tabIndex={-1}
+      className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 focus:outline-2 focus:outline-offset-2 focus:outline-brand-accent sm:flex-row"
+    >
       <div className="flex shrink-0 flex-col gap-2">
         <CardPicture card={card} number={number} src={cardImagePath(epId, card.id, version)} drawing={work === "drawing"} full={series.layout === "full"} />
         <div className="flex flex-wrap gap-1">

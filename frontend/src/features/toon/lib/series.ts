@@ -22,7 +22,22 @@ export type ListedSeries = {
   layout: Layout;
   genre: Genre;
   ep_count: number;
+  /** The EP whose `ep.json` was written last; null: no EP (D88). */
+  latest_ep: LatestEp | null;
 };
+
+/** `edited_at`: ISO with its offset. */
+export type LatestEp = { id: string; n: number; title: string; edited_at: string };
+
+/** The EP edited last in any Series, with its Series' name, or null (D88). */
+export function latestEp(series: ListedSeries[]): (LatestEp & { seriesName: string }) | null {
+  let latest: (LatestEp & { seriesName: string }) | null = null;
+  for (const one of series) {
+    const ep = one.latest_ep;
+    if (ep && (latest === null || Date.parse(ep.edited_at) > Date.parse(latest.edited_at))) latest = { ...ep, seriesName: one.name };
+  }
+  return latest;
+}
 
 /** A character or a background; `tag` is a character's only. `ref_rev` 0 = no reference image yet (D13). */
 export type Item = {
