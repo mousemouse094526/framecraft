@@ -98,7 +98,7 @@ export function RenderPage({ epId }: { epId: string }) {
               {numbered
                 .filter(({ card }) => missing.includes(card.id))
                 .map(({ card, number }) => (
-                  <button key={card.id} type="button" onClick={() => show("ep")} className={`h-8 px-3 ${GHOST_BUTTON}`}>
+                  <button key={card.id} type="button" onClick={() => show("ep", card.id)} className={`h-8 px-3 ${GHOST_BUTTON}`}>
                     <img src={chevronRightIcon} alt="" width={16} height={16} />
                     ไปที่การ์ด {number}
                   </button>

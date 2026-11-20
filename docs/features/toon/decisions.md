@@ -1308,6 +1308,52 @@
 
 **From:** feature review · **Status:** active
 
+## D87: หน้า `#/toon` ไม่มีปุ่ม "คลังเสียง"; คง `?back=` จาก EP และสปอย
+
+**Chosen:** ลบปุ่ม "คลังเสียง" (`#/sounds?back=#/toon`) จากหัวหน้า `#/toon` (`SeriesList`). ลิงก์คลังเสียงจากเส้นเรื่องของ EP (`#/sounds?back=#/toon/eps/{id}`) และจากสปอยคงไว้ พร้อมปุ่ม "← กลับ" ของคลังเสียง (sound-library D11). คลังเสียงยังรับ `back=#/toon` (sound-library D15) แม้ไม่มีหน้าไหนส่งแล้ว.
+
+**Why:** เมนูหลักมี "คลังเสียง" อยู่แล้ว ปุ่มบนหน้าแรกของหัวข้อจึงซ้ำและพาไปที่เดียวกันด้วยคลิกเท่ากัน. ลิงก์จาก EP ต่างจากเสียงพากย์ (nav-ia D4): มันพากลับไปกลางงาน (EP ที่เปิด) ไม่ใช่หน้าแรกของหัวข้อที่เมนูพาไปได้ (nav-ia Open Questions 1, เจ้าของอนุมัติข้อเสนอ).
+
+**Rejected:**
+- ตัด `?back=` ทั้งหมด — จาก EP ต้องกลับมาด้วยเมนู → ชุด → EP (3 คลิก)
+
+**From:** change request (nav-ia Open Questions 1) · **Status:** active
+
+## D88: หน้า `#/toon` มี "EP ที่แก้ล่าสุด" จากเวลาเขียน `ep.json`
+
+**Chosen:** `GET /api/toon/series` ให้แต่ละชุดมี `latest_ep: {id, n, title, edited_at} | null` — EP ของชุดที่ `ep.json` เขียนล่าสุด; `edited_at` คือ mtime ของ `ep.json` เป็น ISO เวลาท้องถิ่น (รูปเดียวกับ `checks.now_iso`). หน้า `#/toon` เลือก EP ที่ `edited_at` ใหม่สุดของทุกชุด แสดงเป็นส่วน "EP ที่แก้ล่าสุด" เหนือรายการชุด: ลิงก์เดียว `#/toon/eps/{id}` บอกชื่อชุด, `EP n` ชื่อตอน และเวลาที่แก้. ไม่มี EP เลย → ไม่มีส่วนนี้. ไม่อยู่ในเมนูหลัก (ADR-0075) ไม่ใช้ `localStorage`.
+
+**Why:** EP การ์ตูนเล่าเป็นที่เดียวที่ไม่ถึงเป้า ≤2 คลิกของ nav-ia D10 (เมนู → ชุด → EP; nav-ia D22 Accepted risk). ทุกการแก้และทุกงานที่เปลี่ยน EP เขียนผ่าน `store.write_ep` ที่เขียนไฟล์ใหม่แล้ว rename (`files.write_atomic`) mtime จึงเป็นเวลาที่ EP เปลี่ยนล่าสุดเสมอ รวม EP เก่าที่มีอยู่แล้ว โดยไม่ต้องเพิ่ม field หรือ migration. ส่งมากับรายการชุดที่หน้าโหลดอยู่แล้ว จึงไม่มี route ใหม่.
+
+**Rejected:**
+- field `updated_at` ใน `ep.json` — EP เก่าไม่มีค่าจนกว่าจะแก้ครั้งถัดไป ต้องมีค่าสำรองจาก mtime อยู่ดี
+- route ใหม่ `GET /api/toon/eps/latest` — หน้าต้องยิงสองครั้ง และรายการชุดอ่าน EP ทุกตอนอยู่แล้ว
+- จำ EP ที่เปิดล่าสุดใน `localStorage` — ถูกถอดใน nav-ia D22 (ADR-0075)
+
+**Accepted risk:** copy โฟลเดอร์โปรเจกต์โดยไม่เก็บเวลาไฟล์ (เช่น `cp` ไม่มี `-p`) ทำให้ EP ที่ "แก้ล่าสุด" เป็นตัวที่ copy ทีหลัง; แอปใช้ในเครื่องเดียว.
+
+**From:** change request (nav-ia Open Questions 2) · **Status:** active
+
+## D89: "ไปที่การ์ด n" เลื่อนไปและโฟกัสการ์ดนั้น
+
+**Chosen:** ปุ่ม "ไปที่การ์ด n" ใน render ของ EP สลับไปเส้นเรื่องพร้อม id ของการ์ด (`show("ep", cardId)`); เมื่อการ์ดนั้นขึ้นจอ `CardEditor` เลื่อนไปที่มัน (`scrollIntoView` `block: "center"`) และย้ายโฟกัสไปที่ `article` ของการ์ด (`tabIndex={-1}`) ซึ่งมีกรอบสีเน้นระหว่างที่ถูกโฟกัส. สลับ view อื่น (แก้พล็อต, ไปเส้นเรื่อง, ไปที่ render) ล้างการ์ดเป้า จึงไม่เลื่อนซ้ำ.
+
+**Why:** ข้อความบอก "กดเพื่อไปที่การ์ดนั้น" แต่ปุ่มแค่สลับไปเส้นเรื่อง ผู้ใช้ต้องหาการ์ดเองใน EP 20–30 การ์ด (nav-ia Open Questions 4). ย้ายโฟกัสทำให้ผู้ใช้ keyboard และ screen reader มาถึงการ์ดด้วย ไม่ค้างที่ปุ่มที่หายไปแล้ว.
+
+**Rejected:**
+- hash `#/toon/eps/{id}?card=` — เปลี่ยน route ซึ่งงานนี้ห้ามแตะ; view ของ EP เป็นสถานะในหน้า (nav-ia D8)
+- ไฮไลต์ด้วยเวลา (กะพริบ 2 วิ) — ต้องมี timer; กรอบของโฟกัสหายเองเมื่อผู้ใช้คลิกที่อื่น
+
+**From:** change request (nav-ia Open Questions 4) · **Status:** active
+
+## D90: ตั้งค่าชุดกลับไปรายการ EP และลิงก์ prefix ของคลังเสียง คงเดิม
+
+**Chosen:** ไม่แก้สองข้อ: ตั้งค่าชุด (`#/toon/series/{id}/settings`) กด "กลับ" หรือบันทึกแล้วไปรายการ EP เสมอ แม้เปิดมาจากหน้าตัวละคร; ลิงก์ "คลังเสียง" ในเมนูเป็น `prefix` ขณะที่ `tabOf` ไม่รู้จัก `#/sounds/…`.
+
+**Why:** เจ้าของอนุมัติข้อเสนอของ nav-ia Open Questions 3 และ 5: ที่กลับที่เดียวคาดเดาได้; ไม่มีโค้ดสร้าง hash `#/sounds/…` จึงไม่มีผลบนจอ.
+
+**From:** change request (nav-ia Open Questions 3, 5) · **Status:** active
+
 ## Sources
 
 - [FLUX.2-klein-4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) — license, ภาพอ้างอิงหลายภาพ (accessed 2026-11-08)

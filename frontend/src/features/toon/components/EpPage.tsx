@@ -43,8 +43,19 @@ function runningText(job: EpJob): { title: string; detail: string } {
 }
 
 /** `#/toon/eps/{epId}`: the plot until it is confirmed, then the storyline; the page's plot view opens
- * the plot either way (Figma toon / 6, 7, nav-ia D8). A Plot or Cards job of this EP closes every field. */
-export function EpPage({ epId, plot }: { epId: string; plot: boolean }) {
+ * the plot either way (Figma toon / 6, 7, nav-ia D8). A Plot or Cards job of this EP closes every field.
+ * `goToCard`: the storyline scrolls to that card and focuses it, then says so with `onCardShown` (D89). */
+export function EpPage({
+  epId,
+  plot,
+  goToCard = null,
+  onCardShown,
+}: {
+  epId: string;
+  plot: boolean;
+  goToCard?: string | null;
+  onCardShown?: () => void;
+}) {
   const { state, reload, edit, startPlot, startCards, closeLost, cancelJob, ...cardJobs } = useEp(epId);
   const show = useEpView();
 
@@ -149,6 +160,8 @@ export function EpPage({ epId, plot }: { epId: string; plot: boolean }) {
           skipped={own?.kind === "image" ? (own.skipped ?? 0) : null}
           version={version}
           jobs={cardJobs}
+          goToCard={goToCard}
+          onCardShown={onCardShown}
         />
       )}
     </PageLayout>

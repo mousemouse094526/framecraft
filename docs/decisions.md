@@ -100,7 +100,7 @@ question; the full entry is in the feature's decisions.md.
 | หัวหน้าคือชื่อลิงก์ที่เปิด; จากล่าสุด "{ลิงก์ต้นทาง} / {ชื่อ}" (changes ui-nav D11) | [nav-ia](features/nav-ia/decisions.md) | D19 | — | — | changed by nav-ia D20 |
 | หน้าลึกกว่าของการ์ตูนเล่า reel cover reel กลอง: หัวหน้าเป็นชื่อลิงก์แหล่งเสมอ ลิงก์ล่าสุดที่ตรงยังเป็น current (changes D19) | [nav-ia](features/nav-ia/decisions.md) | D20 | — | — | changed by nav-ia D22 |
 | `NavItem.tab` แทน `NavTopic`: ลิงก์ที่เปิดหาในลิงก์ของ tab ที่เปิด; `recentLinks` และ `menuSections` ใน `lib/nav` | [nav-ia](features/nav-ia/decisions.md) | D21 | — | [0062](adr/0062-main-menu-from-hash-tree.md) | changed by nav-ia D22 |
-| เมนูหลักไม่มี "ล่าสุด": ลบหมวด ที่เก็บ และโค้ดที่จำทั้งหมด; EP การ์ตูนเล่า 3 คลิก (supersedes ui-nav D5, nav-ia D18) | [nav-ia](features/nav-ia/decisions.md) | D22 | — | [0075](adr/0075-main-menu-has-no-recent.md) | active |
+| เมนูหลักไม่มี "ล่าสุด": ลบหมวด ที่เก็บ และโค้ดที่จำทั้งหมด; EP การ์ตูนเล่า 3 คลิก (supersedes ui-nav D5, nav-ia D18) | [nav-ia](features/nav-ia/decisions.md) | D22 | — | [0075](adr/0075-main-menu-has-no-recent.md) | changed by toon D88 |
 | กุญแจ `framecraft.nav.recent` ที่ค้างในเบราว์เซอร์ปล่อยไว้ ไม่มีโค้ดลบ | [nav-ia](features/nav-ia/decisions.md) | D23 | — | — | active |
 
 ## ทำ reel อย่างเดียว ไม่มีบทเรียน
@@ -424,6 +424,10 @@ question; the full entry is in the feature's decisions.md.
 | `gpu.ADVICE` ไม่ต่อท้าย error ของโค้ดผิด (`TypeError` ฯลฯ) ใน process ลูก; `model_failed` และหน้าเว็บคงเดิม; ใช้ทั้ง toon, spoil-maker, spoil | [toon](features/toon/decisions.md) | D84 | spoil, spoil-maker | — | active |
 | `jobs.CODE_ERROR_TYPES` เทียบชื่อชนิดหน้า `:` ของ `WorkerError.detail`, นับ `UnboundLocalError`, `ModuleNotFoundError`; `jobs.worker_error_message` ใช้ร่วม | [toon](features/toon/decisions.md) | D85 | spoil, spoil-maker | — | active |
 | feature review รอบเก้าของ toon: `workers.as_worker_error`, `gpu.advised` ใช้ร่วมทุก child และทุกข้อความที่มีคำแนะนำ, `FakeModel.failure` | [toon](features/toon/decisions.md) | D86 | spoil, spoil-maker | — | active |
+| หน้า `#/toon` ไม่มีปุ่ม "คลังเสียง" (เมนูมีแล้ว); คง `?back=` จากเส้นเรื่องของ EP และสปอย | [toon](features/toon/decisions.md) | D87 | — | — | active |
+| หน้า `#/toon` มี "EP ที่แก้ล่าสุด" เหนือรายการชุด: `latest_ep` ใน `GET /api/toon/series` จาก mtime ของ `ep.json`; ไม่ใช้ `localStorage` ไม่อยู่ในเมนู (changes nav-ia D22) | [toon](features/toon/decisions.md) | D88 | — | — | active |
+| "ไปที่การ์ด n" ใน render สลับไปเส้นเรื่อง เลื่อนไปและโฟกัสการ์ดนั้น | [toon](features/toon/decisions.md) | D89 | — | — | active |
+| ตั้งค่าชุดกลับไปรายการ EP เสมอ; ลิงก์ prefix ของคลังเสียงในเมนู คงเดิม (nav-ia Open Questions 3, 5) | [toon](features/toon/decisions.md) | D90 | — | — | active |
 
 ## สร้างคลิปสอนกลอง
 

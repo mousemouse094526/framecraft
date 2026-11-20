@@ -147,10 +147,11 @@ function libraryLinks() {
 }
 
 describe("คลังเสียงจากการ์ตูนเล่า", () => {
-  it("the Series list's คลังเสียง opens the library with a way back to it", async () => {
+  it("the Series list has no คลังเสียง of its own: the menu's is the one (D87)", async () => {
     open("#/toon", [get("/api/toon/series", [])]);
     await screen.findByRole("heading", { level: 2, name: "การ์ตูนเล่า" });
-    expect(libraryLinks()).toEqual(["#/sounds?back=#/toon"]);
+    expect(libraryLinks()).toEqual([]);
+    expect(screen.getByRole("navigation").querySelector('a[href="#/sounds"]')).toHaveTextContent("คลังเสียง");
     expect(screen.queryByText(/คลังเสียงพื้น/)).not.toBeInTheDocument();
   });
 });
@@ -211,17 +212,29 @@ describe("render และผล", () => {
     expect(sent(fetchMock, "POST", RENDER)).toEqual([{ ep_id: EP_ID }]);
   });
 
-  it("cards with no picture keep render off and link to them", async () => {
+  it("cards with no picture keep render off; ไปที่การ์ด n scrolls to that card and focuses it (D89)", async () => {
     await openRender([
       get(`/api/toon/eps/${EP_ID}`, epOf([cardOf("k_01"), cardOf("k_02", { image_status: "no_image", has_image: false })])),
     ]);
 
     expect(await screen.findByText("การ์ด 1 ใบยังไม่มีภาพ")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "render" })).toBeDisabled();
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "ไปที่การ์ด 2" }));
-    expect(await screen.findByRole("button", { name: "ไปที่ render" })).toBeInTheDocument();
+
+    const card = await screen.findByRole("article", { name: "การ์ด 2" });
+    await waitFor(() => expect(card).toHaveFocus());
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll.mock.contexts[0]).toBe(card);
     expect(window.location.hash).toBe(`#/toon/eps/${EP_ID}`);
+
+    // The ask is gone to once: the plot and back again stay where the user is.
+    await user.click(screen.getByRole("button", { name: "แก้พล็อต" }));
+    await user.click(await screen.findByRole("button", { name: "ไปเส้นเรื่อง" }));
+    expect(await screen.findByRole("article", { name: "การ์ด 2" })).not.toHaveFocus();
+    expect(scroll).toHaveBeenCalledTimes(1);
+    scroll.mockRestore();
   });
 
   it("a clip is deleted from the list", async () => {

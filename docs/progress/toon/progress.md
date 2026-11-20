@@ -1,14 +1,8 @@
 # Progress: toon
 
-**Now:** feature review รอบเก้า done (D86, `4dbf9e4`); CI เขียวทั้งหมด; ไม่มีงานของ agent เหลือ. Blocked ที่ยัง open รอ owner: #11, #12 (เช็คมือบน Mac), #34 (วัดซ้ำหลัง restart); รอเกิดซ้ำ: #33 (Ref job ค้าง), #37 (pool ของ MPS ใน EP ยาว). PR เปิดได้เมื่อ owner ปิด #11, #12, #34 (และตัดสิน #33, #37: ปิดหรือเก็บเป็นงานหลัง merge)
+**Now:** change request จาก nav-ia Open Questions 1–5 (เจ้าของอนุมัติข้อเสนอ 2026-11-20): ticket 18 done (D87–D90) บน `feat/toon-2`; PR เข้า `develop` รอเจ้าของ merge. Blocked ที่ยัง open ไม่เปลี่ยน: #33, #37 (รอเกิดซ้ำ)
 
-**Next:**
-
-```
-/pr-open
-```
-
-(หลัง owner จดผลเช็คมือ #11, #12, #34 ใน `progress.md`; ไม่ผ่าน → `/warroom toon`)
+**Next:** เจ้าของ merge PR ของ `feat/toon-2` แล้ว `/warroom next`
 
 ## Tickets
 
@@ -31,8 +25,24 @@
 | 15 | งานภาพที่จบเองและไม่ swap บน Mac 16 GB | done |
 | 16 | Plot job ที่ผ่านกับ Qwen จริงเกือบทุกครั้ง และ log ที่บอกว่าคำตอบผิดตรงไหน | done |
 | 17 | คำแนะนำ "ปิดโปรแกรมอื่นที่ใช้ GPU" เฉพาะ error ที่เกี่ยวกับ GPU | done |
+| 18 | EP ที่แก้ล่าสุดบนหน้า `#/toon`, ไม่มีปุ่มคลังเสียงซ้ำเมนู, "ไปที่การ์ด n" ที่ไปถึงการ์ด | done |
 
 ## Log
+
+### Ticket 18: EP ที่แก้ล่าสุด, ปุ่มคลังเสียง, ไปที่การ์ด n — done 2026-11-20
+
+มาจาก nav-ia spec › Open Questions 1–5 (change request, เจ้าของ: "ทำตามที่เห็นชอบได้เลย"). Breaker รอบเดียว: 7 ข้อ — แก้ 6 (ล้างการ์ดเป้าเมื่อไปถึงแล้ว, `focus:` ไม่ใช่ `focus-visible:`, `focus({preventScroll})`, effect ตอนการ์ด mount, `OSError` ของ `ep.json` ที่ id ไม่ตรง folder ไม่ล้มทั้งรายการ, เทียบเวลาด้วย `Date.parse`), ปัด 1 (id การ์ดที่ถูกลบไปแล้ว: ไม่เลื่อน ไม่มีผลเสีย). legal: ไม่มีพื้นผิวใหม่ (ไม่มีข้อมูลหรือบริการใหม่). ADR: ไม่มี — ทั้งสามเป็นเรื่องในหน้าของ toon; กฎ "ไม่มีล่าสุดในเมนู" มี ADR-0075 แล้ว.
+
+**Built:**
+- `GET /api/toon/series` แต่ละชุดมี `latest_ep` จาก mtime ของ `ep.json` (`store.edited_at`, D88); หน้า `#/toon` มีส่วน "EP ที่แก้ล่าสุด" เหนือรายการชุด ([ภาพ](shots/18-latest-ep.png))
+- ลบปุ่ม "คลังเสียง" บน `#/toon`; ลิงก์จากเส้นเรื่องของ EP พร้อม `?back=` คงไว้ (D87)
+- "ไปที่การ์ด n" → `show("ep", cardId)`; `CardEditor` เลื่อนไปกลางจอและรับโฟกัส มีกรอบสีเน้น; ไปถึงแล้วล้างเป้า (D89, [ภาพ](shots/18-go-to-card.png))
+- ข้อ 3, 5 ของ nav-ia คงเดิม (D90)
+
+**Feature review:** แก้ test ที่ขึ้นกับนาฬิกา (`test_an_edit_makes_its_ep_the_latest`), เพิ่ม test ของ `ep.json` ที่ id ไม่ตรง folder, `vi.spyOn` แทนเขียนทับ `scrollIntoView`, ลำดับ import, รูป parameter ของ `EpPage`. ไม่แก้: EP สองตัวที่เขียนในวินาทีเดียวกันเสมอกัน (การแก้ของคนห่างกันเกินวินาที), `ep.json` ที่ id ชี้ไป folder ของ EP อื่น (copy ด้วยมือเท่านั้น)
+
+**Checks:** `uv run pytest` 1550 passed · typecheck ผ่าน · vitest 688 passed · build ผ่าน
+
 
 ### Feature review (รอบเก้า) — done 2026-11-11
 

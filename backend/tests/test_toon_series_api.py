@@ -2,6 +2,8 @@
 
 import json
 import logging
+import os
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -93,6 +95,53 @@ def test_the_list_counts_each_series_eps(client, project):
     listed = client.get(TOON_SERIES).json()
 
     assert [(s["id"], s["ep_count"], s["layout"]) for s in listed] == [(series["id"], 1, "frame")]
+
+
+def edited(project: ProjectPaths, series_id: str, ep_id: str, at: str) -> None:
+    """Sets when the EP's `ep.json` was last written."""
+    moment = datetime.fromisoformat(at).timestamp()
+    os.utime(project.series_dir(series_id) / "eps" / ep_id / "ep.json", (moment, moment))
+
+
+def test_each_series_names_its_ep_written_last(client, project):
+    # The page's "EP ที่แก้ล่าสุด" is picked from these (D88).
+    empty, series = new_series(client, name="ว่าง"), new_series(client, name="ผีบ้านไม้")
+    write_ep(project, series["id"], "e_00000001", 1, "เสียงเรียกจากป่า")
+    write_ep(project, series["id"], "e_00000002", 2, "คืนฝนตก")
+    edited(project, series["id"], "e_00000001", "2026-11-20T10:00:00+07:00")
+    edited(project, series["id"], "e_00000002", "2026-11-19T10:00:00+07:00")
+
+    listed = {s["id"]: s["latest_ep"] for s in client.get(TOON_SERIES).json()}
+
+    assert listed[empty["id"]] is None
+    latest = listed[series["id"]]
+    assert (latest["id"], latest["n"], latest["title"]) == ("e_00000001", 1, "เสียงเรียกจากป่า")
+    assert datetime.fromisoformat(latest["edited_at"]) == datetime.fromisoformat("2026-11-20T10:00:00+07:00")
+
+
+def test_an_edit_makes_its_ep_the_latest(client, project):
+    series = new_series(client)
+    write_ep(project, series["id"], "e_00000001", 1, "หนึ่ง")
+    write_ep(project, series["id"], "e_00000002", 2, "สอง")
+    # Both in the past: the PATCH writes `ep.json` now.
+    edited(project, series["id"], "e_00000001", "2026-01-01T10:00:00+07:00")
+    edited(project, series["id"], "e_00000002", "2026-01-02T10:00:00+07:00")
+
+    assert client.patch("/api/toon/eps/e_00000001", json={"title": "หนึ่งใหม่"}).status_code == 200
+
+    latest = client.get(TOON_SERIES).json()[0]["latest_ep"]
+    assert (latest["id"], latest["title"]) == ("e_00000001", "หนึ่งใหม่")
+
+
+def test_an_ep_whose_id_is_not_its_folders_is_counted_but_not_picked(client, project):
+    series = new_series(client)
+    write_ep(project, series["id"], "e_00000001", 1, "หนึ่ง")
+    folder = project.series_dir(series["id"]) / "eps"
+    (folder / "e_00000001").rename(folder / "e_0000000f")
+
+    listed = client.get(TOON_SERIES).json()[0]
+
+    assert (listed["ep_count"], listed["latest_ep"]) == (1, None)
 
 
 def test_deleting_a_series_without_confirm_eps_is_confirm_needed_with_its_eps(client, project):

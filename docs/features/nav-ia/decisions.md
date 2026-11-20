@@ -313,7 +313,7 @@
 - route, hash, `MOVED`, โครงเมนู 2 ชั้น และหัวหน้าไม่เปลี่ยน
 - ADR-0075
 
-**From:** change request · **Status:** active
+**From:** change request · **Status:** changed by toon D88
 
 ## D23: กุญแจ `framecraft.nav.recent` ที่ค้างในเบราว์เซอร์ปล่อยไว้ ไม่ลบ
 

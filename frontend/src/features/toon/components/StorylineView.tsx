@@ -56,6 +56,9 @@ type Props = {
   skipped: number | null;
   version: number;
   jobs: CardJobs;
+  /** The card to scroll to and focus as it shows (D89). */
+  goToCard?: string | null;
+  onCardShown?: () => void;
 };
 
 const NEW_ACT_NAME = "องก์ใหม่"; // D53: renamed in its header
@@ -63,7 +66,7 @@ const NEW_ACT_NAME = "องก์ใหม่"; // D53: renamed in its header
 /** เส้นเรื่อง: acts → segments (their background) → cards, the edits of each, the EP's length
  * against its target, and the Image jobs of the whole EP (D9, D10, D14, D21, D33, D44). Closed
  * while a job locks the EP. */
-export function StorylineView({ ep, series, sounds, locked, edit, job, busy, missing, skipped, version, jobs }: Props) {
+export function StorylineView({ ep, series, sounds, locked, edit, job, busy, missing, skipped, version, jobs, goToCard = null, onCardShown }: Props) {
   const show = useEpView();
   const cards = cardsOf(ep);
   const stale = cards.some((card) => card.image_status === "stale_ref");
@@ -187,6 +190,8 @@ export function StorylineView({ ep, series, sounds, locked, edit, job, busy, mis
                     busy={busy}
                     work={working?.cardId === card.id ? working.work : null}
                     jobs={jobs}
+                    goTo={goToCard === card.id}
+                    onShown={onCardShown}
                     onChange={(body) => void edit("PATCH", `/cards/${card.id}`, body)}
                     onDelete={() => void edit("DELETE", `/cards/${card.id}`, undefined)}
                   />

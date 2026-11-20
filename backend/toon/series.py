@@ -11,6 +11,7 @@ import logging
 import secrets
 import shutil
 from collections.abc import AsyncIterator, Callable
+from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -22,7 +23,7 @@ from backend.ids import new_id
 from backend.json_values import is_int
 from backend.errors import ApiError, checked_text, invalid_request
 from backend.jobs import JobSlot
-from backend.paths import ProjectPaths
+from backend.paths import EpAddress, ProjectPaths
 from backend.spoil_maker import voices
 from backend.toon import store
 from backend.toon.kinds import CARD_SIZE, KINDS, ItemKind
@@ -82,6 +83,15 @@ class SeriesView(Series):
     backgrounds: list[BackgroundView]
 
 
+class LatestEp(BaseModel):
+    """The Series' EP whose `ep.json` was written last (D88)."""
+
+    id: str
+    n: int
+    title: str
+    edited_at: str
+
+
 class ListedSeries(BaseModel):
     id: str
     name: str
@@ -89,6 +99,7 @@ class ListedSeries(BaseModel):
     layout: str
     genre: str
     ep_count: int
+    latest_ep: LatestEp | None
 
 
 class EpRef(BaseModel):
@@ -103,17 +114,27 @@ class EpRef(BaseModel):
 
 def list_all(project: ProjectPaths) -> list[ListedSeries]:
     with store.lock:
-        return [
-            ListedSeries(
-                id=s.id,
-                name=s.name,
-                channel_name=s.channel_name,
-                layout=s.layout,
-                genre=s.genre,
-                ep_count=len(_eps(project, s.id)),
-            )
-            for s in store.list_series(project)
-        ]
+        return [_listed(project, s) for s in store.list_series(project)]
+
+
+def _listed(project: ProjectPaths, series: Series) -> ListedSeries:
+    eps = store.list_eps(project, series.id)
+    edited = []
+    for ep in eps:
+        try:
+            at = store.edited_at(EpAddress(project, series.id, ep.id))
+        except OSError:  # an `ep.json` whose id isn't its folder's name: the EP stays, unpicked
+            continue
+        edited.append(LatestEp(id=ep.id, n=ep.n, title=ep.title, edited_at=at))
+    return ListedSeries(
+        id=series.id,
+        name=series.name,
+        channel_name=series.channel_name,
+        layout=series.layout,
+        genre=series.genre,
+        ep_count=len(eps),
+        latest_ep=max(edited, key=lambda ep: datetime.fromisoformat(ep.edited_at), default=None),
+    )
 
 
 def create(project: ProjectPaths, body: dict) -> SeriesView:
