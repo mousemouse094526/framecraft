@@ -500,21 +500,22 @@ describe("ฟังจังหวะ", () => {
 
     await act(async () => answer(wav()));
     await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("button", { name: "ฟังจังหวะ" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "หยุดชั่วคราว ฟังจังหวะ" })).toBeEnabled();
     expect((play.mock.contexts[0] as HTMLAudioElement).src).toBe("blob:wav-1");
   });
 
-  it("pressed again while playing stops the first wav before the second", async () => {
-    const { play, pause, revokeObjectURL } = stubAudio();
+  it("pressed again pauses: one POST, no second mix; again plays on", async () => {
+    const { play, pause } = stubAudio();
     const user = await openEditor([{ method: "POST", path: LISTEN_PATH, reply: wav }]);
 
     await user.click(screen.getByRole("button", { name: "ฟังจังหวะ" }));
-    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
-    await user.click(screen.getByRole("button", { name: "ฟังจังหวะ" }));
-    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    await user.click(await screen.findByRole("button", { name: "หยุดชั่วคราว ฟังจังหวะ" }));
+    expect(pause.mock.contexts.at(-1)).toBe(play.mock.contexts[0]);
+    await user.click(await screen.findByRole("button", { name: "ฟังจังหวะ" }));
 
-    expect(pause.mock.contexts[0]).toBe(play.mock.contexts[0]);
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:wav-1");
+    expect(play).toHaveBeenCalledTimes(2);
+    expect(sent(fetchMock, "POST", LISTEN_PATH)).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "กำลังผสมเสียง…" })).not.toBeInTheDocument();
     // Nothing was unsaved: no PUT before mixing.
     expect(sent(fetchMock, "PUT", PATH)).toEqual([]);
   });

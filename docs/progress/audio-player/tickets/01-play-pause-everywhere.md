@@ -5,13 +5,13 @@
 **Blocked by:** None (can start immediately)
 
 **Covers:**
-- Decisions: D1, D2, D3, D4, D6, D7, D9, D10, D11, D12, D13 (ยกเว้นข้อเวลาและ media อื่น)
+- Decisions: D1, D2, D3, D4, D6, D7, D9, D10, D11, D12, D13 (ยกเว้นข้อเวลาและ media อื่น), D14
 - ADR: 0071, 0073, 0074
 - Screens: `PlayButton` (component), เสียงพากย์ › ออกแบบเสียง, เสียงพากย์ › แถวเสียงที่บันทึก, ทำสปอย › การ์ดประโยค, ทำสปอย › เสียงพื้น, การ์ตูนเล่า › การ์ด (เสียงเล่า), คลังเสียง › แถวเสียง, reel กลอง › ฟังจังหวะ, reel cover › แถบทำ reel
 - Seams: 1 (ยกเว้นข้อเวลาและ media อื่น), 2, 3
 - User stories: 1, 2, 3, 5, 7
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Acceptance criteria
 

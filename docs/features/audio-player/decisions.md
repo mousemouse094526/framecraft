@@ -180,7 +180,23 @@
 - **ปุ่มกลายเป็นกดไม่ได้ขณะเล่น** (ปิดเสียงกลอง, reel เกิน 90 วิ): `release` เหมือนปุ่มหายไป (แก้ D6).
 - **test:** module เครื่องเล่น export ฟังก์ชัน reset สำหรับ test (หยุด ทิ้ง element ล้างสถานะ ถอด listener) เรียกใน `test-setup.ts` `afterEach` หลัง `cleanup()`.
 
-**From:** red team · **Status:** active
+**From:** red team · **Status:** changed by D14
+
+## D14: ปุ่มผสมเสียงไม่มีกุญแจ: wav ใช้ได้จนฟอร์มมีค่าที่ยังไม่บันทึก
+
+**Chosen:** `useListen(request, { unsaved, disabled })` เก็บ wav ที่ผสมไว้จนกว่า `unsaved` เป็นจริง ปุ่มกดไม่ได้ หรือปุ่มหายไป; ไม่มี `key` ของค่าที่บันทึก.
+
+**Why:** ตอน build: ค่าที่บันทึกอัปเดตหลัง wav มาถึงเมื่อ backend ตอบเร็ว ทำให้กุญแจเปลี่ยนแล้วหยุดเสียงที่เพิ่งเล่น; และค่าที่บันทึกเปลี่ยนได้ระหว่างเปิดฟอร์มทางเดียวคือการแก้ (`unsaved` เป็นจริงก่อน) — แกะใหม่ของ reel cover เปิดฟอร์มใหม่ (`CoverForm` key `picked_at`) จึงทิ้ง wav อยู่แล้ว.
+
+**Rejected:**
+- กุญแจจากค่าที่บันทึก (D13) — race ระหว่างการบันทึกกับ wav ที่มาถึง และไม่จับอะไรที่ `unsaved` ไม่จับ
+
+**Details:**
+- supersedes กุญแจในข้อ "กุญแจของปุ่มผสมเสียง" และ "กดปุ่มผสมเสียง" ของ D13.
+- `resetPlayerForTests()` เรียกก่อน `cleanup()` ใน `test-setup.ts`: ปุ่มที่ unmount ทีหลังจึงไม่เรียก `pause` ที่ stub หายไปแล้ว.
+- เครื่องเล่นเรียก `pause()` เฉพาะเมื่อเสียงกำลังเล่น.
+
+**From:** build ticket 01 · **Status:** active
 
 ## Sources
 

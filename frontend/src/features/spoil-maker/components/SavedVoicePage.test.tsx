@@ -121,7 +121,7 @@ describe("หน้า Saved voice", () => {
     await openPage();
 
     expect(screen.getByText("ยังไม่มีเสียง กดสุ่มเพื่อออกแบบเสียงแรก")).toBeInTheDocument();
-    expect(within(designer()).queryByRole("button", { name: "ฟัง" })).not.toBeInTheDocument();
+    expect(within(designer()).queryByRole("button", { name: "ฟัง เสียงตัวอย่าง" })).not.toBeInTheDocument();
     expect(within(designer()).queryByLabelText("ชื่อเสียง")).not.toBeInTheDocument();
   });
 
@@ -133,7 +133,7 @@ describe("หน้า Saved voice", () => {
       "พี่สาวเล่าหนัง",
       "ลุงเล่าผี",
     ]);
-    await user.click(within(row("ลุงเล่าผี")).getByRole("button", { name: "ฟัง" }));
+    await user.click(within(row("ลุงเล่าผี")).getByRole("button", { name: "ฟัง ลุงเล่าผี" }));
     expect(played).toEqual([expect.stringMatching(/\/api\/spoil-maker\/voices\/v_0000abcd\/sample\.wav$/)]);
   });
 
@@ -158,7 +158,7 @@ describe("หน้า Saved voice", () => {
 
     await nextPoll();
 
-    await user.click(within(designer()).getByRole("button", { name: "ฟัง" }));
+    await user.click(within(designer()).getByRole("button", { name: "ฟัง เสียงตัวอย่าง" }));
     expect(played).toEqual([expect.stringMatching(/\/voice-jobs\/preview\.wav\?v=2026-11-02T10%3A05%3A00%2B07%3A00$/)]);
     expect(within(designer()).getByLabelText("ชื่อเสียง")).toBeInTheDocument();
     expect(within(designer()).getByRole("button", { name: "สุ่ม" })).toBeEnabled();
@@ -179,14 +179,14 @@ describe("หน้า Saved voice", () => {
     backend([get(CURRENT_PATH, jobOf({ state: "done" })), previewThere()]);
     await openPage();
 
-    expect(within(designer()).getByRole("button", { name: "ฟัง" })).toBeInTheDocument();
+    expect(within(designer()).getByRole("button", { name: "ฟัง เสียงตัวอย่าง" })).toBeInTheDocument();
   });
 
   it("shows no preview when the finished design's preview was saved already", async () => {
     backend([get(CURRENT_PATH, jobOf({ state: "done" })), send("HEAD", PREVIEW_PATH, null, 404)]);
     await openPage();
 
-    expect(within(designer()).queryByRole("button", { name: "ฟัง" })).not.toBeInTheDocument();
+    expect(within(designer()).queryByRole("button", { name: "ฟัง เสียงตัวอย่าง" })).not.toBeInTheDocument();
     expect(within(designer()).queryByLabelText("ชื่อเสียง")).not.toBeInTheDocument();
   });
 
@@ -274,7 +274,7 @@ describe("หน้า Saved voice", () => {
     await user.click(within(row("ลุงเล่าผี")).getByRole("button", { name: "ยกเลิก" }));
 
     expect(sent("DELETE", `${VOICES_PATH}/v_0000abcd`)).toEqual([]);
-    expect(within(row("ลุงเล่าผี")).getByRole("button", { name: "ฟัง" })).toBeInTheDocument();
+    expect(within(row("ลุงเล่าผี")).getByRole("button", { name: "ฟัง ลุงเล่าผี" })).toBeInTheDocument();
   });
 
   it("keeps สุ่ม disabled, saying why, while a Describe job runs, and frees it when that ends", async () => {
@@ -328,7 +328,7 @@ describe("หน้า Saved voice", () => {
     await nextPoll();
 
     expect(within(designer()).getByRole("alert")).toHaveTextContent("งานหยุดกลางทาง");
-    expect(within(designer()).queryByRole("button", { name: "ฟัง" })).not.toBeInTheDocument();
+    expect(within(designer()).queryByRole("button", { name: "ฟัง เสียงตัวอย่าง" })).not.toBeInTheDocument();
   });
 
   it("a refused delete stays on the row with the reason", async () => {

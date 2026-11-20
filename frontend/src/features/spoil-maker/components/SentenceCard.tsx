@@ -10,7 +10,7 @@ import trashRedIcon from "../assets/trash-red.svg";
 import trashWhiteIcon from "../assets/trash-white.svg";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { reviewJobText, shotImageUrl, type DraftJob, type Sentence, type SentenceStatus, type Shot } from "../lib/draft";
-import { playAudio } from "../../../lib/audio";
+import { SoundButton } from "../../../components/ui/PlayButton";
 import { sentenceAudioUrl } from "../lib/render";
 
 // Figma component `Status badge` (spoil-maker D30).
@@ -142,15 +142,13 @@ export function SentenceCard(props: Props) {
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => listen(sentence)}
+          <SoundButton
+            src={sentence.audio === null ? null : sentenceAudioUrl(sentence.id, sentence.audio.duration_s)}
+            label={`ประโยค ${number}`}
             disabled={sentence.audio === null}
             title={sentence.audio === null ? "ประโยคนี้ยังไม่มีเสียง" : undefined}
             className={`h-11 px-3 sm:px-6 ${OUTLINE_BUTTON}`}
-          >
-            ฟัง
-          </button>
+          />
           <button type="button" onClick={props.onVoice} disabled={locked} className={`h-11 px-3 sm:px-6 ${OUTLINE_BUTTON}`}>
             <img src={refreshIcon} alt="" width={16} height={16} />
             สร้างเสียงใหม่
@@ -187,10 +185,6 @@ export function SentenceCard(props: Props) {
       )}
     </li>
   );
-}
-
-function listen(sentence: Sentence) {
-  if (sentence.audio !== null) playAudio(sentenceAudioUrl(sentence.id, sentence.audio.duration_s));
 }
 
 /** A `pick` or `polish` running: "AI กำลังเลือก Shot ใหม่" or "กำลังเรียบเรียง", with ยกเลิก (spec › Design, หน้าตรวจแก้). */

@@ -62,18 +62,18 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Press([กด ฟังจังหวะ หรือ ฟัง reel]) --> Same{มี wav ของปุ่มนี้ ไม่มี unsaved และ key เดิม?}
+    Press([กด ฟังจังหวะ หรือ ฟัง reel]) --> Same{มี wav ของปุ่มนี้ และไม่มี unsaved?}
     Same -- ใช่ --> Toggle[toggle: หยุดชั่วคราวหรือเล่นต่อ]
     Same -- ไม่ --> Mixing[กำลังผสมเสียง… กดไม่ได้]
     Mixing --> Request[request: บันทึกก่อน แล้ว POST listen]
     Request --> Reply{ผล}
-    Reply -- wav --> Keep[revoke URL เก่า เก็บ url กับ key]
+    Reply -- wav --> Keep[revoke URL เก่า เก็บ url]
     Keep --> Play[toggle เล่นจากต้น]
     Reply -- null --> Idle([พร้อมเล่น ผู้เรียกบอกเหตุ])
     Reply -- ปฏิเสธหรือ offline --> Refused([RefusedAlert])
 ```
 
 **ผสมเมื่อไรและเมื่อไรแค่ pause**
-- `key` คือค่าที่บันทึกแล้วที่ backend อ่าน ไม่ใช่ draft (D13).
-- แก้ค่าขณะฟัง (`unsaved` หรือ `key` เปลี่ยน) → `release` ปุ่มกลับพร้อมเล่น (D13).
+- แก้ค่าขณะฟัง (`unsaved`) → `release` ปุ่มกลับพร้อมเล่น และทิ้ง wav (D14).
+- แกะใหม่ของ reel cover เปิดฟอร์มใหม่ จึงไม่มี wav เก่าค้าง (D14).
 - request เดิมไม่เปลี่ยน: บันทึกก่อน แล้ว `POST …/listen` (D11, video-gen D29).

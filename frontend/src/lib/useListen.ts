@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 import type { BlobReply } from "./api";
+import { release, toggle, usePlayer, type PlayStatus } from "./player";
 import { OFFLINE, refusedOf, type Refused } from "./refused";
 import { useMountedState } from "./useMountedState";
 
@@ -10,27 +11,58 @@ export type ListenState =
   /** The API refused the mix, or there is no backend. */
   | ({ kind: "refused" } & Refused);
 
+type Inputs = {
+  /** The form holds edits not saved yet: the wav stops, and the next press saves and mixes again. The
+   * saved values change no other way while the form is open (a re-pick opens a new form), so the
+   * wav is the saved reel's until then (audio-player D14). */
+  unsaved: boolean;
+  disabled?: boolean;
+};
+
 /**
- * A ฟัง button that plays a wav the backend mixes: `request` asks for it (ฟังจังหวะ saves the lesson
- * first and answers null when that failed, which plays nothing; the song page's ฟัง posts the bars
- * picked, drum-notes D21). The wav plays from a blob URL; pressing again stops the one playing
- * before anything else (video-gen D8). reel กลอง and the reel cover page share it.
+ * A play button whose wav the backend mixes: `request` asks for it (ฟังจังหวะ saves the lesson
+ * first and answers null when that failed, which plays nothing; reel cover's ฟัง reel saves the
+ * cover first). The wav is kept, so pressing again with nothing changed pauses and plays on
+ * through the one player; an edit stops it, and the next press mixes again (audio-player D7, D14,
+ * ADR 0074). reel กลอง and the reel cover page share it.
  */
-export function useListen(request: () => Promise<BlobReply | null>) {
+export function useListen(request: () => Promise<BlobReply | null>, { unsaved, disabled = false }: Inputs) {
+  const owner = useId();
   const [state, , setIfMounted] = useMountedState<ListenState>({ kind: "idle" });
-  const playing = useRef<{ audio: HTMLAudioElement; url: string } | null>(null);
+  const mixed = useRef<string | null>(null);
+  const alive = useRef(false);
+  const latestUnsaved = useRef(unsaved);
+  useEffect(() => {
+    latestUnsaved.current = unsaved;
+  });
+  const sound = usePlayer(owner);
 
-  const stop = useCallback(() => {
-    if (!playing.current) return;
-    playing.current.audio.pause();
-    URL.revokeObjectURL(playing.current.url);
-    playing.current = null;
-  }, []);
+  const drop = useCallback(() => {
+    release(owner);
+    if (mixed.current) URL.revokeObjectURL(mixed.current);
+    mixed.current = null;
+  }, [owner]);
 
-  useEffect(() => stop, [stop]);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      drop();
+    };
+  }, [drop]);
 
-  const listen = useCallback(async () => {
-    stop();
+  // An edit or a button that can't be pressed: the wav is no longer this reel's.
+  useEffect(() => {
+    if (unsaved || disabled) drop();
+  }, [unsaved, disabled, drop]);
+
+  const press = useCallback(async () => {
+    const wav = mixed.current;
+    if (wav && !latestUnsaved.current) {
+      toggle(owner, wav);
+      return;
+    }
+    drop();
     setIfMounted({ kind: "mixing" });
     try {
       const reply = await request();
@@ -40,19 +72,20 @@ export function useListen(request: () => Promise<BlobReply | null>) {
         return;
       }
       if (reply.status === 200 && reply.blob) {
-        const url = URL.createObjectURL(reply.blob);
-        const audio = new Audio(url);
-        playing.current = { audio, url };
-        // A blocked autoplay only means no sound: nothing to show for it.
-        void audio.play().catch(() => {});
         setIfMounted({ kind: "idle" });
+        if (!alive.current) return;
+        const url = URL.createObjectURL(reply.blob);
+        mixed.current = url;
+        toggle(owner, url);
         return;
       }
       setIfMounted({ kind: "refused", ...(await refusedOf(reply.body)) });
     } catch {
       setIfMounted({ kind: "refused", ...OFFLINE });
     }
-  }, [request, stop, setIfMounted]);
+  }, [owner, request, drop, setIfMounted]);
 
-  return { state, listen };
+  const mine = sound !== null && mixed.current !== null && sound.src === mixed.current ? sound : null;
+  const status: PlayStatus = state.kind === "mixing" ? "mixing" : (mine?.status ?? "ready");
+  return { state, status, position: mine?.position ?? 0, duration: mine?.duration ?? null, press };
 }

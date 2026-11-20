@@ -103,15 +103,15 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md). หน้า
   - ไอคอน `play-16.svg` เดิม; `pause-16.svg` ใหม่ (stroke `#121110` แบบเดียวกัน); `loader.svg` เดิม หมุนด้วย `motion-safe:animate-spin`.
   - โฟกัส: `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent`.
 - **`lib/useListen`** (D7, D13)
-  - `useListen(request, { key, unsaved, disabled })` คืน `{ state, status, position, duration, press }`; `state` คือ `idle` · `mixing` · `refused` เหมือนเดิม; owner คือ `useId` ภายใน hook.
+  - `useListen(request, { unsaved, disabled })` คืน `{ state, status, position, duration, press }`; `state` คือ `idle` · `mixing` · `refused` เหมือนเดิม; owner คือ `useId` ภายใน hook.
   - `press()`:
-    1. มี wav ที่ผสมไว้ และ `!unsaved` และ `key` เท่ากับกุญแจของ wav → `toggle` ไม่เรียก `request` (เล่นจบแล้วกด = เล่น wav เดิมจากต้น).
-    2. อื่น ๆ → `mixing` → `request()` (บันทึกก่อนตามเดิม) → wav: revoke URL เก่า เก็บ `{ url, key }` (กุญแจล่าสุดจาก ref หลัง request เสร็จ) แล้ว `toggle(owner, url)`.
-  - `unsaved` เป็นจริงหรือ `key` เปลี่ยนจากกุญแจของ wav หรือ `disabled` ขณะ owner เป็นเสียงปัจจุบัน → `release`.
+    1. มี wav ที่ผสมไว้ และ `!unsaved` → `toggle` ไม่เรียก `request` (เล่นจบแล้วกด = เล่น wav เดิมจากต้น) (D14).
+    2. อื่น ๆ → `mixing` → `request()` (บันทึกก่อนตามเดิม) → wav: revoke URL เก่า เก็บ URL แล้ว `toggle(owner, url)`.
+  - `unsaved` หรือ `disabled` เป็นจริง → `release` และ revoke wav (D14).
   - unmount → `release`, revoke, ล้าง cache.
 - **ผู้เรียกปุ่มผสมเสียง**
-  - reel กลอง (`video-gen` `LessonEditor`): `key` = id บทเรียนกับ JSON ของ `editing.saved`; `unsaved` = `!sameFields(form, editing.saved)` เดิม.
-  - reel cover (`drum-cover` `ReelSection`): `key` = JSON ของ `fieldsOf(saved)` กับเวลาแกะล่าสุดของเพลง; `unsaved` เดิมของหน้า.
+  - reel กลอง (`video-gen` `LessonEditor`): `unsaved` = `!sameFields(form, editing.saved)` เดิม; `disabled` = เกินเพดานเวลา.
+  - reel cover (`drum-cover` `ReelSection`): `unsaved` เดิมของหน้า; `disabled` = `!canPlay`; แกะใหม่เปิด `CoverForm` ใหม่ (key `picked_at`) จึงทิ้ง wav.
 - **แปดจุดที่ใช้** — ตาราง Design; `lib/audio.ts` ลบ (D1).
 - **`lib/format`** — `clockOf(seconds)`: `m:ss` ปัดลงทั้งวินาที (`formatDuration` เดิมไม่ปัดลงจึงไม่ใช้) (D13).
 
@@ -141,8 +141,8 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md). หน้า
    - `play()` ของ A reject ด้วย `AbortError` หลังกด B → B ยังชื่อ "หยุดชั่วคราว B".
    - `play()` reject ด้วย error อื่นในรอบปัจจุบัน → ปุ่มกลับเป็น "ฟัง A" ไม่มีข้อความ.
 2. **ปุ่มผสมเสียง** `lib/useListen` ใน jsdom
-   - กดสองครั้ง กุญแจเดิม → `request` หนึ่งครั้ง ครั้งที่สอง `pause`.
-   - `unsaved` เป็นจริงหรือกุญแจเปลี่ยนขณะเล่น → `pause` สถานะพร้อมเล่น; กดต่อ → `request` ใหม่ revoke URL เก่า.
+   - กดสองครั้งโดยไม่แก้ → `request` หนึ่งครั้ง ครั้งที่สอง `pause`.
+   - `unsaved` เป็นจริงขณะเล่น → สถานะพร้อมเล่น revoke URL; บันทึกแล้วกด → `request` ใหม่.
    - mount ใต้ `StrictMode` แล้วกด → wav เล่น.
    - ข้อปฏิเสธ offline และ `null` → เหมือน test เดิม.
 3. **แปดหน้าเดิม** test ของหน้าใน jsdom
@@ -154,7 +154,7 @@ Pending screens: one design prompt in [ui-prompt.md](ui-prompt.md). หน้า
 
 - **Copy:** `frontend/src/lib/useListen.test.ts` — วิธี stub `HTMLMediaElement.prototype.play`/`pause` และ `URL.createObjectURL`.
 - **Copy:** `frontend/src/features/sound-library/components/SoundsPage.test.tsx` › "ฟัง plays that sound of the library" — test ระดับหน้าที่อ่าน `src` จาก `play.mock.contexts`.
-- `resetPlayerForTests()` เรียกใน `frontend/src/test-setup.ts` `afterEach` หลัง `cleanup()`: vitest แยก module ต่อไฟล์ แต่ไม่แยกต่อ test และ `useId` ซ้ำได้ข้าม root (D13).
+- `resetPlayerForTests()` เรียกใน `frontend/src/test-setup.ts` `afterEach` ก่อน `cleanup()` (D14): vitest แยก module ต่อไฟล์ แต่ไม่แยกต่อ test และ `useId` ซ้ำได้ข้าม root (D13).
 - ชื่อ test เดิมคงความหมาย แก้เฉพาะ query ของปุ่ม ยกเว้น test ของ DrumsPage ข้างบน.
 
 ## Out of Scope

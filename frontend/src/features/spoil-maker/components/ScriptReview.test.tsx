@@ -443,7 +443,7 @@ describe("ตรวจแก้บท: เสียง ลายน้ำ แล
     backend([get(DRAFT_PATH, draftOf({ sentences: [readyOf("s_00000001")] }))]);
     const user = await openReview();
 
-    await user.click(within(card(1)).getByRole("button", { name: "ฟัง" }));
+    await user.click(within(card(1)).getByRole("button", { name: "ฟัง ประโยค 1" }));
 
     expect(play).toHaveBeenCalledOnce();
     expect((play.mock.contexts[0] as HTMLAudioElement).src).toContain("/api/spoil-maker/draft/sentences/s_00000001/audio.wav?v=2.5");
