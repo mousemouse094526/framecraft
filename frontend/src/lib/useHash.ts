@@ -79,7 +79,7 @@ export function useLeaveGuard(unsaved: LeaveGuard) {
 }
 
 /**
- * The URL hash, kept current. The tabs and steps are plain `#/…` links, so
+ * The URL hash, kept current. The menu's items are plain `#/…` links, so
  * clicking one and the browser's back button both change the hash; this only follows it.
  */
 export function useHash(): string {

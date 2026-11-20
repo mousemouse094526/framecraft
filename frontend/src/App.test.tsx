@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { rememberRecent } from "./lib/recent";
 import { useLeaveGuard } from "./lib/useHash";
 import { stubMatchMedia } from "./testing/fakeMatchMedia";
 import { get, serve } from "./testing/testBackend";
@@ -47,13 +46,7 @@ function expectSections(names: string[]) {
   expect(menu().getAllByRole("group")).toEqual(names.map((name) => menu().getByRole("group", { name })));
 }
 
-function recentGroup() {
-  return within(menu().getByRole("group", { name: "ล่าสุด" }));
-}
-
-const RECENT_KEY = "framecraft.nav.recent";
-
-describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D20)", () => {
+describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D22)", () => {
   it("lists เล่าเรื่อง, ดนตรี, คลัง and ตั้งค่า with only links under them, in that order (e2e)", () => {
     render(<App />);
 
@@ -105,7 +98,7 @@ describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D20)", (
     expect(within(menu().getByRole("group", { name: "คลัง" })).getAllByRole("link")).toHaveLength(3);
   });
 
-  // spec › Design › หัวหน้าและลิงก์ที่เปิด: the link open is the header's line, with nothing in ล่าสุด (D19, D20).
+  // spec › Design › หัวหน้าและลิงก์ที่เปิด: the link open is the header's line (D19, D20, D22).
   it.each([
     ["", "ติดตั้ง"],
     ["#/nope", "ติดตั้ง"],
@@ -140,68 +133,22 @@ describe("main menu: sections, then links (ui-nav D1–D3, nav-ia D16–D20)", (
     expect(heading().textContent).toBe(open);
   });
 
-  // The pages that open from ล่าสุด: the recent link is open, the header names its source (D20).
-  it.each([
-    ["#/toon/series/s_1", "toon", "รุ่นพี่เล่าว่า…", "การ์ตูนเล่า"],
-    ["#/toon/series/s_1/cast", "toon", "รุ่นพี่เล่าว่า…", "การ์ตูนเล่า"],
-    ["#/toon/eps/e_1", "toon", "รุ่นพี่เล่าว่า… · EP1", "การ์ตูนเล่า"],
-    ["#/covers/s_1", "covers", "Smells Like Teen Spirit", "reel cover"],
-    ["#/drums/a1b2c3d4e5f6", "drums", "ร็อกพื้นฐาน", "reel กลอง"],
-  ])("at %j in ล่าสุด (%s) marks %j open, not its source, and says %s (e2e)", (hash, area, label, line) => {
-    // ล่าสุด keeps the Series, not its cast page; the cast page opens the Series' link (prefix).
-    const page = hash.replace(/\/cast$/, "");
-    window.localStorage.setItem(RECENT_KEY, JSON.stringify({ [area]: [{ hash: page, label }] }));
-    window.location.hash = hash;
-    render(<App />);
-
-    expect(recentGroup().getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
-    expect(menu().getAllByRole("link", { current: "page" })).toHaveLength(1);
-    expect(heading().textContent).toBe(line);
-    expect(menuButton()).toHaveAccessibleName(`เมนู: ${line}`);
-  });
-
-  it("has a ล่าสุด section between ดนตรี and คลัง: การ์ตูนเล่า, reel cover, reel กลอง, each saying its source (D18)", () => {
-    // Stored in another order than the menu's: the menu's order is its own.
+  it("has no ล่าสุด, even with what an older build kept in this browser; a song's page opens reel cover (D22)", () => {
     window.localStorage.setItem(
-      RECENT_KEY,
+      "framecraft.nav.recent",
       JSON.stringify({
-        toon: [{ hash: "#/toon/eps/e_1", label: "EP 3: ไปทะเล" }],
-        drums: [{ hash: "#/drums/a1b2c3d4e5f6", label: "ร็อกพื้นฐาน" }],
+        toon: [{ hash: "#/toon/series/s_1", label: "zombie" }],
         covers: [{ hash: "#/covers/s_1", label: "Smells Like Teen Spirit" }],
+        drums: [{ hash: "#/drums/a1b2c3d4e5f6", label: "ร็อกพื้นฐาน" }],
       }),
     );
-    render(<App />);
-
-    expectSections(["เล่าเรื่อง", "ดนตรี", "ล่าสุด", "คลัง", "ตั้งค่า"]);
-    const links = recentGroup().getAllByRole("link");
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["#/toon/eps/e_1", "#/covers/s_1", "#/drums/a1b2c3d4e5f6"]);
-    expect(links[0]).toHaveAccessibleName("EP 3: ไปทะเล");
-    expect(links[1]).toHaveAccessibleName("Smells Like Teen Spirit");
-    expect(links[2]).toHaveAccessibleName("ร็อกพื้นฐาน");
-    expect(links[0]).toHaveAccessibleDescription("การ์ตูนเล่า");
-    expect(links[1]).toHaveAccessibleDescription("reel cover");
-    expect(links[2]).toHaveAccessibleDescription("reel กลอง");
-  });
-
-  it("reads a song kept under the old songs key as a reel cover link in ล่าสุด (nav-ia D9)", () => {
-    window.localStorage.setItem(RECENT_KEY, JSON.stringify({ songs: [{ hash: "#/songs/x", label: "เพลงเก่า" }] }));
-    render(<App />);
-
-    const link = recentGroup().getByRole("link", { name: "เพลงเก่า" });
-    expect(link).toHaveAttribute("href", "#/covers/x");
-    expect(link).toHaveAccessibleDescription("reel cover");
-  });
-
-  it("keeps the header when a page puts itself in ล่าสุด after it loads; the open link moves there (D20)", async () => {
     window.location.hash = "#/covers/s_1";
     render(<App />);
-    expect(item("reel cover")).toHaveAttribute("aria-current", "page");
 
-    act(() => rememberRecent("covers", "#/covers/s_1", "Smells Like Teen Spirit"));
-
-    await waitFor(() => expect(recentGroup().getByRole("link", { name: "Smells Like Teen Spirit" })).toHaveAttribute("aria-current", "page"));
-    expect(item("reel cover")).not.toHaveAttribute("aria-current");
-    expect(heading().textContent).toBe("reel cover");
+    expectSections(["เล่าเรื่อง", "ดนตรี", "คลัง", "ตั้งค่า"]);
+    expect(menu().queryByRole("group", { name: "ล่าสุด" })).toBeNull();
+    for (const name of ["zombie", "Smells Like Teen Spirit", "ร็อกพื้นฐาน"]) expect(menu().queryByRole("link", { name })).toBeNull();
+    expect(menu().getAllByRole("link", { current: "page" })).toEqual([item("reel cover")]);
   });
 
   it("opens การ์ตูนเล่า on #/toon/new, and สร้าง Series at #/toon still leads there (D17)", async () => {

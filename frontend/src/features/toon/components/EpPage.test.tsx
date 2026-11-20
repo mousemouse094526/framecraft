@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../App";
@@ -489,22 +489,20 @@ describe("ภาพการ์ดและเสียงเล่า", () => {
   });
 });
 
-describe("ล่าสุด in the main menu (ui-nav D5, nav-ia D18, D20)", () => {
-  const stored = () => JSON.parse(window.localStorage.getItem("framecraft.nav.recent") ?? "null");
+describe("a Series' and an EP's page in the main menu (nav-ia D20, D22)", () => {
+  const menu = () => within(screen.getByRole("navigation", { name: "เมนูหลัก" }));
 
-  it("puts a Series first once its EPs load, and an EP with its Series as parent once it loads (e2e)", async () => {
-    open(`#/toon/series/${SERIES_ID}`, [get(`${SERIES_PATH}/eps`, [])]);
-    await waitFor(() => expect(stored()?.toon).toEqual([{ hash: `#/toon/series/${SERIES_ID}`, label: "รุ่นพี่เล่าว่า…" }]));
-    cleanup();
+  it.each([
+    ["a Series", `#/toon/series/${SERIES_ID}`],
+    ["an EP", `#/toon/eps/${EP_ID}`],
+  ])("%s opens การ์ตูนเล่า, says it in the header, and keeps nothing for a ล่าสุด (e2e)", async (_, hash) => {
+    open(hash, [get(`${SERIES_PATH}/eps`, []), get(EP_PATH, epOf()), get("/api/toon/render/current", null), get(`${EP_PATH}/renders`, [])]);
 
-    open(`#/toon/eps/${EP_ID}`, [get(EP_PATH, epOf())]);
-
-    await waitFor(() => expect(stored()?.toon[0]).toEqual({ hash: `#/toon/eps/${EP_ID}`, label: expect.stringMatching(/^รุ่นพี่เล่าว่า… · EP\d+$/), parent: `#/toon/series/${SERIES_ID}` }));
-    const recent = within(within(screen.getByRole("navigation", { name: "เมนูหลัก" })).getByRole("group", { name: "ล่าสุด" }));
-    expect(recent.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([`#/toon/eps/${EP_ID}`, `#/toon/series/${SERIES_ID}`]);
-    expect(recent.getByRole("link", { name: stored().toon[0].label })).toHaveAttribute("aria-current", "page");
-    expect(recent.getByRole("link", { name: "รุ่นพี่เล่าว่า…" })).toHaveAccessibleDescription("การ์ตูนเล่า");
+    expect(await screen.findByText(/รุ่นพี่เล่าว่า…/)).toBeInTheDocument();
+    expect(menu().getAllByRole("link", { current: "page" }).map((link) => link.textContent)).toEqual(["การ์ตูนเล่า"]);
+    expect(menu().queryByRole("group", { name: "ล่าสุด" })).toBeNull();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("การ์ตูนเล่า");
+    expect(window.localStorage.getItem("framecraft.nav.recent")).toBeNull();
   });
 });
 

@@ -12,8 +12,7 @@ import usersIcon from "../assets/users.svg";
 import wandWhiteIcon from "../assets/wand-white.svg";
 import { useEpList } from "../hooks/useEpList";
 import { epLabel, IDEA_MAX, madeAt, type ListedEp } from "../lib/episodes";
-import { castHash, epHash, GENRE_LABELS, LAYOUT_LABELS, LIST_HASH, seriesHash, settingsHash, type Series } from "../lib/series";
-import { useRecentPage } from "../../../lib/recent";
+import { castHash, epHash, GENRE_LABELS, LAYOUT_LABELS, LIST_HASH, settingsHash, type Series } from "../lib/series";
 import { NoticeLine } from "../../../components/ui/NoticeLine";
 import { ToonDialog } from "./ToonDialog";
 
@@ -22,7 +21,6 @@ const STAGE_LABELS: Record<ListedEp["stage"], string> = { plot: "พล็อต
 /** `#/toon/series/{seriesId}`: a Series' EPs, a new EP from an idea, delete behind a confirm (Figma toon / 5). */
 export function EpListPage({ seriesId }: { seriesId: string }) {
   const { state, create, remove, reload } = useEpList(seriesId);
-  useRecentPage("toon", seriesHash(seriesId), state.kind === "ready" ? { label: state.series.name } : null);
   const [writing, setWriting] = useState(false);
   const [confirming, setConfirming] = useState<ListedEp | null>(null);
 

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
-import { locationOf, menuSections, recentLinks, type NavItem } from "../../lib/nav";
+import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
+import { locationOf, NAV_SECTIONS, type NavItem } from "../../lib/nav";
 import { useDismiss } from "../../lib/useDismiss";
 import { useHash, type TabId } from "../../lib/useHash";
 import { useMediaQuery } from "../../lib/useMediaQuery";
-import { useRecent } from "../../lib/recent";
 import menuIcon from "./assets/menu.svg";
 import sidebarIcon from "./assets/sidebar.svg";
 import closeIcon from "./assets/close.svg";
@@ -70,10 +69,7 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
   const focusNext = useRef<"button" | "hider" | null>(null);
   const menu = useRef<HTMLElement>(null);
   const menuId = useId();
-  const stored = useRecent();
-  // Made once, so the menu and where-the-user-is read the same links (nav-ia D18, D20).
-  const recent = useMemo(() => recentLinks(stored), [stored]);
-  const { item, text } = locationOf(hash, tab, recent);
+  const { item, text } = locationOf(hash, tab);
 
   const drawerOpen = drawer && !pinned;
   const shown = pinned ? !collapsed : drawerOpen;
@@ -164,7 +160,6 @@ export function PageLayout({ tab, action, wide = false, children }: Props) {
         ref={menu}
         id={menuId}
         current={item}
-        recent={recent}
         onPick={picked}
         head={
           <MenuHead
@@ -254,15 +249,14 @@ type MenuProps = {
   ref: Ref<HTMLElement>;
   id: string;
   current: NavItem | null;
-  recent: readonly NavItem[];
   onPick: (event: MouseEvent<HTMLAnchorElement>) => void;
   head: ReactNode;
   className: string;
 };
 
-/** The main menu: each section under its heading, with its links (ui-nav D1, D2, nav-ia D16, D18).
+/** The main menu: each section under its heading, with its links (ui-nav D1, D2, nav-ia D16).
  * One element for both widths: a sidebar from 1280px, a drawer below (D4, D11). */
-function MainMenu({ ref, id, current, recent, onPick, head, className }: MenuProps) {
+function MainMenu({ ref, id, current, onPick, head, className }: MenuProps) {
   const headingId = useId();
   return (
     <nav
@@ -272,11 +266,9 @@ function MainMenu({ ref, id, current, recent, onPick, head, className }: MenuPro
       className={`flex-col gap-1 overflow-y-auto scroll-pt-14 border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
     >
       {head}
-      {menuSections(recent).map((section) => (
+      {NAV_SECTIONS.map((section) => (
         <MenuSection key={section.id} id={`${headingId}-${section.id}`} label={section.label}>
           {section.items.map((item) => (
-            // By hash, not the object: the open link is found in a list made apart from this one. A
-            // recent hash is always deeper than a menu link's (`lib/recent` SHAPES), so only one matches.
             <MenuLink key={item.hash} item={item} current={current?.hash === item.hash} onPick={onPick} />
           ))}
         </MenuSection>

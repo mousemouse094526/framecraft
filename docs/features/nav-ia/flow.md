@@ -2,7 +2,7 @@
 
 ## จาก hash ถึงหน้า
 
-ทุกครั้งที่อ่าน hash (โหลดหน้าและ `hashchange`) hash เก่าถูกแทนก่อน แล้วหัวข้อกับหน้าจึงถูกเลือก (D1, D9).
+ทุกครั้งที่อ่าน hash (โหลดหน้าและ `hashchange`) hash เก่าถูกแทนก่อน แล้วหัวข้อกับหน้าจึงถูกเลือก (D1, D9). เมนูอ่านแค่ hash กับ `NAV_SECTIONS` ตายตัว: ไม่มีล่าสุด และหน้าไม่เขียนอะไรให้เมนู (D22).
 
 ```mermaid
 flowchart TD
@@ -13,7 +13,7 @@ flowchart TD
     tab --> clips{"#/spoil/clips?"}
     clips -- ใช่ --> clipsPage["หน้าคลิปทั้งหมด"]
     clips -- ไม่ --> page["หน้าของหัวข้อ<br/>spoil, toon, covers, drums,<br/>stories, sounds, voices, setup"]
-    clipsPage --> menu["เมนู: รายการที่ hash ยาวที่สุดตรง<br/>หัวหน้า: หัวข้อ / รายการ"]
+    clipsPage --> menu["เมนู: ลิงก์ของ tab นี้ที่ hash ยาวที่สุดตรง<br/>หัวหน้า: ชื่อลิงก์นั้น"]
     page --> menu
 ```
 

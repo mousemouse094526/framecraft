@@ -11,7 +11,6 @@ import { useDrumRender } from "../hooks/useDrumRender";
 import { useLessonEditor, type Editing } from "../hooks/useLessonEditor";
 import { postForBlob } from "../../../lib/api";
 import { useListen } from "../../../lib/useListen";
-import { useRecentPage } from "../../../lib/recent";
 import type { PieceId } from "../../../lib/kit";
 import {
   backgroundPath,
@@ -20,7 +19,6 @@ import {
   BPM_MIN,
   DRUMS_HASH,
   lengthOf,
-  lessonHash,
   lessonPath,
   MAX_SECONDS,
   mergeText,
@@ -59,7 +57,6 @@ export function LessonEditor({ id }: { id: string }) {
     // After the new results are drawn.
     setTimeout(() => results.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, [id]);
-  useRecentPage("drums", lessonHash(id), state.kind === "ready" ? { label: state.saved.title } : state.kind === "not_found" ? "gone" : null);
 
   return (
     <PageLayout tab="drums" wide>
