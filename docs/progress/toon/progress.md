@@ -1,8 +1,8 @@
 # Progress: toon
 
-**Now:** change request จาก nav-ia Open Questions 1–5 (เจ้าของอนุมัติข้อเสนอ 2026-11-20): ticket 18 done (D87–D90) บน `feat/toon-2`; PR เข้า `develop` รอเจ้าของ merge. Blocked ที่ยัง open ไม่เปลี่ยน: #33, #37 (รอเกิดซ้ำ)
+**Now:** merged — change request จาก nav-ia Open Questions 1–5 ([PR #29](https://github.com/mousemouse094526/framecraft/pull/29), `76b725d`, D87–D90): EP ที่แก้ล่าสุดบน `#/toon`, ปุ่ม "ไปที่การ์ด n" ไปถึงการ์ดจริง, ตัดลิงก์คลังเสียงที่ซ้ำ. Blocked ที่ยัง open ไม่เปลี่ยน: #33, #37 (รอเกิดซ้ำ)
 
-**Next:** เจ้าของ merge PR ของ `feat/toon-2` แล้ว `/warroom next`
+**Next:** — (ทุกแถวบน board เป็น done ยกเว้น windows-launch ที่เป็น Manual)
 
 ## Tickets
 
