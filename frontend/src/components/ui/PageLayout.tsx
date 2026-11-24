@@ -263,7 +263,7 @@ function MainMenu({ ref, id, current, onPick, head, className }: MenuProps) {
       ref={ref}
       id={id}
       aria-label="เมนูหลัก"
-      className={`flex-col gap-1 overflow-y-auto scroll-pt-14 border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(320px,85vw)] max-xl:shadow-lg xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
+      className={`flex-col gap-1 overflow-y-auto scroll-pt-14 border-border bg-card p-3 max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:z-30 max-xl:w-[min(360px,90vw)] max-xl:shadow-xl xl:sticky xl:top-0 xl:h-screen xl:w-64 xl:shrink-0 xl:border-r ${className}`}
     >
       {head}
       {NAV_SECTIONS.map((section) => (
@@ -277,14 +277,17 @@ function MainMenu({ ref, id, current, onPick, head, className }: MenuProps) {
   );
 }
 
-/** A section's heading and what is in it; sections are split by a line, and never stand out (ui-nav D12). */
+/** A section's heading and what is in it. The heading is the band: it owns its items and reads as
+ * their parent (ui-nav D12, nav-ia D16) — the topic is set larger and darker than its links, with an
+ * accent bar, and the links sit on a rail under it so the level is visible at a glance. */
 function MenuSection({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
-    <div role="group" aria-labelledby={id} className="mt-2 flex flex-col gap-0.5 border-t border-border pt-3 first:mt-0 first:border-t-0 first:pt-1">
-      <p id={id} className="px-3 pb-0.5 text-[11px] leading-[1.5] font-semibold tracking-wide text-muted-foreground">
+    <div role="group" aria-labelledby={id} className="mt-3 flex flex-col border-t border-border pt-3 first:mt-0 first:border-t-0 first:pt-0">
+      <p id={id} className="flex items-center gap-2 px-3 pb-1.5 text-[15px] leading-[1.4] font-semibold tracking-tight text-foreground">
+        <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-brand-accent" />
         {label}
       </p>
-      {children}
+      <div className="ml-5 flex flex-col gap-0.5 border-l border-border pl-2">{children}</div>
     </div>
   );
 }
@@ -299,7 +302,7 @@ function MenuLink({ item, current, onPick }: { item: NavItem; current: boolean; 
       aria-describedby={item.detail ? detailId : undefined}
       onClick={onPick}
       // Below 1280px the drawer's items are 44px touch targets.
-      className={`flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-sm leading-[1.5] max-xl:min-h-11 ${
+      className={`flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-[15px] leading-[1.5] max-xl:min-h-12 ${
         current ? "bg-accent-subtle font-semibold text-brand" : "font-medium text-mid hover:bg-muted"
       }`}
     >
